@@ -62,7 +62,7 @@ export class FeeOpts implements IFeeOpts {
   static paymentMethodOption() {
     return new Option(
       '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
-      'Fee payment method and arguments. Valid methods are: none, fee_juice, fpc-public, fpc-private.',
+      'Fee payment method and arguments. Valid methods are: fee_juice, fpc-public, fpc-private.',
     );
   }
 
@@ -91,13 +91,9 @@ export class FeeOpts implements IFeeOpts {
       maxPriorityFeesPerGas,
     });
 
-    if (!args.gasLimits && !args.payment) {
-      return new NoFeeOpts(estimateOnly, gasSettings);
-    }
-
-    const defaultPaymentMethod = async () => {
-      const { NoFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-      return new NoFeePaymentMethod();
+    const defaultPaymentMethod = async (sender: AccountWallet) => {
+      const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
+      return new FeeJuicePaymentMethod(sender.getAddress());
     };
 
     return new FeeOpts(
@@ -106,14 +102,6 @@ export class FeeOpts implements IFeeOpts {
       args.payment ? parsePaymentMethod(args.payment, log, db) : defaultPaymentMethod,
       !!args.estimateGas,
     );
-  }
-}
-
-class NoFeeOpts implements IFeeOpts {
-  constructor(public estimateOnly: boolean, public gasSettings: GasSettings) {}
-
-  toSendOpts(): Promise<SendMethodOptions> {
-    return Promise.resolve({});
   }
 }
 
@@ -143,12 +131,7 @@ export function parsePaymentMethod(
 
   return async (sender: AccountWallet) => {
     switch (parsed.method) {
-      case 'none': {
-        log('Using no fee payment');
-        const { NoFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new NoFeePaymentMethod();
-      }
-      case 'native': {
+      case 'fee_juice': {
         if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
           let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {

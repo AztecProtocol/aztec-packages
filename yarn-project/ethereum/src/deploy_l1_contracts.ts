@@ -180,6 +180,10 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
+  /** The genesis root of the archive tree. */
+  genesisArchiveRoot: Fr;
+  /** The hash of the genesis block header. */
+  genesisBlockHash: Fr;
   /** The block number to assume proven through. */
   assumeProvenThrough?: number;
   /** The salt for CREATE2 deployment. */
@@ -343,6 +347,8 @@ export const deployL1Contracts = async (
     stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
+    args.genesisArchiveRoot.toString(),
+    args.genesisBlockHash.toString(),
     account.address.toString(),
     rollupConfigArgs,
   ];

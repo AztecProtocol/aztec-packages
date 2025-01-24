@@ -2,7 +2,6 @@ import {
   type AztecAddress,
   BatchCall,
   FeeJuicePaymentMethod,
-  NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
   createLogger,
@@ -126,9 +125,8 @@ export class Bot {
 
   private getSendMethodOpts(): SendMethodOptions {
     const sender = this.wallet.getAddress();
-    const { feePaymentMethod, l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
-    const paymentMethod =
-      feePaymentMethod === 'fee_juice' ? new FeeJuicePaymentMethod(sender) : new NoFeePaymentMethod();
+    const { l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
+    const paymentMethod = new FeeJuicePaymentMethod(sender);
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {

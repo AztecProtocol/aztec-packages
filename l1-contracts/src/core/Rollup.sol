@@ -107,6 +107,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares,
     Config memory _config
   )
@@ -148,8 +150,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
         provingCostPerManaNumerator: 0,
         congestionCost: 0
       }),
-      archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
+      archive: _genesisArchiveRoot,
+      blockHash: _genesisBlockHash,
       slotNumber: Slot.wrap(0)
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({

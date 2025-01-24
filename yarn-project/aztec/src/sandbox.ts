@@ -1,9 +1,10 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type AztecNode } from '@aztec/circuit-types';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/circuits.js/constants';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import {
   type DeployL1Contracts,
@@ -12,6 +13,8 @@ import {
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -26,6 +29,7 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as htt
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { getGenesisValues } from './genesis_values.js';
 import { DefaultMnemonic } from './mnemonic.js';
 
 const logger = createLogger('sandbox');
@@ -74,7 +78,7 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
-  opts: { assumeProvenThroughBlockNumber?: number; salt?: number } = {},
+  opts: { assumeProvenThroughBlockNumber?: number; salt?: number; genesisArchiveRoot?: Fr; genesisBlockHash?: Fr } = {},
 ) {
   const chain = aztecNodeConfig.l1RpcUrl
     ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
@@ -85,6 +89,8 @@ export async function deployContractsToL1(
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
+      genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
       ...getL1ContractsConfigEnvVars(),
@@ -109,7 +115,7 @@ export type SandboxConfig = AztecNodeConfig & {
  * Does not start any HTTP services nor populate any initial accounts.
  * @param config - Optional Sandbox settings.
  */
-export async function createSandbox(config: Partial<SandboxConfig> = {}) {
+export async function createSandbox(config: Partial<SandboxConfig> = {}, initialAccounts: AztecAddress[] = []) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
@@ -121,10 +127,14 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialAccounts);
+
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+      genesisArchiveRoot,
+      genesisBlockHash,
     });
 
     const chain = aztecNodeConfig.l1RpcUrl
@@ -147,12 +157,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
-  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient });
+  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, prefilledPublicData);
   const pxe = await createAztecPXE(node);
 
   if (config.enableGas) {
     await setupCanonicalL2FeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+      new SignerlessWallet(pxe),
       aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
       undefined,
       logger.info,
@@ -174,9 +184,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
   deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
+  prefilledPublicData: PublicDataTreeLeaf[] = [],
 ) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, { prefilledPublicData });
   return node;
 }
 

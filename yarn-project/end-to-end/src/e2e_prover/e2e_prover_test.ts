@@ -40,8 +40,8 @@ import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
@@ -110,13 +110,17 @@ export class FullProverTest {
    * 2. Publicly deploy accounts, deploy token contract
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
-      this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = accountManagers.map(a => a.getCompleteAddress());
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-    });
+    await this.snapshotManager.snapshot(
+      '2_accounts',
+      deployAccounts(2, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.keys = deployedAccounts.map(a => [a.secret, a.signingKey]);
+        const accountManagers = deployedAccounts.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt));
+        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.accounts = accountManagers.map(a => a.getCompleteAddress());
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'client_prover_integration',

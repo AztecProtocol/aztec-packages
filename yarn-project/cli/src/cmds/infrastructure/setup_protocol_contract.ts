@@ -1,18 +1,11 @@
 import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { setupCanonicalL2FeeJuice } from '../misc/setup_contracts.js';
 
-export async function setupProtocolContracts(
-  rpcUrl: string,
-  l1ChainId: number,
-  json: boolean,
-  skipProofWait: boolean,
-  log: LogFn,
-) {
+export async function setupProtocolContracts(rpcUrl: string, json: boolean, skipProofWait: boolean, log: LogFn) {
   const waitOpts: WaitOpts = {
     timeout: 180,
     interval: 1,
@@ -22,7 +15,7 @@ export async function setupProtocolContracts(
   log('setupProtocolContracts: Wait options' + jsonStringify(waitOpts));
   log('setupProtocolContracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, makeFetch([1, 1, 1, 1, 1], false));
-  const wallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));
+  const wallet = new SignerlessWallet(pxe);
 
   log('setupProtocolContracts: Getting fee juice portal address...');
   // Deploy Fee Juice

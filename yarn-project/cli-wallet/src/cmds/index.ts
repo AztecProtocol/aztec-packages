@@ -589,7 +589,7 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .addOption(FeeOpts.paymentMethodOption().default('method=fee_juice'))
     .option(
       '-i --increased-fees <da=1,l2=1>',
       'The amounts by which the fees are increased',

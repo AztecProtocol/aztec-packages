@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { createAccount } from '@aztec/accounts/testing';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
   EpochProofQuote,
@@ -36,8 +36,8 @@ import { foundry } from 'viem/chains';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
 } from '../fixtures/snapshot_manager.js';
 
 describe('e2e_prover_coordination', () => {
@@ -69,8 +69,8 @@ describe('e2e_prover_coordination', () => {
       { assumeProvenThrough: undefined },
     );
 
-    await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
+    await snapshotManager.snapshot('setup', deployAccounts(2, logger), async ({ deployedAccounts }, { pxe }) => {
+      const accountManagers = deployedAccounts.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt));
       await Promise.all(accountManagers.map(a => a.register()));
       const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       wallets.forEach((w, i) => logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
@@ -444,7 +444,8 @@ describe('e2e_prover_coordination', () => {
     // new pxe, as it does not support reorgs
     const pxeServiceConfig = { ...getPXEServiceConfig() };
     const newPxe = await createPXEService(ctx.aztecNode, pxeServiceConfig);
-    const newWallet = await createAccount(newPxe);
+    const newAccount = await deployFundedSchnorrAccount(newPxe, ctx.initialFundedAccounts[2]);
+    const newWallet = await newAccount.getWallet();
     const newWalletAddress = newWallet.getAddress();
 
     // after the re-org the pending chain has moved on by 2 blocks

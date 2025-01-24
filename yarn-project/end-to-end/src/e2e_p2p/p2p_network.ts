@@ -23,8 +23,8 @@ import {
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
@@ -241,12 +241,10 @@ export class P2PNetworkTest {
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      addAccounts(1, this.logger, false),
-      async ({ accountKeys }, ctx) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
-        await Promise.all(accountManagers.map(a => a.register()));
-        const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-        this.wallet = wallets[0];
+      deployAccounts(1, this.logger, false),
+      async ({ deployedAccounts }, { pxe }) => {
+        const [account] = deployedAccounts;
+        this.wallet = await getSchnorrAccount(pxe, account.secret, account.signingKey, account.salt).getWallet();
       },
     );
   }

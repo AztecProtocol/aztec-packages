@@ -99,11 +99,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
   },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
-  },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',

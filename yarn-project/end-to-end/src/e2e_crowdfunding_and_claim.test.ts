@@ -1,4 +1,4 @@
-import { createAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   type AztecNode,
@@ -45,6 +45,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
+  let initialFundedAccounts: InitialAccountData[];
   let logger: Logger;
 
   let donationToken: TokenContract;
@@ -61,7 +62,17 @@ describe('e2e_crowdfunding_and_claim', () => {
   let valueNote!: any;
 
   beforeAll(async () => {
-    ({ cheatCodes, teardown: teardownA, logger, pxe, wallets, aztecNode } = await setup(3));
+    ({
+      cheatCodes,
+      teardown: teardownA,
+      logger,
+      pxe,
+      initialFundedAccounts,
+      wallets,
+      aztecNode,
+    } = await setup(3, {
+      numberOfInitialFundedAccounts: 4, // Initialize 1 more funded account to be deployed later in the test.
+    }));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -255,7 +266,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
       teardownB = _teardown;
-      [unrelatedWallet] = await createAccounts(pxeB, 1);
+      const newAccount = await deployFundedSchnorrAccount(pxeB, initialFundedAccounts[3]);
+      unrelatedWallet = await newAccount.getWallet();
       await pxeB.registerContract({
         artifact: ClaimContract.artifact,
         instance: claimContract.instance,

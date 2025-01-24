@@ -1,4 +1,4 @@
-import { deployInitialTestAccounts } from '@aztec/accounts/testing';
+import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types';
 import {
   type NamespacedApiHandlers,
@@ -28,22 +28,31 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
-    const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-      enableGas: sandboxOptions.enableGas,
-      l1Mnemonic: options.l1Mnemonic,
-      l1RpcUrl: options.l1RpcUrl,
-    });
+    const testAccounts = sandboxOptions.testAccounts ? getInitialTestAccounts() : [];
+
+    const { aztecNodeConfig, node, pxe, stop } = await createSandbox(
+      {
+        enableGas: sandboxOptions.enableGas,
+        l1Mnemonic: options.l1Mnemonic,
+        l1RpcUrl: options.l1RpcUrl,
+      },
+      testAccounts.map(({ address }) => address),
+    );
 
     // Deploy test accounts by default
-    if (sandboxOptions.testAccounts) {
+    if (testAccounts.length) {
       if (aztecNodeConfig.p2pEnabled) {
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else if (sandboxOptions.noPXE) {
         userLog(`Not setting up test accounts as we are not exposing a PXE`);
       } else {
         userLog('Setting up test accounts...');
-        const accounts = await deployInitialTestAccounts(pxe);
-        const accLogs = await createAccountLogs(accounts, pxe);
+        const accounts = await deployFundedSchnorrAccounts(pxe, testAccounts);
+        const accountsWithSecrets = accounts.map((account, i) => ({
+          account,
+          secretKey: testAccounts[i].secret,
+        }));
+        const accLogs = await createAccountLogs(accountsWithSecrets, pxe);
         userLog(accLogs.join(''));
       }
     }

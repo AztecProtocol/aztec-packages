@@ -100,7 +100,14 @@ contract RollupTest is DecoderBase, TimeFns {
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = new Rollup(
-      feeJuicePortal, rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
+      feeJuicePortal,
+      rewardDistributor,
+      testERC20,
+      bytes32(0),
+      bytes32(0),
+      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      bytes32(Constants.GENESIS_BLOCK_HASH),
+      address(this)
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));

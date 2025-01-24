@@ -1,4 +1,5 @@
-import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AnvilTestWatcher,
@@ -7,9 +8,7 @@ import {
   CheatCodes,
   type CompleteAddress,
   type DeployL1Contracts,
-  Fr,
   type FunctionCall,
-  GrumpkinScalar,
   type Logger,
   type PXE,
   type Wallet,
@@ -39,6 +38,7 @@ import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { getGenesisValues } from './genesis_values.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -58,6 +58,7 @@ export type SubsystemsContext = {
   cheatCodes: CheatCodes;
   dateProvider: TestDateProvider;
   blobSink: BlobSinkServer;
+  initialFundedAccounts: InitialAccountData[];
   directoryToCleanup?: string;
 };
 
@@ -276,7 +277,7 @@ async function teardown(context: SubsystemsContext | undefined) {
 async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
-  opts: SetupOptions = {},
+  { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
@@ -335,8 +336,16 @@ async function setupFromFresh(
     await ethCheatCodes.warp(opts.l1StartTime);
   }
 
+  const initialFundedAccounts = generateSchnorrAccounts(numberOfInitialFundedAccounts);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(
+    initialFundedAccounts.map(a => a.address),
+    opts.initialAccountFeeJuice,
+  );
+
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
+    genesisArchiveRoot,
+    genesisBlockHash,
     salt: opts.salt,
     ...deployL1ContractsArgs,
     initialValidators: opts.initialValidators,
@@ -390,7 +399,11 @@ async function setupFromFresh(
 
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
+  const aztecNode = await AztecNodeService.createAndSync(
+    aztecNodeConfig,
+    { telemetry, dateProvider },
+    { prefilledPublicData },
+  );
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
@@ -412,6 +425,7 @@ async function setupFromFresh(
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
+    writeFileSync(`${statePath}/accounts.json`, JSON.stringify(initialFundedAccounts, resolver));
   }
 
   return {
@@ -427,6 +441,7 @@ async function setupFromFresh(
     cheatCodes,
     dateProvider,
     blobSink,
+    initialFundedAccounts,
     directoryToCleanup,
   };
 }
@@ -450,6 +465,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+
+  const initialFundedAccounts: InitialAccountData[] =
+    JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
+  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
 
   const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
@@ -494,7 +513,11 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating aztec node...');
   const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
+  const aztecNode = await AztecNodeService.createAndSync(
+    aztecNodeConfig,
+    { telemetry, dateProvider },
+    { prefilledPublicData },
+  );
 
   let proverNode: ProverNode | undefined = undefined;
   if (aztecNodeConfig.startProverNode) {
@@ -533,6 +556,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     cheatCodes,
     dateProvider,
     blobSink,
+    initialFundedAccounts,
     directoryToCleanup,
   };
 }
@@ -541,50 +565,18 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  * Snapshot 'apply' helper function to add accounts.
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
-export const addAccounts =
+export const deployAccounts =
   (numberOfAccounts: number, logger: Logger, waitUntilProven = false) =>
-  async ({ pxe }: { pxe: PXE }) => {
-    // Generate account keys.
-    const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
-      Fr.random(),
-      GrumpkinScalar.random(),
-    ]);
-
-    logger.verbose('Simulating account deployment...');
-    const provenTxs = await Promise.all(
-      accountKeys.map(async ([secretKey, signPk], index) => {
-        const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-
-        // only register the contract class once
-        let skipClassRegistration = true;
-        if (index === 0) {
-          // for the first account, check if the contract class is already registered, otherwise we should register now
-          if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
-            skipClassRegistration = false;
-          }
-        }
-
-        const deployMethod = await account.getDeployMethod();
-        const provenTx = await deployMethod.prove({
-          contractAddressSalt: account.salt,
-          skipClassRegistration,
-          skipPublicDeployment: true,
-          universalDeploy: true,
-        });
-        return provenTx;
-      }),
-    );
-
-    logger.verbose('Account deployment tx hashes:');
-    for (const provenTx of provenTxs) {
-      logger.verbose(provenTx.getTxHash().toString());
+  async ({ pxe, initialFundedAccounts }: { pxe: PXE; initialFundedAccounts: InitialAccountData[] }) => {
+    if (initialFundedAccounts.length < numberOfAccounts) {
+      throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
     }
 
-    logger.verbose('Deploying accounts...');
-    const txs = await Promise.all(provenTxs.map(provenTx => provenTx.send()));
-    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
+    logger.verbose('Deploying accounts funded with fee juice...');
+    const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
+    await deployFundedSchnorrAccounts(pxe, deployedAccounts, { proven: waitUntilProven });
 
-    return { accountKeys };
+    return { deployedAccounts };
   };
 
 /**

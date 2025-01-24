@@ -30,6 +30,7 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -38,7 +39,6 @@ import { mock } from 'jest-mock-extended';
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -200,17 +200,17 @@ describe('public_tx_simulator', () => {
 
   const createSimulator = ({
     doMerkleOperations = true,
-    enforceFeePayment = true,
+    skipFeeEnforcement = false,
   }: {
     doMerkleOperations?: boolean;
-    enforceFeePayment?: boolean;
+    skipFeeEnforcement?: boolean;
   }) => {
     const simulator = new PublicTxSimulator(
       db,
       worldStateDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
-      enforceFeePayment,
+      skipFeeEnforcement,
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -853,7 +853,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('allows disabling fee balance checks for fee estimation', async () => {
-      simulator = createSimulator({ enforceFeePayment: false });
+      simulator = createSimulator({ skipFeeEnforcement: true });
       const feePayer = AztecAddress.random();
 
       const txResult = await simulator.simulate(

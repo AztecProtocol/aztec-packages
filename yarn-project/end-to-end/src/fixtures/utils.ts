@@ -1,5 +1,11 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import {
+  type InitialAccountData,
+  deployFundedSchnorrAccounts,
+  generateSchnorrAccounts,
+  getDeployedTestAccounts,
+  getDeployedTestAccountsWallets,
+} from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
@@ -11,8 +17,8 @@ import {
   CheatCodes,
   type ContractMethod,
   type DeployL1Contracts,
+  FeeJuicePaymentMethod,
   type Logger,
-  NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
@@ -25,11 +31,18 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
+import {
+  type EthAddress,
+  FEE_JUICE_INITIAL_MINT,
+  Fr,
+  GENESIS_ARCHIVE_ROOT,
+  GENESIS_BLOCK_HASH,
+  Gas,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
   NULL_KEY,
@@ -78,6 +91,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { getGenesisValues } from './genesis_values.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -119,6 +133,8 @@ export const setupL1Contracts = async (
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
+    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    genesisBlockHash: args.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
     salt: args.salt,
     initialValidators: args.initialValidators,
     assumeProvenThrough: args.assumeProvenThrough,
@@ -225,18 +241,15 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
-  await setupCanonicalFeeJuice(
-    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
-  );
+  await setupCanonicalFeeJuice(pxeClient);
 
   logger.verbose('Constructing available wallets from already registered accounts...');
+  const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
-    const numNewAccounts = numberOfAccounts - wallets.length;
-    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
-    wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
+    throw new Error(`Required ${numberOfAccounts} accounts. Found ${wallets.length}.`);
+    // Deploy new accounts if there's a test that requires more funded accounts in the remote environment.
   }
 
   return {
@@ -247,8 +260,9 @@ async function setupWithRemoteEnvironment(
     deployL1ContractsValues,
     accounts: await pxeClient!.getRegisteredAccounts(),
     config,
+    initialFundedAccounts,
     wallet: wallets[0],
-    wallets,
+    wallets: wallets.slice(0, numberOfAccounts),
     logger,
     cheatCodes,
     watcher: undefined,
@@ -269,6 +283,12 @@ export type SetupOptions = {
   deployL1ContractsValues?: DeployL1Contracts;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
+  /** Initial fee juice for default accounts */
+  initialAccountFeeJuice?: Fr;
+  /** Number of initial accounts funded with fee juice */
+  numberOfInitialFundedAccounts?: number;
+  /** Data of the initial funded accounts */
+  initialFundedAccounts?: InitialAccountData[];
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
@@ -301,6 +321,8 @@ export type EndToEndContext = {
   deployL1ContractsValues: DeployL1Contracts;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
+  /** The data for the initial funded accounts. */
+  initialFundedAccounts: InitialAccountData[];
   /** The first wallet to be used. */
   wallet: AccountWalletWithSecretKey;
   /** The wallets to be used. */
@@ -409,8 +431,22 @@ export async function setup(
   await blobSink.start();
   config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
+  const initialFundedAccounts =
+    opts.initialFundedAccounts ?? generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts);
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
+    initialFundedAccounts.map(a => a.address),
+    opts.initialAccountFeeJuice,
+  );
+
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
+    opts.deployL1ContractsValues ??
+    (await setupL1Contracts(
+      config.l1RpcUrl,
+      publisherHdAccount!,
+      logger,
+      { ...opts, genesisArchiveRoot, genesisBlockHash },
+      chain,
+    ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
@@ -473,11 +509,15 @@ export async function setup(
 
   const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
-  const aztecNode = await AztecNodeService.createAndSync(config, {
-    publisher,
-    dateProvider,
-    blobSinkClient,
-  });
+  const aztecNode = await AztecNodeService.createAndSync(
+    config,
+    {
+      publisher,
+      dateProvider,
+      blobSinkClient,
+    },
+    { prefilledPublicData },
+  );
   const sequencer = aztecNode.getSequencer();
 
   let proverNode: ProverNode | undefined = undefined;
@@ -498,12 +538,18 @@ export async function setup(
 
   if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
-    await setupCanonicalFeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+    await setupCanonicalFeeJuice(pxe);
+  }
+
+  const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+  const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
+  if (initialFundedAccounts.length < numberOfAccounts) {
+    // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
+    throw new Error(
+      `Unable to deploy ${numberOfAccounts} accounts. Only ${initialFundedAccounts.length} accounts were funded.`,
     );
   }
 
-  const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
@@ -541,6 +587,7 @@ export async function setup(
     pxe,
     deployL1ContractsValues,
     config,
+    initialFundedAccounts,
     wallet: wallets[0],
     wallets,
     logger,
@@ -713,9 +760,10 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
   const feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
 
   try {
+    const paymentMethod = new FeeJuicePaymentMethod(ProtocolContractAddress.FeeJuice);
     await feeJuice.methods
       .initialize(feeJuicePortalAddress, FEE_JUICE_INITIAL_MINT)
-      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: { teardownGasLimits: Gas.empty() } } })
+      .send({ fee: { paymentMethod, gasSettings: { teardownGasLimits: Gas.empty() } } })
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {

@@ -851,7 +851,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -878,7 +878,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, newGlobalVariables, enforceFeePayment);
+      const processor = publicProcessorFactory.create(fork, newGlobalVariables, skipFeeEnforcement);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -908,7 +908,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
-      enforceFees: !!this.config.enforceFees,
       setupAllowList: this.config.allowedInSetup ?? getDefaultAllowedSetupFunctions(),
       gasFees: await this.getCurrentBaseFees(),
     });

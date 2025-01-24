@@ -11,7 +11,7 @@ import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 
 import { SchnorrAccountContract } from './account_contract.js';
 
-export { SchnorrAccountContract };
+export { SchnorrAccountContract, getSchnorrAccountContractAddress } from './account_contract.js';
 
 export { SchnorrAccountContractArtifact } from './artifact.js';
 

@@ -3,7 +3,7 @@ import { type ContractInstanceWithAddress, deriveKeys, getContractInstanceFromDe
 import { Fr } from '@aztec/foundation/fields';
 
 import { type AccountContract } from '../account/contract.js';
-import { type Salt } from '../account/index.js';
+import { type Salt, type Wallet } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
 import { type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
@@ -18,7 +18,12 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 export type DeployAccountOptions = Pick<
   DeployOptions,
   'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'skipInitialization'
->;
+> & {
+  /**
+   * Wallet used for deploying the account contract. Must be funded in order to pay for the fee.
+   */
+  deployWallet?: Wallet;
+};
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
@@ -119,26 +124,30 @@ export class AccountManager {
    * Returns the pre-populated deployment method to deploy the account contract that backs this account.
    * Typically you will not need this method and can call `deploy` directly. Use this for having finer
    * grained control on when to create, simulate, and send the deployment tx.
+   * @param deployWallet - Wallet used for deploying the account contract.
    * @returns A DeployMethod instance that deploys this account contract.
    */
-  public async getDeployMethod() {
+  public async getDeployMethod(deployWallet?: Wallet) {
     if (!this.isDeployable()) {
       throw new Error(
         `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
       );
     }
 
-    await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
+    const completeAddress = this.getCompleteAddress();
+    await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
 
-    const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
-    const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+    if (!deployWallet) {
+      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
+      // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go.
+      // If we used getWallet, the deployment would get routed via the account contract entrypoint
+      // and it can't be used unless the contract is initialized.
+      deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+    }
 
-    // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
-    // If we used getWallet, the deployment would get routed via the account contract entrypoint
-    // and it can't be used unless the contract is initialized
     const args = this.accountContract.getDeploymentArgs() ?? [];
     return new DeployAccountMethod(
-      this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
+      this.accountContract.getAuthWitnessProvider(completeAddress),
       this.getPublicKeys(),
       deployWallet,
       this.accountContract.getContractArtifact(),
@@ -157,7 +166,7 @@ export class AccountManager {
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
   public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
-    const sentTx = this.getDeployMethod()
+    const sentTx = this.getDeployMethod(opts?.deployWallet)
       .then(deployMethod =>
         deployMethod.send({
           contractAddressSalt: this.salt,
@@ -179,8 +188,8 @@ export class AccountManager {
    * @param opts - Options to wait for the tx to be mined.
    * @returns A Wallet instance.
    */
-  public async waitSetup(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
-    await (this.isDeployable() ? this.deploy().wait(opts) : this.register());
+  public async waitSetup(opts: DeployAccountOptions & WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+    await (this.isDeployable() ? this.deploy(opts).wait(opts) : this.register());
     return this.getWallet();
   }
 

@@ -4,6 +4,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  MerkleTreeId,
   SequencerConfigSchema,
   Tx,
   type TxHash,
@@ -16,7 +17,6 @@ import {
   BlockHeader,
   ContentCommitment,
   type ContractDataSource,
-  GENESIS_ARCHIVE_ROOT,
   Gas,
   type GlobalVariables,
   StateReference,
@@ -240,7 +240,8 @@ export class Sequencer {
     const newBlockNumber = (chainTip?.header.globalVariables.blockNumber.toNumber() ?? 0) + 1;
 
     // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive = chainTip?.archive.root ?? new Fr(GENESIS_ARCHIVE_ROOT);
+    const chainTipArchive =
+      chainTip?.archive.root ?? new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
 
     let slot: bigint;
     try {
@@ -428,7 +429,6 @@ export class Sequencer {
         publicProcessorFork,
         this.contractDataSource,
         newGlobalVariables,
-        !!this.config.enforceFees,
         this.allowedInSetup,
       );
 

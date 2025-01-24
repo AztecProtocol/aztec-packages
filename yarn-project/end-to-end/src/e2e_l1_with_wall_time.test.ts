@@ -1,5 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { Fr, GrumpkinScalar, type Logger, type PXE, TxStatus } from '@aztec/aztec.js';
+import { type InitialAccountData } from '@aztec/accounts/testing';
+import { type Logger, type PXE, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type PXEService } from '@aztec/pxe';
@@ -12,16 +13,18 @@ describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
   let pxe: PXE;
+  let initialFundedAccounts: InitialAccountData[];
 
   beforeEach(async () => {
     const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
     const initialValidators = [EthAddress.fromString(account.address)];
     const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
-    ({ teardown, logger, pxe } = await setup(0, {
+    ({ teardown, logger, pxe, initialFundedAccounts } = await setup(0, {
       initialValidators,
       ethereumSlotDuration,
       salt: 420,
+      numberOfInitialFundedAccounts: 10,
     }));
   });
 
@@ -43,7 +46,8 @@ describe('e2e_l1_with_wall_time', () => {
   const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
     const provenTxs = [];
     for (let i = 0; i < numTxs; i++) {
-      const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+      const account = initialFundedAccounts[i];
+      const accountManager = getSchnorrAccount(pxe, account.secret, account.signingKey, account.salt);
       const deployMethod = await accountManager.getDeployMethod();
       const tx = await deployMethod.prove({
         contractAddressSalt: accountManager.salt,

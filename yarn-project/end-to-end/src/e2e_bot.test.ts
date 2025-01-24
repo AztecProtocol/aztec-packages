@@ -1,5 +1,7 @@
+import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { Fr, type PXE } from '@aztec/aztec.js';
 import { Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
+import { deriveSigningKey } from '@aztec/circuits.js';
 
 import { setup } from './fixtures/utils.js';
 
@@ -11,11 +13,22 @@ describe('e2e_bot', () => {
   let config: BotConfig;
 
   beforeAll(async () => {
-    ({ teardown, pxe } = await setup(0));
     const senderPrivateKey = Fr.random();
+    const signingKey = deriveSigningKey(senderPrivateKey);
+    const salt = Fr.ONE; // Salt is hard-coded as 1 in bot factory.
+    const initialFundedAccounts = [
+      {
+        secret: senderPrivateKey,
+        signingKey,
+        salt,
+        address: getSchnorrAccountContractAddress(senderPrivateKey, salt, signingKey),
+      },
+    ];
+    // const initialA
+    ({ teardown, pxe } = await setup(0, { initialFundedAccounts }));
     config = {
       ...getBotDefaultConfig(),
-      ...senderPrivateKey,
+      senderPrivateKey,
       followChain: 'PENDING',
     };
     bot = await Bot.create(config, { pxe });

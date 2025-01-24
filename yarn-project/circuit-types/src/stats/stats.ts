@@ -227,7 +227,7 @@ export type TxStats = {
   /** Serialized size of contract class logs. */
   contractClassLogSize: number;
   /** How this tx pays for its fee */
-  feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
+  feePaymentMethod: 'fee_juice' | 'fpc_public' | 'fpc_private';
 };
 
 /**

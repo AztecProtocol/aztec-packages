@@ -1,4 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type Logger, type SentTx } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
@@ -64,9 +65,10 @@ export const createPXEServiceAndSubmitTransactions = async (
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
   const provenTxs = [];
+  const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
   for (let i = 0; i < numTxs; i++) {
     const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-    const deployMethod = await accountManager.getDeployMethod();
+    const deployMethod = await accountManager.getDeployMethod(deployWallet);
     const tx = await deployMethod.prove({
       contractAddressSalt: accountManager.salt,
       skipClassRegistration: true,

@@ -1,5 +1,5 @@
 import { type CompleteAddress } from '@aztec/circuit-types';
-import { type NodeInfo } from '@aztec/circuits.js';
+import { type Fr, type NodeInfo, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 
 import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
@@ -37,3 +37,15 @@ export interface AccountContract {
   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
 // docs:end:account-contract-interface
+
+/**
+ * Compute the address of an account contract from secret and salt.
+ */
+export function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
+  const { publicKeys } = deriveKeys(secret);
+  return getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+    constructorArgs: accountContract.getDeploymentArgs(),
+    salt,
+    publicKeys,
+  }).address;
+}

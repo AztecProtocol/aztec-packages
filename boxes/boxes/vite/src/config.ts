@@ -1,37 +1,24 @@
-import {
-  Fr,
-  createLogger,
-  deriveMasterIncomingViewingSecretKey,
-} from "@aztec/aztec.js";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
-import { AccountManager } from "@aztec/aztec.js/account";
-import { SchnorrAccountContract } from "@aztec/accounts/schnorr";
-import { createAztecNodeClient } from "@aztec/aztec.js";
-import { PXEService } from "@aztec/pxe/service";
+import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import { createAztecNodeClient, createLogger } from "@aztec/aztec.js";
+import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { KeyStore } from "@aztec/key-store";
+import { createStore } from "@aztec/kv-store/indexeddb";
+import { L2TipsStore } from "@aztec/kv-store/stores";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
-import { KeyStore } from "@aztec/key-store";
-import { L2TipsStore } from "@aztec/kv-store/stores";
-import { createStore } from "@aztec/kv-store/indexeddb";
-import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
+import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
   acc[key.replace("VITE_", "")] = import.meta.env[key];
   return acc;
 }, {});
 
-const SECRET_KEY = Fr.random();
-
 export class PrivateEnv {
   pxe;
-  accountContract;
-  account: AccountManager;
 
-  constructor(
-    private secretKey: Fr,
-    private nodeURL: string,
-  ) {}
+  constructor(private nodeURL: string) {}
 
   async init() {
     const config = getPXEServiceConfig();
@@ -70,27 +57,20 @@ export class PrivateEnv {
       config,
     );
     await this.pxe.init();
-    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
-      this.secretKey,
-    );
-    this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
-    this.account = new AccountManager(
-      this.pxe,
-      this.secretKey,
-      this.accountContract,
-    );
-    await this.account.deploy().wait();
   }
 
   async getWallet() {
-    return await this.account.register();
+    const wallet = (await getDeployedTestAccountsWallets(this.pxe))[0];
+    if (!wallet) {
+      console.error(
+        "Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.",
+      );
+    }
+    return wallet;
   }
 }
 
-export const deployerEnv = new PrivateEnv(
-  SECRET_KEY,
-  process.env.AZTEC_NODE_URL,
-);
+export const deployerEnv = new PrivateEnv(process.env.AZTEC_NODE_URL);
 
 const IGNORE_FUNCTIONS = [
   "constructor",

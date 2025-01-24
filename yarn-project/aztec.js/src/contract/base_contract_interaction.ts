@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { type FeeOptions, type UserFeeOptions } from '../entrypoint/payload.js';
-import { NoFeePaymentMethod } from '../fee/no_fee_payment_method.js';
+import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { getGasLimits } from './get_gas_limits.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
@@ -102,7 +102,7 @@ export abstract class BaseContractInteraction {
       true /*simulatePublic*/,
       undefined /* msgSender */,
       undefined /* skipTxValidation */,
-      false /* enforceFeePayment */,
+      true /* skipFeeEnforcement */,
     );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
@@ -117,7 +117,7 @@ export abstract class BaseContractInteraction {
    */
   protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
     const maxFeesPerGas = fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees());
-    const paymentMethod = fee?.paymentMethod ?? new NoFeePaymentMethod();
+    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(this.wallet.getAddress());
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
     return { gasSettings, paymentMethod };
   }
@@ -147,7 +147,7 @@ export abstract class BaseContractInteraction {
         true /*simulatePublic*/,
         undefined /* msgSender */,
         undefined /* skipTxValidation */,
-        false /* enforceFeePayment */,
+        true /* skipFeeEnforcement */,
       );
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,

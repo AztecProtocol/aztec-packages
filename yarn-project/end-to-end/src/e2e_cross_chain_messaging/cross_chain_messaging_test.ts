@@ -21,8 +21,8 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
@@ -84,9 +84,9 @@ export class CrossChainMessagingTest {
 
     await this.snapshotManager.snapshot(
       '3_accounts',
-      addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
+        const accountManagers = deployedAccounts.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
         this.accounts = accountManagers.map(a => a.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));

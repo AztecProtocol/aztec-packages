@@ -191,9 +191,13 @@ describe('e2e_sandbox_example', () => {
             GrumpkinScalar.random(), // signing private key
           ),
         );
+
+      // Use one of the pre-funded accounts to pay for the deployment.
+      const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
+
       return await Promise.all(
         accountManagers.map(async x => {
-          await x.waitSetup({});
+          await x.deploy({ deployWallet }).wait();
           return x;
         }),
       );
