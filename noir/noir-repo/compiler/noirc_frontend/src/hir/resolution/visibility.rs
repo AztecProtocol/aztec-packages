@@ -1,5 +1,5 @@
 use crate::graph::CrateId;
-use crate::node_interner::{FuncId, NodeInterner, StructId, TraitId};
+use crate::node_interner::{FuncId, NodeInterner, TraitId, TypeId};
 use crate::Type;
 
 use std::collections::BTreeMap;
@@ -75,7 +75,25 @@ fn module_is_parent_of_struct_module(
 }
 
 pub fn struct_member_is_visible(
-    struct_id: StructId,
+    struct_id: TypeId,
+    visibility: ItemVisibility,
+    current_module_id: ModuleId,
+    def_maps: &BTreeMap<CrateId, CrateDefMap>,
+) -> bool {
+    type_member_is_visible(struct_id.module_id(), visibility, current_module_id, def_maps)
+}
+
+pub fn trait_member_is_visible(
+    trait_id: TraitId,
+    visibility: ItemVisibility,
+    current_module_id: ModuleId,
+    def_maps: &BTreeMap<CrateId, CrateDefMap>,
+) -> bool {
+    type_member_is_visible(trait_id.0, visibility, current_module_id, def_maps)
+}
+
+fn type_member_is_visible(
+    type_module_id: ModuleId,
     visibility: ItemVisibility,
     current_module_id: ModuleId,
     def_maps: &BTreeMap<CrateId, CrateDefMap>,

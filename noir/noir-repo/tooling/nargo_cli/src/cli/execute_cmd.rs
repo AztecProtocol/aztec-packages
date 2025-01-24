@@ -111,18 +111,9 @@ fn execute_program_and_decode(
     package_name: Option<String>,
     pedantic_solving: bool,
 ) -> Result<ExecutionResults, CliError> {
-    let read_inputs =
-        |format| read_inputs_from_file(&package.root_dir, prover_name, format, &program.abi);
-
-    // Parse the initial witness values from Prover.toml or Prover.json
-    let (inputs_map, expected_return) = read_inputs(Format::Toml).or_else(|e1| match &e1 {
-        FilesystemError::MissingTomlFile(..) => read_inputs(Format::Json).map_err(|e2| match e2 {
-            FilesystemError::MissingTomlFile(..) => e1,
-            _ => e2,
-        }),
-        _ => Err(e1),
-    })?;
-
+    // Parse the initial witness values from Prover.toml
+    let (inputs_map, expected_return) =
+        read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &program.abi)?;
     let witness_stack = execute_program(
         &program,
         &inputs_map,

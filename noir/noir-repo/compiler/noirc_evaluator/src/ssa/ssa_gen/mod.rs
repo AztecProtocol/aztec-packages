@@ -48,7 +48,10 @@ pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
     let is_return_data = matches!(program.return_visibility, Visibility::ReturnData);
 
     let return_location = program.return_location;
-    let context = SharedContext::new(program);
+    let mut context = SharedContext::new(program);
+
+    let globals_dfg = std::mem::take(&mut context.globals_context.dfg);
+    let globals = GlobalsGraph::from_dfg(globals_dfg);
 
     let globals = GlobalsGraph::from_dfg(context.globals_context.dfg.clone());
 

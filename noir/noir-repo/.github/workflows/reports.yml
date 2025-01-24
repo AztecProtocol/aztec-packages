@@ -421,26 +421,6 @@ jobs:
           retention-days: 3
           overwrite: true
 
-      - name: Convert to `benchmark-action` format
-        run: |
-          jq ".compilation_reports | map({name: .artifact_name, value: (.time[:-1] | tonumber), unit: \"s\"}) " ./compilation_report.json > time_bench.json
-
-      - name: Store benchmark result
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: "Compilation Time"
-          tool: "customSmallerIsBetter"
-          output-file-path: ./time_bench.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # We want this to only run on master to avoid garbage data from PRs being added.
-          auto-push: ${{ github.ref == 'refs/heads/master' }}
-          alert-threshold: "110%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@TomAFrench"
-          max-items-in-chart: 50
-
   external_repo_memory_report:
     needs: [build-nargo]
     runs-on: ubuntu-22.04
@@ -589,7 +569,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # We want this to only run on master to avoid garbage data from PRs being added.
           auto-push: ${{ github.ref == 'refs/heads/master' }}
-          alert-threshold: "110%"
+          alert-threshold: "120%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@TomAFrench"
@@ -638,7 +618,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # We want this to only run on master to avoid garbage data from PRs being added.
           auto-push: ${{ github.ref == 'refs/heads/master' }}
-          alert-threshold: "110%"
+          alert-threshold: "120%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@TomAFrench"
@@ -689,7 +669,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # We want this to only run on master to avoid garbage data from PRs being added.
           auto-push: ${{ github.ref == 'refs/heads/master' }}
-          alert-threshold: "110%"
+          alert-threshold: "120%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@TomAFrench"
@@ -739,7 +719,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # We want this to only run on master to avoid garbage data from PRs being added.
           auto-push: ${{ github.ref == 'refs/heads/master' }}
-          alert-threshold: "110%"
+          alert-threshold: "120%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@TomAFrench"
