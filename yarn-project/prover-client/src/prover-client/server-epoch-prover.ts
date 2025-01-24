@@ -14,7 +14,7 @@ export class ServerEpochProver implements EpochProver {
     this.facade.start();
   }
   startTubeCircuits(txs: Tx[]): Promise<void> {
-    this.orchestrator.startTubeCircuits(txs);
+    return this.orchestrator.startTubeCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
