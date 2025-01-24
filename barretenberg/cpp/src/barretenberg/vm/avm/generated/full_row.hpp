@@ -20,13 +20,13 @@ template <typename FF_> struct AvmFullRow {
     // Risky but oh so efficient.
     FF& get_column(ColumnAndShifts col)
     {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
         return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
     }
 
     const FF& get_column(ColumnAndShifts col) const
     {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
         return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
     }
 };
