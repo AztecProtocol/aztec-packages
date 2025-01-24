@@ -7,7 +7,7 @@ import { type AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import {
-  type IntentAction,
+  type IntentCall,
   type IntentInnerHash,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
@@ -48,7 +48,7 @@ export class AccountWallet extends BaseWallet {
    * @param messageHashOrIntent - The message hash of the intent to approve
    * @returns The authentication witness
    */
-  async createAuthWit(messageHashOrIntent: Fr | Buffer | IntentAction | IntentInnerHash): Promise<AuthWitness> {
+  async createAuthWit(messageHashOrIntent: Fr | Buffer | IntentCall | IntentInnerHash): Promise<AuthWitness> {
     let messageHash: Fr;
     if (Buffer.isBuffer(messageHashOrIntent)) {
       messageHash = Fr.fromBuffer(messageHashOrIntent);
@@ -73,7 +73,7 @@ export class AccountWallet extends BaseWallet {
    * @returns - A function interaction.
    */
   public setPublicAuthWit(
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentCall,
     authorized: boolean,
   ): ContractFunctionInteraction {
     let messageHash: Fr;
@@ -91,7 +91,7 @@ export class AccountWallet extends BaseWallet {
     ]);
   }
 
-  private getInnerHashAndConsumer(intent: IntentInnerHash | IntentAction): {
+  private getInnerHashAndConsumer(intent: IntentInnerHash | IntentCall): {
     /** The inner hash */
     innerHash: Fr;
     /** The consumer of the authwit */
@@ -115,7 +115,7 @@ export class AccountWallet extends BaseWallet {
    * @param intent - A tuple of (consumer and inner hash) or (caller and action)
    * @returns The message hash
    */
-  private getMessageHash(intent: IntentInnerHash | IntentAction): Fr {
+  private getMessageHash(intent: IntentInnerHash | IntentCall): Fr {
     const chainId = this.getChainId();
     const version = this.getVersion();
     return computeAuthWitMessageHash(intent, { chainId, version });
@@ -133,7 +133,7 @@ export class AccountWallet extends BaseWallet {
    */
   async lookupValidity(
     onBehalfOf: AztecAddress,
-    intent: IntentInnerHash | IntentAction,
+    intent: IntentInnerHash | IntentCall,
   ): Promise<{
     /** boolean flag indicating if the authwit is valid in private context */
     isValidInPrivate: boolean;
