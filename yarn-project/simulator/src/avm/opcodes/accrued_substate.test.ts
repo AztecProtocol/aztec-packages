@@ -1,6 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { fr } from '@aztec/circuits.js/testing';
 
 import { mock } from 'jest-mock-extended';
 

@@ -175,7 +175,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if it'd exceed max block size
-      const txHash = origTx.getTxHash().toString();
+      const txHash = (await origTx.getTxHash()).toString();
       const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
       if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
         this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
@@ -205,19 +205,20 @@ export class PublicProcessor implements Traceable {
       // We validate the tx before processing it, to avoid unnecessary work.
       if (preprocessValidator) {
         const result = await preprocessValidator.validateTx(tx);
+        const txHash = await tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Rejecting tx ${tx.getTxHash().toString()} due to pre-process validation fail: ${reason}`);
+          this.log.warn(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else if (result.result === 'skipped') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Skipping tx ${tx.getTxHash().toString()} due to pre-process validation: ${reason}`);
+          this.log.warn(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else {
-          this.log.trace(`Tx ${tx.getTxHash().toString()} is valid before processing.`);
+          this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
         }
       }
 

@@ -491,7 +491,8 @@ export class AvmEphemeralForest {
 
   async getTreeSnapshot(id: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
     const tree = this.treeMap.get(id)!;
-    return new AppendOnlyTreeSnapshot(await tree.getRoot(), Number(tree.leafCount));
+    const root = await tree.getRoot();
+    return new AppendOnlyTreeSnapshot(root, Number(tree.leafCount));
   }
 }
 
@@ -553,8 +554,8 @@ export class EphemeralAvmTree {
   private tree: Tree;
   public frontier: Fr[];
 
-  private constructor(public leafCount: bigint, public depth: number, private readonly zeroHashes: Fr[]) {
-    this.tree = Leaf(zeroHashes[0]);
+  private constructor(private root: Leaf, public leafCount: bigint, public depth: number, private zeroHashes: Fr[]) {
+    this.tree = root;
     this.frontier = [];
   }
 
@@ -571,7 +572,7 @@ export class EphemeralAvmTree {
       zeroHashes.push(zeroHash);
       zeroHash = await poseidon2Hash([zeroHash, zeroHash]);
     }
-    const tree = new EphemeralAvmTree(forkedLeafCount, depth, zeroHashes);
+    const tree = new EphemeralAvmTree(Leaf(zeroHash), forkedLeafCount, depth, zeroHashes);
     await tree.initializeFrontier(treeDb, merkleId);
     return tree;
   }

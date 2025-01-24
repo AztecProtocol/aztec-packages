@@ -426,7 +426,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async sendTx(tx: Tx) {
     const timer = new Timer();
-    const txHash = tx.getTxHash().toString();
+    const txHash = (await tx.getTxHash()).toString();
 
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {
@@ -440,7 +440,7 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     await this.p2pClient!.sendTx(tx);
     this.metrics.receivedTx(timer.ms(), true);
-    this.log.info(`Received tx ${tx.getTxHash()}`, { txHash });
+    this.log.info(`Received tx ${txHash}`, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -840,11 +840,11 @@ export class AztecNodeService implements AztecNode, Traceable {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('AztecNodeService.simulatePublicCalls', async (tx: Tx) => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.

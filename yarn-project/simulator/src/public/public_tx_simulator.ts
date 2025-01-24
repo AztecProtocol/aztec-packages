@@ -70,7 +70,7 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(

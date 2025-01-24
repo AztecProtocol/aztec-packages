@@ -20,7 +20,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
     await pool.addTxs([tx1]);
     const poolTx = pool.getTxByHash(await tx1.getTxHash());
-    expect(poolTx!.getTxHash()).toEqual(await tx1.getTxHash());
+    expect(await poolTx!.getTxHash()).toEqual(await tx1.getTxHash());
     expect(pool.getTxStatus(await tx1.getTxHash())).toEqual('pending');
     expect(pool.getPendingTxHashes()).toEqual([await tx1.getTxHash()]);
   });
