@@ -175,8 +175,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         auto [blocks_20, verification_key_20] = get_blocks(20);
         auto [blocks_40, verification_key_40] = get_blocks(40);
 
-        compare_ultra_verification_keys<OuterFlavor>({ blocks_20, blocks_40 },
-                                                     { verification_key_20, verification_key_40 });
+        compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_20, blocks_40 },
+                                                                { verification_key_20, verification_key_40 });
     };
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

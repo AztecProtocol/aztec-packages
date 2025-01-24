@@ -7,7 +7,7 @@
 namespace bb {
 
 template <typename OuterFlavor>
-static void compare_ultra_verification_keys(
+static void compare_ultra_blocks_and_verification_keys(
     std::array<typename OuterFlavor::CircuitBuilder::ExecutionTrace, 2> blocks,
     std::array<std::shared_ptr<typename OuterFlavor::VerificationKey>, 2> verification_keys)
 {
@@ -15,10 +15,11 @@ static void compare_ultra_verification_keys(
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
 
     bool broke(false);
-    auto check_eq = [&broke](auto& p1, auto& p2) {
+    auto check_eq = [&broke](auto& p1, auto& p2, size_t block_idx, size_t selector_idx) {
         ASSERT(p1.size() == p2.size());
         for (size_t idx = 0; idx < p1.size(); idx++) {
             if (p1[idx] != p2[idx]) {
+                info("Mismatch selector ", selector_idx, " in block ", block_idx, ",  at ", idx);
                 broke = true;
                 break;
             }
@@ -27,11 +28,12 @@ static void compare_ultra_verification_keys(
 
     size_t block_idx = 0;
     for (auto [block_0, block_1] : zip_view(blocks[0].get(), blocks[1].get())) {
-        info("block index: ", block_idx);
         ASSERT(block_0.selectors.size() == 13);
         ASSERT(block_1.selectors.size() == 13);
+        size_t selector_idx = 0;
         for (auto [p_10, p_11] : zip_view(block_0.selectors, block_1.selectors)) {
-            check_eq(p_10, p_11);
+            check_eq(p_10, p_11, block_idx, selector_idx);
+            selector_idx++;
         }
         block_idx++;
     }
@@ -47,6 +49,7 @@ static void compare_ultra_verification_keys(
 
     ASSERT(verification_keys[0]->circuit_size == verification_keys[1]->circuit_size);
     ASSERT(verification_keys[0]->num_public_inputs == verification_keys[1]->num_public_inputs);
+    ASSERT(verification_keys[0]->pub_inputs_offset == verification_keys[1]->pub_inputs_offset);
 
     ASSERT(!broke);
 }

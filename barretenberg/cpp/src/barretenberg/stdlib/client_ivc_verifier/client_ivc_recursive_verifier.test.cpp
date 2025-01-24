@@ -47,8 +47,6 @@ class ClientIVCRecursionTests : public testing::Test {
 
         return { ivc.prove(), ivc.get_vk() };
     }
-
-    static void test_independent_vk_hash(){};
 };
 
 /**
@@ -195,6 +193,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
     auto [blocks_2, verification_key_2] = get_blocks(2);
     auto [blocks_4, verification_key_4] = get_blocks(4);
 
-    compare_ultra_verification_keys<NativeFlavor>({ blocks_2, blocks_4 }, { verification_key_2, verification_key_4 });
+    compare_ultra_blocks_and_verification_keys<NativeFlavor>({ blocks_2, blocks_4 },
+                                                             { verification_key_2, verification_key_4 });
 }
 } // namespace bb::stdlib::recursion::honk
