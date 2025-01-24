@@ -352,8 +352,8 @@ class AvmFlavor {
             this->precomputed_first_row = verification_key->precomputed_first_row;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
-            this->precomputed_sel_rng_chk_16 = verification_key->precomputed_sel_rng_chk_16;
-            this->precomputed_sel_rng_chk_8 = verification_key->precomputed_sel_rng_chk_8;
+            this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
+            this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
         }
     };
 

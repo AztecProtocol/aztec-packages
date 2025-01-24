@@ -22,7 +22,7 @@ class lookup_rng_chk_is_r4_16_bit_lookup_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r4_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_rng_chk_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_rng_chk_is_r4_16_bit_counts;
     static constexpr Column INVERSES = Column::lookup_rng_chk_is_r4_16_bit_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r4 };
@@ -30,7 +30,7 @@ class lookup_rng_chk_is_r4_16_bit_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.range_check_sel_r4_16_bit_rng_lookup == 1 || in.precomputed_sel_rng_chk_16 == 1);
+        return (in.range_check_sel_r4_16_bit_rng_lookup == 1 || in.precomputed_sel_range_16 == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -38,7 +38,7 @@ class lookup_rng_chk_is_r4_16_bit_lookup_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in.range_check_sel_r4_16_bit_rng_lookup);
-        const auto is_table_entry = View(in.precomputed_sel_rng_chk_16);
+        const auto is_table_entry = View(in.precomputed_sel_range_16);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -57,7 +57,7 @@ class lookup_rng_chk_is_r4_16_bit_lookup_settings {
         return std::forward_as_tuple(in.lookup_rng_chk_is_r4_16_bit_inv,
                                      in.lookup_rng_chk_is_r4_16_bit_counts,
                                      in.range_check_sel_r4_16_bit_rng_lookup,
-                                     in.precomputed_sel_rng_chk_16,
+                                     in.precomputed_sel_range_16,
                                      in.range_check_u16_r4,
                                      in.precomputed_clk);
     }

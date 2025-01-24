@@ -21,8 +21,8 @@ class lookup_rng_chk_pow_2_lookup_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_rng_chk;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_rng_chk_8;
+    static constexpr Column SRC_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_rng_chk_pow_2_counts;
     static constexpr Column INVERSES = Column::lookup_rng_chk_pow_2_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_dyn_rng_chk_bits,
@@ -32,15 +32,15 @@ class lookup_rng_chk_pow_2_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.range_check_sel_rng_chk == 1 || in.precomputed_sel_rng_chk_8 == 1);
+        return (in.range_check_sel == 1 || in.precomputed_sel_range_8 == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.range_check_sel_rng_chk);
-        const auto is_table_entry = View(in.precomputed_sel_rng_chk_8);
+        const auto is_operation = View(in.range_check_sel);
+        const auto is_table_entry = View(in.precomputed_sel_range_8);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -58,8 +58,8 @@ class lookup_rng_chk_pow_2_lookup_settings {
     {
         return std::forward_as_tuple(in.lookup_rng_chk_pow_2_inv,
                                      in.lookup_rng_chk_pow_2_counts,
-                                     in.range_check_sel_rng_chk,
-                                     in.precomputed_sel_rng_chk_8,
+                                     in.range_check_sel,
+                                     in.precomputed_sel_range_8,
                                      in.range_check_dyn_rng_chk_bits,
                                      in.range_check_dyn_rng_chk_pow_2,
                                      in.precomputed_clk,

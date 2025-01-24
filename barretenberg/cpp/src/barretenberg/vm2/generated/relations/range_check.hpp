@@ -13,6 +13,12 @@ template <typename FF_> class range_checkImpl {
     static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
                                                                             4, 2, 3, 2, 2, 2, 2, 2, 2, 2 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        const auto& new_term = in;
+        return (new_term.range_check_sel).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& new_term,
@@ -64,7 +70,7 @@ template <typename FF_> class range_checkImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel_rng_chk * (FF(1) - new_term.range_check_sel_rng_chk));
+            auto tmp = (new_term.range_check_sel * (FF(1) - new_term.range_check_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
@@ -125,13 +131,13 @@ template <typename FF_> class range_checkImpl {
                            new_term.range_check_is_lte_u96) +
                           new_term.range_check_is_lte_u112) +
                          new_term.range_check_is_lte_u128) -
-                        new_term.range_check_sel_rng_chk);
+                        new_term.range_check_sel);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel_rng_chk * (range_check_RESULT - new_term.range_check_value));
+            auto tmp = (new_term.range_check_sel * (range_check_RESULT - new_term.range_check_value));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
@@ -150,7 +156,7 @@ template <typename FF_> class range_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel_rng_chk *
+            auto tmp = (new_term.range_check_sel *
                         (new_term.range_check_dyn_diff -
                          ((new_term.range_check_dyn_rng_chk_pow_2 - new_term.range_check_u16_r7) - FF(1))));
             tmp *= scaling_factor;

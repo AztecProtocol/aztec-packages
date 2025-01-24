@@ -13,7 +13,6 @@ struct RangeCheckEvent {
     uint128_t value;
     uint8_t num_bits;
 
-    // TODO(dbanks12): do we want this operator just for tests?
     bool operator==(const RangeCheckEvent& other) const { return value == other.value && num_bits == other.num_bits; }
 };
 

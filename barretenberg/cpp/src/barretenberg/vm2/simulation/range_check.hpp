@@ -23,7 +23,6 @@ class RangeCheck : public RangeCheckInterface {
         : events(event_emitter)
     {}
 
-    // Operands are expected to be direct.
     void assert_range(uint128_t value, uint8_t num_bits) override;
 
   private:

@@ -13,8 +13,8 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , precomputed_first_row(il[5])
     , precomputed_power_of_2(il[6])
     , precomputed_sel_bitwise(il[7])
-    , precomputed_sel_rng_chk_16(il[8])
-    , precomputed_sel_rng_chk_8(il[9])
+    , precomputed_sel_range_16(il[8])
+    , precomputed_sel_range_8(il[9])
     , execution_input(il[10])
     , alu_dst_addr(il[11])
     , alu_ia(il[12])
@@ -64,14 +64,14 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , range_check_is_lte_u80(il[56])
     , range_check_is_lte_u96(il[57])
     , range_check_rng_chk_bits(il[58])
-    , range_check_sel_r0_16_bit_rng_lookup(il[59])
-    , range_check_sel_r1_16_bit_rng_lookup(il[60])
-    , range_check_sel_r2_16_bit_rng_lookup(il[61])
-    , range_check_sel_r3_16_bit_rng_lookup(il[62])
-    , range_check_sel_r4_16_bit_rng_lookup(il[63])
-    , range_check_sel_r5_16_bit_rng_lookup(il[64])
-    , range_check_sel_r6_16_bit_rng_lookup(il[65])
-    , range_check_sel_rng_chk(il[66])
+    , range_check_sel(il[59])
+    , range_check_sel_r0_16_bit_rng_lookup(il[60])
+    , range_check_sel_r1_16_bit_rng_lookup(il[61])
+    , range_check_sel_r2_16_bit_rng_lookup(il[62])
+    , range_check_sel_r3_16_bit_rng_lookup(il[63])
+    , range_check_sel_r4_16_bit_rng_lookup(il[64])
+    , range_check_sel_r5_16_bit_rng_lookup(il[65])
+    , range_check_sel_r6_16_bit_rng_lookup(il[66])
     , range_check_u16_r0(il[67])
     , range_check_u16_r1(il[68])
     , range_check_u16_r2(il[69])
@@ -131,8 +131,8 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      precomputed_first_row[row_idx],
                      precomputed_power_of_2[row_idx],
                      precomputed_sel_bitwise[row_idx],
-                     precomputed_sel_rng_chk_16[row_idx],
-                     precomputed_sel_rng_chk_8[row_idx],
+                     precomputed_sel_range_16[row_idx],
+                     precomputed_sel_range_8[row_idx],
                      execution_input[row_idx],
                      alu_dst_addr[row_idx],
                      alu_ia[row_idx],
@@ -182,6 +182,7 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      range_check_is_lte_u80[row_idx],
                      range_check_is_lte_u96[row_idx],
                      range_check_rng_chk_bits[row_idx],
+                     range_check_sel[row_idx],
                      range_check_sel_r0_16_bit_rng_lookup[row_idx],
                      range_check_sel_r1_16_bit_rng_lookup[row_idx],
                      range_check_sel_r2_16_bit_rng_lookup[row_idx],
@@ -189,7 +190,6 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      range_check_sel_r4_16_bit_rng_lookup[row_idx],
                      range_check_sel_r5_16_bit_rng_lookup[row_idx],
                      range_check_sel_r6_16_bit_rng_lookup[row_idx],
-                     range_check_sel_rng_chk[row_idx],
                      range_check_u16_r0[row_idx],
                      range_check_u16_r1[row_idx],
                      range_check_u16_r2[row_idx],
@@ -237,8 +237,8 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::precomputed_first_row = "PRECOMPUTED_FIRST_ROW";
     Base::precomputed_power_of_2 = "PRECOMPUTED_POWER_OF_2";
     Base::precomputed_sel_bitwise = "PRECOMPUTED_SEL_BITWISE";
-    Base::precomputed_sel_rng_chk_16 = "PRECOMPUTED_SEL_RNG_CHK_16";
-    Base::precomputed_sel_rng_chk_8 = "PRECOMPUTED_SEL_RNG_CHK_8";
+    Base::precomputed_sel_range_16 = "PRECOMPUTED_SEL_RANGE_16";
+    Base::precomputed_sel_range_8 = "PRECOMPUTED_SEL_RANGE_8";
     Base::execution_input = "EXECUTION_INPUT";
     Base::alu_dst_addr = "ALU_DST_ADDR";
     Base::alu_ia = "ALU_IA";
@@ -288,6 +288,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::range_check_is_lte_u80 = "RANGE_CHECK_IS_LTE_U80";
     Base::range_check_is_lte_u96 = "RANGE_CHECK_IS_LTE_U96";
     Base::range_check_rng_chk_bits = "RANGE_CHECK_RNG_CHK_BITS";
+    Base::range_check_sel = "RANGE_CHECK_SEL";
     Base::range_check_sel_r0_16_bit_rng_lookup = "RANGE_CHECK_SEL_R0_16_BIT_RNG_LOOKUP";
     Base::range_check_sel_r1_16_bit_rng_lookup = "RANGE_CHECK_SEL_R1_16_BIT_RNG_LOOKUP";
     Base::range_check_sel_r2_16_bit_rng_lookup = "RANGE_CHECK_SEL_R2_16_BIT_RNG_LOOKUP";
@@ -295,7 +296,6 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::range_check_sel_r4_16_bit_rng_lookup = "RANGE_CHECK_SEL_R4_16_BIT_RNG_LOOKUP";
     Base::range_check_sel_r5_16_bit_rng_lookup = "RANGE_CHECK_SEL_R5_16_BIT_RNG_LOOKUP";
     Base::range_check_sel_r6_16_bit_rng_lookup = "RANGE_CHECK_SEL_R6_16_BIT_RNG_LOOKUP";
-    Base::range_check_sel_rng_chk = "RANGE_CHECK_SEL_RNG_CHK";
     Base::range_check_u16_r0 = "RANGE_CHECK_U16_R0";
     Base::range_check_u16_r1 = "RANGE_CHECK_U16_R1";
     Base::range_check_u16_r2 = "RANGE_CHECK_U16_R2";

@@ -73,40 +73,38 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 /**
  * Generate a selector column that activates the first 2^8 (256) rows.
  * We can enforce that a value X is <= 8 bits via a lookup that checks
- * whether the selector (sel_rng_chk_8) is high at the correspending
+ * whether the selector (sel_range_8) is high at the corresponding
  * clk's row (X==clk).
  */
-void PrecomputedTraceBuilder::process_sel_rng_chk_8(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 {
     using C = Column;
 
     constexpr auto num_rows = 1 << 8; // 256
     // Set this selector high for the first 2^8 rows
     // For these rows, clk will be 0...255
-    // We can enforce that a number is <= 8 bits via a lookup to the
-    // corresponding clk's row if sel_rng_chk_8 is set high
-    trace.reserve_column(C::precomputed_sel_rng_chk_8, num_rows);
+    trace.reserve_column(C::precomputed_sel_range_8, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_rng_chk_8, i, 1);
+        trace.set(C::precomputed_sel_range_8, i, 1);
     }
 }
 
 /**
  * Generate a selector column that activates the first 2^16 rows.
  * We can enforce that a value X is <= 16 bits via a lookup that checks
- * whether the selector (sel_rng_chk_16) is high at the correspending
+ * whether the selector (sel_range_16) is high at the corresponding
  * clk's row (X==clk).
  */
-void PrecomputedTraceBuilder::process_sel_rng_chk_16(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 {
     using C = Column;
 
     constexpr auto num_rows = 1 << 16; // 2^16
     // Set this selector high for the first 2^16 rows
     // For these rows, clk will be 0...2^16-1
-    trace.reserve_column(C::precomputed_sel_rng_chk_16, num_rows);
+    trace.reserve_column(C::precomputed_sel_range_16, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_rng_chk_16, i, 1);
+        trace.set(C::precomputed_sel_range_16, i, 1);
     }
 }
 

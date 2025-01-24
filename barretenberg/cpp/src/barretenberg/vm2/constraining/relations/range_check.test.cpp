@@ -8,20 +8,31 @@
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/range_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using range_check = bb::avm2::range_check<FF>;
 
+TEST(AvmConstrainingTest, RangeCheckPositiveEmptyRow)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_clk, 1 } },
+    });
+
+    check_relation<range_check>(trace.as_rows());
+}
+
 TEST(AvmConstrainingTest, RangeCheckPositiveIsLteMutuallyExclusive)
 {
     TestTraceContainer trace({
-        { { C::range_check_sel_rng_chk, 1 }, { C::range_check_is_lte_u32, 1 } },
+        { { C::range_check_sel, 1 }, { C::range_check_is_lte_u32, 1 } },
     });
 
     check_relation<range_check>(trace.as_rows(), range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE);
@@ -31,7 +42,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeIsLteMutuallyExclusive)
 {
     TestTraceContainer trace({
         // Negative test, only one is_lte flag should be high
-        { { C::range_check_sel_rng_chk, 1 }, { C::range_check_is_lte_u32, 1 }, { C::range_check_is_lte_u112, 1 } },
+        { { C::range_check_sel, 1 }, { C::range_check_is_lte_u32, 1 }, { C::range_check_is_lte_u112, 1 } },
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows(), range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE),
@@ -40,7 +51,6 @@ TEST(AvmConstrainingTest, RangeCheckNegativeIsLteMutuallyExclusive)
 
 TEST(AvmConstrainingTest, RangeCheckPositiveCheckRecomposition)
 {
-
     uint128_t value = 0x3FFFFFFFD;
     uint256_t value_u256 = uint256_t::from_uint128(value);
 
@@ -49,7 +59,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveCheckRecomposition)
     uint16_t dynamic_slice_register = 0x0003; // (value >> 32) & 0xFFFF;
 
     TestTraceContainer trace({ {
-        { C::range_check_sel_rng_chk, 1 },
+        { C::range_check_sel, 1 },
         { C::range_check_value, value_u256 },
         { C::range_check_is_lte_u48, 1 },
         { C::range_check_u16_r0, u16_r0 },
@@ -62,7 +72,6 @@ TEST(AvmConstrainingTest, RangeCheckPositiveCheckRecomposition)
 
 TEST(AvmConstrainingTest, RangeCheckNegativeCheckRecomposition)
 {
-
     uint128_t value = 0x3FFFFFFFD;
     // Add 1 to the value to create a "bad" value that doesn't match recomposition
     uint256_t bad_value = uint256_t::from_uint128(value + 1);
@@ -72,7 +81,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeCheckRecomposition)
     uint16_t dynamic_slice_register = (value >> 32) & 0xFFFF;
 
     TestTraceContainer trace({ {
-        { C::range_check_sel_rng_chk, 1 },
+        { C::range_check_sel, 1 },
         { C::range_check_value, bad_value },
         { C::range_check_is_lte_u48, 1 },
         { C::range_check_u16_r0, u16_r0 },
@@ -86,7 +95,6 @@ TEST(AvmConstrainingTest, RangeCheckNegativeCheckRecomposition)
 
 TEST(AvmConstrainingTest, RangeCheckPositiveFull)
 {
-
     uint8_t num_bits = 34;
     uint8_t non_dynamic_bits = 32;
     uint8_t dynamic_bits = num_bits - non_dynamic_bits;
@@ -103,7 +111,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveFull)
     uint16_t dynamic_diff = static_cast<uint16_t>(dynamic_bits_pow_2 - dynamic_slice_register - 1);
 
     TestTraceContainer trace({ {
-        { C::range_check_sel_rng_chk, 1 },
+        { C::range_check_sel, 1 },
         { C::range_check_value, value_u256 },
         { C::range_check_rng_chk_bits, num_bits },
         { C::range_check_is_lte_u48, 1 },
@@ -121,9 +129,8 @@ TEST(AvmConstrainingTest, RangeCheckPositiveFull)
     check_relation<range_check>(trace.as_rows());
 }
 
-TEST(AvmConstrainingTest, RangeCheckNegativeFull)
+TEST(AvmConstrainingTest, RangeCheckNegativeMissingLookup)
 {
-
     uint8_t num_bits = 34;
     uint8_t non_dynamic_bits = 32;
     uint8_t dynamic_bits = num_bits - non_dynamic_bits;
@@ -140,7 +147,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeFull)
     uint16_t dynamic_diff = static_cast<uint16_t>(dynamic_bits_pow_2 - dynamic_slice_register - 1);
 
     TestTraceContainer trace({ {
-        { C::range_check_sel_rng_chk, 1 },
+        { C::range_check_sel, 1 },
         { C::range_check_value, value_u256 },
         { C::range_check_rng_chk_bits, num_bits },
         { C::range_check_is_lte_u48, 1 },
@@ -154,6 +161,54 @@ TEST(AvmConstrainingTest, RangeCheckNegativeFull)
         { C::range_check_sel_r0_16_bit_rng_lookup, 1 },
         { C::range_check_sel_r1_16_bit_rng_lookup, 0 }, // BAD! SHOULD BE 1
     } });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows()), "Relation range_check");
+}
+
+TEST(AvmConstrainingTest, RangeCheckPositiveWithTracegen)
+{
+    TestTraceContainer trace;
+    RangeCheckTraceBuilder builder;
+
+    builder.process(
+        {
+            { .value = 0, .num_bits = 0 },
+            { .value = 0, .num_bits = 1 },
+            { .value = 0, .num_bits = 16 },
+            { .value = 2, .num_bits = 2 },
+            { .value = 255, .num_bits = 8 },
+            { .value = 1 << 16, .num_bits = 17 },
+            { .value = 1 << 18, .num_bits = 32 },
+            { .value = static_cast<uint128_t>(1) << 66, .num_bits = 67 },
+            { .value = 1024, .num_bits = 109 },
+            { .value = 1, .num_bits = 128 },
+            { .value = 0xFFFFFFFFFFFFFFFF, .num_bits = 128 },
+            { .value = 0x1FFF, .num_bits = 13 },
+        },
+        trace);
+
+    check_relation<range_check>(trace.as_rows());
+}
+
+TEST(AvmConstrainingTest, RangeCheckNegativeWithTracegen)
+{
+    TestTraceContainer trace;
+    RangeCheckTraceBuilder builder;
+
+    builder.process(
+        {
+            { .value = 1, .num_bits = 0 },
+            { .value = 2, .num_bits = 1 },
+            { .value = 255, .num_bits = 7 },
+            { .value = 1 << 16, .num_bits = 16 },
+            { .value = 1 << 18, .num_bits = 18 },
+            { .value = static_cast<uint128_t>(1) << 66, .num_bits = 66 },
+            { .value = 1024, .num_bits = 9 },
+            { .value = 1, .num_bits = 0 },
+            { .value = 0xFFFFFFFFFFFFFFFF, .num_bits = 127 },
+            { .value = 0x1FFF, .num_bits = 12 },
+        },
+        trace);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows()), "Relation range_check");
 }

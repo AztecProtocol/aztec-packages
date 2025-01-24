@@ -1,11 +1,13 @@
-#include "barretenberg/vm2/simulation/range_check.hpp"
-
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
+
+using testing::ElementsAre;
 
 TEST(AvmSimulationRangeCheckTest, AssertRange)
 {
@@ -21,8 +23,7 @@ TEST(AvmSimulationRangeCheckTest, AssertRange)
         .num_bits = num_bits,
     };
 
-    std::vector<RangeCheckEvent> events = { expect_event };
-    EXPECT_EQ(emitter.dump_events(), events);
+    EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event));
 }
 
 } // namespace

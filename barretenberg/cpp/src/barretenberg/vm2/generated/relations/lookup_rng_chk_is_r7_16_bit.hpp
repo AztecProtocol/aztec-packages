@@ -21,8 +21,8 @@ class lookup_rng_chk_is_r7_16_bit_lookup_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_rng_chk;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_rng_chk_16;
+    static constexpr Column SRC_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_rng_chk_is_r7_16_bit_counts;
     static constexpr Column INVERSES = Column::lookup_rng_chk_is_r7_16_bit_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r7 };
@@ -30,15 +30,15 @@ class lookup_rng_chk_is_r7_16_bit_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.range_check_sel_rng_chk == 1 || in.precomputed_sel_rng_chk_16 == 1);
+        return (in.range_check_sel == 1 || in.precomputed_sel_range_16 == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.range_check_sel_rng_chk);
-        const auto is_table_entry = View(in.precomputed_sel_rng_chk_16);
+        const auto is_operation = View(in.range_check_sel);
+        const auto is_table_entry = View(in.precomputed_sel_range_16);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -56,8 +56,8 @@ class lookup_rng_chk_is_r7_16_bit_lookup_settings {
     {
         return std::forward_as_tuple(in.lookup_rng_chk_is_r7_16_bit_inv,
                                      in.lookup_rng_chk_is_r7_16_bit_counts,
-                                     in.range_check_sel_rng_chk,
-                                     in.precomputed_sel_rng_chk_16,
+                                     in.range_check_sel,
+                                     in.precomputed_sel_range_16,
                                      in.range_check_u16_r7,
                                      in.precomputed_clk);
     }
