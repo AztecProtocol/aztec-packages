@@ -49,7 +49,7 @@ describe('Data generation for noir tests', () => {
 
   const format = (obj: object) => JSON.stringify(obj, null, 2).replaceAll('"', '');
 
-  test.each(contracts)('Computes contract info for %s', contract => {
+  test.each(contracts)('Computes contract info for %s', async contract => {
     const contractClass: ContractClass = { ...contract, publicFunctions: [], version: 1 };
     const contractClassId = computeContractClassId(contractClass);
     const initializationHash = computeInitializationHashFromEncodedArgs(constructorSelector, []);
@@ -57,7 +57,7 @@ describe('Data generation for noir tests', () => {
       computeContractClassIdPreimage(contractClass);
     const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
-    const address = computeContractAddressFromInstance(instance);
+    const address = await computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);
     const partialAddress = computePartialAddress(instance);
 

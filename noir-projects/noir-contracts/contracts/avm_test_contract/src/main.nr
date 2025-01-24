@@ -1,5 +1,6 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+use dep::aztec::{macros::aztec, protocol_types::traits::{Deserialize, Packable, Serialize}};
 
+// I tried using #[derive(Serialize, Deserialize)] macro here but for whatever reason it fails to compile.
 pub struct Note {
     a: Field,
     b: Field,
@@ -17,7 +18,17 @@ impl Deserialize<2> for Note {
     }
 }
 
-use dep::aztec::macros::aztec;
+/// We implement the Packable trait for Note because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
+impl Packable<2> for Note {
+    fn pack(self) -> [Field; 2] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; 2]) -> Self {
+        Self::deserialize(fields)
+    }
+}
 
 #[aztec]
 contract AvmTest {

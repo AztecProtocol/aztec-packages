@@ -597,7 +597,10 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
+  const requests = await Promise.all(
+    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
+  );
+  const batch = new BatchCall(sender, [...requests]);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts
