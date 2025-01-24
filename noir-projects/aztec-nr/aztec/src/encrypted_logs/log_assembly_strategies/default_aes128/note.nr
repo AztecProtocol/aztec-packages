@@ -123,14 +123,14 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
 
 // |full_pt| = |pt| = (N * 32) + 64
 fn get_arr_of_size__full_plaintext<let PT: u32>() -> [u8; PT] {
-    std::mem::zeroed
+    [0; PT]
 }
 
 // |pt_aes_padding| = 16 - (|full_pt| % 16)
 fn get_arr_of_size__plaintext_aes_padding<let FULL_PT: u32>(
     _full_pt: [u8; FULL_PT],
 ) -> [u8; 16 - (FULL_PT % 16)] {
-    std::mem::zeroed
+    [0; 16 - (FULL_PT % 16)]
 }
 
 // |ct| = |full_pt| + |pt_aes_padding|
@@ -138,14 +138,14 @@ fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
     _full_pt: [u8; FULL_PT],
     _pt_aes_padding: [u8; PT_AES_PADDING],
 ) -> [u8; FULL_PT + PT_AES_PADDING] {
-    std::mem::zeroed
+    [0; FULL_PT + PT_AES_PADDING]
 }
 
 // Ok, so we have the following bytes:
 // eph_pk_sign, header_ciphertext, ciphertext:
 // Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
 fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
-    std::mem::zeroed
+    [0; 1 + 48 + CT]
 }
 
 // Recall:
@@ -158,7 +158,7 @@ fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8
 fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
     _lbwop: [u8; LBWOP],
 ) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
-    std::mem::zeroed
+    [0; (31 * ((LBWOP + 30) / 31)) - LBWOP]
 }
 
 // |log_bytes| = 1 + 48 + |ct| + p // aka log bytes (with padding)
@@ -169,7 +169,7 @@ fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
     _lbwop: [u8; LBWOP],
     _p: [u8; P],
 ) -> [u8; LBWOP + P] {
-    std::mem::zeroed
+    [0; LBWOP + P]
 }
 
 // The return type is pasted from the LSP's expectation, because it was too difficult
