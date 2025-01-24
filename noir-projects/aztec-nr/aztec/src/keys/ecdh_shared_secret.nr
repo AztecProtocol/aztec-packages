@@ -57,7 +57,7 @@ unconstrained fn test_shared_secret_computation_in_both_directions() {
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
     let pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
+    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
 
     let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
@@ -70,10 +70,26 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
-    let pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
+    let mut pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
+    let mut pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
 
     let address_b = AztecAddress::from_field(pk_b.x);
+
+    // We were lazy in deriving the secret keys, and didn't check the resulting y-coordinates
+    // of the pk_a or pk_b to be less than half the field modulus.
+    // If needed, we negate the pk's so that they yield valid address points.
+    // (We could also have negated the secrets, but there's no negate method for
+    // EmbeddedCurvesScalar).
+    pk_a = if (AztecAddress::from_field(pk_a.x).to_address_point().inner == pk_a) {
+        pk_a
+    } else {
+        pk_a.neg()
+    };
+    pk_b = if (address_b.to_address_point().inner == pk_b) {
+        pk_b
+    } else {
+        pk_b.neg()
+    };
 
     let shared_secret = derive_ecdh_shared_secret_using_aztec_address(secret_a, address_b);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
