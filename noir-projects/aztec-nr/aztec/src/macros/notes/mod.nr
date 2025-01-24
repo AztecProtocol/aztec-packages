@@ -74,7 +74,7 @@ comptime fn generate_note_interface(
     // First we compute note content serialization. We do that by passing the whole note struct
     // to the `generate_serialize_to_fields(...)` and omitting the header.
     let (content_fields_list, content_aux_vars_list) =
-        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}]);
+        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], false);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -293,7 +293,8 @@ comptime fn generate_multi_scalar_mul(
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
-        let (serialization_fields, aux_vars) = generate_serialize_to_fields(field_name, typ, &[]);
+        let (serialization_fields, aux_vars) =
+            generate_serialize_to_fields(field_name, typ, &[], false);
         for j in 0..serialization_fields.len() {
             let serialization_field = serialization_fields[j];
             let generator_index = start_generator_index + j;
@@ -487,7 +488,8 @@ comptime fn get_setup_log_plaintext_body(
     let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = generate_serialize_to_fields(quote { }, s.as_type(), to_omit);
+    let (fields_list, aux_vars) =
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, false);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -609,7 +611,7 @@ comptime fn generate_finalization_payload(
         quote { header },
     );
     let (nullable_fields_list, aux_vars) =
-        generate_serialize_to_fields(quote { }, s.as_type(), to_omit);
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, false);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -834,7 +836,7 @@ comptime fn index_note_fields(
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
             }
         }
-        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[]);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], false);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter += serialization_fields.len();
     }
