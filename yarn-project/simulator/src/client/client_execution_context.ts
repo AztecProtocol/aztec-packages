@@ -536,8 +536,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     return newArgsHash;
   }
 
-  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
-    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
+  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+    return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   /**

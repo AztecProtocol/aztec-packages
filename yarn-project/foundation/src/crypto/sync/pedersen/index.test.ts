@@ -1,4 +1,5 @@
-import { BarretenbergSync } from '../../../../../../barretenberg/ts/dest/node-cjs/index.js';
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { toBufferBE } from '../../../bigint-buffer/index.js';
 import { setupCustomSnapshotSerializers } from '../../../testing/index.js';
 import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';

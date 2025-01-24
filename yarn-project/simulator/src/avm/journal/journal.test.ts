@@ -83,7 +83,7 @@ describe('journal', () => {
 
     it('writeNoteHash works', async () => {
       mockNoteHashCount(trace, 1);
-      persistableState.writeNoteHash(address, utxo);
+      await persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, utxo);
       const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 1);

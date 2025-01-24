@@ -281,7 +281,7 @@ export class Sequencer {
 
     // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
     // and also we may need to fetch more if we don't have enough valid txs.
-    const pendingTxs = await this.p2pClient.iteratePendingTxs();
+    const pendingTxs = this.p2pClient.iteratePendingTxs();
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(

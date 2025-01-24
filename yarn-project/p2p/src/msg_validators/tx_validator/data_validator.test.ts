@@ -4,7 +4,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 
 import { DataTxValidator } from './data_validator.js';
 
-const mockTxs = async (numTxs: number) =>
+const mockTxs = (numTxs: number) =>
   timesParallel(numTxs, i =>
     mockTx(i, {
       numberOfNonRevertiblePublicCallRequests: 2,

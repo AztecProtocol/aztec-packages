@@ -286,7 +286,7 @@ export class AvmPersistableStateManager {
   public async writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): Promise<void> {
     const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
 
-    this.writeSiloedNoteHash(siloedNoteHash);
+    await this.writeSiloedNoteHash(siloedNoteHash);
   }
 
   /**
@@ -297,7 +297,7 @@ export class AvmPersistableStateManager {
     const nonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
     const uniqueNoteHash = await computeUniqueNoteHash(nonce, noteHash);
 
-    this.writeUniqueNoteHash(uniqueNoteHash);
+    await this.writeUniqueNoteHash(uniqueNoteHash);
   }
 
   /**

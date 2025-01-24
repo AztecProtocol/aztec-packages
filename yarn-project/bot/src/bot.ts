@@ -9,7 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 

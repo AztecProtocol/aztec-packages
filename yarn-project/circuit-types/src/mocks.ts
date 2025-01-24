@@ -56,7 +56,6 @@ export const mockPrivateCallExecutionResult = async (
   if (isForPublic) {
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    let i = 0;
     for (let i = 0; i < publicCallRequests.length; i++) {
       const r = publicCallRequests[i];
       r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);

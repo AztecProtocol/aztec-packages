@@ -1,4 +1,4 @@
-import { BarretenbergLazy, BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
+import { BarretenbergLazy, Fr as FrBarretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';

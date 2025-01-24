@@ -130,7 +130,7 @@ describe('Simple Note Hash Consistency', () => {
   it('Should do a simple append and check the root starting with empty', async () => {
     const treeContainer = await AvmEphemeralForest.create(copyState);
     for (const noteHash of noteHashes) {
-      treeContainer.appendNoteHash(noteHash);
+      await treeContainer.appendNoteHash(noteHash);
     }
     await mainState.appendLeaves(treeId, noteHashes);
 
@@ -430,7 +430,7 @@ describe('Big Random Avm Ephemeral Container Test', () => {
     for (let i = 0; i < ENTRY_COUNT; i++) {
       await nullifierInsertWorldState(indexedHashes[i]);
       await publicDataInsertWorldState(slots[i], values[i]);
-      treeContainer.appendNoteHash(noteHashes[i]);
+      await treeContainer.appendNoteHash(noteHashes[i]);
       await treeContainer.appendNullifier(indexedHashes[i]);
       await treeContainer.writePublicStorage(slots[i], values[i]);
     }

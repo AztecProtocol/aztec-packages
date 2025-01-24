@@ -32,7 +32,7 @@ export async function createPrivateFunctionMembershipProof(
   const log = createLogger('circuits:function_membership_proof');
 
   // Locate private function definition and artifact
-  const privateFunctions = await artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
+  const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
   const privateFunctionsFromArtifact = await Promise.all(
     privateFunctions.map(getContractClassPrivateFunctionFromArtifact),
   );
@@ -54,7 +54,7 @@ export async function createPrivateFunctionMembershipProof(
   const functionsTreeSiblingPath = functionsTree.getSiblingPath(functionsTreeLeafIndex).map(Fr.fromBuffer);
 
   // And the "artifact tree" captures function bytecode and metadata, and is used by the pxe to check that its executing the code it's supposed to be executing, but it never goes into circuits.
-  const functionMetadataHash = await computeFunctionMetadataHash(privateFunctionArtifact);
+  const functionMetadataHash = computeFunctionMetadataHash(privateFunctionArtifact);
   const functionArtifactHash = await computeFunctionArtifactHash({ ...privateFunctionArtifact, functionMetadataHash });
   const artifactTree = (await computeArtifactFunctionTree(artifact, FunctionType.PRIVATE))!;
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());

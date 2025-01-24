@@ -1,7 +1,5 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
 
-import { z } from 'zod';
-
 import { MerkleTree } from './merkle_tree.js';
 
 /**

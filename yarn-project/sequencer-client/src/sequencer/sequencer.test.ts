@@ -391,7 +391,7 @@ describe('sequencer', () => {
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -423,7 +423,7 @@ describe('sequencer', () => {
   it('builds a block that contains zero real transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -457,7 +457,7 @@ describe('sequencer', () => {
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);

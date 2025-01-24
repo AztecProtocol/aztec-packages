@@ -106,8 +106,8 @@ export class PrivateFunctionsTree {
 
     const leaf = await computePrivateFunctionLeaf(fn);
     const tree = await this.getTree();
-    const index = await tree.getIndex(leaf);
-    const path = await tree.getSiblingPath(index);
+    const index = tree.getIndex(leaf);
+    const path = tree.getSiblingPath(index);
     return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
       FUNCTION_TREE_HEIGHT,
       BigInt(index),

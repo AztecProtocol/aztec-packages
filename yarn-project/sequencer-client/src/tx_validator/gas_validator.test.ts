@@ -70,7 +70,7 @@ describe('GasTxValidator', () => {
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
     const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))');
-    patchNonRevertibleFn(tx, 0, {
+    await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       args: [selector.toField(), payer.toField(), ...new U128(1n).toFields()],
@@ -90,7 +90,7 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
-    patchRevertibleFn(tx, 0, {
+    await patchRevertibleFn(tx, 0, {
       selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
       args: [payer.toField(), ...new U128(1n).toFields()],
     });

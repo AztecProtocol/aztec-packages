@@ -3,7 +3,7 @@ import { setupCustomSnapshotSerializers } from '../../testing/index.js';
 import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';
 
 describe('pedersen', () => {
-  beforeAll(async () => {
+  beforeAll(() => {
     setupCustomSnapshotSerializers(expect);
   });
 

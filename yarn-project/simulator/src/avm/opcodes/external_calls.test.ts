@@ -120,7 +120,7 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
         ]),
       );
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
@@ -172,7 +172,7 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
       mockNullifierExists(worldStateDB, addr);
 
       const contractClass = await makeContractClassPublic(0, {
@@ -259,7 +259,7 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
       mockNullifierExists(worldStateDB, addr.toFr());
 
       const contractClass = await makeContractClassPublic(0, {

@@ -1,6 +1,6 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
-import { mean, stdDev, times, timesParallel } from '@aztec/foundation/collection';
+import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';

@@ -136,7 +136,7 @@ export const buildBaseRollupHints = runInSpan(
 
     // Append new data to startSpongeBlob
     const inputSpongeBlob = startSpongeBlob.clone();
-    startSpongeBlob.absorb(tx.txEffect.toBlobFields());
+    await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
     if (tx.avmProvingRequest) {
       // Build public base rollup hints

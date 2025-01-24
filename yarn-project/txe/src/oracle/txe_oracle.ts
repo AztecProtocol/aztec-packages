@@ -557,15 +557,13 @@ export class TXE implements TypedOracle {
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
-    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
+    await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
-    return Promise.resolve();
   }
 
   async notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
-    this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
-    return Promise.resolve();
+    await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
@@ -659,7 +657,7 @@ export class TXE implements TypedOracle {
     if (usedTxRequestHashForNonces) {
       txEffect.nullifiers.unshift(this.getTxRequestHash());
     }
-    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
+    await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
     this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
@@ -745,7 +743,7 @@ export class TXE implements TypedOracle {
     const endSideEffectCounter = publicInputs.endSideEffectCounter;
     this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
 
-    this.addPrivateLogs(
+    await this.addPrivateLogs(
       targetContractAddress,
       publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
     );
@@ -928,8 +926,8 @@ export class TXE implements TypedOracle {
     );
   }
 
-  notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
+  async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
+    await this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   debugLog(message: string, fields: Fr[]): void {

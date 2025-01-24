@@ -19,9 +19,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
-    const poolTx = pool.getTxByHash(await await tx1.getTxHash());
+    const poolTx = pool.getTxByHash(await tx1.getTxHash());
     expect(poolTx!.getTxHash()).toEqual(await tx1.getTxHash());
-    expect(pool.getTxStatus(await await tx1.getTxHash())).toEqual('pending');
+    expect(pool.getTxStatus(await tx1.getTxHash())).toEqual('pending');
     expect(pool.getPendingTxHashes()).toEqual([await tx1.getTxHash()]);
   });
 
@@ -31,8 +31,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     await pool.deleteTxs([await await tx1.getTxHash()]);
 
-    expect(pool.getTxByHash(await await tx1.getTxHash())).toBeFalsy();
-    expect(pool.getTxStatus(await await tx1.getTxHash())).toBeUndefined();
+    expect(pool.getTxByHash(await tx1.getTxHash())).toBeFalsy();
+    expect(pool.getTxStatus(await tx1.getTxHash())).toBeUndefined();
   });
 
   it('Marks txs as mined', async () => {
@@ -65,7 +65,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
   it('Only marks txs as pending if they are known', async () => {
     const tx1 = await mockTx(1);
     // simulate a situation where not all peers have all the txs
-    const someTxHashThatThisPeerDidNotSee = await (await mockTx(2)).getTxHash();
+    const tx2 = await mockTx(2);
+    const someTxHashThatThisPeerDidNotSee = await tx2.getTxHash();
     await pool.addTxs([tx1]);
     // this peer knows that tx2 was mined, but it does not have the tx object
     await pool.markAsMined([await tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);

@@ -930,7 +930,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
@@ -954,7 +954,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
@@ -981,7 +981,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
         const artifact = getAvmTestContractArtifact('public_dispatch');
-        mockGetBytecode(worldStateDB, artifact.bytecode);
+        await mockGetBytecode(worldStateDB, artifact.bytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: artifact.bytecode,
@@ -1003,7 +1003,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
@@ -1033,7 +1033,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
@@ -1058,7 +1058,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
