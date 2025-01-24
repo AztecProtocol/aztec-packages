@@ -41,7 +41,7 @@ case "$cmd" in
     build
     ;;
   "test-cmds")
-    parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+    test_cmds
     ;;
   "test")
     test
