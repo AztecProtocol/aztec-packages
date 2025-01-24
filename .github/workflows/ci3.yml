@@ -45,6 +45,10 @@ jobs:
           export BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}
           [ "${{ github.ref_name }}" == "master" ] && export MASTER=1 || export MASTER=0
           ./ci.sh ec2
+      - name: Deploy
+        if: startsWith(github.ref, 'refs/tags/v') && github.ref =~ 'refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+'
+        run: |
+          ./ci.sh deploy "${GITHUB_REF#refs/tags/}"
       # TODO: We will need to extract the result from the remote container before termination.
       # Also only on master?
       # - name: Store benchmark result

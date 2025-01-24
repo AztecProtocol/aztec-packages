@@ -124,14 +124,12 @@ case "$cmd" in
   "rlog")
     [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1
     output=$(redis_cli GET $run_id)
-    if [ "$output" == "In progress..." ]; then
+    if [ -z "$output" ] || [ "$output" == "In progress..." ]; then
       # If we're in progress, tail live logs from launched instance.
       while ! tail_live_instance; do
         echo "Waiting on instance with name: $instance_name"
         sleep 10
       done
-    elif [ -z "$output" ]; then
-      echo "Nothing found. CI run may still be booting."
     else
       echo "$output" | $PAGER
     fi
@@ -208,6 +206,9 @@ case "$cmd" in
       exit 1
     fi
     echo "$run_url"
+    ;;
+  "deploy")
+    VERSION_TAG=$1
     ;;
   "help"|"")
     print_usage
