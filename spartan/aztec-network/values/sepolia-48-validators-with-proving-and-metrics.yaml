@@ -5,9 +5,6 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: true
-images:
-  aztec:
-    pullPolicy: Always
 
 network:
   setupL2Contracts: false
@@ -22,6 +19,7 @@ validator:
   l1FixedPriorityFeePerGas: 2
   l1GasLimitBufferPercentage: 15
   replicas: 48
+  l1GasPriceMax: 500
   storageSize: "100Gi"
   resources:
     requests:

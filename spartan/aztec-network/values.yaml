@@ -132,6 +132,7 @@ validator:
   viemPollingInterval: 1000
   storageSize: "1Gi"
   dataDir: "/data"
+  l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""
 
