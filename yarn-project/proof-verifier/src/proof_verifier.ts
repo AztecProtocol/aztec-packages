@@ -46,7 +46,7 @@ export class ProofVerifier implements Traceable {
 
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
     const logger = createLogger('proof-verifier:block-verifier-bot');
-    const verifier = await BBCircuitVerifier.new(config, [], logger);
+    const verifier = await BBCircuitVerifier.new(config, logger);
     const client = createPublicClient({
       chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,
       transport: http(config.l1Url),

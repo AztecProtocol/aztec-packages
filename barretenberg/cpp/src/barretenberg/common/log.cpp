@@ -7,6 +7,3 @@ bool verbose_logging = std::getenv("BB_VERBOSE") == nullptr ? false : std::strin
 #else
 bool verbose_logging = true;
 #endif
-
-// Used for `debug` in log.hpp.
-bool debug_logging = false;
