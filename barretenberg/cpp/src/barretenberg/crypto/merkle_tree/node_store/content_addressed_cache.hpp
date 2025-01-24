@@ -43,13 +43,43 @@ template <typename LeafValueType> class ContentAddressedCache {
     using UniquePtr = std::unique_ptr<ContentAddressedCache>;
 
     ContentAddressedCache() = delete;
-    ContentAddressedCache(uint32_t depth) { reset(depth); }
+    ContentAddressedCache(uint32_t depth);
     ~ContentAddressedCache() = default;
     ContentAddressedCache(const ContentAddressedCache& other) = default;
     ContentAddressedCache& operator=(const ContentAddressedCache& other) = default;
     ContentAddressedCache(ContentAddressedCache&& other) noexcept = default;
     ContentAddressedCache& operator=(ContentAddressedCache&& other) noexcept = default;
 
+    void checkpoint();
+    void revert();
+    void commit();
+
+    void reset(uint32_t depth);
+    std::pair<bool, index_t> find_low_value(const fr& new_leaf_key,
+                                            const uint256_t& retrieved_value,
+                                            const index_t& db_index) const;
+
+    bool get_leaf_preimage_by_hash(const fr& leaf_hash, IndexedLeafValueType& leafPreImage) const;
+    void put_leaf_preimage_by_hash(const fr& leaf_hash, const IndexedLeafValueType& leafPreImage);
+
+    bool get_leaf_by_index(const index_t& index, IndexedLeafValueType& leaf) const;
+    void put_leaf_by_index(const index_t& index, const IndexedLeafValueType& leaf);
+
+    void update_leaf_key_index(const index_t& index, const fr& leaf_key);
+    std::optional<index_t> get_leaf_key_index(const fr& leaf_key) const;
+
+    void put_node(const fr& node_hash, const NodePayload& node);
+    bool get_node(const fr& node_hash, NodePayload& node) const;
+
+    void put_meta(const TreeMeta& meta) { meta_ = meta; }
+    const TreeMeta& get_meta() const { return meta_; }
+
+    std::optional<fr> get_node_by_index(uint32_t level, const index_t& index) const;
+    void put_node_by_index(uint32_t level, const index_t& index, const fr& node);
+
+    const std::map<uint256_t, index_t>& get_indices() const { return indices_; }
+
+  private:
     // This is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
     // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
     // final tree so they need to be omitted from what is committed.
@@ -67,14 +97,146 @@ template <typename LeafValueType> class ContentAddressedCache {
     // The following stores are not persisted, just cached until commit
     std::vector<std::unordered_map<index_t, fr>> nodes_by_index_;
     std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index_;
-
-    void reset(uint32_t depth)
-    {
-        nodes_ = std::unordered_map<fr, NodePayload>();
-        indices_ = std::map<uint256_t, index_t>();
-        leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
-        nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>());
-        leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
-    }
 };
+
+template <typename LeafValueType> ContentAddressedCache<LeafValueType>::ContentAddressedCache(uint32_t depth)
+{
+    reset(depth);
+}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::checkpoint() {}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert() {}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit() {}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::reset(uint32_t depth)
+{
+    nodes_ = std::unordered_map<fr, NodePayload>();
+    indices_ = std::map<uint256_t, index_t>();
+    leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
+    nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>());
+    leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
+}
+
+template <typename LeafValueType>
+std::pair<bool, index_t> ContentAddressedCache<LeafValueType>::find_low_value(const fr& new_leaf_key,
+                                                                              const uint256_t& retrieved_value,
+                                                                              const index_t& db_index) const
+{
+    auto new_value_as_number = uint256_t(new_leaf_key);
+    // At this stage, we have been asked to include uncommitted and the value was not exactly found in the db
+    auto it = indices_.lower_bound(new_value_as_number);
+    if (it == indices_.end()) {
+        // there is no element >= the requested value.
+        // decrement the iterator to get the value preceeding the requested value
+        --it;
+        // we need to return the larger of the db value or the cached value
+
+        return std::make_pair(false, it->first > retrieved_value ? it->second : db_index);
+    }
+
+    if (it->first == uint256_t(new_value_as_number)) {
+        // the value is already present and the iterator points to it
+        return std::make_pair(true, it->second);
+    }
+    // the iterator points to the element immediately larger than the requested value
+    // We need to return the highest value from
+    // 1. The next lowest cached value, if there is one
+    // 2. The value retrieved from the db
+    if (it == indices_.begin()) {
+        // No cached lower value, return the db index
+        return std::make_pair(false, db_index);
+    }
+    --it;
+    //  it now points to the value less than that requested
+    return std::make_pair(false, it->first > retrieved_value ? it->second : db_index);
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCache<LeafValueType>::get_leaf_preimage_by_hash(const fr& leaf_hash,
+                                                                     IndexedLeafValueType& leafPreImage) const
+{
+    typename std::unordered_map<fr, IndexedLeafValueType>::const_iterator it = leaves_.find(leaf_hash);
+    if (it != leaves_.end()) {
+        leafPreImage = it->second;
+        return true;
+    }
+    return false;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCache<LeafValueType>::put_leaf_preimage_by_hash(const fr& leaf_hash,
+                                                                     const IndexedLeafValueType& leafPreImage)
+{
+    leaves_[leaf_hash] = leafPreImage;
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCache<LeafValueType>::get_leaf_by_index(const index_t& index, IndexedLeafValueType& leaf) const
+{
+    typename std::unordered_map<index_t, IndexedLeafValueType>::const_iterator it =
+        leaf_pre_image_by_index_.find(index);
+    if (it != leaf_pre_image_by_index_.end()) {
+        leaf = it->second;
+        return true;
+    }
+    return false;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& index,
+                                                             const IndexedLeafValueType& leafPreImage)
+{
+    leaf_pre_image_by_index_[index] = leafPreImage;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCache<LeafValueType>::update_leaf_key_index(const index_t& index, const fr& leaf_key)
+{
+    indices_.insert({ uint256_t(leaf_key), index });
+}
+
+template <typename LeafValueType>
+std::optional<index_t> ContentAddressedCache<LeafValueType>::get_leaf_key_index(const fr& leaf_key) const
+{
+    auto it = indices_.find(uint256_t(leaf_key));
+    if (it == indices_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCache<LeafValueType>::put_node(const fr& node_hash, const NodePayload& node)
+{
+    nodes_[node_hash] = node;
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCache<LeafValueType>::get_node(const fr& node_hash, NodePayload& node) const
+{
+    auto it = nodes_.find(node_hash);
+    if (it == nodes_.end()) {
+        return false;
+    }
+    node = it->second;
+    return true;
+}
+
+template <typename LeafValueType>
+std::optional<fr> ContentAddressedCache<LeafValueType>::get_node_by_index(uint32_t level, const index_t& index) const
+{
+    auto it = nodes_by_index_[level].find(index);
+    if (it == nodes_by_index_[level].end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCache<LeafValueType>::put_node_by_index(uint32_t level, const index_t& index, const fr& node)
+{
+    nodes_by_index_[level][index] = node;
+}
 } // namespace bb::crypto::merkle_tree

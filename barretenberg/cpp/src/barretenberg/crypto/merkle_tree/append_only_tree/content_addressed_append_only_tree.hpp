@@ -50,6 +50,9 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
     using FinaliseBlockCallback = std::function<void(Response&)>;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
+    using CheckpointCallback = std::function<void(Response&)>;
+    using CheckpointCommitCallback = std::function<void(Response&)>;
+    using CheckpointRevertCallback = std::function<void(Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -221,6 +224,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void unwind_block(const block_number_t& blockNumber, const UnwindBlockCallback& on_completion);
 
     void finalise_block(const block_number_t& blockNumber, const FinaliseBlockCallback& on_completion);
+
+    void checkpoint(const CheckpointCallback& on_completion);
+    void commit_checkpoint(const CheckpointCommitCallback& on_completion);
+    void revert_checkpoint(const CheckpointRevertCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -845,6 +852,27 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->rollback(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_checkpoint(const CheckpointCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(const CheckpointCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_checkpoint(); }, on_completion); };
     workers_->enqueue(job);
 }
 

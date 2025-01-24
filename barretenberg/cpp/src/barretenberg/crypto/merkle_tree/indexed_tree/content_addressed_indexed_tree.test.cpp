@@ -19,7 +19,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <future>
-#include <gtest/gtest.h>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -2773,5 +2772,153 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_empty_block
         ss << "DB " << actualSize;
         test_nullifier_tree_unwind(
             _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_checkpoints)
+{
+    index_t initial_size = 2;
+    index_t current_size = initial_size;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(30, 5));
+    check_size(tree, ++current_size);
+
+    /**
+     * Add new slot:value 10:20:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10        0       0       0       0
+     *  val       0       0       5       20        0       0       0       0
+     *  nextIdx   1       3       0       2         0       0       0       0
+     *  nextVal   1       10      0       30        0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(10, 20));
+    check_size(tree, ++current_size);
+
+    /**
+     * Update value at slot 30 to 6:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       0       0       0
+     *  val       0       0       6       20       0       0       0       0
+     *  nextIdx   1       3       0       2        0       0       0       0
+     *  nextVal   1       10      0       30       0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(30, 6));
+    // The size does not increase since sequential insertion doesn't pad
+    check_size(tree, current_size);
+    commit_tree(tree);
+
+    {
+        index_t fork_size = current_size;
+        std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> forkStore =
+            std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+        auto forkTree =
+            ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+                std::move(forkStore), workers, initial_size);
+
+        // Find the low leaf of slot 60
+        auto predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be at index 2
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
+
+        // checkpoint the fork
+        checkpoint_tree(forkTree);
+
+        /**
+         * Add new value slot:value 50:8:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(50, 8));
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Now revert the fork and see that it is rolled back to the checkpoint
+        revert_checkpoint_tree(forkTree);
+        check_size(forkTree, --fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 2
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
+
+        // checkpoint the fork again
+        checkpoint_tree(forkTree);
+
+        // Make the same change again, commit the checkpoint and see that the changes remain
+        add_value_sequentially(forkTree, PublicDataLeafValue(50, 8));
+
+        commit_checkpoint_tree(forkTree);
+
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
     }
 }

@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
-#include <gtest/gtest.h>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -148,17 +147,6 @@ void commit_tree(TreeType& tree, bool expected_success = true)
         signal.signal_level();
     };
     tree.commit(completion);
-    signal.wait_for_level();
-}
-
-void rollback_tree(TreeType& tree)
-{
-    Signal signal;
-    auto completion = [&](const Response& response) -> void {
-        EXPECT_EQ(response.success, true);
-        signal.signal_level();
-    };
-    tree.rollback(completion);
     signal.wait_for_level();
 }
 
@@ -1848,9 +1836,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
     TreeType tree(std::move(store), pool);
 
-    std::vector<fr_sibling_path> paths(20);
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
     uint32_t index = 0;
-    for (; index < 10; index++) {
+    for (; index < stackDepth - 1; index++) {
         std::vector<fr> values = create_values(blockSize);
         add_values(tree, values);
 
@@ -1858,44 +1848,38 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
 
         std::cout << "Checkpointing " << index << std::endl;
         try {
-            store->checkpoint();
+            checkpoint_tree(tree);
         } catch (std::exception& e) {
             std::cout << e.what() << std::endl;
         }
     }
 
+    // Now add one more depth, this will be un-checkpointed
     {
         std::vector<fr> values = create_values(blockSize);
         add_values(tree, values);
-
-        std::cout << "Reverting " << index << std::endl;
-
-        store->revert();
-
-        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 1]);
-    }
-
-    for (; index > 7; index--) {
-        std::cout << "Reverting " << index << std::endl;
-        store->revert();
-
-        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 2]);
-    }
-
-    for (; index < 20; index++) {
-        std::vector<fr> values = create_values(blockSize);
-        add_values(tree, values);
-
         paths[index] = get_sibling_path(tree, 3);
-
-        store->checkpoint();
     }
+
+    index_t checkpointIndex = index;
+
+    // The tree is currently at the state of index 19
+    EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
 
     for (; index > 1; index--) {
-        store->revert();
+        if (index % 2 == 0) {
+            std::cout << "Reverting checkpoint " << index << std::endl;
+            revert_checkpoint_tree(tree, true);
+        } else {
+            std::cout << "Committing checkpoint " << index << std::endl;
+            commit_checkpoint_tree(tree, true);
+            checkpointIndex = index - 1;
+        }
 
-        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 2]);
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
     }
 
-    EXPECT_THROW(store->revert(), std::runtime_error);
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
 }
