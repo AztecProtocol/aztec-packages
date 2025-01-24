@@ -20,6 +20,7 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudObservability: false
+  excludeMetrics: "system"
 
 images:
   aztec:
@@ -33,6 +34,9 @@ images:
     pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v6.0.1
     pullPolicy: IfNotPresent
 
 aztec:
@@ -212,18 +216,44 @@ bot:
       cpu: "1"
 
 ethereum:
-  externalHost: ""
   replicas: 1
   chainId: 1337
-  blockTime: 12sec
+  blockTime: 12
   extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
+  # 10 times the default of 131072
+  maxTxInputSizeBytes: "1310720"
   args: ""
-  service:
-    port: 8545
-    targetPort: 8545
+  execution:
+    externalHost: ""
+    service:
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  beacon:
+    externalHost: ""
+    service:
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10

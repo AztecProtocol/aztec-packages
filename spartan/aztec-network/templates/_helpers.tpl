@@ -142,9 +142,9 @@ Service Address Setup Container
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.externalHost }}"
+      value: "{{ .Values.ethereum.execution.externalHost }}"
     - name: ETHEREUM_PORT
-      value: "{{ .Values.ethereum.service.port }}"
+      value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT

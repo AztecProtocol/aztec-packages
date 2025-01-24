@@ -20,18 +20,20 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     // A shared secret for all accounts.
     const secret = Fr.random();
 
-    const initialFundedAccounts = Array.from({ length: numAccounts }).map(() => {
-      // A different signing key for each account.
-      const signingKey = GrumpkinScalar.random();
-      const salt = Fr.random();
-      const address = getSchnorrAccountContractAddress(secret, salt, signingKey);
-      return {
-        secret,
-        signingKey,
-        salt,
-        address,
-      };
-    });
+    const initialFundedAccounts = await Promise.all(
+      Array.from({ length: numAccounts }).map(async () => {
+        // A different signing key for each account.
+        const signingKey = GrumpkinScalar.random();
+        const salt = Fr.random();
+        const address = await getSchnorrAccountContractAddress(secret, salt, signingKey);
+        return {
+          secret,
+          signingKey,
+          salt,
+          address,
+        };
+      }),
+    );
 
     ({ teardown, logger, wallets } = await setup(numAccounts, { initialFundedAccounts }));
     logger.info('Account contracts deployed');
@@ -39,7 +41,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     accounts = wallets.map(w => w.getCompleteAddress());
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = deriveKeys(secret).publicKeys.masterIncomingViewingPublicKey;
+    const encryptionPublicKey = (await deriveKeys(secret)).publicKeys.masterIncomingViewingPublicKey;
     for (const account of accounts) {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }

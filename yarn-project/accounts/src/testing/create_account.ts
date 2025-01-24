@@ -9,17 +9,19 @@ import { type InitialAccountData } from './configuration.js';
 /**
  * Generate a fixed amount of random schnorr account contract instance.
  */
-export function generateSchnorrAccounts(numberOfAccounts: number) {
+export async function generateSchnorrAccounts(numberOfAccounts: number) {
   const secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
-  return secrets.map(secret => {
-    const salt = Fr.random();
-    return {
-      secret,
-      signingKey: deriveSigningKey(secret),
-      salt,
-      address: getSchnorrAccountContractAddress(secret, salt),
-    };
-  });
+  return await Promise.all(
+    secrets.map(async secret => {
+      const salt = Fr.random();
+      return {
+        secret,
+        signingKey: deriveSigningKey(secret),
+        salt,
+        address: await getSchnorrAccountContractAddress(secret, salt),
+      };
+    }),
+  );
 }
 
 /**
@@ -47,7 +49,7 @@ export async function deployFundedSchnorrAccount(
   } = { interval: 0.1, skipClassRegistration: false },
 ): Promise<AccountManager> {
   const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
-  const accountManager = getSchnorrAccount(pxe, account.secret, signingKey, account.salt);
+  const accountManager = await getSchnorrAccount(pxe, account.secret, signingKey, account.salt);
 
   // Pay the fee by the account itself.
   // This only works when the world state is prefilled with the balance for the account in test environment.

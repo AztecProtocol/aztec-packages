@@ -47,10 +47,10 @@ describe('e2e_l1_with_wall_time', () => {
     const provenTxs = [];
     for (let i = 0; i < numTxs; i++) {
       const account = initialFundedAccounts[i];
-      const accountManager = getSchnorrAccount(pxe, account.secret, account.signingKey, account.salt);
+      const accountManager = await getSchnorrAccount(pxe, account.secret, account.signingKey, account.salt);
       const deployMethod = await accountManager.getDeployMethod();
       const tx = await deployMethod.prove({
-        contractAddressSalt: accountManager.salt,
+        contractAddressSalt: account.salt,
         skipClassRegistration: true,
         skipPublicDeployment: true,
         universalDeploy: true,

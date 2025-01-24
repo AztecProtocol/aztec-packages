@@ -35,6 +35,7 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
+  type PublicLog,
   computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
@@ -94,7 +95,6 @@ import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 export class TXE implements TypedOracle {
   private blockNumber = 0;
   private sideEffectCounter = 0;
-  private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
@@ -107,7 +107,7 @@ export class TXE implements TypedOracle {
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
-  private publicLogs: UnencryptedL2Log[] = [];
+  private publicLogs: PublicLog[] = [];
 
   private committedBlocks = new Set<number>();
 
@@ -122,16 +122,16 @@ export class TXE implements TypedOracle {
 
   debug: LogFn;
 
-  constructor(
+  private constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private executionCache: HashedValuesCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
+    private contractAddress: AztecAddress,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
-    this.contractAddress = AztecAddress.random();
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
 
@@ -146,6 +146,16 @@ export class TXE implements TypedOracle {
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+  }
+
+  static async create(
+    logger: Logger,
+    trees: MerkleTrees,
+    executionCache: HashedValuesCache,
+    keyStore: KeyStore,
+    txeDatabase: TXEDatabase,
+  ) {
+    return new TXE(logger, trees, executionCache, keyStore, txeDatabase, await AztecAddress.random());
   }
 
   // Utils
@@ -254,8 +264,8 @@ export class TXE implements TypedOracle {
     const account = await this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
-    const authWitness = new AuthWitness(messageHash, [...signature]);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
+    const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
@@ -324,26 +334,13 @@ export class TXE implements TypedOracle {
     this.privateLogs.push(...privateLogs);
   }
 
-  addPublicLogs(logs: UnencryptedL2Log[]) {
+  addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
-        return;
-      }
       try {
-        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-        // This means that for every 32 bytes of payload, we only have 1 byte of data.
-        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
+        // The first elt stores lengths => tag is in fields[1]
+        const tag = log.log[1];
 
-        this.logger.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${this.blockNumber}`);
+        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
         this.logger.warn(`Failed to add tagged log to store: ${err}`);
@@ -371,10 +368,6 @@ export class TXE implements TypedOracle {
 
   getRandomField() {
     return Fr.random();
-  }
-
-  storeArrayInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
   }
 
   storeInExecutionCache(values: Fr[]) {
@@ -835,19 +828,30 @@ export class TXE implements TypedOracle {
       globalVariables,
     );
 
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+
     // When setting up a teardown call, we tell it that
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
     const tx = createTxForPublicCalls(
       /*setupExecutionRequests=*/ [],
       /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      firstNullifier,
       /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
       gasUsedByPrivate,
     );
 
     const result = await simulator.simulate(tx);
+    const noteHashes = result.avmProvingRequest.inputs.output.accumulatedData.noteHashes.filter(s => !s.isEmpty());
 
-    this.addPublicLogs(tx.unencryptedLogs.unrollLogs());
+    await this.addUniqueNoteHashesFromPublic(noteHashes);
+
+    this.addPublicLogs(
+      result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
+        log => !log.contractAddress.equals(AztecAddress.ZERO),
+      ),
+    );
 
     return Promise.resolve(result);
   }
@@ -899,7 +903,11 @@ export class TXE implements TypedOracle {
     const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
     const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
+
     await this.addPublicDataWrites(publicDataWrites);
     await this.addUniqueNoteHashesFromPublic(noteHashes);
     await this.addSiloedNullifiers(nullifiers);
@@ -953,7 +961,7 @@ export class TXE implements TypedOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
@@ -1013,7 +1021,11 @@ export class TXE implements TypedOracle {
       const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
       const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+      const { usedTxRequestHashForNonces } = this.noteCache.finish();
+      const firstNullifier = usedTxRequestHashForNonces
+        ? this.getTxRequestHash()
+        : this.noteCache.getAllNullifiers()[0];
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
       await this.addPublicDataWrites(publicDataWrites);
       await this.addUniqueNoteHashes(noteHashes);
       await this.addSiloedNullifiers(nullifiers);

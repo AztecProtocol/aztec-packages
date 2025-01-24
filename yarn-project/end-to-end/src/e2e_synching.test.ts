@@ -186,7 +186,7 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const deployWallet = this.wallets[i % this.wallets.length];
-        const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
         const tx = accountManager.deploy({
           deployWallet,
@@ -529,7 +529,7 @@ describe('e2e_synching', () => {
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
 
           await rollup.write.prune();
@@ -553,9 +553,9 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
-          expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).toEqual([]);
+          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
+            [],
+          );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));

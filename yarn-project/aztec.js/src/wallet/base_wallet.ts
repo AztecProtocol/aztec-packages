@@ -2,7 +2,8 @@ import {
   type AuthWitness,
   type EventMetadataDefinition,
   type ExtendedNote,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type L2Block,
   type LogFilter,
   type NotesFilter,
@@ -160,10 +161,10 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<AbiDecoded> {
     return this.pxe.simulateUnconstrained(functionName, args, to, from);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.pxe.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.pxe.getPublicLogs(filter);
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.pxe.getContractClassLogs(filter);
   }
   getBlockNumber(): Promise<number> {
@@ -193,16 +194,16 @@ export abstract class BaseWallet implements Wallet {
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();
   }
-  getEncryptedEvents<T>(
+  getPrivateEvents<T>(
     event: EventMetadataDefinition,
     from: number,
     limit: number,
     vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
   ): Promise<T[]> {
-    return this.pxe.getEncryptedEvents(event, from, limit, vpks);
+    return this.pxe.getPrivateEvents(event, from, limit, vpks);
   }
-  getUnencryptedEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    return this.pxe.getUnencryptedEvents(event, from, limit);
+  getPublicEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+    return this.pxe.getPublicEvents(event, from, limit);
   }
   public getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,

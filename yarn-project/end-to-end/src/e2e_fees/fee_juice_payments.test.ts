@@ -32,8 +32,8 @@ describe('e2e_fees Fee Juice payments', () => {
     await t.applyFundAliceWithBananas();
     ({ feeJuiceContract, aliceAddress, aliceWallet, bananaCoin, gasSettings, pxe } = await t.setup());
 
-    const [bob] = generateSchnorrAccounts(1);
-    bobAccount = getSchnorrAccount(pxe, bob.secret, bob.signingKey, bob.salt);
+    const [bob] = await generateSchnorrAccounts(1);
+    bobAccount = await getSchnorrAccount(pxe, bob.secret, bob.signingKey, bob.salt);
     bobAddress = bob.address;
     bobWallet = await bobAccount.getWallet();
 

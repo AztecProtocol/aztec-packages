@@ -25,7 +25,7 @@ describe('docs_examples', () => {
     // docs:start:create_wallet
     // Use a pre-funded wallet to pay for the fees for the deployments.
     const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
-    const newAccount = getSchnorrAccount(pxe, secretKey, signingPrivateKey);
+    const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
     await newAccount.deploy({ deployWallet: wallet }).wait();
     const newWallet = await newAccount.getWallet();
     // docs:end:create_wallet

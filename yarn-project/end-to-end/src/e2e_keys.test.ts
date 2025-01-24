@@ -104,7 +104,7 @@ describe('Keys', () => {
     it('gets ovsk_app', async () => {
       // Derive the ovpk_m_hash from the account secret
       const ovskM = deriveMasterOutgoingViewingSecretKey(secret);
-      const ovpkMHash = derivePublicKeyFromSecretKey(ovskM).hash();
+      const ovpkMHash = (await derivePublicKeyFromSecretKey(ovskM)).hash();
 
       // Compute the expected ovsk_app
       const expectedOvskApp = computeAppSecretKey(ovskM, testContract.address, 'ov');

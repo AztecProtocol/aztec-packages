@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
@@ -70,9 +70,9 @@ describe('e2e_prover_coordination', () => {
     );
 
     await snapshotManager.snapshot('setup', deployAccounts(2, logger), async ({ deployedAccounts }, { pxe }) => {
-      const accountManagers = deployedAccounts.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt));
-      await Promise.all(accountManagers.map(a => a.register()));
-      const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      const wallets = await Promise.all(
+        deployedAccounts.map(a => getSchnorrWalletWithSecretKey(pxe, a.secret, a.signingKey, a.salt)),
+      );
       wallets.forEach((w, i) => logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
       wallet = wallets[0];
       recipient = wallets[1].getAddress();

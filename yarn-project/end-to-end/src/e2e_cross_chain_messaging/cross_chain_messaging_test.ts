@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -86,9 +86,8 @@ export class CrossChainMessagingTest {
       '3_accounts',
       deployAccounts(3, this.logger),
       async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        const accountManagers = deployedAccounts.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-        this.accounts = accountManagers.map(a => a.getCompleteAddress());
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
 
         this.rollup = getContract({

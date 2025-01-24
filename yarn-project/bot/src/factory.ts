@@ -12,6 +12,7 @@ import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-type
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
@@ -40,7 +41,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!);
+    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -62,7 +63,7 @@ export class BotFactory {
   private async setupAccount() {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
-    const account = getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
+    const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
     const isInit = await this.pxe.isContractInitialized(account.getAddress());
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
@@ -112,7 +113,7 @@ export class BotFactory {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = deploy.getInstance(deployOpts).address;
+    const address = (await deploy.getInstance(deployOpts)).address;
     if (await this.pxe.isContractPubliclyDeployed(address)) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();

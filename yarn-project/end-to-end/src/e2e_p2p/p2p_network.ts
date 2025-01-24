@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/utils';
@@ -244,7 +244,7 @@ export class P2PNetworkTest {
       deployAccounts(1, this.logger, false),
       async ({ deployedAccounts }, { pxe }) => {
         const [account] = deployedAccounts;
-        this.wallet = await getSchnorrAccount(pxe, account.secret, account.signingKey, account.salt).getWallet();
+        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
       },
     );
   }

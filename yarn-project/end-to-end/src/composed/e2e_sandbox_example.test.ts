@@ -55,6 +55,7 @@ end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.t
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, type PXE, createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { timesParallel } from '@aztec/foundation/collection';
 
 import { format } from 'util';
 
@@ -182,15 +183,13 @@ describe('e2e_sandbox_example', () => {
     // Creates new accounts using an account contract that verifies schnorr signatures
     // Returns once the deployment transactions have settled
     const createSchnorrAccounts = async (numAccounts: number, pxe: PXE) => {
-      const accountManagers = Array(numAccounts)
-        .fill(0)
-        .map(() =>
-          getSchnorrAccount(
-            pxe,
-            Fr.random(), // secret key
-            GrumpkinScalar.random(), // signing private key
-          ),
-        );
+      const accountManagers = await timesParallel(numAccounts, () =>
+        getSchnorrAccount(
+          pxe,
+          Fr.random(), // secret key
+          GrumpkinScalar.random(), // signing private key
+        ),
+      );
 
       // Use one of the pre-funded accounts to pay for the deployment.
       const [deployWallet] = await getDeployedTestAccountsWallets(pxe);

@@ -3,6 +3,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  CheatCodes,
   type Logger,
   type PXE,
   createLogger,
@@ -50,6 +51,7 @@ export class FeesTest {
   public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
+  public cheatCodes!: CheatCodes;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -134,6 +136,7 @@ export class FeesTest {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
@@ -142,7 +145,8 @@ export class FeesTest {
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
 
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        const canonicalFeeJuice = await getCanonicalFeeJuice();
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         if (this.numberOfAccounts > 1) {
           const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
           await this.aliceWallet.registerAccount(deployedAccounts[1].secret, computePartialAddress(bobInstance!));

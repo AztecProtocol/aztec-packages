@@ -86,7 +86,7 @@ describe('sequencer', () => {
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
-  const feeRecipient = AztecAddress.random();
+  let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
   const archive = Fr.random();
@@ -138,7 +138,8 @@ describe('sequencer', () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
     lastBlockNumber = 0;
     newBlockNumber = lastBlockNumber + 1;
@@ -490,6 +491,18 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).not.toHaveBeenCalled();
   });
 
+  it('does not publish a block if the block proposal failed', async () => {
+    const tx = makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    validatorClient.createBlockProposal.mockResolvedValue(undefined);
+
+    await sequencer.doRealWork();
+
+    expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+  });
+
   describe('proof quotes', () => {
     let tx: Tx;
     let txHash: TxHash;
@@ -580,6 +593,25 @@ describe('sequencer', () => {
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      await sequencer.doRealWork();
+      expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    });
+
+    it('submits a valid proof quote if building a block proposal fails', async () => {
+      const blockNumber = epochDuration + 1;
+      await setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote();
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      validatorClient.createBlockProposal.mockResolvedValue(undefined);
 
       await sequencer.doRealWork();
       expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);

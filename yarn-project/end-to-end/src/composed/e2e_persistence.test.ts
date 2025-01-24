@@ -206,7 +206,9 @@ describe('Aztec persistence', () => {
 
     it('pxe does not know of the deployed contract', async () => {
       const account = initialFundedAccounts[0];
-      const wallet = await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt).register();
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       await expect(TokenBlacklistContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
 
@@ -217,7 +219,9 @@ describe('Aztec persistence', () => {
       });
 
       const account = initialFundedAccounts[1]; // Not the owner account.
-      const wallet = await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt).register();
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
       await expect(contract.methods.balance_of_private(owner.address).simulate()).resolves.toEqual(0n);
     });
@@ -229,7 +233,9 @@ describe('Aztec persistence', () => {
       });
 
       const account = initialFundedAccounts[1]; // Not the owner account.
-      const wallet = await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt).register();
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
 
       await expect(contract.methods.total_supply().simulate()).resolves.toBeGreaterThan(0n);
@@ -241,7 +247,7 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const ownerAccount = getSchnorrAccount(context.pxe, owner.secret, owner.signingKey, owner.salt);
+      const ownerAccount = await getSchnorrAccount(context.pxe, owner.secret, owner.signingKey, owner.salt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
@@ -270,7 +276,7 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const ownerAccount = getSchnorrAccount(temporaryContext.pxe, owner.secret, owner.signingKey, owner.salt);
+      const ownerAccount = await getSchnorrAccount(temporaryContext.pxe, owner.secret, owner.signingKey, owner.salt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
 

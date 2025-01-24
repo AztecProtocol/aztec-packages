@@ -14,9 +14,9 @@ export const FeeJuiceArtifact = loadContractArtifact(FeeJuiceJson as NoirCompile
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export function getCanonicalFeeJuice(): ProtocolContract {
+export async function getCanonicalFeeJuice(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = makeProtocolContract('FeeJuice', FeeJuiceArtifact);
+    protocolContract = await makeProtocolContract('FeeJuice', FeeJuiceArtifact);
   }
   return protocolContract;
 }

@@ -305,7 +305,7 @@ describe('Accrued Substate', () => {
       expect(inst.serialize()).toEqual(buf);
     });
 
-    it('Should append unencrypted logs correctly', async () => {
+    it('Should append public logs correctly', async () => {
       const startOffset = 0;
       const logSizeOffset = 20;
 
@@ -318,8 +318,8 @@ describe('Accrued Substate', () => {
 
       await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
 
-      expect(trace.traceUnencryptedLog).toHaveBeenCalledTimes(1);
-      expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, values);
+      expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
+      expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
     });
   });
 

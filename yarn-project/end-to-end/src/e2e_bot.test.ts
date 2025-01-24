@@ -21,7 +21,7 @@ describe('e2e_bot', () => {
         secret: senderPrivateKey,
         signingKey,
         salt,
-        address: getSchnorrAccountContractAddress(senderPrivateKey, salt, signingKey),
+        address: await getSchnorrAccountContractAddress(senderPrivateKey, salt, signingKey),
       },
     ];
     // const initialA

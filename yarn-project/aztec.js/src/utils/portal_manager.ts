@@ -36,7 +36,7 @@ export type L2Claim = {
 };
 
 /** L1 to L2 message info that corresponds to an amount to claim. */
-export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: Fr };
+export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: bigint };
 
 /** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
 export type L2AmountClaimWithRecipient = L2AmountClaim & {
@@ -173,7 +173,7 @@ export class L1FeeJuicePortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
@@ -264,7 +264,7 @@ export class L1ToL2TokenPortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
@@ -306,7 +306,7 @@ export class L1ToL2TokenPortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       recipient: to,

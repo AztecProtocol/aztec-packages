@@ -20,7 +20,6 @@ import {
   FeeJuicePaymentMethod,
   type Logger,
   type PXE,
-  type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
@@ -432,7 +431,8 @@ export async function setup(
   config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
   const initialFundedAccounts =
-    opts.initialFundedAccounts ?? generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts);
+    opts.initialFundedAccounts ??
+    (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
   const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address),
     opts.initialAccountFeeJuice,
@@ -638,7 +638,10 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
+  const requests = await Promise.all(
+    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
+  );
+  const batch = new BatchCall(sender, [...requests]);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts
@@ -674,38 +677,6 @@ export function getLogger() {
   }
   return createLogger('e2e:' + describeBlockName);
 }
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param tx - An instance of SentTx for which to retrieve the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
-  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - An instance of PXE for retrieving the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
-  // docs:start:get_logs
-  // Get the unencrypted logs from the last block
-  const fromBlock = await pxe.getBlockNumber();
-  const logFilter = {
-    fromBlock,
-    toBlock: fromBlock + 1,
-  };
-  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
-  // docs:end:get_logs
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
 
 export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(

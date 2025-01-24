@@ -191,7 +191,7 @@ describe('e2e_2_pxes', () => {
     await sharedWalletOnA.registerSender(walletA.getAddress());
 
     // Register the shared account on pxeB.
-    const sharedAccountOnB = getSchnorrAccount(
+    const sharedAccountOnB = await getSchnorrAccount(
       pxeB,
       sharedAccount.secret,
       sharedAccount.signingKey,

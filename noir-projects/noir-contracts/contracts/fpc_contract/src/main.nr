@@ -79,7 +79,7 @@ contract FPC {
     /// - which FPC has been used to make the payment;
     /// - the asset which was used to make the payment.
     #[private]
-    fn fee_entrypoint_private(max_fee: Field, nonce: Field) {
+    fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
@@ -110,7 +110,7 @@ contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
-    fn fee_entrypoint_public(max_fee: Field, nonce: Field) {
+    fn fee_entrypoint_public(max_fee: U128, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
@@ -124,10 +124,18 @@ contract FPC {
         context.set_as_fee_payer();
         // TODO(#6277) for improving interface:
         // FPC::at(context.this_address()).pay_refund(...).set_public_teardown_function(&mut context);
+        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
-            [context.msg_sender().to_field(), max_fee, config.accepted_asset.to_field()],
+            comptime {
+                FunctionSelector::from_signature("pay_refund((Field),(Field,Field),(Field))")
+            },
+            [
+                context.msg_sender().to_field(),
+                max_fee_serialized[0],
+                max_fee_serialized[1],
+                config.accepted_asset.to_field(),
+            ],
         );
     }
 
@@ -136,9 +144,9 @@ contract FPC {
     /// to avoid the need for another read from public storage.
     #[public]
     #[internal]
-    fn pay_refund(refund_recipient: AztecAddress, max_fee: Field, accepted_asset: AztecAddress) {
-        let actual_fee = context.transaction_fee();
-        assert(!max_fee.lt(actual_fee), "Max fee paid to the paymaster does not cover actual fee");
+    fn pay_refund(refund_recipient: AztecAddress, max_fee: U128, accepted_asset: AztecAddress) {
+        let actual_fee = U128::from_integer(context.transaction_fee());
+        assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
 

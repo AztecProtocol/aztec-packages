@@ -35,7 +35,7 @@ describe('deploy_l1_contracts', () => {
     genesisArchiveRoot = Fr.random();
     genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
-    l2FeeJuiceAddress = AztecAddress.random();
+    l2FeeJuiceAddress = await AztecAddress.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
   });

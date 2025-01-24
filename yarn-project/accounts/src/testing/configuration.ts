@@ -4,7 +4,11 @@ import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
 
-import { getSchnorrAccount, getSchnorrAccountContractAddress } from '../schnorr/index.js';
+import {
+  getSchnorrAccount,
+  getSchnorrAccountContractAddress,
+  getSchnorrWalletWithSecretKey,
+} from '../schnorr/index.js';
 
 export const INITIAL_TEST_SECRET_KEYS = [
   Fr.fromHexString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
@@ -45,13 +49,19 @@ export interface InitialAccountData {
 /**
  * Gets the basic information for initial test accounts.
  */
-export function getInitialTestAccounts(): InitialAccountData[] {
-  return INITIAL_TEST_SECRET_KEYS.map((secret, i) => ({
-    secret,
-    signingKey: INITIAL_TEST_ENCRYPTION_KEYS[i],
-    salt: INITIAL_TEST_ACCOUNT_SALTS[i],
-    address: getSchnorrAccountContractAddress(secret, INITIAL_TEST_ACCOUNT_SALTS[i], INITIAL_TEST_SIGNING_KEYS[i]),
-  }));
+export function getInitialTestAccounts(): Promise<InitialAccountData[]> {
+  return Promise.all(
+    INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => ({
+      secret,
+      signingKey: INITIAL_TEST_ENCRYPTION_KEYS[i],
+      salt: INITIAL_TEST_ACCOUNT_SALTS[i],
+      address: await getSchnorrAccountContractAddress(
+        secret,
+        INITIAL_TEST_ACCOUNT_SALTS[i],
+        INITIAL_TEST_SIGNING_KEYS[i],
+      ),
+    })),
+  );
 }
 
 /**
@@ -61,9 +71,15 @@ export function getInitialTestAccounts(): InitialAccountData[] {
  */
 export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   return Promise.all(
-    INITIAL_TEST_SECRET_KEYS.map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
-    ),
+    INITIAL_TEST_SECRET_KEYS.map(async (encryptionKey, i) => {
+      const account = await getSchnorrAccount(
+        pxe,
+        encryptionKey!,
+        INITIAL_TEST_SIGNING_KEYS[i]!,
+        INITIAL_TEST_ACCOUNT_SALTS[i],
+      );
+      return account.getWallet();
+    }),
   );
 }
 
@@ -74,7 +90,8 @@ export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWi
  */
 export async function getDeployedTestAccounts(pxe: PXE): Promise<InitialAccountData[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
-  return getInitialTestAccounts().filter(t => registeredAccounts.some(r => r.address.equals(t.address)));
+  const testAccounts = await getInitialTestAccounts();
+  return testAccounts.filter(t => registeredAccounts.some(r => r.address.equals(t.address)));
 }
 
 /**
@@ -85,6 +102,6 @@ export async function getDeployedTestAccounts(pxe: PXE): Promise<InitialAccountD
 export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   const testAccounts = await getDeployedTestAccounts(pxe);
   return Promise.all(
-    testAccounts.map(({ secret, signingKey, salt }) => getSchnorrAccount(pxe, secret, signingKey, salt).getWallet()),
+    testAccounts.map(({ secret, signingKey, salt }) => getSchnorrWalletWithSecretKey(pxe, secret, signingKey, salt)),
   );
 }

@@ -39,7 +39,7 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
 
 const setupApp = async () => {
   const { pxe: pxeService } = await setup(0, {
-    initialFundedAccounts: getInitialTestAccounts(),
+    initialFundedAccounts: await getInitialTestAccounts(),
   });
   let pxeURL = PXE_URL;
   let pxeServer = undefined;

@@ -131,8 +131,8 @@ export const browserTestSuite = (
             console.log(`Existing account: ${addressString}`);
             return addressString;
           } else {
-            const { secret, signingKey, salt } = getInitialTestAccounts()[0];
-            const account = getSchnorrAccount(pxe, secret, signingKey, salt);
+            const { secret, signingKey, salt } = (await getInitialTestAccounts())[0];
+            const account = await getSchnorrAccount(pxe, secret, signingKey, salt);
             const address = account.getAddress();
             const paymentMethod = new FeeJuicePaymentMethod(address);
             await account.deploy({ fee: { paymentMethod } }).wait();
@@ -210,7 +210,7 @@ export const browserTestSuite = (
           if (!recipientWallet) {
             const secret = Fr.random();
             const signingKey = GrumpkinScalar.random();
-            const account = getSchnorrAccount(pxe, secret, signingKey);
+            const account = await getSchnorrAccount(pxe, secret, signingKey);
             await account.deploy({ deployWallet: wallet }).wait();
             recipientWallet = await account.getWallet();
             console.log(`Deployed new account: ${account.getAddress()}`);

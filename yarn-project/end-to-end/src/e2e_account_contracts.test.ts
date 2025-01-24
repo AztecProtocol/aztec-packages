@@ -34,7 +34,7 @@ const itShouldBehaveLikeAnAccountContract = (
       const salt = Fr.random();
       const signingKey = deriveSigningKey(secret);
       const accountContract = getAccountContract(signingKey);
-      const address = getAccountContractAddress(accountContract, secret, salt);
+      const address = await getAccountContractAddress(accountContract, secret, salt);
       const accountData = {
         secret,
         signingKey,
@@ -44,8 +44,8 @@ const itShouldBehaveLikeAnAccountContract = (
 
       ({ logger, pxe, teardown, wallet } = await setup(0, { initialFundedAccounts: [accountData] }));
 
-      const account = new AccountManager(pxe, secret, accountContract, salt);
-      if (account.isDeployable()) {
+      const account = await AccountManager.create(pxe, secret, accountContract, salt);
+      if (await account.isDeployable()) {
         // The account is pre-funded and can pay for its own fee.
         const paymentMethod = new FeeJuicePaymentMethod(address);
         await account.deploy({ fee: { paymentMethod } }).wait();
