@@ -116,7 +116,7 @@ export class InMemoryTxPool implements TxPool {
       const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
         eventName: 'tx-added-to-pool',
-        ...tx.getStats(),
+        ...(await tx.getStats()),
       } satisfies TxAddedToPoolStats);
 
       const key = txHash.toBigInt();

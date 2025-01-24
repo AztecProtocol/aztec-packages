@@ -174,14 +174,17 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<void> {
+    const hashesAndStats = await Promise.all(
+      txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
+    );
     return this.#store.transaction(() => {
       let pendingCount = 0;
-      for (const tx of txs) {
-        const txHash = tx.getTxHash();
+      txs.forEach((tx, i) => {
+        const { txHash, txStats } = hashesAndStats[i];
         this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
           eventName: 'tx-added-to-pool',
-          ...tx.getStats(),
+          ...txStats,
         } satisfies TxAddedToPoolStats);
 
         const key = txHash.toString();
@@ -193,7 +196,7 @@ export class AztecKVTxPool implements TxPool {
           void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
           this.#metrics.recordSize(tx);
         }
-      }
+      });
 
       this.#metrics.recordAddedObjects(pendingCount, 'pending');
     });
