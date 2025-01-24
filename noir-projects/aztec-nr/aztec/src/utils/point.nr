@@ -42,8 +42,7 @@ pub fn get_sign_of_point(p: Point) -> bool {
 pub fn point_from_x_coord(x: Field) -> Point {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
-    let (is_sq, y) = sqrt(rhs);
-    assert(is_sq);
+    let y = sqrt(rhs).unwrap();
     Point { x, y, is_infinite: false }
 }
 
