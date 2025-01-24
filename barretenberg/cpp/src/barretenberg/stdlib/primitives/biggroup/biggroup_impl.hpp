@@ -891,4 +891,33 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
 
     return element(out_x, out_y) - element(offset_generators.second);
 }
+/**
+ * @brief Specialization of the * operator to take advantage of 128 bit challenges. Note that we can not determine the
+ * num_rounds dynamically, as it would lead to non-fixed recursive verifier circuits sizes.
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::short_scalar_mul(const Fr& scalar, const size_t num_bits) const
+{
+    const size_t num_rounds = num_bits;
+
+    std::vector<bool_ct> naf_entries = compute_naf(scalar);
+
+    const auto offset_generators = compute_offset_generators(num_rounds);
+
+    element accumulator = *this + offset_generators.first;
+
+    for (size_t i = 1; i < num_rounds; ++i) {
+        bool_ct predicate = naf_entries[i];
+        bigfield y_test = y.conditional_negate(predicate);
+        element to_add(x, y_test);
+        accumulator = accumulator.montgomery_ladder(to_add);
+    }
+
+    element skew_output = accumulator - (*this);
+
+    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
+    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
+
+    return element(out_x, out_y) - element(offset_generators.second);
+}
 } // namespace bb::stdlib::element_default
