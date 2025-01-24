@@ -332,7 +332,21 @@ jobs:
     enable: false
 
 ethereum:
-  resources:
-    requests:
-      memory: "5Gi"
-      cpu: "1.5"
+  execution:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"
