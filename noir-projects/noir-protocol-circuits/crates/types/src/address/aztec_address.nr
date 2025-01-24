@@ -26,7 +26,7 @@ use std::{
 
 // Aztec address
 pub struct AztecAddress {
-    pub inner: Field,
+    pub x_coord: Field,
 }
 
 impl Eq for AztecAddress {
@@ -37,19 +37,19 @@ impl Eq for AztecAddress {
 
 impl Empty for AztecAddress {
     fn empty() -> Self {
-        Self { inner: 0 }
+        Self { x_coord: 0 }
     }
 }
 
 impl ToField for AztecAddress {
     fn to_field(self) -> Field {
-        self.inner
+        self.x_coord
     }
 }
 
 impl FromField for AztecAddress {
     fn from_field(value: Field) -> AztecAddress {
-        AztecAddress { inner: value }
+        AztecAddress { x_coord: value }
     }
 }
 
@@ -79,14 +79,14 @@ impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 
 impl AztecAddress {
     pub fn zero() -> Self {
-        Self { inner: 0 }
+        Self { x_coord: 0 }
     }
 
     pub fn to_address_point(self) -> AddressPoint {
         // We compute the address point by taking our address, setting it to x, and then solving for y in the
         // equation which defines our bn curve:
         // y^2 = x^3 - 17; x = address
-        let x = self.inner;
+        let x = self.x_coord;
         let y_squared = pow(x, 3) - 17;
 
         // TODO (#8970): Handle cases where we cannot recover a point from an address
@@ -99,7 +99,7 @@ impl AztecAddress {
             y = (MAX_FIELD_VALUE + 1) - y;
         }
 
-        AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } }
+        AddressPoint { inner: Point { x: self.x_coord, y, is_infinite: false } }
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
@@ -156,7 +156,7 @@ impl AztecAddress {
     }
 
     pub fn is_zero(self) -> bool {
-        self.inner == 0
+        self.x_coord == 0
     }
 
     pub fn assert_is_zero(self) {
@@ -220,12 +220,12 @@ fn compute_preaddress_from_partial_and_pub_keys() {
 
 #[test]
 fn from_field_to_field() {
-    let address = AztecAddress { inner: 37 };
+    let address = AztecAddress { x_coord: 37 };
     assert_eq(FromField::from_field(address.to_field()), address);
 }
 
 #[test]
 fn serde() {
-    let address = AztecAddress { inner: 37 };
+    let address = AztecAddress { x_coord: 37 };
     assert_eq(Deserialize::deserialize(address.serialize()), address);
 }
