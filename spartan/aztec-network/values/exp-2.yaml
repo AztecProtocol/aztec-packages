@@ -303,7 +303,7 @@ bootNode:
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 8
+  replicas: 2
 
 proverBroker:
   resources:
