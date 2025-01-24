@@ -4,14 +4,15 @@ import {
   type AztecNode,
   type CheatCodes,
   Fr,
+  HashedValues,
   type Logger,
   type PXE,
-  PackedValues,
   TxExecutionRequest,
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
@@ -91,7 +92,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingSecretKey = Fr.random();
-    crowdfundingPublicKeys = deriveKeys(crowdfundingSecretKey).publicKeys;
+    crowdfundingPublicKeys = (await deriveKeys(crowdfundingSecretKey)).publicKeys;
 
     const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
       crowdfundingPublicKeys,
@@ -100,7 +101,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       operatorWallet.getAddress(),
       deadline,
     );
-    const crowdfundingInstance = crowdfundingDeployment.getInstance();
+    const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await pxe.registerAccount(crowdfundingSecretKey, computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send().deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
@@ -143,7 +144,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      owner: uniqueNote.note.items[1],
+      owner: AztecAddress.fromField(uniqueNote.note.items[1]),
       randomness: uniqueNote.note.items[2],
     };
   };
@@ -336,14 +337,14 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointHashedValues = HashedValues.fromValues(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
       call.selector,
-      entrypointPackedValues.hash,
+      entrypointHashedValues.hash,
       new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
-      [entrypointPackedValues],
+      [entrypointHashedValues],
       [],
     );
     // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using

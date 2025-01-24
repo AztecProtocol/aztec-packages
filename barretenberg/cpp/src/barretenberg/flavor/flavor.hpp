@@ -420,6 +420,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
+// These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 
@@ -442,8 +444,6 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                             MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template <typename T>
-concept FlavorHasZK =  T::HasZK;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {

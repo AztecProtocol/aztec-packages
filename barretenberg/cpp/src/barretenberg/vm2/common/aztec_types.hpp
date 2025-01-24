@@ -16,6 +16,12 @@ struct PublicKeys {
     AffinePoint incoming_viewing_key;
     AffinePoint outgoing_viewing_key;
     AffinePoint tagging_key;
+
+    std::vector<FF> to_fields() const
+    {
+        return { nullifier_key.x,        nullifier_key.y,        incoming_viewing_key.x, incoming_viewing_key.y,
+                 outgoing_viewing_key.x, outgoing_viewing_key.y, tagging_key.x,          tagging_key.y };
+    }
 };
 
 struct ContractInstance {

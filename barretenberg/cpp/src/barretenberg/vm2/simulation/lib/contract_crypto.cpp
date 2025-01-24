@@ -41,4 +41,29 @@ FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root,
         { GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_fn_root, public_bytecode_commitment });
 }
 
+FF compute_contract_address(const ContractInstance& contract_instance)
+{
+    FF salted_initialization_hash = poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS,
+                                                      contract_instance.salt,
+                                                      contract_instance.initialisation_hash,
+                                                      contract_instance.deployer_addr });
+    FF partial_address = poseidon2::hash(
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.contract_class_id, salted_initialization_hash });
+
+    std::vector<FF> public_keys_hash_fields = contract_instance.public_keys.to_fields();
+    std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
+    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
+        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
+        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
+        // Is it guaranteed we wont get a point at infinity here?
+        public_key_hash_vec.push_back(FF::zero());
+    }
+    FF public_keys_hash = poseidon2::hash({ public_key_hash_vec });
+
+    FF h = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    // This is safe since BN254_Fr < GRUMPKIN_Fr so we know there is no modulo reduction
+    grumpkin::fr h_fq = grumpkin::fr(h);
+    return (grumpkin::g1::affine_one * h_fq + contract_instance.public_keys.incoming_viewing_key).x;
+}
+
 } // namespace bb::avm2::simulation

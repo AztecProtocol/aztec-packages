@@ -7,8 +7,12 @@ if [ "$#" -lt 1 ]; then
   exit 1
 fi
 
+if [[ "$1" == *"disabled-cache"* ]]; then
+  echo "Not uploading test flag $1 due to uncommitted changes/files."
+  exit 0
+fi
 if [ "${CI:-0}" -lt 1 ]; then
-  # Don't upload if CI isn't set. No need to muddle with dev runs.A
+  # Don't upload if CI isn't set. No need to muddle with dev runs.
   echo "Not uploading test flag $1 because CI=0."
   exit 0
 fi

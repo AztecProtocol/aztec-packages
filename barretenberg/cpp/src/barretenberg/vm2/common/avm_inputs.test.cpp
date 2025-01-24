@@ -106,6 +106,12 @@ TEST(AvmInputsTest, Deserialization)
                     .packedBytecode = string_to_buffer("secondbuffer"),
                 },
             },
+            .initialTreeRoots = {
+                .publicDataTree = FF(0x1),
+                .nullifierTree = FF(0x2),
+                .noteHashTree = FF(0x3),
+                .l1ToL2MessageTree = FF(0x4),
+            },
         },
     };
 
@@ -115,6 +121,7 @@ TEST(AvmInputsTest, Deserialization)
     EXPECT_EQ(inputs.publicInputs, expected.publicInputs);
     EXPECT_EQ(inputs.hints.contractClasses, expected.hints.contractClasses);
     EXPECT_EQ(inputs.hints.contractInstances, expected.hints.contractInstances);
+    EXPECT_EQ(inputs.hints.initialTreeRoots, expected.hints.initialTreeRoots);
     EXPECT_EQ(inputs, expected); // Catch all.
 }
 

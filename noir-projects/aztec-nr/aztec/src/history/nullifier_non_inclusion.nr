@@ -16,6 +16,7 @@ trait ProveNullifierNonInclusion {
 impl ProveNullifierNonInclusion for BlockHeader {
     fn prove_nullifier_non_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of a low nullifier of the nullifier
+        /// Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_low_nullifier_membership_witness(
                 self.global_variables.block_number as u32,
@@ -27,9 +28,9 @@ impl ProveNullifierNonInclusion for BlockHeader {
         // the 'low leaf', i.e. the leaf that would come immediately before the nullifier's leaf, if the nullifier were
         // to be in the tree.
         let low_nullifier_leaf = witness.leaf_preimage;
-        assert(
-            self.state.partial.nullifier_tree.root
-                == root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
+        assert_eq(
+            self.state.partial.nullifier_tree.root,
+            root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
             "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion",
         );
 

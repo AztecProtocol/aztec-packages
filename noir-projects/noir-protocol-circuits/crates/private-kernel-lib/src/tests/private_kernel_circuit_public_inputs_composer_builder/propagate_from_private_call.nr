@@ -1,5 +1,5 @@
 use crate::{
-    components::private_kernel_circuit_public_inputs_composer::create_first_nullifier,
+    components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
     tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
 use dep::types::{
@@ -10,13 +10,14 @@ use dep::types::{
 #[test]
 fn propagate_from_private_call_empty_data_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    builder.with_protocol_nullifier();
 
     let tx_request = builder.tx_request;
-    let first_nullifier = create_first_nullifier(tx_request);
+    let protocol_nullifier = create_protocol_nullifier(tx_request);
 
     let output = builder.compose_from_tx_request(false);
 
-    assert_eq(output.end.nullifiers[0], first_nullifier);
+    assert_eq(output.end.nullifiers[0], protocol_nullifier);
 
     let array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(output);
     let mut expected_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::empty();
@@ -116,12 +117,9 @@ fn propagate_from_private_call_nullifiers_succeeds() {
     builder.private_call.append_nullifiers(2);
     let res = builder.private_call.nullifiers.storage();
 
-    let tx_request = builder.tx_request;
-    let first_nullifier = create_first_nullifier(tx_request);
-
     let output = builder.compose_from_tx_request(false);
 
-    assert_array_eq(output.end.nullifiers, [first_nullifier, res[0], res[1]]);
+    assert_array_eq(output.end.nullifiers, [res[0], res[1]]);
 }
 
 #[test]

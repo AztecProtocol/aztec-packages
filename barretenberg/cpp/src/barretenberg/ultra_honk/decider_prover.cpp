@@ -103,12 +103,10 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
     PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
-    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS
-    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

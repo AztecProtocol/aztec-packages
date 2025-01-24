@@ -57,6 +57,8 @@ contract EcdsaRAccount {
         let public_key = storage.public_key.get_note();
 
         // Load auth witness
+        /// Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        /// Hence it's safe.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {

@@ -345,7 +345,6 @@ impl Display for FmtStrFragment {
 pub enum DocStyle {
     Outer,
     Inner,
-    Safety,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -425,13 +424,11 @@ impl fmt::Display for Token {
             Token::LineComment(ref s, style) => match style {
                 Some(DocStyle::Inner) => write!(f, "//!{s}"),
                 Some(DocStyle::Outer) => write!(f, "///{s}"),
-                Some(DocStyle::Safety) => write!(f, "//@safety{s}"),
                 None => write!(f, "//{s}"),
             },
             Token::BlockComment(ref s, style) => match style {
                 Some(DocStyle::Inner) => write!(f, "/*!{s}*/"),
                 Some(DocStyle::Outer) => write!(f, "/**{s}*/"),
-                Some(DocStyle::Safety) => write!(f, "/*@safety{s}*/"),
                 None => write!(f, "/*{s}*/"),
             },
             Token::Quote(ref stream) => {
@@ -1034,6 +1031,7 @@ pub enum Keyword {
     Impl,
     In,
     Let,
+    Loop,
     Match,
     Mod,
     Module,
@@ -1093,6 +1091,7 @@ impl fmt::Display for Keyword {
             Keyword::Impl => write!(f, "impl"),
             Keyword::In => write!(f, "in"),
             Keyword::Let => write!(f, "let"),
+            Keyword::Loop => write!(f, "loop"),
             Keyword::Match => write!(f, "match"),
             Keyword::Mod => write!(f, "mod"),
             Keyword::Module => write!(f, "Module"),
@@ -1155,6 +1154,7 @@ impl Keyword {
             "impl" => Keyword::Impl,
             "in" => Keyword::In,
             "let" => Keyword::Let,
+            "loop" => Keyword::Loop,
             "match" => Keyword::Match,
             "mod" => Keyword::Mod,
             "Module" => Keyword::Module,

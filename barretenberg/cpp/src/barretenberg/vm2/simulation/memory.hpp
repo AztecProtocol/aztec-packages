@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <unordered_map>
 
+#include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
@@ -50,7 +50,7 @@ class Memory : public MemoryInterface {
     };
 
     uint32_t space_id;
-    std::unordered_map<size_t, ValueAndTag> memory;
+    unordered_flat_map<size_t, ValueAndTag> memory;
     EventEmitterInterface<MemoryEvent>& events;
 };
 

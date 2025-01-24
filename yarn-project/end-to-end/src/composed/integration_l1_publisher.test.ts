@@ -27,7 +27,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -171,23 +170,20 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
-    publisher = new L1Publisher(
-      {
-        l1RpcUrl: config.l1RpcUrl,
-        requiredConfirmations: 1,
-        l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
-        l1PublishRetryIntervalMS: 100,
-        l1ChainId: 31337,
-        viemPollingIntervalMS: 100,
-        ethereumSlotDuration: config.ethereumSlotDuration,
-        blobSinkUrl: BLOB_SINK_URL,
-      },
-      { telemetry: new NoopTelemetryClient() },
-    );
+    publisher = new L1Publisher({
+      l1RpcUrl: config.l1RpcUrl,
+      requiredConfirmations: 1,
+      l1Contracts: l1ContractAddresses,
+      publisherPrivateKey: sequencerPK,
+      l1PublishRetryIntervalMS: 100,
+      l1ChainId: 31337,
+      viemPollingIntervalMS: 100,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      blobSinkUrl: BLOB_SINK_URL,
+    });
 
     coinbase = config.coinbase || EthAddress.random();
-    feeRecipient = config.feeRecipient || AztecAddress.random();
+    feeRecipient = config.feeRecipient || (await AztecAddress.random());
 
     const fork = await worldStateSynchronizer.fork();
 
@@ -323,7 +319,7 @@ describe('L1Publisher integration', () => {
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork();
-    const tempBuilder = new LightweightBlockBuilder(tempFork, new NoopTelemetryClient());
+    const tempBuilder = new LightweightBlockBuilder(tempFork);
     await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
     await tempBuilder.addTxs(txs);
     const block = await tempBuilder.setBlockCompleted();
@@ -532,17 +528,19 @@ describe('L1Publisher integration', () => {
       await expect(publisher.proposeL2Block(block)).resolves.toEqual(false);
 
       // Test for both calls
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
+      // NOTE: First error is from the simulate fn, which isn't supported by anvil
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
 
       // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        1,
+        2,
         expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
+        expect.anything(),
       );
 
       // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        2,
+        3,
         expect.stringMatching(
           /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
         ),

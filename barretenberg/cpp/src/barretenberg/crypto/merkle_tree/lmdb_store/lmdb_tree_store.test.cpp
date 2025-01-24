@@ -104,6 +104,48 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     }
 }
 
+TEST_F(LMDBTreeStoreTest, can_read_data_from_multiple_threads)
+{
+    TreeMeta metaData;
+    metaData.committedSize = 56;
+    metaData.initialSize = 12;
+    metaData.initialRoot = VALUES[1];
+    metaData.root = VALUES[2];
+    metaData.depth = 40;
+    metaData.oldestHistoricBlock = 87;
+    metaData.unfinalisedBlockHeight = 95;
+    metaData.name = "Note hash tree";
+    metaData.size = 60;
+    LMDBTreeStore store(_directory, "DB1", _mapSize, 2);
+    {
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.write_meta_data(metaData, *transaction);
+        transaction->commit();
+    }
+
+    uint64_t numIterationsPerThread = 1000;
+    uint32_t numThreads = 16;
+
+    {
+        auto func = [&]() -> void {
+            for (uint64_t iteration = 0; iteration < numIterationsPerThread; iteration++) {
+                LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+                TreeMeta readBack;
+                bool success = store.read_meta_data(readBack, *transaction);
+                EXPECT_TRUE(success);
+                EXPECT_EQ(readBack, metaData);
+            }
+        };
+        std::vector<std::unique_ptr<std::thread>> threads;
+        for (uint64_t count = 0; count < numThreads; count++) {
+            threads.emplace_back(std::make_unique<std::thread>(func));
+        }
+        for (uint64_t count = 0; count < numThreads; count++) {
+            threads[count]->join();
+        }
+    }
+}
+
 TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
 {
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);

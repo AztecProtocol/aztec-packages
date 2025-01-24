@@ -39,8 +39,8 @@ impl ResetOutputValidatorBuilder {
     pub fn new() -> Self {
         let mut output = FixtureBuilder::new();
         let mut previous_kernel = FixtureBuilder::new();
-        output.set_first_nullifier();
-        previous_kernel.set_first_nullifier();
+        output.set_protocol_nullifier();
+        previous_kernel.set_protocol_nullifier();
         output.validation_requests_split_counter = Option::some(0);
         previous_kernel.validation_requests_split_counter = Option::some(0);
 

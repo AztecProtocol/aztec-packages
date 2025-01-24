@@ -5,6 +5,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil } from '@viem/anvil';
 import {
+  type Abi,
   type Account,
   type Chain,
   type HttpTransport,
@@ -374,19 +375,19 @@ describe('GasUtils', () => {
       });
       fail('Should have thrown');
     } catch (err: any) {
-      const formattedError = formatViemError(err);
-
+      const res = err;
+      const { message } = res;
       // Verify the error contains actual newlines, not escaped \n
-      expect(formattedError).not.toContain('\\n');
-      expect(formattedError.split('\n').length).toBeGreaterThan(1);
+      expect(message).not.toContain('\\n');
+      expect(message.split('\n').length).toBeGreaterThan(1);
 
       // Check that we have the key error information
-      expect(formattedError).toContain('fee cap');
+      expect(message).toContain('fee cap');
 
       // Check request body formatting if present
-      if (formattedError.includes('Request body:')) {
-        const bodyStart = formattedError.indexOf('Request body:');
-        const body = formattedError.slice(bodyStart);
+      if (message.includes('Request body:')) {
+        const bodyStart = message.indexOf('Request body:');
+        const body = message.slice(bodyStart);
         expect(body).toContain('eth_sendRawTransaction');
         // Check params are truncated if too long
         if (body.includes('0x')) {
@@ -395,6 +396,70 @@ describe('GasUtils', () => {
       }
     }
   }, 10_000);
+  it('handles custom errors', async () => {
+    // We're deploying this contract:
+    // pragma solidity >=0.8.27;
+
+    // library Errors {
+    //     error Test_Error(uint256 val);
+    // }
+
+    // contract TestContract {
+    //     function triggerError(uint256 num) external pure {
+    //         require(false, Errors.Test_Error(num));
+    //     }
+    // }
+    const abi = [
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: 'val',
+            type: 'uint256',
+          },
+        ],
+        name: 'Test_Error',
+        type: 'error',
+      },
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: 'num',
+            type: 'uint256',
+          },
+        ],
+        name: 'triggerError',
+        outputs: [],
+        stateMutability: 'pure',
+        type: 'function',
+      },
+    ] as Abi;
+    const deployHash = await walletClient.deployContract({
+      abi,
+      bytecode:
+        // contract bytecode
+        '0x6080604052348015600e575f5ffd5b506101508061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c80638291d6871461002d575b5f5ffd5b610047600480360381019061004291906100c7565b610049565b005b5f819061008c576040517fcdae48f50000000000000000000000000000000000000000000000000000000081526004016100839190610101565b60405180910390fd5b5050565b5f5ffd5b5f819050919050565b6100a681610094565b81146100b0575f5ffd5b50565b5f813590506100c18161009d565b92915050565b5f602082840312156100dc576100db610090565b5b5f6100e9848285016100b3565b91505092915050565b6100fb81610094565b82525050565b5f6020820190506101145f8301846100f2565b9291505056fea264697066735822122011972815480b23be1e371aa7c11caa30281e61b164209ae84edcd3fee026278364736f6c634300081b0033',
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+    if (!receipt.contractAddress) {
+      throw new Error('No contract address');
+    }
+    const contractAddress = receipt.contractAddress;
+
+    try {
+      await publicClient.simulateContract({
+        address: contractAddress!,
+        abi,
+        functionName: 'triggerError',
+        args: [33],
+      });
+    } catch (err: any) {
+      const { message } = formatViemError(err, abi);
+      expect(message).toBe('Test_Error(33)');
+    }
+  });
   it('stops trying after timeout', async () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
