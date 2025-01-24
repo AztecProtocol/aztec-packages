@@ -96,7 +96,12 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
   }
 
-  const tx: Tx = await createTxForPublicCalls(setupExecutionRequests, appExecutionRequests, teardownExecutionRequest);
+  const tx: Tx = await createTxForPublicCalls(
+    setupExecutionRequests,
+    appExecutionRequests,
+    Fr.random(),
+    teardownExecutionRequest,
+  );
 
   const avmResult = await simulator.simulate(tx);
 
@@ -165,6 +170,7 @@ export async function simulateAvmTestContractCall(
 export async function createTxForPublicCalls(
   setupExecutionRequests: PublicExecutionRequest[],
   appExecutionRequests: PublicExecutionRequest[],
+  firstNullifier: Fr,
   teardownExecutionRequest?: PublicExecutionRequest,
   gasUsedByPrivate: Gas = Gas.empty(),
 ): Promise<Tx> {
@@ -179,7 +185,7 @@ export async function createTxForPublicCalls(
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
+  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier; // fake tx nullifier
 
   // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
   for (let i = setupCallRequests.length - 1; i >= 0; i--) {

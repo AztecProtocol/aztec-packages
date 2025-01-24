@@ -831,19 +831,30 @@ export class TXE implements TypedOracle {
       globalVariables,
     );
 
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+
     // When setting up a teardown call, we tell it that
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
     const tx = await createTxForPublicCalls(
       /*setupExecutionRequests=*/ [],
       /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      firstNullifier,
       /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
       gasUsedByPrivate,
     );
 
     const result = await simulator.simulate(tx);
+    const noteHashes = result.avmProvingRequest.inputs.output.accumulatedData.noteHashes.filter(s => !s.isEmpty());
 
-    this.addPublicLogs(result.avmProvingRequest.inputs.publicInputs.publicLogs);
+    await this.addUniqueNoteHashesFromPublic(noteHashes);
+
+    this.addPublicLogs(
+      result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
+        log => !log.contractAddress.equals(AztecAddress.ZERO),
+      ),
+    );
 
     return Promise.resolve(result);
   }
@@ -895,7 +906,11 @@ export class TXE implements TypedOracle {
     const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
     const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
+
     await this.addPublicDataWrites(publicDataWrites);
     await this.addUniqueNoteHashesFromPublic(noteHashes);
     await this.addSiloedNullifiers(nullifiers);
@@ -1009,7 +1024,11 @@ export class TXE implements TypedOracle {
       const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
       const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+      const { usedTxRequestHashForNonces } = this.noteCache.finish();
+      const firstNullifier = usedTxRequestHashForNonces
+        ? this.getTxRequestHash()
+        : this.noteCache.getAllNullifiers()[0];
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
       await this.addPublicDataWrites(publicDataWrites);
       await this.addUniqueNoteHashes(noteHashes);
       await this.addSiloedNullifiers(nullifiers);
