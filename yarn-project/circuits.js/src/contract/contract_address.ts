@@ -23,7 +23,7 @@ export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
     | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
-): AztecAddress {
+): Promise<AztecAddress> {
   const partialAddress = computePartialAddress(instance);
   return computeAddress(instance.publicKeys, partialAddress);
 }

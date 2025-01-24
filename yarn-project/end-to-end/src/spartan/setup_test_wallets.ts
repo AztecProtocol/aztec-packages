@@ -31,20 +31,22 @@ export async function setupTestWalletsWithTokens(
 
   {
     const { accountKeys } = await addAccounts(1, logger, false)({ pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+    const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
 
-    const partialAddress = accountManagers[0].getCompleteAddress().partialAddress;
+    const completeAddress = await accountManagers[0].getCompleteAddress();
+    const partialAddress = completeAddress.partialAddress;
     await pxe.registerAccount(accountKeys[0][0], partialAddress);
     recipientWallet = await accountManagers[0].getWallet();
     logger.verbose(`Recipient Wallet address: ${recipientWallet.getAddress()} registered`);
   }
 
   const { accountKeys } = await addAccounts(WALLET_COUNT, logger, false)({ pxe });
-  const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+  const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
 
   const wallets = await Promise.all(
     accountManagers.map(async (a, i) => {
-      const partialAddress = a.getCompleteAddress().partialAddress;
+      const completeAddress = await a.getCompleteAddress();
+      const partialAddress = completeAddress.partialAddress;
       await pxe.registerAccount(accountKeys[i][0], partialAddress);
       const wallet = await a.getWallet();
       logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);

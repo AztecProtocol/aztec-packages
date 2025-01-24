@@ -5,13 +5,13 @@ import { UnsafeContract } from '../contract/unsafe_contract.js';
 import { type Wallet } from '../wallet/index.js';
 
 /** Returns a Contract wrapper for the class registerer. */
-export function getRegistererContract(wallet: Wallet) {
-  const { artifact, instance } = getCanonicalClassRegisterer();
+export async function getRegistererContract(wallet: Wallet) {
+  const { artifact, instance } = await getCanonicalClassRegisterer();
   return new UnsafeContract(instance, artifact, wallet);
 }
 
 /** Returns a Contract wrapper for the instance deployer. */
-export function getDeployerContract(wallet: Wallet) {
-  const { artifact, instance } = getCanonicalInstanceDeployer();
+export async function getDeployerContract(wallet: Wallet) {
+  const { artifact, instance } = await getCanonicalInstanceDeployer();
   return new UnsafeContract(instance, artifact, wallet);
 }

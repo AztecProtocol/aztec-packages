@@ -545,7 +545,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v));
+    return await Promise.all(
+      (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
+    );
   }
 
   async addSenderAddress(address: AztecAddress): Promise<boolean> {

@@ -52,9 +52,9 @@ export class KeyStore {
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
       publicKeys,
-    } = deriveKeys(sk);
+    } = await deriveKeys(sk);
 
-    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
     const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
@@ -131,7 +131,8 @@ export class KeyStore {
     const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedPkM.equals(pkM)) {
       throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
     }
 
@@ -261,7 +262,8 @@ export class KeyStore {
     }
 
     const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedpkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedpkM.equals(pkM)) {
       throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 

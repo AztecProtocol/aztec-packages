@@ -90,7 +90,7 @@ export async function deploy(
     }
   } else {
     const { address, partialAddress } = deploy;
-    const instance = deploy.getInstance();
+    const instance = await deploy.getInstance();
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',

@@ -120,7 +120,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    vinfo("verified sumcheck: ", (output.verified.has_value() && output.verified.value()));
+    vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks
     std::vector<FF> mle_challenge(output.challenge.begin(),

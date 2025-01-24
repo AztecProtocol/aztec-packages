@@ -16,8 +16,8 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
 import { AztecContext } from "../../home/home";
+import { GITHUB_TAG_PREFIX } from "../../../utils/constants";
 
 const creationForm = css({
   display: "flex",
