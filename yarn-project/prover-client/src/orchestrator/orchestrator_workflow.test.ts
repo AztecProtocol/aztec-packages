@@ -136,7 +136,7 @@ describe('prover/orchestrator', () => {
         const txs = processedTxs.map(
           tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof } as Tx),
         );
-        orchestrator.startTubeCircuits(txs);
+        await orchestrator.startTubeCircuits(txs);
 
         await sleep(100);
         expect(getTubeSpy).toHaveBeenCalledTimes(2);

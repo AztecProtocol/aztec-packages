@@ -286,9 +286,6 @@ export class TestCircuitProver implements ServerCircuitProver {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
-    if (_inputs.output.endTreeSnapshots.noteHashTree.root.equals(Fr.zero())) {
-      console.log('wtf');
-    }
     await this.delay();
     return makeProofAndVerificationKey(
       makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),

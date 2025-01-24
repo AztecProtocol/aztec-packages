@@ -238,12 +238,12 @@ export class ProvingOrchestrator implements EpochProver {
    * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
    */
   @trackSpan('ProvingOrchestrator.startTubeCircuits')
-  public startTubeCircuits(txs: Tx[]) {
+  public async startTubeCircuits(txs: Tx[]) {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
     }
     for (const tx of txs) {
-      const txHash = tx.getTxHash().toString();
+      const txHash = (await tx.getTxHash()).toString();
       const tubeInputs = new TubeInputs(tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
@@ -314,7 +314,9 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error('Block header mismatch');
     }
 
-    logger.verbose(`Updating archive tree with block ${provingState.blockNumber} header ${header.hash().toString()}`);
+    logger.verbose(
+      `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
+    );
     await db.updateArchive(header);
 
     // Assemble the L2 block
