@@ -93,6 +93,7 @@ comptime fn generate_note_interface(
         0,
         quote {header},
         quote { aztec::note::note_header::NoteHeader::empty() },
+        false,
     );
 
     // Second we compute quotes for MSM
