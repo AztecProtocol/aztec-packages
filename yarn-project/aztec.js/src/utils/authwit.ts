@@ -21,7 +21,7 @@ export type IntentInnerHash = {
 };
 
 /** Intent with an action */
-export type IntentAction = {
+export type IntentCall = {
   /** The caller to approve  */
   caller: AztecAddress;
   /** The action to approve */
@@ -39,7 +39,7 @@ export type IntentAction = {
  * and use it for the authentication check.
  * Therefore, any allowed `innerHash` will therefore also have information around where it can be spent (version, chainId) and who can spend it (consumer).
  *
- * If using the `IntentAction`, the caller is the address that is making the call, for a token approval from Alice to Bob, this would be Bob.
+ * If using the `IntentCall`, the caller is the address that is making the call, for a token approval from Alice to Bob, this would be Bob.
  * The action is then used along with the `caller` to compute the `innerHash` and the consumer.
  *
  *
@@ -50,7 +50,7 @@ export type IntentAction = {
  * @param metadata - The metadata for the intent (chainId, version)
  * @returns The message hash for the action
  */
-export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
+export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentCall, metadata: IntentMetadata) => {
   const chainId = metadata.chainId;
   const version = metadata.version;
 
