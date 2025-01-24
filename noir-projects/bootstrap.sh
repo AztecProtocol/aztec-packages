@@ -50,6 +50,6 @@ case "$cmd" in
     exit
     ;;
   *)
-    echo_stderr "Unknown command: $CMD"
+    echo_stderr "Unknown command: $cmd"
     exit 1
 esac

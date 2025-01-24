@@ -59,7 +59,7 @@ export interface ProtocolRateLimitQuota {
 export const noopValidator = () => Promise.resolve(true);
 
 /**
- * A type mapping from supprotocol to it's handling funciton
+ * A type mapping from supprotocol to it's handling function
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
 

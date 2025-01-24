@@ -19,8 +19,8 @@ export class ExtendedPublicLog {
     public readonly log: PublicLog,
   ) {}
 
-  static random() {
-    return new ExtendedPublicLog(LogId.random(), PublicLog.random());
+  static async random() {
+    return new ExtendedPublicLog(LogId.random(), await PublicLog.random());
   }
 
   static get schema() {

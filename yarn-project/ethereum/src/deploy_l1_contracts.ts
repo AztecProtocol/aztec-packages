@@ -433,7 +433,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000n;
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
   const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
@@ -579,50 +579,6 @@ class L1Deployer {
   async waitForDeployments(): Promise<void> {
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
   }
-}
-
-/**
- * Compiles a contract source code using the provided solc compiler.
- * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
- * @param contractName - Contract name within the file (eg HonkVerifier)
- * @param source - Source code to compile
- * @param solc - Solc instance
- * @returns ABI and bytecode of the compiled contract
- */
-export function compileContract(
-  fileName: string,
-  contractName: string,
-  source: string,
-  solc: { compile: (source: string) => string },
-): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [fileName]: {
-        content: source,
-      },
-    },
-    settings: {
-      // we require the optimizer
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      evmVersion: 'cancun',
-      outputSelection: {
-        '*': {
-          '*': ['evm.bytecode.object', 'abi'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-  const abi = output.contracts[fileName][contractName].abi;
-  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
-
-  return { abi, bytecode };
 }
 
 // docs:start:deployL1Contract

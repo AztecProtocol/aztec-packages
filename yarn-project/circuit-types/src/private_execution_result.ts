@@ -1,6 +1,6 @@
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, mapSchema, schemas } from '@aztec/foundation/schemas';
@@ -84,8 +84,8 @@ export class CountedPublicExecutionRequest {
     return this.request.isEmpty() && !this.counter;
   }
 
-  static random() {
-    return new CountedPublicExecutionRequest(PublicExecutionRequest.random(), 0);
+  static async random() {
+    return new CountedPublicExecutionRequest(await PublicExecutionRequest.random(), 0);
   }
 }
 
@@ -109,8 +109,8 @@ export class PrivateExecutionResult {
     return new PrivateExecutionResult(fields.entrypoint, fields.firstNullifier);
   }
 
-  static random(nested = 1): PrivateExecutionResult {
-    return new PrivateExecutionResult(PrivateCallExecutionResult.random(nested), Fr.random());
+  static async random(nested = 1): Promise<PrivateExecutionResult> {
+    return new PrivateExecutionResult(await PrivateCallExecutionResult.random(nested), Fr.random());
   }
 }
 
@@ -186,7 +186,7 @@ export class PrivateCallExecutionResult {
     );
   }
 
-  static random(nested = 1): PrivateCallExecutionResult {
+  static async random(nested = 1): Promise<PrivateCallExecutionResult> {
     return new PrivateCallExecutionResult(
       randomBytes(4),
       randomBytes(4),
@@ -196,10 +196,10 @@ export class PrivateCallExecutionResult {
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
-      times(nested, () => PrivateCallExecutionResult.random(0)),
-      [CountedPublicExecutionRequest.random()],
-      PublicExecutionRequest.random(),
-      [new CountedContractClassLog(UnencryptedL2Log.random(), randomInt(10))],
+      await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
+      [await CountedPublicExecutionRequest.random()],
+      await PublicExecutionRequest.random(),
+      [new CountedContractClassLog(await UnencryptedL2Log.random(), randomInt(10))],
     );
   }
 }

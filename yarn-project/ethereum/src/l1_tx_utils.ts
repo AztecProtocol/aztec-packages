@@ -12,11 +12,15 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type Account,
   type Address,
+  type BlockOverrides,
   type Chain,
   type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
   type PublicClient,
+  type StateOverride,
   type TransactionReceipt,
   type WalletClient,
   formatGwei,
@@ -95,9 +99,9 @@ export interface L1TxUtilsConfig {
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
-    description: 'How much to increase gas price by each attempt (percentage)',
+    description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...numberConfigHelper(10),
+    ...numberConfigHelper(20),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -199,7 +203,7 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
+    _gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
@@ -207,8 +211,8 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.fixedGas) {
-        gasLimit = gasConfig.fixedGas;
+      if (gasConfig.gasLimit) {
+        gasLimit = gasConfig.gasLimit;
       } else {
         gasLimit = await this.estimateGas(account, request);
       }
@@ -246,9 +250,9 @@ export class L1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      const formattedErr = formatViemError(err);
-      this.logger?.error(`Failed to send transaction`, formattedErr);
-      throw formattedErr;
+      const viemError = formatViemError(err);
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      throw viemError;
     }
   }
 
@@ -306,15 +310,16 @@ export class L1TxUtils {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
               if (receipt) {
-                this.logger?.debug(`L1 transaction ${hash} mined`);
                 if (receipt.status === 'reverted') {
-                  this.logger?.error(`L1 transaction ${hash} reverted`);
+                  this.logger?.error(`L1 transaction ${hash} reverted`, receipt);
+                } else {
+                  this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
                 return receipt;
               }
             } catch (err) {
               if (err instanceof Error && err.message.includes('reverted')) {
-                throw err;
+                throw formatViemError(err);
               }
             }
           }
@@ -382,16 +387,20 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        const formattedErr = formatViemError(err);
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, formattedErr);
-        if (err.message?.includes('reverted')) {
-          throw formattedErr;
+        const viemError = formatViemError(err);
+        this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, viemError.message);
+        if (viemError.message?.includes('reverted')) {
+          throw viemError;
         }
         await sleep(gasConfig.checkIntervalMs!);
       }
       // Check if tx has timed out.
       txTimedOut = isTimedOut();
     }
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+      txHash: currentTxHash,
+      ...tx,
+    });
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
@@ -403,7 +412,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
+    gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
@@ -429,14 +438,14 @@ export class L1TxUtils {
     try {
       const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
       blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.debug('Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
     } catch {
-      this.logger?.warn('Failed to get blob base fee', attempt);
+      this.logger?.warn('Failed to get L1 blob base fee', attempt);
     }
 
     let priorityFee: bigint;
     if (gasConfig.fixedPriorityFeePerGas) {
-      this.logger?.debug('Using fixed priority fee per gas', {
+      this.logger?.debug('Using fixed priority fee per L1 gas', {
         fixedPriorityFeePerGas: gasConfig.fixedPriorityFeePerGas,
       });
       // try to maintain precision up to 1000000 wei
@@ -514,7 +523,7 @@ export class L1TxUtils {
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
     }
 
-    this.logger?.debug(`Computed gas price`, {
+    this.logger?.debug(`Computed L1 gas price`, {
       attempt,
       baseFee: formatGwei(baseFee),
       maxFeePerGas: formatGwei(maxFeePerGas),
@@ -553,14 +562,74 @@ export class L1TxUtils {
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         })
       )?.gas;
+      this.logger?.debug('L1 gas used in estimateGas by blob tx', { gas: initialEstimate });
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+      this.logger?.debug('L1 gas used in estimateGas by non-blob tx', { gas: initialEstimate });
     }
 
     // Add buffer based on either fixed amount or percentage
-    const withBuffer =
-      initialEstimate + (initialEstimate * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    const withBuffer = this.bumpGasLimit(initialEstimate, gasConfig);
 
     return withBuffer;
+  }
+
+  public async simulateGasUsed(
+    request: L1TxRequest & { gas?: bigint },
+    blockOverrides: BlockOverrides<bigint, number> = {},
+    stateOverrides: StateOverride = [],
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+  ): Promise<bigint> {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    const gasPrice = await this.getGasPrice(gasConfig, false);
+
+    const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+
+    try {
+      const result = await this.publicClient.simulate({
+        validation: true,
+        blocks: [
+          {
+            blockOverrides,
+            stateOverrides,
+            calls: [
+              {
+                from: this.walletClient.account.address,
+                to: request.to!,
+                data: request.data,
+                maxFeePerGas: gasPrice.maxFeePerGas,
+                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+                gas: request.gas ?? 10_000_000n,
+                nonce,
+              },
+            ],
+          },
+        ],
+      });
+      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
+        result,
+      });
+      if (result[0].calls[0].status === 'failure') {
+        this.logger?.error('L1 transaction Simulation failed', {
+          error: result[0].calls[0].error,
+        });
+        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+      }
+      return result[0].gasUsed;
+    } catch (err) {
+      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+        this.logger?.error('Node does not support eth_simulateV1 API');
+        if (gasConfig.fallbackGasEstimate) {
+          this.logger?.debug(`Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`);
+          return gasConfig.fallbackGasEstimate;
+        }
+      }
+      throw err;
+    }
+  }
+
+  public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
   }
 }
