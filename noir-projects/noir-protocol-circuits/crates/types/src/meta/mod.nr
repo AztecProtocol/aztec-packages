@@ -51,14 +51,13 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// }
 /// ```
 /// # Nested Struct Example with Unpacking
-/// - given the same setup as above and `U128` implements `Packable` and skipping `header` the result would be:
+/// - given the same setup as above and given that U128, AztecAddress and Field implement the `Packable` trait
+///   when skipping `header` the result we get is:
 /// ```
 /// UintNote {
-///     value: Packable::unpack([fields[0]]),
-///     owner: AztecAddress {
-///         inner: fields[1],
-///     },
-///     randomness: fields[2],
+///     value: aztec::protocol_types::traits::Packable::unpack([fields[0]]),
+///     owner: aztec::protocol_types::traits::Packable::unpack([fields[1]]),
+///     randomness: aztec::protocol_types::traits::Packable::unpack([fields[2]]),
 ///     header: NoteHeader::empty()
 /// }
 /// ```
@@ -96,14 +95,15 @@ pub comptime fn generate_deserialize_from_fields<N>(
             // We copy the packed fields into a new array and pass that to the unpack function in a quote
             let mut packed_fields_quotes = &[];
             for i in 0..packed_len {
+                let index_in_field_array = i + num_already_consumed;
                 packed_fields_quotes = packed_fields_quotes.push_back(
-                    quote { $field_array_name[$i + $num_already_consumed] },
+                    quote { $field_array_name[$index_in_field_array] },
                 );
             }
             let packed_fields = packed_fields_quotes.join(quote {,});
 
             // No we call unpack on the type
-            result = quote { Packable::unpack([ $packed_fields ]) };
+            result = quote { aztec::protocol_types::traits::Packable::unpack([ $packed_fields ]) };
 
             consumed_counter = packed_len;
         } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
