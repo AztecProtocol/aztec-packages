@@ -165,7 +165,6 @@ contract NFT {
     // docs:start:transfer_to_private
     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
-        debug_log("Hi Mum, I'm in transfer_to_private");
         let from = context.msg_sender();
 
         let nft = NFT::at(context.this_address());
@@ -200,7 +199,6 @@ contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> Field {
-        debug_log("Hi Mum, I'm doing _prepare_private_balance_increase");
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
         // We create a setup payload with unpopulated/zero token id for 'to'
