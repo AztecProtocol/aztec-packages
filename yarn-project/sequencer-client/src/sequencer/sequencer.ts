@@ -631,7 +631,6 @@ export class Sequencer {
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
     if (!proposal) {
       const msg = `Failed to create block proposal`;
-      this.log.error(msg);
       throw new Error(msg);
     }
 
