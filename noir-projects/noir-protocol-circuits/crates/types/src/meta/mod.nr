@@ -184,35 +184,74 @@ pub comptime fn generate_deserialize_from_fields<N>(
     (result, consumed_counter)
 }
 
-/// Flattens `typ` into a list of fields prefixed with `name` while omitting fields in `omit`. Also returns a list of
-/// auxiliary variables that are needed for serialization (e.g. "let string_value_as_bytes = string_value.as_bytes()").
+/// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
+/// for serialization.
 ///
-/// # Nested Struct Example
-/// Given the following setup:
-/// ```
-/// struct UintNote {
-///     value: U128,
-///     owner: AztecAddress,
-///     randomness: Field,
-///     header: NoteHeader,
-/// }
+/// # Parameters
+/// - `name`: The base identifier (e.g., `self`, `some_var`).
+/// - `typ`: The type being serialized (e.g., a custom struct, array, or primitive type).
+/// - `omit`: A list of field names (as `Quoted`) to be excluded from the serialized output.
 ///
+/// # Returns
+/// A tuple containing:
+/// - A flattened array of `Quoted` field references representing the serialized fields.
+/// - An array of `Quoted` auxiliary variables needed for serialization, such as byte arrays for strings.
+///
+/// # Examples
+///
+/// ## Struct
+/// Given the following struct:
+/// ```rust
 /// struct U128 {
 ///     lo: Field,
 ///     hi: Field,
 /// }
+/// ```
 ///
-/// struct AztecAddress {
-///     inner: Field,
+/// Serializing the struct:
+/// ```rust
+/// generate_serialize_to_fields(quote { my_u128 }, U128, &[])
+/// // Returns:
+/// // ([`my_u128.lo`, `my_u128.hi`], [])
+/// ```
+///
+/// ## Nested Struct with Omitted Field
+/// For a more complex struct:
+/// ```rust
+/// struct UintNote {
+///     value: U128,
+///     randomness: Field,
+///     header: NoteHeader,
 /// }
 /// ```
 ///
-/// generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}])
-/// If quote of `self` is the name and a quote of `self.header` is in the omit list, the function will return
-/// the following array of quotes:
+/// Serializing while omitting `header`:
+/// ```rust
+/// generate_serialize_to_fields(quote { self }, UintNote, &[quote { self.header }])
+/// // Returns:
+/// // ([`self.value.lo`, `self.value.hi`, `self.randomness`], [])
 /// ```
-/// [`self.value.lo`, `self.value.hi`, `self.owner.inner`, `self.randomness`]
+///
+/// ## Array
+/// For an array type:
+/// ```rust
+/// generate_serialize_to_fields(quote { my_array }, [Field; 3], &[])
+/// // Returns:
+/// // ([`my_array[0]`, `my_array[1]`, `my_array[2]`], [])
 /// ```
+///
+/// ## String
+/// For a string field, where each character is serialized as a `Field`:
+/// ```rust
+/// generate_serialize_to_fields(quote { my_string }, StringType, &[])
+/// // Returns:
+/// // ([`my_string_as_bytes[0] as Field`, `my_string_as_bytes[1] as Field`, ...],
+/// // [`let my_string_as_bytes = my_string.as_bytes()`])
+/// ```
+///
+/// # Panics
+/// - If the type is unsupported for serialization.
+/// - If the provided `typ` contains invalid constants or incompatible structures.
 pub comptime fn generate_serialize_to_fields(
     name: Quoted,
     typ: Type,
