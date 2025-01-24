@@ -125,7 +125,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       ];
 
       beforeEach(async () => {
-        owners = times(2, () => CompleteAddress.random());
+        owners = await timesParallel(2, () => CompleteAddress.random());
         contractAddresses = await timesParallel(2, () => AztecAddress.random());
         storageSlots = times(2, () => Fr.random());
 
@@ -339,20 +339,20 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
     describe('addresses', () => {
       it('stores and retrieves addresses', async () => {
-        const address = CompleteAddress.random();
+        const address = await CompleteAddress.random();
         await expect(database.addCompleteAddress(address)).resolves.toBe(true);
         await expect(database.getCompleteAddress(address.address)).resolves.toEqual(address);
       });
 
       it('silently ignores an address it already knows about', async () => {
-        const address = CompleteAddress.random();
+        const address = await CompleteAddress.random();
         await expect(database.addCompleteAddress(address)).resolves.toBe(true);
         await expect(database.addCompleteAddress(address)).resolves.toBe(false);
       });
 
       it.skip('refuses to overwrite an address with a different public key', async () => {
-        const address = CompleteAddress.random();
-        const otherAddress = new CompleteAddress(
+        const address = await CompleteAddress.random();
+        const otherAddress = await CompleteAddress.create(
           address.address,
           new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random()),
           address.partialAddress,
@@ -363,7 +363,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('returns all addresses', async () => {
-        const addresses = Array.from({ length: 10 }).map(() => CompleteAddress.random());
+        const addresses = await timesParallel(10, () => CompleteAddress.random());
         for (const address of addresses) {
           await database.addCompleteAddress(address);
         }
@@ -373,7 +373,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('returns a single address', async () => {
-        const addresses = Array.from({ length: 10 }).map(() => CompleteAddress.random());
+        const addresses = await timesParallel(10, () => CompleteAddress.random());
         for (const address of addresses) {
           await database.addCompleteAddress(address);
         }
@@ -387,7 +387,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it("returns undefined if it doesn't have an address", async () => {
-        expect(await database.getCompleteAddress(CompleteAddress.random().address)).toBeUndefined();
+        const completeAddress = await CompleteAddress.random();
+        expect(await database.getCompleteAddress(completeAddress.address)).toBeUndefined();
       });
     });
 

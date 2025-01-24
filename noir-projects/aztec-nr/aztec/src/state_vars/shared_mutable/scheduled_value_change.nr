@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
+use dep::protocol_types::traits::{FromField, Packable, ToField};
 use std::cmp::min;
 
 mod test;
@@ -133,20 +133,15 @@ impl<T> ScheduledValueChange<T> {
     }
 }
 
-impl<T> Serialize<3> for ScheduledValueChange<T>
+impl<T> Packable<3> for ScheduledValueChange<T>
 where
-    T: ToField,
+    T: ToField + FromField,
 {
-    fn serialize(self) -> [Field; 3] {
+    fn pack(self) -> [Field; 3] {
         [self.pre.to_field(), self.post.to_field(), self.block_of_change.to_field()]
     }
-}
 
-impl<T> Deserialize<3> for ScheduledValueChange<T>
-where
-    T: FromField,
-{
-    fn deserialize(input: [Field; 3]) -> Self {
+    fn unpack(input: [Field; 3]) -> Self {
         Self {
             pre: FromField::from_field(input[0]),
             post: FromField::from_field(input[1]),
