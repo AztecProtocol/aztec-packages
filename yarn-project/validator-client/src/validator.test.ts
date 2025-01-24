@@ -7,8 +7,8 @@ import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -30,11 +30,13 @@ describe('ValidationService', () => {
   let p2pClient: MockProxy<P2P>;
   let epochCache: MockProxy<EpochCache>;
   let validatorAccount: PrivateKeyAccount;
+  let dateProvider: TestDateProvider;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     epochCache = mock<EpochCache>();
+    dateProvider = new TestDateProvider();
 
     const validatorPrivateKey = generatePrivateKey();
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
@@ -42,16 +44,15 @@ describe('ValidationService', () => {
     config = {
       validatorPrivateKey: validatorPrivateKey,
       attestationPollingIntervalMs: 1000,
-      attestationWaitTimeoutMs: 1000,
       disableValidator: false,
       validatorReexecute: false,
     };
-    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient());
+    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, dateProvider);
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient())).toThrow(
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });
@@ -79,7 +80,9 @@ describe('ValidationService', () => {
   it('Should a timeout if we do not collect enough attestations in time', async () => {
     const proposal = makeBlockProposal();
 
-    await expect(validatorClient.collectAttestations(proposal, 2)).rejects.toThrow(AttestationTimeoutError);
+    await expect(validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100))).rejects.toThrow(
+      AttestationTimeoutError,
+    );
   });
 
   it('Should throw an error if the transactions are not available', async () => {
@@ -200,7 +203,11 @@ describe('ValidationService', () => {
 
     // Perform the query
     const numberOfRequiredAttestations = 3;
-    const attestations = await validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+    const attestations = await validatorClient.collectAttestations(
+      proposal,
+      numberOfRequiredAttestations,
+      new Date(dateProvider.now() + 5000),
+    );
 
     expect(attestations).toHaveLength(numberOfRequiredAttestations);
   });

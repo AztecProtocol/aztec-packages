@@ -37,4 +37,10 @@ describe('merkle tree root calculator', () => {
     expect(result.nodes.length).toEqual(31);
     expect(result.root).toEqual(expectedRoot);
   });
+
+  it('should correctly handle empty leaf array', () => {
+    const calculator = new MerkleTreeCalculator(4);
+    const expected = calculator.computeTree();
+    expect(expected.root).toEqual(calculator.computeTreeRoot());
+  });
 });

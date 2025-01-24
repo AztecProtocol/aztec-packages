@@ -182,6 +182,7 @@ pub(super) fn keyword_builtin_type(keyword: &Keyword) -> Option<&'static str> {
         | Keyword::Crate
         | Keyword::Dep
         | Keyword::Else
+        | Keyword::Enum
         | Keyword::Fn
         | Keyword::For
         | Keyword::FormatString
@@ -190,6 +191,8 @@ pub(super) fn keyword_builtin_type(keyword: &Keyword) -> Option<&'static str> {
         | Keyword::Impl
         | Keyword::In
         | Keyword::Let
+        | Keyword::Loop
+        | Keyword::Match
         | Keyword::Mod
         | Keyword::Mut
         | Keyword::Pub
@@ -243,6 +246,7 @@ pub(super) fn keyword_builtin_function(keyword: &Keyword) -> Option<BuiltInFunct
         | Keyword::CtString
         | Keyword::Dep
         | Keyword::Else
+        | Keyword::Enum
         | Keyword::Expr
         | Keyword::Field
         | Keyword::Fn
@@ -254,6 +258,8 @@ pub(super) fn keyword_builtin_function(keyword: &Keyword) -> Option<BuiltInFunct
         | Keyword::Impl
         | Keyword::In
         | Keyword::Let
+        | Keyword::Loop
+        | Keyword::Match
         | Keyword::Mod
         | Keyword::Module
         | Keyword::Mut

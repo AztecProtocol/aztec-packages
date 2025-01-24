@@ -1,35 +1,47 @@
-import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
+import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
-  type Fr,
+  BLOBS_PER_BLOCK,
+  type BlockHeader,
+  FIELDS_PER_BLOB,
+  Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type Proof,
+  type ParityPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
-  type RootParityInput,
-  type VerificationKeyAsFields,
+  RootParityInput,
+  RootParityInputs,
+  StateReference,
+  VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { SpongeBlob } from '@aztec/circuits.js/blobs';
-import { type BaseOrMergeRollupPublicInputs, type BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { type Logger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
+import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import { type EpochProvingState } from './epoch-proving-state.js';
 import { type TxProvingState } from './tx-proving-state.js';
-
-export type MergeRollupInputData = {
-  inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
-  proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
-  ];
-  verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
-};
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 
@@ -38,12 +50,15 @@ export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
  * Contains the raw inputs and intermediate state to generate every constituent proof in the tree.
  */
 export class BlockProvingState {
-  private mergeRollupInputs: MergeRollupInputData[] = [];
-  private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
-  private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
-  public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
+  private baseOrMergeProvingOutputs: UnbalancedTreeStore<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > = new UnbalancedTreeStore(0);
+  private baseParityProvingOutputs: (PublicInputsAndRecursiveProof<ParityPublicInputs> | undefined)[];
+  private rootParityProvingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs> | undefined;
+  private blockRootProvingOutput:
+    | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    | undefined;
   public blockRootRollupStarted: boolean = false;
-  public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined;
   public totalNumTxs: number;
@@ -53,16 +68,15 @@ export class BlockProvingState {
   constructor(
     public readonly index: number,
     public readonly globalVariables: GlobalVariables,
-    public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
-    public readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    public readonly messageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
-    public readonly archiveTreeSnapshot: AppendOnlyTreeSnapshot,
-    public readonly archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    public readonly previousBlockHash: Fr,
+    public readonly newL1ToL2Messages: Fr[],
+    private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
+    private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    private readonly previousBlockHeader: BlockHeader,
     private readonly parentEpoch: EpochProvingState,
   ) {
-    this.rootParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
+    this.baseParityProvingOutputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
     this.totalNumTxs = 0;
   }
 
@@ -70,41 +84,12 @@ export class BlockProvingState {
     return this.globalVariables.blockNumber.toNumber();
   }
 
-  // Returns the number of levels of merge rollups
-  public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
-  }
-
-  // Calculates the index and level of the parent rollup circuit
-  // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
-  public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
-    const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
-      levelSize /= 2;
-      if (levelSize & 1) {
-        [levelSize, nodeToShift] = nodeToShift ? [levelSize + 1, false] : [levelSize - 1, true];
-      }
-      index >>= 1n;
-      return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
-    };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
-    const maxLevel = this.numMergeLevels + 1n;
-    let placeholder = currentIndex;
-    for (let i = 0; i < maxLevel - currentLevel; i++) {
-      ({ thisLevelSize, thisIndex: placeholder, shiftUp } = moveUpMergeLevel(thisLevelSize, placeholder, shiftUp));
-    }
-    let thisIndex = currentIndex;
-    let mergeLevel = currentLevel;
-    while (thisIndex >= thisLevelSize && mergeLevel != 0n) {
-      mergeLevel -= 1n;
-      ({ thisLevelSize, thisIndex, shiftUp } = moveUpMergeLevel(thisLevelSize, thisIndex, shiftUp));
-    }
-    return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
-  }
-
   public startNewBlock(numTxs: number, numBlobFields: number) {
     if (this.spongeBlobState) {
       throw new Error(`Block ${this.blockNumber} already initalised.`);
     }
+
+    this.baseOrMergeProvingOutputs = new UnbalancedTreeStore(numTxs);
     // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
     this.spongeBlobState = SpongeBlob.init(numBlobFields);
@@ -116,28 +101,53 @@ export class BlockProvingState {
     if (!this.spongeBlobState) {
       throw new Error(`Invalid block proving state, call startNewBlock before adding transactions.`);
     }
-    this.txs.push(tx);
-    return this.txs.length - 1;
+
+    const txIndex = this.txs.length;
+    this.txs[txIndex] = tx;
+    return txIndex;
   }
 
-  // Returns the number of received transactions
-  public get transactionsReceived() {
-    return this.txs.length;
+  public setBaseRollupProof(
+    txIndex: number,
+    provingOutput: PublicInputsAndRecursiveProof<
+      BaseOrMergeRollupPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ): TreeNodeLocation {
+    return this.baseOrMergeProvingOutputs.setLeaf(txIndex, provingOutput);
   }
 
-  // Returns the final set of root parity inputs
-  public get finalRootParityInput() {
-    return this.finalRootParityInputs;
+  public setMergeRollupProof(
+    location: TreeNodeLocation,
+    provingOutput: PublicInputsAndRecursiveProof<
+      BaseOrMergeRollupPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
+    this.baseOrMergeProvingOutputs.setNode(location, provingOutput);
   }
 
-  // Sets the final set of root parity inputs
-  public set finalRootParityInput(input: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined) {
-    this.finalRootParityInputs = input;
+  // Stores a set of root parity inputs at the given index
+  public setBaseParityProof(index: number, provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+    if (index >= NUM_BASE_PARITY_PER_ROOT_PARITY) {
+      throw new Error(
+        `Unable to set a base parity proofs at index ${index}. Expected at most ${NUM_BASE_PARITY_PER_ROOT_PARITY} proofs.`,
+      );
+    }
+    this.baseParityProvingOutputs[index] = provingOutput;
   }
 
-  // Returns the set of root parity inputs
-  public get rootParityInput() {
-    return this.rootParityInputs;
+  public setRootParityProof(provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+    this.rootParityProvingOutput = provingOutput;
+  }
+
+  public setBlockRootRollupProof(
+    provingOutput: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
+    this.blockRootProvingOutput = provingOutput;
   }
 
   // Returns the complete set of transaction proving state objects
@@ -150,39 +160,110 @@ export class BlockProvingState {
     return this.parentEpoch.epochNumber;
   }
 
-  /**
-   * Stores the inputs to a merge circuit and determines if the circuit is ready to be executed
-   * @param mergeInputs - The inputs to store
-   * @param indexWithinMerge - The index in the set of inputs to this merge circuit
-   * @param indexOfMerge - The global index of this merge circuit
-   * @returns True if the merge circuit is ready to be executed, false otherwise
-   */
-  public storeMergeInputs(
-    mergeInputs: [
-      BaseOrMergeRollupPublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-      VerificationKeyAsFields,
-    ],
-    indexWithinMerge: number,
-    indexOfMerge: number,
-  ) {
-    if (!this.mergeRollupInputs[indexOfMerge]) {
-      const mergeInputData: MergeRollupInputData = {
-        inputs: [undefined, undefined],
-        proofs: [undefined, undefined],
-        verificationKeys: [undefined, undefined],
-      };
-      mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-      mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-      mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
-      this.mergeRollupInputs[indexOfMerge] = mergeInputData;
-      return false;
+  public getParentLocation(location: TreeNodeLocation) {
+    return this.baseOrMergeProvingOutputs.getParentLocation(location);
+  }
+
+  public getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+    const [left, right] = this.baseOrMergeProvingOutputs.getChildren(mergeLocation);
+    if (!left || !right) {
+      throw new Error('At lease one child is not ready.');
     }
-    const mergeInputData = this.mergeRollupInputs[indexOfMerge];
-    mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-    mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-    mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
-    return true;
+
+    return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+  }
+
+  public getBlockRootRollupTypeAndInputs(proverId: Fr) {
+    if (!this.rootParityProvingOutput) {
+      throw new Error('Root parity is not ready.');
+    }
+
+    const proofs = this.#getChildProofsForBlockRoot();
+    const nonEmptyProofs = proofs.filter(p => !!p);
+    if (proofs.length !== nonEmptyProofs.length) {
+      throw new Error('At lease one child is not ready for the block root.');
+    }
+
+    const data = this.#getBlockRootRollupData(proverId);
+
+    if (this.totalNumTxs === 0) {
+      const constants = ConstantRollupData.from({
+        lastArchive: this.lastArchiveSnapshot,
+        globalVariables: this.globalVariables,
+        vkTreeRoot: getVKTreeRoot(),
+        protocolContractTreeRoot,
+      });
+
+      return {
+        rollupType: 'empty-block-root-rollup' satisfies CircuitName,
+        inputs: EmptyBlockRootRollupInputs.from({
+          data,
+          constants,
+          isPadding: false,
+        }),
+      };
+    }
+
+    const previousRollupData = nonEmptyProofs.map(p => this.#getPreviousRollupData(p!));
+    const blobData = this.#getBlockRootRollupBlobData();
+
+    if (previousRollupData.length === 1) {
+      return {
+        rollupType: 'single-tx-block-root-rollup' satisfies CircuitName,
+        inputs: new SingleTxBlockRootRollupInputs(previousRollupData as [PreviousRollupData], data, blobData),
+      };
+    } else {
+      return {
+        rollupType: 'block-root-rollup' satisfies CircuitName,
+        inputs: new BlockRootRollupInputs(
+          previousRollupData as [PreviousRollupData, PreviousRollupData],
+          data,
+          blobData,
+        ),
+      };
+    }
+  }
+
+  public getPaddingBlockRootInputs(proverId: Fr) {
+    if (!this.rootParityProvingOutput) {
+      throw new Error('Root parity is not ready.');
+    }
+
+    // Use the new block header and archive of the current block as the previous header and archiver of the next padding block.
+    const newBlockHeader = this.buildHeaderFromProvingOutputs();
+    const newArchive = this.blockRootProvingOutput!.inputs.newArchive;
+
+    const data = BlockRootRollupData.from({
+      l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      newArchiveSiblingPath: this.newArchiveSiblingPath,
+      previousBlockHeader: newBlockHeader,
+      proverId,
+    });
+
+    const constants = ConstantRollupData.from({
+      lastArchive: newArchive,
+      globalVariables: this.globalVariables,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+    });
+
+    return EmptyBlockRootRollupInputs.from({
+      data,
+      constants,
+      isPadding: true,
+    });
+  }
+
+  public getRootParityInputs() {
+    if (!this.baseParityProvingOutputs.every(p => !!p)) {
+      throw new Error('At lease one base parity is not ready.');
+    }
+
+    const children = this.baseParityProvingOutputs.map(p => this.#getRootParityData(p!));
+    return new RootParityInputs(
+      children as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+    );
   }
 
   // Returns a specific transaction proving state
@@ -190,29 +271,47 @@ export class BlockProvingState {
     return this.txs[txIndex];
   }
 
-  // Returns a set of merge rollup inputs
-  public getMergeInputs(indexOfMerge: number) {
-    return this.mergeRollupInputs[indexOfMerge];
+  public buildHeaderFromProvingOutputs(logger?: Logger) {
+    const previousRollupData =
+      this.totalNumTxs === 0 ? [] : this.#getChildProofsForBlockRoot().map(p => this.#getPreviousRollupData(p!));
+
+    let endPartialState = this.previousBlockHeader.state.partial;
+    if (this.totalNumTxs !== 0) {
+      const previousRollupData = this.#getChildProofsForBlockRoot();
+      const lastRollup = previousRollupData[previousRollupData.length - 1];
+      if (!lastRollup) {
+        throw new Error('End state of the block is not available. Last rollup is not ready yet.');
+      }
+      endPartialState = lastRollup.inputs.end;
+    }
+    const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
+
+    return buildHeaderFromCircuitOutputs(
+      previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
+      this.rootParityProvingOutput!.inputs,
+      this.blockRootProvingOutput!.inputs,
+      endState,
+      logger,
+    );
+  }
+
+  public isReadyForMergeRollup(location: TreeNodeLocation) {
+    return this.baseOrMergeProvingOutputs.getSibling(location) !== undefined;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
-    return !(
-      this.block === undefined ||
-      this.mergeRollupInputs[0] === undefined ||
-      this.finalRootParityInput === undefined ||
-      this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
-    );
-  }
-
-  // Stores a set of root parity inputs at the given index
-  public setRootParityInputs(inputs: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, index: number) {
-    this.rootParityInputs[index] = inputs;
+    const childProofs = this.#getChildProofsForBlockRoot();
+    return this.block !== undefined && this.rootParityProvingOutput !== undefined && childProofs.every(p => !!p);
   }
 
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit
-  public areRootParityInputsReady() {
-    return this.rootParityInputs.findIndex(p => !p) === -1;
+  public isReadyForRootParity() {
+    return this.baseParityProvingOutputs.every(p => !!p);
+  }
+
+  public isComplete() {
+    return !!this.blockRootProvingOutput;
   }
 
   // Returns whether the proving state is still valid
@@ -223,5 +322,60 @@ export class BlockProvingState {
   public reject(reason: string) {
     this.error = reason;
     this.parentEpoch.reject(reason);
+  }
+
+  #getBlockRootRollupData(proverId: Fr) {
+    return BlockRootRollupData.from({
+      l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      newArchiveSiblingPath: this.newArchiveSiblingPath,
+      previousBlockHeader: this.previousBlockHeader,
+      proverId,
+    });
+  }
+
+  #getBlockRootRollupBlobData() {
+    const txEffects = this.txs.map(txProvingState => txProvingState.processedTx.txEffect);
+    const { blobFields, blobCommitments, blobsHash } = buildBlobHints(txEffects);
+    return BlockRootRollupBlobData.from({
+      blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+      blobCommitments: padArrayEnd(blobCommitments, [Fr.ZERO, Fr.ZERO], BLOBS_PER_BLOCK),
+      blobsHash,
+    });
+  }
+
+  #getChildProofsForBlockRoot() {
+    if (this.totalNumTxs === 0) {
+      return [];
+    }
+
+    const rootLocation = { level: 0, index: 0 };
+    // If there's only 1 tx, its base rollup proof will be stored at the root.
+    return this.totalNumTxs === 1
+      ? [this.baseOrMergeProvingOutputs.getNode(rootLocation)]
+      : this.baseOrMergeProvingOutputs.getChildren(rootLocation);
+  }
+
+  #getPreviousRollupData({
+    inputs,
+    proof,
+    verificationKey,
+  }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
+    const leafIndex = getVKIndex(verificationKey.keyAsFields);
+    return new PreviousRollupData(
+      inputs,
+      proof,
+      verificationKey.keyAsFields,
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+    );
+  }
+
+  #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+    return new RootParityInput(
+      proof,
+      verificationKey.keyAsFields,
+      getVKSiblingPath(getVKIndex(verificationKey)),
+      inputs,
+    );
   }
 }

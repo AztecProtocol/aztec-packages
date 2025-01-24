@@ -20,7 +20,7 @@ export class NullifierStore {
       blocks.forEach(block => {
         const dataStartIndexForBlock =
           block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
-          block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+          block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
         block.body.txEffects.forEach((txEffects, txIndex) => {
           const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
           txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {

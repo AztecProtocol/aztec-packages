@@ -2,15 +2,13 @@ import { deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { compileContract, createL1Clients } from '@aztec/ethereum';
+import { createL1Clients } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
-import { IVerifierAbi } from '@aztec/l1-artifacts';
+import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
 import {
   type Account,
   type Chain,
@@ -62,9 +60,15 @@ describe('proof_verification', () => {
     logger.info('BB and ACVM initialized');
 
     ({ publicClient, walletClient } = createL1Clients(rpcUrl, mnemonicToAccount(MNEMONIC)));
-    const content = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol');
-    const { bytecode, abi } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', content, solc);
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
+
+    const { address: verifierAddress } = await deployL1Contract(
+      walletClient,
+      publicClient,
+      HonkVerifierAbi,
+      HonkVerifierBytecode,
+    );
+    logger.info(`Deployed honk verifier at ${verifierAddress}`);
+
     verifierContract = getContract({ address: verifierAddress.toString(), client: publicClient, abi: IVerifierAbi });
     logger.info('Deployed verifier');
   });

@@ -10,8 +10,8 @@ impl TailToPublicOutputValidatorBuilder {
     pub(crate) fn new() -> Self {
         let mut output = FixtureBuilder::new();
         let mut previous_kernel = FixtureBuilder::new();
-        output.set_first_nullifier();
-        previous_kernel.set_first_nullifier();
+        output.set_protocol_nullifier();
+        previous_kernel.set_protocol_nullifier();
         TailToPublicOutputValidatorBuilder { output, previous_kernel }
     }
 

@@ -60,15 +60,18 @@ library MerkleLib {
    * @return (min, max) - The min and max path sizes.
    */
   function computeMinMaxPathLength(uint256 _numTxs) internal pure returns (uint256, uint256) {
-    uint256 numTxs = _numTxs < 2 ? 2 : _numTxs;
+    if (_numTxs < 2) {
+      return (0, 0);
+    }
+
     uint256 numSubtrees = 0;
     uint256 currentSubtreeSize = 1;
     uint256 currentSubtreeHeight = 0;
     uint256 firstSubtreeHeight;
     uint256 finalSubtreeHeight;
-    while (numTxs != 0) {
+    while (_numTxs != 0) {
       // If size & txs == 0, the subtree doesn't exist for this number of txs
-      if (currentSubtreeSize & numTxs == 0) {
+      if (currentSubtreeSize & _numTxs == 0) {
         currentSubtreeSize <<= 1;
         currentSubtreeHeight++;
         continue;
@@ -76,8 +79,8 @@ library MerkleLib {
       // Assign the smallest rightmost subtree height
       if (numSubtrees == 0) finalSubtreeHeight = currentSubtreeHeight;
       // Assign the largest leftmost subtree height
-      if (numTxs - currentSubtreeSize == 0) firstSubtreeHeight = currentSubtreeHeight;
-      numTxs -= currentSubtreeSize;
+      if (_numTxs - currentSubtreeSize == 0) firstSubtreeHeight = currentSubtreeHeight;
+      _numTxs -= currentSubtreeSize;
       currentSubtreeSize <<= 1;
       currentSubtreeHeight++;
       numSubtrees++;

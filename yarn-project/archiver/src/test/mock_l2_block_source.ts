@@ -1,4 +1,5 @@
 import {
+  type L1RollupConstants,
   L2Block,
   L2BlockHash,
   type L2BlockSource,
@@ -6,8 +7,8 @@ import {
   type TxHash,
   TxReceipt,
   TxStatus,
+  getSlotRangeForEpoch,
 } from '@aztec/circuit-types';
-import { getSlotRangeForEpoch } from '@aztec/circuit-types';
 import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
@@ -23,10 +24,10 @@ export class MockL2BlockSource implements L2BlockSource {
 
   private log = createLogger('archiver:mock_l2_block_source');
 
-  public createBlocks(numBlocks: number) {
+  public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = L2Block.random(blockNum);
+      const block = await L2Block.random(blockNum);
       this.l2Blocks.push(block);
     }
 
@@ -184,6 +185,10 @@ export class MockL2BlockSource implements L2BlockSource {
   }
 
   isEpochComplete(_epochNumber: bigint): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  getL1Constants(): Promise<L1RollupConstants> {
     throw new Error('Method not implemented.');
   }
 

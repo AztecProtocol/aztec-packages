@@ -26,7 +26,6 @@ import {
   BLOBS_PER_BLOCK,
   BaseParityInputs,
   CallContext,
-  CombinedAccumulatedData,
   CombinedConstantData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -56,8 +55,8 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -65,7 +64,6 @@ import {
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
@@ -73,6 +71,7 @@ import {
   NullifierLeafPreimage,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -81,6 +80,7 @@ import {
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
   PublicCircuitPublicInputs,
@@ -91,7 +91,6 @@ import {
   PublicKeys,
   RECURSIVE_PROOF_LENGTH,
   ReadRequest,
-  RevertCode,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
@@ -136,12 +135,13 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
+  PublicLog,
   ScopedL2ToL1Message,
   TreeSnapshots,
   TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
-import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
@@ -150,7 +150,12 @@ import {
   BlockRootOrBlockMergePublicInputs,
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
-import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import {
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  SingleTxBlockRootRollupInputs,
+} from '../structs/rollup/block_root_rollup.js';
 import { ConstantRollupData } from '../structs/rollup/constant_rollup_data.js';
 import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
 import { MergeRollupInputs } from '../structs/rollup/merge_rollup.js';
@@ -192,6 +197,10 @@ function makePrivateLog(seed: number) {
 
 function makePrivateLogData(seed: number) {
   return new PrivateLogData(makePrivateLog(seed + 0x100), seed, seed + 1);
+}
+
+function makePublicLog(seed: number) {
+  return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
 }
 
 /**
@@ -304,24 +313,16 @@ export function makeCombinedConstantData(seed = 1): CombinedConstantData {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
+export function makePrivateToRollupAccumulatedData(seed = 1, full = false): PrivateToRollupAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new CombinedAccumulatedData(
+  return new PrivateToRollupAccumulatedData(
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
-    tupleGenerator(
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataWrite,
-      seed + 0xd00,
-      PublicDataWrite.empty,
-    ),
   );
 }
 
@@ -353,7 +354,7 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
+    makeTuple(MAX_PUBLIC_LOGS_PER_TX, makePublicLog, seed + 0x300),
     makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }
@@ -394,7 +395,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   const forRollup = !isForPublic
-    ? new PartialPrivateTailPublicInputsForRollup(makeCombinedAccumulatedData(seed + 0x100))
+    ? new PartialPrivateTailPublicInputsForRollup(makePrivateToRollupAccumulatedData(seed + 0x100))
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
@@ -423,13 +424,14 @@ function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Public kernel circuit public inputs.
  */
-export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(
+export function makePrivateToRollupKernelCircuitPublicInputs(
+  seed = 1,
+  fullAccumulatedData = true,
+): PrivateToRollupKernelCircuitPublicInputs {
+  return new PrivateToRollupKernelCircuitPublicInputs(
+    makeTxConstantData(seed + 0x100),
     makeRollupValidationRequests(seed),
-    makeCombinedAccumulatedData(seed, fullAccumulatedData),
-    makeCombinedConstantData(seed + 0x100),
-    makePartialStateReference(seed + 0x200),
-    RevertCode.OK,
+    makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
@@ -609,7 +611,7 @@ export function makeFeeRecipient(seed = 1) {
  * @param blockNumber - The block number to use for generating the global variables.
  * @returns A constant base rollup data.
  */
-export function makeConstantBaseRollupData(
+export function makeConstantRollupData(
   seed = 1,
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
@@ -714,7 +716,7 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     1,
-    makeConstantBaseRollupData(seed + 0x200, globalVariables),
+    makeConstantRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
     makeSpongeBlob(seed + 0x500),
@@ -806,6 +808,24 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
   );
 }
 
+function makeBlockRootRollupData(seed = 0) {
+  return new BlockRootRollupData(
+    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
+    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
+    makeHeader(seed + 0x2300),
+    fr(seed + 0x2400),
+  );
+}
+
+function makeBlockRootRollupBlobData(seed = 0) {
+  return new BlockRootRollupBlobData(
+    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
+    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    fr(seed + 0x2700),
+  );
+}
+
 /**
  * Makes block root rollup inputs.
  * @param seed - The seed to use for generating the root rollup inputs.
@@ -815,17 +835,16 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
 export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
   return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
-    makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
-    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
-    fr(seed + 0x2400),
-    fr(seed + 0x2500),
-    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2400),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2500)),
-    fr(seed + 0x2600),
+    makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
+  );
+}
+
+export function makeSingleTxBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables) {
+  return new SingleTxBlockRootRollupInputs(
+    [makePreviousRollupData(seed, globalVariables)],
+    makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
   );
 }
 
@@ -840,12 +859,9 @@ export function makeEmptyBlockRootRollupInputs(
   globalVariables?: GlobalVariables,
 ): EmptyBlockRootRollupInputs {
   return new EmptyBlockRootRollupInputs(
-    makeAppendOnlyTreeSnapshot(seed),
-    fr(seed + 0x100),
-    globalVariables ?? makeGlobalVariables(seed + 0x200),
-    fr(seed + 0x300),
-    fr(seed + 0x301),
-    fr(seed + 0x400),
+    makeBlockRootRollupData(seed + 0x1000),
+    makeConstantRollupData(0x2500, globalVariables),
+    true,
   );
 }
 
@@ -1122,9 +1138,9 @@ function makeVkWitnessData(seed = 1) {
   return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
 
-function makePrivateTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs) {
+function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKernelCircuitPublicInputs) {
   return new PrivateTubeData(
-    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
+    kernelPublicInputs ?? makePrivateToRollupKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
@@ -1139,7 +1155,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const constants = makeConstantBaseRollupData(0x100);
+  const constants = makeConstantRollupData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
@@ -1162,7 +1178,7 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const constants = makeConstantBaseRollupData(0x100);
+  const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     start,
@@ -1280,19 +1296,39 @@ export function makeArray<T extends Bufferable>(length: number, fn: (i: number) 
   return Array.from({ length }, (_: any, i: number) => fn(i + offset));
 }
 
+export function makeArrayAsync<T extends Bufferable>(length: number, fn: (i: number) => Promise<T>, offset = 0) {
+  return Promise.all(
+    Array(length)
+      .fill(0)
+      .map((_: any, i: number) => fn(i + offset)),
+  );
+}
+
 export function makeVector<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
   return new Vector(makeArray(length, fn, offset));
+}
+
+export async function makeVectorAsync<T extends Bufferable>(length: number, fn: (i: number) => Promise<T>, offset = 0) {
+  return new Vector(await makeArrayAsync(length, fn, offset));
 }
 
 export function makeMap<T extends Bufferable>(size: number, fn: (i: number) => [string, T], offset = 0) {
   return new Map(makeArray(size, i => fn(i + offset)));
 }
 
-export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
+export async function makeMapAsync<T extends Bufferable>(
+  size: number,
+  fn: (i: number) => Promise<[string, T]>,
+  offset = 0,
+) {
+  return new Map(await makeArrayAsync(size, i => fn(i + offset)));
+}
+
+export async function makeContractInstanceFromClassId(classId: Fr, seed = 0): Promise<ContractInstanceWithAddress> {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
   const deployer = new AztecAddress(new Fr(seed + 2));
-  const publicKeys = PublicKeys.random();
+  const publicKeys = await PublicKeys.random();
 
   const saltedInitializationHash = poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
@@ -1302,7 +1338,7 @@ export function makeContractInstanceFromClassId(classId: Fr, seed = 0): Contract
     [classId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
-  const address = computeAddress(publicKeys, partialAddress);
+  const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
     version: 1,
     salt,
@@ -1313,9 +1349,9 @@ export function makeContractInstanceFromClassId(classId: Fr, seed = 0): Contract
   }).withAddress(address);
 }
 
-export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
+export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecodeHints> {
   const { artifactHash, privateFunctionsRoot, packedBytecode, id } = makeContractClassPublic(seed);
-  const instance = makeContractInstanceFromClassId(id, seed + 0x1000);
+  const instance = await makeContractInstanceFromClassId(id, seed + 0x1000);
 
   const avmHintInstance = new AvmContractInstanceHint(
     instance.address,
@@ -1412,10 +1448,10 @@ export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
  * @param seed - The seed to use for generating the hints.
  * @returns the execution hints.
  */
-export function makeAvmExecutionHints(
+export async function makeAvmExecutionHints(
   seed = 0,
   overrides: Partial<FieldsOf<AvmExecutionHints>> = {},
-): AvmExecutionHints {
+): Promise<AvmExecutionHints> {
   const lengthOffset = 10;
   const lengthSeedMod = 10;
   const baseLength = lengthOffset + (seed % lengthSeedMod);
@@ -1423,10 +1459,10 @@ export function makeAvmExecutionHints(
   return AvmExecutionHints.from({
     enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: makeMap(
+    contractBytecodeHints: await makeMapAsync(
       baseLength + 6,
-      i => {
-        const h = makeAvmBytecodeHints(i);
+      async i => {
+        const h = await makeAvmBytecodeHints(i);
         return [h.contractInstanceHint.address.toString(), h];
       },
       seed + 0x4900,
@@ -1447,12 +1483,15 @@ export function makeAvmExecutionHints(
  * @param seed - The seed to use for generating the hints.
  * @returns the execution hints.
  */
-export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
+export async function makeAvmCircuitInputs(
+  seed = 0,
+  overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
+): Promise<AvmCircuitInputs> {
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     publicInputs: PublicCircuitPublicInputs.empty(),
-    avmHints: makeAvmExecutionHints(seed + 0x3000),
+    avmHints: await makeAvmExecutionHints(seed + 0x3000),
     output: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   });

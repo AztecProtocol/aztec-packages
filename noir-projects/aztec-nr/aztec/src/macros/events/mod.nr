@@ -1,12 +1,12 @@
 use super::utils::compute_event_selector;
-use protocol_types::meta::flatten_to_fields;
-use std::meta::typ::fresh_type_variable;
+use protocol_types::meta::generate_serialize_to_fields;
 
 comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
-    let (fields, _) = flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
-    let content_len = fields.len();
+    let (serialization_fields, _) =
+        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}]);
+    let content_len = serialization_fields.len();
 
     let event_type_id = compute_event_selector(s);
 
@@ -20,7 +20,7 @@ comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
                     buffer[i] = event_type_id_bytes[i];
                 }
 
-                let serialized_event = self.serialize();
+                let serialized_event = Serialize::<$content_len>::serialize(self);
 
                 for i in 0..serialized_event.len() {
                     let bytes: [u8; 32] = serialized_event[i].to_be_bytes();

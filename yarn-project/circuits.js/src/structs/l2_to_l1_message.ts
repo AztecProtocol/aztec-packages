@@ -1,9 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { L2_TO_L1_MESSAGE_LENGTH } from '../constants.gen.js';
+import { L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH } from '../constants.gen.js';
 
 export class L2ToL1Message {
   constructor(public recipient: EthAddress, public content: Fr, public counter: number) {}
@@ -85,6 +86,10 @@ export class L2ToL1Message {
 export class ScopedL2ToL1Message {
   constructor(public message: L2ToL1Message, public contractAddress: AztecAddress) {}
 
+  static getFields(fields: FieldsOf<ScopedL2ToL1Message>) {
+    return [fields.message, fields.contractAddress] as const;
+  }
+
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
   }
@@ -105,6 +110,16 @@ export class ScopedL2ToL1Message {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new ScopedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readObject(AztecAddress));
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...ScopedL2ToL1Message.getFields(this));
+    if (fields.length !== SCOPED_L2_TO_L1_MESSAGE_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for ScopedL2ToL1Message. Expected ${SCOPED_L2_TO_L1_MESSAGE_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   isEmpty(): boolean {

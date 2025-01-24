@@ -3,7 +3,6 @@ import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/cir
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';
-import { toHumanReadable } from '@aztec/foundation/serialize';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
@@ -39,10 +38,10 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, incomingNotes] = await Promise.all([
+  const [receipt, effectsInBlock, getNotes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
@@ -65,13 +64,12 @@ export async function inspectTx(
     log(` Fee: ${receipt.transactionFee.toString()}`);
   }
 
-  // Unencrypted logs
-  const unencryptedLogs = effects.unencryptedLogs.unrollLogs();
-  if (unencryptedLogs.length > 0) {
+  // Public logs
+  const publicLogs = effects.publicLogs;
+  if (publicLogs.length > 0) {
     log(' Logs:');
-    for (const unencryptedLog of unencryptedLogs) {
-      const data = toHumanReadable(unencryptedLog.data, 1000);
-      log(`  ${toFriendlyAddress(unencryptedLog.contractAddress, artifactMap)}: ${data}`);
+    for (const publicLog of publicLogs) {
+      log(`  ${publicLog.toHumanReadable()}`);
     }
   }
 
@@ -88,10 +86,10 @@ export async function inspectTx(
   const notes = effects.noteHashes;
   if (notes.length > 0) {
     log(' Created notes:');
-    log(`  Total: ${notes.length}. Incoming: ${incomingNotes.length}.`);
-    if (incomingNotes.length) {
-      log('  Incoming notes:');
-      for (const note of incomingNotes) {
+    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
+    if (getNotes.length) {
+      log('  Found notes:');
+      for (const note of getNotes) {
         inspectNote(note, artifactMap, log);
       }
     }
@@ -103,7 +101,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];

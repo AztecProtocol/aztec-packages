@@ -23,6 +23,10 @@ export class RunningPromise {
    * Starts the running promise.
    */
   public start() {
+    if (this.running) {
+      this.logger.warn(`Attempted to start running promise that was already started`);
+      return;
+    }
     this.running = true;
 
     const poll = async () => {
@@ -54,6 +58,10 @@ export class RunningPromise {
    * and waits for the currently executing function to complete.
    */
   async stop(): Promise<void> {
+    if (!this.running) {
+      this.logger.warn(`Running promise was not started`);
+      return;
+    }
     this.running = false;
     this.interruptibleSleep.interrupt();
     await this.runningPromise;

@@ -188,6 +188,14 @@ export class RollupCheatCodes {
     await action(owner, this.rollup);
     await this.ethCheatCodes.stopImpersonating(owner);
   }
+
+  /** Directly calls the L1 gas fee oracle. */
+  public async updateL1GasFeeOracle() {
+    await this.asOwner(async (account, rollup) => {
+      await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      this.logger.warn(`Updated L1 gas fee oracle`);
+    });
+  }
 }
 
 /**
@@ -256,7 +264,7 @@ export class AztecCheatCodes {
    * @returns The notes stored at the given slot
    */
   public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
-    const extendedNotes = await this.pxe.getIncomingNotes({
+    const extendedNotes = await this.pxe.getNotes({
       owner,
       contractAddress: contract,
       storageSlot: new Fr(slot),

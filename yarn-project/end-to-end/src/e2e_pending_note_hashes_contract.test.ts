@@ -294,8 +294,8 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await deployedContract.methods.sync_notes().simulate();
 
-    const incomingNotes = await wallet.getIncomingNotes({ txHash: txReceipt.txHash });
+    const notes = await wallet.getNotes({ txHash: txReceipt.txHash });
 
-    expect(incomingNotes.length).toBe(1);
+    expect(notes.length).toBe(1);
   });
 });

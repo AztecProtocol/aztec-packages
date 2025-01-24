@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
+import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
@@ -38,7 +38,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   constructor(
     private peerId: PeerId,
     config: P2PConfig,
-    telemetry: TelemetryClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
   ) {
     super();

@@ -9,13 +9,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  get-latest-commit:
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.get_commit.outputs.COMMIT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest published commit
+        id: get_commit
+        run: |
+          COMMIT=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/master | jq ".digest" | tr -d '"')
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
   deploy-network:
+    needs: get-latest-commit
     uses: ./.github/workflows/network-deploy.yml
     with:
       ref: master
       namespace: masternet
       values_file: rc-1.yaml
-      aztec_docker_image: aztecprotocol/aztec:master
+      aztec_docker_image: aztecprotocol/aztec@${{ needs.get-latest-commit.outputs.commit }}
       deployment_mnemonic_secret_name: testnet-deployment-mnemonic
       respect_tf_lock: "false"
       run_terraform_destroy: "true"

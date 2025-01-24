@@ -3,6 +3,7 @@ fn main() {
     let x: u32 = 6;
     let y: u32 = 2;
 
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         assert((x + y) == add(x, y));

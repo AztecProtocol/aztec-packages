@@ -41,7 +41,7 @@ _The sequencer has passed the transaction information – proofs of correct exec
 
 5. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
 
-### Going deeper
+### Detailed Diagram
 
 Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
 
@@ -51,7 +51,70 @@ See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-package
 
 See the page on [contract communication](../smart_contracts/functions/public_private_calls.md) for more context on transaction execution.
 
-### Enabling Transaction Semantics: The Aztec Kernel
+### Transaction Requests
+
+Transaction requests are how transactions are constructed and sent to the network.
+
+In Aztec.js:
+
+#include_code constructor yarn-project/circuits.js/src/structs/tx_request.ts javascript
+
+Where:
+
+- `origin` is the account contract where the transaction is initiated from.
+- `functionData` contains the function selector and indicates whether the function is private or public.
+- `argsHash` is the hash of the arguments of all of the calls to be executed. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx_execution_request.ts) and checked against this hash.
+- `txContext` contains the chain id, version, and gas settings.
+
+The `functionData` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
+
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
+
+Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/circuit-types/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
+
+#### Contract Interaction Methods
+
+Most transaction requests are created as interactions with specific contracts. The exception is transactions that deploy contracts. Here are the main methods for interacting with contracts related to transactions.
+
+1. [`create`](#create)
+2. [`simulate`](#simulate)
+3. [`prove`](#prove)
+4. [`send`](#send)
+
+And fee utilities:
+
+- [`estimateGas`](#estimategas)
+- [`getFeeOptions`](#getfeeoptions)
+
+##### `create`
+
+#include_code create yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+
+##### `simulate`
+
+#include_code simulate yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+
+##### `prove`
+
+#include_code prove yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `send`
+
+#include_code send yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `estimateGas`
+
+#include_code estimateGas yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+##### `getFeeOptions`
+
+#include_code getFeeOptions yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+
+### Batch Transactions
+
+Batched transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
+
+### Enabling Transaction Semantics
 
 There are two kernel circuits in Aztec, the private kernel and the public kernel. Each circuit validates the correct execution of a particular function call.
 

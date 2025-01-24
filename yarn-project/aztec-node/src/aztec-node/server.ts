@@ -1,10 +1,12 @@
 import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
@@ -57,7 +59,6 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -73,9 +74,15 @@ import {
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -105,7 +112,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     private proofVerifier: ClientProtocolCircuitVerifier,
-    private telemetry: TelemetryClient,
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
   ) {
     this.packageVersion = getPackageInfo().version;
@@ -139,11 +146,13 @@ export class AztecNodeService implements AztecNode, Traceable {
       logger?: Logger;
       publisher?: L1Publisher;
       dateProvider?: DateProvider;
+      blobSinkClient?: BlobSinkClientInterface;
     } = {},
   ): Promise<AztecNodeService> {
-    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
+    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -152,7 +161,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true });
+    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -190,6 +199,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          ...deps,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
@@ -199,7 +209,7 @@ export class AztecNodeService implements AztecNode, Traceable {
           l1ToL2MessageSource: archiver,
           telemetry,
           dateProvider,
-          ...deps,
+          blobSinkClient,
         });
 
     return new AztecNodeService(
@@ -393,12 +403,12 @@ export class AztecNodeService implements AztecNode, Traceable {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.logsSource.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.logsSource.getPublicLogs(filter);
   }
 
   /**
@@ -406,7 +416,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.logsSource.getContractClassLogs(filter);
   }
 
@@ -648,10 +658,12 @@ export class AztecNodeService implements AztecNode, Traceable {
       true,
     );
 
-    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
-    if (l2toL1SubtreeRoots.length < 2) {
-      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.ZERO, 2);
+    const numTxs = block.body.txEffects.length;
+    if (numTxs === 1) {
+      return [BigInt(indexOfMsgInSubtree), subtreePathOfL2ToL1Message];
     }
+
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
@@ -829,7 +841,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param tx - The transaction to simulate.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
@@ -844,7 +856,6 @@ export class AztecNodeService implements AztecNode, Traceable {
       coinbase,
       feeRecipient,
     );
-    const prevHeader = (await this.blockSource.getBlock(-1))?.header;
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       new DateProvider(),
@@ -859,7 +870,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables, enforceFeePayment);
+      const processor = publicProcessorFactory.create(fork, newGlobalVariables, enforceFeePayment);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -923,8 +934,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.contractDataSource.registerContractFunctionNames(_address, names);
+  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(_address, signatures);
   }
 
   public flushTxs(): Promise<void> {

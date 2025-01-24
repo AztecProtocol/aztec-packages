@@ -5,8 +5,11 @@ use crate::{
         validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
-    constants::PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    constants::{
+        GENERATOR_INDEX__PUBLIC_TX_HASH, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    },
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize},
     utils::reader::Reader,
 };
 
@@ -62,6 +65,12 @@ impl Serialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Privat
         assert_eq(fields.len(), PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
+    }
+}
+
+impl Hash for PrivateToPublicKernelCircuitPublicInputs {
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_TX_HASH)
     }
 }
 

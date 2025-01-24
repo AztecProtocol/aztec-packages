@@ -27,7 +27,7 @@ export function waitUntilBlock<T extends Client>(client: T, blockNumber: number 
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
-    60,
+    120,
     0.1,
   );
 }
@@ -52,7 +52,7 @@ export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: num
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
-    60,
+    120,
     0.1,
   );
 }
@@ -144,7 +144,7 @@ export function withDelayer<T extends WalletClient>(
           return Promise.resolve(txHash);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`);
+          logger.verbose(`Sent tx immediately ${txHash}`);
           delayer.txs.push(txHash);
           return txHash;
         }

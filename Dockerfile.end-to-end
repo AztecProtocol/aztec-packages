@@ -15,4 +15,4 @@ COPY /usr/src /usr/src
 COPY /anvil /opt/foundry/bin/anvil
 
 WORKDIR /usr/src/yarn-project/end-to-end
-ENTRYPOINT ["yarn", "test:e2e-no-docker"]
+ENTRYPOINT ["yarn", "test:e2e"]

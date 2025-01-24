@@ -30,6 +30,18 @@ export function frToBoolean(fr: Fr): boolean {
 }
 
 /**
+ * Converts a Noir BoundedVec of Fields into an Fr array. Note that BoundedVecs are structs, and therefore translated as
+ * two separate ACVMField arrays.
+ *
+ * @param storage The array with the BoundedVec's storage (i.e. BoundedVec::storage())
+ * @param length The length of the BoundedVec (i.e. BoundedVec::len())
+ * @returns An array with the same content as the Noir version. Elements past the length are discarded.
+ */
+export function fromBoundedVec(storage: ACVMField[], length: ACVMField): Fr[] {
+  return storage.slice(0, frToNumber(fromACVMField(length))).map(fromACVMField);
+}
+
+/**
  * Transforms a witness map to its field elements.
  * @param witness - The witness to extract from.
  * @returns The return values.

@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId, type SiblingPath, TxEffect } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
@@ -47,8 +47,7 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
@@ -123,7 +122,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    */
   public static async new(
     store: AztecKVStore,
-    client: TelemetryClient,
+    client: TelemetryClient = getTelemetryClient(),
     log = createLogger('world-state:merkle_trees'),
   ) {
     const merkleTrees = new MerkleTrees(store, client, log);
@@ -136,7 +135,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    */
   public static tmp() {
     const store = openTmpStore();
-    return MerkleTrees.new(store, new NoopTelemetryClient());
+    return MerkleTrees.new(store, getTelemetryClient());
   }
 
   /**
@@ -647,17 +646,11 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       this.log.verbose(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain`);
       await this.#rollback();
 
-      // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
-      // by circuits.
-      const paddedTxEffects = padArrayEnd(
-        l2Block.body.txEffects,
-        TxEffect.empty(),
-        l2Block.body.numberOfTxsIncludingPadded,
-      );
+      // We have to pad the values within tx effects because that's how the trees are built by circuits.
 
       // Sync the append only trees
       {
-        const noteHashesPadded = paddedTxEffects.flatMap(txEffect =>
+        const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
           padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
         );
         await this.#appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
@@ -668,7 +661,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
 
       // Sync the indexed trees
       {
-        const nullifiersPadded = paddedTxEffects.flatMap(txEffect =>
+        const nullifiersPadded = l2Block.body.txEffects.flatMap(txEffect =>
           padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
         );
         await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
@@ -679,7 +672,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
         const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
 
         // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-        for (const txEffect of paddedTxEffects) {
+        for (const txEffect of l2Block.body.txEffects) {
           const publicDataWrites = padArrayEnd(
             txEffect.publicDataWrites,
             PublicDataWrite.empty(),

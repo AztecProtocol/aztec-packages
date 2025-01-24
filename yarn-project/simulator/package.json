@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
+    "./common": "./dest/common.js",
+    "./server": "./dest/server.js",
     "./client": "./dest/client/index.js",
-    "./acvm": "./dest/acvm/index.js",
-    "./errors": "./dest/common/errors.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
@@ -93,7 +92,7 @@
     "lodash.merge": "^4.6.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",

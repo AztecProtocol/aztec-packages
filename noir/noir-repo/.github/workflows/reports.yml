@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@1.74.1
+        uses: dtolnay/rust-toolchain@1.75.0
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -73,10 +73,10 @@ jobs:
           ./rebuild.sh
           ./gates_report.sh
           mv gates_report.json ../gates_report.json
-      
+
       - name: Compare gates reports
         id: gates_diff
-        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
+        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
         with:
           report: gates_report.json
           summaryQuantile: 0.9 # only display the 10% most significant circuit size diffs in the summary (defaults to 20%)
@@ -116,12 +116,23 @@ jobs:
       - name: Generate Brillig bytecode size report
         working-directory: ./test_programs
         run: |
-          ./gates_report_brillig.sh
-          mv gates_report_brillig.json ../gates_report_brillig.json
+          mkdir ./reports
+
+          ./gates_report_brillig.sh 9223372036854775807
+          jq '.programs |= map(.package_name |= (. + "_inliner_max"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_max.json
+          
+          ./gates_report_brillig.sh 0
+          jq '.programs |= map(.package_name |= (. + "_inliner_zero"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_zero.json
+          
+          ./gates_report_brillig.sh -9223372036854775808
+          jq '.programs |= map(.package_name |= (. + "_inliner_min"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_min.json
+
+          # Merge all reports
+          jq -s '{ programs: map(.programs) | add }' ./reports/* > ../gates_report_brillig.json
 
       - name: Compare Brillig bytecode size reports
         id: brillig_bytecode_diff
-        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
+        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
         with:
           report: gates_report_brillig.json
           header: |
@@ -139,7 +150,7 @@ jobs:
           message: ${{ steps.brillig_bytecode_diff.outputs.markdown }}
 
   compare_brillig_execution_reports:
-    name: Brillig execution trace sizes  
+    name: Brillig execution trace sizes
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -165,12 +176,23 @@ jobs:
       - name: Generate Brillig execution report
         working-directory: ./test_programs
         run: |
-          ./gates_report_brillig_execution.sh
-          mv gates_report_brillig_execution.json ../gates_report_brillig_execution.json
+          mkdir ./reports 
+          
+          ./gates_report_brillig_execution.sh 9223372036854775807
+          jq '.programs |= map(.package_name |= (. + "_inliner_max"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_max.json
+
+          ./gates_report_brillig_execution.sh 0
+          jq '.programs |= map(.package_name |= (. + "_inliner_zero"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_zero.json
+          
+          ./gates_report_brillig_execution.sh -9223372036854775808
+          jq '.programs |= map(.package_name |= (. + "_inliner_min"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_min.json
+
+          # Merge all reports
+          jq -s '{ programs: map(.programs) | add }' ./reports/* > ../gates_report_brillig_execution.json
 
       - name: Compare Brillig execution reports
         id: brillig_execution_diff
-        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
+        uses: noir-lang/noir-gates-diff@c1503343c3e264925ef67c68a2a5eeadd245a77b
         with:
           report: gates_report_brillig_execution.json
           header: |
@@ -188,7 +210,7 @@ jobs:
           message: ${{ steps.brillig_execution_diff.outputs.markdown }}
 
   generate_memory_report:
-    name: Peak memory usage  
+    name: Peak memory usage
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -299,16 +321,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-contracts, is_library: true }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/parity-root, take_average: true }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-inner, take_average: true }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail, take_average: true  }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-reset, take_average: true }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root }
-          #- project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public }
+          # - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-contracts, cannot_execute: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-inner, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail, num_runs: 5  }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-reset, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root-empty, num_runs: 5, cannot_execute: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root-single-tx, num_runs: 1, flags: "--skip-brillig-constraints-check --skip-underconstrained-check", cannot_execute: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root, num_runs: 1, flags: "--skip-brillig-constraints-check --skip-underconstrained-check" }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-merge, num_runs: 5 }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root, num_runs: 5 }
 
     name: External repo compilation and execution reports - ${{ matrix.project.repo }}/${{ matrix.project.path }}
     steps:
@@ -331,13 +355,8 @@ jobs:
           path: scripts
           sparse-checkout: |
             test_programs/compilation_report.sh
-          sparse-checkout-cone-mode: false
-            
-      - uses: actions/checkout@v4
-        with:
-          path: scripts
-          sparse-checkout: |
             test_programs/execution_report.sh
+            test_programs/parse_time.sh
           sparse-checkout-cone-mode: false
 
       - name: Checkout
@@ -352,125 +371,20 @@ jobs:
         if: ${{ !matrix.project.take_average }}
         run: |
           mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1
-      
+          touch parse_time.sh
+          chmod +x parse_time.sh
+          cp /home/runner/work/noir/noir/scripts/test_programs/parse_time.sh ./parse_time.sh
+          ./compilation_report.sh 1 ${{ matrix.project.num_runs }}
+        env:
+          FLAGS: ${{ matrix.project.flags }}
+
       - name: Generate execution report
         working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library }}
+        if: ${{ !matrix.project.cannot_execute }}
         run: |
           mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate compilation report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1 1
-      
-      - name: Generate execution report without averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate execution report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1 1
-
-      - name: Generate compilation report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1 1
-      
-      - name: Generate execution report without averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate execution report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1 1
-
-      - name: Generate compilation report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1 1
-      
-      - name: Generate execution report without averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate execution report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1 1
-
-      - name: Generate compilation report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1 1
-      
-      - name: Generate execution report without averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate execution report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1 1
-
-      - name: Generate compilation report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
-          chmod +x ./compilation_report.sh
-          ./compilation_report.sh 1 1
-      
-      - name: Generate execution report without averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1
-
-      - name: Generate execution report with averages
-        working-directory: ./test-repo/${{ matrix.project.path }}
-        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
-        run: |
-          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
-          ./execution_report.sh 1 1
+          mv /home/runner/work/noir/noir/scripts/test_programs/parse_time.sh ./parse_time.sh
+          ./execution_report.sh 1 ${{ matrix.project.num_runs }}
 
       - name: Move compilation report
         id: compilation_report
@@ -484,7 +398,7 @@ jobs:
       - name: Move execution report
         id: execution_report
         shell: bash
-        if: ${{ !matrix.project.is_library }}
+        if: ${{ !matrix.project.cannot_execute }}
         run: |
           PACKAGE_NAME=${{ matrix.project.path }}
           PACKAGE_NAME=$(basename $PACKAGE_NAME)
@@ -561,12 +475,17 @@ jobs:
         include:
           # TODO: Bring this report back under a flag. The `noir-contracts` report takes just under 30 minutes.
           # - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-contracts }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/parity-root }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-inner }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail  }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-reset }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root-empty, cannot_execute: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root-single-tx, flags: "--skip-brillig-constraints-check --skip-underconstrained-check", cannot_execute: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root, flags: "--skip-brillig-constraints-check --skip-underconstrained-check" }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-merge }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root }
 
     name: External repo memory report - ${{ matrix.project.repo }}/${{ matrix.project.path }}
     steps:
@@ -605,9 +524,12 @@ jobs:
           ./memory_report.sh 1
           # Rename the memory report as the execution report is about to write to the same file
           cp memory_report.json compilation_memory_report.json
+        env:
+          FLAGS: ${{ matrix.project.flags }}
 
       - name: Generate execution memory report
         working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.cannot_execute }}
         run: |
           ./memory_report.sh 1 1
 
@@ -630,6 +552,7 @@ jobs:
 
       - name: Move execution report
         id: execution_mem_report
+        if: ${{ !matrix.project.cannot_execute }}
         shell: bash
         run: |
           PACKAGE_NAME=${{ matrix.project.path }}
@@ -672,17 +595,19 @@ jobs:
         run: |
           mv ./.github/scripts/merge-bench-reports.sh merge-bench-reports.sh
           ./merge-bench-reports.sh memory_report
+          # Rename the memory report as to not clash with the compilation memory report file name
+          cp memory_report.json execution_memory_report.json
 
       - name: Parse compilation memory report
         id: compilation_mem_report
         uses: noir-lang/noir-bench-report@6ba151d7795042c4ff51864fbeb13c0a6a79246c
         with:
-          report: memory_report.json
+          report: execution_memory_report.json
           header: |
             Compilation Memory Report
           memory_report: true
 
-      - name: Add memory report to sticky comment
+      - name: Add execution memory report to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:

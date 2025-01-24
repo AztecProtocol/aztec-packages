@@ -40,22 +40,14 @@ fn validate_initial_values_constants_mismatch_out_hash_fails() {
 /**
  * First nullifier.
  */
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
+#[test(should_fail_with = "protocol nullifier must be the tx request nullifier")]
+fn validate_initial_values_constants_incorrect_protocol_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+    builder.with_protocol_nullifier();
 
     let mut nullifier = builder.output.nullifiers.get(0);
     nullifier.nullifier.value += 1;
     builder.output.nullifiers.set(0, nullifier);
-
-    builder.validate_as_first_call(false);
-}
-
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_empty_first_nullifier_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.nullifiers = BoundedVec::new();
 
     builder.validate_as_first_call(false);
 }

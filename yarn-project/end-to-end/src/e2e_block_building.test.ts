@@ -29,10 +29,15 @@ import { type TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerClient, SequencerState } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, type PublicTxResult, PublicTxSimulator, type WorldStateDB } from '@aztec/simulator';
+import { type SequencerClient } from '@aztec/sequencer-client';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import {
+  PublicProcessorFactory,
+  type PublicTxResult,
+  PublicTxSimulator,
+  type WorldStateDB,
+} from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -55,11 +60,15 @@ describe('e2e_block_building', () => {
 
   const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('multi-txs block', () => {
     const artifact = StatefulTestContractArtifact;
 
     beforeAll(async () => {
-      let sequencerClient;
+      let sequencerClient: SequencerClient | undefined;
       ({
         teardown,
         pxe,
@@ -69,9 +78,13 @@ describe('e2e_block_building', () => {
         sequencer: sequencerClient,
         dateProvider,
         cheatCodes,
-      } = await setup(2));
-      // Bypass accessibility modifiers in sequencer
-      sequencer = sequencerClient! as unknown as TestSequencerClient;
+      } = await setup(2, {
+        archiverPollingIntervalMS: 200,
+        transactionPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+      }));
+      sequencer = sequencerClient! as TestSequencerClient;
     });
 
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
@@ -181,7 +194,9 @@ describe('e2e_block_building', () => {
     });
 
     it('processes txs until hitting timetable', async () => {
-      const TX_COUNT = 32;
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
@@ -195,21 +210,15 @@ describe('e2e_block_building', () => {
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(
-        archiver,
-        dateProvider!,
-        new NoopTelemetryClient(),
-      );
+      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI. Note that we need
-      // at least 3s here so the archiver has time to loop once and sync, and the sequencer has at
-      // least 1s to loop.
-      sequencer.sequencer.timeTable[SequencerState.INITIALIZING_PROPOSAL] = 4;
-      sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 4;
-      sequencer.sequencer.processTxTime = 1;
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
+      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      jest
+        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
+        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
@@ -244,9 +253,10 @@ describe('e2e_block_building', () => {
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
+      const deployerInstance = await deployer.getInstance();
       const callInteraction = new ContractFunctionInteraction(
         owner,
-        deployer.getInstance().address,
+        deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minter.getCompleteAddress(), true],
       );
@@ -398,8 +408,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -411,11 +421,13 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
-        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
-        // In this test we care only about the privately delivered values
-        return notePayload?.privateNoteValues[0];
-      });
+      const noteValues = await Promise.all(
+        tx.data.getNonEmptyPrivateLogs().map(async log => {
+          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
+          // In this test we care only about the privately delivered values
+          return notePayload?.privateNoteValues[0];
+        }),
+      );
       expect(noteValues[0]).toEqual(new Fr(10));
       expect(noteValues[1]).toEqual(new Fr(11));
       expect(noteValues[2]).toEqual(new Fr(12));
@@ -424,8 +436,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -443,10 +455,10 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
       expect(event0.event.items).toEqual(values);
 
-      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
       expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.
@@ -464,7 +476,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
-    it('publishes two blocks with only padding txs', async () => {
+    it('publishes two empty blocks', async () => {
       ({ teardown, pxe, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
@@ -481,7 +493,7 @@ describe('e2e_block_building', () => {
       }));
       await sleep(1000);
 
-      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
     });
 
@@ -610,13 +622,6 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
   );
 }
 
-type TestSequencer = Omit<Sequencer, 'publicProcessorFactory' | 'timeTable'> & {
-  publicProcessorFactory: PublicProcessorFactory;
-  timeTable: Record<SequencerState, number>;
-  processTxTime: number;
-};
-type TestSequencerClient = Omit<SequencerClient, 'sequencer'> & { sequencer: TestSequencer };
-
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 
 class TestPublicTxSimulator extends PublicTxSimulator {
@@ -629,18 +634,18 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
     db: MerkleTreeWriteOperations,
     worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     enforceFeePayment: boolean,
+    telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
       db,
       worldStateDB,
-      telemetryClient,
       globalVariables,
       doMerkleOperations,
       enforceFeePayment,
+      telemetryClient,
     );
   }
 }

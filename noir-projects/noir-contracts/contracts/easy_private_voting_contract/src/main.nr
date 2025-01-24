@@ -1,8 +1,10 @@
+// docs:start:declaration
 mod test;
 use dep::aztec::macros::aztec;
 
 #[aztec]
 contract EasyPrivateVoting {
+    // docs:end:declaration
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,

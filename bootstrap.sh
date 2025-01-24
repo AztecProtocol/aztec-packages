@@ -47,11 +47,11 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  if ! rustup show | grep "1.74" > /dev/null; then
+  if ! rustup show | grep "1.75" > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.74 not installed."
+    echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -202,12 +202,17 @@ case "$cmd" in
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
     check_arch=false
+    version="0.1.0"
 
     # Check for --check-arch flag in args
     for arg in "$@"; do
       if [ "$arg" = "--check-arch" ]; then
         check_arch=true
         break
+      fi
+      if [ "$arg" = "--version" ]; then
+        version=$2
+        shift 2
       fi
     done
 
@@ -224,6 +229,8 @@ case "$cmd" in
         else
           echo "Image $image already exists and has been downloaded with correct architecture." && exit
         fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
       else
         echo "Image $image already exists and has been downloaded." && exit
       fi
@@ -237,7 +244,8 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
+
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
@@ -304,6 +312,7 @@ esac
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"

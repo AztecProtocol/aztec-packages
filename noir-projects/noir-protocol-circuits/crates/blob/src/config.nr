@@ -7,8 +7,8 @@ pub type F = BigNum<3, 255, BLS12_381_Fr_Params>;
 
 pub global LOG_FIELDS_PER_BLOB: u32 = 12;
 pub global EXTRA_FIELDS_PER_BLOB: u32 = 16; // 16 = floor(4096 FIELDS_PER_BLOB / 254 noir_field_bits), wasting only 32 bits.
-pub global NOIR_FIELDS_PER_BLOB: u32 = FIELDS_PER_BLOB + EXTRA_FIELDS_PER_BLOB;
-pub global FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB: u32 = EXTRA_FIELDS_PER_BLOB * 254; // EXTRA_FIELDS_PER_BLOB * 254 = 4064. So the first 4064 bls Fr fields in the blob will carry an extra bit in their 255th bit position, that will be used to reconstitute 16 extra fields.
+// pub global NOIR_FIELDS_PER_BLOB: u32 = FIELDS_PER_BLOB + EXTRA_FIELDS_PER_BLOB;
+// pub global FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB: u32 = EXTRA_FIELDS_PER_BLOB * 254; // EXTRA_FIELDS_PER_BLOB * 254 = 4064. So the first 4064 bls Fr fields in the blob will carry an extra bit in their 255th bit position, that will be used to reconstitute 16 extra fields.
 pub global D: F = BigNum { limbs: [4096, 0, 0] };
 pub global D_INV: F =
     BigNum { limbs: [0x686828bfce5c19400fffff00100001, 0x6878b46ae3705eb6a46a89213de7d3, 0x73e6] };

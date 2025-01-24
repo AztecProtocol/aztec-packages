@@ -54,15 +54,13 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
-    FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
-        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
+    if (!sumcheck_output.verified) {
         info("Sumcheck verification failed.");
         return false;
     }
@@ -80,10 +78,10 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified.value() && verified && consistency_checked;
+    return sumcheck_output.verified && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;

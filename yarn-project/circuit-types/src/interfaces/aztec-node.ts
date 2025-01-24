@@ -28,8 +28,10 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
-  type GetUnencryptedLogsResponse,
-  GetUnencryptedLogsResponseSchema,
+  type GetContractClassLogsResponse,
+  GetContractClassLogsResponseSchema,
+  type GetPublicLogsResponse,
+  GetPublicLogsResponseSchema,
   type LogFilter,
   LogFilterSchema,
   TxScopedL2Log,
@@ -49,7 +51,7 @@ import {
 import { TxEffect } from '../tx_effect.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
 
@@ -293,7 +295,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -304,18 +306,18 @@ export interface AztecNode
   getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -540,16 +542,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  registerContractFunctionNames: z
-    .function()
-    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
-    .returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
-  getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
 
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
   getLogsByTags: z
     .function()

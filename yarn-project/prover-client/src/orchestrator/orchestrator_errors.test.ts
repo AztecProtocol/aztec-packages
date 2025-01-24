@@ -28,11 +28,11 @@ describe('prover/orchestrator/errors', () => {
       await context.setEndTreeRoots(txs);
 
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       await orchestrator.addTxs(txs);
 
       await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
-        `Block ${context.blockNumber} already initalised.`,
+        `Block ${context.blockNumber} has been initialized with transactions.`,
       );
 
       const block = await orchestrator.setBlockCompleted(context.blockNumber);
@@ -42,12 +42,12 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if adding too many blocks', async () => {
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       await orchestrator.setBlockCompleted(context.blockNumber);
 
-      await expect(async () => await orchestrator.startNewBlock(context.globalVariables, [])).rejects.toThrow(
-        'Epoch not accepting further blocks',
-      );
+      await expect(
+        async () => await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader()),
+      ).rejects.toThrow('Epoch not accepting further blocks');
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
@@ -72,7 +72,7 @@ describe('prover/orchestrator/errors', () => {
 
     it('throws if adding to a cancelled block', async () => {
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       orchestrator.cancel();
 
       await expect(async () => await context.orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
@@ -91,7 +91,8 @@ describe('prover/orchestrator/errors', () => {
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       orchestrator.startNewEpoch(1, 1, 1);
       await expect(
-        async () => await orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages),
+        async () =>
+          await orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader()),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });

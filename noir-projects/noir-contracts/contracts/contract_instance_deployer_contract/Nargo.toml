@@ -6,3 +6,4 @@ type = "contract"
 
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
+contract_class_registerer = { path = "../contract_class_registerer_contract" }

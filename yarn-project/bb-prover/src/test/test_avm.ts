@@ -6,7 +6,6 @@ import {
   Gas,
   GlobalVariables,
   L2ToL1Message,
-  LogHash,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -17,18 +16,19 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
+  MAX_PUBLIC_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
+  PublicLog,
   ReadRequest,
   RevertCode,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type PublicFunctionCallResult } from '@aztec/simulator';
+import { type PublicFunctionCallResult } from '@aztec/simulator/server';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
 export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuitPublicInputs {
@@ -73,7 +73,7 @@ export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuit
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
     publicCallRequests: padArrayEnd([], PublicInnerCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_CALL),
-    unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
+    publicLogs: padArrayEnd(result.publicLogs, PublicLog.empty(), MAX_PUBLIC_LOGS_PER_CALL),
     historicalHeader: BlockHeader.empty(),
     globalVariables: GlobalVariables.empty(),
     startGasLeft: Gas.from(result.startGasLeft),
