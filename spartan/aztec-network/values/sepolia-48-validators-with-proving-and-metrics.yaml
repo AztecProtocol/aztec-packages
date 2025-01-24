@@ -6,6 +6,10 @@ aztec:
   epochDuration: 32
   realProofs: true
 
+images:
+  aztec:
+    pullPolicy: Always
+
 network:
   setupL2Contracts: false
   public: false
