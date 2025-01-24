@@ -636,7 +636,6 @@ jobs:
       - e2e
       - e2e-prover-full
       - bb-native-tests
-      - kind-network-smoke
       - kind-network-test
       # - boxes-test
       # - testnet-installer
