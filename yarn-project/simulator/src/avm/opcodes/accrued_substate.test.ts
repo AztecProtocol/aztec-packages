@@ -1,5 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { fr } from '@aztec/circuits.js/testing';
 
 import { mock } from 'jest-mock-extended';
 
@@ -36,7 +37,11 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
-  const siloedNullifier0 = siloNullifier(address, value0);
+  let siloedNullifier0: Fr;
+
+  beforeAll(async () => {
+    siloedNullifier0 = await siloNullifier(address, value0);
+  });
 
   beforeEach(() => {
     worldStateDB = mock<WorldStateDB>();

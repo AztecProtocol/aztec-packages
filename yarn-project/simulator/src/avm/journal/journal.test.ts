@@ -94,7 +94,7 @@ describe('journal', () => {
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
       expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
@@ -110,7 +110,7 @@ describe('journal', () => {
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
@@ -157,7 +157,7 @@ describe('journal', () => {
   describe('Getting bytecode', () => {
     it('Should get bytecode', async () => {
       const bytecode = Buffer.from('0xdeadbeef');
-      const bytecodeCommitment = computePublicBytecodeCommitment(bytecode);
+      const bytecodeCommitment = await computePublicBytecodeCommitment(bytecode);
       const contractInstance = SerializableContractInstance.default();
       const contractClass = await makeContractClassPublic();
 

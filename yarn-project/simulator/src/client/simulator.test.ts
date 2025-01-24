@@ -1,6 +1,6 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -47,7 +47,7 @@ describe('Simulator', () => {
   });
 
   describe('computeNoteHashAndOptionallyANullifier', () => {
-    const artifact = getFunctionArtifact(
+    const artifact = getFunctionArtifactByName(
       TokenBlacklistContractArtifact,
       'compute_note_hash_and_optionally_a_nullifier',
     );

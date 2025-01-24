@@ -45,6 +45,7 @@ import {
   type NoteSelector,
   encodeArguments,
   getFunctionArtifact,
+  getFunctionArtifactByName,
 } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -260,7 +261,7 @@ describe('Private Execution test suite', () => {
     it('emits a field array as an encrypted log', async () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
       // the contexts correctly populate non-note encrypted logs
-      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_encrypted_log');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'emit_array_as_encrypted_log');
       const sender = recipient; // Needed for tagging.
       const args = [times(5, () => Fr.random()), owner, sender, false];
       const result = await runSimulator({ artifact, msgSender: owner, args });
@@ -306,7 +307,7 @@ describe('Private Execution test suite', () => {
     beforeEach(async () => {
       contractAddress = await AztecAddress.random();
       oracle.getFunctionArtifactByName.mockImplementation((_, functionName: string) =>
-        Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, functionName)),
+        Promise.resolve(getFunctionArtifactByName(StatefulTestContractArtifact, functionName)),
       );
 
       oracle.getFunctionArtifact.mockImplementation((_, selector: FunctionSelector) =>
@@ -320,7 +321,7 @@ describe('Private Execution test suite', () => {
         constructorArgs: initArgs,
       });
       oracle.getContractInstance.mockResolvedValue(instance);
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
+      const artifact = getFunctionArtifactByName(StatefulTestContractArtifact, 'constructor');
       const executionResult = await runSimulator({ args: initArgs, artifact, contractAddress: instance.address });
       const result = executionResult.entrypoint.nestedExecutions[0];
 
@@ -340,7 +341,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the create_note function', async () => {
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_init_check');
+      const artifact = getFunctionArtifactByName(StatefulTestContractArtifact, 'create_note_no_init_check');
 
       const { entrypoint: result } = await runSimulator({ args: [owner, owner, 140], artifact });
 
@@ -361,7 +362,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
+      const artifact = getFunctionArtifactByName(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = await deriveStorageSlotInMap(
@@ -436,7 +437,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
+      const artifact = getFunctionArtifactByName(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
@@ -478,15 +479,15 @@ describe('Private Execution test suite', () => {
 
     it('child function should be callable', async () => {
       const initialValue = 100n;
-      const artifact = getFunctionArtifact(ChildContractArtifact, 'value');
+      const artifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
       const { entrypoint: result } = await runSimulator({ args: [initialValue], artifact });
 
       expect(result.returnValues).toEqual([new Fr(initialValue + privateIncrement)]);
     });
 
     it('parent should call child', async () => {
-      const childArtifact = getFunctionArtifact(ChildContractArtifact, 'value');
-      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'entry_point');
+      const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
+      const parentArtifact = getFunctionArtifactByName(ParentContractArtifact, 'entry_point');
       const parentAddress = await AztecAddress.random();
       const childAddress = await AztecAddress.random();
       const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
@@ -522,7 +523,7 @@ describe('Private Execution test suite', () => {
       // eslint-disable-next-line camelcase
       const deepStruct = { a_field: 1, a_bool: true, a_note: dummyNote, many_notes: [dummyNote, dummyNote, dummyNote] };
       args = [1, true, 1, [1, 2], dummyNote, deepStruct];
-      testCodeGenArtifact = getFunctionArtifact(TestContractArtifact, 'test_code_gen');
+      testCodeGenArtifact = getFunctionArtifactByName(TestContractArtifact, 'test_code_gen');
       const serializedArgs = encodeArguments(testCodeGenArtifact, args);
       argsHash = await computeVarArgsHash(serializedArgs);
     });
@@ -536,7 +537,7 @@ describe('Private Execution test suite', () => {
 
     it('test function should be callable through autogenerated interface', async () => {
       const testAddress = await AztecAddress.random();
-      const parentArtifact = getFunctionArtifact(ImportTestContractArtifact, 'main_contract');
+      const parentArtifact = getFunctionArtifactByName(ImportTestContractArtifact, 'main_contract');
       const testCodeGenSelector = await FunctionSelector.fromNameAndParameters(
         testCodeGenArtifact.name,
         testCodeGenArtifact.parameters,
@@ -562,7 +563,7 @@ describe('Private Execution test suite', () => {
       contractAddress = await AztecAddress.random();
     });
     describe('L1 to L2', () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_to_private_message');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'consume_mint_to_private_message');
       let bridgedAmount = 100n;
 
       const l1ToL2MessageIndex = 0;
@@ -765,7 +766,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('Should be able to consume a dummy public to private message', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_note_from_secret');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'consume_note_from_secret');
       const secret = new Fr(1n);
       const secretHash = await computeSecretHash(secret);
       const note = new Note([secretHash]);
@@ -798,7 +799,7 @@ describe('Private Execution test suite', () => {
 
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
-      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueue_call_to_child');
+      const parentArtifact = getFunctionArtifactByName(ParentContractArtifact, 'enqueue_call_to_child');
       const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childContractArtifact).toBeDefined();
       const childAddress = await AztecAddress.random();
@@ -834,8 +835,8 @@ describe('Private Execution test suite', () => {
 
   describe('setting teardown function', () => {
     it('should be able to set a teardown function', async () => {
-      const entrypoint = getFunctionArtifact(TestContractArtifact, 'test_setting_teardown');
-      const teardown = getFunctionArtifact(TestContractArtifact, 'dummy_public_call');
+      const entrypoint = getFunctionArtifactByName(TestContractArtifact, 'test_setting_teardown');
+      const teardown = getFunctionArtifactByName(TestContractArtifact, 'dummy_public_call');
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...teardown }));
       const { entrypoint: result } = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
@@ -848,14 +849,14 @@ describe('Private Execution test suite', () => {
   describe('setting fee payer', () => {
     it('should default to not being a fee payer', async () => {
       // arbitrary random function that doesn't set a fee payer
-      const entrypoint = getFunctionArtifact(TestContractArtifact, 'get_this_address');
+      const entrypoint = getFunctionArtifactByName(TestContractArtifact, 'get_this_address');
       const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({ artifact: entrypoint, contractAddress });
       expect(result.publicInputs.isFeePayer).toBe(false);
     });
 
     it('should be able to set a fee payer', async () => {
-      const entrypoint = getFunctionArtifact(TestContractArtifact, 'test_setting_fee_payer');
+      const entrypoint = getFunctionArtifactByName(TestContractArtifact, 'test_setting_fee_payer');
       const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({ artifact: entrypoint, contractAddress });
       expect(result.publicInputs.isFeePayer).toBe(true);
@@ -882,7 +883,10 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = await AztecAddress.random();
-      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_insert_then_get_then_nullify_flat');
+      const artifact = getFunctionArtifactByName(
+        PendingNoteHashesContractArtifact,
+        'test_insert_then_get_then_nullify_flat',
+      );
 
       const sender = owner;
       const args = [amountToTransfer, owner, sender];
@@ -940,13 +944,16 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = await AztecAddress.random();
-      const artifact = getFunctionArtifact(
+      const artifact = getFunctionArtifactByName(
         PendingNoteHashesContractArtifact,
         'test_insert_then_get_then_nullify_all_in_nested_calls',
       );
-      const insertArtifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'insert_note');
+      const insertArtifact = getFunctionArtifactByName(PendingNoteHashesContractArtifact, 'insert_note');
 
-      const getThenNullifyArtifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'get_then_nullify_note');
+      const getThenNullifyArtifact = getFunctionArtifactByName(
+        PendingNoteHashesContractArtifact,
+        'get_then_nullify_note',
+      );
 
       const insertFnSelector = await FunctionSelector.fromNameAndParameters(
         insertArtifact.name,
@@ -1017,7 +1024,7 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = await AztecAddress.random();
 
-      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
+      const artifact = getFunctionArtifactByName(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
       const args = [amountToTransfer, owner];
       // This will throw if we read the note before it was inserted
@@ -1032,7 +1039,7 @@ describe('Private Execution test suite', () => {
   describe('get master incoming viewing public key', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_master_incoming_viewing_public_key');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'get_master_incoming_viewing_public_key');
 
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = await CompleteAddress.random();
@@ -1047,7 +1054,7 @@ describe('Private Execution test suite', () => {
 
   describe('Get notes', () => {
     it('fails if returning no notes', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'call_get_notes');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'call_get_notes');
 
       const args = [2n, true];
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
@@ -1065,7 +1072,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = await AztecAddress.random();
 
       // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_this_address');
+      const artifact = getFunctionArtifactByName(TestContractArtifact, 'get_this_address');
 
       // Overwrite the oracle return value
       const { entrypoint: result } = await runSimulator({ artifact, args: [], contractAddress });
@@ -1084,7 +1091,7 @@ describe('Private Execution test suite', () => {
       version = Fr.random();
       args = [chainId, version];
 
-      artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
+      artifact = getFunctionArtifactByName(TestContractArtifact, 'assert_private_global_vars');
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
     });
 
@@ -1114,7 +1121,7 @@ describe('Private Execution test suite', () => {
     let artifact: FunctionArtifact;
 
     beforeEach(() => {
-      artifact = getFunctionArtifact(TestContractArtifact, 'assert_header_private');
+      artifact = getFunctionArtifactByName(TestContractArtifact, 'assert_header_private');
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(artifact));
 
       header = makeHeader();
@@ -1124,7 +1131,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('Header is correctly set', async () => {
-      const args = [header.hash()];
+      const args = [await header.hash()];
 
       await runSimulator({ artifact, msgSender: owner, args });
     });

@@ -4,7 +4,7 @@ import {
   type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
-  getFunctionArtifact,
+  getFunctionArtifactByName,
 } from '@aztec/foundation/abi';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
@@ -42,7 +42,7 @@ export class DeployAccountMethod extends DeployMethod {
     this.#authWitnessProvider = authWitnessProvider;
     this.#feePaymentArtifact =
       typeof feePaymentNameOrArtifact === 'string'
-        ? getFunctionArtifact(artifact, feePaymentNameOrArtifact)
+        ? getFunctionArtifactByName(artifact, feePaymentNameOrArtifact)
         : feePaymentNameOrArtifact;
   }
 

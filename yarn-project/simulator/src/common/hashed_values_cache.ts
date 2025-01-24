@@ -32,7 +32,7 @@ export class HashedValuesCache {
     if (hash.equals(Fr.ZERO)) {
       return [];
     }
-    const hashedValues = this.cache.get(hash.value);
+    const hashedValues = this.cache.get(hash.toBigInt());
     if (!hashedValues) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
     }

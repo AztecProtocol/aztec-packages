@@ -234,7 +234,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([computeVarArgsHash(calldata)]);
+    expect(results.output).toEqual([await computeVarArgsHash(calldata)]);
   });
 
   it('modulo and u1', async () => {
@@ -536,7 +536,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let persistableState: AvmPersistableStateManager;
 
     beforeAll(async () => {
-      siloedNullifier0 = await siloNullifier(address, leafIndex);
+      siloedNullifier0 = await siloNullifier(address, value0);
     });
 
     beforeEach(() => {

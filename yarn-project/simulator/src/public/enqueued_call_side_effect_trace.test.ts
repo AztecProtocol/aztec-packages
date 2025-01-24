@@ -254,7 +254,7 @@ describe('Enqueued-call Side Effect Trace', () => {
           leafPreimage,
           [],
         ),
-      ).resolves.toBeTruthy();
+      ).resolves.not.toThrow();
     });
 
     it('Should enforce maximum number of protocol public storage writes', async () => {
@@ -300,7 +300,7 @@ describe('Enqueued-call Side Effect Trace', () => {
           leafPreimage,
           [],
         ),
-      ).resolves.toBeTruthy();
+      ).resolves.not.toThrow();
     });
 
     it('Should enforce maximum number of new note hashes', () => {
@@ -370,7 +370,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       trace.traceGetBytecode(differentAddr, /*exists=*/ false);
     });
 
-    it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', () => {
+    it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
       trace = new PublicEnqueuedCallSideEffectTrace(
         0,
         new SideEffectArrayLengths(
@@ -382,12 +382,12 @@ describe('Enqueued-call Side Effect Trace', () => {
           MAX_PUBLIC_LOGS_PER_TX,
         ),
       );
-      expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false)).toThrow(
-        SideEffectLimitReachedError,
-      );
-      expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      await expect(
+        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false),
+      ).rejects.toThrow(SideEffectLimitReachedError);
+      await expect(
+        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true),
+      ).rejects.toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewNullifier(new Fr(42))).toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(

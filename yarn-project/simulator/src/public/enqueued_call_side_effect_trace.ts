@@ -234,7 +234,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafPath: Fr[] = emptyPublicDataPath(),
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
-  ) {
+  ): Promise<void> {
     if (protocolWrite) {
       if (
         this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=

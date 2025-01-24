@@ -371,7 +371,7 @@ export class TXE implements TypedOracle {
   }
 
   storeInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
+    return this.executionCache.store(values);
   }
 
   loadFromExecutionCache(returnsHash: Fr) {
@@ -883,7 +883,7 @@ export class TXE implements TypedOracle {
     );
 
     const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
-    const newArgsHash = this.executionCache.store(args);
+    const newArgsHash = await this.executionCache.store(args);
 
     const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 

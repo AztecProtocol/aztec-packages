@@ -169,7 +169,7 @@ export class AvmPersistableStateManager {
         );
       }
 
-      this.trace.tracePublicStorageWrite(
+      await this.trace.tracePublicStorageWrite(
         contractAddress,
         slot,
         value,
@@ -181,7 +181,7 @@ export class AvmPersistableStateManager {
         insertionPath,
       );
     } else {
-      this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+      await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
     }
   }
 

@@ -97,7 +97,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
     });
@@ -108,7 +108,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
 
@@ -124,7 +124,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(tx.getTxHash());
+      expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(failed).toEqual([]);
 
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
@@ -151,8 +151,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
 
       expect(processed.length).toBe(2);
-      expect(processed[0].hash).toEqual(txs[0].getTxHash());
-      expect(processed[1].hash).toEqual(txs[1].getTxHash());
+      expect(processed[0].hash).toEqual(await txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
 
       expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
