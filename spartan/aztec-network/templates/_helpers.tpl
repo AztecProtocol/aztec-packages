@@ -142,7 +142,7 @@ Service Address Setup Container
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.execution.externalHost }}"
+      value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
       value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
@@ -196,6 +196,9 @@ nodeSelector:
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}
+if [ -n "${EXTERNAL_ETHEREUM_HOST}" ]; then
+  export ETHEREUM_HOST="${EXTERNAL_ETHEREUM_HOST}"
+fi
 echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
 until curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \

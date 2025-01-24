@@ -502,10 +502,10 @@ fn existing_sponge_poseidon_chunks_matches_fixed() {
 fn poseidon_chunks_empty_inputs() {
     let in_len = 0;
     let mut input: [Field; 4096] = [0; 4096];
-    let mut contructed_empty_sponge = poseidon2_absorb_chunks(input, in_len, true);
+    let mut constructed_empty_sponge = poseidon2_absorb_chunks(input, in_len, true);
     let mut first_sponge =
-        poseidon2_absorb_chunks_existing_sponge(contructed_empty_sponge, input, in_len, true);
-    assert(first_sponge.squeeze() == contructed_empty_sponge.squeeze());
+        poseidon2_absorb_chunks_existing_sponge(constructed_empty_sponge, input, in_len, true);
+    assert(first_sponge.squeeze() == constructed_empty_sponge.squeeze());
 }
 
 #[test]
