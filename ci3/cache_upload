@@ -17,6 +17,11 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
+if ! aws configure get aws_access_key_id &>/dev/null; then
+  echo_stderr "Skipping upload, no AWS credentials found."
+  exit 0
+fi
+
 if [ -z ${S3_FORCE_UPLOAD:-} ] && \
   aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
     echo_stderr "Skipping upload, already exists: $name"
