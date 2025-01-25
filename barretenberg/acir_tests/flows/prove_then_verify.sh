@@ -5,7 +5,6 @@ set -eu
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 [ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
-[ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
 
 # TODO: Use this when client ivc support write_vk. Currently it keeps its own flow.
 # case ${SYS:-} in
@@ -30,16 +29,25 @@ FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 
 case ${SYS:-} in
   "")
+    [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
     $BIN verify$SYS $FLAGS \
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
-  "_ultra_honk")
-    FLAGS+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
-    $BIN prove  $FLAGS $BFLAG
-    $BIN verify $FLAGS
+  "ultra_honk")
+    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack}"
+    $BIN verify $FLAGS \
+        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
+        -p <($BIN prove -o - $FLAGS $BFLAG)
+    ;;
+  "ultra_honk_deprecated")
+    SYS_DEP=_ultra_honk
+    $BIN verify$SYS_DEP $FLAGS \
+        -k <($BIN write_vk$SYS_DEP -o - $FLAGS $BFLAG) \
+        -p <($BIN prove$SYS_DEP -o - $FLAGS $BFLAG)
     ;;
   *)
+    [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
     $BIN verify$SYS $FLAGS \
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
