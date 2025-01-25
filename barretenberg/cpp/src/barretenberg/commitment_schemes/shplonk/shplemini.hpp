@@ -219,6 +219,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
+        info(repeated_commitments.first_range_shifted_start);
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -249,7 +250,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                 unshifted_batching_challenges.push_back(
                     transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
             }
-            for (size_t idx = 0; idx < unshifted_commitments.size() - 1; idx++) {
+            for (size_t idx = 0; idx < shifted_commitments.size(); idx++) {
                 shifted_batching_challenges.push_back(
                     transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
             }
@@ -347,20 +348,34 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        batch_multivariate_opening_claims(unshifted_commitments,
-                                          shifted_commitments,
-                                          unshifted_evaluations,
-                                          shifted_evaluations,
-                                          multivariate_batching_challenge,
-                                          unshifted_scalar,
-                                          shifted_scalar,
-                                          commitments,
-                                          scalars,
-                                          batched_evaluation,
-                                          has_zk,
-                                          concatenation_scalars,
-                                          concatenation_group_commitments,
-                                          concatenated_evaluations);
+        if (!has_zk) {
+            batch_multivariate_opening_claims(unshifted_commitments,
+                                              shifted_commitments,
+                                              unshifted_evaluations,
+                                              shifted_evaluations,
+                                              multivariate_batching_challenge,
+                                              unshifted_scalar,
+                                              shifted_scalar,
+                                              commitments,
+                                              scalars,
+                                              batched_evaluation,
+                                              has_zk,
+                                              concatenation_scalars,
+                                              concatenation_group_commitments,
+                                              concatenated_evaluations);
+        } else {
+            batch_multivariate_opening_claims_short_scalars(unshifted_commitments,
+                                                            shifted_commitments,
+                                                            unshifted_evaluations,
+                                                            shifted_evaluations,
+                                                            unshifted_batching_challenges,
+                                                            shifted_batching_challenges,
+                                                            unshifted_scalar,
+                                                            shifted_scalar,
+                                                            commitments,
+                                                            scalars,
+                                                            batched_evaluation);
+        }
 
         // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
         // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
@@ -386,7 +401,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Add A₀(−r)/(z+r) to the constant term accumulator
         constant_term_accumulator += gemini_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+        // remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
@@ -553,26 +568,35 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
 
         // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
-
+        std::vector<Commitment> unshifted_comms;
+        unshifted_comms.reserve(unshifted_commitments.size());
+        std::vector<Commitment> shifted_comms;
+        shifted_comms.reserve(shifted_commitments.size());
         for (auto [unshifted_commitment, unshifted_evaluation, unshifted_batching_challenge] :
              zip_view(unshifted_commitments, unshifted_evaluations, unshifted_batching_challenges)) {
 
             // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
             batched_evaluation += unshifted_evaluation * unshifted_batching_challenge;
+            unshifted_comms.emplace_back(std::move(unshifted_commitment));
         }
         for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
              zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
             // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
             batched_evaluation += shifted_evaluation * shifted_batching_challenge;
+            shifted_comms.emplace_back(std::move(shifted_commitment));
         }
-
-        Commitment batched_unshifted =
-            bn254_endo_batch_mul({}, {}, unshifted_commitments, unshifted_batching_challenges, 128);
-        Commitment batched_shifted =
-            bn254_endo_batch_mul({}, {}, shifted_commitments, shifted_batching_challenges, 128);
-
-        commitments.emplace_back(batched_unshifted, batched_shifted);
-        scalars.emplace_back(unshifted_scalar, shifted_scalar);
+        if constexpr (Curve::is_stdlib_type) {
+            if constexpr (std::is_same_v<typename Curve::Builder, UltraCircuitBuilder>) {
+                Commitment batched_unshifted =
+                    Commitment::bn254_endo_batch_mul({}, {}, unshifted_comms, unshifted_batching_challenges, 128);
+                Commitment batched_shifted =
+                    Commitment::bn254_endo_batch_mul({}, {}, shifted_comms, shifted_batching_challenges, 128);
+                commitments.emplace_back(std::move(batched_unshifted));
+                commitments.emplace_back(std::move(batched_shifted));
+                scalars.emplace_back(-unshifted_scalar);
+                scalars.emplace_back(-shifted_scalar);
+            };
+        }
     }
 
     /**
