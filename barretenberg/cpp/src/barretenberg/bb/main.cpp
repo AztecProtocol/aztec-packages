@@ -1446,8 +1446,6 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "verify_ultra_honk") {
-            return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_rollup_honk") {
