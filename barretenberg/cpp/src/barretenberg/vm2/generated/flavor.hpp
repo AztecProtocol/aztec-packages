@@ -19,10 +19,21 @@
 // Relations
 #include "relations/alu.hpp"
 #include "relations/execution.hpp"
+#include "relations/range_check.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookup_dummy_dynamic.hpp"
 #include "relations/lookup_dummy_precomputed.hpp"
+#include "relations/lookup_rng_chk_diff.hpp"
+#include "relations/lookup_rng_chk_is_r0_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r1_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r2_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r3_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r4_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r5_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r6_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r7_16_bit.hpp"
+#include "relations/lookup_rng_chk_pow_2.hpp"
 #include "relations/perm_dummy_dynamic.hpp"
 
 // Metaprogramming to concatenate tuple types.
@@ -52,13 +63,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 42;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 50;
+    static constexpr size_t NUM_ALL_ENTITIES = 102;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -67,7 +78,8 @@ class AvmFlavor {
     using MainRelations_ = std::tuple<
         // Relations
         avm2::alu<FF_>,
-        avm2::execution<FF_>>;
+        avm2::execution<FF_>,
+        avm2::range_check<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -77,6 +89,16 @@ class AvmFlavor {
         // Lookups
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
+        lookup_rng_chk_diff_relation<FF_>,
+        lookup_rng_chk_is_r0_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r1_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r2_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r3_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r4_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r5_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r6_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r7_16_bit_relation<FF_>,
+        lookup_rng_chk_pow_2_relation<FF_>,
         perm_dummy_dynamic_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
@@ -328,7 +350,10 @@ class AvmFlavor {
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
+            this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
+            this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
         }
     };
 
