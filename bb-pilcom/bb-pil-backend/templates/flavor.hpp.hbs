@@ -22,8 +22,8 @@
 {{/each}}
 
 // Lookup and permutation relations
-{{#each lookups as |r|}}
-#include "relations/{{r}}.hpp"
+{{#each lookup_and_perm_file_names as |file_name|}}
+#include "relations/{{file_name}}"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.

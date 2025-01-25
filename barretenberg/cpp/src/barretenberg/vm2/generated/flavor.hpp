@@ -22,19 +22,9 @@
 #include "relations/range_check.hpp"
 
 // Lookup and permutation relations
-#include "relations/lookup_dummy_dynamic.hpp"
-#include "relations/lookup_dummy_precomputed.hpp"
-#include "relations/lookup_rng_chk_diff.hpp"
-#include "relations/lookup_rng_chk_is_r0_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r1_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r2_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r3_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r4_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r5_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r6_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r7_16_bit.hpp"
-#include "relations/lookup_rng_chk_pow_2.hpp"
-#include "relations/perm_dummy_dynamic.hpp"
+#include "relations/lookups_execution.hpp"
+#include "relations/lookups_range_check.hpp"
+#include "relations/perms_execution.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
