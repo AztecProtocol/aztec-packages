@@ -80,6 +80,15 @@ template <typename LeafValueType> class ContentAddressedCache {
     const std::map<uint256_t, index_t>& get_indices() const { return indices_; }
 
   private:
+    struct Journal {
+        TreeMeta meta_;
+        std::vector<std::unordered_map<index_t, fr>> nodes_by_index_;
+        std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index_;
+
+        Journal(TreeMeta meta)
+            : meta_(std::move(meta))
+        {}
+    };
     // This is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
     // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
     // final tree so they need to be omitted from what is committed.
@@ -97,6 +106,9 @@ template <typename LeafValueType> class ContentAddressedCache {
     // The following stores are not persisted, just cached until commit
     std::vector<std::unordered_map<index_t, fr>> nodes_by_index_;
     std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index_;
+
+    // The currently active journals
+    std::vector<Journal> journals_;
 };
 
 template <typename LeafValueType> ContentAddressedCache<LeafValueType>::ContentAddressedCache(uint32_t depth)
@@ -104,9 +116,34 @@ template <typename LeafValueType> ContentAddressedCache<LeafValueType>::ContentA
     reset(depth);
 }
 
-template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::checkpoint() {}
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::checkpoint()
+{
+    journals_.emplace_back(Journal(meta_.size));
+}
 
-template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert() {}
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert()
+{
+    // We need to do a number of things here
+    // 1. Remove all leaves that were added since the last checkpoint, so those >= start index of the last journal
+    // 2. Revert all of the leaves that were updated since the last checkpoint, so < start index of the last journal
+    // 3. Revert all of the nodes that were updated since the last checkpoint
+
+    if (journals_.empty()) {
+        throw std::runtime_error("Cannot revert without a checkpoint");
+    }
+    Journal& journal = journals_.back();
+    index_t currentMaxIndex = meta_.size;
+    for (index_t index = journal.start_index_; index < currentMaxIndex; ++index) {
+        leaf_pre_image_by_index_.erase(index);
+    }
+    for (auto& [index, leaf] : journal.leaf_pre_image_by_index_) {
+        leaf_pre_image_by_index_[index] = leaf;
+    }
+    for (auto& [index, node] : journal.nodes_by_index_) {
+        nodes_by_index_[index] = node;
+    }
+    journals_.pop_back();
+}
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit() {}
 
@@ -117,6 +154,7 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::res
     leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
     nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>());
     leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
+    journals_ = std::vector<Journal>();
 }
 
 template <typename LeafValueType>
@@ -188,6 +226,23 @@ template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& index,
                                                              const IndexedLeafValueType& leafPreImage)
 {
+    // If there are no journals, we can just update the leaf pre-image and leave
+    if (journals_.empty()) {
+        leaf_pre_image_by_index_[index] = leafPreImage;
+        return;
+    }
+    // Look at the given index
+    // If it is beyond the current journal's start index then there is no need to store it in the journal
+    // Also, if it already exists in the journal, we don't want to overwrite it
+    // Otherwise we grab the value from the primary cache, if it exists and store it in the journal
+    Journal& journal = journals_.back();
+    if (index < journal.start_index_ &&
+        journal.leaf_pre_image_by_index_.find(index) == journal.leaf_pre_image_by_index_.end()) {
+        auto cacheIter = leaf_pre_image_by_index_.find(index);
+        if (cacheIter != leaf_pre_image_by_index_.end()) {
+            journal.leaf_pre_image_by_index_[index] = cacheIter->second;
+        }
+    }
     leaf_pre_image_by_index_[index] = leafPreImage;
 }
 
@@ -237,6 +292,20 @@ std::optional<fr> ContentAddressedCache<LeafValueType>::get_node_by_index(uint32
 template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_node_by_index(uint32_t level, const index_t& index, const fr& node)
 {
+    // If there are no journals, we can just update the node and leave
+    if (journals_.empty()) {
+        nodes_by_index_[level][index] = node;
+        return;
+    }
+    // If there is a journal then we need to check if the node is already in it
+    // If not then we store the current value from the primary cache
+    Journal& journal = journals_.back();
+    if (journal.nodes_by_index_[level].find(index) == journal.nodes_by_index_[level].end()) {
+        auto cacheIter = nodes_by_index_[level].find(index);
+        if (cacheIter != nodes_by_index_[level].end()) {
+            journal.nodes_by_index_[level][index] = cacheIter->second;
+        }
+    }
     nodes_by_index_[level][index] = node;
 }
 } // namespace bb::crypto::merkle_tree
