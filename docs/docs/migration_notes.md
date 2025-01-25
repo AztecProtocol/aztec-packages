@@ -43,6 +43,10 @@ And similar paths for `encode_and_encrypt_note_unconstrained`, and for events an
 
 The way in which logs are assembled in this "default_aes128" strategy is has also changed. I repeat: **Encrypted log layouts have changed**. The corresponding typescript for note discovery has also been changed, but if you've rolled your own functions for parsing and decrypting logs, those will be broken by this change.
 
+### `NoteInferface` and `EventInterface` no-longer have a `to_be_bytes` method.
+
+You can remove this method from any custom notes or events that you've implemented.
+
 
 ## 0.72.0
 ### Some functions in `aztec.js` and `@aztec/accounts` are now async
