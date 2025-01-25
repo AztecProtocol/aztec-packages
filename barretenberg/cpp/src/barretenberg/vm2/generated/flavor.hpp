@@ -269,8 +269,6 @@ class AvmFlavor {
         using DataType = BaseDataType&;
 
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
-
-        AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
     };
 
     /**
@@ -288,12 +286,13 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        [[nodiscard]] size_t get_polynomial_size() const { return execution_input.size(); }
-        /**
-         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
-         * represents one row in the execution trace.
-         */
-        [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const;
+        size_t get_polynomial_size() const { return execution_input.size(); }
+        AllConstRefValues get_row(size_t row_idx) const
+        {
+            return [row_idx](auto&... entities) -> AllConstRefValues {
+                return { entities[row_idx]... };
+            }(AVM2_ALL_ENTITIES);
+        }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
