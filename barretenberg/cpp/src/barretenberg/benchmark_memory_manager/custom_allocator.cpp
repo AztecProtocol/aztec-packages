@@ -10,6 +10,7 @@ void* TrackingAllocator::malloc(size_t size)
 
     total_allocations++;
     total_memory += size;
+    max_memory = std::max(max_memory, total_memory);
 
     void* ptr = std::malloc(size);
     if (!ptr) {

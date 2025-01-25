@@ -11,10 +11,17 @@ class TrackingAllocator {
         : total_allocations(0)
         , total_deallocated(0)
         , total_memory(0)
+        , max_memory(0)
     {}
 
     void* malloc(size_t size);
     void free(void* ptr);
+
+    int64_t max_memory_usage() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return max_memory;
+    }
 
     int64_t current_memory_usage() const
     {
@@ -31,7 +38,7 @@ class TrackingAllocator {
     void reset()
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        total_allocations = total_deallocated = total_memory = 0;
+        total_allocations = total_deallocated = total_memory = max_memory = 0;
         allocations.clear();
     }
 
@@ -41,6 +48,7 @@ class TrackingAllocator {
         std::cout << "Total Allocations: " << total_allocations << "\n";
         std::cout << "Total Deallocations: " << total_deallocated << "\n";
         std::cout << "Current Memory Usage: " << total_memory << " bytes\n";
+        std::cout << "Max Memory Usage: " << max_memory << " bytes\n";
     }
 
   private:
@@ -48,6 +56,7 @@ class TrackingAllocator {
     int64_t total_allocations;
     int64_t total_deallocated;
     int64_t total_memory;
+    int64_t max_memory;
     std::vector<std::pair<void*, std::size_t>> allocations;
 };
 
@@ -65,5 +74,6 @@ class BenchmarkMemoryManager : public benchmark::MemoryManager {
     {
         result.num_allocs = g_allocator.current_allocations();
         result.max_bytes_used = g_allocator.current_memory_usage();
+        g_allocator.printStatistics();
     }
 };
