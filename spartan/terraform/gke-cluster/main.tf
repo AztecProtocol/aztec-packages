@@ -241,6 +241,40 @@ resource "google_container_node_pool" "aztec_nodes" {
   }
 }
 
+# Create 8 core nodes. Usually for proven bots
+resource "google_container_node_pool" "aztec_nodes-8core" {
+  name     = "aztec-nodes-8core"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-8"
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+}
+
 # Create spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes" {
   name     = "aztec-spot-node-pool"
