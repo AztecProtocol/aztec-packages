@@ -34,7 +34,7 @@ case ${SYS:-} in
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
-  "ultra_honk")
+  "_ultra_honk")
     FLAGS+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
     $BIN prove  $FLAGS $BFLAG
     $BIN verify $FLAGS

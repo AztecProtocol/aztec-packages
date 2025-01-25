@@ -64,7 +64,7 @@ Documented with Noir v0.33.0 <> BB v0.47.1:
 4. Verify your proof running:
 
    ```bash
-   bb verify_ultra_honk -k ./target/vk -p ./target/proof
+   bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
    ```
 
    If successful, the verification will complete in silence; if unsuccessful, the command will trigger logging of the corresponding error.
