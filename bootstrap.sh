@@ -157,6 +157,7 @@ function build {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
+  echo "Bootstrap complete."
 }
 
 case "$cmd" in
