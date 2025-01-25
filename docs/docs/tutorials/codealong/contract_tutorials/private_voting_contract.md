@@ -56,6 +56,9 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 Go to `main.nr` and delete the sample code. Replace it with this contract initialization:
 
 ```rust
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract EasyPrivateVoting {
 
 }
