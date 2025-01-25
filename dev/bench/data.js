@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737752521873,
+  "lastUpdate": 1737830804261,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84741533+jewelofchaos9@users.noreply.github.com",
-            "name": "defkit",
-            "username": "jewelofchaos9"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1cb7cd78d089fd1e2706d9d5993b6115bcdd6a84",
-          "message": "feat: Acir formal proofs (#10973)\n\nThe ACIR formal verification. Combines a test generator in the Noir\r\nrepository with a formal verifier in Barretenberg to mathematically\r\nprove the correctness of ACIR instructions using SMT solving. Verifies\r\nrange of operations including 127-bit arithmetic (addition, subtraction,\r\nmultiplication), 126-bit division, bitwise operations (though currently\r\nlimited to 32-bit for AND/OR/XOR), shift operations, field operations\r\n(ADD, MUL, DIV), and comparison operations",
-          "timestamp": "2025-01-07T13:02:00Z",
-          "tree_id": "69853ce22187e324099c50b06b7998655253f14e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1cb7cd78d089fd1e2706d9d5993b6115bcdd6a84"
-        },
-        "date": 1736256421112,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19654.74621499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17119.365716 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21345.15435100002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18545.349747 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4621.581203999966,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4209.548783000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 71484.080483,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 71484081000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13909.907984000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13909908000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2907780000,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2907780000 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144538888,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144538888 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 167065101,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167065101 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b510fe076d0c3b019fd1ca957297907c2f73f25",
+          "message": "refactor(avm): less codegen bloat (#11504)\n\nFound a way! I use aggregate initialization.\n\nNo performance impact.",
+          "timestamp": "2025-01-25T18:30:14Z",
+          "tree_id": "441d688139629375753ce93d35b4fb8daf909da6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7b510fe076d0c3b019fd1ca957297907c2f73f25"
+        },
+        "date": 1737830797147,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19651.97342199997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16834.167091 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21602.400502000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18776.735149 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4453.898785000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4056.474779 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72277.25123,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72277251000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13544.864798000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13544865000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3142669947,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3142669947 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153093269,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153093269 ns\nthreads: 1"
           }
         ]
       }
