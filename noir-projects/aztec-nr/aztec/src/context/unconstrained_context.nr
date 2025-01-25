@@ -2,7 +2,7 @@ use crate::oracle::{
     execution::{get_block_number, get_chain_id, get_contract_address, get_version},
     storage::storage_read,
 };
-use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
+use dep::protocol_types::{address::AztecAddress, traits::Packable};
 
 pub struct UnconstrainedContext {
     block_number: u32,
@@ -62,8 +62,8 @@ impl UnconstrainedContext {
 
     pub unconstrained fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
     where
-        T: Deserialize<N>,
+        T: Packable<N>,
     {
-        T::deserialize(self.raw_storage_read(storage_slot))
+        T::unpack(self.raw_storage_read(storage_slot))
     }
 }

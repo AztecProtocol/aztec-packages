@@ -26,7 +26,7 @@ const SECRET_KEY = Fr.random();
 export class PrivateEnv {
   pxe;
   accountContract;
-  account: AccountManager;
+  accountManager: AccountManager;
 
   constructor(
     private secretKey: Fr,
@@ -74,16 +74,16 @@ export class PrivateEnv {
       this.secretKey,
     );
     this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
-    this.account = new AccountManager(
+    this.accountManager = await AccountManager.create(
       this.pxe,
       this.secretKey,
       this.accountContract,
     );
-    await this.account.deploy().wait();
+    await this.accountManager.deploy().wait();
   }
 
   async getWallet() {
-    return await this.account.register();
+    return await this.accountManager.register();
   }
 }
 

@@ -253,9 +253,10 @@ describe('e2e_block_building', () => {
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
+      const deployerInstance = await deployer.getInstance();
       const callInteraction = new ContractFunctionInteraction(
         owner,
-        deployer.getInstance().address,
+        deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minter.getCompleteAddress(), true],
       );
@@ -407,8 +408,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -422,7 +423,7 @@ describe('e2e_block_building', () => {
       expect(rct.status).toEqual('success');
       const noteValues = await Promise.all(
         tx.data.getNonEmptyPrivateLogs().map(async log => {
-          const notePayload = await L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
+          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
           // In this test we care only about the privately delivered values
           return notePayload?.privateNoteValues[0];
         }),
@@ -435,8 +436,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -454,10 +455,10 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret()))!;
+      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
       expect(event0.event.items).toEqual(values);
 
-      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret()))!;
+      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
       expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.
@@ -492,7 +493,7 @@ describe('e2e_block_building', () => {
       }));
       await sleep(1000);
 
-      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
     });
 

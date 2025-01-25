@@ -1,5 +1,6 @@
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
+import { InvalidToRadixInputsError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { ToRadixBE } from './conversion.js';
@@ -150,5 +151,73 @@ describe('Conversion Opcodes', () => {
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[2 * i] * 16 + expectedResults[2 * i + 1]);
       }
     });
+
+    it.each([0, 1, 257])('Should throw an error for radix equal to %s', async radix => {
+      const radixOffset = 1;
+      const numLimbsOffset = 100;
+      const outputBitsOffset = 200;
+      context.machineState.memory.set(radixOffset, new Uint32(radix));
+      context.machineState.memory.set(numLimbsOffset, new Uint32(10)); //the first 10 bits
+      context.machineState.memory.set(outputBitsOffset, new Uint1(1)); // true, output as bits
+
+      await expect(
+        new ToRadixBE(
+          0 /*indirect*/,
+          0 /*srcOffset*/,
+          radixOffset,
+          numLimbsOffset,
+          outputBitsOffset,
+          20 /*dstOffset*/,
+        ).execute(context),
+      ).rejects.toThrow(InvalidToRadixInputsError);
+    });
+
+    it.each([1, 2, 256, 98263423541])(
+      'Should throw an error for non-zero input %s when number of limbs is zero',
+      async arg => {
+        const srcOffset = 0;
+        const radixOffset = 1;
+        const numLimbsOffset = 100;
+        const outputBitsOffset = 200;
+        context.machineState.memory.set(srcOffset, new Field(arg));
+        context.machineState.memory.set(radixOffset, new Uint32(16));
+        context.machineState.memory.set(numLimbsOffset, new Uint32(0)); // 0 number of limbs
+        context.machineState.memory.set(outputBitsOffset, new Uint1(0)); // false, output as bytes
+
+        await expect(
+          new ToRadixBE(
+            0 /*indirect*/,
+            srcOffset,
+            radixOffset,
+            numLimbsOffset,
+            outputBitsOffset,
+            20 /*dstOffset*/,
+          ).execute(context),
+        ).rejects.toThrow(InvalidToRadixInputsError);
+      },
+    );
+
+    it.each([3, 4, 256])(
+      'Should throw an error for radix %s not equal to 2 when bit mode is activated',
+      async radix => {
+        const radixOffset = 1;
+        const numLimbsOffset = 100;
+        const outputBitsOffset = 200;
+        context.machineState.memory.set(radixOffset, new Uint32(radix));
+        context.machineState.memory.set(numLimbsOffset, new Uint32(4)); // 4 first bytes
+        context.machineState.memory.set(outputBitsOffset, new Uint1(1)); // true, output as bit
+
+        await expect(
+          new ToRadixBE(
+            0 /*indirect*/,
+            0 /*srcOffset*/,
+            radixOffset,
+            numLimbsOffset,
+            outputBitsOffset,
+            20 /*dstOffset*/,
+          ).execute(context),
+        ).rejects.toThrow(InvalidToRadixInputsError);
+      },
+    );
   });
 });

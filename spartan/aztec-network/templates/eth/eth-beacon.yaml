@@ -20,6 +20,7 @@ spec:
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: eth-beacon
           image: "{{ .Values.images.lighthouse.image }}"
