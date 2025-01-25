@@ -239,6 +239,21 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
+        std::vector<Fr> unshifted_batching_challenges;
+        std::vector<Fr> shifted_batching_challenges;
+
+        if (has_zk) {
+            // size_t num_commitments = unshifted_commitments.size() + shifted_commitments.size();
+            unshifted_batching_challenges.push_back(multivariate_batching_challenge);
+            for (size_t idx = 0; idx < unshifted_commitments.size() - 1; idx++) {
+                unshifted_batching_challenges.push_back(
+                    transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
+            }
+            for (size_t idx = 0; idx < unshifted_commitments.size() - 1; idx++) {
+                shifted_batching_challenges.push_back(
+                    transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
+            }
+        }
 
         // Process Gemini transcript data:
         // - Get Gemini commitments (com(A₁), com(A₂), … , com(Aₙ₋₁))
@@ -522,6 +537,42 @@ template <typename Curve> class ShpleminiVerifier_ {
                 group_idx++;
             }
         }
+    }
+
+    static void batch_multivariate_opening_claims_short_scalars(RefSpan<Commitment> unshifted_commitments,
+                                                                RefSpan<Commitment> shifted_commitments,
+                                                                RefSpan<Fr> unshifted_evaluations,
+                                                                RefSpan<Fr> shifted_evaluations,
+                                                                const std::vector<Fr>& unshifted_batching_challenges,
+                                                                const std::vector<Fr>& shifted_batching_challenges,
+                                                                const Fr& unshifted_scalar,
+                                                                const Fr& shifted_scalar,
+                                                                std::vector<Commitment>& commitments,
+                                                                std::vector<Fr>& scalars,
+                                                                Fr& batched_evaluation)
+    {
+
+        // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
+
+        for (auto [unshifted_commitment, unshifted_evaluation, unshifted_batching_challenge] :
+             zip_view(unshifted_commitments, unshifted_evaluations, unshifted_batching_challenges)) {
+
+            // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
+            batched_evaluation += unshifted_evaluation * unshifted_batching_challenge;
+        }
+        for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
+             zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
+            // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
+            batched_evaluation += shifted_evaluation * shifted_batching_challenge;
+        }
+
+        Commitment batched_unshifted =
+            bn254_endo_batch_mul({}, {}, unshifted_commitments, unshifted_batching_challenges, 128);
+        Commitment batched_shifted =
+            bn254_endo_batch_mul({}, {}, shifted_commitments, shifted_batching_challenges, 128);
+
+        commitments.emplace_back(batched_unshifted, batched_shifted);
+        scalars.emplace_back(unshifted_scalar, shifted_scalar);
     }
 
     /**

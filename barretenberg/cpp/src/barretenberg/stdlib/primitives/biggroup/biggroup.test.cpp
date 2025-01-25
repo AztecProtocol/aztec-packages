@@ -1784,6 +1784,20 @@ HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
         GTEST_SKIP();
     }
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul_repeated_points)
+{
+    if constexpr (TypeParam::Curve::type == CurveType::BN254) {
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
+        } else {
+            TestFixture::test_bn254_endo_batch_mul_repeated_points();
+        };
+    } else {
+        GTEST_SKIP();
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {

@@ -74,6 +74,17 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
+    std::vector<Fr> multivariate_batching_challenges;
+    if (has_zk) {
+        size_t num_polys = f_polynomials.size() + g_polynomials.size();
+
+        multivariate_batching_challenges.push_back(rho);
+        for (size_t idx = 0; idx < num_polys - 1; idx++) {
+            multivariate_batching_challenges.push_back(
+                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
+        }
+    }
+
     Fr rho_challenge{ 1 };
     if (has_zk) {
         // ρ⁰ is used to batch the hiding polynomial
