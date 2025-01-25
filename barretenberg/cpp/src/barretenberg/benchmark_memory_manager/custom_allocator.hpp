@@ -13,8 +13,8 @@ class TrackingAllocator {
         , total_memory(0)
     {}
 
-    void* allocate(size_t size);
-    void deallocate(void* ptr);
+    void* malloc(size_t size);
+    void free(void* ptr);
 
     int64_t current_memory_usage() const
     {
@@ -54,8 +54,9 @@ class TrackingAllocator {
 // Global tracking allocator instance
 extern TrackingAllocator g_allocator;
 
-void* operator new(std::size_t size);
-void operator delete(void* ptr) noexcept;
+// Function declarations for malloc and free hooks
+void* malloc(size_t size);
+void free(void* ptr);
 
 class BenchmarkMemoryManager : public benchmark::MemoryManager {
   public:

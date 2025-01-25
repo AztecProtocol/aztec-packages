@@ -4,7 +4,7 @@
 
 TrackingAllocator g_allocator;
 
-void* TrackingAllocator::allocate(size_t size)
+void* TrackingAllocator::malloc(size_t size)
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -19,7 +19,7 @@ void* TrackingAllocator::allocate(size_t size)
     return ptr;
 }
 
-void TrackingAllocator::deallocate(void* ptr)
+void TrackingAllocator::free(void* ptr)
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -37,12 +37,14 @@ void TrackingAllocator::deallocate(void* ptr)
     std::cerr << "Warning: Attempting to free unknown pointer" << std::endl;
 }
 
-void* operator new(size_t size)
+// Override malloc
+void* malloc(size_t size)
 {
-    return g_allocator.allocate(size);
+    return g_allocator.malloc(size);
 }
 
-void operator delete(void* ptr) noexcept
+// Override free
+void free(void* ptr)
 {
-    g_allocator.deallocate(ptr);
+    g_allocator.free(ptr);
 }
