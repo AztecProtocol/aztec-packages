@@ -4,7 +4,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/sha256_compression.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 
 namespace bb::avm2::simulation {
 

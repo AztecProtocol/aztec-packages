@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/sha256_compression.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -21,14 +21,14 @@ void Sha256::compression(ContextInterface& context,
     // Load 8 elements representing the state from memory.
     for (uint32_t i = 0; i < 8; ++i) {
         auto memory_value = memory.get(state_addr + i).value;
-        /*Check Tag is U32 */
+        // TODO: Check that the tag is U32 and do error handling.
         state[i] = static_cast<uint32_t>(memory_value);
     }
 
     // Load 16 elements representing the input from memory.
     for (uint32_t i = 0; i < 16; ++i) {
         auto memory_value = memory.get(input_addr + i).value;
-        /*Check Tag is U32 */
+        // TODO: Check that the tag is U32 and do error handling.
         input[i] = static_cast<uint32_t>(memory_value);
     }
 

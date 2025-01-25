@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/sha256_compression.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

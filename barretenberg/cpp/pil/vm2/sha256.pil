@@ -1,4 +1,5 @@
 include "precomputed.pil";
+
 namespace sha256;
 
     // Memory ops
@@ -262,10 +263,10 @@ namespace sha256;
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
     pol commit round_constant;
-    // #[LOOKUP_ROUND_CONSTANT]
-    // dummy_zero {round_count, round_constant}
-    // in
-    // binary.start {sha256_params_lookup.table_round_index, precomputed.table_round_constant};
+    #[LOOKUP_SHA256_ROUND_CONSTANT]
+    sel {round_count, round_constant}
+    in
+    precomputed.sel_sha256_compression {precomputed.clk, precomputed.sha256_compression_round_constant};
 
     pol TMP_1 = h + s_1 + ch + round_constant + w;
 

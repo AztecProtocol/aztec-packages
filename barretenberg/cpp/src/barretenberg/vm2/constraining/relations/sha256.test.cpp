@@ -13,7 +13,7 @@
 // TMP
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/sha256_compression.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -26,6 +26,15 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sha256 = bb::avm2::sha256<FF>;
+
+TEST(AvmConstrainingTest, Sha256PositiveEmptyRow)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_clk, 1 } },
+    });
+
+    check_relation<sha256>(trace.as_rows());
+}
 
 // This test imports a bunch of external code since hand-generating the sha256 trace is a bit laborious atm.
 // The test is a bit of a placeholder for now.
@@ -57,15 +66,13 @@ TEST(AvmConstrainingTest, Sha256Positive)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
     TestTraceContainer trace;
-    tracegen::Sha256TraceBuilder builder;
+    tracegen::Sha256TraceBuilder builder(trace);
 
     // The process wants a const& but the event emitter is not const..
     const auto& sha256_event_container = sha256_event_emitter.dump_events();
-    builder.process(sha256_event_container, trace);
+    builder.process(sha256_event_container);
 
     TestTraceContainer::RowTraceContainer rows = trace.as_rows();
-    rows[0].precomputed_first_row = 1;
-    rows[0].sha256_latch = 1;
 
     check_relation<sha256>(rows);
 }

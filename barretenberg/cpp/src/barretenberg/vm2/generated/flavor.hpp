@@ -23,9 +23,26 @@
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
+<<<<<<< HEAD
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/perms_execution.hpp"
+=======
+#include "relations/lookup_dummy_dynamic.hpp"
+#include "relations/lookup_dummy_precomputed.hpp"
+#include "relations/lookup_rng_chk_diff.hpp"
+#include "relations/lookup_rng_chk_is_r0_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r1_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r2_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r3_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r4_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r5_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r6_16_bit.hpp"
+#include "relations/lookup_rng_chk_is_r7_16_bit.hpp"
+#include "relations/lookup_rng_chk_pow_2.hpp"
+#include "relations/lookup_sha256_round_constant.hpp"
+#include "relations/perm_dummy_dynamic.hpp"
+>>>>>>> a4e94669fa (fix: address comments)
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -55,12 +72,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 215;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 217;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 28;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 255;
+    static constexpr size_t NUM_ALL_ENTITIES = 257;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -91,6 +108,7 @@ class AvmFlavor {
         lookup_rng_chk_is_r6_16_bit_relation<FF_>,
         lookup_rng_chk_is_r7_16_bit_relation<FF_>,
         lookup_rng_chk_pow_2_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>,
         perm_dummy_dynamic_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
