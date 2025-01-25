@@ -18,7 +18,9 @@ use crate::{
     },
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
-use dep::protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS};
+use dep::protocol_types::{
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Serialize,
+};
 use std::aes128::aes128_encrypt;
 
 /*
@@ -53,6 +55,34 @@ use std::aes128::aes128_encrypt;
  * As per ./note.nr, but replace `note_bytes` with `event_bytes`.
  */
 
+/// This particular log assembly strategy (AES 128) requires the event (and the
+/// event_type_id) to be converted into bytes, because the aes function
+/// operates on bytes; not fields.
+/// NB: The extra `+ 32` bytes is for the event_type_id:
+fn compute_event_plaintext_for_this_strategy<Event, let N: u32>(event: Event) -> [u8; N * 32 + 32]
+where
+    Event: EventInterface<N>,
+{
+    let serialized_event = Serialize::<N>::serialize(event);
+
+    let event_type_id_bytes: [u8; 32] = Event::get_event_type_id().to_field().to_be_bytes();
+
+    let mut plaintext_bytes = [0 as u8; N * 32 + 32];
+
+    for i in 0..32 {
+        plaintext_bytes[i] = event_type_id_bytes[i];
+    }
+
+    for i in 0..serialized_event.len() {
+        let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
+        for j in 0..32 {
+            plaintext_bytes[32 + i * 32 + j] = bytes[j];
+        }
+    }
+
+    plaintext_bytes
+}
+
 fn compute_log<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
@@ -81,7 +111,7 @@ where
 
     // This includes the note_id and the storage_slot of the note:
     // TODO: the note_id doesn't need to be a full field; it can be a single byte.
-    let event_bytes = event.to_be_bytes();
+    let event_bytes = compute_event_plaintext_for_this_strategy(event);
 
     // *****************************************************************************
     // Prepend/append extra bytes

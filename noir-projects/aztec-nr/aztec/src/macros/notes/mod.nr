@@ -114,29 +114,6 @@ comptime fn generate_note_interface(
     (
         quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
-                let serialized_note = self.serialize_content();
-
-                let mut buffer: [u8; $content_len * 32 + 64] = [0; $content_len * 32 + 64];
-
-                let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-                // TODO(#10952): The following can be reduced to 7 bits
-                let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
-
-                for i in 0..32 {
-                    buffer[i] = storage_slot_bytes[i];
-                    buffer[32 + i] = note_type_id_bytes[i];
-                }
-
-                for i in 0..serialized_note.len() {
-                    let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-                    for j in 0..32 {
-                        buffer[64 + i * 32 + j] = bytes[j];
-                    }
-                }
-                buffer
-            }
-
             fn deserialize_content(serialized_content: [Field; $content_len]) -> Self {
                 $deserialized_content
             }
