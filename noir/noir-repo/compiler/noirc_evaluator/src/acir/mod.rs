@@ -3705,7 +3705,7 @@ mod test {
             constrain v7 == Field 0
             return
         }
-
+        
         brillig(inline) fn foo f1 {
           b0(v0: u32, v1: [Field]):
               return
