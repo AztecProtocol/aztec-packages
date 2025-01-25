@@ -10,6 +10,7 @@ services:
       dockerfile: entrypoints/eth-execution.Dockerfile
     ports:
       - "8545:8545"
+      - "8551:8551"
     volumes:
       - "eth_execution_data:/data"
       - "${PWD}/out/genesis.json:/genesis/genesis.json"
@@ -28,12 +29,12 @@ services:
       - "5052:5052"
     volumes:
       - "eth_beacon_data:/data"
-      - "${PWD}/out/jwt-secret.txt:/genesis/jwt-secret.txt"
+      - "${PWD}/out/jwt-secret.hex:/genesis/jwt-secret.hex"
       - "${PWD}/out/config.yaml:/genesis/config.yaml"
       - "${PWD}/out/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
       - "${PWD}/out/genesis.ssz:/genesis/genesis.ssz"
     environment:
-      ETH_EXECUTION_URL: "http://eth_execution:8545"
+      ETH_EXECUTION_URL: "http://eth_execution:8551"
       BEACON_HTTP_PORT: 5052
 
   eth_validator:

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-reth node \
+exec reth node \
     --http \
     --http.port=${HTTP_PORT} \
     --http.addr="0.0.0.0" \
