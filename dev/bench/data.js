@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737830804261,
+  "lastUpdate": 1737833417151,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "48286c671a61dbe18e5f8e0c44e71ab6c3fd109a",
-          "message": "feat: derive transcript structure between non-zk and zk flavors and between Ultra and UltraKeccak (#11086)\n\nThe Transcript Classes were duplicated between base and derived flavors\r\nwhich resulted at times in inconsistencies. This PR addresses the issue:\r\n* ZK flavors' Transcript is now a derived class of the corresponding\r\nnon-ZK Transcript class\r\n* `UltraFlavor` Transcript is now templated so in UltraKeccak we can\r\njust instantiate it with different parameters corresponding to Keccak\r\nrather than duplicate it.\r\n * the transcript tests are run for all flavor variations.",
-          "timestamp": "2025-01-07T15:34:25Z",
-          "tree_id": "d391f1021ecc959fd74dc082e8b5ecf214b80f5a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/48286c671a61dbe18e5f8e0c44e71ab6c3fd109a"
-        },
-        "date": 1736265565440,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19626.07817200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17136.909223 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21383.976447999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18807.720404 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4604.717794999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4331.753499 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72311.288592,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72311289000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14029.206929,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14029207000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2845686908,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2845686908 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141417451,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141417451 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 153093269,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 153093269 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab2c860c747d3051a1cb85ad6ce5fac2a68867f7",
+          "message": "feat(avm)!: include length in bytecode hash (#11425)\n\nLooks like it's easier to constrain the length of bytecode in the avm if\r\nwe just include it in the hash computation",
+          "timestamp": "2025-01-25T19:05:36Z",
+          "tree_id": "68ddbac85ec4d260ad93704af3d4fdae9fd30e9b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ab2c860c747d3051a1cb85ad6ce5fac2a68867f7"
+        },
+        "date": 1737833409848,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19619.082940999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16887.046623 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21545.070683000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18738.278139 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4419.373559999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4053.2160470000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 81500.44711000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 81500447000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13507.682594000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13507682000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3647351872,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3647351872 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145983793,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145983793 ns\nthreads: 1"
           }
         ]
       }
