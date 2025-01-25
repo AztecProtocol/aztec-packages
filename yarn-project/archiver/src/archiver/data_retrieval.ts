@@ -98,9 +98,7 @@ export async function processL2BlockProposedLogs(
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
-    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash, 'hex'));
-
-    console.log(blobHashes);
+    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {

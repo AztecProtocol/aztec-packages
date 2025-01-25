@@ -54,8 +54,7 @@ export function runBlobSinkClientTests(
     }
 
     // Can request blobs by index
-    const adjustedBlobHashes = blobHashes.splice(1);
-    const retrievedBlobsByIndex = await client.getBlobSidecar(blockId, adjustedBlobHashes, [0, 2]);
+    const retrievedBlobsByIndex = await client.getBlobSidecar(blockId, blobHashes, [0, 2]);
     expect(retrievedBlobsByIndex).toHaveLength(2);
     expect(retrievedBlobsByIndex[0].fieldsHash.toString()).toBe(blobs[0].fieldsHash.toString());
     expect(retrievedBlobsByIndex[1].fieldsHash.toString()).toBe(blobs[2].fieldsHash.toString());

@@ -24,6 +24,11 @@ export class LocalBlobSinkClient implements BlobSinkClientInterface {
     if (!blobSidecars) {
       return [];
     }
-    return blobSidecars.filter(blob => blobHashes.includes(blob.blob.getEthVersionedBlobHash())).map(blob => blob.blob);
+    return blobSidecars
+      .filter(blob => {
+        const blobHash = blob.blob.getEthVersionedBlobHash();
+        return blobHashes.some(hash => hash.equals(blobHash));
+      })
+      .map(blob => blob.blob);
   }
 }

@@ -87,7 +87,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
 
     if (blobs.length > 0) {
-      console.log(blobHashes);
       return filterRelevantBlobs(blobs, blobHashes);
     }
 
@@ -194,7 +193,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   }
 }
 
-// worktodo(md): check commitment is the same as blobhashes
 /**
  * Filter blobs based on a list of blob hashes
  * @param blobs
@@ -202,8 +200,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
  * @returns
  */
 function filterRelevantBlobs(blobs: Blob[], blobHashes: Buffer[]): Blob[] {
-  return blobs.filter((blob, index) => {
-    console.log('blob index', index, ' ,', blob.getEthVersionedBlobHash());
-    return blobHashes.includes(blob.getEthVersionedBlobHash());
+  return blobs.filter(blob => {
+    const blobHash = blob.getEthVersionedBlobHash();
+    return blobHashes.some(hash => hash.equals(blobHash));
   });
 }
