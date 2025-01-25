@@ -4,7 +4,6 @@ import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config
 export interface BlobSinkConfig {
   port?: number;
   dataStoreConfig?: DataStoreConfig;
-  otelMetricsCollectorUrl?: string;
 }
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
@@ -15,10 +14,6 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   dataStoreConfig: {
     ...dataConfigMappings,
     description: 'The configuration for the data store',
-  },
-  otelMetricsCollectorUrl: {
-    env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
-    description: 'The URL of the OTLP metrics collector',
   },
 };
 

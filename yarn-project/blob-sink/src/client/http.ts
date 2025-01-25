@@ -91,7 +91,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       return filterRelevantBlobs(blobs, blobHashes);
     }
 
-    this.log.verbose('No blob sources found');
+    this.log.verbose('No blob sources available');
     return [];
   }
 
