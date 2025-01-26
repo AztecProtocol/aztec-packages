@@ -54,7 +54,9 @@ describe('Logs', () => {
       ))!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
+      expect(decryptedEvent0.eventTypeId).toStrictEqual(
+        await EventSelector.fromSignature('ExampleEvent0(Field,Field)'),
+      );
 
       // We decode our event into the event type
       const event0Metadata = new EventMetadata<ExampleEvent0>(TestLogContract.events.ExampleEvent0);

@@ -26,7 +26,7 @@ describe('e2e_deploy_contract private initialization', () => {
       const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
       const contract = await t.registerContract(testWallet, TestContract);
       const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
-      const expected = siloNullifier(contract.address, new Fr(10));
+      const expected = await siloNullifier(contract.address, new Fr(10));
       expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
     },
   );
