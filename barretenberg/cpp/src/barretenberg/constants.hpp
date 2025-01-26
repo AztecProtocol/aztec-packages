@@ -16,7 +16,7 @@ static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
 // static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;
 
-static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
+static constexpr uint32_t MAX_DATABUS_SIZE = 30000;
 
 // The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
 // evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
