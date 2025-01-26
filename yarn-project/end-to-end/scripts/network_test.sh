@@ -5,6 +5,8 @@
 #   NAMESPACE
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
+#   INSTALL_CHAOS_MESH (default: "")
+#   CHAOS_VALUES (default: "")
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 
@@ -15,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Main positional parameter
 TEST=${1:-}
 
-REPO=$(git rev-parse --sho w-toplevel)
+REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
   "$REPO"/spartan/scripts/setup_local_k8s.sh
 else
@@ -29,6 +31,7 @@ CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
+CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
 export INSTALL_CHAOS_MESH=${INSTALL_CHAOS_MESH:-true}
 export INSTALL_METRICS=${INSTALL_METRICS:-true}
 
@@ -76,14 +79,53 @@ function show_status_until_pxe_ready() {
   done
 }
 
+handle_network_shaping() {
+  if [ -n "${CHAOS_VALUES:-}" ]; then
+    echo "Checking chaos-mesh setup..."
+
+    if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
+      # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
+      # to determine if we should install it.
+      if [ "$INSTALL_CHAOS_MESH" ]; then
+        echo "Installing chaos-mesh..."
+        cd "$REPO/spartan/chaos-mesh" && ./install.sh
+      else
+        echo "Error: chaos-mesh namespace not found!"
+        echo "Please set up chaos-mesh first. You can do this by running:"
+        echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
+        exit 1
+      fi
+    fi
+
+    echo "Deploying Aztec Chaos Scenarios..."
+    if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
+      --namespace chaos-mesh \
+      --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
+      --set global.targetNamespace="$NAMESPACE" \
+      --wait \
+      --timeout=5m; then
+      echo "Error: failed to deploy Aztec Chaos Scenarios!"
+      return 1
+    fi
+
+    echo "Aztec Chaos Scenarios applied successfully"
+    return 0
+  fi
+  return 0
+}
 copy_stern_to_log
 show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
   trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $STERN_PID $(jobs -p) &>/dev/null || true
+
+  if [ "$CLEANUP_CLUSTER" = "true" ]; then
+    kind delete cluster || true
+  fi
 }
 trap cleanup SIGINT SIGTERM EXIT
+
 
 # if we don't have a chaos values, remove any existing chaos experiments
 if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
@@ -131,6 +173,21 @@ fi
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
+
+# If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
+if [ "$INSTALL_CHAOS_MESH" = "true" ]; then
+  if ! handle_network_shaping; then
+    echo "Deleting existing network chaos experiments..."
+    kubectl delete networkchaos --all --all-namespaces
+
+    if ! handle_network_shaping; then
+      echo "Error: failed to apply network shaping configuration!"
+      exit 1
+    fi
+  fi
+else
+  echo "Skipping network chaos configuration (INSTALL_CHAOS_MESH=false)"
+fi
 
 # Get the values from the values file
 ETHEREUM_SLOT_DURATION=$(read_values_file "ethereum.blockTime")

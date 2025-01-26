@@ -67,26 +67,26 @@ case "$cmd" in
   "hash")
     cache_content_hash .rebuild_patterns ../yarn-project/.rebuild_patterns
     ;;
-  "test-kind-smoke")
-    test=${1:-transfer.test.ts}
-    values=${2:-3-validators}
-    ./bootstrap.sh image-e2e
-    cd yarn-project/end-to-end
-    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-    exit 0
-    ;;
-  "test-kind-network")
-    test=${1:-transfer.test.ts}
-    values=${2:-3-validators}
-    ./bootstrap.sh image-e2e
-    cd yarn-project/end-to-end
-    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-    exit 0
-    ;;
-  "test-network")
-    shift 1
-    scripts/run_native_testnet.sh -i $@
-    exit 0
+  # "test-kind-smoke")
+  #   test=${1:-transfer.test.ts}
+  #   values=${2:-3-validators}
+  #   ./bootstrap.sh image-e2e
+  #   cd yarn-project/end-to-end
+  #   NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
+  #   exit 0
+  #   ;;
+  # "test-kind-network")
+  #   test=${1:-transfer.test.ts}
+  #   values=${2:-3-validators}
+  #   ./bootstrap.sh image-e2e
+  #   cd yarn-project/end-to-end
+  #   NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
+  #   exit 0
+  #   ;;
+  # "test-network")
+  #   shift 1
+  #   scripts/run_native_testnet.sh -i $@
+  #   exit 0
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 # Takes a key and a list of YAML files to check for the key.
 command -v yq > /dev/null || (echo "read_value.sh requires 'yq' to be installed" && exit 1)
 key="$1"

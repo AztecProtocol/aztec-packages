@@ -21,7 +21,7 @@ fi
 
 # Function to create execution genesis
 # Updates genesis timestamp to current time, helps with triggering Consensus layer
-create_execution_genesis() {
+function create_execution_genesis {
   local execution_genesis_path="$1"
   local execution_genesis_output="$2"
   echo "Creating execution genesis..."
@@ -62,7 +62,7 @@ create_execution_genesis() {
   echo "Execution genesis created at $execution_genesis_output"
 }
 
-prefund_accounts() {
+function prefund_accounts {
   local genesis_json="$1"
   local mnemonic="$2"
   local number_of_keys="$3"
@@ -91,7 +91,7 @@ prefund_accounts() {
 # Function to create beacon genesis
 # Uses the eth2-testnet-generator to generate beacon genesis state (genesis.ssz file)
 # The selected eth1 block
-create_beacon_genesis() {
+function create_beacon_genesis {
   local execution_genesis_path="$1"
   local beacon_mnemonics_path="./config/mnemonics.yaml"
   local beacon_config_path="./config/config.yaml"
@@ -151,13 +151,13 @@ create_beacon_genesis() {
   echo "Beacon genesis created at $beacon_genesis_path"
 }
 
-create_deposit_contract_block() {
+function create_deposit_contract_block {
   echo 0 > "$DIR_PATH/out/deposit_contract_block.txt"
   echo "Deposit contract block created at $DIR_PATH/out/deposit_contract_block.txt"
 }
 
 ## The ssz file must be written in base64 in order for a config map to accept it
-write_ssz_file_base64() {
+function write_ssz_file_base64 {
   local ssz_file="$DIR_PATH/out/genesis.ssz"
   local output_file="$DIR_PATH/out/genesis-ssz"
   base64 -w 0 "$ssz_file" > "$output_file"
