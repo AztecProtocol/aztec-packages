@@ -838,6 +838,7 @@ export class TXE implements TypedOracle {
       firstNullifier,
       /*setupExecutionRequests=*/ [],
       /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      firstNullifier,
       /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
       /*feePayer=*/ AztecAddress.zero(),
       gasUsedByPrivate,
