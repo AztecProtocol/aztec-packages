@@ -146,8 +146,8 @@ export const browserTestSuite = (
     });
 
     it('Can access CompleteAddress class in browser', async () => {
-      const result: string = await page.evaluate(() => {
-        const completeAddress = window.AztecJs.CompleteAddress.fromString(
+      const result: string = await page.evaluate(async () => {
+        const completeAddress = await window.AztecJs.CompleteAddress.fromString(
           '0x2401bfdad7ac9282bd612e8a6bb0f6ce125b08e317e24dc04ddbba24694ac2e7261249d8b3ad8ad9ed075257eede1dcd8356bfd55e1518f07717c47609194b6500c926582f07fda6a53e3600251f2aa1401c0cd377cef064f3f59045222194541acc5f62d8907a6dc98b85e32f8097a152c3c795bb3981c64e576b014f23005e0891d109aa087560cf8720ae94098827aa009a0bcee09f98fd2a05a7cbc6185402a53516a379d7856d26e3bb5542f1fe57f1ee5a0e4c60f7a463205aa19e2f8e00bce110b9a89857b79e3f70777e38a262b04cf80c56bd833a3c4b58dde7dbdc25c807c4012229e08651fd0d48cf9d966d9ab18826692f48a4cf934bef78614023e9cb95711f532786c7c78e72c3752f03f2a4cafc1846ad9df47324e2b7683f0faaa2e6fe44f3ff68646ce7d8538cb6935ce25472c4c75a244ab0c5d2e3b74d',
         );
         // NOTE: browser does not know how to serialize CompleteAddress for return, so return a string

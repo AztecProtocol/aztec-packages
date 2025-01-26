@@ -123,12 +123,12 @@ export class CompleteAddress {
    * @param buffer - The input buffer or BufferReader containing the address data.
    * @returns - A new CompleteAddress instance with the extracted address data.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): CompleteAddress {
+  static fromBuffer(buffer: Buffer | BufferReader): Promise<CompleteAddress> {
     const reader = BufferReader.asReader(buffer);
     const address = reader.readObject(AztecAddress);
     const publicKeys = reader.readObject(PublicKeys);
     const partialAddress = reader.readObject(Fr);
-    return new CompleteAddress(address, publicKeys, partialAddress);
+    return CompleteAddress.create(address, publicKeys, partialAddress);
   }
 
   /**
@@ -139,7 +139,7 @@ export class CompleteAddress {
    * @param address - The hex-encoded string representing the complete address.
    * @returns A Point instance.
    */
-  static fromString(address: string): CompleteAddress {
+  static fromString(address: string): Promise<CompleteAddress> {
     return CompleteAddress.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 
