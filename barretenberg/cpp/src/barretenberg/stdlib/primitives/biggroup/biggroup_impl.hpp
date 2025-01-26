@@ -900,7 +900,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::short_scalar_mul(const Fr& scalar, 
 {
     const size_t num_rounds = num_bits;
 
-    std::vector<bool_ct> naf_entries = compute_naf(scalar);
+    std::vector<bool_ct> naf_entries = compute_naf(scalar, num_bits);
 
     const auto offset_generators = compute_offset_generators(num_rounds);
 

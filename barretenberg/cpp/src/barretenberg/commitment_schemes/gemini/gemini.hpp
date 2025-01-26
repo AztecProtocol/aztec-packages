@@ -93,7 +93,7 @@ template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const 
 };
 } // namespace gemini
 
-template <typename Curve> class GeminiProver_ {
+template <typename Curve, typename Flavor = void> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;

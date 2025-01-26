@@ -79,13 +79,14 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                              sumcheck_output.challenge,
-                                                              ck,
-                                                              transcript,
-                                                              small_subgroup_ipa_prover.get_witness_polynomials());
+        prover_opening_claim =
+            ShpleminiProver_<Curve, Flavor>::prove(proving_key->proving_key.circuit_size,
+                                                   proving_key->proving_key.polynomials.get_unshifted(),
+                                                   proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                   sumcheck_output.challenge,
+                                                   ck,
+                                                   transcript,
+                                                   small_subgroup_ipa_prover.get_witness_polynomials());
     }
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

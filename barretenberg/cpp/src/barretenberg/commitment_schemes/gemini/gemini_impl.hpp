@@ -39,9 +39,9 @@
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
 namespace bb {
-template <typename Curve>
+template <typename Curve, typename Flavor>
 template <typename Transcript>
-std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
+std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, Flavor>::prove(
     Fr circuit_size,
     RefSpan<Polynomial> f_polynomials, // unshifted
     RefSpan<Polynomial> g_polynomials, // to-be-shifted
@@ -74,16 +74,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    std::vector<Fr> multivariate_batching_challenges;
-    if (has_zk) {
-        size_t num_polys = f_polynomials.size() + g_polynomials.size();
+    info(rho);
 
-        multivariate_batching_challenges.push_back(rho);
-        for (size_t idx = 0; idx < num_polys - 1; idx++) {
-            multivariate_batching_challenges.push_back(
-                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
-        }
-    }
+    std::vector<Fr> multivariate_batching_challenges;
+    size_t num_polys = f_polynomials.size() + g_polynomials.size();
 
     Fr rho_challenge{ 1 };
     if (has_zk) {
@@ -91,13 +85,31 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         rho_challenge *= rho;
     }
 
-    for (size_t i = 0; i < f_polynomials.size(); i++) {
-        batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
-    }
-    for (size_t i = 0; i < g_polynomials.size(); i++) {
-        batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
+    if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+        multivariate_batching_challenges.push_back(rho);
+        for (size_t idx = 0; idx < num_polys - 1; idx++) {
+            multivariate_batching_challenges.push_back(
+                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
+        }
+
+        for (size_t idx = 0; idx < f_polynomials.size(); idx++) {
+            batched_unshifted.add_scaled(f_polynomials[idx], multivariate_batching_challenges[idx]);
+        };
+
+        for (size_t idx = 0; idx < g_polynomials.size(); idx++) {
+            size_t challenge_idx = f_polynomials.size() + idx;
+            batched_to_be_shifted.add_scaled(g_polynomials[idx], multivariate_batching_challenges[challenge_idx]);
+        };
+    } else {
+
+        for (size_t i = 0; i < f_polynomials.size(); i++) {
+            batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
+            rho_challenge *= rho;
+        }
+        for (size_t i = 0; i < g_polynomials.size(); i++) {
+            batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
+            rho_challenge *= rho;
+        }
     }
 
     size_t num_groups = groups_to_be_concatenated.size();
@@ -178,8 +190,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  * @param A_0 = F(X) + G↺(X) = F(X) + G(X)/X
  * @return std::vector<Polynomial>
  */
-template <typename Curve>
-std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
+template <typename Curve, typename Flavor>
+std::vector<typename GeminiProver_<Curve, Flavor>::Polynomial> GeminiProver_<Curve, Flavor>::compute_fold_polynomials(
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0)
 {
     const size_t num_threads = get_num_cpus_pow2();
@@ -245,13 +257,14 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  * @param batched_groups_to_be_concatenated
  * @return {A₀₊(X), A₀₋(X)}
  */
-template <typename Curve>
-std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::
-    compute_partially_evaluated_batch_polynomials(const size_t log_n,
-                                                  Polynomial&& batched_F,
-                                                  Polynomial&& batched_G,
-                                                  const Fr& r_challenge,
-                                                  const std::vector<Polynomial>& batched_groups_to_be_concatenated)
+template <typename Curve, typename Flavor>
+std::pair<typename GeminiProver_<Curve, Flavor>::Polynomial, typename GeminiProver_<Curve, Flavor>::Polynomial>
+GeminiProver_<Curve, Flavor>::compute_partially_evaluated_batch_polynomials(
+    const size_t log_n,
+    Polynomial&& batched_F,
+    Polynomial&& batched_G,
+    const Fr& r_challenge,
+    const std::vector<Polynomial>& batched_groups_to_be_concatenated)
 {
     Polynomial& A_0_pos = batched_F; // A₀₊ = F
     Polynomial A_0_neg = batched_F;  // A₀₋ = F
@@ -314,13 +327,13 @@ std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curv
  * @param r_challenge
  * @return std::vector<typename GeminiProver_<Curve>::Claim> d+1 univariate opening claims
  */
-template <typename Curve>
-std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construct_univariate_opening_claims(
-    const size_t log_n,
-    Polynomial&& A_0_pos,
-    Polynomial&& A_0_neg,
-    std::vector<Polynomial>&& fold_polynomials,
-    const Fr& r_challenge)
+template <typename Curve, typename Flavor>
+std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, Flavor>::
+    construct_univariate_opening_claims(const size_t log_n,
+                                        Polynomial&& A_0_pos,
+                                        Polynomial&& A_0_neg,
+                                        std::vector<Polynomial>&& fold_polynomials,
+                                        const Fr& r_challenge)
 {
     std::vector<Claim> claims;
 

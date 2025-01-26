@@ -119,10 +119,15 @@ template <typename Curve_> class KZG {
         batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
         // Compute C + [W]₁ ⋅ z
         if constexpr (Curve::is_stdlib_type) {
-            P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
-                                          batch_opening_claim.scalars,
+            std::vector<Fr> arbitrary_length_scalars(batch_opening_claim.scalars.begin() + 1,
+                                                     batch_opening_claim.scalars.end());
+            std::vector<Commitment> corresponding_commitments(batch_opening_claim.commitments.begin() + 1,
+                                                              batch_opening_claim.commitments.end());
+            P_0 = GroupElement::batch_mul(corresponding_commitments,
+                                          arbitrary_length_scalars,
                                           /*max_num_bits=*/0,
                                           /*with_edgecases=*/true);
+            P_0 += batch_opening_claim.commitments[0];
         } else {
             P_0 = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
         }
