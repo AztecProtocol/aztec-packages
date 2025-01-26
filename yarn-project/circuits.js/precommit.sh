@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# Precommit hook to generate the constants if constants.nr is changed. This will save developers hours of time hunting a bug, when in fact all they needed to do was run this script (trust me, I have trodden this dark path before...).
+# Precommit hook simply to warn the user that they've staged a change to constants.nr.
+# Longer-term, there might be a more-robust solution, but the goal of this script is
+# simply to warn devs, so that they don't forget to regenerate the constants.
+# Lots of hours lost to people forgetting to regenerate all the downstream constants.
+# This script DOES NOT regenerate the constants, because there's too much to build.
+# In the case where they've already generated and staged all the constant files of
+# this commit, they'll have to cope with this small bit of noise.
 
 #!/bin/bash
 set -euo pipefail  # Fail on errors, unset variables, and pipeline failures
@@ -9,27 +15,18 @@ cd "$(dirname "$0")"  # Change to the script's directory
 
 export FORCE_COLOR=true
 
-FILE_TO_WATCH="noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"  # Relative path
+FILE_TO_WATCH="noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"
 
 # Check if constants.nr is staged for commit
 if git diff --cached --name-only | grep -Fxq "$FILE_TO_WATCH"; then
     echo "It looks like you changed $FILE_TO_WATCH."
     echo ""
-    echo "Regenerating the other constants files, so you don't lose a day of your life wondering why things aren't working..."
+    echo -e "\033[33mPlease remember to regenerate the other constants files. If you've already regenerated the constants, please ignore this message.\033[0m"
     echo ""
-
-    COMMAND="yarn remake-constants"
-
-    echo "Running `$COMMAND`..."
+    echo "Depending on the constants you've changed, these might include: constants.gen.ts, ConstantsGen.sol, constants_gen.pil, aztec_constants.hpp."
     echo ""
-    $COMMAND # Run the command
-
-    # Stage all the constants files, if they've been changed by the script:
-    # We move to the top-level of the repo first, so that we don't have to specify full relative paths, in case someone does some refiling that breaks those paths.
-    # cd ../../
-    # git add -u -- *constants.gen.ts *ConstantsGen.sol *constants_gen.pil *aztec_constants.hpp
-
-    echo "Constants files re-generated."
+    echo -e "You can regenerate these by running: '\033[33myarn remake-constants\033[0m' from the 'yarn-project/circuits.js' dir."
     echo ""
-    echo "We haven't actually re-staged those re-generated files for you, because there might actually be additional files that you'll need to manually update, e.g. yarn-project/noir-protocol-circuits-types/src/types/index.ts. Sorry about that. But at least it's caught your attention as something that needs to be fixed!"
+    echo "We don't automatically regenerate them for you in this git hook, because you'll likely need to also re-build components of the repo. End."
+    echo ""
 fi
