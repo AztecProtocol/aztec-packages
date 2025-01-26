@@ -7,7 +7,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type MerkleTree } from '@aztec/circuits.js/merkle';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 
@@ -35,8 +35,14 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns The artifact object containing relevant information about the targeted function.
    */
-  public getFunctionArtifact(selector: FunctionSelector) {
-    const artifact = this.artifact.functions.find(f => selector.equalsFn(f.name, f.parameters));
+  public async getFunctionArtifact(selector: FunctionSelector) {
+    const functionsAndSelectors = await Promise.all(
+      this.artifact.functions.map(async f => ({
+        f,
+        selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+      })),
+    );
+    const artifact = functionsAndSelectors.find(f => selector.equals(f.selector))?.f;
     if (!artifact) {
       throw new Error(
         `Unknown function. Selector ${selector.toString()} not found in the artifact ${
@@ -55,8 +61,9 @@ export class PrivateFunctionsTree {
    * @param selector - The selector of a function to get bytecode for.
    * @returns The bytecode of the function as a string.
    */
-  public getBytecode(selector: FunctionSelector) {
-    return this.getFunctionArtifact(selector).bytecode;
+  public async getBytecode(selector: FunctionSelector) {
+    const artifact = await this.getFunctionArtifact(selector);
+    return artifact.bytecode;
   }
 
   /**

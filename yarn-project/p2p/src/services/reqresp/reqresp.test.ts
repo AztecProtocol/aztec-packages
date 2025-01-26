@@ -158,7 +158,7 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       // Set tx hash since expect will compare private properties
-      res.getTxHash();
+      await res.getTxHash();
       expect(res).toEqual(tx);
     });
 

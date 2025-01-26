@@ -20,23 +20,6 @@ export interface FunctionSelector {
 /** A function selector is the first 4 bytes of the hash of a function signature. */
 export class FunctionSelector extends Selector {
   /**
-   * Checks if this function selector is equal to another.
-   * @returns True if the function selectors are equal.
-   */
-  equalsFn(fn: { name: string; parameters: ABIParameter[] }): Promise<boolean>;
-  equalsFn(otherName: string, otherParams: ABIParameter[]): Promise<boolean>;
-  async equalsFn(
-    other: string | { name: string; parameters: ABIParameter[] },
-    otherParams?: ABIParameter[],
-  ): Promise<boolean> {
-    if (typeof other === 'string') {
-      return this.equals(await FunctionSelector.fromNameAndParameters(other, otherParams!));
-    } else {
-      return this.equals(await FunctionSelector.fromNameAndParameters(other.name, other.parameters));
-    }
-  }
-
-  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
    * @returns The Selector.

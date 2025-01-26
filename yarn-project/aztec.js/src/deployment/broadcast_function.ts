@@ -6,7 +6,7 @@ import {
   createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -29,7 +29,13 @@ export async function broadcastPrivateFunction(
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
-  const privateFunctionArtifact = artifact.functions.find(fn => selector.equalsFn(fn));
+  const functionsAndSelectors = await Promise.all(
+    artifact.functions.map(async fn => ({
+      f: fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  const privateFunctionArtifact = functionsAndSelectors.find(fn => selector.equals(fn.selector))?.f;
   if (!privateFunctionArtifact) {
     throw new Error(`Private function with selector ${selector.toString()} not found`);
   }
@@ -83,9 +89,14 @@ export async function broadcastUnconstrainedFunction(
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
-  const functionArtifactIndex = artifact.functions.findIndex(
-    fn => fn.functionType === FunctionType.UNCONSTRAINED && selector.equalsFn(fn),
+  const unconstrainedFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UNCONSTRAINED);
+  const unconstrainedFunctionsAndSelectors = await Promise.all(
+    unconstrainedFunctions.map(async fn => ({
+      f: fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
   );
+  const functionArtifactIndex = unconstrainedFunctionsAndSelectors.findIndex(fn => selector.equals(fn.selector));
   if (functionArtifactIndex < 0) {
     throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
   }

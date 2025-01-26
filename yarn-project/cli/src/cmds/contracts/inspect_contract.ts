@@ -35,14 +35,14 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   const internalFunctions = contractFns.filter(f => f.isInternal);
   if (internalFunctions.length > 0) {
     log(`\nInternal functions:`);
-    internalFunctions.forEach(f => logFunction(f, log));
+    await Promise.all(internalFunctions.map(f => logFunction(f, log)));
   }
 }
 
-function logFunction(fn: FunctionArtifact, log: LogFn) {
+async function logFunction(fn: FunctionArtifact, log: LogFn) {
   const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
   const signature = decodeFunctionSignature(fn.name, fn.parameters);
-  const selector = FunctionSelector.fromSignature(signature);
+  const selector = await FunctionSelector.fromSignature(signature);
   const bytecodeSize = fn.bytecode.length;
   const bytecodeHash = sha256(fn.bytecode).toString('hex');
   log(

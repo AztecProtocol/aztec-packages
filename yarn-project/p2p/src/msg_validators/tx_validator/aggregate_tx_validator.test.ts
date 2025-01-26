@@ -41,14 +41,15 @@ describe('AggregateTxValidator', () => {
       this.skippedList = new Set(skippedTxHashes.map(hash => hash.toString()));
     }
 
-    validateTx(tx: AnyTx): Promise<TxValidationResult> {
-      if (this.skippedList.has(Tx.getHash(tx).toString())) {
-        return Promise.resolve({ result: 'skipped', reason: ['Skipped'] });
+    async validateTx(tx: AnyTx): Promise<TxValidationResult> {
+      const txHash = await Tx.getHash(tx);
+      if (this.skippedList.has(txHash.toString())) {
+        return { result: 'skipped', reason: ['Skipped'] };
       }
-      if (this.denyList.has(Tx.getHash(tx).toString())) {
-        return Promise.resolve({ result: 'invalid', reason: ['Denied'] });
+      if (this.denyList.has(txHash.toString())) {
+        return { result: 'invalid', reason: ['Denied'] };
       }
-      return Promise.resolve({ result: 'valid' });
+      return { result: 'valid' };
     }
   }
 });

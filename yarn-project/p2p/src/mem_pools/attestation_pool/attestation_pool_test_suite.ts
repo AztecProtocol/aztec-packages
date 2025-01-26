@@ -84,7 +84,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(retreivedAttestations.length).toBe(1);
     expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
     expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
-    expect(retreivedAttestations[0].getSender().toString()).toEqual(signer.address.toString());
+    expect((await retreivedAttestations[0].getSender()).toString()).toEqual(signer.address.toString());
   });
 
   it('Should store attestations by differing slot', async () => {

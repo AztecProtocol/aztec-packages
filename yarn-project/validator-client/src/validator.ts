@@ -251,18 +251,18 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Transaction re-execution complete`);
 
     if (numFailedTxs > 0) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExFailedTxsError(numFailedTxs);
     }
 
     if (block.body.txEffects.length !== txHashes.length) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
   }

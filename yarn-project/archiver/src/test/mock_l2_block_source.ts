@@ -167,10 +167,14 @@ export class MockL2BlockSource implements L2BlockSource {
       await this.getProvenBlockNumber(),
     ] as const;
 
+    const latestBlock = this.l2Blocks[latest - 1];
+    const provenBlock = this.l2Blocks[proven - 1];
+    const finalizedBlock = this.l2Blocks[finalized - 1];
+
     return {
-      latest: { number: latest, hash: (await this.l2Blocks[latest - 1]?.hash()).toString() },
-      proven: { number: proven, hash: (await this.l2Blocks[proven - 1]?.hash()).toString() },
-      finalized: { number: finalized, hash: (await this.l2Blocks[finalized - 1]?.hash()).toString() },
+      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
+      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
+      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
     };
   }
 

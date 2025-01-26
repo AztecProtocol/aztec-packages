@@ -742,17 +742,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  public async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

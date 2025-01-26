@@ -64,17 +64,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -144,7 +142,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
@@ -155,7 +153,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
+  getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 

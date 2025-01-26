@@ -257,7 +257,7 @@ describe('In-Memory P2P Client', () => {
 
       blockSource.removeBlocks(10);
       await sleep(150);
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
       await client.stop();
     });
 
@@ -288,9 +288,9 @@ describe('In-Memory P2P Client', () => {
 
       blockSource.removeBlocks(10);
       await sleep(150);
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
       await sleep(150);
-      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()]);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([await goodTx.getTxHash()]);
       await client.stop();
     });
   });

@@ -318,7 +318,7 @@ export class SlasherClient extends WithTracer {
         : await this.l2BlockSource
             .getBlockHeader(blockNumber)
             .then(header => header?.hash())
-            .toString();
+            .then(hash => hash?.toString());
     return Promise.resolve({
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },

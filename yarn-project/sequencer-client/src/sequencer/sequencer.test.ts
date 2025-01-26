@@ -280,11 +280,11 @@ describe('sequencer', () => {
   });
 
   it('builds a block for proposal setting limits', async () => {
-    const txsPromise = await timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txsPromise, globalVariables, { validateOnly: false });
+    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
-      await txsPromise,
+      txs,
       {
         deadline: expect.any(Date),
         maxTransactions: 4,
@@ -296,14 +296,10 @@ describe('sequencer', () => {
   });
 
   it('builds a block for validation ignoring limits', async () => {
-    const txsPromise = await timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txsPromise, globalVariables, { validateOnly: true });
+    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: true });
 
-    expect(publicProcessor.process).toHaveBeenCalledWith(
-      await txsPromise,
-      { deadline: expect.any(Date) },
-      expect.anything(),
-    );
+    expect(publicProcessor.process).toHaveBeenCalledWith(txs, { deadline: expect.any(Date) }, expect.anything());
   });
 
   it('does not build a block if it does not have enough time left in the slot', async () => {

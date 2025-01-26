@@ -425,8 +425,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.p2pService.propagate(proposal);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    return Promise.resolve(this.attestationPool?.getAttestationsForSlot(slot, proposalId) ?? []);
+  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    return (await this.attestationPool?.getAttestationsForSlot(slot, proposalId)) ?? [];
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -617,7 +617,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         : await this.l2BlockSource
             .getBlockHeader(blockNumber)
             .then(header => header?.hash())
-            .toString();
+            .then(hash => hash?.toString());
     return Promise.resolve({
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
