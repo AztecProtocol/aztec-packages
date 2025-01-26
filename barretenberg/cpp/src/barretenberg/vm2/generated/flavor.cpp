@@ -3,60 +3,6 @@
 
 namespace bb::avm2 {
 
-AvmFlavor::AllConstRefValues::AllConstRefValues(
-    const RefArray<AvmFlavor::AllConstRefValues::BaseDataType, AvmFlavor::NUM_ALL_ENTITIES>& il)
-    : precomputed_bitwise_input_a(il[0])
-    , precomputed_bitwise_input_b(il[1])
-    , precomputed_bitwise_op_id(il[2])
-    , precomputed_bitwise_output(il[3])
-    , precomputed_clk(il[4])
-    , precomputed_first_row(il[5])
-    , precomputed_sel_bitwise(il[6])
-    , execution_input(il[7])
-    , alu_dst_addr(il[8])
-    , alu_ia(il[9])
-    , alu_ia_addr(il[10])
-    , alu_ib(il[11])
-    , alu_ib_addr(il[12])
-    , alu_ic(il[13])
-    , alu_op(il[14])
-    , alu_sel_op_add(il[15])
-    , execution_addressing_error_idx(il[16])
-    , execution_addressing_error_kind(il[17])
-    , execution_base_address_tag(il[18])
-    , execution_base_address_val(il[19])
-    , execution_bytecode_id(il[20])
-    , execution_clk(il[21])
-    , execution_ex_opcode(il[22])
-    , execution_indirect(il[23])
-    , execution_last(il[24])
-    , execution_op1(il[25])
-    , execution_op1_after_relative(il[26])
-    , execution_op2(il[27])
-    , execution_op2_after_relative(il[28])
-    , execution_op3(il[29])
-    , execution_op3_after_relative(il[30])
-    , execution_op4(il[31])
-    , execution_op4_after_relative(il[32])
-    , execution_pc(il[33])
-    , execution_rop1(il[34])
-    , execution_rop2(il[35])
-    , execution_rop3(il[36])
-    , execution_rop4(il[37])
-    , execution_sel(il[38])
-    , execution_sel_addressing_error(il[39])
-    , execution_sel_op1_is_address(il[40])
-    , execution_sel_op2_is_address(il[41])
-    , execution_sel_op3_is_address(il[42])
-    , execution_sel_op4_is_address(il[43])
-    , lookup_dummy_precomputed_counts(il[44])
-    , lookup_dummy_dynamic_counts(il[45])
-    , perm_dummy_dynamic_inv(il[46])
-    , lookup_dummy_precomputed_inv(il[47])
-    , lookup_dummy_dynamic_inv(il[48])
-    , execution_sel_shift(il[49])
-{}
-
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
@@ -69,60 +15,6 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
     }
 }
 
-AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_idx) const
-{
-    return RefArray{ precomputed_bitwise_input_a[row_idx],
-                     precomputed_bitwise_input_b[row_idx],
-                     precomputed_bitwise_op_id[row_idx],
-                     precomputed_bitwise_output[row_idx],
-                     precomputed_clk[row_idx],
-                     precomputed_first_row[row_idx],
-                     precomputed_sel_bitwise[row_idx],
-                     execution_input[row_idx],
-                     alu_dst_addr[row_idx],
-                     alu_ia[row_idx],
-                     alu_ia_addr[row_idx],
-                     alu_ib[row_idx],
-                     alu_ib_addr[row_idx],
-                     alu_ic[row_idx],
-                     alu_op[row_idx],
-                     alu_sel_op_add[row_idx],
-                     execution_addressing_error_idx[row_idx],
-                     execution_addressing_error_kind[row_idx],
-                     execution_base_address_tag[row_idx],
-                     execution_base_address_val[row_idx],
-                     execution_bytecode_id[row_idx],
-                     execution_clk[row_idx],
-                     execution_ex_opcode[row_idx],
-                     execution_indirect[row_idx],
-                     execution_last[row_idx],
-                     execution_op1[row_idx],
-                     execution_op1_after_relative[row_idx],
-                     execution_op2[row_idx],
-                     execution_op2_after_relative[row_idx],
-                     execution_op3[row_idx],
-                     execution_op3_after_relative[row_idx],
-                     execution_op4[row_idx],
-                     execution_op4_after_relative[row_idx],
-                     execution_pc[row_idx],
-                     execution_rop1[row_idx],
-                     execution_rop2[row_idx],
-                     execution_rop3[row_idx],
-                     execution_rop4[row_idx],
-                     execution_sel[row_idx],
-                     execution_sel_addressing_error[row_idx],
-                     execution_sel_op1_is_address[row_idx],
-                     execution_sel_op2_is_address[row_idx],
-                     execution_sel_op3_is_address[row_idx],
-                     execution_sel_op4_is_address[row_idx],
-                     lookup_dummy_precomputed_counts[row_idx],
-                     lookup_dummy_dynamic_counts[row_idx],
-                     perm_dummy_dynamic_inv[row_idx],
-                     lookup_dummy_precomputed_inv[row_idx],
-                     lookup_dummy_dynamic_inv[row_idx],
-                     execution_sel_shift[row_idx] };
-}
-
 AvmFlavor::CommitmentLabels::CommitmentLabels()
 {
     Base::precomputed_bitwise_input_a = "PRECOMPUTED_BITWISE_INPUT_A";
@@ -131,7 +23,10 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::precomputed_bitwise_output = "PRECOMPUTED_BITWISE_OUTPUT";
     Base::precomputed_clk = "PRECOMPUTED_CLK";
     Base::precomputed_first_row = "PRECOMPUTED_FIRST_ROW";
+    Base::precomputed_power_of_2 = "PRECOMPUTED_POWER_OF_2";
     Base::precomputed_sel_bitwise = "PRECOMPUTED_SEL_BITWISE";
+    Base::precomputed_sel_range_16 = "PRECOMPUTED_SEL_RANGE_16";
+    Base::precomputed_sel_range_8 = "PRECOMPUTED_SEL_RANGE_8";
     Base::execution_input = "EXECUTION_INPUT";
     Base::alu_dst_addr = "ALU_DST_ADDR";
     Base::alu_ia = "ALU_IA";
@@ -169,9 +64,58 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::execution_sel_op2_is_address = "EXECUTION_SEL_OP2_IS_ADDRESS";
     Base::execution_sel_op3_is_address = "EXECUTION_SEL_OP3_IS_ADDRESS";
     Base::execution_sel_op4_is_address = "EXECUTION_SEL_OP4_IS_ADDRESS";
+    Base::range_check_dyn_diff = "RANGE_CHECK_DYN_DIFF";
+    Base::range_check_dyn_rng_chk_bits = "RANGE_CHECK_DYN_RNG_CHK_BITS";
+    Base::range_check_dyn_rng_chk_pow_2 = "RANGE_CHECK_DYN_RNG_CHK_POW_2";
+    Base::range_check_is_lte_u112 = "RANGE_CHECK_IS_LTE_U112";
+    Base::range_check_is_lte_u128 = "RANGE_CHECK_IS_LTE_U128";
+    Base::range_check_is_lte_u16 = "RANGE_CHECK_IS_LTE_U16";
+    Base::range_check_is_lte_u32 = "RANGE_CHECK_IS_LTE_U32";
+    Base::range_check_is_lte_u48 = "RANGE_CHECK_IS_LTE_U48";
+    Base::range_check_is_lte_u64 = "RANGE_CHECK_IS_LTE_U64";
+    Base::range_check_is_lte_u80 = "RANGE_CHECK_IS_LTE_U80";
+    Base::range_check_is_lte_u96 = "RANGE_CHECK_IS_LTE_U96";
+    Base::range_check_rng_chk_bits = "RANGE_CHECK_RNG_CHK_BITS";
+    Base::range_check_sel = "RANGE_CHECK_SEL";
+    Base::range_check_sel_r0_16_bit_rng_lookup = "RANGE_CHECK_SEL_R0_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r1_16_bit_rng_lookup = "RANGE_CHECK_SEL_R1_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r2_16_bit_rng_lookup = "RANGE_CHECK_SEL_R2_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r3_16_bit_rng_lookup = "RANGE_CHECK_SEL_R3_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r4_16_bit_rng_lookup = "RANGE_CHECK_SEL_R4_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r5_16_bit_rng_lookup = "RANGE_CHECK_SEL_R5_16_BIT_RNG_LOOKUP";
+    Base::range_check_sel_r6_16_bit_rng_lookup = "RANGE_CHECK_SEL_R6_16_BIT_RNG_LOOKUP";
+    Base::range_check_u16_r0 = "RANGE_CHECK_U16_R0";
+    Base::range_check_u16_r1 = "RANGE_CHECK_U16_R1";
+    Base::range_check_u16_r2 = "RANGE_CHECK_U16_R2";
+    Base::range_check_u16_r3 = "RANGE_CHECK_U16_R3";
+    Base::range_check_u16_r4 = "RANGE_CHECK_U16_R4";
+    Base::range_check_u16_r5 = "RANGE_CHECK_U16_R5";
+    Base::range_check_u16_r6 = "RANGE_CHECK_U16_R6";
+    Base::range_check_u16_r7 = "RANGE_CHECK_U16_R7";
+    Base::range_check_value = "RANGE_CHECK_VALUE";
     Base::perm_dummy_dynamic_inv = "PERM_DUMMY_DYNAMIC_INV";
+    Base::lookup_rng_chk_pow_2_inv = "LOOKUP_RNG_CHK_POW_2_INV";
+    Base::lookup_rng_chk_diff_inv = "LOOKUP_RNG_CHK_DIFF_INV";
+    Base::lookup_rng_chk_is_r0_16_bit_inv = "LOOKUP_RNG_CHK_IS_R0_16_BIT_INV";
+    Base::lookup_rng_chk_is_r1_16_bit_inv = "LOOKUP_RNG_CHK_IS_R1_16_BIT_INV";
+    Base::lookup_rng_chk_is_r2_16_bit_inv = "LOOKUP_RNG_CHK_IS_R2_16_BIT_INV";
+    Base::lookup_rng_chk_is_r3_16_bit_inv = "LOOKUP_RNG_CHK_IS_R3_16_BIT_INV";
+    Base::lookup_rng_chk_is_r4_16_bit_inv = "LOOKUP_RNG_CHK_IS_R4_16_BIT_INV";
+    Base::lookup_rng_chk_is_r5_16_bit_inv = "LOOKUP_RNG_CHK_IS_R5_16_BIT_INV";
+    Base::lookup_rng_chk_is_r6_16_bit_inv = "LOOKUP_RNG_CHK_IS_R6_16_BIT_INV";
+    Base::lookup_rng_chk_is_r7_16_bit_inv = "LOOKUP_RNG_CHK_IS_R7_16_BIT_INV";
     Base::lookup_dummy_precomputed_inv = "LOOKUP_DUMMY_PRECOMPUTED_INV";
     Base::lookup_dummy_dynamic_inv = "LOOKUP_DUMMY_DYNAMIC_INV";
+    Base::lookup_rng_chk_pow_2_counts = "LOOKUP_RNG_CHK_POW_2_COUNTS";
+    Base::lookup_rng_chk_diff_counts = "LOOKUP_RNG_CHK_DIFF_COUNTS";
+    Base::lookup_rng_chk_is_r0_16_bit_counts = "LOOKUP_RNG_CHK_IS_R0_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r1_16_bit_counts = "LOOKUP_RNG_CHK_IS_R1_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r2_16_bit_counts = "LOOKUP_RNG_CHK_IS_R2_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r3_16_bit_counts = "LOOKUP_RNG_CHK_IS_R3_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r4_16_bit_counts = "LOOKUP_RNG_CHK_IS_R4_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r5_16_bit_counts = "LOOKUP_RNG_CHK_IS_R5_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r6_16_bit_counts = "LOOKUP_RNG_CHK_IS_R6_16_BIT_COUNTS";
+    Base::lookup_rng_chk_is_r7_16_bit_counts = "LOOKUP_RNG_CHK_IS_R7_16_BIT_COUNTS";
     Base::lookup_dummy_precomputed_counts = "LOOKUP_DUMMY_PRECOMPUTED_COUNTS";
     Base::lookup_dummy_dynamic_counts = "LOOKUP_DUMMY_DYNAMIC_COUNTS";
 };

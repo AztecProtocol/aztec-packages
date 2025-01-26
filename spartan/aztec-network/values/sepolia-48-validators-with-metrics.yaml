@@ -16,6 +16,7 @@ ethereum:
 validator:
   l1FixedPriorityFeePerGas: 2
   l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 500
   replicas: 48
   validatorKeys:
   validatorAddresses:

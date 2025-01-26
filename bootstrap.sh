@@ -98,15 +98,6 @@ function check_toolchains {
     echo "Installation: corepack enable"
     exit 1
   fi
-  # Check for yarn version
-  local yarn_min_version="4.5.2"
-  local yarn_installed_version=$(yarn --version)
-  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
-    echo "Installation: yarn set version $yarn_min_version; yarn install"
-    exit 1
-  fi
 }
 
 function test_all {
