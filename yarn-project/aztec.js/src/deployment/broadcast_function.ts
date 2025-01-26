@@ -29,8 +29,9 @@ export async function broadcastPrivateFunction(
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
+  const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
   const functionsAndSelectors = await Promise.all(
-    artifact.functions.map(async fn => ({
+    privateFunctions.map(async fn => ({
       f: fn,
       selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
     })),
@@ -96,11 +97,10 @@ export async function broadcastUnconstrainedFunction(
       selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
     })),
   );
-  const functionArtifactIndex = unconstrainedFunctionsAndSelectors.findIndex(fn => selector.equals(fn.selector));
-  if (functionArtifactIndex < 0) {
+  const unconstrainedFunctionArtifact = unconstrainedFunctionsAndSelectors.find(fn => selector.equals(fn.selector))?.f;
+  if (!unconstrainedFunctionArtifact) {
     throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
   }
-  const functionArtifact = artifact.functions[functionArtifactIndex];
 
   const {
     artifactMetadataHash,
@@ -110,7 +110,10 @@ export async function broadcastUnconstrainedFunction(
     privateFunctionsArtifactTreeRoot,
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
-  const bytecode = bufferAsFields(functionArtifact.bytecode, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS);
+  const bytecode = bufferAsFields(
+    unconstrainedFunctionArtifact.bytecode,
+    MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  );
 
   await wallet.addCapsule(bytecode);
 
