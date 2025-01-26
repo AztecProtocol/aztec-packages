@@ -25,7 +25,7 @@ describe('ContractClass', () => {
       };
       const contractClassId = await computeContractClassId(contractClass);
 
-      expect(contractClass.toString()).toMatchInlineSnapshot(
+      expect(contractClassId.toString()).toMatchInlineSnapshot(
         `"0x2c3a8b2ad29dd4000cb827e973737bcf57fc072aeaf93ceeef4b4b9eb086cf67"`,
       );
     });

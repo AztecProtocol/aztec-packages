@@ -57,7 +57,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
 
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
     const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

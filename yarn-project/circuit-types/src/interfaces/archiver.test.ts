@@ -354,7 +354,7 @@ class MockArchiver implements ArchiverApi {
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
   async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
