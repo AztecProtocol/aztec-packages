@@ -200,39 +200,6 @@ fn format_enum(
     string
 }
 
-fn format_enum(id: TypeId, args: &ProcessRequestCallbackArgs) -> String {
-    let typ = args.interner.get_type(id);
-    let typ = typ.borrow();
-
-    let mut string = String::new();
-    if format_parent_module(ReferenceId::Enum(id), args, &mut string) {
-        string.push('\n');
-    }
-    string.push_str("    ");
-    string.push_str("enum ");
-    string.push_str(&typ.name.0.contents);
-    format_generics(&typ.generics, &mut string);
-    string.push_str(" {\n");
-    for field in typ.get_variants_as_written() {
-        string.push_str("        ");
-        string.push_str(&field.name.0.contents);
-
-        if !field.params.is_empty() {
-            let types = field.params.iter().map(ToString::to_string).collect::<Vec<_>>();
-            string.push('(');
-            string.push_str(&types.join(", "));
-            string.push(')');
-        }
-
-        string.push_str(",\n");
-    }
-    string.push_str("    }");
-
-    append_doc_comments(args.interner, ReferenceId::Enum(id), &mut string);
-
-    string
-}
-
 fn format_struct_member(
     id: TypeId,
     field_index: usize,
@@ -1309,6 +1276,85 @@ mod hover_tests {
             "    two
     impl<A> Bar<A, i32> for Foo<A>
     fn bar_stuff(self)"
+        ));
+    }
+
+    #[test]
+    async fn hover_on_trait_impl_method_uses_docs_from_trait_method() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 92, character: 8 })
+                .await;
+        assert!(hover_text.contains("Some docs"));
+    }
+
+    #[test]
+    async fn hover_on_function_with_mut_self() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 96, character: 10 })
+                .await;
+        assert!(hover_text.contains("fn mut_self(&mut self)"));
+    }
+
+    #[test]
+    async fn hover_on_empty_enum_type() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 100, character: 8 })
+                .await;
+        assert!(hover_text.contains(
+            "    two
+    enum EmptyColor {
+    }
+
+---
+
+ Red, blue, etc."
+        ));
+    }
+
+    #[test]
+    async fn hover_on_non_empty_enum_type() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 103, character: 8 })
+                .await;
+        assert!(hover_text.contains(
+            "    two
+    enum Color {
+        Red(Field),
+    }
+
+---
+
+ Red, blue, etc."
+        ));
+    }
+
+    #[test]
+    async fn hover_on_enum_variant() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 105, character: 6 })
+                .await;
+        assert!(hover_text.contains(
+            "    two::Color
+    Red(Field)
+
+---
+
+ Like a tomato"
+        ));
+    }
+
+    #[test]
+    async fn hover_on_enum_variant_in_call() {
+        let hover_text =
+            get_hover_text("workspace", "two/src/lib.nr", Position { line: 109, character: 12 })
+                .await;
+        assert!(hover_text.contains(
+            "    two::Color
+    Red(Field)
+
+---
+
+ Like a tomato"
         ));
     }
 

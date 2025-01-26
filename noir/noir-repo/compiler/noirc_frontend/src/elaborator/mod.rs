@@ -45,14 +45,6 @@ use crate::{
     usage_tracker::UsageTracker,
     DataType, StructField, TypeBindings,
 };
-use crate::{
-    ast::{ItemVisibility, UnresolvedType},
-    graph::CrateGraph,
-    hir_def::traits::ResolvedTraitBound,
-    node_interner::GlobalValue,
-    usage_tracker::UsageTracker,
-    DataType, StructField, TypeBindings,
-};
 
 mod comptime;
 mod enums;

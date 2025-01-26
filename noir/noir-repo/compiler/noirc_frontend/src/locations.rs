@@ -339,17 +339,6 @@ impl NodeInterner {
         self.register_name_for_auto_import(name, ModuleDefId::TypeId(id), visibility, None);
     }
 
-    pub(crate) fn register_enum(
-        &mut self,
-        id: TypeId,
-        name: String,
-        visibility: ItemVisibility,
-        parent_module_id: ModuleId,
-    ) {
-        self.add_definition_location(ReferenceId::Enum(id), Some(parent_module_id));
-        self.register_name_for_auto_import(name, ModuleDefId::TypeId(id), visibility, None);
-    }
-
     pub(crate) fn register_trait(
         &mut self,
         id: TraitId,

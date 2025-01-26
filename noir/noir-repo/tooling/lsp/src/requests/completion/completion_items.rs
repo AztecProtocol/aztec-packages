@@ -421,64 +421,6 @@ impl<'a> NodeFinder<'a> {
         None
     }
 
-    fn auto_import_trait_if_trait_method(
-        &self,
-        func_id: FuncId,
-        trait_info: Option<(TraitId, Option<&TraitReexport>)>,
-        completion_item: &mut CompletionItem,
-    ) -> Option<()> {
-        // If this is a trait method, check if the trait is in scope
-        let (trait_id, trait_reexport) = trait_info?;
-
-        let trait_name = if let Some(trait_reexport) = trait_reexport {
-            trait_reexport.name
-        } else {
-            let trait_ = self.interner.get_trait(trait_id);
-            &trait_.name
-        };
-
-        let module_data =
-            &self.def_maps[&self.module_id.krate].modules()[self.module_id.local_id.0];
-        if !module_data.scope().find_name(trait_name).is_none() {
-            return None;
-        }
-
-        // If not, automatically import it
-        let current_module_parent_id = self.module_id.parent(self.def_maps);
-        let module_full_path = if let Some(reexport_data) = trait_reexport {
-            relative_module_id_path(
-                *reexport_data.module_id,
-                &self.module_id,
-                current_module_parent_id,
-                self.interner,
-            )
-        } else {
-            relative_module_full_path(
-                ModuleDefId::FunctionId(func_id),
-                self.module_id,
-                current_module_parent_id,
-                self.interner,
-            )?
-        };
-        let full_path = format!("{}::{}", module_full_path, trait_name);
-        let mut label_details = completion_item.label_details.clone().unwrap();
-        label_details.detail = Some(format!("(use {})", full_path));
-        completion_item.label_details = Some(label_details);
-        completion_item.additional_text_edits = Some(use_completion_item_additional_text_edits(
-            UseCompletionItemAdditionTextEditsRequest {
-                full_path: &full_path,
-                files: self.files,
-                file: self.file,
-                lines: &self.lines,
-                nesting: self.nesting,
-                auto_import_line: self.auto_import_line,
-            },
-            &self.use_segment_positions,
-        ));
-
-        None
-    }
-
     fn compute_function_insert_text(
         &self,
         func_meta: &FuncMeta,
