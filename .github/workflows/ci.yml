@@ -382,8 +382,6 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
 
-            export INSTALL_CHAOS_MESH=false
-            export INSTALL_METRICS=false
             export NAMESPACE=smoke
             export FRESH_INSTALL=true
             export VALUES_FILE=ci-smoke.yaml

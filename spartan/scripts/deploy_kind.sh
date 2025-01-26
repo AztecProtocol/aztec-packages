@@ -1,32 +1,25 @@
 #!/bin/bash
 
-# Usage: ./network_test.sh <test>
+# Helper script for deploying local KIND scenarios.
+# Usage: ./deploy_kind.sh <namespace>
 # Required environment variables:
 #   NAMESPACE
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
+#   CHAOS_VALUES (default: "", no chaos installation)
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 
-set -eux
+source $(git rev-parse --show-toplevel)/ci3/source
+set -x
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Main positional parameter
-TEST=${1:-}
-
-REPO=$(git rev-parse --sho w-toplevel)
-if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
-  "$REPO"/spartan/scripts/setup_local_k8s.sh
-else
-  echo "Not on x64 Linux, not installing k8s and helm."
-fi
+# Positional parameters.
+namespace="$1"
 
 # Default values for environment variables
-VALUES_FILE="${VALUES_FILE:-default.yaml}"
-INSTALL_CHAOS_MESH="${INSTALL_CHAOS_MESH:-}"
-CHAOS_VALUES="${CHAOS_VALUES:-}"
-FRESH_INSTALL="${FRESH_INSTALL:-false}"
+values_file="${VALUES_FILE:-default.yaml}"
+chaos_values="${CHAOS_VALUES:-}"
+FRESH_INSTALL="${FRESH_INSTsALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
 export INSTALL_CHAOS_MESH=${INSTALL_CHAOS_MESH:-true}
@@ -86,12 +79,12 @@ function cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
+if [ -z "$chaos_values" ]; then
   echo "Deleting existing network chaos experiments..."
   kubectl delete networkchaos --all --all-namespaces
 fi
 
-export VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
+values_path="$REPO/spartan/aztec-network/values/$values_file"
 export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
 
 # Load the read_values_file.sh script
@@ -115,8 +108,7 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# Find 3 free ports between 9000 and 10000
-FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
+FREE_PORTS=$(find_ports 3)
 
 # Extract the free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
@@ -137,29 +129,3 @@ ETHEREUM_SLOT_DURATION=$(read_values_file "ethereum.blockTime")
 AZTEC_SLOT_DURATION=$(read_values_file "aztec.slotDuration")
 AZTEC_EPOCH_DURATION=$(read_values_file "aztec.epochDuration")
 AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(read_values_file "aztec.epochProofClaimWindow")
-
-# Run the test if $TEST is not empty
-if [ -n "$TEST" ]; then
-  echo "RUNNING TEST: $TEST"
-  docker run --rm --network=host \
-    -v ~/.kube:/root/.kube \
-    -e K8S=local \
-    -e INSTANCE_NAME="spartan" \
-    -e SPARTAN_DIR="/usr/src/spartan" \
-    -e NAMESPACE="$NAMESPACE" \
-    -e HOST_PXE_PORT=$PXE_PORT \
-    -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
-    -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_METRICS_PORT=$METRICS_PORT \
-    -e CONTAINER_METRICS_PORT=80 \
-    -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-    -e DEBUG=${DEBUG:-""} \
-    -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
-    -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
-    -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
-    -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
-    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
-    aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
-fi

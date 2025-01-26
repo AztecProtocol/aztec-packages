@@ -36,22 +36,22 @@ LOG_LEVEL="info"
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
-display_help() {
-    echo "Usage: $0 [options]"
-    echo
-    echo "Options:"
-    echo "  -h     Display this help message"
-    echo "  -t     Specify the test file (default: $TEST_SCRIPT)"
-    echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
-    echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
-    echo "  -v     Set logging level to verbose"
-    echo "  -vv    Set logging level to debug"
-    echo "  -i     Run interleaved (default: $INTERLEAVED)"
-    echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
-    echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
-    echo
-    echo "Example:"
-    echo "  $0 -t ./test-4epochs.sh -val 5 -v"
+function display_help {
+  echo "Usage: $0 [options]"
+  echo
+  echo "Options:"
+  echo "  -h     Display this help message"
+  echo "  -t     Specify the test file (default: $TEST_SCRIPT)"
+  echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
+  echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
+  echo "  -v     Set logging level to verbose"
+  echo "  -vv    Set logging level to debug"
+  echo "  -i     Run interleaved (default: $INTERLEAVED)"
+  echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
+  echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
+  echo
+  echo "Example:"
+  echo "  $0 -t ./test-4epochs.sh -val 5 -v"
 }
 
 # Parse command line arguments
@@ -120,15 +120,15 @@ cd $(git rev-parse --show-toplevel)
 
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
-        $TEST_SCRIPT \
-        \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        ./ethereum.sh \
-        \"./validators.sh $NUM_VALIDATORS\" \
-        $PROVER_SCRIPT \
-        ./pxe.sh \
-        ./transaction-bot.sh"
+  $TEST_SCRIPT \
+  \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
+  ./deploy-l2-contracts.sh \
+  ./boot-node.sh \
+  ./ethereum.sh \
+  \"./validators.sh $NUM_VALIDATORS\" \
+  $PROVER_SCRIPT \
+  ./pxe.sh \
+  ./transaction-bot.sh"
 
 # Execute the command
 eval $BASE_CMD
