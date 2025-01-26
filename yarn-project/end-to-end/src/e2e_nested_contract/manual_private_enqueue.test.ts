@@ -39,7 +39,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
       parentContract.methods
         .enqueue_call_to_child(
           childContract.address,
-          (childContract.methods as any).pub_inc_value_internal.selector,
+          await (childContract.methods as any).pub_inc_value_internal.selector(),
           42n,
         )
         .prove(),
