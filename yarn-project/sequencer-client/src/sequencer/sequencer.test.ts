@@ -498,7 +498,7 @@ describe('sequencer', () => {
   });
 
   it('does not publish a block if the block proposal failed', async () => {
-    const tx = makeTx();
+    const tx = await makeTx();
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
 
