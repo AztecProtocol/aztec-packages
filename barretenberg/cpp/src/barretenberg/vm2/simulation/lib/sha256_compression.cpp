@@ -6,11 +6,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm/aztec_constants.hpp"
-
 namespace bb::avm2::simulation {
 
-constexpr uint32_t round_constants[64]{
+constexpr uint32_t round_constants[64] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -20,12 +18,6 @@ constexpr uint32_t round_constants[64]{
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
-
-// Taken from barretenberg/crypto/sha256/sha256.cpp since it is not exposed directly
-constexpr uint32_t ror(uint32_t val, uint32_t shift)
-{
-    return (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-}
 
 // Taken from barretenberg/crypto/sha256/sha256.cpp since it is not exposed directly
 std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, const std::array<uint32_t, 16>& input)
@@ -84,15 +76,9 @@ std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, cons
     /**
      * Add into previous block output and return
      **/
-    std::array<uint32_t, 8> output;
-    output[0] = a + h_init[0];
-    output[1] = b + h_init[1];
-    output[2] = c + h_init[2];
-    output[3] = d + h_init[3];
-    output[4] = e + h_init[4];
-    output[5] = f + h_init[5];
-    output[6] = g + h_init[6];
-    output[7] = h + h_init[7];
-    return output;
+    return {
+        a + h_init[0], b + h_init[1], c + h_init[2], d + h_init[3],
+        e + h_init[4], f + h_init[5], g + h_init[6], h + h_init[7],
+    };
 }
 } // namespace bb::avm2::simulation

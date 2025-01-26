@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -35,7 +36,7 @@ namespace {
 
 auto build_precomputed_columns_jobs(TraceContainer& trace)
 {
-    return std::array<std::function<void()>, 4>{
+    return std::array<std::function<void()>, 3>{
         [&]() {
             PrecomputedTraceBuilder precomputed_builder;
             AVM_TRACK_TIME("tracegen/precomputed/misc", precomputed_builder.process_misc(trace));
@@ -49,12 +50,9 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
-        },
-        [&]() {
-            PrecomputedTraceBuilder precomputed_builder;
-            AVM_TRACK_TIME("tracegen/precomputed/round_constants",
+            AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
-        }
+        },
     };
 }
 
@@ -120,7 +118,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 },
                 [&]() {
                     Sha256TraceBuilder sha256_builder(trace);
-                    AVM_TRACK_TIME("tracegen/sha256", sha256_builder.process(events.sha256_compression));
+                    AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
                     clear_events(events.sha256_compression);
                 } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));

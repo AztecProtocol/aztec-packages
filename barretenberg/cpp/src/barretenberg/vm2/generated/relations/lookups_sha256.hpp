@@ -9,6 +9,8 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_sha256_round_constant ///////////////////
+
 class lookup_sha256_round_constant_lookup_settings {
   public:
     static constexpr size_t READ_TERMS = 1;

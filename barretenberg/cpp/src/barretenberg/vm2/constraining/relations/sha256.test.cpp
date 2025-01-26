@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
-// TMP
+// Temporary imports, see comment in test.
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
@@ -68,8 +68,7 @@ TEST(AvmConstrainingTest, Sha256Positive)
     TestTraceContainer trace;
     tracegen::Sha256TraceBuilder builder(trace);
 
-    // The process wants a const& but the event emitter is not const..
-    const auto& sha256_event_container = sha256_event_emitter.dump_events();
+    const auto sha256_event_container = sha256_event_emitter.dump_events();
     builder.process(sha256_event_container);
 
     TestTraceContainer::RowTraceContainer rows = trace.as_rows();

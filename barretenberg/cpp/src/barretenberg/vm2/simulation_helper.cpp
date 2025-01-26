@@ -103,9 +103,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              address_derivation_emitter.dump_events(),
              class_id_derivation_emitter.dump_events(),
              siloing_emitter.dump_events(),
-             sha256_compression_emitter.dump_events()
-
-    };
+             sha256_compression_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()
