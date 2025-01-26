@@ -219,8 +219,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
-        info(repeated_commitments.first_range_shifted_start);
-        info("concat size", concatenated_evaluations.size());
+        // isolate UltraZK this way
+        bool use_short_scalars = has_zk && (unshifted_commitments.size() == 35);
+
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -244,8 +245,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Fr> unshifted_batching_challenges;
         std::vector<Fr> shifted_batching_challenges;
 
-        if (has_zk) {
-            // size_t num_commitments = unshifted_commitments.size() + shifted_commitments.size();
+        // Create separate short challenges for prover commitments
+        if (use_short_scalars) {
             unshifted_batching_challenges.push_back(multivariate_batching_challenge);
             for (size_t idx = 0; idx < unshifted_commitments.size() - 1; idx++) {
                 unshifted_batching_challenges.push_back(
@@ -349,7 +350,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        if (has_zk) {
+        if (use_short_scalars) {
             batch_multivariate_opening_claims_short_scalars(unshifted_commitments,
                                                             shifted_commitments,
                                                             unshifted_evaluations,
@@ -402,7 +403,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Add A₀(−r)/(z+r) to the constant term accumulator
         constant_term_accumulator += gemini_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        // remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+        if (!use_short_scalars) {
+            remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+        }
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty

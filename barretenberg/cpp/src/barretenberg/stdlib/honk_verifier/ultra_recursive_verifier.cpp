@@ -45,7 +45,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-
+    info("entering the verifier", builder->get_estimated_num_finalized_gates());
     Output output;
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
@@ -110,8 +110,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
+    info("before sumcheck ", builder->get_estimated_num_finalized_gates());
+
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    info("after sumcheck ", builder->get_estimated_num_finalized_gates());
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -134,8 +137,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-
+    info("after shplemini ", builder->get_estimated_num_finalized_gates());
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    info("after KZG ", builder->get_estimated_num_finalized_gates());
 
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
