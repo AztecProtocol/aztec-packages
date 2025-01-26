@@ -66,5 +66,5 @@ export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
   const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
   assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
 
-  return bytecodeLength == 0 ? new Fr(0) : await poseidon2HashAccumulate(encodedBytecode.slice(1, bytecodeLength + 1));
+  return bytecodeLength == 0 ? new Fr(0) : await poseidon2HashAccumulate(encodedBytecode.slice(0, bytecodeLength + 1));
 }

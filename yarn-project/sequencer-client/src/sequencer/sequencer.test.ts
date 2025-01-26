@@ -169,7 +169,7 @@ describe('sequencer', () => {
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
-    publisher.validateBlockForSubmission.mockResolvedValue();
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.proposeL2Block.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
@@ -348,7 +348,7 @@ describe('sequencer', () => {
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue();
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -490,7 +490,19 @@ describe('sequencer', () => {
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
+
+    await sequencer.doRealWork();
+
+    expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a block if the block proposal failed', async () => {
+    const tx = makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    validatorClient.createBlockProposal.mockResolvedValue(undefined);
 
     await sequencer.doRealWork();
 
@@ -587,6 +599,25 @@ describe('sequencer', () => {
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      await sequencer.doRealWork();
+      expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    });
+
+    it('submits a valid proof quote if building a block proposal fails', async () => {
+      const blockNumber = epochDuration + 1;
+      await setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote();
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      validatorClient.createBlockProposal.mockResolvedValue(undefined);
 
       await sequencer.doRealWork();
       expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);

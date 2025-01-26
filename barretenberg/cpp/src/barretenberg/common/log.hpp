@@ -47,10 +47,14 @@ template <typename... Args> std::string benchmark_format(Args... args)
     return os.str();
 }
 
+extern bool debug_logging;
 #ifndef NDEBUG
 template <typename... Args> inline void debug(Args... args)
 {
-    logstr(format(args...).c_str());
+    // NDEBUG is used to turn off asserts, so we want this flag to prevent debug log spamming.
+    if (debug_logging) {
+        logstr(format(args...).c_str());
+    }
 }
 #else
 template <typename... Args> inline void debug(Args... /*unused*/) {}
