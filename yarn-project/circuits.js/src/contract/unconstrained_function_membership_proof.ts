@@ -29,16 +29,14 @@ export async function createUnconstrainedFunctionMembershipProof(
   const log = createLogger('circuits:function_membership_proof');
 
   // Locate function artifact
-  const fnsAndSelectors = await Promise.all(
-    artifact.functions.map(async fn => ({ fn, selector: await FunctionSelector.fromNameAndParameters(fn) })),
+  const uncontrainedFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UNCONSTRAINED);
+  const unconstrainedFunctionsAndSelectors = await Promise.all(
+    uncontrainedFunctions.map(async fn => ({ fn, selector: await FunctionSelector.fromNameAndParameters(fn) })),
   );
-  const fn = fnsAndSelectors.find(fnAndSelector => selector.equals(fnAndSelector.selector))?.fn;
+  const fn = unconstrainedFunctionsAndSelectors.find(fnAndSelector => selector.equals(fnAndSelector.selector))?.fn;
   if (!fn) {
-    throw new Error(`Function with selector ${selector.toString()} not found`);
-  } else if (fn.functionType !== FunctionType.UNCONSTRAINED) {
-    throw new Error(`Function ${fn.name} with selector ${selector.toString()} is not unconstrained`);
+    throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
   }
-
   // Compute preimage for the artifact hash
   const { privateFunctionRoot: privateFunctionsArtifactTreeRoot, metadataHash: artifactMetadataHash } =
     await computeArtifactHashPreimage(artifact);
