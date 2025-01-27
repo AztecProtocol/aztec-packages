@@ -43,7 +43,7 @@ export class WASMSimulator implements SimulationProvider {
     } catch (err) {
       // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        let parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
+        const parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
         this.log.debug('execution failed', {
           hash: compiledCircuit.hash,
           error: parsed,
