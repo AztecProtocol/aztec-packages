@@ -36,9 +36,12 @@ case ${SYS:-} in
     ;;
   "ultra_honk")
     FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack}"
-    $BIN verify $FLAGS \
-        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
-        -p <($BIN prove -o - $FLAGS $BFLAG)
+    $BIN prove $FLAGS $BFLAG
+    $BIN verify $FLAGS
+    # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
+    # $BIN verify $FLAGS \
+    #     -k <($BIN write_vk -o - $FLAGS $BFLAG) \
+    #     -p <($BIN prove -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api

@@ -50,7 +50,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
                                    verification_key->verification_key->circuit_size));
     }
     if (public_input_size != verification_key->verification_key->num_public_inputs) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: public inputs size does not match verification key!");
+        throw_or_abort(std::format("OinkVerifier::execute_preamble_round: proof public inputs size ({}) does not match "
+                                   "verification key circuit size ({})!",
+                                   public_input_size,
+                                   verification_key->verification_key->num_public_inputs));
     }
     if (pub_inputs_offset != verification_key->verification_key->pub_inputs_offset) {
         throw_or_abort("OinkVerifier::execute_preamble_round: public inputs offset does not match verification key!");
