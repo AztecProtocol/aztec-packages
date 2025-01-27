@@ -17,7 +17,9 @@ import {
 import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
+import {
+    MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib
+} from "./Fr.sol";
 
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
@@ -215,6 +217,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     uint256 constant LIBRA_COMMITMENTS = 3;
     uint256 constant LIBRA_EVALUATIONS = 4;
+    uint256 constant LIBRA_UNIVARIATES_LENGTH = 9;
 
     function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
         internal
@@ -423,17 +426,55 @@ abstract contract BaseHonkVerifier is IVerifier {
         return pairing(P_0, P_1);
     }
 
+    struct SmallSubgroupIpaIntermediates {
+        Fr[SUBGROUP_SIZE] challengePolyLagrange;
+        Fr challengePolyEval;
+        Fr lagrangeFirst;
+        Fr lagrangeLast;
+        Fr rootPower;
+        Fr[SUBGROUP_SIZE] denominators; // this has to disappear
+    }
+
     function checkEvalsConsistency(
-        Fr[LIBRA_EVALUATIONS] libraPolyEvals,
+        Fr[LIBRA_EVALUATIONS] memory libraPolyEvals,
         Fr geminiR,
-        Fr[CONST_PROOF_SIZE_LOG_N] uChallenges,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory uChallenges,
         Fr libraEval
     ) internal view returns (bool) {
-        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE); // will this cause problems?
-
+        Fr one = Fr.wrap(1);
+        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one; // will this cause problems?
+        SmallSubgroupIpaIntermediates memory mem;
         // TODO: abort if gemini challenge in subgroup
+        mem.challengePolyLagrange[0] = one;
+        for (uint256 round = 0; round < CONST_PROOF_SIZE_LOG_N; round++) {
+            uint256 currIdx = 1 + LIBRA_UNIVARIATES_LENGTH * round;
+            mem.challengePolyLagrange[currIdx] = one;
+            for (uint256 idx = currIdx; idx < currIdx + LIBRA_UNIVARIATES_LENGTH; idx++) {
+                mem.challengePolyLagrange[idx] = mem.challengePolyLagrange[idx - 1] * uChallenges[round];
+            }
+        }
 
+        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
+        mem.rootPower = SUBGROUP_GENERATOR_INVERSE;
+        mem.denominators[0] = geminiR - one;
+        mem.challengePolyEval = Fr.wrap(0);
+        for (uint256 idx = 1; idx < SUBGROUP_SIZE; idx++) {
+            mem.denominators[idx] = mem.rootPower * geminiR - one;
+            mem.denominators[idx] = mem.denominators[idx].invert();
+            mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
+            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
+        }
+        mem.challengePolyEval = mem.challengePolyEval * numerator;
+        mem.lagrangeFirst = mem.denominators[0] * numerator;
+        mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;
 
+        Fr diff = mem.lagrangeFirst * libraPolyEvals[2];
+        diff = diff
+            + (geminiR - SUBGROUP_GENERATOR_INVERSE)
+                * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
+        diff = diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
+
+        return (diff == Fr.wrap(0));
     }
 
     // This implementation is the same as above with different constants

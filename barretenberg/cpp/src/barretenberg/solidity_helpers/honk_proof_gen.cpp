@@ -41,6 +41,8 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     }
 }
 
+void generate_zk_proof(uint256_t inputs[]) {}
+
 std::string pad_left(std::string input, size_t length)
 {
     return std::string(length - std::min(length, input.length()), '0') + input;
