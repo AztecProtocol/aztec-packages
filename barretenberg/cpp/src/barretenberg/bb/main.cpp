@@ -1311,38 +1311,30 @@ int main(int argc, char* argv[])
                 // TODO(#7371): remove this (msgpack version...)
                 api.prove(flags, bytecode_path, witness_path, output_dir);
                 return 0;
-            }
-
-            if (command == "verify") {
+            } else if (command == "verify") {
                 // const std::filesystem::path proof_path = output_dir / "proof";
                 // const std::filesystem::path vk_path = output_dir / "vk";
                 return api.verify(flags, proof_path, vk_path) ? 0 : 1;
-            }
-
-            if (command == "prove_and_verify") {
+            } else if (command == "prove_and_verify") {
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
-            }
-
-            if (command == "write_vk") {
+            } else if (command == "write_vk") {
                 std::string output_path = get_option(args, "-o", "./target/vk");
                 info("writing vk to ", output_path);
                 api.write_vk(flags, bytecode_path, output_path);
-            }
-
-            if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
+                return 0;
+            } else if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
                 return 0;
-            }
-
-            if (command == "contract") {
+            } else if (command == "contract") {
                 const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
                 api.contract(flags, output_path, vk_path);
                 return 0;
-            }
+            } else {
 
-            throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
-            return 1;
+                throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
+                return 1;
+            }
         };
 
         // Skip CRS initialization for any command which doesn't require the CRS.

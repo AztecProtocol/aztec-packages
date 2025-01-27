@@ -7,9 +7,8 @@ BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 
 [ -n "${1:-}" ] && cd ./acir_tests/$1
 
-outdir=./target
-echo $(realpath $outdir)
-# trap "rm -rf $outdir" EXIT
+outdir=$(mktemp -d)
+trap "rm -rf $outdir" EXIT
 
 flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v}"
 
