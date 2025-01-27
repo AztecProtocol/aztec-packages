@@ -20,6 +20,16 @@ if [ -z "$TAG" ]; then
   exit 1
 fi
 
+# Ensure we have GKE auth setup with kubernetes, trying to automate it to the extent possible then
+# giving instructions.
+../bootstrap.sh gke
+
+current_context="$(kubectl config current-context)"
+if [[ "$current_context" =~ ^kind- ]]; then
+  echo "Error: current cluster is a KIND cluster ($current_context). Exiting. Use deploy_kind.sh instead for KIND deployments."
+  exit 1
+fi
+
 function cleanup() {
   set +x
   # kill everything in our process group except our process

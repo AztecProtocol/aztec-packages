@@ -20,14 +20,13 @@ chaos_values="${CHAOS_VALUES:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 
-if ! command -v kubectl &> /dev/null; then
-  echo "kubectl not found. Run spartan/bootstrap.sh"
-  exit 1
-fi
 if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
   echo "Aztec Docker image not found. It needs to be built."
   exit 1
 fi
+
+# Switch to a KIND cluster (will also pull in necessary dependencies)
+../bootstrap.sh kind
 
 # Load the Docker image into kind
 kind load docker-image aztecprotocol/aztec:$aztec_docker_tag

@@ -30,6 +30,25 @@ function network_shaping {
   return 0
 }
 
+function gke {
+  # For GKE access
+  if ! command -v gcloud &> /dev/null; then
+    if [ -f /etc/os-release ] && grep -qi "Ubuntu" /etc/os-release; then
+      sudo apt update
+      sudo apt install -y apt-transport-https ca-certificates gnupg curl
+      sudo rm -f /usr/share/keyrings/cloud.google.gpg && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+      echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+      sudo apt install -y google-cloud-cli
+      sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
+      echo "Now you can run 'gcloud init'. Exiting with 1 as this is a necessary step."
+    else
+      echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
+      echo "If needed, install glcoud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+    fi
+    exit 1
+  fi
+}
+
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
@@ -71,6 +90,9 @@ case "$cmd" in
     ;;
   "test-kind")
     scripts/test_kind.sh
+    ;;
+  "gke")
+    gke
     ;;
   *)
     echo "Unknown command: $cmd"
