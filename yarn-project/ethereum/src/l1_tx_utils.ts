@@ -568,12 +568,15 @@ export class L1TxUtils {
         ...request,
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        gas: 1_000_000n,
       });
 
       this.logger?.debug(`estimate WITH ESTIMATEGAS: ${initialEstimate}`);
-      this.logger?.debug('L1 gas used in estimateGas by blob tx', { gas: initialEstimate });
+      this.logger?.debug('L1 gas used in estimateGas by blob tx', {
+        gas: initialEstimate,
+      });
     } else {
-      initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+      initialEstimate = await this.publicClient.estimateGas({ account, ...request, gas: 1_000_000n });
       this.logger?.debug('L1 gas used in estimateGas by non-blob tx', { gas: initialEstimate });
     }
 
