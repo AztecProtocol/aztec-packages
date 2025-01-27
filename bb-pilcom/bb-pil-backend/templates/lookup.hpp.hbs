@@ -9,6 +9,9 @@
 
 namespace bb::{{snakeCase root_name}} {
 
+{{#each lookups as |current_lookup|}}{{#with current_lookup}}
+/////////////////// {{lookup_name}} ///////////////////
+
 class {{lookup_name}}_lookup_settings {
   public:
     static constexpr size_t READ_TERMS = {{read_terms}};
@@ -83,4 +86,5 @@ template <typename FF_> class {{lookup_name}}_relation : public GenericLookupRel
 };
 template <typename FF_> using {{lookup_name}} = GenericLookup<{{lookup_name}}_lookup_settings, FF_>;
 
+{{/with}}{{/each}}
 } // namespace bb::{{snakeCase root_name}}
