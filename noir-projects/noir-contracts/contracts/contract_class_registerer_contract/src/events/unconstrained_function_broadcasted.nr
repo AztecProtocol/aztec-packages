@@ -42,6 +42,7 @@ impl ClassUnconstrainedFunctionBroadcasted {
             0; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS
                 + REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS
         ];
+        // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
         packed[0] = REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE;
         packed[1] = self.contract_class_id.to_field();
         packed[2] = self.artifact_metadata_hash;
