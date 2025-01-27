@@ -17,7 +17,7 @@ For structs and arrays, we are logically using a similar storage slot computatio
 
 ## Private State Slots
 
-Private storage is a different beast. As you might remember from [Hybrid State Model](../storage/state_model/index.md), private state is stored in encrypted logs and the corresponding private state commitments in append-only tree, called the note hash tree where each leaf is a commitment. Append-only means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that updates at a specific storage slot would leak information in the context of private state, even if the value is encrypted. That is not good privacy.
+Private storage is a different beast. As you might remember from [Hybrid State Model](../storage/state_model/index.md), private state is stored in encrypted logs and the corresponding private state commitments in an append-only tree called the note hash tree where each leaf is a commitment. Append-only means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we use this tree is that updates at a specific storage slot would leak information in the context of private state, even if the value is encrypted. That is not good privacy.
 
 Following this, the storage slot as we know it doesn't really exist. The leaves of the note hashes tree are just commitments to content (think of it as a hash of its content).
 
@@ -33,7 +33,7 @@ Similarly to how we siloed the public storage slots, we can silo our private sto
 note_hash = H(logical_storage_slot, note_content_hash);
 ```
 
-Note hash siloing is done in the application circuit, since it is not necessary for security of the network (but only the application).
+Note hash siloing is done in the application circuit, Since it is not necessary for the security of the network (but only for the application).
 :::info
 The private variable wrappers `PrivateSet` and `PrivateMutable` in Aztec.nr include the `logical_storage_slot` in the commitments they compute, to make it easier for developers to write contracts without having to think about how to correctly handle storage slots.
 :::
