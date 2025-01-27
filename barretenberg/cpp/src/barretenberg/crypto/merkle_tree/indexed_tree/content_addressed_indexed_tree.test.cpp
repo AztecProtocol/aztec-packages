@@ -2902,11 +2902,21 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_chec
         // checkpoint the fork again
         checkpoint_tree(forkTree);
 
+        // We now advance the fork again by a few checkpoints
+
+        /**
+         * Add new value slot:value 50:8:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+
         // Make the same change again, commit the checkpoint and see that the changes remain
         add_value_sequentially(forkTree, PublicDataLeafValue(50, 8));
-
-        commit_checkpoint_tree(forkTree);
-
         check_size(forkTree, ++fork_size);
         EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
         EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
@@ -2920,5 +2930,132 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_chec
         // It should be back at index 4
         EXPECT_EQ(predecessor.is_already_present, false);
         EXPECT_EQ(predecessor.index, 4);
+
+        // Checkpoint again
+        checkpoint_tree(forkTree);
+
+        /**
+         * Update the value in slot 30 to 12:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       12      20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(30, 12));
+        check_size(forkTree, fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Checkpoint again
+        checkpoint_tree(forkTree);
+
+        /**
+         * Add a value at slot 45:15
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      45      0       0
+         *  val       0       0       12      20       8       15      0       0
+         *  nextIdx   1       3       5       2        0       4       0       0
+         *  nextVal   1       10      45      30       0       50      0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(45, 15));
+
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 5, 45));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 5), create_indexed_public_data_leaf(45, 15, 4, 50));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 5);
+
+        // Now commit the last checkpoint
+        commit_checkpoint_tree(forkTree);
+
+        // The state should be identical
+        check_size(forkTree, fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 5, 45));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 5), create_indexed_public_data_leaf(45, 15, 4, 50));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 5);
+
+        // Now revert the fork and we should remove both the new slot 45 and the update to slot 30
+
+        /**
+         * We should revert to this state:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+
+        revert_checkpoint_tree(forkTree);
+
+        check_size(forkTree, --fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
     }
 }

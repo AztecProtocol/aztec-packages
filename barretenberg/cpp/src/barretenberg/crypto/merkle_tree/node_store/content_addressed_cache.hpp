@@ -49,6 +49,7 @@ template <typename LeafValueType> class ContentAddressedCache {
     ContentAddressedCache& operator=(const ContentAddressedCache& other) = default;
     ContentAddressedCache(ContentAddressedCache&& other) noexcept = default;
     ContentAddressedCache& operator=(ContentAddressedCache&& other) noexcept = default;
+    bool operator==(const ContentAddressedCache& other) const = default;
 
     void checkpoint();
     void revert();
@@ -79,14 +80,22 @@ template <typename LeafValueType> class ContentAddressedCache {
 
     const std::map<uint256_t, index_t>& get_indices() const { return indices_; }
 
+    bool is_equivalent_to(const ContentAddressedCache& other) const;
+
   private:
     struct Journal {
+        // Captures the tree's metadata at the time of checkpoint
         TreeMeta meta_;
-        std::vector<std::unordered_map<index_t, fr>> nodes_by_index_;
-        std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index_;
+        // Captures the cache's node hashes at the time of checkpoint. If the node does not exist in the cache, the
+        // optional will == nullopt
+        std::vector<std::unordered_map<index_t, std::optional<fr>>> nodes_by_index_;
+        // Captures the cache's leaf pre-images at the time of checkpoint. Again, if the leaf does not exist in the
+        // cache, the optional will == nullopt
+        std::unordered_map<index_t, std::optional<IndexedLeafValueType>> leaf_pre_image_by_index_;
 
         Journal(TreeMeta meta)
             : meta_(std::move(meta))
+            , nodes_by_index_(meta_.depth + 1, std::unordered_map<index_t, std::optional<fr>>())
         {}
     };
     // This is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
@@ -118,34 +127,97 @@ template <typename LeafValueType> ContentAddressedCache<LeafValueType>::ContentA
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::checkpoint()
 {
-    journals_.emplace_back(Journal(meta_.size));
+    journals_.emplace_back(Journal(meta_));
 }
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert()
 {
-    // We need to do a number of things here
-    // 1. Remove all leaves that were added since the last checkpoint, so those >= start index of the last journal
-    // 2. Revert all of the leaves that were updated since the last checkpoint, so < start index of the last journal
-    // 3. Revert all of the nodes that were updated since the last checkpoint
-
     if (journals_.empty()) {
         throw std::runtime_error("Cannot revert without a checkpoint");
     }
+    // We need to iterate over the nodes and leaves and
+    // 1. Remove any that were added since last checkpoint
+    // 2. Restore any that were updated since last checkpoint
+    // 3. Restore the meta data
+
     Journal& journal = journals_.back();
-    index_t currentMaxIndex = meta_.size;
-    for (index_t index = journal.start_index_; index < currentMaxIndex; ++index) {
-        leaf_pre_image_by_index_.erase(index);
+
+    for (uint32_t i = 0; i < journal.nodes_by_index_.size(); ++i) {
+        for (const auto& [index, optional_node_hash] : journal.nodes_by_index_[i]) {
+            // If the optional == nullopt then we remove it from the primary cache, it never existed before
+            if (!optional_node_hash.has_value()) {
+                nodes_by_index_[i].erase(index);
+            } else {
+                // The optional is not null, this means there is a vlue to be restored to the primary cache
+                nodes_by_index_[i][index] = optional_node_hash.value();
+            }
+        }
     }
-    for (auto& [index, leaf] : journal.leaf_pre_image_by_index_) {
-        leaf_pre_image_by_index_[index] = leaf;
+
+    for (const auto& [index, optional_leaf] : journal.leaf_pre_image_by_index_) {
+        // If the option == nullopt then we remove it from the primary cache, it never existed before
+        // Also remove from the indices store
+        if (!optional_leaf.has_value()) {
+            // We need to remove the leaf from the indices store
+            auto cachedIter = leaf_pre_image_by_index_.find(index);
+            if (cachedIter != leaf_pre_image_by_index_.end()) {
+                indices_.erase(uint256_t(preimage_to_key(cachedIter->second.value)));
+            }
+            leaf_pre_image_by_index_.erase(index);
+        } else {
+            // There was a leaf pre-image, restore it to the primary cache
+            // No need to update the indices store as the key has not changed
+            leaf_pre_image_by_index_[index] = optional_leaf.value();
+        }
     }
-    for (auto& [index, node] : journal.nodes_by_index_) {
-        nodes_by_index_[index] = node;
-    }
+
+    // We need to restore the meta data
+    meta_ = std::move(journal.meta_);
     journals_.pop_back();
 }
 
-template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit() {}
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit()
+{
+    if (journals_.empty()) {
+        throw std::runtime_error("Cannot commit without a checkpoint");
+    }
+
+    // We need to iterate over the nodes and leaves and merge them into the previous checkpoint if there is one
+    // If there is no previous checkpoint then we just destroy the journal as the cache will be correct
+
+    if (journals_.size() == 1) {
+        journals_.clear();
+        return;
+    }
+
+    Journal& currentJournal = journals_.back();
+    Journal& previousJournal = journals_[journals_.size() - 2];
+
+    for (uint32_t i = 0; i < currentJournal.nodes_by_index_.size(); ++i) {
+        for (const auto& [index, optional_node_hash] : currentJournal.nodes_by_index_[i]) {
+            // There is an entry in the current journal, if it does not exist in the previous journal then we need to
+            // add it If it does exist in the previous journal then that journal already captured a value from the
+            // primary cache that existed no later
+            auto previousIter = previousJournal.nodes_by_index_[i].find(index);
+            if (previousIter == previousJournal.nodes_by_index_[i].end()) {
+                previousJournal.nodes_by_index_[i][index] = optional_node_hash;
+            }
+        }
+    }
+
+    for (const auto& [index, optional_leaf] : currentJournal.leaf_pre_image_by_index_) {
+        // There is an entry in the current journal, if it does not exist in the previous journal then we need to add it
+        // If it does exist in the previous journal then that journal already captured a value from the
+        // primary cache that existed no later
+        auto previousIter = previousJournal.leaf_pre_image_by_index_.find(index);
+        if (previousIter == previousJournal.leaf_pre_image_by_index_.end()) {
+            previousJournal.leaf_pre_image_by_index_[index] = optional_leaf;
+        }
+    }
+
+    // We don't restore the meta here. We are committing, so the primary cached meta is correct
+    journals_.pop_back();
+}
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::reset(uint32_t depth)
 {
@@ -155,6 +227,53 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::res
     nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>());
     leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
     journals_ = std::vector<Journal>();
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCache<LeafValueType>::is_equivalent_to(const ContentAddressedCache& other) const
+{
+    // Meta should be identical
+    if (meta_ != other.meta_) {
+        return false;
+    }
+
+    // Indices should be identical
+    if (indices_ != other.indices_) {
+        return false;
+    }
+
+    // Nodes by index should be identical
+    if (nodes_by_index_ != other.nodes_by_index_) {
+        return false;
+    }
+
+    // Leaf pre-images by index should be identical
+    if (leaf_pre_image_by_index_ != other.leaf_pre_image_by_index_) {
+        return false;
+    }
+
+    // Our leaves should be a subset of the other leaves
+    for (const auto& [leaf_hash, leaf] : leaves_) {
+        auto it = other.leaves_.find(leaf_hash);
+        if (it == other.leaves_.end()) {
+            return false;
+        }
+        if (it->second != leaf) {
+            return false;
+        }
+    }
+
+    // Our nodes should be a subset of the other nodes
+    for (const auto& [node_hash, node] : nodes_) {
+        auto it = other.nodes_.find(node_hash);
+        if (it == other.nodes_.end()) {
+            return false;
+        }
+        if (it->second != node) {
+            return false;
+        }
+    }
+    return true;
 }
 
 template <typename LeafValueType>
@@ -226,20 +345,24 @@ template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& index,
                                                              const IndexedLeafValueType& leafPreImage)
 {
-    // If there are no journals, we can just update the leaf pre-image and leave
+    // If there is no current journal then we just update the cache and leave
     if (journals_.empty()) {
         leaf_pre_image_by_index_[index] = leafPreImage;
         return;
     }
-    // Look at the given index
-    // If it is beyond the current journal's start index then there is no need to store it in the journal
-    // Also, if it already exists in the journal, we don't want to overwrite it
-    // Otherwise we grab the value from the primary cache, if it exists and store it in the journal
+
+    // There is a journal, grab it
     Journal& journal = journals_.back();
-    if (index < journal.start_index_ &&
-        journal.leaf_pre_image_by_index_.find(index) == journal.leaf_pre_image_by_index_.end()) {
-        auto cacheIter = leaf_pre_image_by_index_.find(index);
-        if (cacheIter != leaf_pre_image_by_index_.end()) {
+
+    // If there is no leaf pre-image at the given index then add the index location to the journal's collection of empty
+    // locations
+    auto cacheIter = leaf_pre_image_by_index_.find(index);
+    if (cacheIter == leaf_pre_image_by_index_.end()) {
+        journal.leaf_pre_image_by_index_[index] = std::nullopt;
+    } else {
+        // There is a leaf pre-image. If the journal does not have a pre-image at this index then add it to the journal
+        auto journalIter = journal.leaf_pre_image_by_index_.find(index);
+        if (journalIter == journal.leaf_pre_image_by_index_.end()) {
             journal.leaf_pre_image_by_index_[index] = cacheIter->second;
         }
     }
@@ -292,17 +415,23 @@ std::optional<fr> ContentAddressedCache<LeafValueType>::get_node_by_index(uint32
 template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_node_by_index(uint32_t level, const index_t& index, const fr& node)
 {
-    // If there are no journals, we can just update the node and leave
+    // If there is no current journal then we just update the cache and leave
     if (journals_.empty()) {
         nodes_by_index_[level][index] = node;
         return;
     }
-    // If there is a journal then we need to check if the node is already in it
-    // If not then we store the current value from the primary cache
+
+    // There is a journal, grab it
     Journal& journal = journals_.back();
-    if (journal.nodes_by_index_[level].find(index) == journal.nodes_by_index_[level].end()) {
-        auto cacheIter = nodes_by_index_[level].find(index);
-        if (cacheIter != nodes_by_index_[level].end()) {
+
+    // If there is no node at the given location then add a nullopt to the journal
+    auto cacheIter = nodes_by_index_[level].find(index);
+    if (cacheIter == nodes_by_index_[level].end()) {
+        journal.nodes_by_index_[level][index] = std::nullopt;
+    } else {
+        // There is a node. If the journal does not have a node at this index then add it to the journal
+        auto journalIter = journal.nodes_by_index_[level].find(index);
+        if (journalIter == journal.nodes_by_index_[level].end()) {
             journal.nodes_by_index_[level][index] = cacheIter->second;
         }
     }

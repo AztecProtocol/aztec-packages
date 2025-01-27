@@ -1836,6 +1836,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
     TreeType tree(std::move(store), pool);
 
+    // We apply a number of updates and checkpoint the tree each time
+
     uint32_t stackDepth = 20;
 
     std::vector<fr_sibling_path> paths(stackDepth);
@@ -1846,7 +1848,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
 
         paths[index] = get_sibling_path(tree, 3);
 
-        std::cout << "Checkpointing " << index << std::endl;
         try {
             checkpoint_tree(tree);
         } catch (std::exception& e) {
@@ -1866,14 +1867,52 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     // The tree is currently at the state of index 19
     EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
 
-    for (; index > 1; index--) {
+    // We now alternate committing and reverting the checkpoints half way up the stack
+
+    for (; index > 10; index--) {
         if (index % 2 == 0) {
-            std::cout << "Reverting checkpoint " << index << std::endl;
             revert_checkpoint_tree(tree, true);
-        } else {
-            std::cout << "Committing checkpoint " << index << std::endl;
-            commit_checkpoint_tree(tree, true);
             checkpointIndex = index - 1;
+        } else {
+            commit_checkpoint_tree(tree, true);
+        }
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+    }
+
+    // Now apply another set of updates and checkpoints back to the original stack depth
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now add one more depth, this will be un-checkpointed
+    {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+        paths[index] = get_sibling_path(tree, 3);
+    }
+
+    // We now alternatively commit and revert all the way back to the start
+    checkpointIndex = index;
+
+    // The tree is currently at the state of index 19
+    EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+
+    for (; index > 0; index--) {
+        if (index % 2 == 0) {
+            revert_checkpoint_tree(tree, true);
+            checkpointIndex = index - 1;
+        } else {
+            commit_checkpoint_tree(tree, true);
         }
 
         EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
