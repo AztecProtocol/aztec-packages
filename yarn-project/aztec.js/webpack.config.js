@@ -1,4 +1,3 @@
-// import CopyWebpackPlugin from 'copy-webpack-plugin';
 import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
