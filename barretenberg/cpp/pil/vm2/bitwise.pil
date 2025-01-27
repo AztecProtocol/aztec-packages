@@ -1,5 +1,18 @@
 namespace bitwise;
 
+// Trace example for a AND b == c of type u32
+// a = 0x52488425
+// b = 0xC684486C (We omit acc_ib and ic_byte as it follows the very same behavior as for a and c)
+// c = 0x42000024
+//
+//   ctr   sel_bitwise   start     acc_ia     acc_ic     ia_byte     ic_byte
+//    4         1          1     0x52488425  0x42000024    0x25        0x24
+//    3         1          0     0x524884    0x420000      0x84        0x00
+//    2         1          0     0x5248      0x4200        0x48        0x00
+//    1         1          0     0x52        0x42          0x52        0x42
+//    0         0          0     0x00        0x00          0x00        0x00
+
+
 // Selector for Bitwise Operation
 pol commit sel_bitwise;
 sel_bitwise * (1 - sel_bitwise) = 0;
@@ -65,10 +78,10 @@ ctr * ((1 - sel_bitwise) * (1 - ctr_inv) + ctr_inv) - sel_bitwise = 0;
 //
 //#[LOOKUP_BITW_BYTE_LENGTHS]
 //start {tag, ctr}
-//in 
+//in
 //byte_lookup.sel_bitwise {byte_lookup.table_in_tags, byte_lookup.table_byte_lengths};
 //
 //#[LOOKUP_BITW_BYTE_OPERATIONS]
 //sel_bitwise {op_id, ia_byte, ib_byte, ic_byte}
-//in 
+//in
 //byte_lookup.sel_bitwise {byte_lookup.table_op_id, byte_lookup.table_input_a, byte_lookup.table_input_b, byte_lookup.table_output};

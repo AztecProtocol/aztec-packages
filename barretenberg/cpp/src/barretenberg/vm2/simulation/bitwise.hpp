@@ -13,9 +13,9 @@ namespace bb::avm2::simulation {
 class BitwiseInterface {
   public:
     virtual ~BitwiseInterface() = default;
-    virtual void op_and(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
-    virtual void op_or(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
-    virtual void op_xor(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
+    virtual void and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
+    virtual void or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
+    virtual void xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
 };
 
 class Bitwise : public BitwiseInterface {
@@ -25,11 +25,12 @@ class Bitwise : public BitwiseInterface {
     {}
 
     // Operands are expected to be direct.
-    void op_and(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
-    void op_or(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
-    void op_xor(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
+    void and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
+    void or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
+    void xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
 
   private:
+    // TODO: Use deduplicating events
     EventEmitterInterface<BitwiseEvent>& events;
 };
 

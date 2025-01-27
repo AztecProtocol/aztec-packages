@@ -1,11 +1,11 @@
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 

@@ -1,11 +1,11 @@
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 namespace bb::avm2::tracegen {
 
 void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)

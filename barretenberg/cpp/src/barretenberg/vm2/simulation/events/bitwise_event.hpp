@@ -9,9 +9,9 @@ namespace bb::avm2::simulation {
 
 struct BitwiseEvent {
     BitwiseOperation operation;
+    MemoryTag tag;
     MemoryValue a;
     MemoryValue b;
-    MemoryTag tag;
     MemoryValue res;
 };
 

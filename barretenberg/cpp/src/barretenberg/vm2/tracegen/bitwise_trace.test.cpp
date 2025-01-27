@@ -27,9 +27,9 @@ TEST(AvmTraceGenBitwiseTest, U1And)
         {
             {
                 .operation = BitwiseOperation::AND,
+                .tag = MemoryTag::U1,
                 .a = 0,
                 .b = 1,
-                .tag = MemoryTag::U1,
                 .res = 0,
             },
         },
@@ -50,7 +50,6 @@ TEST(AvmTraceGenBitwiseTest, U1And)
                                   ROW_FIELD_EQ(R, bitwise_ctr_inv, 1),
                                   ROW_FIELD_EQ(R, bitwise_sel_bitwise, 1),
                                   ROW_FIELD_EQ(R, bitwise_start, 1)),
-
                             AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0),
@@ -74,9 +73,9 @@ TEST(AvmTraceGenBitwiseTest, U32And)
         {
             {
                 .operation = BitwiseOperation::AND,
+                .tag = MemoryTag::U32,
                 .a = 0x52488425,
                 .b = 0xC684486C,
-                .tag = MemoryTag::U32,
                 .res = 0x42000024,
             },
         },
@@ -97,7 +96,6 @@ TEST(AvmTraceGenBitwiseTest, U32And)
                                   ROW_FIELD_EQ(R, bitwise_ctr_inv, FF(4).invert()),
                                   ROW_FIELD_EQ(R, bitwise_sel_bitwise, 1),
                                   ROW_FIELD_EQ(R, bitwise_start, 1)),
-
                             AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0x524884),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0xC68448),
@@ -110,7 +108,6 @@ TEST(AvmTraceGenBitwiseTest, U32And)
                                   ROW_FIELD_EQ(R, bitwise_ctr_inv, FF(3).invert()),
                                   ROW_FIELD_EQ(R, bitwise_sel_bitwise, 1),
                                   ROW_FIELD_EQ(R, bitwise_start, 0)),
-
                             AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0x5248),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0xC684),
@@ -123,7 +120,6 @@ TEST(AvmTraceGenBitwiseTest, U32And)
                                   ROW_FIELD_EQ(R, bitwise_ctr_inv, FF(2).invert()),
                                   ROW_FIELD_EQ(R, bitwise_sel_bitwise, 1),
                                   ROW_FIELD_EQ(R, bitwise_start, 0)),
-
                             AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0x52),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0xC6),
@@ -136,7 +132,6 @@ TEST(AvmTraceGenBitwiseTest, U32And)
                                   ROW_FIELD_EQ(R, bitwise_ctr_inv, 1),
                                   ROW_FIELD_EQ(R, bitwise_sel_bitwise, 1),
                                   ROW_FIELD_EQ(R, bitwise_start, 0)),
-
                             AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0),
