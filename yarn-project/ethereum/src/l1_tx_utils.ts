@@ -554,14 +554,23 @@ export class L1TxUtils {
     // See: https://github.com/wevm/viem/issues/2075
     if (_blobInputs) {
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
-      initialEstimate = (
-        await this.walletClient.prepareTransactionRequest({
-          account,
-          ...request,
-          ..._blobInputs,
-          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-        })
-      )?.gas;
+      // initialEstimate = (
+      //   await this.walletClient.prepareTransactionRequest({
+      //     account,
+      //     ...request,
+      //     ..._blobInputs,
+      //     maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+      //   })
+      // )?.gas;
+
+      initialEstimate = await this.publicClient.estimateGas({
+        account,
+        ...request,
+        ..._blobInputs,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+      });
+
+      this.logger?.debug(`estimate WITH ESTIMATEGAS: ${initialEstimate}`);
       this.logger?.debug('L1 gas used in estimateGas by blob tx', { gas: initialEstimate });
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
