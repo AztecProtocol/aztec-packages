@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -58,7 +59,7 @@ class perm_rng_alu_permutation_settings {
 template <typename FF_>
 class perm_rng_alu_relation : public GenericPermutationRelation<perm_rng_alu_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_RNG_ALU";
+    static constexpr std::string_view NAME = "PERM_RNG_ALU";
 };
 template <typename FF_> using perm_rng_alu = GenericPermutation<perm_rng_alu_permutation_settings, FF_>;
 
@@ -127,7 +128,7 @@ class perm_cmp_alu_permutation_settings {
 template <typename FF_>
 class perm_cmp_alu_relation : public GenericPermutationRelation<perm_cmp_alu_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_CMP_ALU";
+    static constexpr std::string_view NAME = "PERM_CMP_ALU";
 };
 template <typename FF_> using perm_cmp_alu = GenericPermutation<perm_cmp_alu_permutation_settings, FF_>;
 
