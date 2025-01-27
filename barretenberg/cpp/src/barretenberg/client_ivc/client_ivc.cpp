@@ -290,9 +290,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     MergeProof merge_proof = goblin.prove_merge(builder);
     merge_verification_queue.emplace_back(merge_proof);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
-    MegaProver prover(decider_pk);
+    auto decider_pk =
+        std::make_shared<DeciderProvingKey_<MegaZKFlavor>>(builder, TraceSettings(), bn254_commitment_key);
+    honk_vk = std::make_shared<MegaZKFlavor::VerificationKey>(decider_pk->proving_key);
+    UltraProver_<MegaZKFlavor> prover(decider_pk);
 
     HonkProof proof = prover.construct_proof();
 

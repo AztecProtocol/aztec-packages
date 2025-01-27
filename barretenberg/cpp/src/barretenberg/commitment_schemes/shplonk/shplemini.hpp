@@ -220,7 +220,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
     {
         // isolate UltraZK this way
-        bool use_short_scalars = has_zk && (unshifted_commitments.size() == 35);
+        bool use_short_scalars =
+            has_zk && ((unshifted_commitments.size() == 35) || (unshifted_commitments.size() == 54));
 
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
@@ -602,7 +603,26 @@ template <typename Curve> class ShpleminiVerifier_ {
                 commitments.push_back(batched_shifted);
                 scalars.push_back(-shifted_scalar);
             };
+            if constexpr ((std::is_same_v<typename Curve::Builder, MegaCircuitBuilder>)&&!(
+                              std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
+                Commitment batched_unshifted =
+                    Commitment::batch_mul(unshifted_comms, unshifted_batching_challenges, 128);
+                Commitment batched_shifted = Commitment::batch_mul(shifted_comms, shifted_batching_challenges, 128);
+
+                commitments[1] += batched_unshifted;
+                scalars[1] = -unshifted_scalar;
+                commitments.push_back(batched_shifted);
+                scalars.push_back(-shifted_scalar);
+            }
+
         } else {
+            for (auto comm : unshifted_commitments) {
+                info(comm);
+            }
+            info("====");
+            for (auto comm : shifted_commitments) {
+                info(comm);
+            }
             Commitment batched_unshifted = batch_mul_native(unshifted_comms, unshifted_batching_challenges);
             Commitment batched_shifted = batch_mul_native(shifted_comms, shifted_batching_challenges);
 
