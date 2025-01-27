@@ -119,19 +119,6 @@ template <typename Curve> class GeminiProver_ {
         Polynomial batched_unshifted;       // linear combination of unshifted polynomials
         Polynomial batched_to_be_1_shifted; // linear combination of to-be-shifted polynomials
 
-        // Batch a set of specified polynomials into a specified batch polynomial; update the running scalar in place
-        Polynomial batch_into(Polynomial& batched,
-                              RefSpan<Polynomial> polynomials,
-                              const Fr& challenge,
-                              Fr& running_scalar)
-        {
-            for (auto poly : polynomials) {
-                batched.add_scaled(poly, running_scalar);
-                running_scalar *= challenge;
-            }
-            return batched;
-        }
-
       public:
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
@@ -152,21 +139,26 @@ template <typename Curve> class GeminiProver_ {
         // Compute the full batched polynomial as the linear combination of all polynomials to be opened
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
-            Polynomial full_batched(full_batched_size);
-
+            // initialize the batched polynomial if it hasn't already been initialized with randomness for ZK
             if (!batched_unshifted_initialized) {
                 batched_unshifted = Polynomial(full_batched_size);
             }
-            if (has_unshifted()) {
-                batch_into(batched_unshifted, unshifted, challenge, running_scalar);
-                full_batched += batched_unshifted;
+            // batch the unshifted polynomials
+            for (auto poly : unshifted) {
+                batched_unshifted.add_scaled(poly, running_scalar);
+                running_scalar *= challenge;
             }
 
-            if (has_to_be_1_shifted()) {
-                batched_to_be_1_shifted = Polynomial::shiftable(full_batched_size);
-                batch_into(batched_to_be_1_shifted, to_be_1_shifted, challenge, running_scalar);
-                full_batched += batched_to_be_1_shifted.shifted();
+            // initialize and compute the batched-to-be-shifted polynomials
+            batched_to_be_1_shifted = Polynomial::shiftable(full_batched_size);
+            for (auto poly : to_be_1_shifted) {
+                batched_to_be_1_shifted.add_scaled(poly, running_scalar);
+                running_scalar *= challenge;
             }
+
+            // compute the full batched polynomial A₀ = F + G/X
+            Polynomial full_batched = batched_unshifted;
+            full_batched += batched_to_be_1_shifted.shifted();
 
             return full_batched;
         }
