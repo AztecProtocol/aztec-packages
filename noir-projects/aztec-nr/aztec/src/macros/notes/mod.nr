@@ -92,7 +92,7 @@ comptime fn generate_note_interface(
     let (unpacked_content, _) = generate_deserialize_from_fields(
         quote {},
         typ,
-        quote { packed_content }, // "packed_content" is argument of NoteInterface::deserialize_content
+        quote { packed_content }, // "packed_content" is argument of NoteInterface::unpack_content
         0,
         quote {header},
         quote { aztec::note::note_header::NoteHeader::empty() },
