@@ -433,7 +433,7 @@ jobs:
           run: |
             until docker info &>/dev/null; do sleep 1; done
             export CI=1 USE_CACHE=1
-            artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)-$(./spartan/bootstrap.sh hash)"
+            artifact="kind-network-${{matrix.config.test}}-$(./spartan/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
