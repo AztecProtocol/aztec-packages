@@ -1309,6 +1309,7 @@ int main(int argc, char* argv[])
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
                 api.prove(flags, bytecode_path, witness_path, output_dir);
+                return 0;
             }
 
             if (command == "verify") {
@@ -1339,7 +1340,7 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
-            throw_or_abort("Invalid command passed to execute_command in bb; command is " + command);
+            throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
             return 1;
         };
 

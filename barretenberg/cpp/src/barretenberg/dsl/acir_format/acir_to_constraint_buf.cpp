@@ -934,6 +934,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                                     // Remove honk recursion flag
     const WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
+            info("producing a stack of empties");
             WitnessVectorStack stack_of_empties{ constraint_systems.size(),
                                                  std::make_pair(uint32_t(), WitnessVector()) };
             return stack_of_empties;

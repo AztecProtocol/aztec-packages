@@ -175,7 +175,7 @@ class ClientIVCAPI : public API {
 
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
         // this directory is passed by bb.js)
-        vinfo("writing ClientIVC proof and vk...");
+        vinfo("writing ClientIVC proof and vk in directory ", output_dir);
         write_file(output_dir / "proof", to_buffer(proof));
 
         auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
@@ -204,7 +204,9 @@ class ClientIVCAPI : public API {
         init_bn254_crs(1);
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
+        info("reading proof from ", proof_path);
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+        info("reading vk from ", vk_path);
         const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
         vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();

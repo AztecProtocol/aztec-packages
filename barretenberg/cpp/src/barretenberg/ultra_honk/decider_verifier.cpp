@@ -84,7 +84,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     info("derived pairing points");
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     info("did pairing check; result: ", verified);
-    info("did pairing check; result: ", verified);
     bool result{ sumcheck_output.verified && verified && consistency_checked };
     info("full result: ", result);
     return result;
