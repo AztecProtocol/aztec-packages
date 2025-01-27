@@ -86,15 +86,12 @@ last * (acc_ic - ic_byte) = 0;
 #[BITW_ACC_REL_C]
 (acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
 
-//   LOOKUPs commented out for the moment.
-//
-//#[LOOKUP_BITW_BYTE_LENGTHS]
-//start {tag, ctr}
-//in
-//byte_lookup.sel_bitwise {byte_lookup.table_in_tags, byte_lookup.table_byte_lengths};
-//
+#[LOOKUP_BITW_BYTE_LENGTHS]
+start {tag, ctr}
+in
+precomputed.sel_integral_tag {precomputed.clk, precomputed.integral_tag_length};
 
-//#[LOOKUP_BITW_BYTE_OPERATIONS]
-//sel {op_id, ia_byte, ib_byte, ic_byte}
-//in
-//byte_lookup.sel_bitwise {byte_lookup.table_op_id, byte_lookup.table_input_a, byte_lookup.table_input_b, byte_lookup.table_output};
+#[LOOKUP_BITW_BYTE_OPERATIONS]
+sel {op_id, ia_byte, ib_byte, ic_byte}
+in
+precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};

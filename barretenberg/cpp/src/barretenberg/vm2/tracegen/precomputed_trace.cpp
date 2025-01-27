@@ -6,6 +6,7 @@
 
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+
 namespace bb::avm2::tracegen {
 
 void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
