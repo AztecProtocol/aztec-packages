@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js/lazy';
+import { BarretenbergLazy } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 

@@ -1,4 +1,4 @@
-import { Barretenberg } from './async.js';
+import { Barretenberg } from './index.js';
 
 describe('env', () => {
   let api: Barretenberg;

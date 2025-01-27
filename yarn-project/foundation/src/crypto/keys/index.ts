@@ -1,4 +1,4 @@
-import { BarretenbergLazy, RawBuffer } from '@aztec/bb.js/lazy';
+import { BarretenbergLazy, RawBuffer } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 

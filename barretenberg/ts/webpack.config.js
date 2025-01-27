@@ -12,10 +12,7 @@ export default {
   // Useful for debugging.
   // mode: 'development',
   // devtool: 'source-map',
-  entry: {
-    bundle: "./src/index.ts",
-    lazy: "./src/lazy.ts",
-  },
+  entry: './src/index.ts',
   module: {
     rules: [
       {
@@ -40,7 +37,7 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
-    filename: '[name].js',
+    filename: 'index.js',
     module: true,
     globalObject: 'globalThis',
     library: {

@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js/lazy';
+import { BarretenbergLazy } from '@aztec/bb.js';
 
 /**
  * Secp256k1 elliptic curve operations.
