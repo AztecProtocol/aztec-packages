@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -110,7 +111,7 @@ class perm_main_alu_permutation_settings {
 template <typename FF_>
 class perm_main_alu_relation : public GenericPermutationRelation<perm_main_alu_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_ALU";
+    static constexpr std::string_view NAME = "PERM_MAIN_ALU";
 };
 template <typename FF_> using perm_main_alu = GenericPermutation<perm_main_alu_permutation_settings, FF_>;
 
@@ -175,7 +176,7 @@ class perm_main_bin_permutation_settings {
 template <typename FF_>
 class perm_main_bin_relation : public GenericPermutationRelation<perm_main_bin_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_BIN";
+    static constexpr std::string_view NAME = "PERM_MAIN_BIN";
 };
 template <typename FF_> using perm_main_bin = GenericPermutation<perm_main_bin_permutation_settings, FF_>;
 
@@ -236,7 +237,7 @@ class perm_main_conv_permutation_settings {
 template <typename FF_>
 class perm_main_conv_relation : public GenericPermutationRelation<perm_main_conv_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_CONV";
+    static constexpr std::string_view NAME = "PERM_MAIN_CONV";
 };
 template <typename FF_> using perm_main_conv = GenericPermutation<perm_main_conv_permutation_settings, FF_>;
 
@@ -293,7 +294,7 @@ class perm_main_sha256_permutation_settings {
 template <typename FF_>
 class perm_main_sha256_relation : public GenericPermutationRelation<perm_main_sha256_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_SHA256";
+    static constexpr std::string_view NAME = "PERM_MAIN_SHA256";
 };
 template <typename FF_> using perm_main_sha256 = GenericPermutation<perm_main_sha256_permutation_settings, FF_>;
 
@@ -350,7 +351,7 @@ class perm_main_pos2_perm_permutation_settings {
 template <typename FF_>
 class perm_main_pos2_perm_relation : public GenericPermutationRelation<perm_main_pos2_perm_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_POS2_PERM";
+    static constexpr std::string_view NAME = "PERM_MAIN_POS2_PERM";
 };
 template <typename FF_> using perm_main_pos2_perm = GenericPermutation<perm_main_pos2_perm_permutation_settings, FF_>;
 
@@ -423,7 +424,7 @@ class perm_main_mem_a_permutation_settings {
 template <typename FF_>
 class perm_main_mem_a_relation : public GenericPermutationRelation<perm_main_mem_a_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_A";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_A";
 };
 template <typename FF_> using perm_main_mem_a = GenericPermutation<perm_main_mem_a_permutation_settings, FF_>;
 
@@ -496,7 +497,7 @@ class perm_main_mem_b_permutation_settings {
 template <typename FF_>
 class perm_main_mem_b_relation : public GenericPermutationRelation<perm_main_mem_b_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_B";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_B";
 };
 template <typename FF_> using perm_main_mem_b = GenericPermutation<perm_main_mem_b_permutation_settings, FF_>;
 
@@ -565,7 +566,7 @@ class perm_main_mem_c_permutation_settings {
 template <typename FF_>
 class perm_main_mem_c_relation : public GenericPermutationRelation<perm_main_mem_c_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_C";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_C";
 };
 template <typename FF_> using perm_main_mem_c = GenericPermutation<perm_main_mem_c_permutation_settings, FF_>;
 
@@ -634,7 +635,7 @@ class perm_main_mem_d_permutation_settings {
 template <typename FF_>
 class perm_main_mem_d_relation : public GenericPermutationRelation<perm_main_mem_d_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_D";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_D";
 };
 template <typename FF_> using perm_main_mem_d = GenericPermutation<perm_main_mem_d_permutation_settings, FF_>;
 
@@ -692,7 +693,7 @@ template <typename FF_>
 class perm_main_mem_ind_addr_a_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_a_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_IND_ADDR_A";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_IND_ADDR_A";
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_a = GenericPermutation<perm_main_mem_ind_addr_a_permutation_settings, FF_>;
@@ -751,7 +752,7 @@ template <typename FF_>
 class perm_main_mem_ind_addr_b_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_b_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_IND_ADDR_B";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_IND_ADDR_B";
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_b = GenericPermutation<perm_main_mem_ind_addr_b_permutation_settings, FF_>;
@@ -810,7 +811,7 @@ template <typename FF_>
 class perm_main_mem_ind_addr_c_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_c_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_IND_ADDR_C";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_IND_ADDR_C";
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_c = GenericPermutation<perm_main_mem_ind_addr_c_permutation_settings, FF_>;
@@ -869,7 +870,7 @@ template <typename FF_>
 class perm_main_mem_ind_addr_d_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_d_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MAIN_MEM_IND_ADDR_D";
+    static constexpr std::string_view NAME = "PERM_MAIN_MEM_IND_ADDR_D";
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_d = GenericPermutation<perm_main_mem_ind_addr_d_permutation_settings, FF_>;
