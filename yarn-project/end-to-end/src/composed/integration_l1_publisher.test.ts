@@ -528,17 +528,19 @@ describe('L1Publisher integration', () => {
       await expect(publisher.proposeL2Block(block)).resolves.toEqual(false);
 
       // Test for both calls
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
+      // NOTE: First error is from the simulate fn, which isn't supported by anvil
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
 
       // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        1,
+        2,
         expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
+        expect.anything(),
       );
 
       // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        2,
+        3,
         expect.stringMatching(
           /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
         ),

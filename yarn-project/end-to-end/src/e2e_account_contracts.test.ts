@@ -66,7 +66,7 @@ function itShouldBehaveLikeAnAccountContract(
 
 describe('e2e_account_contracts', () => {
   const walletSetup = async (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => {
-    const account = new AccountManager(pxe, secretKey, accountContract);
+    const account = await AccountManager.create(pxe, secretKey, accountContract);
     return await account.waitSetup();
   };
 

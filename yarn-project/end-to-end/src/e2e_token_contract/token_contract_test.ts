@@ -46,9 +46,13 @@ export class TokenContractTest {
     jest.setTimeout(120_000);
 
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = accountManagers.map(a => a.getCompleteAddress());
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

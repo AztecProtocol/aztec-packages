@@ -22,8 +22,8 @@
 {{/each}}
 
 // Lookup and permutation relations
-{{#each lookups as |r|}}
-#include "relations/{{r}}.hpp"
+{{#each lookup_and_perm_file_names as |file_name|}}
+#include "relations/{{file_name}}"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.
@@ -272,8 +272,6 @@ class AvmFlavor {
         the classes that AllEntities inherits from, in cascade.
         --}}
         DEFINE_FLAVOR_MEMBERS(DataType, {{shoutySnakeCase name}}_ALL_ENTITIES)
-
-        AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
     };
 
     /**
@@ -291,12 +289,10 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        [[nodiscard]] size_t get_polynomial_size() const { return {{witness.0}}.size(); }
-        /**
-        * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
-        * represents one row in the execution trace.
-        */
-        [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const;
+        size_t get_polynomial_size() const { return {{witness.0}}.size(); }
+        AllConstRefValues get_row(size_t row_idx) const {
+          return [row_idx](auto&... entities) -> AllConstRefValues { return { entities[row_idx]... }; }({{shoutySnakeCase name}}_ALL_ENTITIES);
+        }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

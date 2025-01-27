@@ -47,7 +47,7 @@ describe('e2e_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const nonDeployed = CompleteAddress.random();
+    const nonDeployed = await CompleteAddress.random();
 
     await asset.methods.transfer(nonDeployed.address, amount).send().wait();
 
