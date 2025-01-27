@@ -300,6 +300,9 @@ export class Sequencer {
       await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader);
     } catch (err) {
       this.log.error(`Error assembling block`, err, { blockNumber: newBlockNumber, slot });
+
+      // If the block failed to build, we might still want to claim the proving rights
+      await this.claimEpochProofRightIfAvailable(slot);
     }
     this.setState(SequencerState.IDLE, 0n);
   }
@@ -627,8 +630,8 @@ export class Sequencer {
     this.log.debug('Creating block proposal for validators');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
     if (!proposal) {
-      this.log.warn(`Failed to create block proposal, skipping collecting attestations`);
-      return undefined;
+      const msg = `Failed to create block proposal`;
+      throw new Error(msg);
     }
 
     this.log.debug('Broadcasting block proposal to validators');

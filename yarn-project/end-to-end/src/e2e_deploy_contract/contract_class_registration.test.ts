@@ -145,7 +145,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         const initArgs = [wallet.getAddress(), wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
         const publicKeys = await PublicKeys.random();
-        const instance = getContractInstanceFromDeployParams(artifact, {
+        const instance = await getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
           publicKeys,
@@ -296,7 +296,8 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   testDeployingAnInstance('from a wallet', async instance => {
     // Calls the deployer contract directly from a wallet
-    await deployInstance(wallet, instance).send().wait();
+    const deployMethod = await deployInstance(wallet, instance);
+    await deployMethod.send().wait();
   });
 
   testDeployingAnInstance('from a contract', async instance => {
@@ -326,11 +327,11 @@ describe('e2e_deploy_contract contract class registration', () => {
     });
 
     it('refuses to deploy an instance from a different deployer', async () => {
-      const instance = getContractInstanceFromDeployParams(artifact, {
+      const instance = await getContractInstanceFromDeployParams(artifact, {
         constructorArgs: [await AztecAddress.random(), await AztecAddress.random(), 42],
         deployer: await AztecAddress.random(),
       });
-      expect(() => deployInstance(wallet, instance)).toThrow(/does not match/i);
+      await expect(deployInstance(wallet, instance)).rejects.toThrow(/does not match/i);
     });
   });
 });

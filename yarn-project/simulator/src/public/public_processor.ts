@@ -280,7 +280,7 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} succesful txs and ${failed.length} txs in ${duration}ms`, {
+    this.log.info(`Processed ${result.length} successful txs and ${failed.length} txs in ${duration}s`, {
       duration,
       rate,
       totalPublicGas,

@@ -1,5 +1,7 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { BarretenbergLazy } from '@aztec/bb.js';
+import { numToInt32BE } from '@aztec/foundation/serialize';
 
+import { concatenateUint8Arrays } from '../../serialize.js';
 import { EcdsaSignature } from './signature.js';
 
 export * from './signature.js';
@@ -9,17 +11,15 @@ export * from './signature.js';
  * TODO: Replace with codegen api on bb.js.
  */
 export class Ecdsa {
-  private wasm = BarretenbergSync.getSingleton().getWasm();
-
   /**
    * Computes a secp256k1 public key from a private key.
    * @param privateKey - Secp256k1 private key.
    * @returns A secp256k1 public key.
    */
-  public computePublicKey(privateKey: Buffer): Buffer {
-    this.wasm.writeMemory(0, privateKey);
-    this.wasm.call('ecdsa__compute_public_key', 0, 32);
-    return Buffer.from(this.wasm.getMemorySlice(32, 96));
+  public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
+    const api = await BarretenbergLazy.getSingleton();
+    const [result] = await api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
+    return Buffer.from(result);
   }
 
   /**
@@ -28,17 +28,13 @@ export class Ecdsa {
    * @param privateKey - The secp256k1 private key of the signer.
    * @returns An ECDSA signature of the form (r, s, v).
    */
-  public constructSignature(msg: Uint8Array, privateKey: Buffer) {
-    const mem = this.wasm.call('bbmalloc', msg.length);
-    this.wasm.writeMemory(0, privateKey);
-    this.wasm.writeMemory(mem, msg);
-    this.wasm.call('ecdsa__construct_signature', mem, msg.length, 0, 32, 64, 96);
-
-    return new EcdsaSignature(
-      Buffer.from(this.wasm.getMemorySlice(32, 64)),
-      Buffer.from(this.wasm.getMemorySlice(64, 96)),
-      Buffer.from(this.wasm.getMemorySlice(96, 97)),
-    );
+  public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
+    const api = await BarretenbergLazy.getSingleton();
+    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
+    const [r, s, v] = await api
+      .getWasm()
+      .callWasmExport('ecdsa__construct_signature_', [messageArray, privateKey], [32, 32, 1]);
+    return new EcdsaSignature(Buffer.from(r), Buffer.from(s), Buffer.from(v));
   }
 
   /**
@@ -47,15 +43,13 @@ export class Ecdsa {
    * @param sig - The ECDSA signature.
    * @returns The secp256k1 public key of the signer.
    */
-  public recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Buffer {
-    const mem = this.wasm.call('bbmalloc', msg.length);
-    this.wasm.writeMemory(0, sig.r);
-    this.wasm.writeMemory(32, sig.s);
-    this.wasm.writeMemory(64, sig.v);
-    this.wasm.writeMemory(mem, msg);
-    this.wasm.call('ecdsa__recover_public_key_from_signature', mem, msg.length, 0, 32, 64, 65);
-
-    return Buffer.from(this.wasm.getMemorySlice(65, 129));
+  public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
+    const api = await BarretenbergLazy.getSingleton();
+    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
+    const [result] = await api
+      .getWasm()
+      .callWasmExport('ecdsa__recover_public_key_from_signature_', [messageArray, sig.r, sig.s, sig.v], [64]);
+    return Buffer.from(result);
   }
 
   /**
@@ -65,13 +59,12 @@ export class Ecdsa {
    * @param sig - The ECDSA signature.
    * @returns True or false.
    */
-  public verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
-    const mem = this.wasm.call('bbmalloc', msg.length);
-    this.wasm.writeMemory(0, pubKey);
-    this.wasm.writeMemory(64, sig.r);
-    this.wasm.writeMemory(96, sig.s);
-    this.wasm.writeMemory(128, sig.v);
-    this.wasm.writeMemory(mem, msg);
-    return this.wasm.call('ecdsa__verify_signature', mem, msg.length, 0, 64, 96, 128) ? true : false;
+  public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
+    const api = await BarretenbergLazy.getSingleton();
+    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
+    const [result] = await api
+      .getWasm()
+      .callWasmExport('ecdsa__verify_signature_', [messageArray, pubKey, sig.r, sig.s, sig.v], [1]);
+    return result[0] === 1;
   }
 }

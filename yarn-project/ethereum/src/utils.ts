@@ -1,5 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
+import { ErrorsAbi } from '@aztec/l1-artifacts';
 
 import {
   type Abi,
@@ -9,6 +10,7 @@ import {
   type DecodeEventLogReturnType,
   type Hex,
   type Log,
+  decodeErrorResult,
   decodeEventLog,
 } from 'viem';
 
@@ -17,6 +19,16 @@ export interface L2Claim {
   claimAmount: Fr;
   messageHash: Hex;
   messageLeafIndex: bigint;
+}
+
+export class FormattedViemError extends Error {
+  metaMessages?: any[];
+
+  constructor(message: string, metaMessages?: any[]) {
+    super(message);
+    this.name = 'FormattedViemError';
+    this.metaMessages = metaMessages;
+  }
 }
 
 export function extractEvent<
@@ -80,7 +92,56 @@ export function prettyLogViemErrorMsg(err: any) {
   return err?.message ?? err;
 }
 
-export function formatViemError(error: any): string {
+/**
+ * Formats a Viem error into a FormattedViemError instance.
+ * @param error - The error to format.
+ * @param abi - The ABI to use for decoding.
+ * @returns A FormattedViemError instance.
+ */
+export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViemError {
+  // If error is already a FormattedViemError, return it as is
+  if (error instanceof FormattedViemError) {
+    return error;
+  }
+
+  // First try to decode as a custom error using the ABI
+  try {
+    if (error?.data) {
+      // Try to decode the error data using the ABI
+      const decoded = decodeErrorResult({
+        abi,
+        data: error.data as Hex,
+      });
+      if (decoded) {
+        return new FormattedViemError(`${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`, error?.metaMessages);
+      }
+    }
+
+    // If it's a BaseError, try to get the custom error through ContractFunctionRevertedError
+    if (error instanceof BaseError) {
+      const revertError = error.walk(err => err instanceof ContractFunctionRevertedError);
+      if (revertError instanceof ContractFunctionRevertedError) {
+        let errorName = revertError.data?.errorName;
+        if (!errorName) {
+          errorName = revertError.signature ?? '';
+        }
+        const args =
+          revertError.metaMessages && revertError.metaMessages?.length > 1
+            ? revertError.metaMessages[1].trimStart()
+            : '';
+        return new FormattedViemError(`${errorName}${args}`, error?.metaMessages);
+      }
+    }
+  } catch (decodeErr) {
+    // If decoding fails, we fall back to the original formatting
+  }
+
+  // If it's a regular Error instance, return it with its message
+  if (error instanceof Error) {
+    return new FormattedViemError(error.message);
+  }
+
+  // Original formatting logic for non-custom errors
   const truncateHex = (hex: string, length = 100) => {
     if (!hex || typeof hex !== 'string') {
       return hex;
@@ -168,8 +229,7 @@ export function formatViemError(error: any): string {
     return result;
   };
 
-  return JSON.stringify({ error: extractAndFormatRequestBody(error?.message || String(error)) }, null, 2).replace(
-    /\\n/g,
-    '\n',
-  );
+  const formattedRes = extractAndFormatRequestBody(error?.message || String(error));
+
+  return new FormattedViemError(formattedRes.replace(/\\n/g, '\n'), error?.metaMessages);
 }

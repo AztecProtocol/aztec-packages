@@ -98,15 +98,6 @@ function check_toolchains {
     echo "Installation: corepack enable"
     exit 1
   fi
-  # Check for yarn version
-  local yarn_min_version="4.5.2"
-  local yarn_installed_version=$(yarn --version)
-  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
-    echo "Installation: yarn set version $yarn_min_version; yarn install"
-    exit 1
-  fi
 }
 
 function test_all {
@@ -312,6 +303,8 @@ esac
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
+echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"

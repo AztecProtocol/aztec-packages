@@ -214,7 +214,7 @@ export const randomContractInstanceWithAddress = async (
   address?: AztecAddress,
 ): Promise<ContractInstanceWithAddress> => {
   const instance = await SerializableContractInstance.random(opts);
-  return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
+  return instance.withAddress(address ?? (await computeContractAddressFromInstance(instance)));
 };
 
 export const randomDeployedContract = async () => {
