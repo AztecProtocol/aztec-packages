@@ -590,7 +590,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            if constexpr (std::is_same_v<typename Curve::Builder, UltraCircuitBuilder>) {
+            if constexpr ((std::is_same_v<typename Curve::Builder, UltraCircuitBuilder>)&&!(
+                              std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
                 Commitment batched_unshifted =
                     Commitment::bn254_endo_batch_mul({}, {}, unshifted_comms, unshifted_batching_challenges, 128);
                 Commitment batched_shifted =
