@@ -20,7 +20,15 @@ shift # remove the compile arg so we can inject --show-artifact-paths
 
 # Forward all arguments to nargo, tee output to console.
 # Nargo should be outputting errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
-artifacts_to_process=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
+compile_output=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ 2>&1)
+exit_code=$?
+
+if [[ $exit_code -ne 0 ]]; then
+  echo "$compile_output" >&2
+  exit $exit_code
+fi
+
+artifacts_to_process=$(echo $compile_output | grep -oP 'Saved contract artifact to: \K.*')
 
 # Postprocess each artifact
 # `$artifacts_to_process` needs to be unquoted here, otherwise it will break if there are multiple artifacts
