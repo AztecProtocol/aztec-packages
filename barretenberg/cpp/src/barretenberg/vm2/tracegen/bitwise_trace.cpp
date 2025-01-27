@@ -33,7 +33,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         // and the byte mask correctly extracts it.
         const uint128_t mask_low_byte = (1 << 8) - 1;
 
-        for (int ctr = start_ctr; ctr >= 0; ctr--) {
+        for (int ctr = start_ctr; ctr > 0; ctr--) {
             trace.set(row,
                       { { { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           { C::bitwise_acc_ia, uint256_t::from_uint128(input_a) },
@@ -45,7 +45,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_tag, static_cast<int>(event.tag) },
                           { C::bitwise_ctr, ctr },
                           { C::bitwise_ctr_inv, ctr != 0 ? MemoryValue(ctr).invert() : 1 },
-                          { C::bitwise_sel_bitwise, static_cast<uint8_t>(ctr != 0) },
+                          { C::bitwise_ctr_min_one_inv, ctr != 1 ? MemoryValue(ctr - 1).invert() : 1 },
+                          { C::bitwise_last, static_cast<uint8_t>(ctr == 1) },
+                          { C::bitwise_sel, static_cast<uint8_t>(ctr != 0) },
                           { C::bitwise_start, static_cast<uint8_t>(ctr == start_ctr) } } });
 
             input_a >>= 8;

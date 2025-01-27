@@ -6,6 +6,7 @@ namespace bb::avm2 {
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, [[maybe_unused]] AvmFullRow<FF> const& row)
 {
+    assert(false); // unsupported.
     return os;
 }
 

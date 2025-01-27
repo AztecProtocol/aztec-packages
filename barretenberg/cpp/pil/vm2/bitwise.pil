@@ -5,17 +5,39 @@ namespace bitwise;
 // b = 0xC684486C (We omit acc_ib and ic_byte as it follows the very same behavior as for a and c)
 // c = 0x42000024
 //
-//   ctr   sel_bitwise   start     acc_ia     acc_ic     ia_byte     ic_byte
-//    4         1          1     0x52488425  0x42000024    0x25        0x24
-//    3         1          0     0x524884    0x420000      0x84        0x00
-//    2         1          0     0x5248      0x4200        0x48        0x00
-//    1         1          0     0x52        0x42          0x52        0x42
-//    0         0          0     0x00        0x00          0x00        0x00
-
+//   ctr   sel   start   last       acc_ia     acc_ic     ia_byte     ic_byte
+//    4     1      1      0       0x52488425  0x42000024    0x25        0x24
+//    3     1      0      0       0x524884    0x420000      0x84        0x00
+//    2     1      0      0       0x5248      0x4200        0x48        0x00
+//    1     1      0      1       0x52        0x42          0x52        0x42
 
 // Selector for Bitwise Operation
-pol commit sel_bitwise;
-sel_bitwise * (1 - sel_bitwise) = 0;
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+pol commit start; // Identifies when we want to capture the output to the main trace.
+                  // No need to constrain start to be a boolean, we only need it to select
+                  // the row to pass values with execution trace.
+
+// To support dynamically sized memory operands we use a counter against a lookup
+// This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
+// corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
+// Consistency can be achieved with a lookup table between the tag and precomputed.integral_tag_length
+pol commit ctr;
+
+// last is a boolean which serves to mark the end of the computation (end of latch)
+pol commit last;
+last * (1 - last) = 0;
+
+// This is the tag {1,2,3,4,5,6} (restricted to not be a field)
+// Operations over FF are not supported, it is assumed this exclusion is handled
+// outside of this subtrace.
+// Constraints come from equiv to main_trace
+pol commit tag;
 
 // Byte recomposition column, the value in these columns are part of the equivalence
 // check to main wherever Start is set to 1.
@@ -29,50 +51,40 @@ pol commit ia_byte;
 pol commit ib_byte;
 pol commit ic_byte;
 
-// This is the tag {1,2,3,4,5,6} (restricted to not be a field)
-// Operations over FF are not supported, it is assumed this exclusion is handled
-// outside of this subtrace.
-// Constraints come from equiv to main_trace
-pol commit tag;
-
-pol commit start; // Identifies when we want to capture the output to the main trace.
-
-// To support dynamically sized memory operands we use a counter against a lookup
-// This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
-// corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
-// Consistency can be achieved with a lookup table between the tag and precomputed.integral_tag_length
-pol commit ctr;
-
-// sel_bitwise is a boolean that is set to 1 if ctr != 0.
-// This is checked by two relation conditions and utilising ctr_inv
-pol commit ctr_inv;
-
 // Selectors for bitwise operations, correctness checked by permutation to the main trace.
 // Op Id is restricted to be the same during the same computation (i.e. between Starts)
 pol commit op_id;
 
 #[BITW_OP_ID_REL]
-(op_id' - op_id) * ctr = 0;
+(op_id' - op_id) * (1 - last) = 0;
 
 #[BITW_CTR_DECREMENT]
-(ctr' - ctr + 1) * ctr = 0;
+(ctr' - ctr + 1) * (1 - last) = 0;
 
-// sel_bitwise is set to 1 if and only if ctr != 0. (and sel bitwise == 0 <==> ctr == 0)
-// we constrain it such that sel_bitwise = ctr * ctr_inv unless ctr = 0 the sel_bitwise = 0
-#[SEL_BITWISE_CTR_NON_ZERO]
-ctr * ((1 - sel_bitwise) * (1 - ctr_inv) + ctr_inv) - sel_bitwise = 0;
+// sel is set to 1 if and only if ctr != 0. (and sel == 0 <==> ctr == 0)
+// sel is a boolean that is set to 1 if ctr != 0.
+// This is checked by following relation and utilising inverse of ctr: ctr_inv
+pol commit ctr_inv;
 
-// Forces accumulator to start (bottom) at zero when ctr == 0
-(1 - sel_bitwise) * acc_ia = 0;
-(1 - sel_bitwise) * acc_ib = 0;
-(1 - sel_bitwise) * acc_ic = 0;
+#[BITW_SEL_CTR_NON_ZERO]
+ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
+
+// Similarly, we prove that last == 1 <==> ctr - 1 == 0 <==> ctr == 1
+pol commit ctr_min_one_inv;
+#[BITW_LAST_FOR_CTR_ONE]
+(ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1 = 0;
+
+// Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
+last * (acc_ia - ia_byte) = 0;
+last * (acc_ib - ib_byte) = 0;
+last * (acc_ic - ic_byte) = 0;
 
 #[BITW_ACC_REL_A]
-(acc_ia - ia_byte - 256 * acc_ia') * ctr = 0;
+(acc_ia - ia_byte - 256 * acc_ia') * (1 - last) = 0;
 #[BITW_ACC_REL_B]
-(acc_ib - ib_byte - 256 * acc_ib') * ctr = 0;
+(acc_ib - ib_byte - 256 * acc_ib') * (1 - last) = 0;
 #[BITW_ACC_REL_C]
-(acc_ic - ic_byte - 256 * acc_ic') * ctr = 0;
+(acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
 
 //   LOOKUPs commented out for the moment.
 //
@@ -81,7 +93,8 @@ ctr * ((1 - sel_bitwise) * (1 - ctr_inv) + ctr_inv) - sel_bitwise = 0;
 //in
 //byte_lookup.sel_bitwise {byte_lookup.table_in_tags, byte_lookup.table_byte_lengths};
 //
+
 //#[LOOKUP_BITW_BYTE_OPERATIONS]
-//sel_bitwise {op_id, ia_byte, ib_byte, ic_byte}
+//sel {op_id, ia_byte, ib_byte, ic_byte}
 //in
 //byte_lookup.sel_bitwise {byte_lookup.table_op_id, byte_lookup.table_input_a, byte_lookup.table_input_b, byte_lookup.table_output};
