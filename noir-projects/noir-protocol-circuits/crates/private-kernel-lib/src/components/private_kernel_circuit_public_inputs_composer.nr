@@ -7,12 +7,13 @@ use dep::types::{
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        side_effect::Ordered,
+        side_effect::{Ordered, OrderedValue},
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,
+    debug::no_op,
     shared_mutable::{
         compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
         scheduled_value_change::ScheduledValueChange,
@@ -254,13 +255,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_note_hashes(&mut self, private_call_public_inputs: PrivateCircuitPublicInputs) {
-        println("Prev note hashes");
         // BUG: If we delete this print, the resoluting note_hashes bounded vec is missing the original items.
-        println(self.public_inputs.end.note_hashes);
+        no_op(self.public_inputs.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;
-        println("App note hashes");
-        println(note_hashes);
-        println("");
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
             if note_hash.value != 0 {
