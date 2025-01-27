@@ -18,7 +18,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 # Main positional parameter
 test=$1
-values_file="${$2:-default.yaml}"
+values_file="${2:-default.yaml}"
 
 # Default values for environment variables
 namespace="${NAMESPACE:-test-kind}"
