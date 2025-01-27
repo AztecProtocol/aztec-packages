@@ -1,5 +1,6 @@
-import { Barretenberg, BarretenbergSync } from './index.js';
+import { Barretenberg } from './async.js';
 import { Buffer32, Fr } from '../types/index.js';
+import { BarretenbergSync } from './sync.js';
 
 describe('blake2s async', () => {
   let api: Barretenberg;

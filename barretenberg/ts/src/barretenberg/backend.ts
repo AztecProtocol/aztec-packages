@@ -1,4 +1,4 @@
-import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
+import { BackendOptions, Barretenberg, CircuitOptions } from './async.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { decompressSync as gunzip } from 'fflate';
 import {

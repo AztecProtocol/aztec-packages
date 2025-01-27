@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergLazy } from '@aztec/bb.js/lazy';
 
 import { inspect } from 'util';
 

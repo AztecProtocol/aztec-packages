@@ -12,12 +12,15 @@ export default {
   // Useful for debugging.
   // mode: 'development',
   // devtool: 'source-map',
-  entry: './src/index.ts',
+  entry: {
+    bundle: "./src/index.ts",
+    lazy: "./src/lazy.ts",
+  },
   module: {
     rules: [
       {
         test: /\.wasm\.gz$/,
-        type: 'asset/inline',
+        type: 'asset/resource',
       },
       {
         test: /\.worker\.ts$/,
@@ -37,7 +40,7 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
-    filename: 'index.js',
+    filename: '[name].js',
     module: true,
     globalObject: 'globalThis',
     library: {

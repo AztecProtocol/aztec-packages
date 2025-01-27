@@ -1,5 +1,5 @@
 import { Crs } from '../crs/index.js';
-import { Barretenberg } from '../barretenberg/index.js';
+import { Barretenberg } from '../barretenberg/async.js';
 import { RawBuffer } from '../types/index.js';
 
 describe('simple', () => {

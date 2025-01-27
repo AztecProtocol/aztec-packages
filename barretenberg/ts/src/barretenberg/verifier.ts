@@ -1,4 +1,4 @@
-import { BackendOptions, Barretenberg } from './index.js';
+import { BackendOptions, Barretenberg } from './async.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { flattenFieldsAsArray, ProofData, reconstructHonkProof, reconstructUltraPlonkProof } from '../proof/index.js';
 

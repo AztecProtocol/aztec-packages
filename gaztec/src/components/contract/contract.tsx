@@ -9,7 +9,7 @@ import {
   ContractInstanceWithAddress,
   loadContractArtifact,
 } from "@aztec/aztec.js";
-import { AztecContext } from "../home/home";
+import { AztecContext } from "../../aztecEnv";
 import {
   Button,
   Card,

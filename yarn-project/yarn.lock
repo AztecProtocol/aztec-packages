@@ -199,6 +199,7 @@ __metadata:
     "@types/node": "npm:^18.7.23"
     axios: "npm:^1.7.2"
     buffer: "npm:^6.0.3"
+    copy-webpack-plugin: "npm:^12.0.2"
     crypto-browserify: "npm:^3.12.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"

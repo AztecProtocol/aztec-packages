@@ -1,4 +1,4 @@
-import { BarretenbergSync } from './index.js';
+import { BarretenbergSync } from './sync.js';
 import { Timer } from '../benchmark/timer.js';
 import { Fr } from '../types/index.js';
 

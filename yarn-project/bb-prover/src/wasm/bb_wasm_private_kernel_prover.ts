@@ -1,4 +1,4 @@
-import { AztecClientBackend } from '@aztec/bb.js';
+import { AztecClientBackend } from '@aztec/bb.js/lazy';
 import { ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

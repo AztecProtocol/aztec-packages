@@ -9,8 +9,13 @@
   "exports": {
     ".": {
       "require": "./dest/node-cjs/index.js",
-      "browser": "./dest/browser/index.js",
+      "browser": "./dest/browser/bundle.js",
       "default": "./dest/node/index.js"
+    },
+    "./lazy": {
+      "require": "./dest/node-cjs/lazy.js",
+      "browser": "./dest/browser/lazy.js",
+      "default": "./dest/node/lazy.js"
     }
   },
   "bin": "./dest/node/main.js",

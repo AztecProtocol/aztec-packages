@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergLazy } from '@aztec/bb.js/lazy';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { concatenateUint8Arrays } from '../../serialize.js';
