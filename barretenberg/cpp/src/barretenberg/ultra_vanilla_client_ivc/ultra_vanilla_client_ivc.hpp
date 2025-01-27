@@ -63,6 +63,11 @@ class UltraVanillaClientIVC {
      */
     void accumulate(Circuit&, const Proof&, const std::shared_ptr<VK>&);
 
+    /**
+     * @brief Append a recursive verifier and update the accumulator.
+     */
+    void handle_accumulator(Circuit&, const size_t, const bool);
+
   public:
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
     Proof previous_proof;
@@ -72,7 +77,8 @@ class UltraVanillaClientIVC {
     PairingPointAccumulatorIndices accumulator_indices;
     std::vector<std::shared_ptr<VK>> vk_cache;
 
-    UltraVanillaClientIVC(const size_t dyadic_size = 1 << 20)
+    UltraVanillaClientIVC() = default;
+    UltraVanillaClientIVC(const size_t dyadic_size)
         : commitment_key(std::make_shared<CommitmentKey<curve::BN254>>(dyadic_size))
     {}
 

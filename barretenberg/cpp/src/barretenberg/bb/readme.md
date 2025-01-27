@@ -58,7 +58,7 @@ Documented with Noir v0.33.0 <> BB v0.47.1:
 3. Compute the verification key for your Noir program running:
 
    ```bash
-   bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+   bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
    ```
 
 4. Verify your proof running:
@@ -88,7 +88,7 @@ Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i
 3. Compute the verification key for your Noir program running:
 
    ```bash
-   bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+   bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
    ```
 
 4. Generate Solidity verifier

@@ -100,7 +100,7 @@ function compile {
     local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk_ultra_honk -h 1"
+    local write_vk_cmd="write_vk --scheme $proto -h 1"
     local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
   echo "$proto$"

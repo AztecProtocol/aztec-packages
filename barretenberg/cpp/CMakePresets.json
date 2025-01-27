@@ -78,6 +78,9 @@
       "displayName": "Build with Clang-16",
       "description": "Build with globally installed Clang-16",
       "inherits": "default",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      },
       "environment": {
         "CC": "clang-16",
         "CXX": "clang++-16"

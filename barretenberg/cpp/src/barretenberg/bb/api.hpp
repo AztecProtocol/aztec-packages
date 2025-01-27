@@ -6,7 +6,6 @@ namespace bb {
 class API {
   public:
     struct Flags {
-        std::optional<std::string> crs_path;    // WORKTODO: should go away
         std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
         std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
         std::optional<std::string> initialize_pairing_point_accumulator;
@@ -24,6 +23,10 @@ class API {
     virtual bool prove_and_verify(const Flags& flags,
                                   const std::filesystem::path& bytecode_path,
                                   const std::filesystem::path& witness_path) = 0;
+
+    virtual void write_vk(const Flags& flags,
+                          const std::filesystem::path& bytecode_path,
+                          const std::filesystem::path& output_path) = 0;
 
     virtual void gates(const Flags& flags,
                        const std::filesystem::path& bytecode_path,

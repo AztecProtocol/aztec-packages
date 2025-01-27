@@ -115,11 +115,19 @@ class UltraHonkAPI : public API {
         UltraVanillaClientIVC::Proof proof =
             ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
 
-        info("writing UltraVanillaClientIVC proof and vk...");
-        info("writing proof to ", output_dir / "proof");
-        write_file(output_dir / "proof", to_buffer</*include_size=*/true>(proof));
-        info("writing vk to ", output_dir / "vk");
-        write_file(output_dir / "vk", to_buffer(*ivc.previous_vk));
+        info("writing UltraVanillaClientIVC proof...");
+        if (output_dir == "-") {
+            vinfo("output dir is -");
+            writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
+            vinfo("proof written to stdout");
+        } else {
+            vinfo("output dir is ", output_dir);
+            info("writing proof to ", output_dir / "proof");
+            write_file(output_dir / "proof", to_buffer</*include_size=*/true>(proof));
+            // WORKTODO: remove
+            info("writing vk to ", output_dir / "vk");
+            write_file(output_dir / "vk", to_buffer(*ivc.previous_vk));
+        }
     };
 
     /**
@@ -176,6 +184,69 @@ class UltraHonkAPI : public API {
         const bool verified =
             ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
         return verified;
+    };
+
+    /**
+     * @brief Writes a Honk verification key for an ACIR circuit to a file
+     *
+     * Communication:
+     * - stdout: The verification key is written to stdout as a byte array
+     * - Filesystem: The verification key is written to the path specified by outputPath
+     *
+     * @param bytecodePath Path to the file containing the serialized circuit
+     * @param outputPath Path to write the verification key to
+     */
+    void write_vk(const API::Flags& flags,
+                  const std::filesystem::path& bytecode_path,
+                  const std::filesystem::path& output_path) override
+    {
+        if (!flags.output_type || *flags.output_type != "fields_msgpack") {
+            throw_or_abort("No output_type or output_type not supported");
+        }
+
+        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
+            throw_or_abort("No input_type or input_type not supported");
+        }
+
+        std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, "");
+        if (stack.size() > 1) {
+            throw_or_abort("write_vk not implemented for stacks of size > 1.");
+        }
+        vinfo("built stack");
+        VectorCircuitSource circuit_source{ stack };
+        vinfo("created circuit source");
+        auto [circuit, null_vk] = circuit_source.next();
+        vinfo("called next");
+
+        // WORKTODO: this should move in to source? repeated three times.
+        // ProgramMetadata should be a std::vector<ProgramMetadatum> + global size info?
+        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
+               (*flags.initialize_pairing_point_accumulator) == "false");
+        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+
+        // UltraVanillaClientIVC ivc;
+        // ivc.handle_accumulator(circuit, /*step=*/0, initialize_pairing_point_accumulator);
+
+        UltraProver prover{ circuit };
+        vinfo("created circuit source");
+        init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+        vinfo("initialized_crs");
+        UltraFlavor::VerificationKey vk(prover.proving_key->proving_key);
+        vinfo("computed vk");
+
+        auto serialized_vk = to_buffer(vk);
+        vinfo("serialized vk");
+
+        if (output_path == "-") {
+            vinfo("writing vk to stdout");
+            writeRawBytesToStdout(serialized_vk);
+            vinfo("vk written to stdout");
+        } else {
+            write_file(output_path, serialized_vk);
+            vinfo("vk written to: ", output_path);
+        }
     };
 
     /**

@@ -59,6 +59,6 @@ if [ $result -eq 0 ]; then
   echo -e "\033[32mPASSED\033[0m (${duration}s)"
 else
   echo -e "\033[31mFAILED\033[0m"
-  echo "$output"
+  # echo "$output"
   exit 1
 fi

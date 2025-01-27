@@ -301,5 +301,12 @@ class ClientIVCAPI : public API {
     {
         throw_or_abort("API function not implemented");
     };
+
+    void write_vk([[maybe_unused]] const API::Flags& flags,
+                  [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                  [[maybe_unused]] const std::filesystem::path& output_path) override
+    {
+        throw_or_abort("API function not implemented");
+    };
 };
 } // namespace bb

@@ -10,6 +10,25 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
     accumulator = verifier.verify_proof(proof, agg_obj).agg_obj;
 }
 
+void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit,
+                                               const size_t step,
+                                               const bool initialize_pairing_point_accumulator)
+{
+    if (step == 0) {
+        info("internal ivc step 0");
+        accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
+    } else {
+        info("internal ivc step ", step);
+        accumulate(circuit, previous_proof, previous_vk);
+        accumulator_indices = accumulator.get_witness_indices();
+    }
+    if (initialize_pairing_point_accumulator) {
+        info("calling add_pairing_point_accumulator");
+        circuit.add_pairing_point_accumulator(accumulator_indices);
+    }
+    vinfo("set accumulator indices");
+}
+
 HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
                                        const bool cache_vks,
                                        const bool initialize_pairing_point_accumulator)
@@ -18,19 +37,8 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
         vinfo("about to call next...");
         auto [circuit, vk] = source.next();
         vinfo("got next pair from source");
-        if (step == 0) {
-            info("internal ivc step 0");
-            accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
-        } else {
-            info("internal ivc step ", step);
-            accumulate(circuit, previous_proof, previous_vk);
-            accumulator_indices = accumulator.get_witness_indices();
-        }
-        if (initialize_pairing_point_accumulator) {
-            info("calling add_pairing_point_accumulator");
-            circuit.add_pairing_point_accumulator(accumulator_indices);
-        }
-        vinfo("set accumulator indices");
+        // WORKTODO: note that this should go away altogether
+        handle_accumulator(circuit, step, initialize_pairing_point_accumulator);
 
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
         vinfo("set accumulator data");
@@ -44,11 +52,12 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
             previous_proof = prover.construct_proof();
             vinfo("constructed proof");
         } else {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraZKProver when it exists
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraKeccakZKProver when it exists
             UltraProver prover{ proving_key, commitment_key };
             previous_proof = prover.construct_proof();
         }
 
+        // WORKTODO: somtimes don't need to compute the last one
         previous_vk = vk ? vk : std::make_shared<VK>(proving_key->proving_key);
         if (cache_vks) {
             vk_cache.push_back(previous_vk);

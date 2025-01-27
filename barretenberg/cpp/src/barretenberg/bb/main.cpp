@@ -853,8 +853,6 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
 
-    // output the vk
-    typename Flavor::VerificationKey vk(prover.proving_key->proving_key);
     return std::move(prover);
 }
 
@@ -1289,7 +1287,7 @@ int main(int argc, char* argv[])
         const std::string proof_system = get_option(args, "--scheme", "");
         const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-        const std::string proof_path = get_option(args, "-p", "./proofs/proof");
+        const std::string proof_path = get_option(args, "-p", "./target/proof");
         const std::string vk_path = get_option(args, "-k", "./target/vk");
         const std::string pk_path = get_option(args, "-r", "./target/pk");
 
@@ -1298,8 +1296,7 @@ int main(int argc, char* argv[])
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const API::Flags flags = [&args]() {
-            return API::Flags{ .crs_path = CRS_PATH,
-                               .output_type = get_option(args, "--output_type", "fields_msgpack"),
+            return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
                                .input_type = get_option(args, "--input_type", "compiletime_stack"),
                                .initialize_pairing_point_accumulator =
                                    get_option(args, "--initialize_accumulator", "false") };
@@ -1312,14 +1309,11 @@ int main(int argc, char* argv[])
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
                 api.prove(flags, bytecode_path, witness_path, output_dir);
-                return 0;
             }
 
             if (command == "verify") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                const std::filesystem::path proof_path = output_dir / "proof";
-                const std::filesystem::path vk_path = output_dir / "vk";
-
+                // const std::filesystem::path proof_path = output_dir / "proof";
+                // const std::filesystem::path vk_path = output_dir / "vk";
                 return api.verify(flags, proof_path, vk_path) ? 0 : 1;
             }
 
@@ -1327,18 +1321,25 @@ int main(int argc, char* argv[])
                 return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
             }
 
+            if (command == "write_vk") {
+                std::string output_path = get_option(args, "-o", "./target/vk");
+                info("writing vk to ", output_path);
+                api.write_vk(flags, bytecode_path, output_path);
+            }
+
             if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
+                return 0;
             }
 
             if (command == "contract") {
                 const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
                 api.contract(flags, output_path, vk_path);
-                return 1;
+                return 0;
             }
 
-            throw_or_abort("Invalid command passed to execute_command in bb");
+            throw_or_abort("Invalid command passed to execute_command in bb; command is " + command);
             return 1;
         };
 
@@ -1450,9 +1451,6 @@ int main(int argc, char* argv[])
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_rollup_honk") {
             return verify_honk<UltraRollupFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "write_vk_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraFlavor>(bytecode_path, output_path, recursive);
         } else if (command == "write_vk_ultra_keccak_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path, recursive);
