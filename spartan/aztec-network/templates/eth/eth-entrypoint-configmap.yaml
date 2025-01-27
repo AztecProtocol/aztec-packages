@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-entrypoint-scripts
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  eth-validator.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-validator.sh" | quote }}
+  eth-beacon.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-beacon.sh" | quote }}
+  eth-execution.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-execution.sh" | quote }}

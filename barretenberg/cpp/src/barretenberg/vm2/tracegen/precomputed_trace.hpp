@@ -10,6 +10,9 @@ class PrecomputedTraceBuilder final {
   public:
     void process_misc(TraceContainer& trace);
     void process_bitwise(TraceContainer& trace);
+    void process_sel_range_8(TraceContainer& trace);
+    void process_sel_range_16(TraceContainer& trace);
+    void process_power_of_2(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen
