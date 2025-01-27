@@ -27,8 +27,9 @@ FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
         return contract_bytecode_fields;
     };
 
+    FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(bytecode.size()));
     std::vector<FF> contract_bytecode_fields = encode_bytecode(bytecode);
-    FF running_hash = 0;
+    FF running_hash = bytecode_length_in_bytes;
     for (const auto& contract_bytecode_field : contract_bytecode_fields) {
         running_hash = poseidon2::hash({ contract_bytecode_field, running_hash });
     }

@@ -89,7 +89,6 @@ describe('HttpBlobSinkClient', () => {
           res.end(
             JSON.stringify({
               data: [
-                // WORKTODO(md): check if eth version hash in included in the response
                 {
                   index: 0,
                   blob: `0x${Buffer.from(testBlob.data).toString('hex')}`,
