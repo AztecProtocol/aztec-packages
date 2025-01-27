@@ -105,8 +105,8 @@ template <typename Curve> class GeminiProver_ {
         size_t full_batched_size = 0;
         bool batched_unshifted_initialized = false;
 
-        RefSpan<Polynomial> unshifted;
-        RefSpan<Polynomial> to_be_1_shifted;
+        RefVector<Polynomial> unshifted;
+        RefVector<Polynomial> to_be_1_shifted;
 
         Polynomial batched_unshifted;
         Polynomial batched_to_be_1_shifted;
@@ -132,8 +132,8 @@ template <typename Curve> class GeminiProver_ {
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_1_shifted() const { return to_be_1_shifted.size() > 0; }
 
-        void set_unshifted(RefSpan<Polynomial> polynomials) { unshifted = polynomials; }
-        void set_to_be_1_shifted(RefSpan<Polynomial> polynomials) { to_be_1_shifted = polynomials; }
+        void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
+        void set_to_be_1_shifted(RefVector<Polynomial> polynomials) { to_be_1_shifted = polynomials; }
 
         void initialize_batched_unshifted(Polynomial&& random)
         {

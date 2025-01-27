@@ -16,8 +16,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           RefVector<Fr> multilinear_evaluations_unshifted,
                                           RefVector<Fr> multilinear_evaluations_shifted,
-                                          RefSpan<Polynomial<Fr>> multilinear_polynomials,
-                                          RefSpan<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
+                                          RefVector<Polynomial<Fr>> multilinear_polynomials,
+                                          RefVector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
                                           RefVector<Commitment> multilinear_commitments,
                                           RefVector<Commitment> multilinear_commitments_to_be_shifted)
     {
@@ -62,8 +62,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         std::vector<Fr>& multilinear_evaluation_point,
         RefVector<Fr> multilinear_evaluations_unshifted,
         RefVector<Fr> multilinear_evaluations_shifted,
-        RefSpan<Polynomial<Fr>> multilinear_polynomials,
-        RefSpan<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
+        RefVector<Polynomial<Fr>> multilinear_polynomials,
+        RefVector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
         RefVector<Commitment> multilinear_commitments,
         RefVector<Commitment> multilinear_commitments_to_be_shifted,
         RefSpan<Polynomial<Fr>> concatenated_polynomials = {},
