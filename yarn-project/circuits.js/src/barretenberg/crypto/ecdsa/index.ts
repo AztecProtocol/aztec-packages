@@ -31,7 +31,7 @@ export class Ecdsa {
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [r, s, v] = await api
+    const [r, s, v] = api
       .getWasm()
       .callWasmExport('ecdsa__construct_signature_', [messageArray, privateKey], [32, 32, 1]);
     return new EcdsaSignature(Buffer.from(r), Buffer.from(s), Buffer.from(v));
