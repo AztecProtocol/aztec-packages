@@ -93,7 +93,6 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
                     { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
                     // Bytecode overflow selectors.
-                    { C::bc_decomposition_sel_pc_plus_0, bytecode_exists_at(i) },
                     { C::bc_decomposition_sel_pc_plus_1, bytecode_exists_at(i + 1) },
                     { C::bc_decomposition_sel_pc_plus_2, bytecode_exists_at(i + 2) },
                     { C::bc_decomposition_sel_pc_plus_3, bytecode_exists_at(i + 3) },
