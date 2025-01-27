@@ -93,12 +93,14 @@ library Errors {
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
 
-  // Sequencer Selection (Leonidas)
-  error Leonidas__EpochNotSetup(); // 0xcf4e597e
-  error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
-  error Leonidas__InvalidDeposit(address attester, address proposer); // 0x1ef9a54b
-  error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
-  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
+  // Sequencer Selection (ValidatorSelection)
+  error ValidatorSelection__EpochNotSetup(); // 0xcf4e597e
+  error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xd02d278e
+  error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x1ef9a54b
+  error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
+  error ValidatorSelection__InsufficientAttestationsProvided(
+    uint256 minimumNeeded, uint256 provided
+  ); // 0xb3a697c2
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
