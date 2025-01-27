@@ -41,6 +41,7 @@ case ${SYS:-} in
         -p <($BIN prove -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk_deprecated")
+    # deprecated flow is necessary until we finish C++ api refactor and then align ts api
     SYS_DEP=_ultra_honk
     $BIN verify$SYS_DEP $FLAGS \
         -k <($BIN write_vk$SYS_DEP -o - $FLAGS $BFLAG) \
