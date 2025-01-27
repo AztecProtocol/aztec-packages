@@ -48,6 +48,7 @@
     "merkle-tree",
     "native",
     "ivc-integration",
+    "noir-bb-bench",
     "noir-contracts.js",
     "noir-protocol-circuits-types",
     "p2p",

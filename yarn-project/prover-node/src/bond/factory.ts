@@ -9,9 +9,9 @@ import {
   type HttpTransport,
   type PrivateKeyAccount,
   type PublicActions,
-  type PublicClient,
   type PublicRpcSchema,
   type WalletActions,
+  type WalletClient,
   type WalletRpcSchema,
 } from 'viem';
 
@@ -21,7 +21,7 @@ import { EscrowContract } from './escrow-contract.js';
 import { TokenContract } from './token-contract.js';
 
 export async function createBondManager(
-  rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient>,
+  rollupContract: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, Chain, PrivateKeyAccount>>,
   client: Client<
     HttpTransport,
     Chain,

@@ -4,6 +4,7 @@
 
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static const char HONK_CONTRACT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
@@ -1448,12 +1449,12 @@ interface IVerifier {
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    uint256 immutable N;
+    uint256 immutable n;
     uint256 immutable logN;
     uint256 immutable numPublicInputs;
 
-    constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
-        N = _N;
+    constructor(uint256 _n, uint256 _logN, uint256 _numPublicInputs) {
+        n = _n;
         logN = _logN;
         numPublicInputs = _numPublicInputs;
     }
@@ -1498,7 +1499,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
-        Fr numeratorAcc = gamma + (beta * FrLib.from(N + offset));
+        Fr numeratorAcc = gamma + (beta * FrLib.from(n + offset));
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {

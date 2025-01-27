@@ -9,6 +9,9 @@
 
 namespace bb::{{snakeCase root_name}} {
 
+{{#each perms as |current_perm|}}{{#with current_perm}}
+/////////////////// {{perm_name}} ///////////////////
+
 class {{perm_name}}_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
@@ -49,4 +52,5 @@ template <typename FF_> class {{perm_name}}_relation : public GenericPermutation
 };
 template <typename FF_> using {{perm_name}} = GenericPermutation<{{perm_name}}_permutation_settings, FF_>;
 
+{{/with}}{{/each}}
 } // namespace bb::{{snakeCase root_name}}

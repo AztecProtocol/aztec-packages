@@ -90,13 +90,7 @@ pub unconstrained fn mint_to_private(
         &mut env.private(),
     );
 
-    add_token_note(
-        env,
-        token_contract_address,
-        recipient,
-        amount,
-        note_randomness,
-    );
+    env.advance_block_by(1);
 }
 
 // docs:start:txe_test_read_public
@@ -116,6 +110,21 @@ pub unconstrained fn check_public_balance(
     cheatcodes::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_read_public
+
+pub unconstrained fn get_public_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+) -> U128 {
+    let current_contract_address = get_contract_address();
+    cheatcodes::set_contract_address(token_contract_address);
+    let block_number = get_block_number();
+
+    let balances_slot = Token::storage_layout().public_balances.slot;
+    let address_slot = derive_storage_slot_in_map(balances_slot, address);
+    let amount: U128 = storage_read(token_contract_address, address_slot, block_number);
+    cheatcodes::set_contract_address(current_contract_address);
+    amount
+}
 
 pub unconstrained fn check_total_supply(
     token_contract_address: AztecAddress,
@@ -146,8 +155,19 @@ pub unconstrained fn check_private_balance(
 }
 // docs:end:txe_test_call_unconstrained
 
-// TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-// is not called and we don't have a `NoteProcessor` in TXE.
+pub unconstrained fn get_private_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+) -> U128 {
+    let current_contract_address = get_contract_address();
+    cheatcodes::set_contract_address(token_contract_address);
+    // Direct call to unconstrained
+    let amt = Token::balance_of_private(address);
+    cheatcodes::set_contract_address(current_contract_address);
+    amt
+}
+
+// This is used if we need to add a token note manually, in the case where the note is not emitted in logs.
 pub unconstrained fn add_token_note(
     env: &mut TestEnvironment,
     token_contract_address: AztecAddress,

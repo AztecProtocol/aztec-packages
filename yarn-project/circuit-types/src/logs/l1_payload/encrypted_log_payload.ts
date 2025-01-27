@@ -99,8 +99,8 @@ export class EncryptedLogPayload {
   ): Promise<PrivateLog> {
     const addressPoint = await recipient.toAddressPoint();
 
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
+    const incomingHeaderCiphertext = await encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
       throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
@@ -125,7 +125,7 @@ export class EncryptedLogPayload {
       this.incomingBodyPlaintext,
       rand(numPaddedBytes),
     ]);
-    const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
+    const incomingBodyCiphertext = await encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
 
     const encryptedPayload = serializeToBuffer(overhead, incomingBodyCiphertext);
 
@@ -162,13 +162,13 @@ export class EncryptedLogPayload {
       const reader = BufferReader.asReader(fieldsToEncryptedBytes(payload.slice(1)));
 
       const overhead = await Overhead.fromBuffer(reader);
-      const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
+      const { contractAddress } = await this.#decryptOverhead(overhead, { addressSecret });
 
       let ciphertext = reader.readToEnd();
       if (ciphertextLength && ciphertext.length !== ciphertextLength) {
         ciphertext = trimCiphertext(ciphertext, ciphertextLength);
       }
-      const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
+      const incomingBodyPlaintext = await this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
       return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);
     } catch (e: any) {
@@ -196,11 +196,11 @@ export class EncryptedLogPayload {
     return serializeToBuffer(this.tag, this.contractAddress.toBuffer(), this.incomingBodyPlaintext);
   }
 
-  static #decryptOverhead(overhead: Overhead, { addressSecret }: { addressSecret: GrumpkinScalar }) {
+  static async #decryptOverhead(overhead: Overhead, { addressSecret }: { addressSecret: GrumpkinScalar }) {
     let contractAddress = AztecAddress.ZERO;
 
     if (addressSecret) {
-      const incomingHeader = decrypt(overhead.incomingHeader, addressSecret, overhead.ephPk);
+      const incomingHeader = await decrypt(overhead.incomingHeader, addressSecret, overhead.ephPk);
       contractAddress = AztecAddress.fromBuffer(incomingHeader);
     }
 
@@ -209,8 +209,8 @@ export class EncryptedLogPayload {
     };
   }
 
-  static #decryptIncomingBody(ciphertext: Buffer, secret: GrumpkinScalar, publicKey: PublicKey) {
-    const decrypted = decrypt(ciphertext, secret, publicKey);
+  static async #decryptIncomingBody(ciphertext: Buffer, secret: GrumpkinScalar, publicKey: PublicKey) {
+    const decrypted = await decrypt(ciphertext, secret, publicKey);
     const length = decrypted.readUint16BE(0);
     return decrypted.subarray(2, 2 + length);
   }

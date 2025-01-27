@@ -1,6 +1,8 @@
 #include "barretenberg/vm2/proving_helper.hpp"
 
+#include <cstdlib>
 #include <memory>
+#include <stdexcept>
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -8,6 +10,7 @@
 #include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
+#include "barretenberg/vm2/debugger.hpp"
 #include "barretenberg/vm2/generated/prover.hpp"
 #include "barretenberg/vm2/generated/verifier.hpp"
 
@@ -137,12 +140,20 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     info("Running check circuit over ", num_rows, " rows.");
 
+    // Go into interactive debug mode if requested.
+    if (getenv("AVM_DEBUG") != nullptr) {
+        InteractiveDebugger debugger(trace);
+        debugger.run();
+    }
+
+    // Warning: this destroys the trace.
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", compute_polynomials(trace));
     try {
         AVM_TRACK_TIME("proving/check_circuit", constraining::run_check_circuit(polynomials, num_rows));
-    } catch (const std::exception& e) {
+    } catch (std::runtime_error& e) {
+        // FIXME: This exception is never caught because it's thrown in a different thread.
+        // Execution never gets here!
         info("Circuit check failed: ", e.what());
-        return false;
     }
 
     return true;

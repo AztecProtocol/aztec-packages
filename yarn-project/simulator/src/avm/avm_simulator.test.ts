@@ -307,7 +307,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     const grumpkin = new Grumpkin();
-    const g3 = grumpkin.mul(grumpkin.generator(), new Fq(3));
+    const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
     expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
   });
 
@@ -319,9 +319,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     const grumpkin = new Grumpkin();
-    const g3 = grumpkin.mul(grumpkin.generator(), new Fq(3));
-    const g20 = grumpkin.mul(grumpkin.generator(), new Fq(20));
-    const expectedResult = grumpkin.add(g3, g20);
+    const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
+    const g20 = await grumpkin.mul(grumpkin.generator(), new Fq(20));
+    const expectedResult = await grumpkin.add(g3, g20);
     expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
   });
 
@@ -707,7 +707,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe('Public Logs', () => {
       it(`Emit public logs (should be traced)`, async () => {
         const context = createContext();
-        const bytecode = getAvmTestContractBytecode('emit_unencrypted_log');
+        const bytecode = getAvmTestContractBytecode('emit_public_log');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);

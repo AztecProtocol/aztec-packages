@@ -50,9 +50,9 @@ void AvmProver::execute_wire_commitments_round()
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
-    auto labels = commitment_labels.get_wires();
+    auto labels = prover_polynomials.get_wires_labels();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit_sparse(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
 }
 
@@ -83,7 +83,8 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
     }
 
     // Send all commitments to the verifier
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), witness_commitments.get_derived())) {
+    for (auto [label, commitment] :
+         zip_view(prover_polynomials.get_derived_labels(), witness_commitments.get_derived())) {
         transcript->send_to_verifier(label, commitment);
     }
 }
