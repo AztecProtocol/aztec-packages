@@ -13,7 +13,9 @@ use dep::aztec::{
     state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
+use std::meta::derive;
 
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -32,12 +34,6 @@ impl FromField for Card {
 impl ToField for Card {
     fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field) * 65536
-    }
-}
-
-impl Serialize<2> for Card {
-    fn serialize(self) -> [Field; 2] {
-        [self.strength as Field, self.points as Field]
     }
 }
 
