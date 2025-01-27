@@ -26,7 +26,7 @@ contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{point::Point, traits::Serialize},
+        protocol_types::{point::Point, traits::Packable},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
@@ -35,7 +35,7 @@ contract NFT {
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[derive(Serialize)]
+    #[derive(Packable)]
     #[event]
     struct NFTTransfer {
         from: AztecAddress,

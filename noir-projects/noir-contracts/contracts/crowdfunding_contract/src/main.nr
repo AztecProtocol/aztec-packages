@@ -14,7 +14,7 @@ contract Crowdfunding {
             storage::storage,
         },
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
-        protocol_types::traits::Serialize,
+        protocol_types::traits::Packable,
         unencrypted_logs::unencrypted_event_emission::encode_event,
         utils::comparison::Comparator,
     };
@@ -24,7 +24,7 @@ contract Crowdfunding {
     use token::Token;
     // docs:end:all-deps
 
-    #[derive(Serialize)]
+    #[derive(Packable)]
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,

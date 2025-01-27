@@ -19,7 +19,7 @@ contract Test {
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::Serialize,
+        traits::{Packable, Serialize},
         utils::arrays::array_concat,
     };
 
@@ -50,7 +50,7 @@ contract Test {
     // Imported just to test note type ids
     use dep::uint_note::uint_note::UintNote;
 
-    #[derive(Serialize)]
+    #[derive(Packable)]
     #[event]
     struct ExampleEvent {
         value0: Field,
@@ -310,7 +310,7 @@ contract Test {
                 .call(&mut context);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            let leaky_log = array_concat(event.pack(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
             context.emit_private_log(leaky_log);
         }
     }

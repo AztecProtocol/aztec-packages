@@ -35,7 +35,7 @@ contract Token {
         prelude::{
             AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{point::Point, traits::Serialize},
+        protocol_types::{point::Point, traits::{Packable, Serialize}},
     };
 
     use dep::uint_note::uint_note::UintNote;
@@ -60,7 +60,7 @@ contract Token {
     // an overall small circuit regardless.
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
-    #[derive(Serialize)]
+    #[derive(Packable)]
     #[event]
     struct Transfer {
         from: AztecAddress,
