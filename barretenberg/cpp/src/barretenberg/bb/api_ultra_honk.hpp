@@ -227,8 +227,9 @@ class UltraHonkAPI : public API {
         const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
         info("in write_vk initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
+        // We could also cache all vks and extract the but there's no real difference in efficiency here since we
+        // always (sometimes inefficiently) compute the final vk
         ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
-
         auto serialized_vk = to_buffer(ivc.previous_vk);
         vinfo("serialized vk");
 
