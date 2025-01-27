@@ -75,10 +75,13 @@ comptime fn generate_note_interface(
     let name = s.name();
     let typ = s.as_type();
 
+    // In notes we care about DA costs so we enable packing
+    let packing_enabled = true;
+
     // First we compute note content serialization. We do that by passing the whole note struct
     // to the `generate_serialize_to_fields(...)` and omitting the header.
     let (content_fields_list, content_aux_vars_list) =
-        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], false);
+        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], packing_enabled);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -97,7 +100,7 @@ comptime fn generate_note_interface(
         0,
         quote {header},
         quote { aztec::note::note_header::NoteHeader::empty() },
-        false,
+        packing_enabled,
     );
 
     // Second we compute quotes for MSM
@@ -322,7 +325,7 @@ comptime fn generate_multi_scalar_mul(
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
         let (serialization_fields, aux_vars) =
-            generate_serialize_to_fields(field_name, typ, &[], false);
+            generate_serialize_to_fields(field_name, typ, &[], true);
         for j in 0..serialization_fields.len() {
             let serialization_field = serialization_fields[j];
             let generator_index = start_generator_index + j;
@@ -508,7 +511,7 @@ comptime fn get_setup_log_plaintext_body(
         quote { header },
     );
     let (fields_list, aux_vars) =
-        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, false);
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -630,7 +633,7 @@ comptime fn generate_finalization_payload(
         quote { header },
     );
     let (fields_list, aux_vars) =
-        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, false);
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -645,8 +648,11 @@ comptime fn generate_finalization_payload(
     let fields = fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
-    let (generators_list, _, args_list, msm_aux_vars) =
-        generate_multi_scalar_mul(indexed_nullable_fields);
+    // Note 1: We ignore the `scalars_list` and `aux_vars` return values because it's not used by the `emit_note_hash`
+    // function. Instead, we use `public_values` (defined on the finalization payload struct) and the scalar list
+    // is computed in the for-loop below.
+    // Note 2: The `args_list` is not used for note hash MSM but instead for the `new` function.
+    let (generators_list, _, args_list, _) = generate_multi_scalar_mul(indexed_nullable_fields);
 
     // We generate scalars_list manually as we need it to refer self.public_values
     let mut scalars_list: [Quoted] = &[];
@@ -702,7 +708,6 @@ comptime fn generate_finalization_payload(
                 let hiding_point: aztec::prelude::Point = self.context.storage_read(self.hiding_point_slot);
                 assert(!aztec::protocol_types::traits::is_empty(hiding_point), "transfer not prepared");
 
-                $msm_aux_vars
                 let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
                     [$generators],
                     [$scalars]
@@ -849,7 +854,7 @@ comptime fn index_note_fields(
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
             }
         }
-        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], false);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter += serialization_fields.len();
     }
@@ -866,7 +871,7 @@ comptime fn inject_note_header(s: StructDefinition) {
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Injects `NoteHeader` to the note struct `s` if not present and generates the following:
 /// - NoteTypeProperties
 /// - SetupPayload
 /// - FinalizationPayload
@@ -876,10 +881,13 @@ comptime fn inject_note_header(s: StructDefinition) {
 /// - Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
+///
+/// `nullable_fields` are a list of quotes passed in as varargs which are used to identify which fields/struct members
+/// in the partial note are nullable.
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
-    // member in the serialized note array.
+    // member in the packed note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
     // We inject NoteHeader if it's not present in the note struct.
