@@ -22,8 +22,8 @@
 {{/each}}
 
 // Lookup and permutation relations
-{{#each lookups as |r|}}
-#include "relations/{{r}}.hpp"
+{{#each lookup_and_perm_file_names as |file_name|}}
+#include "relations/{{file_name}}"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.
@@ -165,6 +165,7 @@ class AvmFlavor {
           public:
               DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
               auto get_wires() { return WireEntities<DataType>::get_all(); }
+              auto get_wires_labels() { return WireEntities<DataType>::get_labels(); }
               auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
               auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
@@ -326,14 +327,6 @@ class AvmFlavor {
     *
     */
     using WitnessCommitments = WitnessEntities<Commitment>;
-
-    class CommitmentLabels: public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
 
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>

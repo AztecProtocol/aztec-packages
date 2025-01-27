@@ -22,19 +22,9 @@
 #include "relations/range_check.hpp"
 
 // Lookup and permutation relations
-#include "relations/lookup_dummy_dynamic.hpp"
-#include "relations/lookup_dummy_precomputed.hpp"
-#include "relations/lookup_rng_chk_diff.hpp"
-#include "relations/lookup_rng_chk_is_r0_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r1_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r2_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r3_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r4_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r5_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r6_16_bit.hpp"
-#include "relations/lookup_rng_chk_is_r7_16_bit.hpp"
-#include "relations/lookup_rng_chk_pow_2.hpp"
-#include "relations/perm_dummy_dynamic.hpp"
+#include "relations/lookups_execution.hpp"
+#include "relations/lookups_range_check.hpp"
+#include "relations/perms_execution.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -169,6 +159,7 @@ class AvmFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
+        auto get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
         auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
@@ -325,14 +316,6 @@ class AvmFlavor {
      *
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
-
-    class CommitmentLabels : public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
 
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>
