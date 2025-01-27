@@ -87,11 +87,8 @@ sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + se
 // sel_overflow_correction_needed { bytes_remaining - WINDOW_SIZE } in precomputed.sel_u16 { precomputed.clk }
 
 pol commit bytes_to_read_unary;
-// #[LOOKUP_BYTECODE_TO_READ_UNARY]
-// sel { bytes_to_read, bytes_to_read_unary } in precomputed.sel_u8 { precomputed.clk, precomputed.to_unary }
-// Note: even if the unary table has 254 elems, using the sel_u8 selector is probably ok.
-// The table will be 254 correct n -> unary conversions plus a bunch of extra 0 -> 0.
-// We avoid adding an extra selector.
+#[LOOKUP_BYTECODE_TO_READ_UNARY]
+sel { bytes_to_read, bytes_to_read_unary } in precomputed.sel_unary { precomputed.clk, precomputed.as_unary };
 
 pol commit sel_pc_plus_0, sel_pc_plus_1, sel_pc_plus_2, sel_pc_plus_3, sel_pc_plus_4,
            sel_pc_plus_5, sel_pc_plus_6, sel_pc_plus_7, sel_pc_plus_8, sel_pc_plus_9,

@@ -29,3 +29,12 @@ pol constant power_of_2;
 // SHA256 Round Params Lookup
 pol constant sel_sha256_compression;
 pol constant sha256_compression_round_constant;
+
+// Unary representation of a number, from 0 to 64.
+// Example: 0 -> 0
+//          1 -> 1
+//          2 -> 11
+//          3 -> 111
+// You get it. It can be extended up to 254 bits if needed.
+pol constant sel_unary;
+pol constant as_unary;

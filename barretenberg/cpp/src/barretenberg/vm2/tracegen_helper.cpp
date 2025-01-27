@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
@@ -24,6 +25,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_into_power_of_2.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_range.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_sha256_params.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_unary.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
@@ -52,6 +54,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/unary", precomputed_builder.process_unary(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
         },
@@ -219,6 +222,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             [&]() {
                 LookupIntoRange<lookup_rng_chk_is_r7_16_bit_lookup_settings> lookup_rng_chk_is_r7_16_bit;
                 lookup_rng_chk_is_r7_16_bit.process(trace);
+            },
+            [&]() {
+                LookupIntoUnary<lookup_bytecode_to_read_unary_lookup_settings> lookup;
+                lookup.process(trace);
             },
             [&]() {
                 LookupIntoSha256Params<lookup_sha256_round_constant_lookup_settings> lookup_sha256_round_constant;

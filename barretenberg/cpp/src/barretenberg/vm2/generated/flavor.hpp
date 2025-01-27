@@ -26,6 +26,7 @@
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
+#include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -58,13 +59,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 362;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 14;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 364;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 63;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 437;
+    static constexpr size_t NUM_ALL_ENTITIES = 441;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -86,6 +87,7 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
         lookup_rng_chk_diff_relation<FF_>,
@@ -336,6 +338,7 @@ class AvmFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
+            this->precomputed_as_unary = verification_key->precomputed_as_unary;
             this->precomputed_bitwise_input_a = verification_key->precomputed_bitwise_input_a;
             this->precomputed_bitwise_input_b = verification_key->precomputed_bitwise_input_b;
             this->precomputed_bitwise_op_id = verification_key->precomputed_bitwise_op_id;
@@ -347,6 +350,7 @@ class AvmFlavor {
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
                 verification_key->precomputed_sha256_compression_round_constant;
         }
