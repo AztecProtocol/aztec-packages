@@ -261,20 +261,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
         // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+        // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
+        // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
         const firstFieldBuf = log.log[0].toBuffer();
-        if (
-          !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
-          firstFieldBuf[26] !== 0 ||
-          firstFieldBuf[29] !== 0
-        ) {
+        if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
           // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
-          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
           this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
           return;
         }
         // Check that the length values line up with the log contents
-        const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
-        const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+        const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
+        const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
         // Add 1 for the first field holding lengths
         const totalLogLength = 1 + publicValuesLength + privateValuesLength;
         // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length

@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -54,7 +55,7 @@ class perm_rng_non_ff_cmp_permutation_settings {
 template <typename FF_>
 class perm_rng_non_ff_cmp_relation : public GenericPermutationRelation<perm_rng_non_ff_cmp_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_RNG_NON_FF_CMP";
+    static constexpr std::string_view NAME = "PERM_RNG_NON_FF_CMP";
 };
 template <typename FF_> using perm_rng_non_ff_cmp = GenericPermutation<perm_rng_non_ff_cmp_permutation_settings, FF_>;
 
@@ -103,7 +104,7 @@ class perm_rng_cmp_lo_permutation_settings {
 template <typename FF_>
 class perm_rng_cmp_lo_relation : public GenericPermutationRelation<perm_rng_cmp_lo_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_RNG_CMP_LO";
+    static constexpr std::string_view NAME = "PERM_RNG_CMP_LO";
 };
 template <typename FF_> using perm_rng_cmp_lo = GenericPermutation<perm_rng_cmp_lo_permutation_settings, FF_>;
 
@@ -152,7 +153,7 @@ class perm_rng_cmp_hi_permutation_settings {
 template <typename FF_>
 class perm_rng_cmp_hi_relation : public GenericPermutationRelation<perm_rng_cmp_hi_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_RNG_CMP_HI";
+    static constexpr std::string_view NAME = "PERM_RNG_CMP_HI";
 };
 template <typename FF_> using perm_rng_cmp_hi = GenericPermutation<perm_rng_cmp_hi_permutation_settings, FF_>;
 

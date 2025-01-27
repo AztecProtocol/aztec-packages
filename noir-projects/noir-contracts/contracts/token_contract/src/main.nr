@@ -20,11 +20,9 @@ contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        encrypted_logs::{
-            encrypted_event_emission::encode_and_encrypt_event_unconstrained,
-            encrypted_note_emission::{
-                encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
-            },
+        encrypted_logs::log_assembly_strategies::default_aes128::{
+            event::encode_and_encrypt_event_unconstrained,
+            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
         macros::{
             events::event,

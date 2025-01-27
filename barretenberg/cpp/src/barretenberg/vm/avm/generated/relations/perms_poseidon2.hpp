@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -66,7 +67,7 @@ class perm_pos_mem_read_a_permutation_settings {
 template <typename FF_>
 class perm_pos_mem_read_a_relation : public GenericPermutationRelation<perm_pos_mem_read_a_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_READ_A";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_READ_A";
 };
 template <typename FF_> using perm_pos_mem_read_a = GenericPermutation<perm_pos_mem_read_a_permutation_settings, FF_>;
 
@@ -127,7 +128,7 @@ class perm_pos_mem_read_b_permutation_settings {
 template <typename FF_>
 class perm_pos_mem_read_b_relation : public GenericPermutationRelation<perm_pos_mem_read_b_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_READ_B";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_READ_B";
 };
 template <typename FF_> using perm_pos_mem_read_b = GenericPermutation<perm_pos_mem_read_b_permutation_settings, FF_>;
 
@@ -188,7 +189,7 @@ class perm_pos_mem_read_c_permutation_settings {
 template <typename FF_>
 class perm_pos_mem_read_c_relation : public GenericPermutationRelation<perm_pos_mem_read_c_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_READ_C";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_READ_C";
 };
 template <typename FF_> using perm_pos_mem_read_c = GenericPermutation<perm_pos_mem_read_c_permutation_settings, FF_>;
 
@@ -249,7 +250,7 @@ class perm_pos_mem_read_d_permutation_settings {
 template <typename FF_>
 class perm_pos_mem_read_d_relation : public GenericPermutationRelation<perm_pos_mem_read_d_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_READ_D";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_READ_D";
 };
 template <typename FF_> using perm_pos_mem_read_d = GenericPermutation<perm_pos_mem_read_d_permutation_settings, FF_>;
 
@@ -311,7 +312,7 @@ template <typename FF_>
 class perm_pos_mem_write_a_relation
     : public GenericPermutationRelation<perm_pos_mem_write_a_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_WRITE_A";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_WRITE_A";
 };
 template <typename FF_> using perm_pos_mem_write_a = GenericPermutation<perm_pos_mem_write_a_permutation_settings, FF_>;
 
@@ -373,7 +374,7 @@ template <typename FF_>
 class perm_pos_mem_write_b_relation
     : public GenericPermutationRelation<perm_pos_mem_write_b_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_WRITE_B";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_WRITE_B";
 };
 template <typename FF_> using perm_pos_mem_write_b = GenericPermutation<perm_pos_mem_write_b_permutation_settings, FF_>;
 
@@ -435,7 +436,7 @@ template <typename FF_>
 class perm_pos_mem_write_c_relation
     : public GenericPermutationRelation<perm_pos_mem_write_c_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_WRITE_C";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_WRITE_C";
 };
 template <typename FF_> using perm_pos_mem_write_c = GenericPermutation<perm_pos_mem_write_c_permutation_settings, FF_>;
 
@@ -497,7 +498,7 @@ template <typename FF_>
 class perm_pos_mem_write_d_relation
     : public GenericPermutationRelation<perm_pos_mem_write_d_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS_MEM_WRITE_D";
+    static constexpr std::string_view NAME = "PERM_POS_MEM_WRITE_D";
 };
 template <typename FF_> using perm_pos_mem_write_d = GenericPermutation<perm_pos_mem_write_d_permutation_settings, FF_>;
 
