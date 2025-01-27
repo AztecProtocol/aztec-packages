@@ -470,7 +470,7 @@ export async function setup(
 
   const telemetry = getTelemetryClient(opts.telemetryConfig);
 
-  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
+  const blobSinkClient = createBlobSinkClient(config);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
     publisher,
@@ -718,7 +718,7 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient();
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {
