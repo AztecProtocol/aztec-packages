@@ -1,7 +1,5 @@
-import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
-  type AztecNode,
   type CheatCodes,
   Fr,
   HashedValues,
@@ -21,7 +19,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup, setupPXEService } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 jest.setTimeout(200_000);
 
@@ -39,10 +37,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     decimals: 18n,
   };
 
-  let teardownA: () => Promise<void>;
-  let teardownB: () => Promise<void>;
+  let teardown: () => Promise<void>;
 
-  let aztecNode: AztecNode;
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
@@ -62,7 +58,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let valueNote!: any;
 
   beforeAll(async () => {
-    ({ cheatCodes, teardown: teardownA, logger, pxe, wallets, aztecNode } = await setup(3));
+    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(3));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -126,8 +122,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   });
 
   afterAll(async () => {
-    await teardownA();
-    await teardownB?.();
+    await teardown();
   });
 
   // Processes unique note such that it can be passed to a claim function of Claim contract
@@ -222,20 +217,24 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
-  it('cannot claim without access to the nsk_app tied to the npk_m specified in the proof note', async () => {
+  it('cannot claim with a different address than the one that donated', async () => {
     const donationAmount = 1000n;
+
+    const donorWallet = donorWallets[1];
+    const unrelatedWallet = donorWallets[0];
+
+    // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet
     {
       const action = donationToken
-        .withWallet(donorWallets[1])
-        .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
-      const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallets[1].addAuthWitness(witness);
+        .withWallet(donorWallet)
+        .methods.transfer_in_private(donorWallet.getAddress(), crowdfundingContract.address, donationAmount, 0);
+      const witness = await donorWallet.createAuthWit({ caller: crowdfundingContract.address, action });
+      await donorWallet.addAuthWitness(witness);
     }
 
     // 2) We donate to the crowdfunding contract
-
     const donateTxReceipt = await crowdfundingContract
-      .withWallet(donorWallets[1])
+      .withWallet(donorWallet)
       .methods.donate(donationAmount)
       .send()
       .wait({
@@ -243,35 +242,23 @@ describe('e2e_crowdfunding_and_claim', () => {
       });
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-    await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-    const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
+    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
+    const notes = await unrelatedWallet.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
 
     // Set the value note in a format which can be passed to claim function
     const anotherDonationNote = processUniqueNote(filtered![0]);
 
-    // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
-    let unrelatedWallet: AccountWallet;
-    {
-      const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
-      teardownB = _teardown;
-      [unrelatedWallet] = await createAccounts(pxeB, 1);
-      await pxeB.registerContract({
-        artifact: ClaimContract.artifact,
-        instance: claimContract.instance,
-      });
-    }
-
-    // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
+    // 3) We try to claim the reward token via the Claim contract with an unrelated wallet
     {
       await expect(
         claimContract
           .withWallet(unrelatedWallet)
-          .methods.claim(anotherDonationNote, unrelatedWallet.getAddress())
+          .methods.claim(anotherDonationNote, donorWallet.getAddress())
           .send()
           .wait(),
-      ).rejects.toThrow('No public key registered for address');
+      ).rejects.toThrow('Note does not belong to the sender');
     }
   });
 
