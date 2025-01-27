@@ -22,7 +22,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { type HDAccount, type PrivateKeyAccount } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

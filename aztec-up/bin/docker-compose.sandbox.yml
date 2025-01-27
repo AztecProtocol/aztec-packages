@@ -32,8 +32,8 @@ services:
       PXE_PORT: ${PXE_PORT:-8080}
       PORT: ${AZTEC_NODE_PORT:-8080}
       TEST_ACCOUNTS: ${TEST_ACCOUNTS:-true}
-      ETHEREUM_SLOT_DURATION: ${ETHEREUM_SLOT_DURATION:-4} # seconds, use a smaller value than production so things are faster
-      AZTEC_SLOT_DURATION: ${AZTEC_SLOT_DURATION:-8} # seconds, must be a multiple > 1 of ETHEREUM_SLOT_DURATION
+      ETHEREUM_SLOT_DURATION: ${ETHEREUM_SLOT_DURATION:-12} # seconds
+      AZTEC_SLOT_DURATION: ${AZTEC_SLOT_DURATION:-24} # seconds, must be a multiple > 1 of ETHEREUM_SLOT_DURATION
       AZTEC_EPOCH_DURATION: ${AZTEC_EPOCH_DURATION:-16} # measured in Aztec slots
     volumes:
       - ./log:/usr/src/yarn-project/aztec/log:rw

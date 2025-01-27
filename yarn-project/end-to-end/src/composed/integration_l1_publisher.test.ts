@@ -20,7 +20,7 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { timesParallel } from '@aztec/foundation/collection';
-import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { randomInt, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -122,7 +122,7 @@ describe('L1Publisher integration', () => {
       config.l1RpcUrl,
       deployerAccount,
       logger,
-      { assumeProvenThrough: undefined },
+      { assumeProvenThrough: undefined, salt: randomInt(100) },
     ));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
