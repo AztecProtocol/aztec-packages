@@ -107,7 +107,7 @@ We also need to create a point for the owner of the FPC (whom we call Bob) to re
 So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
-We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
+We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/main/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
 :::
 
 $$
@@ -132,13 +132,13 @@ Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
 
 ### Private Fee Payment Implementation
 
-[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
+[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-nr/blob/master/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
 
 This is implemented by applying the `partial_note` attribute:
 
 #include_code UintNote noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
+Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-nr/blob/master/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
 
 We can see the complete implementation of creating and completing partial notes in an Aztec contract in the `setup_refund` and `complete_refund` functions.
 
