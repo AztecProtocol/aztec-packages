@@ -525,6 +525,8 @@ export class ProvingOrchestrator implements EpochProver {
     const { processedTx } = txProvingState;
     const { rollupType, inputs } = txProvingState.getBaseRollupTypeAndInputs();
 
+    console.log(inputs);
+
     logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
 
     this.deferredProving(
