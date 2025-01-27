@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { proveAndVerifyAvmTestContract } from './prove_and_verify.js';
 
 const TIMEOUT = 300_000;
