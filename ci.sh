@@ -200,7 +200,7 @@ case "$cmd" in
     exit 0
     ;;
   *)
-    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|test-kind-network|test-network|gha-url"
+    echo "usage: $0 ec2|ec2-e2e|ec2-e2e-grind|local|run|wt|trigger|log|shell|attach|ssh-host|draft|ready|gha-url"
     exit 1
     ;;
 esac

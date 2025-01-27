@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Helper script for deploying local KIND scenarios.
-# Usage: ./deploy_kind.sh <namespace>
+# Usage: ./deploy_kind.sh <namespace> <values_file=default.yaml>
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "", no chaos installation)
@@ -9,12 +9,12 @@
 #   INSTALL_TIMEOUT (default: 30m)
 
 source $(git rev-parse --show-toplevel)/ci3/source
-set -x
+
 # Positional parameters.
 namespace="$1"
+values_file="${2:-default.yaml}"
 
 # Default values for environment variables
-values_file="${VALUES_FILE:-default.yaml}"
 chaos_values="${CHAOS_VALUES:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}

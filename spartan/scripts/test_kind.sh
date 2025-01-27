@@ -1,34 +1,30 @@
 #!/bin/bash
 
-# Usage: ./test_kind.sh <test>
+# Usage: ./test_kind.sh <test> <values_file=default.yaml>
 # The <test> file is located in yarn-project/end-to-end/src/spartan.
-# Required environment variables:
 # Optional environment variables:
 #   NAMESPACE (default: "test-kind")
 #   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "")
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
+#   INSTALL_METRICS (default: "true")
 # Used by deploy_kind.sh
-#   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "", no chaos installation)
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
-set -x
-
 # Main positional parameter
 test=$1
+values_file="${$2:-default.yaml}"
 
 # Default values for environment variables
 namespace="${NAMESPACE:-test-kind}"
-values_file="${VALUES_FILE:-default.yaml}"
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
-install_timeout=${INSTALL_TIMEOUT:-30m}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
