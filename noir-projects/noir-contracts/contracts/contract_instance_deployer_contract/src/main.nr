@@ -169,7 +169,6 @@ contract ContractInstanceDeployer {
             new_contract_class_id,
         };
 
-        let payload = event.serialize();
-        context.emit_unencrypted_log(payload);
+        context.emit_public_log(event);
     }
 }
