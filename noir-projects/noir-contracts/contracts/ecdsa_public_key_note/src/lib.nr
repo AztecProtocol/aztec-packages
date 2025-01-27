@@ -21,7 +21,7 @@ pub struct EcdsaPublicKeyNote {
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-    // Cannot use the automatic packing since x and y don't fit. Serialize the note as 5 fields where:
+    // Cannot use the automatic packing since x and y don't fit. Pack the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
