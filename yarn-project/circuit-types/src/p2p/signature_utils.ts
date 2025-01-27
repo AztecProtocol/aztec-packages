@@ -7,7 +7,7 @@ export enum SignatureDomainSeparator {
 }
 
 export interface Signable {
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer;
+  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Promise<Buffer>;
 }
 
 /**
@@ -15,8 +15,11 @@ export interface Signable {
  * @param s - The `Signable` to sign
  * @returns The hashed payload for the signature of the `Signable`
  */
-export function getHashedSignaturePayload(s: Signable, domainSeparator: SignatureDomainSeparator): Buffer32 {
-  return Buffer32.fromBuffer(keccak256(s.getPayloadToSign(domainSeparator)));
+export async function getHashedSignaturePayload(
+  s: Signable,
+  domainSeparator: SignatureDomainSeparator,
+): Promise<Buffer32> {
+  return Buffer32.fromBuffer(keccak256(await s.getPayloadToSign(domainSeparator)));
 }
 
 /**
@@ -24,10 +27,10 @@ export function getHashedSignaturePayload(s: Signable, domainSeparator: Signatur
  * @param s - the `Signable` to sign
  * @returns The hashed payload for the signature of the `Signable` as an Ethereum signed message
  */
-export function getHashedSignaturePayloadEthSignedMessage(
+export async function getHashedSignaturePayloadEthSignedMessage(
   s: Signable,
   domainSeparator: SignatureDomainSeparator,
-): Buffer32 {
-  const payload = getHashedSignaturePayload(s, domainSeparator);
+): Promise<Buffer32> {
+  const payload = await getHashedSignaturePayload(s, domainSeparator);
   return makeEthSignDigest(payload);
 }
