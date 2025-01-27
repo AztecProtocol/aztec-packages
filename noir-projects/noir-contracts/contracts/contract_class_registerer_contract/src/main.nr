@@ -106,7 +106,7 @@ contract ContractClassRegisterer {
                 private_functions_root,
                 packed_public_bytecode,
             };
-            emit_contract_class_log(&mut context, event.serialize_with_magic_value());
+            emit_contract_class_log(&mut context, event.serialize_non_standard());
         }
     }
 
@@ -186,7 +186,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[contract_library_method]

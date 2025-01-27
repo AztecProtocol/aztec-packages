@@ -25,7 +25,6 @@ pub struct UnconstrainedFunction {
 }
 
 // #[event]
-#[derive(Serialize)]
 pub struct ClassUnconstrainedFunctionBroadcasted {
     contract_class_id: ContractClassId,
     artifact_metadata_hash: Field,
@@ -33,4 +32,28 @@ pub struct ClassUnconstrainedFunctionBroadcasted {
     artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
     artifact_function_tree_leaf_index: Field,
     function: UnconstrainedFunction,
+}
+
+impl ClassUnconstrainedFunctionBroadcasted {
+    fn serialize_non_standard(
+        self: Self,
+    ) -> [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS + REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS] {
+        let mut packed = [
+            0; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS
+                + REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS
+        ];
+        packed[0] = REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE;
+        packed[1] = self.contract_class_id.to_field();
+        packed[2] = self.artifact_metadata_hash;
+        packed[3] = self.private_functions_artifact_tree_root;
+        for i in 0..ARTIFACT_FUNCTION_TREE_MAX_HEIGHT {
+            packed[i + 4] = self.artifact_function_tree_sibling_path[i];
+        }
+        packed[4 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT] = self.artifact_function_tree_leaf_index;
+        let packed_function = self.function.serialize();
+        for i in 0..MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS + 2 {
+            packed[i + 5 + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT] = packed_function[i];
+        }
+        packed
+    }
 }

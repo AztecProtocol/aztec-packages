@@ -14,7 +14,7 @@ pub struct ContractClassRegistered {
 }
 
 impl ContractClassRegistered {
-    fn serialize_with_magic_value(
+    fn serialize_non_standard(
         self: Self,
     ) -> [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5] {
         let mut packed = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5];
