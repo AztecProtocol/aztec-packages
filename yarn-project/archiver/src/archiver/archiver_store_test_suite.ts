@@ -374,11 +374,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
 
       // See parseLogFromPublic
-      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number, ciphertextLen: number) => {
+      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number) => {
         const buf = Buffer.alloc(32);
-        buf.writeUint16BE(publicValuesLen, 24);
-        buf.writeUint16BE(privateValuesLen, 27);
-        buf.writeUint16BE(ciphertextLen, 30);
+        buf.writeUint16BE(publicValuesLen, 27);
+        buf.writeUint16BE(privateValuesLen, 30);
         return Fr.fromBuffer(buf);
       };
 
@@ -390,7 +390,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const makePublicLog = (tag: Fr) =>
         PublicLog.fromFields([
           AztecAddress.fromNumber(1).toField(), // log address
-          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3, 42), // field 0
+          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3), // field 0
           tag, // field 1
           ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
         ]);
@@ -532,13 +532,13 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const invalidLogs = [
           PublicLog.fromFields([
             AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, 3, 42), // This field claims we have 5 items, but we actually have more
+            makeLengthsField(2, 3), // This field claims we have 5 items, but we actually have more
             tag,
             ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
           ]),
           PublicLog.fromFields([
             AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, 42), // This field claims we have more than the max items
+            makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS), // This field claims we have more than the max items
             tag,
             ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
           ]),

@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 contract Spam {
 
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note_unconstrained,
         macros::{functions::{internal, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PublicMutable},
         protocol_types::{
