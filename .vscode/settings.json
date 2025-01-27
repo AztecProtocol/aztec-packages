@@ -109,22 +109,22 @@
   },
   "solidity.compileUsingRemoteVersion": "v0.8.27",
   "solidity.formatter": "forge",
-  "search.exclude": {
-    "**/.yarn": true,
-    "**/.yalc": true,
+"search.exclude": {
+    "**/.{yarn,yalc,pnp.*}": true,
     "**/node_modules": true,
-    "**/.pnp.*": true,
     "**/msgpack-c/**": true
-  },
+},
   "[terraform]": {
     "editor.defaultFormatter": "hashicorp.terraform"
   },
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
+"[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+},
+"[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+},
   ///////////////////////////////////////
   // C++/Circuits settings
   ///////////////////////////////////////
