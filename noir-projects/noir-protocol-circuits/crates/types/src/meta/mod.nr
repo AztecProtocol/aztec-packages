@@ -9,6 +9,8 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// - `num_already_consumed`: The number of fields already processed in previous recursion calls.
 /// - `to_replace`: The name of a specific field that should be replaced during deserialization.
 /// - `ro_replace_with`: The value to replace the `to_replace` field with (e.g., `NoteHeader::empty()`).
+/// - `should_unpack`: A boolean indicating whether the type should be unpacked (see description of `Packable`
+/// and `Serialize` trait for more information about the difference between packing and serialization).
 ///
 /// # Returns
 /// A tuple containing:

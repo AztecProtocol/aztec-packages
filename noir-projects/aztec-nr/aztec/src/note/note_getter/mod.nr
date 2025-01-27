@@ -20,9 +20,9 @@ fn extract_property_value_from_selector<let N: u32>(
     packed_note_content: [Field; N],
     selector: PropertySelector,
 ) -> Field {
-    // Selectors use PropertySelectors in order to locate note properties inside the serialized note.
-    // This allows easier packing and custom (de)serialization schemas. A note property is located
-    // inside the serialized note using the index inside the array, a byte offset and a length.
+    // Selectors use PropertySelectors in order to locate note properties inside the packed note.
+    // This allows easier packing and custom (un)packing schemas. A note property is located
+    // inside the packed note using the index inside the array, a byte offset and a length.
     let value: [u8; 32] = packed_note_content[selector.index].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
