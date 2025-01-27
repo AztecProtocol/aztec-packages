@@ -255,12 +255,10 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
-    RefVector<Polynomial> unshifted_polynomials{ poly1, poly2 };
-    RefVector<Polynomial> shifted_polynomials{ poly2 };
 
     PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted(unshifted_polynomials);
-    polynomial_batches.set_to_be_1_shifted(shifted_polynomials);
+    polynomial_batches.set_unshifted({ poly1, poly2 });
+    polynomial_batches.set_to_be_1_shifted({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -313,12 +311,10 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
-    RefVector<Polynomial> unshifted_polynomials{ poly1, poly2 };
-    RefVector<Polynomial> shifted_polynomials{ poly2 };
 
     PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted(unshifted_polynomials);
-    polynomial_batches.set_to_be_1_shifted(shifted_polynomials);
+    polynomial_batches.set_unshifted({ poly1, poly2 });
+    polynomial_batches.set_to_be_1_shifted({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -386,12 +382,10 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
-    RefVector<Polynomial> unshifted_polynomials{ poly1, poly2, poly3, poly4 };
-    RefVector<Polynomial> shifted_polynomials{ poly2, poly3 };
 
     PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted(unshifted_polynomials);
-    polynomial_batches.set_to_be_1_shifted(shifted_polynomials);
+    polynomial_batches.set_unshifted({ poly1, poly2, poly3, poly4 });
+    polynomial_batches.set_to_be_1_shifted({ poly2, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1

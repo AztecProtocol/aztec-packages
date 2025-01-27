@@ -205,6 +205,11 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     polynomial_batches.set_unshifted(f_polynomials);
     polynomial_batches.set_to_be_1_shifted(g_polynomials);
 
+    // WORKTODO: could be a place to use something like below
+    // PolynomialBatches polynomial_batches{ .full_batched_size = this->n,
+    //                                       .unshifted = pcs_instance_witness.unshifted_polynomials,
+    //                                       .to_be_1_shifted = pcs_instance_witness.to_be_shifted_polynomials };
+
     Fr running_scalar = Fr(1);
     Polynomial batched = polynomial_batches.compute_batched(rho, running_scalar);
 
