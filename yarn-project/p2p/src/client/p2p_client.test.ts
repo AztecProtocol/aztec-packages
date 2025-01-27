@@ -27,10 +27,10 @@ describe('In-Memory P2P Client', () => {
 
   beforeEach(async () => {
     txPool = mock<TxPool>();
-    txPool.getAllTxs.mockReturnValue([]);
-    txPool.getPendingTxHashes.mockReturnValue([]);
-    txPool.getMinedTxHashes.mockReturnValue([]);
-    txPool.getAllTxHashes.mockReturnValue([]);
+    txPool.getAllTxs.mockResolvedValue([]);
+    txPool.getPendingTxHashes.mockResolvedValue([]);
+    txPool.getMinedTxHashes.mockResolvedValue([]);
+    txPool.getAllTxHashes.mockResolvedValue([]);
 
     p2pService = mock<P2PService>();
 
@@ -253,7 +253,7 @@ describe('In-Memory P2P Client', () => {
       const badTx = mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
+      txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
       blockSource.removeBlocks(10);
       await sleep(150);
@@ -280,8 +280,8 @@ describe('In-Memory P2P Client', () => {
       const badTx = mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
-      txPool.getMinedTxHashes.mockReturnValue([
+      txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
+      txPool.getMinedTxHashes.mockResolvedValue([
         [goodButOldTx.getTxHash(), 90],
         [goodTx.getTxHash(), 91],
       ]);

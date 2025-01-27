@@ -9,6 +9,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore as createStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
@@ -44,10 +45,11 @@ export const createP2PClient = async <T extends P2PClientType>(
   let config = { ..._config };
   const logger = createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb')));
-  const archive = await createStore('p2p-archive', config, createLogger('p2p-archive:lmdb'));
+  const mempool = await createStoreV2('p2p-v2', config, createLogger('p2p:lmdb-v2'));
+  const archive = await createStoreV2('p2p-archive', config, createLogger('p2p-archive:lmdb-v2'));
 
   const mempools: MemPools<T> = {
-    txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),
+    txPool: deps.txPool ?? new AztecKVTxPool(mempool, archive, telemetry, config.archivedTxLimit),
     epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry),
     attestationPool:
       clientType === P2PClientType.Full

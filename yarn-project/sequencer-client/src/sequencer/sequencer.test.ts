@@ -111,8 +111,12 @@ describe('sequencer', () => {
   };
 
   const mockPendingTxs = (txs: Tx[]) => {
-    p2p.getPendingTxCount.mockReturnValue(txs.length);
-    p2p.iteratePendingTxs.mockReturnValue(txs);
+    p2p.getPendingTxCount.mockResolvedValue(txs.length);
+    p2p.iteratePendingTxs.mockImplementation(async function* () {
+      for (const tx of txs) {
+        yield tx;
+      }
+    });
   };
 
   const makeBlock = async (txs: Tx[]) => {

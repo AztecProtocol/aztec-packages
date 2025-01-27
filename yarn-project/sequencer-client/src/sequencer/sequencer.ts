@@ -26,6 +26,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { pickFromSchema } from '@aztec/foundation/schemas';
@@ -261,7 +262,7 @@ export class Sequencer {
     void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt(), VoteType.SLASHING);
 
     // Check the pool has enough txs to build a block
-    const pendingTxCount = this.p2pClient.getPendingTxCount();
+    const pendingTxCount = await this.p2pClient.getPendingTxCount();
     if (pendingTxCount < this.minTxsPerBlock && !this.isFlushing) {
       this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBlock}.`, {
         slot,
@@ -280,7 +281,7 @@ export class Sequencer {
 
     // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
     // and also we may need to fetch more if we don't have enough valid txs.
-    const pendingTxs = this.p2pClient.iteratePendingTxs();
+    const pendingTxs = await toArray(this.p2pClient.iteratePendingTxs());
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(

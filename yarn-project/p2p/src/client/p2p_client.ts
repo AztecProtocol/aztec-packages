@@ -126,7 +126,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Tx | undefined;
+  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
@@ -147,13 +147,13 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
   /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): Iterable<Tx>;
+  iteratePendingTxs(): AsyncIterable<Tx>;
 
   /** Returns the number of pending txs in the mempool. */
-  getPendingTxCount(): number;
+  getPendingTxCount(): Promise<number>;
 
   /**
    * Starts the p2p client.
@@ -475,14 +475,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return Promise.resolve(this.getTxs('pending'));
   }
 
-  public getPendingTxCount(): number {
-    return this.txPool.getPendingTxHashes().length;
+  public async getPendingTxCount(): Promise<number> {
+    const pendingTxs = await this.txPool.getPendingTxHashes();
+    return pendingTxs.length;
   }
 
-  public *iteratePendingTxs() {
-    const pendingTxHashes = this.txPool.getPendingTxHashes();
-    for (const txHash of pendingTxHashes) {
-      const tx = this.txPool.getTxByHash(txHash);
+  public async *iteratePendingTxs() {
+    for (const txHash of await this.txPool.getPendingTxHashes()) {
+      const tx = await this.txPool.getTxByHash(txHash);
       if (tx) {
         yield tx;
       }
@@ -493,19 +493,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  public getTxs(filter: 'all' | 'pending' | 'mined'): Tx[] {
+  public async getTxs(filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
     if (filter === 'all') {
       return this.txPool.getAllTxs();
     } else if (filter === 'mined') {
-      return this.txPool
-        .getMinedTxHashes()
-        .map(([txHash]) => this.txPool.getTxByHash(txHash))
-        .filter((tx): tx is Tx => !!tx);
+      const minedHashes = await this.txPool.getMinedTxHashes();
+      const minedTx = await Promise.all(minedHashes.map(([txHash]) => this.txPool.getTxByHash(txHash)));
+      return minedTx.filter((tx): tx is Tx => !!tx);
     } else if (filter === 'pending') {
-      return this.txPool
-        .getPendingTxHashes()
-        .map(txHash => this.txPool.getTxByHash(txHash))
-        .filter((tx): tx is Tx => !!tx);
+      const pendingHashses = await this.txPool.getPendingTxHashes();
+      const pendingTxs = await Promise.all(pendingHashses.map(txHash => this.txPool.getTxByHash(txHash)));
+      return pendingTxs.filter((tx): tx is Tx => !!tx);
     } else {
       const _: never = filter;
       throw new Error(`Unknown filter ${filter}`);
@@ -517,7 +515,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Tx | undefined {
+  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined> {
     return this.txPool.getTxByHash(txHash);
   }
 
@@ -527,10 +525,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const tx = this.txPool.getTxByHash(txHash);
+  async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const tx = await this.txPool.getTxByHash(txHash);
     if (tx) {
-      return Promise.resolve(tx);
+      return tx;
     }
     return this.requestTxByHash(txHash);
   }
@@ -541,7 +539,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns A single tx or undefined.
    */
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return Promise.resolve(this.txPool.getArchivedTxByHash(txHash));
+    return this.txPool.getArchivedTxByHash(txHash);
   }
 
   /**
@@ -560,7 +558,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     return this.txPool.getTxStatus(txHash);
   }
 
@@ -714,7 +712,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
     const txsToDelete: TxHash[] = [];
-    for (const tx of this.txPool.getAllTxs()) {
+    for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
         txsToDelete.push(tx.getTxHash());
@@ -735,7 +733,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
     const txsToMoveToPending: TxHash[] = [];
-    for (const [txHash, blockNumber] of this.txPool.getMinedTxHashes()) {
+    for (const [txHash, blockNumber] of await this.txPool.getMinedTxHashes()) {
       if (blockNumber > latestBlock) {
         txsToMoveToPending.push(txHash);
       }
@@ -778,7 +776,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return;
     }
 
-    const txs = this.txPool.getAllTxs();
+    const txs = await this.txPool.getAllTxs();
     if (txs.length > 0) {
       this.log.debug(`Publishing ${txs.length} previously stored txs`);
       await Promise.all(txs.map(tx => this.p2pService.propagate(tx)));
