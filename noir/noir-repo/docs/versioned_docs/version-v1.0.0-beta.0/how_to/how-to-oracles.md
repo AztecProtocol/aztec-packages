@@ -13,7 +13,7 @@ sidebar_position: 1
 
 This guide shows you how to use oracles in your Noir program. For the sake of clarity, it assumes that:
 
-- You have read the [explainer on Oracles](../explainers/explainer-oracle.md) and are comfortable with the concept.
+- You have read the [explainer on Oracles](../explainers/oracle.md) and are comfortable with the concept.
 - You have a Noir program to add oracles to. You can create one using the [vite-hardhat starter](https://github.com/noir-lang/noir-starter/tree/main/vite-hardhat) as a boilerplate.
 - You understand the concept of a JSON-RPC server. Visit the [JSON-RPC website](https://www.jsonrpc.org/) if you need a refresher.
 - You are comfortable with server-side JavaScript (e.g. Node.js, managing packages, etc.).

@@ -6,7 +6,7 @@ This directory contains the Ethereum smart contracts for progressing the state o
 
 You can install foundry as https://book.getfoundry.sh/ or by running the `./bootstrap.sh` script.
 
-Alternatively you can use docker instead, it will handle installations and run tests. Simply run `docker build .` from the `l1-contracts` folder.
+"Alternatively, you can use docker instead; it will handle installations and run tests. Simply run `docker build .` from the `l1-contracts` folder.
 
 ## Structure
 

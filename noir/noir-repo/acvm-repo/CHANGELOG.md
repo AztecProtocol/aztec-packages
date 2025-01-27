@@ -363,7 +363,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Remove keccak256 opcode from ACIR/Brillig (https://github.com/AztecProtocol/aztec-packages/pull/9104) ([70dcf4a](https://github.com/noir-lang/noir/commit/70dcf4a25dcad10daeb427f0887d3a0bf10c9916))
 * Remove noir_js_backend_barretenberg (https://github.com/AztecProtocol/aztec-packages/pull/9338) ([3925228](https://github.com/noir-lang/noir/commit/392522880e102e275ebcf42f16651a8ffa0bbbd2))
-* Remove pedersen commitment (https://github.com/AztecProtocol/aztec-packages/pull/9107) ([70dcf4a](https://github.com/noir-lang/noir/commit/70dcf4a25dcad10daeb427f0887d3a0bf10c9916))
 * Remove pedersen hash opcode (https://github.com/AztecProtocol/aztec-packages/pull/9245) ([70dcf4a](https://github.com/noir-lang/noir/commit/70dcf4a25dcad10daeb427f0887d3a0bf10c9916))
 * Replace usage of vector in keccakf1600 input with array (https://github.com/AztecProtocol/aztec-packages/pull/9350) ([3925228](https://github.com/noir-lang/noir/commit/392522880e102e275ebcf42f16651a8ffa0bbbd2))
 * Use Brillig opcode when possible for less-than operations on fields (https://github.com/AztecProtocol/aztec-packages/pull/9416) ([321a493](https://github.com/noir-lang/noir/commit/321a493216e19a2f077007c3447a3030db0df0d0))

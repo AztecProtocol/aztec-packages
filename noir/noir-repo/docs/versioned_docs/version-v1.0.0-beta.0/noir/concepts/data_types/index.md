@@ -119,7 +119,7 @@ Noir can usually infer the type of the variable from the context, so specifying 
 ```rust
 let a: [_; 4] = foo(b);
 ```
- 
+
 
 ### BigInt
 

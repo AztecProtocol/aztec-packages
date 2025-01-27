@@ -17,7 +17,7 @@ $\d$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ |diversifier |
 $\Gd$ | $\d \cdot G$ | diversified generator |
 $\Ivpkmd$ | $\ivskm \cdot \Gd$ | Diversified incoming viewing public key |
 
-> Notice: when $\d = 1$, $\Ivpkmd = \Ivpkm$. Often, it will be unncessary to diversify the below data, but we keep $\d$ around for the most generality.
+> Notice: when $\d = 1$, $\Ivpkmd = \Ivpkm$. Often, it will be unnecessary to diversify the below data, but we keep $\d$ around for the most generality.
 
 ## Deriving stealth public keys
 

@@ -17,7 +17,7 @@
 
 # Aztec.nr
 
-`Aztec-nr` is a [Noir](https://noir-lang.org) framework for smart contracts on [Aztec](aztec.network).
+`Aztec-nr` is a [Noir](https://noir-lang.org) framework for smart contracts on [Aztec](https://aztec.network).
 
 ### Directory Structure
 
