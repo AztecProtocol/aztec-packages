@@ -8,7 +8,7 @@ export interface MessageReceiver {
   call(msg: Buffer | Uint8Array): Promise<Buffer | Uint8Array>;
 }
 
-type RoundtripDuration = {
+export type RoundtripDuration = {
   encodingUs: number;
   callUs: number;
   decodingUs: number;
@@ -53,7 +53,7 @@ export class MsgpackChannel<
   public async sendMessage<T extends M>(
     msgType: T,
     body: Req[T],
-  ): Promise<{ requestId: number; duration: RoundtripDuration; response: Resp[T] }> {
+  ): Promise<{ duration: RoundtripDuration; response: Resp[T] }> {
     const duration: RoundtripDuration = {
       callUs: 0,
       totalUs: 0,
@@ -109,6 +109,6 @@ export class MsgpackChannel<
 
     duration.totalUs = Number((process.hrtime.bigint() - start) / 1000n);
 
-    return { requestId, duration, response: response.value };
+    return { duration, response: response.value };
   }
 }

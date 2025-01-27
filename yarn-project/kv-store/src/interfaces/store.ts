@@ -164,4 +164,6 @@ export interface AztecAsyncKVStore {
    * Estimates the size of the store in bytes.
    */
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+
+  close(): Promise<void>;
 }

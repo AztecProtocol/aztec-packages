@@ -1,7 +1,7 @@
 /**
  * The key type for use with the kv-store
  */
-export type Key = string | number | Array<string | number>;
+export type Key = string | number;
 
 /**
  * A range of keys to iterate over.
