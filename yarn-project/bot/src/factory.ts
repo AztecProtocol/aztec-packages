@@ -62,7 +62,7 @@ export class BotFactory {
   private async setupAccount() {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
-    const account = getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
+    const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
     const isInit = await this.pxe.isContractInitialized(account.getAddress());
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
@@ -111,7 +111,7 @@ export class BotFactory {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = deploy.getInstance(deployOpts).address;
+    const address = (await deploy.getInstance(deployOpts)).address;
     if (await this.pxe.isContractPubliclyDeployed(address)) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();

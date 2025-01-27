@@ -95,7 +95,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.executionCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
-      throw new Error('Invalid arguments size');
+      throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args.length}`);
     }
 
     const privateContextInputs = new PrivateContextInputs(

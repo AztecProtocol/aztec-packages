@@ -95,7 +95,6 @@ import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 export class TXE implements TypedOracle {
   private blockNumber = 0;
   private sideEffectCounter = 0;
-  private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
@@ -123,16 +122,16 @@ export class TXE implements TypedOracle {
 
   debug: LogFn;
 
-  constructor(
+  private constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private executionCache: HashedValuesCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
+    private contractAddress: AztecAddress,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
-    this.contractAddress = AztecAddress.random();
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
 
@@ -147,6 +146,16 @@ export class TXE implements TypedOracle {
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+  }
+
+  static async create(
+    logger: Logger,
+    trees: MerkleTrees,
+    executionCache: HashedValuesCache,
+    keyStore: KeyStore,
+    txeDatabase: TXEDatabase,
+  ) {
+    return new TXE(logger, trees, executionCache, keyStore, txeDatabase, await AztecAddress.random());
   }
 
   // Utils
@@ -255,8 +264,8 @@ export class TXE implements TypedOracle {
     const account = await this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
-    const authWitness = new AuthWitness(messageHash, [...signature]);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
+    const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
@@ -819,19 +828,30 @@ export class TXE implements TypedOracle {
       globalVariables,
     );
 
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+
     // When setting up a teardown call, we tell it that
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
     const tx = createTxForPublicCalls(
       /*setupExecutionRequests=*/ [],
       /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      firstNullifier,
       /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
       gasUsedByPrivate,
     );
 
     const result = await simulator.simulate(tx);
+    const noteHashes = result.avmProvingRequest.inputs.output.accumulatedData.noteHashes.filter(s => !s.isEmpty());
 
-    this.addPublicLogs(result.avmProvingRequest.inputs.publicInputs.publicLogs);
+    await this.addUniqueNoteHashesFromPublic(noteHashes);
+
+    this.addPublicLogs(
+      result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
+        log => !log.contractAddress.equals(AztecAddress.ZERO),
+      ),
+    );
 
     return Promise.resolve(result);
   }
@@ -883,7 +903,11 @@ export class TXE implements TypedOracle {
     const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
     const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
+    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
+
     await this.addPublicDataWrites(publicDataWrites);
     await this.addUniqueNoteHashesFromPublic(noteHashes);
     await this.addSiloedNullifiers(nullifiers);
@@ -937,7 +961,7 @@ export class TXE implements TypedOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
@@ -997,7 +1021,11 @@ export class TXE implements TypedOracle {
       const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
       const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty());
+      const { usedTxRequestHashForNonces } = this.noteCache.finish();
+      const firstNullifier = usedTxRequestHashForNonces
+        ? this.getTxRequestHash()
+        : this.noteCache.getAllNullifiers()[0];
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
       await this.addPublicDataWrites(publicDataWrites);
       await this.addUniqueNoteHashes(noteHashes);
       await this.addSiloedNullifiers(nullifiers);

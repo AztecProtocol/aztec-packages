@@ -6,8 +6,8 @@ import { makeAvmCircuitInputs } from '../../tests/factories.js';
 import { AvmCircuitInputs, serializeWithMessagePack } from './avm.js';
 
 describe('Avm circuit inputs', () => {
-  it(`serializes to buffer and deserializes it back`, () => {
-    const avmCircuitInputs = makeAvmCircuitInputs(randomInt(2000));
+  it(`serializes to buffer and deserializes it back`, async () => {
+    const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const buffer = avmCircuitInputs.toBuffer();
     const res = AvmCircuitInputs.fromBuffer(buffer);
     expect(res).toEqual(avmCircuitInputs);

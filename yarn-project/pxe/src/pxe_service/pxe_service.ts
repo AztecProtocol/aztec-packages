@@ -235,7 +235,8 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
-      if (!computeContractAddressFromInstance(instance).equals(instance.address)) {
+      const computedAddress = await computeContractAddressFromInstance(instance);
+      if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
@@ -279,13 +280,15 @@ export class PXEService implements PXE {
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
-          completeAddress.address.toAddressPoint().equals(dao.addressPoint),
-        );
-        if (completeAddresses === undefined) {
+        const completeAddresses = await this.db.getCompleteAddresses();
+        const completeAddressIndex = (
+          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
+        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddress = completeAddresses[completeAddressIndex];
+        if (completeAddress === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
-        owner = completeAddresses.address;
+        owner = completeAddress.address;
       }
       return new UniqueNote(
         dao.note,
@@ -358,7 +361,7 @@ export class PXEService implements PXE {
           l2BlockNumber,
           l2BlockHash,
           index,
-          owner.address.toAddressPoint(),
+          await owner.address.toAddressPoint(),
           note.noteTypeId,
         ),
         scope,
@@ -403,7 +406,7 @@ export class PXEService implements PXE {
           l2BlockNumber,
           l2BlockHash,
           index,
-          note.owner.toAddressPoint(),
+          await note.owner.toAddressPoint(),
           note.noteTypeId,
         ),
       );
@@ -688,7 +691,7 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();
@@ -865,25 +868,29 @@ export class PXEService implements PXE {
 
           const preaddress = registeredAccount.getPreaddress();
 
-          secretKey = computeAddressSecret(preaddress, secretKey);
+          secretKey = await computeAddressSecret(preaddress, secretKey);
         }
 
         return secretKey;
       }),
     );
 
-    const visibleEvents = privateLogs.flatMap(log => {
-      for (const sk of vsks) {
-        // TODO: Verify that the first field of the log is the tag siloed with contract address.
-        // Or use tags to query logs, like we do with notes.
-        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk);
-        if (decryptedEvent !== undefined) {
-          return [decryptedEvent];
-        }
-      }
+    const visibleEvents = (
+      await Promise.all(
+        privateLogs.map(async log => {
+          for (const sk of vsks) {
+            // TODO: Verify that the first field of the log is the tag siloed with contract address.
+            // Or use tags to query logs, like we do with notes.
+            const decryptedEvent = await L1EventPayload.decryptAsIncoming(log, sk);
+            if (decryptedEvent !== undefined) {
+              return [decryptedEvent];
+            }
+          }
 
-      return [];
-    });
+          return [];
+        }),
+      )
+    ).flat();
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {
@@ -892,11 +899,6 @@ export class PXEService implements PXE {
         }
         if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
-        }
-        if (visibleEvent.event.items.length !== eventMetadata.fieldNames.length) {
-          throw new Error(
-            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-          );
         }
 
         return eventMetadata.decode(visibleEvent);

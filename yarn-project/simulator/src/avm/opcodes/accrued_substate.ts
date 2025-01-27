@@ -201,7 +201,7 @@ export class L1ToL2MessageExists extends Instruction {
 }
 
 export class EmitUnencryptedLog extends Instruction {
-  // TODO(MW): rename unencrypted -> public
+  // TODO(#11124): rename unencrypted -> public
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.

@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 global CONFIG_LENGTH: u32 = 2;
 
@@ -19,5 +19,15 @@ impl Deserialize<CONFIG_LENGTH> for Config {
             accepted_asset: AztecAddress::from_field(fields[0]),
             admin: AztecAddress::from_field(fields[1]),
         }
+    }
+}
+
+impl Packable<CONFIG_LENGTH> for Config {
+    fn pack(self) -> [Field; CONFIG_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; CONFIG_LENGTH]) -> Self {
+        Self::deserialize(fields)
     }
 }
