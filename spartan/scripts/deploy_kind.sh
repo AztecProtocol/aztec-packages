@@ -10,7 +10,6 @@
 
 source $(git rev-parse --show-toplevel)/ci3/source
 set -x
-
 # Positional parameters.
 namespace="$1"
 
@@ -54,7 +53,7 @@ trap cleanup SIGINT SIGTERM EXIT
 # if we don't have a chaos values, remove any existing chaos experiments
 if [ -z "$chaos_values" ]; then
   echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces
+  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
 fi
 
 # Some configuration values are set in the eth-devnet/config/config.yaml file
@@ -67,7 +66,7 @@ fi
 helm upgrade --install spartan ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
-  --values "$values_path" \
+  --values "../aztec-network/values/$values_file" \
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
   --wait \
   --wait-for-jobs=true \

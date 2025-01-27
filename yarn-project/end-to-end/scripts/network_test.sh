@@ -85,7 +85,7 @@ trap cleanup SIGINT SIGTERM EXIT
 # if we don't have a chaos values, remove any existing chaos experiments
 if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces
+  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
 fi
 
 export VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"

@@ -13,9 +13,6 @@ function network_shaping {
     exit 1
   fi
 
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespace
-
   echo "Deploying Aztec Chaos Scenarios..."
   if ! helm upgrade --install aztec-chaos-scenarios aztec-chaos-scenarios \
     --namespace chaos-mesh \
@@ -86,7 +83,7 @@ case "$cmd" in
     network_shaping "$namespace" "$chaos_values"
     ;;
   "hash")
-    cache_content_hash .rebuild_patterns ../yarn-project/.rebuild_patterns
+    hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
     ;;
   "test-kind")
     scripts/test_kind.sh

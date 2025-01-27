@@ -17,6 +17,8 @@
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+set -x
+
 # Main positional parameter
 test=$1
 
@@ -42,6 +44,10 @@ fi
 if [ "$use_docker" = "true" ] && ! docker_has_image "aztecprotocol/end-to-end:$aztec_docker_tag"; then
   echo "End-to-end Docker image not found. It needs to be built."
   exit 1
+fi
+
+if [ "$install_metrics" = "true" ]; then
+  ../bootstrap.sh metrics-kind
 fi
 
 stern_pid=""
