@@ -254,7 +254,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_note_hashes(&mut self, private_call_public_inputs: PrivateCircuitPublicInputs) {
+        println("Prev note hashes");
+        println(self.public_inputs.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;
+        println("App note hashes");
+        println(note_hashes);
+        println("");
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
             if note_hash.value != 0 {
