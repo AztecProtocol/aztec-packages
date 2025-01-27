@@ -47,7 +47,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: "../barretenberg/ts/dest/browser/*.wasm",
+          src: "../barretenberg/ts/dest/browser/*.gz",
           dest: "assets/",
         },
       ],

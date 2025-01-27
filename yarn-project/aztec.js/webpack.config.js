@@ -18,7 +18,7 @@ export default {
   module: {
     rules: [
       {
-        test: /\.wasm\.gz$/,
+        test: /\.gz$/,
         type: 'asset/resource',
       },
       {

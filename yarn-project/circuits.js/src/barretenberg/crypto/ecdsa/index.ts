@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { concatenateUint8Arrays } from '../../serialize.js';
@@ -17,7 +17,7 @@ export class Ecdsa {
    * @returns A secp256k1 public key.
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const [result] = await api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
     return Buffer.from(result);
   }
@@ -29,7 +29,7 @@ export class Ecdsa {
    * @returns An ECDSA signature of the form (r, s, v).
    */
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [r, s, v] = await api
       .getWasm()
@@ -44,7 +44,7 @@ export class Ecdsa {
    * @returns The secp256k1 public key of the signer.
    */
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = await api
       .getWasm()
@@ -60,7 +60,7 @@ export class Ecdsa {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = await api
       .getWasm()

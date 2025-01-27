@@ -1,4 +1,4 @@
-import { BarretenbergLazy, Fr as FrBarretenberg } from '@aztec/bb.js';
+import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
@@ -12,8 +12,8 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
     throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
-  const api = await BarretenbergLazy.getSingleton();
-  const point = await api.pedersenCommit(
+  const api = await BarretenbergSync.initSingleton();
+  const point = api.pedersenCommit(
     input.map(i => new FrBarretenberg(i)),
     offset,
   );
@@ -30,8 +30,8 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
  */
 export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  const api = await BarretenbergLazy.getSingleton();
-  const hash = await api.pedersenHash(
+  const api = await BarretenbergSync.initSingleton();
+  const hash = api.pedersenHash(
     inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
     index,
   );
@@ -42,7 +42,7 @@ export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
  * Create a pedersen hash from an arbitrary length buffer.
  */
 export async function pedersenHashBuffer(input: Buffer, index = 0) {
-  const api = await BarretenbergLazy.getSingleton();
-  const result = await api.pedersenHashBuffer(input, index);
+  const api = await BarretenbergSync.initSingleton();
+  const result = api.pedersenHashBuffer(input, index);
   return Buffer.from(result.toBuffer());
 }

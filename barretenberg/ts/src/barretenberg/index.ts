@@ -89,9 +89,10 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
-let barrentenbergLazySingletonPromise: Promise<BarretenbergLazy>;
+let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
+let barretenbergSyncSingleton: BarretenbergSync;
 
-export class BarretenbergLazy extends BarretenbergApi {
+export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
@@ -100,41 +101,16 @@ export class BarretenbergLazy extends BarretenbergApi {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1);
     await wasm.init(module, threads);
-    return new BarretenbergLazy(wasm);
-  }
-
-  static async getSingleton() {
-    if (!barrentenbergLazySingletonPromise) {
-      barrentenbergLazySingletonPromise = BarretenbergLazy.new();
-    }
-    return await barrentenbergLazySingletonPromise;
-  }
-
-  getWasm() {
-    return this.wasm;
-  }
-}
-
-let barretenbergSyncSingleton: BarretenbergSync;
-let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
-
-export class BarretenbergSync extends BarretenbergApiSync {
-  private constructor(wasm: BarretenbergWasmMain) {
-    super(wasm);
-  }
-
-  static async new() {
-    const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1);
-    await wasm.init(module, threads);
     return new BarretenbergSync(wasm);
   }
 
-  static initSingleton() {
-    if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new().then(s => (barretenbergSyncSingleton = s));
+  static async initSingleton() {
+    if (!barrentenbergSyncSingletonPromise) {
+      barrentenbergSyncSingletonPromise = BarretenbergSync.new();
     }
-    return barretenbergSyncSingletonPromise;
+
+    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    return barretenbergSyncSingleton;
   }
 
   static getSingleton() {
