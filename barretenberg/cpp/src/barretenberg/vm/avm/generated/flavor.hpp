@@ -408,16 +408,6 @@ class AvmFlavor {
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
 
-    /*
-    class CommitmentLabels : public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
-    */
-
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>
     class VerifierCommitments_ : public AllEntities<Commitment_> {
