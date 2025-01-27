@@ -36,17 +36,9 @@ case ${SYS:-} in
     ;;
   "ultra_honk")
     FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack}"
-    # $BIN prove $FLAGS $BFLAG
-    # $BIN verify $FLAGS
-
-    # $BIN prove -o - $FLAGS $BFLAG
-    # $BIN write_vk -o - $FLAGS $BFLAG #--initialize_accumulator true
-
     $BIN verify $FLAGS \
         -k <($BIN write_vk -o - $FLAGS $BFLAG) \
         -p <($BIN prove -o - $FLAGS $BFLAG)
-        # -k ./target/vk
-        # -p ./target/proof
     ;;
   "ultra_honk_deprecated")
     SYS_DEP=_ultra_honk

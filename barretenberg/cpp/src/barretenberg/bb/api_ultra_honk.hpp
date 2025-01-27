@@ -49,7 +49,7 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
              metadata.recursive,
              " and honk_recursion = ",
              metadata.honk_recursion);
-        Builder circuit = acir_format::create_circuit<Builder>(stack[step], metadata);
+        const Builder circuit = acir_format::create_circuit<Builder>(stack[step], metadata);
         const auto& vk = vks[step]; // will be nullptr if no precomputed vks are provided
         info("vk is nullptr: ", vk == nullptr);
         ++step;
@@ -208,15 +208,16 @@ class UltraHonkAPI : public API {
             throw_or_abort("No input_type or input_type not supported");
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+        static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
+        init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
+        UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
+        info("instantiated ivc class");
+
         std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, "");
-        if (stack.size() > 1) {
-            throw_or_abort("write_vk not implemented for stacks of size > 1.");
-        }
-        vinfo("built stack");
+        info("built stack");
         VectorCircuitSource circuit_source{ stack };
-        vinfo("created circuit source");
-        auto [circuit, null_vk] = circuit_source.next();
-        vinfo("called next");
+        info("created circuit source");
 
         // WORKTODO: this should move in to source? repeated three times.
         // ProgramMetadata should be a std::vector<ProgramMetadatum> + global size info?
@@ -224,19 +225,11 @@ class UltraHonkAPI : public API {
         ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
                (*flags.initialize_pairing_point_accumulator) == "false");
         const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
-        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+        info("in write_vk initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
-        // UltraVanillaClientIVC ivc;
-        // ivc.handle_accumulator(circuit, /*step=*/0, initialize_pairing_point_accumulator);
+        ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
 
-        UltraProver prover{ circuit };
-        vinfo("created circuit source");
-        init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-        vinfo("initialized_crs");
-        UltraFlavor::VerificationKey vk(prover.proving_key->proving_key);
-        vinfo("computed vk");
-
-        auto serialized_vk = to_buffer(vk);
+        auto serialized_vk = to_buffer(ivc.previous_vk);
         vinfo("serialized vk");
 
         if (output_path == "-") {
