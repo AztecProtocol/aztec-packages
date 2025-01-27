@@ -29,9 +29,7 @@ export class Grumpkin {
    */
   public async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api
-      .getWasm()
-      .callWasmExport('ecc_grumpkin__mul', [point.toBuffer(), scalar.toBuffer()], [64]);
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__mul', [point.toBuffer(), scalar.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -43,7 +41,7 @@ export class Grumpkin {
    */
   public async add(a: Point, b: Point): Promise<Point> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api.getWasm().callWasmExport('ecc_grumpkin__add', [a.toBuffer(), b.toBuffer()], [64]);
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__add', [a.toBuffer(), b.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -59,7 +57,7 @@ export class Grumpkin {
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport(
         'ecc_grumpkin__batch_mul',
@@ -80,9 +78,7 @@ export class Grumpkin {
    */
   public async getRandomFr(): Promise<Fr> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api
-      .getWasm()
-      .callWasmExport('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', [], [32]);
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', [], [32]);
     return Fr.fromBuffer(Buffer.from(result));
   }
 
@@ -93,7 +89,7 @@ export class Grumpkin {
    */
   public async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('ecc_grumpkin__reduce512_buffer_mod_circuit_modulus', [uint512Buf], [32]);
     return Fr.fromBuffer(Buffer.from(result));

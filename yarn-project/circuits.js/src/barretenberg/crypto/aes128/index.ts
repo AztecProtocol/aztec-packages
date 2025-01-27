@@ -24,7 +24,7 @@ export class Aes128 {
 
     const api = await BarretenbergSync.initSingleton();
     return Buffer.from(
-      await api.aesEncryptBufferCbc(new RawBuffer(input), new RawBuffer(iv), new RawBuffer(key), input.length),
+      api.aesEncryptBufferCbc(new RawBuffer(input), new RawBuffer(iv), new RawBuffer(key), input.length),
     );
   }
 
@@ -38,7 +38,7 @@ export class Aes128 {
   public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
     const api = await BarretenbergSync.initSingleton();
     const paddedBuffer = Buffer.from(
-      await api.aesDecryptBufferCbc(new RawBuffer(data), new RawBuffer(iv), new RawBuffer(key), data.length),
+      api.aesDecryptBufferCbc(new RawBuffer(data), new RawBuffer(iv), new RawBuffer(key), data.length),
     );
     const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
     return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);

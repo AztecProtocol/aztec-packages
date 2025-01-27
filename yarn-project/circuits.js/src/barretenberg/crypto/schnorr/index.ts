@@ -19,7 +19,7 @@ export class Schnorr {
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<PublicKey> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
+    const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -32,7 +32,7 @@ export class Schnorr {
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [s, e] = await api
+    const [s, e] = api
       .getWasm()
       .callWasmExport('schnorr_construct_signature', [messageArray, privateKey.toBuffer()], [32, 32]);
     return new SchnorrSignature(Buffer.from([...s, ...e]));
@@ -48,7 +48,7 @@ export class Schnorr {
   public async verifySignature(msg: Uint8Array, pubKey: PublicKey, sig: SchnorrSignature) {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('schnorr_verify_signature', [messageArray, pubKey.toBuffer(), sig.s, sig.e], [1]);
     return result[0] === 1;

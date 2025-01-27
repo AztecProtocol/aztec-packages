@@ -18,7 +18,7 @@ export class Ecdsa {
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton();
-    const [result] = await api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
+    const [result] = api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
     return Buffer.from(result);
   }
 
@@ -46,7 +46,7 @@ export class Ecdsa {
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('ecdsa__recover_public_key_from_signature_', [messageArray, sig.r, sig.s, sig.v], [64]);
     return Buffer.from(result);
@@ -62,7 +62,7 @@ export class Ecdsa {
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('ecdsa__verify_signature_', [messageArray, pubKey, sig.r, sig.s, sig.v], [1]);
     return result[0] === 1;
