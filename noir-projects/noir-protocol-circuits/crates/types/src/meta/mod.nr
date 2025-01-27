@@ -105,7 +105,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
             let packed_fields = packed_fields_quotes.join(quote {,});
 
             // No we call unpack on the type
-            result = quote { aztec::protocol_types::traits::Packable::unpack([ $packed_fields ]) };
+            result = quote { Packable::unpack([ $packed_fields ]) };
 
             consumed_counter = packed_len;
         } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
@@ -479,7 +479,46 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq)]
+pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
+    let packing_enabled = true;
+
+    let typ = s.as_type();
+    let (fields, aux_vars) =
+        generate_serialize_to_fields(quote { self }, typ, &[], packing_enabled);
+    let aux_vars_for_packing = if aux_vars.len() > 0 {
+        let joint = aux_vars.join(quote {;});
+        quote { $joint; }
+    } else {
+        quote {}
+    };
+
+    let (unpacked, _) = generate_deserialize_from_fields(
+        quote { self },
+        typ,
+        quote { packed },
+        0,
+        quote {},
+        quote {},
+        packing_enabled,
+    );
+
+    let field_packings = fields.join(quote {,});
+    let packed_len = fields.len();
+    quote {
+        impl Packable<$packed_len> for $typ {
+            fn pack(self) -> [Field; $packed_len] {
+                $aux_vars_for_packing
+                [ $field_packings ]
+            }
+
+            fn unpack(packed: [Field; $packed_len]) -> Self {
+                $unpacked
+            }
+        }
+    }
+}
+
+#[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct Smol {
     a: Field,
     b: Field,
@@ -499,6 +538,12 @@ pub struct Fancier {
     d: str<16>,
 }
 
+#[derive(Eq, Packable)]
+pub struct ContainsU128 {
+    a: U128,
+    b: Field,
+}
+
 fn main() {
     assert(false);
 }
@@ -510,6 +555,10 @@ fn smol_test() {
     assert(serialized == [1, 2], serialized);
     let deserialized = Smol::deserialize(serialized);
     assert(deserialized == smol);
+
+    // None of the struct members implements the `Packable` trait so the packed and serialized data should be the same
+    let packed = smol.pack();
+    assert_eq(packed, serialized, "Packed does not match serialized");
 }
 
 #[test]
@@ -536,4 +585,14 @@ fn fancier_test() {
     );
     let deserialized = Fancier::deserialize(serialized);
     assert(deserialized == fancier);
+}
+
+#[test]
+fn contains_u128_test() {
+    let contains_u128 = ContainsU128 { a: U128::from_integer(5), b: 3 };
+    let packed = contains_u128.pack();
+    assert_eq(packed, [5, 3], "Packed does not match the expected");
+
+    let unpacked = ContainsU128::unpack(packed);
+    assert_eq(unpacked, contains_u128, "Unpacked does not match the original");
 }
