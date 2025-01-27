@@ -85,7 +85,7 @@ std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, F
         rho_challenge *= rho;
     }
 
-    if constexpr (IsAnyOf<Flavor, UltraZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraZKFlavor, UltraFlavor>) {
         multivariate_batching_challenges.push_back(rho);
         for (size_t idx = 0; idx < num_polys - 1; idx++) {
             multivariate_batching_challenges.push_back(
