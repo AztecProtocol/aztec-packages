@@ -6,7 +6,43 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Introduction of `Packable` trait
+We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array.
+This is in contrast to the `Serialize` and `Deserialize` traits, which follows Noir's intrinsic serialization format.
+This is a breaking change because we now require `Packable` trait implementation for any type that is to be stored in contract storage.
+
+Example implementation of Packable trait for `U128` type from `noir::std`:
+
+```
+use crate::traits::{Packable, ToField};
+
+let U128_PACKED_LEN: u32 = 1;
+
+impl Packable<U128_PACKED_LEN> for U128 {
+    fn pack(self) -> [Field; U128_PACKED_LEN] {
+        [self.to_field()]
+    }
+
+    fn unpack(fields: [Field; U128_PACKED_LEN]) -> Self {
+        U128::from_integer(fields[0])
+    }
+}
+```
+
 ## 0.72.0
+### Some functions in `aztec.js` and `@aztec/accounts` are now async
+In our efforts to make libraries more browser-friendly and providing with more bundling options for `bb.js` (like a non top-level-await version), some functions are being made async, in particular those that access our cryptographic functions.
+
+```diff
+- AztecAddress.random();
++ await AztecAddress.random();
+
+- getSchnorrAccount();
++ await getSchnorrAccount();
+```
+
 ### Public logs replace unencrypted logs
 Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
 ```diff
@@ -14,6 +50,12 @@ Any log emitted from public is now known as a public log, rather than an unencry
 - getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
 + getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>
 + getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
+```
+
+The context method in aztec.nr is now:
+```diff
+- context.emit_unencrypted_log(log)
++ context.emit_public_log(log)
 ```
 
 These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:

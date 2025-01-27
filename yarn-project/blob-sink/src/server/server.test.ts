@@ -94,7 +94,7 @@ describe('BlobSinkService', () => {
       expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
 
-    it('should retreive a single index', async () => {
+    it('should retrieve a single index', async () => {
       const getWithIndicies = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}?indices=1`);
 
       expect(getWithIndicies.status).toBe(200);

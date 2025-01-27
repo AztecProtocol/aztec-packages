@@ -203,6 +203,8 @@ spec:
               value: {{ .Values.validator.l1FixedPriorityFeePerGas | quote }}
             - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
               value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
+            - name: L1_GAS_PRICE_MAX
+              value: {{ .Values.validator.l1GasPriceMax | quote }}
             - name: DATA_DIRECTORY
               value: "{{ .Values.validator.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB

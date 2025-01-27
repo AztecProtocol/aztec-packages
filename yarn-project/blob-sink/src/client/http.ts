@@ -87,7 +87,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       }
     }
 
-    this.log.verbose('No blob sources configured');
+    this.log.verbose('No blob sources available');
     return [];
   }
 

@@ -354,8 +354,8 @@ class MockPXE implements PXE {
     expect(partialAddress).toBeInstanceOf(Fr);
     return Promise.resolve(CompleteAddress.random());
   }
-  getRegisteredAccounts(): Promise<CompleteAddress[]> {
-    return Promise.resolve([CompleteAddress.random()]);
+  async getRegisteredAccounts(): Promise<CompleteAddress[]> {
+    return [await CompleteAddress.random()];
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

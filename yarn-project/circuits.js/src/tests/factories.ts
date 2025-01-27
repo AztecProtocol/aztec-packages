@@ -1338,7 +1338,7 @@ export async function makeContractInstanceFromClassId(classId: Fr, seed = 0): Pr
     [classId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
-  const address = computeAddress(publicKeys, partialAddress);
+  const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
     version: 1,
     salt,

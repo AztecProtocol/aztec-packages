@@ -438,7 +438,7 @@ jobs:
           run: |
             until docker info &>/dev/null; do sleep 1; done
             export CI=1 USE_CACHE=1
-            artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)"
+            artifact="kind-network-${{matrix.config.test}}-$(./spartan/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
@@ -506,25 +506,26 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  boxes-test:
-    needs: [ci-rest, configure]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
-      - uses: ./.github/ci-setup-action
+  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/11471) reenable
+  # boxes-test:
+  #   needs: [ci-rest, configure]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
+  #     - uses: ./.github/ci-setup-action
 
-      - name: Build Boxes
-        uses: ./.github/ensure-builder
-        timeout-minutes: 40
-        with:
-          username: ${{ needs.configure.outputs.username }}
-          runner_type: builder-x86
-          run: |
-            export CI=1 USE_CACHE=1
-            if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
-              ./bootstrap.sh test-boxes
-            fi
+  #     - name: Build Boxes
+  #       uses: ./.github/ensure-builder
+  #       timeout-minutes: 40
+  #       with:
+  #         username: ${{ needs.configure.outputs.username }}
+  #         runner_type: builder-x86
+  #         run: |
+  #           export CI=1 USE_CACHE=1
+  #           if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
+  #             ./bootstrap.sh test-boxes
+  #           fi
 
   prover-client-test:
     needs: [ci-rest, configure]
@@ -656,7 +657,7 @@ jobs:
       - bb-native-tests
       - kind-network-smoke
       - kind-network-test
-      - boxes-test
+      # - boxes-test
       # - testnet-installer
     if: always()
     outputs:

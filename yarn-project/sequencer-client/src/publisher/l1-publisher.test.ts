@@ -155,6 +155,8 @@ describe('L1Publisher', () => {
       gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
+    (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
+    (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -238,7 +240,8 @@ describe('L1Publisher', () => {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
-      { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
+      // val + (val * 20n) / 100n
+      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
       { blobs: expectedBlobs.map(b => b.data), kzg },
     );
 
