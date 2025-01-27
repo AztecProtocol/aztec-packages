@@ -110,14 +110,14 @@ void AvmProver::execute_relation_check_rounds()
 void AvmProver::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    PolynomialBatches polynomial_batches(key->circuit_size);
-    polynomial_batches.set_unshifted(prover_polynomials.get_unshifted());
-    polynomial_batches.set_to_be_1_shifted(prover_polynomials.get_to_be_shifted());
+    PolynomialBatcher polynomial_batcher(key->circuit_size);
+    polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_1_shifted(prover_polynomials.get_to_be_shifted());
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        key->circuit_size, polynomial_batches, sumcheck_output.challenge, commitment_key, transcript);
+        key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

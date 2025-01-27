@@ -15,6 +15,7 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 };
 } // namespace
 
@@ -232,7 +233,6 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -256,15 +256,15 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     // Run the full prover PCS protocol:
 
-    PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted({ poly1, poly2 });
-    polynomial_batches.set_to_be_1_shifted({ poly2 });
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2 });
+    polynomial_batcher.set_to_be_1_shifted({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(n, polynomial_batches, mle_opening_point, this->ck(), prover_transcript);
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
@@ -290,7 +290,6 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -312,15 +311,15 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     // Run the full prover PCS protocol:
 
-    PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted({ poly1, poly2 });
-    polynomial_batches.set_to_be_1_shifted({ poly2 });
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2 });
+    polynomial_batcher.set_to_be_1_shifted({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(n, polynomial_batches, mle_opening_point, this->ck(), prover_transcript);
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
@@ -351,7 +350,6 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -383,15 +381,15 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
 
     // Run the full prover PCS protocol:
 
-    PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted({ poly1, poly2, poly3, poly4 });
-    polynomial_batches.set_to_be_1_shifted({ poly2, poly3 });
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
+    polynomial_batcher.set_to_be_1_shifted({ poly2, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(n, polynomial_batches, mle_opening_point, this->ck(), prover_transcript);
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);

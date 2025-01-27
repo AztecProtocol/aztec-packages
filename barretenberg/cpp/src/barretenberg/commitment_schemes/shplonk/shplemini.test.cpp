@@ -173,7 +173,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -198,20 +198,12 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
-    RefVector<Polynomial> f_polynomials(pcs_instance_witness.unshifted_polynomials);
-    RefVector<Polynomial> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
-
-    PolynomialBatches polynomial_batches(this->n);
-    polynomial_batches.set_unshifted(f_polynomials);
-    polynomial_batches.set_to_be_1_shifted(g_polynomials);
-
-    // WORKTODO: could be a place to use something like below
-    // PolynomialBatches polynomial_batches{ .full_batched_size = this->n,
-    //                                       .unshifted = pcs_instance_witness.unshifted_polynomials,
-    //                                       .to_be_1_shifted = pcs_instance_witness.to_be_shifted_polynomials };
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     Fr running_scalar = Fr(1);
-    Polynomial batched = polynomial_batches.compute_batched(rho, running_scalar);
+    Polynomial batched = polynomial_batcher.compute_batched(rho, running_scalar);
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -225,7 +217,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     }
 
     auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
-        this->log_n, polynomial_batches, gemini_eval_challenge);
+        this->log_n, polynomial_batcher, gemini_eval_challenge);
 
     const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
         this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);
@@ -289,7 +281,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
-    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     // Initialize transcript and commitment key
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
@@ -321,16 +313,13 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
 
-    RefVector<Polynomial<Fr>> f_polynomials(pcs_instance_witness.unshifted_polynomials);
-    RefVector<Polynomial<Fr>> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
-
-    PolynomialBatches polynomial_batches(this->n);
-    polynomial_batches.set_unshifted(f_polynomials);
-    polynomial_batches.set_to_be_1_shifted(g_polynomials);
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      polynomial_batches,
+                                                      polynomial_batcher,
                                                       const_size_mle_opening_point,
                                                       ck,
                                                       prover_transcript,
@@ -411,7 +400,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 
@@ -440,16 +429,13 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, challenge, claimed_inner_product, prover_transcript, ck);
 
-    RefVector<Polynomial<Fr>> f_polynomials(pcs_instance_witness.unshifted_polynomials);
-    RefVector<Polynomial<Fr>> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
-
-    PolynomialBatches polynomial_batches(this->n);
-    polynomial_batches.set_unshifted(f_polynomials);
-    polynomial_batches.set_to_be_1_shifted(g_polynomials);
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      polynomial_batches,
+                                                      polynomial_batcher,
                                                       challenge,
                                                       ck,
                                                       prover_transcript,

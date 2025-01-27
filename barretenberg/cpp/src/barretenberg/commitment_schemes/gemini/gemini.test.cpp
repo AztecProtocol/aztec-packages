@@ -7,7 +7,7 @@ using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -25,15 +25,15 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         size_t circuit_size = 1 << multilinear_evaluation_point.size();
 
-        PolynomialBatches polynomial_batches(circuit_size);
-        polynomial_batches.set_unshifted(multilinear_polynomials);
-        polynomial_batches.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
+        PolynomialBatcher polynomial_batcher(circuit_size);
+        polynomial_batcher.set_unshifted(multilinear_polynomials);
+        polynomial_batcher.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(
-            circuit_size, polynomial_batches, multilinear_evaluation_point, this->commitment_key, prover_transcript);
+            circuit_size, polynomial_batcher, multilinear_evaluation_point, this->commitment_key, prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
         this->verify_batch_opening_pair(prover_output);
@@ -76,15 +76,15 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         size_t circuit_size = 1 << multilinear_evaluation_point.size();
 
-        PolynomialBatches polynomial_batches(circuit_size);
-        polynomial_batches.set_unshifted(multilinear_polynomials);
-        polynomial_batches.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
+        PolynomialBatcher polynomial_batcher(circuit_size);
+        polynomial_batcher.set_unshifted(multilinear_polynomials);
+        polynomial_batcher.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(circuit_size,
-                                                 polynomial_batches,
+                                                 polynomial_batcher,
                                                  multilinear_evaluation_point,
                                                  this->commitment_key,
                                                  prover_transcript,

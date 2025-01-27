@@ -62,26 +62,26 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
 
-    PolynomialBatches polynomial_batches(proving_key->proving_key.circuit_size);
-    polynomial_batches.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
-    polynomial_batches.set_to_be_1_shifted(proving_key->proving_key.polynomials.get_to_be_shifted());
+    PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
+    polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_1_shifted(proving_key->proving_key.polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            proving_key->proving_key.circuit_size, polynomial_batches, sumcheck_output.challenge, ck, transcript);
+            proving_key->proving_key.circuit_size, polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              polynomial_batches,
+                                                              polynomial_batcher,
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,

@@ -22,11 +22,11 @@ template <typename Curve> class ShpleminiProver_ {
     using VK = CommitmentKey<Curve>;
     using ShplonkProver = ShplonkProver_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatches = GeminiProver::PolynomialBatches;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     template <typename Transcript>
     static OpeningClaim prove(const FF circuit_size,
-                              PolynomialBatches& polynomial_batches,
+                              PolynomialBatcher& polynomial_batcher,
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
@@ -39,7 +39,7 @@ template <typename Curve> class ShpleminiProver_ {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
-                                                                       polynomial_batches,
+                                                                       polynomial_batcher,
                                                                        multilinear_challenge,
                                                                        commitment_key,
                                                                        transcript,

@@ -43,7 +43,7 @@ template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr circuit_size,
-    PolynomialBatches& polynomial_batches,
+    PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
@@ -65,7 +65,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:masking_poly_eval",
                                      random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
         // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
-        polynomial_batches.initialize_batched_unshifted(std::move(random_polynomial));
+        polynomial_batcher.initialize_batched_unshifted(std::move(random_polynomial));
     }
 
     // Get the batching challenge
@@ -73,7 +73,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     Fr rho_challenge = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
-    Polynomial A_0 = polynomial_batches.compute_batched(rho, rho_challenge);
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho, rho_challenge);
 
     size_t num_groups = groups_to_be_concatenated.size();
     size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
@@ -123,7 +123,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
     auto [A_0_pos, A_0_neg] =
-        compute_partially_evaluated_batch_polynomials(log_n, polynomial_batches, r_challenge, batched_group);
+        compute_partially_evaluated_batch_polynomials(log_n, polynomial_batcher, r_challenge, batched_group);
 
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
@@ -218,11 +218,11 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
 template <typename Curve>
 std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::
     compute_partially_evaluated_batch_polynomials(const size_t log_n,
-                                                  PolynomialBatches& polynomial_batches,
+                                                  PolynomialBatcher& polynomial_batcher,
                                                   const Fr& r_challenge,
                                                   const std::vector<Polynomial>& batched_groups_to_be_concatenated)
 {
-    auto [A_0_pos, A_0_neg] = polynomial_batches.compute_partially_evaluated_batch_polynomials(r_challenge);
+    auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
 
     // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and add
     // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):
