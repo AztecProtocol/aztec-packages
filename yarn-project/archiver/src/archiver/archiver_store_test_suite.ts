@@ -30,7 +30,10 @@ import { type L1Published } from './structs/published.js';
  * @param testName - The name of the test suite.
  * @param getStore - Returns an instance of a store that's already been initialized.
  */
-export function describeArchiverDataStore(testName: string, getStore: () => ArchiverDataStore) {
+export function describeArchiverDataStore(
+  testName: string,
+  getStore: () => ArchiverDataStore | Promise<ArchiverDataStore>,
+) {
   describe(testName, () => {
     let store: ArchiverDataStore;
     let blocks: L1Published<L2Block>[];
@@ -52,7 +55,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     beforeEach(async () => {
-      store = getStore();
+      store = await getStore();
       blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
     });
 
@@ -124,6 +127,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it("returns the most recently added block's number", async () => {
+        console.log('HERE');
         await store.addBlocks(blocks);
         await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.data.number);
       });

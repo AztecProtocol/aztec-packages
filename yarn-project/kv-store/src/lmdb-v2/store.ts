@@ -47,17 +47,20 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
     });
   }
 
-  public static async new(dataDir: string, mapSize?: number, maxReaders?: number) {
-    const db = new AztecLMDBStoreV2(dataDir, mapSize, maxReaders);
+  public static async new(dataDir: string, dbMapSizeKb: number = 10 * 1024 * 1024, maxReaders: number = 16) {
+    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders);
     await db.init();
     return db;
   }
 
-  public static async tmp(prefix: string = 'data', cleanupTmpDir = true) {
+  public static async tmp(
+    prefix: string = 'data',
+    cleanupTmpDir = true,
+    dbMapSizeKb: number = 10 * 1024 * 1024,
+    maxReaders: number = 16,
+  ) {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), prefix + '-'));
-    const dbMapSizeKb = 10 * 1024 * 1024;
-    const maxReaders = 16;
     log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
