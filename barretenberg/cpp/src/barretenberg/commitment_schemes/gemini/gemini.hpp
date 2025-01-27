@@ -100,6 +100,22 @@ template <typename Curve, typename Flavor = void> class GeminiProver_ {
     using Claim = ProverOpeningClaim<Curve>;
 
   public:
+    template <typename Transcript>
+    static void batch_unshifted_and_shifted(RefSpan<Polynomial> f_polynomials,
+                                            RefSpan<Polynomial> g_polynomials,
+                                            Polynomial& batched_unshifted,
+                                            Polynomial& batched_to_be_shifted,
+                                            const std::shared_ptr<Transcript>& transcript);
+    template <typename Transcript>
+    static void batch_unshifted_and_shifted(RefSpan<Polynomial> f_polynomials,
+                                            RefSpan<Polynomial> g_polynomials,
+                                            Polynomial& batched_unshifted,
+                                            Polynomial& batched_to_be_shifted,
+                                            const std::shared_ptr<Transcript>& transcript,
+                                            Fr& rho,
+                                            Fr& rho_challenge_power,
+                                            bool has_zk);
+
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
                                                             const Polynomial& A_0);

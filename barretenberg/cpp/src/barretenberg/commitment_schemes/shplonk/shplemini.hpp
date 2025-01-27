@@ -583,6 +583,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             batched_evaluation += unshifted_evaluation * unshifted_batching_challenge;
             unshifted_comms.emplace_back(std::move(unshifted_commitment));
         }
+
         for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
              zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
             // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
@@ -591,18 +592,27 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
+            // The case of UltraZKRecursive
             if constexpr ((std::is_same_v<typename Curve::Builder, UltraCircuitBuilder>)&&!(
                               std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
                 Commitment batched_unshifted =
                     Commitment::bn254_endo_batch_mul({}, {}, unshifted_comms, unshifted_batching_challenges, 128);
-                Commitment batched_shifted =
-                    Commitment::bn254_endo_batch_mul({}, {}, shifted_comms, shifted_batching_challenges, 128);
 
                 commitments[1] += batched_unshifted;
                 scalars[1] = -unshifted_scalar;
-                commitments.push_back(batched_shifted);
-                scalars.push_back(-shifted_scalar);
+
+                // Due to a small number of shifted commitments, another batch mul with short scalars is slightly more
+                // expensive than adding such commitments to the accumulator
+                for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
+                     zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
+                    // Move shifted commitments to the 'commitments' vector
+                    commitments.emplace_back(std::move(shifted_commitment));
+                    // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
+                    scalars.emplace_back(-shifted_scalar * shifted_batching_challenge);
+                }
             };
+
+            // The case of MegaZKRecursive
             if constexpr ((std::is_same_v<typename Curve::Builder, MegaCircuitBuilder>)&&!(
                               std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
                 Commitment batched_unshifted =
@@ -616,13 +626,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
 
         } else {
-            for (auto comm : unshifted_commitments) {
-                info(comm);
-            }
-            info("====");
-            for (auto comm : shifted_commitments) {
-                info(comm);
-            }
+            // Native verification
+
             Commitment batched_unshifted = batch_mul_native(unshifted_comms, unshifted_batching_challenges);
             Commitment batched_shifted = batch_mul_native(shifted_comms, shifted_batching_challenges);
 

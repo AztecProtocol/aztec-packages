@@ -71,45 +71,16 @@ std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, F
                                      batched_unshifted.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
     }
 
-    // Get the batching challenge
-    const Fr rho = transcript->template get_challenge<Fr>("rho");
+    Fr rho{ 1 };
+    Fr rho_power{ 1 };
 
-    info(rho);
-
-    std::vector<Fr> multivariate_batching_challenges;
-    size_t num_polys = f_polynomials.size() + g_polynomials.size();
-
-    Fr rho_challenge{ 1 };
-    if (has_zk) {
-        // ρ⁰ is used to batch the hiding polynomial
-        rho_challenge *= rho;
-    }
-
+    // Compute random linear combinations of all to-be-shifted and unshifted polynomials. With UltraZKFlavor and
+    // MegaZKFlavor, we take advantage of 128 bit challenges and generate separate challenges for all polynomials
     if constexpr (IsAnyOf<Flavor, UltraZKFlavor, MegaZKFlavor>) {
-        multivariate_batching_challenges.push_back(rho);
-        for (size_t idx = 0; idx < num_polys - 1; idx++) {
-            multivariate_batching_challenges.push_back(
-                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
-        }
-
-        for (size_t idx = 0; idx < f_polynomials.size(); idx++) {
-            batched_unshifted.add_scaled(f_polynomials[idx], multivariate_batching_challenges[idx]);
-        };
-
-        for (size_t idx = 0; idx < g_polynomials.size(); idx++) {
-            size_t challenge_idx = f_polynomials.size() + idx;
-            batched_to_be_shifted.add_scaled(g_polynomials[idx], multivariate_batching_challenges[challenge_idx]);
-        };
+        batch_unshifted_and_shifted(f_polynomials, g_polynomials, batched_unshifted, batched_to_be_shifted, transcript);
     } else {
-
-        for (size_t i = 0; i < f_polynomials.size(); i++) {
-            batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-            rho_challenge *= rho;
-        }
-        for (size_t i = 0; i < g_polynomials.size(); i++) {
-            batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
-            rho_challenge *= rho;
-        }
+        batch_unshifted_and_shifted(
+            f_polynomials, g_polynomials, batched_unshifted, batched_to_be_shifted, transcript, rho, rho_power, has_zk);
     }
 
     size_t num_groups = groups_to_be_concatenated.size();
@@ -125,11 +96,11 @@ std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, F
         }
 
         for (size_t i = 0; i < num_groups; ++i) {
-            batched_concatenated.add_scaled(concatenated_polynomials[i], rho_challenge);
+            batched_concatenated.add_scaled(concatenated_polynomials[i], rho_power);
             for (size_t j = 0; j < num_chunks_per_group; ++j) {
-                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
+                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], rho_power);
             }
-            rho_challenge *= rho;
+            rho_power *= rho;
         }
     }
 
@@ -182,6 +153,55 @@ std::vector<typename GeminiProver_<Curve, Flavor>::Claim> GeminiProver_<Curve, F
 
     return claims;
 };
+template <typename Curve, typename Flavor>
+template <typename Transcript>
+void GeminiProver_<Curve, Flavor>::batch_unshifted_and_shifted(
+    RefSpan<Polynomial> f_polynomials, // unshifted
+    RefSpan<Polynomial> g_polynomials, // to - be - shifted,
+    Polynomial& batched_unshifted,     // random linear combination of f_polynomials
+    Polynomial& batched_to_be_shifted,
+    const std::shared_ptr<Transcript>& transcript) // random linear combination of g_polynomials
+{
+    for (size_t idx = 0; idx < f_polynomials.size(); idx++) {
+        const Fr batching_challenge = transcript->template get_challenge<Fr>("rho_" + std::to_string(idx));
+        batched_unshifted.add_scaled(f_polynomials[idx], batching_challenge);
+    };
+
+    for (size_t idx = 0; idx < g_polynomials.size(); idx++) {
+        size_t challenge_idx = f_polynomials.size() + idx;
+        const Fr batching_challenge = transcript->template get_challenge<Fr>("rho_" + std::to_string(challenge_idx));
+        batched_to_be_shifted.add_scaled(g_polynomials[idx], batching_challenge);
+    };
+}
+
+// Generic batching method. Also works for Flavor = void.
+template <typename Curve, typename Flavor>
+template <typename Transcript>
+void GeminiProver_<Curve, Flavor>::batch_unshifted_and_shifted(RefSpan<Polynomial> f_polynomials, // unshifted
+                                                               RefSpan<Polynomial> g_polynomials, // to - be - shifted,
+                                                               Polynomial& batched_unshifted,
+                                                               Polynomial& batched_to_be_shifted,
+                                                               const std::shared_ptr<Transcript>& transcript,
+                                                               Fr& rho,
+                                                               Fr& rho_power,
+                                                               const bool has_zk)
+{
+    rho = transcript->template get_challenge<Fr>("rho");
+
+    if (has_zk) {
+        // ρ⁰ is used to batch the hiding polynomial
+        rho_power *= rho;
+    }
+
+    for (size_t i = 0; i < f_polynomials.size(); i++) {
+        batched_unshifted.add_scaled(f_polynomials[i], rho_power);
+        rho_power *= rho;
+    }
+    for (size_t i = 0; i < g_polynomials.size(); i++) {
+        batched_to_be_shifted.add_scaled(g_polynomials[i], rho_power);
+        rho_power *= rho;
+    }
+}
 
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
