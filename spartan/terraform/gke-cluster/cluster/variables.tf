@@ -10,3 +10,9 @@ variable "zone" {
   default = "us-west1-a"
 }
 
+variable "cluster_name" {
+}
+
+variable "service_account" {
+
+}

@@ -3,6 +3,10 @@ name: Deploy devnet
 on:
   workflow_dispatch:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        default: aztec-gke-private
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
@@ -35,7 +39,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   CONTRACT_S3_BUCKET: s3://static.aztec.network
-  CLUSTER_NAME: aztec-gke
+  CLUSTER_NAME: ${{ inputs.cluster }}
   REGION: us-west1-a
   NAMESPACE: ${{ inputs.namespace }}
   AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
@@ -45,6 +49,7 @@ jobs:
     uses: ./.github/workflows/network-deploy.yml
     with:
       namespace: ${{ github.event.inputs.namespace }}
+      cluster: ${{ github.event.inputs.cluster }}
       values_file: release-devnet.yaml
       aztec_docker_image: ${{ github.event.inputs.aztec_docker_image }}
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}

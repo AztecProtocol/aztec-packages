@@ -13,6 +13,7 @@ jobs:
     uses: ./.github/workflows/network-deploy.yml
     with:
       ref: master
+      cluster: aztec-gke-private
       namespace: masternet
       values_file: rc-1.yaml
       aztec_docker_image: aztecprotocol/aztec:master
