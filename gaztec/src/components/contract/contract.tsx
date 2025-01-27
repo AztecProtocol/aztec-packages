@@ -241,7 +241,7 @@ export function ContractComponent() {
       const call = currentContract.methods[fnName](...parameters[fnName]);
 
       const provenCall = await call.prove();
-      txHash = provenCall.getTxHash();
+      txHash = await provenCall.getTxHash();
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: "sending" },
