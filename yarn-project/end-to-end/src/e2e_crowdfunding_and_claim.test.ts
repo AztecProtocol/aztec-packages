@@ -55,7 +55,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
 
-  let valueNote!: any;
+  let uintNote!: any;
 
   beforeAll(async () => {
     ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(3));
@@ -166,14 +166,14 @@ describe('e2e_crowdfunding_and_claim', () => {
           debug: true,
         });
 
-      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
+      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
       const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
 
-      // Set the value note in a format which can be passed to claim function
-      valueNote = processUniqueNote(filteredNotes![0]);
+      // Set the UintNote in a format which can be passed to claim function
+      uintNote = processUniqueNote(filteredNotes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -183,7 +183,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
       await claimContract
         .withWallet(donorWallets[0])
-        .methods.claim(valueNote, donorWallets[0].getAddress())
+        .methods.claim(uintNote, donorWallets[0].getAddress())
         .send()
         .wait();
     }
@@ -213,7 +213,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   it('cannot claim twice', async () => {
     // The first claim was executed in the previous test
     await expect(
-      claimContract.withWallet(donorWallets[0]).methods.claim(valueNote, donorWallets[0].getAddress()).send().wait(),
+      claimContract.withWallet(donorWallets[0]).methods.claim(uintNote, donorWallets[0].getAddress()).send().wait(),
     ).rejects.toThrow();
   });
 
@@ -241,13 +241,13 @@ describe('e2e_crowdfunding_and_claim', () => {
         debug: true,
       });
 
-    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
+    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
     await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
     const notes = await unrelatedWallet.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
 
-    // Set the value note in a format which can be passed to claim function
+    // Set the UintNote in a format which can be passed to claim function
     const anotherDonationNote = processUniqueNote(filtered![0]);
 
     // 3) We try to claim the reward token via the Claim contract with an unrelated wallet
@@ -263,8 +263,8 @@ describe('e2e_crowdfunding_and_claim', () => {
   });
 
   it('cannot claim with a non-existent note', async () => {
-    // We get a non-existent note by copy the value note and change the randomness to a random value
-    const nonExistentNote = { ...valueNote };
+    // We get a non-existent note by copy the UintNote and change the randomness to a random value
+    const nonExistentNote = { ...uintNote };
     nonExistentNote.randomness = Fr.random();
 
     await expect(
