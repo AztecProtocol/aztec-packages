@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737978432778,
+  "lastUpdate": 1738002653473,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de9960345da17e97464d2c36c35e3eada4fa3680",
-          "message": "feat: permutation argument optimizations  (#10960)\n\nA handful of optimizations for the large ambient trace setting, mostly\nto do with the grand product argument. Total savings is about 1s on the\n\"17 in 20\" benchmark.\n\n- Only perform computation for the grand product on active rows of the\ntrace. This means (1) only setting the values of sigma/id on the active\nrows (they remain zero elsewhere since those values don't contribute to\nthe grand product anyway). And (2) only compute the grand product at\nactive rows then populate the constant regions as a final step. These\nare both facilitated by constructing a vector `active_row_idxs` which\nexplicitly contains the indices of the active rows. This makes it easier\nto multithread and is much more efficient than looping over the entire\ndomain and using something like `check_is_active()` which itself has low\noverhead but results in huge disparities in the distribution of actual\nwork across threads.\n- Replace a default initialized `std::vector` in PG with a `Polynomial`\nsimply to take advantage of the optimized constructor\n\nBranch \"17 in 20\" benchmark\n\n`ClientIVCBench/Full/6      20075 ms        17763 ms`\n\nMaster \"17 in 20\" benchmark\n\n`ClientIVCBench/Full/6      21054 ms        18395 ms`\n\nThe conventional benchmark (\"19 in 19\") shows a very minor improvement,\nas expected:\n\nBranch: \n\n`ClientIVCBench/Full/6      22231 ms        19857 ms`\n\nMaster:\n\n`ClientIVCBench/Full/6      22505 ms        19536 ms`",
-          "timestamp": "2025-01-09T10:33:11-07:00",
-          "tree_id": "73828bc83a35e049de401d8b3346b10c8b2ba7b5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/de9960345da17e97464d2c36c35e3eada4fa3680"
-        },
-        "date": 1736445435828,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19884.75347799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17097.27884 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21838.192907999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18876.969049 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4740.065844000014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4328.781017000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72406.167237,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72406168000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14272.296748000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14272298000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3231217012,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3231217012 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141715859,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141715859 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 147437927,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 147437927 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac26e1dfebf7d9463065fa02a03d0a6eb779e591",
+          "message": "chore(avm): better namespace reporting (#11535)\n\nUsing the prefix until _ didn't always work, so I use the relation names now.\n\n```\nColumn sizes per namespace:\n  precomputed: 2097152 (~2^21)\n  execution: 6 (~2^3)\n  alu: 1 (~2^0)\n  bc_decomposition: 61945 (~2^16)\n  bc_retrieval: 1 (~2^0)\n  instr_fetching: 6 (~2^3)\n  range_check: 1 (~2^0)\n  lookup: 196608 (~2^18)\n  perm: 6 (~2^3)\n```",
+          "timestamp": "2025-01-27T18:14:57Z",
+          "tree_id": "9519e8f337b68bb59e6cc655c8b8bce293e6e528",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac26e1dfebf7d9463065fa02a03d0a6eb779e591"
+        },
+        "date": 1738002645812,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18924.700506999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15959.697497 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21547.21702300003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19306.798523 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4062.360423000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3738.07984 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75660.799069,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75660799000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14659.975545000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14659976000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3063890200,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3063890200 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133734462,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133734462 ns\nthreads: 1"
           }
         ]
       }
