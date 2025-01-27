@@ -429,7 +429,11 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 
     let mut single_token = quote {};
     for token in tokens {
-        let new_token = if token == quote {.} { quote {_} } else { token };
+        let new_token = if ((token == quote {.}) | (token == quote {[}) | (token == quote {]})) {
+            quote {_}
+        } else {
+            token
+        };
         single_token = f"{single_token}{new_token}".quoted_contents();
     }
     single_token
