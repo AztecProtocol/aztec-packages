@@ -14,8 +14,10 @@ import { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
 import { AztecAsyncSet } from '../interfaces/set.js';
 import { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import { AztecAsyncKVStore } from '../interfaces/store.js';
+import { LMDBMap, LMDBMultiMap } from './map.js';
 import { Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
+import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
@@ -84,15 +86,15 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
   }
 
   openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V> {
-    throw new Error('Not implemented');
+    return new LMDBMap(this, name);
   }
 
   openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
-    throw new Error('Not implemented');
+    return new LMDBMultiMap(this, name);
   }
 
   openSingleton<T>(name: string): AztecAsyncSingleton<T> {
-    throw new Error('Not implemented');
+    return new LMDBSingleValue(this, name);
   }
 
   openArray<T>(_name: string): AztecAsyncArray<T> {
