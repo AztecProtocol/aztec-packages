@@ -12,19 +12,10 @@
 #include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_dummy_dynamic.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_dummy_precomputed.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_diff.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r0_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r1_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r2_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r3_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r4_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r5_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r6_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_is_r7_16_bit.hpp"
-#include "barretenberg/vm2/generated/relations/lookup_rng_chk_pow_2.hpp"
-#include "barretenberg/vm2/generated/relations/perm_dummy_dynamic.hpp"
+#include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
@@ -74,12 +65,27 @@ template <typename T> inline void clear_events(T& c)
 
 void print_trace_stats(const TraceContainer& trace)
 {
+    constexpr auto main_relation_names = [] {
+        constexpr size_t size = std::tuple_size_v<AvmFlavor::MainRelations>;
+        std::array<std::string_view, size> names{};
+        constexpr_for<0, size, 1>(
+            [&names]<size_t i> { names[i] = std::tuple_element_t<i, AvmFlavor::MainRelations>::NAME; });
+        return names;
+    }();
+
     unordered_flat_map<std::string, uint32_t> namespace_column_sizes;
     uint64_t total_rows = 0;
     for (size_t col = 0; col < trace.num_columns(); ++col) {
         const auto& column_rows = trace.get_column_rows(static_cast<Column>(col));
         const std::string& column_name = COLUMN_NAMES.at(col);
-        const auto namespace_name = column_name.substr(0, column_name.find('_'));
+        const std::string namespace_name = [&]() {
+            for (const auto& main_relation_name : main_relation_names) {
+                if (column_name.starts_with(main_relation_name)) {
+                    return std::string(main_relation_name);
+                }
+            }
+            return column_name.substr(0, column_name.find_first_of('_'));
+        }();
         namespace_column_sizes[namespace_name] = std::max(namespace_column_sizes[namespace_name], column_rows);
         total_rows += column_rows;
     }

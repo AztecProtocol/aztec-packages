@@ -145,6 +145,10 @@ Service Address Setup Container
       value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
       value: "{{ .Values.ethereum.execution.service.port }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
+      value: "{{ .Values.ethereum.beacon.externalHost }}"
+    - name: ETHEREUM_CONSENSUS_PORT
+      value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
