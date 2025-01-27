@@ -12,6 +12,7 @@
 
 set -eux
 
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Main positional parameter
@@ -61,58 +62,12 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
-STERN_PID=""
+stern_pid=""
 function copy_stern_to_log() {
-  stern spartan -n $NAMESPACE >$SCRIPT_DIR/network-test.log &
-  STERN_PID=$!
+  stern spartan -n $namespace >$SCRIPT_DIR/network-test.log &
+  stern_pid=$!
 }
 
-function show_status_until_pxe_ready() {
-  set +x   # don't spam with our commands
-  sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null; then
-      break # we are up, stop showing status
-    fi
-    # show startup status
-    kubectl get pods -n "$NAMESPACE"
-  done
-}
-
-handle_network_shaping() {
-  if [ -n "${CHAOS_VALUES:-}" ]; then
-    echo "Checking chaos-mesh setup..."
-
-    if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
-      # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
-      # to determine if we should install it.
-      if [ "$INSTALL_CHAOS_MESH" ]; then
-        echo "Installing chaos-mesh..."
-        cd "$REPO/spartan/chaos-mesh" && ./install.sh
-      else
-        echo "Error: chaos-mesh namespace not found!"
-        echo "Please set up chaos-mesh first. You can do this by running:"
-        echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
-        exit 1
-      fi
-    fi
-
-    echo "Deploying Aztec Chaos Scenarios..."
-    if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
-      --namespace chaos-mesh \
-      --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
-      --set global.targetNamespace="$NAMESPACE" \
-      --wait \
-      --timeout=5m; then
-      echo "Error: failed to deploy Aztec Chaos Scenarios!"
-      return 1
-    fi
-
-    echo "Aztec Chaos Scenarios applied successfully"
-    return 0
-  fi
-  return 0
-}
 copy_stern_to_log
 show_status_until_pxe_ready &
 

@@ -40,3 +40,18 @@ if ! command -v stern &> /dev/null; then
   # Clean up
   rm stern.tar.gz
 fi
+
+# For GKE access
+if ! command -v gcloud &> /dev/null; then
+  if [ -f /etc/os-release ] && grep -qi "Ubuntu" /etc/os-release; then
+    sudo apt update
+    sudo apt install -y apt-transport-https ca-certificates gnupg curl
+    sudo rm -f /usr/share/keyrings/cloud.google.gpg && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    sudo apt install -y google-cloud-cli
+    echo "Now you can run 'gcloud init'"
+  else
+    echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
+    echo "If needed, install glcoud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+  fi
+fi

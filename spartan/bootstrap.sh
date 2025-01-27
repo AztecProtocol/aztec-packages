@@ -6,22 +6,21 @@ cmd=${1:-}
 scripts/install_deps.sh
 
 function network_shaping {
-  NAMESPACE="$1"
-  CHAOS_VALUES="$2"
-  echo "Checking chaos-mesh setup..."
-    echo "Deleting existing network chaos experiments..."
-    kubectl delete networkchaos --all --all-namespace
-
+  namespace="$1"
+  chaos_values="$2"
   if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
     echo "Please set up chaos-mesh first. You can do this by running spartan/bootstrap.sh chaos-mesh"
     exit 1
   fi
 
+  echo "Deleting existing network chaos experiments..."
+  kubectl delete networkchaos --all --all-namespace
+
   echo "Deploying Aztec Chaos Scenarios..."
   if ! helm upgrade --install aztec-chaos-scenarios aztec-chaos-scenarios \
     --namespace chaos-mesh \
-    --values "aztec-chaos-scenarios/values/$CHAOS_VALUES" \
-    --set global.targetNamespace="$NAMESPACE" \
+    --values "aztec-chaos-scenarios/values/$chaos_values" \
+    --set global.targetNamespace="$namespace" \
     --wait \
     --timeout=5m; then
     echo "Error: failed to deploy Aztec Chaos Scenarios!"
@@ -32,6 +31,9 @@ function network_shaping {
 }
 
 case "$cmd" in
+  "")
+    # do nothing but the install_deps.sh above
+    ;;
   "kind")
     if kubectl config get-clusters | grep -q "^kind-kind$"; then
       echo "Cluster 'kind' already exists. Skipping creation."
@@ -54,39 +56,21 @@ case "$cmd" in
     ;;
   "network-shaping")
     shift
-    NAMESPACE="$1"
-    CHAOS_VALUES="$2"
-    if network_shaping "$NAMESPACE" "$CHAOS_VALUES"; then
+    namespace="$1"
+    chaos_values="$2"
+    if network_shaping "$namespace" "$chaos_values"; then
       exit
     fi
     # If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
     echo "Deleting existing network chaos experiments..."
     kubectl delete networkchaos --all --all-namespaces
-    network_shaping "$NAMESPACE" "$CHAOS_VALUES"
+    network_shaping "$namespace" "$chaos_values"
     ;;
   "hash")
     cache_content_hash .rebuild_patterns ../yarn-project/.rebuild_patterns
     ;;
-  # "test-kind-smoke")
-  #   test=${1:-transfer.test.ts}
-  #   values=${2:-3-validators}
-  #   ./bootstrap.sh image-e2e
-  #   cd yarn-project/end-to-end
-  #   NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-  #   exit 0
-  #   ;;
-  # "test-kind-network")
-  #   test=${1:-transfer.test.ts}
-  #   values=${2:-3-validators}
-  #   ./bootstrap.sh image-e2e
-  #   cd yarn-project/end-to-end
-  #   NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-  #   exit 0
-  #   ;;
-  # "test-network")
-  #   shift 1
-  #   scripts/run_native_testnet.sh -i $@
-  #   exit 0
+  "test-kind")
+    scripts/test_kind.sh
     ;;
   *)
     echo "Unknown command: $cmd"

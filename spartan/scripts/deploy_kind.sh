@@ -5,7 +5,6 @@
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "", no chaos installation)
-#   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
 
@@ -18,10 +17,13 @@ namespace="$1"
 # Default values for environment variables
 values_file="${VALUES_FILE:-default.yaml}"
 chaos_values="${CHAOS_VALUES:-}"
-fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 
+if ! command -v kubectl &> /dev/null; then
+  echo "kubectl not found. Run spartan/bootstrap.sh"
+  exit 1
+fi
 if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
   echo "Aztec Docker image not found. It needs to be built."
   exit 1
@@ -29,11 +31,6 @@ fi
 
 # Load the Docker image into kind
 kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
-
-# If fresh_install is true, delete the namespace
-if [ "$fresh_install" = "true" ]; then
-  kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m
-fi
 
 function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
@@ -85,10 +82,3 @@ if [ -n "$chaos_values" ]; then
 else
   echo "Skipping network chaos configuration (CHAOS_VALUES not set)"
 fi
-# value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
-
-# # Get the values from the values file
-# ETHEREUM_SLOT_DURATION=$(./read_value.sh "ethereum.blockTime" $value_yamls)
-# AZTEC_SLOT_DURATION=$(./read_value.sh "aztec.slotDuration" $value_yamls)
-# AZTEC_EPOCH_DURATION=$(./read_value.sh "aztec.epochDuration" $value_yamls)
-# AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
