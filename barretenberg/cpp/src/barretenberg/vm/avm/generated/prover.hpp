@@ -19,7 +19,7 @@ class AvmProver {
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
-    using CommitmentLabels = Flavor::CommitmentLabels;
+    // using CommitmentLabels = Flavor::CommitmentLabels;
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
 
@@ -50,7 +50,7 @@ class AvmProver {
     // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
     ProverPolynomials prover_polynomials;
 
-    CommitmentLabels commitment_labels;
+    // CommitmentLabels commitment_labels;
     typename Flavor::WitnessCommitments witness_commitments;
 
     Polynomial quotient_W;

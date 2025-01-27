@@ -250,6 +250,7 @@ class AvmFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
+        auto get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
         auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
@@ -407,6 +408,7 @@ class AvmFlavor {
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
 
+    /*
     class CommitmentLabels : public AllEntities<std::string> {
       private:
         using Base = AllEntities<std::string>;
@@ -414,6 +416,7 @@ class AvmFlavor {
       public:
         CommitmentLabels();
     };
+    */
 
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>

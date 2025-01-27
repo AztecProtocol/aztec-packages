@@ -14,7 +14,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
         prover_poly = key_poly.shifted();
     }
 }
-
+/*
 AvmFlavor::CommitmentLabels::CommitmentLabels()
 {
     Base::byte_lookup_sel_bin = "BYTE_LOOKUP_SEL_BIN";
@@ -782,7 +782,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
     Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
 };
-
+*/
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {
     size_t num_frs_read = 0;
