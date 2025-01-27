@@ -17,7 +17,7 @@ export default {
     rules: [
       {
         test: /\.wasm\.gz$/,
-        type: 'asset/resource',
+        type: 'asset/resource'
       },
       {
         test: /\.worker\.ts$/,

@@ -75,9 +75,6 @@ export const browserTestSuite = (
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
 
-      app = new Koa();
-      app.use(serve(path.resolve(__dirname, './web')));
-
       const debuggingPort = await getPort({ port: 9222 });
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
@@ -99,6 +96,7 @@ export const browserTestSuite = (
       page.on('pageerror', err => {
         pageLogger.error(`Error on web page`, err);
       });
+
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger.verbose('Waiting for window.AztecJs...');
