@@ -20,7 +20,7 @@ import {
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -62,7 +62,7 @@ struct Config {
  * not giving a damn about gas costs.
  * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
-contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -111,7 +111,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Config memory _config
   )
     Ownable(_ares)
-    Leonidas(
+    ValidatorSelection(
       _stakingAsset,
       _config.minimumStake,
       _config.slashingQuorum,
@@ -396,7 +396,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Signature[] memory sigs = new Signature[](0);
     DataStructures.ExecutionFlags memory flags =
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
-    _validateLeonidas(slot, sigs, _archive, flags);
+    _validateValidatorSelection(slot, sigs, _archive, flags);
 
     return (slot, pendingBlockNumber + 1);
   }
@@ -867,7 +867,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
   /**
    * @notice  Validate a header for submission to the pending chain (sequencer selection checks)
    *
-   *          These validation checks are directly related to Leonidas.
+   *          These validation checks are directly related to ValidatorSelection.
    *          Note that while these checks are strict, they can be relaxed with some changes to
    *          message boxes.
    *
@@ -900,7 +900,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Epoch currentEpoch = getEpochAt(_currentTime);
     require(epochNumber == currentEpoch, Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber));
 
-    _validateLeonidas(_slot, _signatures, _digest, _flags);
+    _validateValidatorSelection(_slot, _signatures, _digest, _flags);
   }
 
   // Helper to avoid stack too deep

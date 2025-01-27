@@ -13,7 +13,7 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup, Config} from "@aztec/core/Rollup.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -30,7 +30,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 // solhint-disable comprehensive-interface
 
@@ -38,7 +38,7 @@ import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
-contract SpartaTest is DecoderBase {
+contract ValidatorSelectionTest is DecoderBase {
   using MessageHashUtils for bytes32;
   using SlotLib for Slot;
   using EpochLib for Epoch;
@@ -70,7 +70,7 @@ contract SpartaTest is DecoderBase {
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";
     {
-      Leonidas leonidas = new Leonidas(
+      ValidatorSelection validatorSelection = new ValidatorSelection(
         testERC20,
         TestConstants.AZTEC_MINIMUM_STAKE,
         TestConstants.AZTEC_SLASHING_QUORUM,
@@ -82,8 +82,8 @@ contract SpartaTest is DecoderBase {
 
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
-      uint256 initialTime =
-        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leonidas.SLOT_DURATION();
+      uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
+        - slotNumber * validatorSelection.SLOT_DURATION();
       vm.warp(initialTime);
     }
 
@@ -128,7 +128,7 @@ contract SpartaTest is DecoderBase {
       })
     });
     slasher = rollup.SLASHER();
-    slashFactory = new SlashFactory(ILeonidas(address(rollup)));
+    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
@@ -298,14 +298,14 @@ contract SpartaTest is DecoderBase {
         if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
-              Errors.Leonidas__InsufficientAttestationsProvided.selector,
+              Errors.ValidatorSelection__InsufficientAttestationsProvided.selector,
               ree.needed,
               _signatureCount
             )
           );
         }
         // @todo Handle SignatureLib__InvalidSignature case
-        // @todo Handle Leonidas__InsufficientAttestations case
+        // @todo Handle ValidatorSelection__InsufficientAttestations case
       }
 
       skipBlobCheck(address(rollup));
@@ -314,7 +314,7 @@ contract SpartaTest is DecoderBase {
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
           abi.encodeWithSelector(
-            Errors.Leonidas__InvalidProposer.selector, realProposer, ree.proposer
+            Errors.ValidatorSelection__InvalidProposer.selector, realProposer, ree.proposer
           )
         );
         ree.shouldRevert = true;
