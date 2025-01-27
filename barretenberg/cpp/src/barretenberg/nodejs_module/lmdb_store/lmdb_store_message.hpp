@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
@@ -11,95 +12,99 @@ namespace bb::nodejs::lmdb_store {
 using namespace bb::messaging;
 
 enum LMDBStoreMessageType {
-    GET = FIRST_APP_MSG_TYPE,
+    OPEN_DATABASE = FIRST_APP_MSG_TYPE,
+
+    GET,
     HAS,
 
-    INDEX_GET,
-    INDEX_HAS,
-    INDEX_HAS_KEY,
-
-    CURSOR_START,
-    CURSOR_ADVANCE,
-    CURSOR_CLOSE,
-
-    INDEX_CURSOR_ADVANCE,
+    START_CURSOR,
+    ADVANCE_CURSOR,
+    CLOSE_CURSOR,
 
     BATCH,
+
+    CLOSE,
 };
 
-struct KeyRequest {
-    std::string key;
-    MSGPACK_FIELDS(key);
+struct OpenDatabaseRequest {
+    std::string db;
+    std::optional<bool> uniqueKeys;
+    MSGPACK_FIELDS(db, uniqueKeys);
+};
+
+struct GetRequest {
+    lmdblib::KeysVector keys;
+    std::string db;
+    MSGPACK_FIELDS(keys, db);
 };
 
 struct GetResponse {
-    std::optional<std::vector<std::byte>> value;
-    MSGPACK_FIELDS(value);
-};
-
-struct EntryRequest {
-    std::string key;
-    std::vector<std::byte> value;
-    MSGPACK_FIELDS(key, value);
-};
-
-struct BatchRequest {
-    std::map<std::string, std::vector<std::byte>> set;
-    std::vector<std::string> remove;
-
-    std::map<std::string, std::vector<std::vector<std::byte>>> setIndex;
-    std::map<std::string, std::vector<std::vector<std::byte>>> addIndex;
-    std::map<std::string, std::vector<std::vector<std::byte>>> removeIndex;
-    std::vector<std::string> resetIndex;
-
-    MSGPACK_FIELDS(set, remove, setIndex, addIndex, removeIndex, resetIndex);
-};
-
-struct CursorStartRequest {
-    std::string key;
-    std::optional<bool> reverse;
-    MSGPACK_FIELDS(key, reverse);
-};
-
-struct CursorStartResponse {
-    uint64_t cursor;
-    MSGPACK_FIELDS(cursor);
-};
-
-struct CursorRequest {
-    uint64_t cursor;
-    MSGPACK_FIELDS(cursor);
-};
-
-struct CursorAdvanceResponse {
-    std::string key;
-    std::vector<std::byte> value;
-    bool done;
-    MSGPACK_FIELDS(key, value, done);
-};
-
-struct IndexGetResponse {
-    std::vector<std::vector<std::byte>> values;
+    lmdblib::OptionalValuesVector values;
     MSGPACK_FIELDS(values);
 };
 
-struct IndexBatchRequest {
-    std::map<std::string, std::vector<std::vector<std::byte>>> add;
-    std::map<std::string, std::vector<std::vector<std::byte>>> remove;
-    std::vector<std::string> removeKey;
-    MSGPACK_FIELDS(add, remove, removeKey);
+struct HasRequest {
+    // std::map<lmdblib::Key, std::optional<lmdblib::Value>> entries;
+    lmdblib::KeyOptionalValuesVector entries;
+    std::string db;
+    MSGPACK_FIELDS(entries, db);
 };
 
-struct IndexCursorAdvanceResponse {
-    std::string key;
-    std::vector<std::vector<std::byte>> values;
+struct HasResponse {
+    // std::map<lmdblib::Key, bool> exists;
+    std::vector<bool> exists;
+    MSGPACK_FIELDS(exists);
+};
+
+struct Batch {
+    lmdblib::KeyDupValuesVector addEntries;
+    lmdblib::KeyOptionalValuesVector removeEntries;
+
+    MSGPACK_FIELDS(addEntries, removeEntries);
+};
+
+struct BatchRequest {
+    std::map<std::string, Batch> batches;
+    MSGPACK_FIELDS(batches);
+};
+
+struct StartCursorRequest {
+    lmdblib::Key key;
+    std::optional<bool> reverse;
+    std::string db;
+    MSGPACK_FIELDS(key, reverse, db);
+};
+
+struct StartCursorResponse {
+    std::optional<uint64_t> cursor;
+    MSGPACK_FIELDS(cursor);
+};
+
+struct AdvanceCursorRequest {
+    uint64_t cursor;
+    std::optional<uint32_t> count;
+    MSGPACK_FIELDS(cursor, count);
+};
+
+struct CloseCursorRequest {
+    uint64_t cursor;
+    MSGPACK_FIELDS(cursor);
+};
+
+struct AdvanceCursorResponse {
+    lmdblib::KeyDupValuesVector entries;
     bool done;
-    MSGPACK_FIELDS(key, values, done);
+    MSGPACK_FIELDS(entries, done);
 };
 
 struct BoolResponse {
     bool ok;
     MSGPACK_FIELDS(ok);
+};
+
+struct BatchResponse {
+    uint64_t durationNs;
+    MSGPACK_FIELDS(durationNs);
 };
 
 } // namespace bb::nodejs::lmdb_store

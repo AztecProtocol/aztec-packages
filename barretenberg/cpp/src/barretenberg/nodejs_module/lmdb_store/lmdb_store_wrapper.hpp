@@ -1,5 +1,8 @@
 #pragma once
 
+#include "barretenberg/lmdblib/lmdb_cursor.hpp"
+#include "barretenberg/lmdblib/lmdb_store.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/messaging/dispatcher.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
@@ -12,7 +15,7 @@
 namespace bb::nodejs::lmdb_store {
 
 struct CursorData {
-    std::string current;
+    lmdblib::LMDBCursor::Ptr cursor;
     bool reverse;
 };
 /**
@@ -30,30 +33,25 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     static Napi::Function get_class(Napi::Env env);
 
   private:
-    // coarse thread safety for dummy implementation. This will be handled by LMDB
-    std::mutex _mutex;
+    std::unique_ptr<lmdblib::LMDBStore> _store;
+
+    std::mutex _cursor_mutex;
+    std::unordered_map<uint64_t, CursorData> _cursors;
 
     bb::nodejs::AsyncMessageProcessor _msg_processor;
 
-    std::map<std::string, std::vector<std::byte>> _data;
-    std::map<std::string, std::set<std::vector<std::byte>>> _index_data;
+    BoolResponse open_database(const OpenDatabaseRequest& req);
 
-    uint64_t _next_cursor = 1;
-    std::map<uint64_t, CursorData> _cursors;
+    GetResponse get(const GetRequest& req);
+    HasResponse has(const HasRequest& req);
 
-    GetResponse get(const KeyRequest& req);
-    BoolResponse has(const KeyRequest& req);
+    StartCursorResponse start_cursor(const StartCursorRequest& req);
+    AdvanceCursorResponse advance_cursor(const AdvanceCursorRequest& req);
+    BoolResponse close_cursor(const CloseCursorRequest& req);
 
-    IndexGetResponse index_get(const KeyRequest& req);
-    BoolResponse index_has(const EntryRequest& req);
-    BoolResponse index_has_key(const KeyRequest& req);
+    BatchResponse batch(const BatchRequest& req);
 
-    CursorStartResponse start_cursor(const CursorStartRequest& req);
-    CursorAdvanceResponse advance_cursor(const CursorRequest& req);
-    BoolResponse close_cursor(const CursorRequest& req);
-    IndexCursorAdvanceResponse advance_index_cursor(const CursorRequest& req);
-
-    BoolResponse batch(const BatchRequest& req);
+    BoolResponse close();
 };
 
 } // namespace bb::nodejs::lmdb_store

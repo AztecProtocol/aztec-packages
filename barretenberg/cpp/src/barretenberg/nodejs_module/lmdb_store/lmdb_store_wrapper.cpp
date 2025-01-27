@@ -1,11 +1,24 @@
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp"
+#include "barretenberg/lmdblib/lmdb_store.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "napi.h"
+#include <algorithm>
+#include <bits/chrono.h>
+#include <chrono>
+#include <cstdint>
 #include <iterator>
+#include <memory>
+#include <optional>
+#include <ratio>
 #include <stdexcept>
 
 using namespace bb::nodejs;
 using namespace bb::nodejs::lmdb_store;
+
+const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
+const uint64_t DEFAULT_MAX_READERS = 16;
+const uint64_t DEFAULT_CURSOR_PAGE_SIZE = 10;
 
 LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
@@ -20,20 +33,40 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Directory needs to be a string");
     }
 
+    size_t map_size_index = 1;
+    uint64_t map_size = DEFAULT_MAP_SIZE;
+    if (info.Length() > map_size_index) {
+        if (info[map_size_index].IsNumber()) {
+            map_size = info[map_size_index].As<Napi::Number>().Uint32Value();
+        } else {
+            throw Napi::TypeError::New(env, "Map size must be a number or an object");
+        }
+    }
+
+    size_t max_readers_index = 2;
+    uint max_readers = DEFAULT_MAX_READERS;
+    if (info.Length() > max_readers_index) {
+        if (info[max_readers_index].IsNumber()) {
+            max_readers = info[max_readers_index].As<Napi::Number>().Uint32Value();
+        } else if (!info[max_readers_index].IsUndefined()) {
+            throw Napi::TypeError::New(env, "The number of readers must be a number");
+        }
+    }
+
+    _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2);
+
+    _msg_processor.register_handler(LMDBStoreMessageType::OPEN_DATABASE, this, &LMDBStoreWrapper::open_database);
+
     _msg_processor.register_handler(LMDBStoreMessageType::GET, this, &LMDBStoreWrapper::get);
     _msg_processor.register_handler(LMDBStoreMessageType::HAS, this, &LMDBStoreWrapper::has);
+
+    _msg_processor.register_handler(LMDBStoreMessageType::START_CURSOR, this, &LMDBStoreWrapper::start_cursor);
+    _msg_processor.register_handler(LMDBStoreMessageType::ADVANCE_CURSOR, this, &LMDBStoreWrapper::advance_cursor);
+    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
+
     _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::CURSOR_START, this, &LMDBStoreWrapper::start_cursor);
-    _msg_processor.register_handler(LMDBStoreMessageType::CURSOR_ADVANCE, this, &LMDBStoreWrapper::advance_cursor);
-    _msg_processor.register_handler(LMDBStoreMessageType::CURSOR_CLOSE, this, &LMDBStoreWrapper::close_cursor);
-
-    _msg_processor.register_handler(LMDBStoreMessageType::INDEX_GET, this, &LMDBStoreWrapper::index_get);
-    _msg_processor.register_handler(LMDBStoreMessageType::INDEX_HAS, this, &LMDBStoreWrapper::index_has);
-    _msg_processor.register_handler(LMDBStoreMessageType::INDEX_HAS_KEY, this, &LMDBStoreWrapper::index_has_key);
-
-    _msg_processor.register_handler(
-        LMDBStoreMessageType::INDEX_CURSOR_ADVANCE, this, &LMDBStoreWrapper::advance_index_cursor);
+    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close);
 }
 
 Napi::Value LMDBStoreWrapper::call(const Napi::CallbackInfo& info)
@@ -50,172 +83,152 @@ Napi::Function LMDBStoreWrapper::get_class(Napi::Env env)
                        });
 }
 
-GetResponse LMDBStoreWrapper::get(const KeyRequest& req)
+BoolResponse LMDBStoreWrapper::open_database(const OpenDatabaseRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto it = _data.find(req.key);
-    if (it == _data.end()) {
+    _store->open_database(req.db, !req.uniqueKeys.value_or(true));
+    return { true };
+}
+
+GetResponse LMDBStoreWrapper::get(const GetRequest& req)
+{
+    lmdblib::OptionalValuesVector vals;
+    lmdblib::KeysVector keys = req.keys;
+    _store->get(keys, vals, req.db);
+    return { vals };
+}
+
+HasResponse LMDBStoreWrapper::has(const HasRequest& req)
+{
+    std::set<lmdblib::Key> key_set;
+    for (const auto& entry : req.entries) {
+        key_set.insert(entry.first);
+    }
+
+    lmdblib::KeysVector keys(key_set.begin(), key_set.end());
+    lmdblib::OptionalValuesVector vals;
+    _store->get(keys, vals, req.db);
+
+    std::vector<bool> exists;
+
+    for (const auto& entry : req.entries) {
+        const auto& key = entry.first;
+        const auto& requested_values = entry.second;
+
+        const auto& key_it = std::find(keys.begin(), keys.end(), key);
+        if (key_it == keys.end()) {
+            // this shouldn't happen. It means we missed a key when we created the key_set
+            exists.push_back(false);
+            continue;
+        }
+
+        // should be fine to convert this to an index in the array?
+        const auto& values = vals[static_cast<size_t>(key_it - keys.begin())];
+
+        if (!values.has_value()) {
+            exists.push_back(false);
+            continue;
+        }
+
+        // client just wanted to know if the key exists
+        if (!requested_values.has_value()) {
+            exists.push_back(true);
+            continue;
+        }
+
+        exists.push_back(std::all_of(requested_values->begin(), requested_values->end(), [&](const auto& val) {
+            return std::find(values->begin(), values->end(), val) != values->begin();
+        }));
+    }
+
+    return { exists };
+}
+
+StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req)
+{
+    bool reverse = req.reverse.value_or(false);
+    auto tx = _store->create_shared_read_transaction();
+    auto cursor = _store->create_cursor(tx, req.db);
+
+    lmdblib::Key key = req.key;
+    bool ok = cursor->set_at_key(key);
+    if (!ok) {
+        // we couldn't find exactly the requested key. Find the next biggest one.
+        ok = cursor->set_at_key_gte(key);
+        // if we found a key that's greater _and_ we want to go in reverse order
+        // then we're actually outside the requested bounds, we need to go back one position
+        if (ok && reverse) {
+            lmdblib::KeyDupValuesVector entries;
+            // read_prev returns `true` if there's nothing more to read
+            // turn this into a "not ok" because there's nothing in the db for this cursor to read
+            ok = !cursor->read_prev(1, entries);
+        } else if (!ok && reverse) {
+            // we couldn't find a key greater than our starting point _and_ we want to go in reverse..
+            // then we start at the end of the database (the client requested to start at a key greater than anything in
+            // the DB)
+            ok = cursor->set_at_end();
+        }
+
+        // in case we're iterating in ascending order and we can't find the exact key or one that's greater than it
+        // then that means theren's nothing in the DB for the cursor to read
+    }
+
+    // we couldn't find a starting position
+    if (!ok) {
         return { std::nullopt };
     }
-    return { (*it).second };
+
+    auto cursor_id = cursor->id();
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        _cursors[cursor_id] = { std::move(cursor), reverse };
+    }
+
+    return { cursor_id };
 }
 
-BoolResponse LMDBStoreWrapper::has(const KeyRequest& req)
+BoolResponse LMDBStoreWrapper::close_cursor(const CloseCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto key_it = _data.find(req.key);
-    return { key_it != _data.end() };
-}
-
-CursorStartResponse LMDBStoreWrapper::start_cursor(const CursorStartRequest& req)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-    uint64_t cursor = _next_cursor++;
-    _cursors[cursor] = { req.key, req.reverse.value_or(false) };
-    return { cursor };
-}
-
-BoolResponse LMDBStoreWrapper::close_cursor(const CursorRequest& req)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_cursor_mutex);
     _cursors.erase(req.cursor);
     return { true };
 }
 
-CursorAdvanceResponse LMDBStoreWrapper::advance_cursor(const CursorRequest& req)
+AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto it = _cursors.find(req.cursor);
-    if (it == _cursors.end()) {
-        throw std::runtime_error("Cursor does not exist");
+    std::lock_guard<std::mutex> lock(_cursor_mutex);
+    CursorData& data = _cursors.at(req.cursor);
+
+    uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
+    lmdblib::KeyDupValuesVector entries;
+    bool done = data.reverse ? data.cursor->read_prev(page_size, entries) : data.cursor->read_next(page_size, entries);
+
+    if (entries.empty()) {
+        return { {}, true };
     }
 
-    auto& cursor = (*it).second;
-
-    std::string key = cursor.current;
-    auto data_it = _data.find(key);
-    if (data_it == _data.end()) {
-        throw std::runtime_error("Data does not exist");
-    }
-    std::vector<std::byte> value = (*data_it).second;
-    bool done = false;
-
-    std::string next;
-    if (cursor.reverse) {
-        data_it--;
-    } else {
-        data_it++;
-    }
-
-    // if we're after the end or after decrementing we're on the same key
-    if (data_it == _data.end() || (*data_it).first == key) {
-        done = true;
-    } else {
-        next = (*data_it).first;
-    }
-
-    cursor.current = next;
-
-    return { key, value, done };
+    return { entries, done };
 }
 
-IndexGetResponse LMDBStoreWrapper::index_get(const KeyRequest& req)
+BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    std::vector<std::vector<std::byte>> values;
-    std::copy(_index_data[req.key].begin(), _index_data[req.key].end(), std::back_inserter(values));
-    return { values };
+    std::vector<lmdblib::LMDBStore::PutData> batches;
+    batches.reserve(req.batches.size());
+
+    for (const auto& data : req.batches) {
+        lmdblib::LMDBStore::PutData batch{ data.second.addEntries, data.second.removeEntries, data.first };
+        batches.push_back(batch);
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    _store->put(batches);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<uint64_t, std::nano> duration_ns = end - start;
+
+    return { duration_ns.count() };
 }
 
-BoolResponse LMDBStoreWrapper::index_has(const EntryRequest& req)
+BoolResponse LMDBStoreWrapper::close()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto key_it = _index_data.find(req.key);
-    if (key_it == _index_data.end()) {
-        return { false };
-    }
-
-    auto& values = (*key_it).second;
-    auto value_it = values.find(req.value);
-    return { value_it != values.end() };
-}
-
-BoolResponse LMDBStoreWrapper::index_has_key(const KeyRequest& req)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto key_it = _index_data.find(req.key);
-    return { key_it != _index_data.end() };
-}
-
-IndexCursorAdvanceResponse LMDBStoreWrapper::advance_index_cursor(const CursorRequest& req)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto it = _cursors.find(req.cursor);
-    if (it == _cursors.end()) {
-        throw std::runtime_error("Cursor does not exist");
-    }
-
-    auto& cursor = (*it).second;
-
-    std::string key = cursor.current;
-    auto data_it = _index_data.find(key);
-    if (data_it == _index_data.end()) {
-        throw std::runtime_error("Data does not exist");
-    }
-    std::vector<std::vector<std::byte>> values;
-    std::copy((*data_it).second.begin(), (*data_it).second.end(), std::back_inserter(values));
-    bool done = false;
-
-    std::string next;
-    if (cursor.reverse) {
-        data_it--;
-    } else {
-        data_it++;
-    }
-
-    // if we're after the end or after decrementing we're on the same key
-    if (data_it == _index_data.end() || (*data_it).first == key) {
-        done = true;
-    } else {
-        next = (*data_it).first;
-    }
-
-    cursor.current = next;
-
-    return { key, values, done };
-}
-
-BoolResponse LMDBStoreWrapper::batch(const BatchRequest& req)
-{
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    for (const auto& op : req.set) {
-        _data[op.first] = op.second;
-    }
-
-    for (const auto& key : req.remove) {
-        _data.erase(key);
-    }
-
-    for (const auto& op : req.setIndex) {
-        _index_data[op.first].clear();
-        _index_data[op.first].insert(op.second.begin(), op.second.end());
-    }
-
-    for (const auto& op : req.addIndex) {
-        _index_data[op.first].insert(op.second.begin(), op.second.end());
-    }
-
-    for (const auto& op : req.removeIndex) {
-        auto& values = _index_data[op.first];
-        for (const auto& val : op.second) {
-            values.erase(val);
-        }
-    }
-
-    for (const auto& key : req.resetIndex) {
-        _index_data.erase(key);
-    }
-
+    _store.reset(nullptr);
     return { true };
 }

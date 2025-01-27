@@ -33,27 +33,35 @@ bool LMDBCursor::set_at_key(Key& key) const
     return lmdb_queries::set_at_key(*this, key);
 }
 
+bool LMDBCursor::set_at_key_gte(Key& key) const
+{
+    return lmdb_queries::set_at_key_gte(*this, key);
+}
+
 bool LMDBCursor::set_at_start() const
 {
     return lmdb_queries::set_at_start(*this);
 }
 
-void LMDBCursor::read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
+bool LMDBCursor::set_at_end() const
 {
-    if (_db->duplicate_keys_permitted()) {
-        lmdb_queries::read_next_dup(*this, keyValuePairs, numKeysToRead);
-        return;
-    }
-    lmdb_queries::read_next(*this, keyValuePairs, numKeysToRead);
+    return lmdb_queries::set_at_end(*this);
 }
 
-void LMDBCursor::read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
+bool LMDBCursor::read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
 {
     if (_db->duplicate_keys_permitted()) {
-        lmdb_queries::read_prev_dup(*this, keyValuePairs, numKeysToRead);
-        return;
+        return lmdb_queries::read_next_dup(*this, keyValuePairs, numKeysToRead);
     }
-    lmdb_queries::read_prev(*this, keyValuePairs, numKeysToRead);
+    return lmdb_queries::read_next(*this, keyValuePairs, numKeysToRead);
+}
+
+bool LMDBCursor::read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
+{
+    if (_db->duplicate_keys_permitted()) {
+        return lmdb_queries::read_prev_dup(*this, keyValuePairs, numKeysToRead);
+    }
+    return lmdb_queries::read_prev(*this, keyValuePairs, numKeysToRead);
 }
 
 } // namespace bb::lmdblib

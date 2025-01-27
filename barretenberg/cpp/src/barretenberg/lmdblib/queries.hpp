@@ -451,12 +451,14 @@ bool get_value(Key& key, Value& data, const LMDBDatabase& db, const LMDBTransact
 bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 
 bool set_at_key(const LMDBCursor& cursor, Key& key);
+bool set_at_key_gte(const LMDBCursor& cursor, Key& key);
 bool set_at_start(const LMDBCursor& cursor);
+bool set_at_end(const LMDBCursor& cursor);
 
-void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
-void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+bool read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+bool read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 
-void read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
-void read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+bool read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+bool read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 } // namespace lmdb_queries
 } // namespace bb::lmdblib
