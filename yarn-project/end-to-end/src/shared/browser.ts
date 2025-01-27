@@ -8,9 +8,6 @@ import { contractArtifactToBuffer } from '@aztec/types/abi';
 
 import getPort from 'get-port';
 import { type Server } from 'http';
-import Koa from 'koa';
-import serve from 'koa-static';
-import path, { dirname } from 'path';
 import { type Browser, type Page, launch } from 'puppeteer-core';
 
 declare global {
@@ -27,9 +24,6 @@ declare global {
       typeof AztecAccountsSchnorr;
   }
 }
-
-const __filename = AztecJs.fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const privKey = AztecJs.GrumpkinScalar.random();
 
@@ -60,7 +54,6 @@ export const browserTestSuite = (
 
     let contractAddress: AztecJs.AztecAddress;
 
-    let app: Koa;
     let testClient: AztecJs.PXE;
     let server: Server;
     let webServerURL: string;
