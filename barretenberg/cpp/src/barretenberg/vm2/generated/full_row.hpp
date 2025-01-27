@@ -15,7 +15,7 @@ template <typename FF_> struct AvmFullRow {
 
     FF AVM2_ALL_ENTITIES;
 
-    static constexpr size_t SIZE = 378;
+    static constexpr size_t SIZE = 101;
 
     // Risky but oh so efficient.
     FF& get_column(ColumnAndShifts col)

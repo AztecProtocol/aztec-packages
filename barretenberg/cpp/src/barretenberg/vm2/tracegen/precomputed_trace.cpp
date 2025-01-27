@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 #include <array>
 #include <cstddef>
@@ -156,6 +157,28 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sha256_compression_round_constant, i, round_constants[i]);
     }
+}
+
+void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
+{
+    using C = Column;
+    using bb::avm2::MemoryTag;
+
+    // Column number corresponds to MemoryTag enum value
+    // No elegant way to loop over all enum values in cpp.
+    // Note that this remains correct even if we change the order of the enum elements.
+    trace.set(static_cast<uint32_t>(MemoryTag::U1),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 1 } } });
+    trace.set(static_cast<uint32_t>(MemoryTag::U8),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 1 } } });
+    trace.set(static_cast<uint32_t>(MemoryTag::U16),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 2 } } });
+    trace.set(static_cast<uint32_t>(MemoryTag::U32),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 4 } } });
+    trace.set(static_cast<uint32_t>(MemoryTag::U64),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 8 } } });
+    trace.set(static_cast<uint32_t>(MemoryTag::U128),
+              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 16 } } });
 }
 
 } // namespace bb::avm2::tracegen
