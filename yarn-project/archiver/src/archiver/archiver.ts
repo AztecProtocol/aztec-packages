@@ -68,6 +68,7 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -117,7 +118,7 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
-    private readonly _blobSinkClient: BlobSinkClientInterface,
+    private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
@@ -200,7 +201,12 @@ export class Archiver implements ArchiveSource, Traceable {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
+      // Ignored errors will not log to the console
+      // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
+      NoBlobBodiesFoundError,
+    ]);
+
     this.runningPromise.start();
   }
 
@@ -470,9 +476,12 @@ export class Archiver implements ArchiveSource, Traceable {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
 
       this.log.trace(`Retrieving L2 blocks from L1 block ${searchStartBlock} to ${searchEndBlock}`);
+
+      // TODO(md): Retreive from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
         this.rollup,
         this.publicClient,
+        this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
         this.log,

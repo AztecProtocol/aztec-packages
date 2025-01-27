@@ -1,4 +1,5 @@
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
+import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
@@ -72,7 +73,7 @@ class MockRollupContract {
   }
 }
 
-const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('L1Publisher', () => {
@@ -102,7 +103,7 @@ describe('L1Publisher', () => {
 
   beforeEach(async () => {
     mockBlobSinkServer = undefined;
-    blobSinkClient = new HttpBlobSinkClient(BLOB_SINK_URL);
+    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
     l2Block = await L2Block.random(42);
 
@@ -184,7 +185,7 @@ describe('L1Publisher', () => {
 
     app.post('/blob_sidecar', (req, res) => {
       const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
-        Blob.fromBuffer(Buffer.from(b.blob.data)),
+        Blob.fromBuffer(inboundTransform(Buffer.from(b.blob.data))),
       );
 
       expect(blobsBuffers).toEqual(blobs);
@@ -241,7 +242,7 @@ describe('L1Publisher', () => {
       },
       // val + (val * 20n) / 100n
       { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
-      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg },
+      { blobs: expectedBlobs.map(b => b.data), kzg },
     );
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);
