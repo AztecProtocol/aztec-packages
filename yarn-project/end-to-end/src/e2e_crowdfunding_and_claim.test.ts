@@ -250,7 +250,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Set the UintNote in a format which can be passed to claim function
     const anotherDonationNote = processUniqueNote(filtered![0]);
 
-    // 3) We try to claim the reward token via the Claim contract with an unrelated wallet
+    // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
     {
       await expect(
         claimContract
