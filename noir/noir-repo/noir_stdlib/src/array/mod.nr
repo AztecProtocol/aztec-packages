@@ -146,7 +146,7 @@ impl<T, let N: u32> [T; N] {
     ///     let arr1 = [1, 2, 3, 4];
     ///     let arr2 = [6, 7, 8, 9, 10, 11];
     ///     let concatenated_arr = arr1.concat(arr2);
-    ///     assert(concatenated_arr = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]);
+    ///     assert(concatenated_arr == [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]);
     /// }
     /// ```
     pub fn concat<let M: u32>(self, array2: [T; M]) -> [T; N + M] {
