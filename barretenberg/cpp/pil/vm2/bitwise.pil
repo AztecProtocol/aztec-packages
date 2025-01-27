@@ -12,9 +12,9 @@ pol commit acc_ic;
 
 // Little Endian bitwise decomposition of accumulators (which are processed top-down),
 // constrained to be U8 given by the lookup to the byte_lookup
-pol commit ia_bytes;
-pol commit ib_bytes;
-pol commit ic_bytes;
+pol commit ia_byte;
+pol commit ib_byte;
+pol commit ic_byte;
 
 // This is the tag {1,2,3,4,5,6} (restricted to not be a field)
 // Operations over FF are not supported, it is assumed this exclusion is handled
@@ -55,11 +55,11 @@ ctr * ((1 - sel_bitwise) * (1 - ctr_inv) + ctr_inv) - sel_bitwise = 0;
 (1 - sel_bitwise) * acc_ic = 0;
 
 #[BITW_ACC_REL_A]
-(acc_ia - ia_bytes - 256 * acc_ia') * ctr = 0;
+(acc_ia - ia_byte - 256 * acc_ia') * ctr = 0;
 #[BITW_ACC_REL_B]
-(acc_ib - ib_bytes - 256 * acc_ib') * ctr = 0;
+(acc_ib - ib_byte - 256 * acc_ib') * ctr = 0;
 #[BITW_ACC_REL_C]
-(acc_ic - ic_bytes - 256 * acc_ic') * ctr = 0;
+(acc_ic - ic_byte - 256 * acc_ic') * ctr = 0;
 
 //   LOOKUPs commented out for the moment.
 //
@@ -69,6 +69,6 @@ ctr * ((1 - sel_bitwise) * (1 - ctr_inv) + ctr_inv) - sel_bitwise = 0;
 //byte_lookup.sel_bitwise {byte_lookup.table_in_tags, byte_lookup.table_byte_lengths};
 //
 //#[LOOKUP_BITW_BYTE_OPERATIONS]
-//sel_bitwise {op_id, ia_bytes, ib_bytes, ic_bytes}
+//sel_bitwise {op_id, ia_byte, ib_byte, ic_byte}
 //in 
 //byte_lookup.sel_bitwise {byte_lookup.table_op_id, byte_lookup.table_input_a, byte_lookup.table_input_b, byte_lookup.table_output};

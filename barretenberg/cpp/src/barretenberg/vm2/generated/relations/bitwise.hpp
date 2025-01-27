@@ -67,7 +67,7 @@ template <typename FF_> class bitwiseImpl {
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.bitwise_acc_ia - new_term.bitwise_ia_bytes) - (FF(256) * new_term.bitwise_acc_ia_shift)) *
+                (((new_term.bitwise_acc_ia - new_term.bitwise_ia_byte) - (FF(256) * new_term.bitwise_acc_ia_shift)) *
                  new_term.bitwise_ctr);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
@@ -75,7 +75,7 @@ template <typename FF_> class bitwiseImpl {
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.bitwise_acc_ib - new_term.bitwise_ib_bytes) - (FF(256) * new_term.bitwise_acc_ib_shift)) *
+                (((new_term.bitwise_acc_ib - new_term.bitwise_ib_byte) - (FF(256) * new_term.bitwise_acc_ib_shift)) *
                  new_term.bitwise_ctr);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
@@ -83,7 +83,7 @@ template <typename FF_> class bitwiseImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.bitwise_acc_ic - new_term.bitwise_ic_bytes) - (FF(256) * new_term.bitwise_acc_ic_shift)) *
+                (((new_term.bitwise_acc_ic - new_term.bitwise_ic_byte) - (FF(256) * new_term.bitwise_acc_ic_shift)) *
                  new_term.bitwise_ctr);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);

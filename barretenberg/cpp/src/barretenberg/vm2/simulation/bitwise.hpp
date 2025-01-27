@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -15,6 +14,8 @@ class BitwiseInterface {
   public:
     virtual ~BitwiseInterface() = default;
     virtual void op_and(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
+    virtual void op_or(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
+    virtual void op_xor(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
 };
 
 class Bitwise : public BitwiseInterface {
@@ -25,6 +26,8 @@ class Bitwise : public BitwiseInterface {
 
     // Operands are expected to be direct.
     void op_and(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
+    void op_or(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
+    void op_xor(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
 
   private:
     EventEmitterInterface<BitwiseEvent>& events;

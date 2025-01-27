@@ -39,29 +39,27 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
     //     - input_a: bits 8...15
     //     - op_id: bits 16...
     // In other words, the first 256*256 rows are for op_id 0. Next are for op_id 1, followed by op_id 2.
-    auto row_from_inputs = [](uint32_t op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
-        return (op_id << 16) | (input_a << 8) | input_b;
+    auto row_from_inputs = [](BitwiseOperation op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
+        return (static_cast<uint32_t>(op_id) << 16) | (input_a << 8) | input_b;
     };
-    auto compute_operation = [](int op_id, uint32_t a, uint32_t b) -> uint32_t {
+    auto compute_operation = [](BitwiseOperation op_id, uint32_t a, uint32_t b) -> uint32_t {
         switch (op_id) {
-        case 0:
+        case BitwiseOperation::AND:
             return a & b;
-        case 1:
+        case BitwiseOperation::OR:
             return a | b;
-        case 2:
+        case BitwiseOperation::XOR:
             return a ^ b;
-        default:
-            return 0;
         }
     };
 
-    for (const auto op_id : { /*AND*/ 0, /*OR*/ 1, /*XOR*/ 2 }) {
+    for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {
         for (uint32_t a = 0; a < 256; a++) {
             for (uint32_t b = 0; b < 256; b++) {
-                trace.set(row_from_inputs(static_cast<uint32_t>(op_id), a, b),
+                trace.set(row_from_inputs(op_id, a, b),
                           { {
                               { C::precomputed_sel_bitwise, 1 },
-                              { C::precomputed_bitwise_op_id, op_id },
+                              { C::precomputed_bitwise_op_id, static_cast<uint8_t>(op_id) },
                               { C::precomputed_bitwise_input_a, FF(a) },
                               { C::precomputed_bitwise_input_b, FF(b) },
                               { C::precomputed_bitwise_output, FF(compute_operation(op_id, a, b)) },
@@ -164,21 +162,15 @@ void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
     using C = Column;
     using bb::avm2::MemoryTag;
 
-    // Column number corresponds to MemoryTag enum value
-    // No elegant way to loop over all enum values in cpp.
-    // Note that this remains correct even if we change the order of the enum elements.
-    trace.set(static_cast<uint32_t>(MemoryTag::U1),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 1 } } });
-    trace.set(static_cast<uint32_t>(MemoryTag::U8),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 1 } } });
-    trace.set(static_cast<uint32_t>(MemoryTag::U16),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 2 } } });
-    trace.set(static_cast<uint32_t>(MemoryTag::U32),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 4 } } });
-    trace.set(static_cast<uint32_t>(MemoryTag::U64),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 8 } } });
-    trace.set(static_cast<uint32_t>(MemoryTag::U128),
-              { { { C::precomputed_sel_integral_tag, 1 }, { C::precomputed_integral_tag_length, 16 } } });
+    // Column number corresponds to MemoryTag enum value.
+    const auto integral_tags = { MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
+                                 MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
+
+    for (const auto& tag : integral_tags) {
+        trace.set(static_cast<uint32_t>(tag),
+                  { { { C::precomputed_sel_integral_tag, 1 },
+                      { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+    }
 }
 
 } // namespace bb::avm2::tracegen
