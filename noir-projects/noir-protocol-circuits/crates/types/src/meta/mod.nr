@@ -104,7 +104,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
             }
             let packed_fields = packed_fields_quotes.join(quote {,});
 
-            // No we call unpack on the type
+            // Now we call unpack on the type
             result = quote { Packable::unpack([ $packed_fields ]) };
 
             consumed_counter = packed_len;
