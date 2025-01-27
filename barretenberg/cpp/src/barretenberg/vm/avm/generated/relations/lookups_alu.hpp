@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -71,7 +72,7 @@ class lookup_pow_2_0_lookup_settings {
 template <typename FF_>
 class lookup_pow_2_0_relation : public GenericLookupRelation<lookup_pow_2_0_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_POW_2_0";
+    static constexpr std::string_view NAME = "LOOKUP_POW_2_0";
 };
 template <typename FF_> using lookup_pow_2_0 = GenericLookup<lookup_pow_2_0_lookup_settings, FF_>;
 
@@ -138,7 +139,7 @@ class lookup_pow_2_1_lookup_settings {
 template <typename FF_>
 class lookup_pow_2_1_relation : public GenericLookupRelation<lookup_pow_2_1_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_POW_2_1";
+    static constexpr std::string_view NAME = "LOOKUP_POW_2_1";
 };
 template <typename FF_> using lookup_pow_2_1 = GenericLookup<lookup_pow_2_1_lookup_settings, FF_>;
 
