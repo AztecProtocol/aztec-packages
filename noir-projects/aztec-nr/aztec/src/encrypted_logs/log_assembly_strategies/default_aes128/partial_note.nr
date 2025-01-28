@@ -5,8 +5,7 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+            get_arr_of_size__log_bytes_padding__from_plaintext, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
     keys::{
@@ -16,7 +15,11 @@ use crate::{
     oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
-use dep::protocol_types::{address::{aztec_address::ToField, AztecAddress}, hash::poseidon2_hash};
+use dep::protocol_types::{
+    address::{aztec_address::ToField, AztecAddress},
+    hash::poseidon2_hash,
+    utils::arrays::{array_concat, array_concat_4},
+};
 use std::aes128::aes128_encrypt;
 
 pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
@@ -38,12 +41,10 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     // TODO: also use this shared secret for deriving note randomness.
 
     // *****************************************************************************
-    // Prepend/append extra bytes
+    // Compute the plaintext
     // *****************************************************************************
 
-    // "Proper" meaning the main meaty stuff that we care about.
-    let proper_plaintext: [u8; N] = plaintext;
-    let final_plaintext = proper_plaintext;
+    let final_plaintext = plaintext;
 
     // *****************************************************************************
     // Convert the plaintext into whatever format the encryption function expects
@@ -52,7 +53,7 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     // Already done for this strategy: AES expects bytes.
 
     // *****************************************************************************
-    // Encrypt
+    // Encrypt the plaintext
     // *****************************************************************************
 
     let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
@@ -61,23 +62,18 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
 
     let ciphertext_bytes = aes128_encrypt(final_plaintext, iv, sym_key);
 
-    assert(ciphertext_bytes.len() == 16 * (1 + (2 + N) / 16));
-
     // *****************************************************************************
     // Compute the header ciphertext
     // *****************************************************************************
 
     let contract_address_bytes = contract_address.to_field().to_be_bytes::<32>();
 
-    let mut header_plaintext: [u8; 32 + 2] = [0; 32 + 2];
-    for i in 0..32 {
-        header_plaintext[i] = contract_address_bytes[i];
-    }
-    let offset = contract_address_bytes.len();
-
     let ciphertext_bytes_length = ciphertext_bytes.len();
-    header_plaintext[offset] = (ciphertext_bytes_length >> 8) as u8;
-    header_plaintext[offset + 1] = ciphertext_bytes_length as u8;
+    let encoding_of_ciphertext_size_in_bytes =
+        [(ciphertext_bytes_length >> 8) as u8, ciphertext_bytes_length as u8];
+
+    let header_plaintext =
+        array_concat(contract_address_bytes, encoding_of_ciphertext_size_in_bytes);
 
     // TODO: this is insecure and wasteful:
     // "Insecure", because the esk shouldn't be used twice (once for the header,
@@ -93,35 +89,26 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     // Note: the aes128_encrypt builtin fn automatically appends bytes to the
     // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
     // bytes larger than the input in this case.
-    let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv, sym_key);
-    // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
-    assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
+    let header_ciphertext_bytes: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
+        aes128_encrypt(header_plaintext, iv, sym_key);
 
     // *****************************************************************************
     // Prepend / append more bytes of data to the ciphertext, before converting back
     // to fields.
     // *****************************************************************************
 
-    let mut log_bytes_padding_to_mult_31 = get_arr_of_size__log_bytes_padding__from_PT::<2 + N>();
+    let mut log_bytes_padding_to_mult_31 =
+        get_arr_of_size__log_bytes_padding__from_plaintext(final_plaintext);
+    /// Safety: this randomness won't be constrained to be random. It's in the
+    /// interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<2 + N>();
-
-    log_bytes[0] = eph_pk_sign_byte;
-    let mut offset = 1;
-    for i in 0..header_ciphertext_bytes.len() {
-        log_bytes[offset + i] = header_ciphertext_bytes[i];
-    }
-    offset += header_ciphertext_bytes.len();
-
-    for i in 0..ciphertext_bytes.len() {
-        log_bytes[offset + i] = ciphertext_bytes[i];
-    }
-    offset += ciphertext_bytes.len();
-
-    for i in 0..log_bytes_padding_to_mult_31.len() {
-        log_bytes[offset + i] = log_bytes_padding_to_mult_31[i];
-    }
+    let log_bytes = array_concat_4(
+        [eph_pk_sign_byte],
+        header_ciphertext_bytes,
+        ciphertext_bytes,
+        log_bytes_padding_to_mult_31,
+    );
 
     // *****************************************************************************
     // Convert bytes back to fields
@@ -152,9 +139,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     // TODO(#10273) This should be done by the AVM when it's processing the raw logs instead of their hashes.
     let siloed_tag = poseidon2_hash([contract_address.to_field(), tag]);
 
-    // Temporary hack so that the partial public log remains the same format.
-    // It should return field array and make the tag the first field as compute_private_log_payload does.
-
     let mut final_log: [Field; M] = [0; M];
 
     final_log[0] = siloed_tag;
@@ -164,6 +148,11 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     for i in 0..log_bytes_as_fields.len() {
         final_log[offset + i] = log_bytes_as_fields[i];
     }
+
+    // Interestingly, this more-succinct version of the above doesn't work:
+    // the compiler can't figure out that the concatenation of these fields
+    // results in length M.
+    // let final_log: [Field; M] = array_concat_3([siloed_tag], [eph_pk.x], log_bytes_as_fields);
 
     final_log
 }

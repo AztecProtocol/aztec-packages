@@ -136,6 +136,54 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     result
 }
 
+/// Similar to the standard array concat, but it concatenates 3 arrays.
+/// Within an unconstrained function, this is more efficient than using `array_concat`
+/// twice, since this doesn't have redundant `for` loops. It is uglier, though.
+pub fn array_concat_3<T, let N: u32, let M: u32, let L: u32>(
+    array1: [T; N],
+    array2: [T; M],
+    array3: [T; L],
+) -> [T; N + M + L] {
+    let mut result = [array1[0]; N + M + L];
+    for i in 1..N {
+        result[i] = array1[i];
+    }
+    let mut offset = N;
+    for i in 0..M {
+        result[offset + i] = array2[i];
+    }
+    offset += M;
+    for i in 0..L {
+        result[offset + i] = array3[i];
+    }
+    result
+}
+
+pub fn array_concat_4<T, let N: u32, let M: u32, let L: u32, let K: u32>(
+    array1: [T; N],
+    array2: [T; M],
+    array3: [T; L],
+    array4: [T; K],
+) -> [T; N + M + L + K] {
+    let mut result = [array1[0]; N + M + L + K];
+    for i in 1..N {
+        result[i] = array1[i];
+    }
+    let mut offset = N;
+    for i in 0..M {
+        result[offset + i] = array2[i];
+    }
+    offset += M;
+    for i in 0..L {
+        result[offset + i] = array3[i];
+    }
+    offset += L;
+    for i in 0..K {
+        result[offset + i] = array4[i];
+    }
+    result
+}
+
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
