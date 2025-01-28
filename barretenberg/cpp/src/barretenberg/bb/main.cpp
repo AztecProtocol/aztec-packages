@@ -1243,7 +1243,6 @@ int main(int argc, char* argv[])
                 api.contract(flags, output_path, vk_path);
                 return 0;
             } else {
-
                 throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
                 return 1;
             }

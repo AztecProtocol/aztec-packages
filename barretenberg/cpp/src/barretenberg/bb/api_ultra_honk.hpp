@@ -95,9 +95,9 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
     }
 };
 
-struct SerializedProofAndKey {
-    std::vector<uint8_t> proof;
-    std::vector<uint8_t> key;
+template <typename VK> struct ProofAndKey {
+    HonkProof proof;
+    VK key;
 };
 
 class UltraHonkAPI : public API {
@@ -123,9 +123,9 @@ class UltraHonkAPI : public API {
         return stack;
     };
 
-    SerializedProofAndKey _prove_poseidon2(const API::Flags& flags,
-                                           const std::filesystem::path& bytecode_path,
-                                           const std::filesystem::path& witness_path)
+    ProofAndKey<UltraFlavor::VerificationKey> _prove_poseidon2(const API::Flags& flags,
+                                                               const std::filesystem::path& bytecode_path,
+                                                               const std::filesystem::path& witness_path)
     {
         info("entered prove function");
         if (!flags.output_type || *flags.output_type != "fields_msgpack") {
@@ -154,12 +154,12 @@ class UltraHonkAPI : public API {
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
         HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
-        return { to_buffer</*include_size=*/true>(proof), to_buffer(*ivc.previous_vk) };
+        return { proof, *ivc.previous_vk };
     }
 
-    SerializedProofAndKey _prove_keccak(const API::Flags& flags,
-                                        const std::filesystem::path& bytecode_path,
-                                        const std::filesystem::path& witness_path)
+    ProofAndKey<UltraKeccakFlavor::VerificationKey> _prove_keccak(const API::Flags& flags,
+                                                                  const std::filesystem::path& bytecode_path,
+                                                                  const std::filesystem::path& witness_path)
     {
         info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
         ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
@@ -169,17 +169,15 @@ class UltraHonkAPI : public API {
 
         UltraKeccakProver prover =
             compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
-        return { to_buffer</*include_size=*/true>(prover.construct_proof()),
-                 to_buffer(UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key)) };
+        return { prover.construct_proof(), UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
-    SerializedProofAndKey _prove_rollup(const std::filesystem::path& bytecode_path,
-                                        const std::filesystem::path& witness_path)
+    ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const std::filesystem::path& bytecode_path,
+                                                                  const std::filesystem::path& witness_path)
     {
         UltraProver_<UltraRollupFlavor> prover = compute_valid_prover<UltraRollupFlavor>(
             bytecode_path, witness_path, /*initialize_pairing_point_accumulator*/ false);
-        return { to_buffer</*include_size=*/true>(prover.construct_proof()),
-                 to_buffer(UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key)) };
+        return { prover.construct_proof(), UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
     template <typename Flavor>
@@ -234,35 +232,33 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        const auto buffers = [&]() {
-            if (*flags.ipa_accumulation == "true") {
-                vinfo("proving with ipa_accumulation");
-                return _prove_rollup(bytecode_path, witness_path);
-            }
-            if (*flags.oracle_hash == "poseidon2") {
-                vinfo("proving with poseidon2");
-                return _prove_poseidon2(flags, bytecode_path, witness_path);
-            }
-            if (*flags.oracle_hash == "keccak") {
-                vinfo("proving with keccak");
-                return _prove_keccak(flags, bytecode_path, witness_path);
-            }
-            throw_or_abort(std::format("Invalid proving options specified")); // WORKTODO: make flags printable
-        }();
-
-        info("writing proof...");
-        if (output_dir == "-") {
-            vinfo("output dir is -");
-            write_bytes_to_stdout(buffers.proof);
-            vinfo("proof written to stdout");
-        } else {
+        const auto write_data = [&output_dir](const auto& prover_output) {
+            info("writing proof...");
             vinfo("output dir is ", output_dir);
-            info("writing proof to ", output_dir / "proof");
-            write_file(output_dir / "proof", buffers.proof);
-            // WORKTODO: remove
-            info("writing vk to ", output_dir / "vk");
-            write_file(output_dir / "vk", buffers.key);
-        }
+            if (output_dir == "-") {
+                write_bytes_to_stdout(to_buffer</*include_size*/ true>(prover_output.proof));
+            } else {
+                info("writing proof to ", output_dir / "proof");
+                write_file(output_dir / "proof", to_buffer</*include_size*/ true>(prover_output.proof));
+                // WORKTODO: remove
+                info("writing vk to ", output_dir / "vk");
+                write_file(output_dir / "vk", to_buffer(prover_output.key));
+            }
+        };
+
+        if (*flags.ipa_accumulation == "true") {
+            vinfo("proving with ipa_accumulation");
+            write_data(_prove_rollup(bytecode_path, witness_path));
+        } else if (*flags.oracle_hash == "poseidon2") {
+            vinfo("proving with poseidon2");
+            write_data(_prove_poseidon2(flags, bytecode_path, witness_path));
+        } else if (*flags.oracle_hash == "keccak") {
+            vinfo("proving with keccak");
+            write_data(_prove_keccak(flags, bytecode_path, witness_path));
+        } else {
+            vinfo(flags);
+            throw_or_abort("Invalid proving options specified");
+        };
     };
 
     /**
