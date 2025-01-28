@@ -188,15 +188,21 @@ StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req
 
 BoolResponse LMDBStoreWrapper::close_cursor(const CloseCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_cursor_mutex);
-    _cursors.erase(req.cursor);
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        _cursors.erase(req.cursor);
+    }
     return { true };
 }
 
 AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_cursor_mutex);
-    CursorData& data = _cursors.at(req.cursor);
+    CursorData data;
+
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        data = _cursors.at(req.cursor);
+    }
 
     uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
     lmdblib::KeyDupValuesVector entries;

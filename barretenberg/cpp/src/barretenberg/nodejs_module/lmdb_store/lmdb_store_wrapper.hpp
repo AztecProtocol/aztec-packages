@@ -15,7 +15,7 @@
 namespace bb::nodejs::lmdb_store {
 
 struct CursorData {
-    lmdblib::LMDBCursor::Ptr cursor;
+    lmdblib::LMDBCursor::SharedPtr cursor;
     bool reverse;
 };
 /**
