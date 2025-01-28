@@ -14,7 +14,10 @@ use scheduled_value_change::ScheduledValueChange;
 pub mod scheduled_delay_change;
 pub mod scheduled_value_change;
 
-global HASH_SEPARATOR: u32 = 2;
+// Separators separating storage slot of different values within the same state variable
+pub global VALUE_CHANGE_SEPARATOR: u32 = 0;
+pub global DELAY_CHANGE_SEPARATOR: u32 = 1;
+pub global HASH_SEPARATOR: u32 = 2;
 
 pub fn validate_shared_mutable_hints<T, let INITIAL_DELAY: u32>(
     historical_header: BlockHeader,
@@ -115,6 +118,7 @@ fn hash_scheduled_data<T, let INITIAL_DELAY: u32>(
 where
     T: ToField + Eq + FromField,
 {
-    let concatenated: [Field; 4] = array_concat(value_change.serialize(), delay_change.serialize());
+    let concatenated: [Field; 4] = array_concat(value_change.pack(), delay_change.pack());
     poseidon2_hash(concatenated)
 }
+

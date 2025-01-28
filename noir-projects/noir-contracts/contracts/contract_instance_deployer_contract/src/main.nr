@@ -87,7 +87,9 @@ contract ContractInstanceDeployer {
     struct ContractInstanceUpdated {
         DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field,
         address: AztecAddress,
+        prev_contract_class_id: ContractClassId,
         new_contract_class_id: ContractClassId,
+        block_of_change: u32,
     }
 
     global UPDATE_DELAY: u32 = 10;
@@ -150,7 +152,6 @@ contract ContractInstanceDeployer {
     fn update(new_contract_class_id: ContractClassId) {
         let address = context.msg_sender();
 
-        // Is it possible for this to fail?
         assert(
             context.nullifier_exists(address.to_field(), context.this_address()),
             "msg.sender is not deployed",
@@ -161,12 +162,18 @@ contract ContractInstanceDeployer {
             "New contract class is not registered",
         );
 
-        storage.updated_class_ids.at(address).schedule_value_change(new_contract_class_id);
+        let scheduled_value_update = storage
+            .updated_class_ids
+            .at(address)
+            .schedule_and_return_value_change(new_contract_class_id);
+        let (prev_contract_class_id, block_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {
             DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
             address,
+            prev_contract_class_id,
             new_contract_class_id,
+            block_of_change,
         };
 
         context.emit_public_log(event);

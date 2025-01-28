@@ -51,7 +51,10 @@ import {
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
 } from '@aztec/protocol-contracts/class-registerer';
-import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import {
+  ContractInstanceDeployedEvent,
+  ContractInstanceUpdatedEvent,
+} from '@aztec/protocol-contracts/instance-deployer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
@@ -860,6 +863,8 @@ class ArchiverStoreHelper
       | 'deleteContractClasses'
       | 'addContractInstances'
       | 'deleteContractInstances'
+      | 'addContractInstanceUpdates'
+      | 'deleteContractInstanceUpdates'
       | 'addFunctions'
     >
 {
@@ -918,6 +923,29 @@ class ArchiverStoreHelper
         return await this.store.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractInstances(contractInstances, blockNum);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  async #updateUpdatedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
+    const contractUpdates = allLogs
+      .filter(log => ContractInstanceUpdatedEvent.isContractInstanceUpdatedEvent(log))
+      .map(log => ContractInstanceUpdatedEvent.fromLog(log))
+      .map(e => e.toContractInstanceUpdate());
+
+    if (contractUpdates.length > 0) {
+      contractUpdates.forEach(c =>
+        this.#log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
+      );
+      if (operation == Operation.Store) {
+        return await this.store.addContractInstanceUpdates(contractUpdates, blockNum);
+      } else if (operation == Operation.Delete) {
+        return await this.store.deleteContractInstanceUpdates(contractUpdates, blockNum);
       }
     }
     return true;
@@ -993,6 +1021,7 @@ class ArchiverStoreHelper
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
+            this.#updateUpdatedContractInstances(privateLogs, block.data.number, Operation.Store),
             this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
           ])
         ).every(Boolean);
@@ -1027,6 +1056,7 @@ class ArchiverStoreHelper
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(privateLogs, block.data.number, Operation.Delete),
           ])
         ).every(Boolean);
       }),
