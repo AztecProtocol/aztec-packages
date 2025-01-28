@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -20,6 +21,7 @@ import {
   hexToBytes,
 } from 'viem';
 
+import { NoBlobBodiesFoundError } from './errors.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published, type L1PublishedData } from './structs/published.js';
 
@@ -35,6 +37,7 @@ import { type L1Published, type L1PublishedData } from './structs/published.js';
 export async function retrieveBlocksFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: Logger = createLogger('archiver'),
@@ -63,7 +66,13 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
-    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
+    const newBlocks = await processL2BlockProposedLogs(
+      rollup,
+      publicClient,
+      blobSinkClient,
+      l2BlockProposedLogs,
+      logger,
+    );
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
@@ -80,6 +89,7 @@ export async function retrieveBlocksFromRollup(
 export async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   logger: Logger,
 ): Promise<L1Published<L2Block>[]> {
@@ -91,7 +101,7 @@ export async function processL2BlockProposedLogs(
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
+      const block = await getBlockFromRollupTx(publicClient, blobSinkClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -127,10 +137,12 @@ export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bi
  */
 async function getBlockFromRollupTx(
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
 ): Promise<L2Block> {
-  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
+
   const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
   const allowedMethods = ['propose', 'proposeAndClaim'];
@@ -156,16 +168,22 @@ async function getBlockFromRollupTx(
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
+  if (blobBodies.length === 0) {
+    throw new NoBlobBodiesFoundError(Number(l2BlockNum));
+  }
+
+  const blockFields = blobBodies.flatMap(b => b.toEncodedFields());
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
-  const blockFields = blockBody.toBlobFields();
   // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
   // The blob source will give us blockFields, and we must construct the body from them:
   // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
-  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.unencryptedLogs, blockBody.contractClassLogs);
+  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.contractClassLogs);
 
   if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
     // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
@@ -173,7 +191,7 @@ async function getBlockFromRollupTx(
   }
 
   // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
-  const blobCheck = Blob.getBlobs(blockFields);
+  const blobCheck = await Blob.getBlobs(blockFields);
   if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
     // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
     // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.

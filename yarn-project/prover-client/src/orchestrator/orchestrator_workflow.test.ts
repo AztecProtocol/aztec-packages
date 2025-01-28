@@ -5,6 +5,7 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   ClientIvcProof,
   Fr,
   type GlobalVariables,
@@ -32,6 +33,7 @@ describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
     let globalVariables: GlobalVariables;
+    let previousBlockHeader: BlockHeader;
     let context: TestContext;
 
     describe('with mock prover', () => {
@@ -41,6 +43,7 @@ describe('prover/orchestrator', () => {
         mockProver = mock<ServerCircuitProver>();
         context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
         ({ orchestrator, globalVariables } = context);
+        previousBlockHeader = context.getPreviousBlockHeader();
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -79,7 +82,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(globalVariables, [message]);
+        await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -110,8 +113,8 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(globalVariables, []);
-        const txs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         await context.setEndTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
@@ -128,16 +131,18 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
         orchestrator.startNewEpoch(1, 1, 1);
-        const processedTxs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
-        const txs = processedTxs.map(tx => ({ getTxHash: () => tx.hash, clientIvcProof: tx.clientIvcProof } as Tx));
-        orchestrator.startTubeCircuits(txs);
+        const txs = processedTxs.map(
+          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof } as Tx),
+        );
+        await orchestrator.startTubeCircuits(txs);
 
         await sleep(100);
         expect(getTubeSpy).toHaveBeenCalledTimes(2);
         getTubeSpy.mockReset();
 
-        await orchestrator.startNewBlock(globalVariables, []);
+        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
         await context.setEndTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);

@@ -30,7 +30,6 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -77,7 +76,7 @@ describe('public_tx_simulator', () => {
     ) => Promise<AvmFinalizedCallResult>
   >;
 
-  const mockTxWithPublicCalls = ({
+  const mockTxWithPublicCalls = async ({
     numberOfSetupCalls = 0,
     numberOfAppLogicCalls = 0,
     hasPublicTeardownCall = false,
@@ -89,7 +88,7 @@ describe('public_tx_simulator', () => {
     feePayer?: AztecAddress;
   }) => {
     // seed with min nullifier to prevent insertion of a nullifier < min
-    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
+    const tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: numberOfSetupCalls,
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
@@ -118,8 +117,8 @@ describe('public_tx_simulator', () => {
 
   const setFeeBalance = async (feePayer: AztecAddress, balance: Fr) => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-    const balancePublicDataTreeLeafSlot = computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
+    const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
@@ -209,7 +208,6 @@ describe('public_tx_simulator', () => {
     const simulator = new PublicTxSimulator(
       db,
       worldStateDB,
-      new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
       enforceFeePayment,
@@ -243,8 +241,7 @@ describe('public_tx_simulator', () => {
 
   beforeEach(async () => {
     const tmp = openTmpStore();
-    const telemetryClient = new NoopTelemetryClient();
-    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
+    db = await (await MerkleTrees.new(tmp)).fork();
     worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
 
     treeStore = openTmpStore();
@@ -278,7 +275,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
     });
 
@@ -314,7 +311,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in app logic phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfAppLogicCalls: 2,
     });
 
@@ -350,7 +347,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in teardown phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       hasPublicTeardownCall: true,
     });
 
@@ -384,7 +381,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with all phases', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -433,7 +430,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('deduplicates public data writes', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -478,15 +475,15 @@ describe('public_tx_simulator', () => {
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
     ]);
   });
 
   it('fails a transaction that reverts in setup', async function () {
     // seed with min nullifier to prevent insertion of a nullifier < min
-    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
+    const tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
       hasPublicTeardownCallRequest: true,
@@ -509,7 +506,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -593,7 +590,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in teardown only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -674,7 +671,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -758,7 +755,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('nullifier tree root is right', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -796,7 +793,7 @@ describe('public_tx_simulator', () => {
     // The max fee is gasFee + priorityFee + 1.
     maxFeesPerGas = new GasFees(2 + 5 + 1, 3 + 7 + 1);
 
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -826,10 +823,10 @@ describe('public_tx_simulator', () => {
 
   describe('fees', () => {
     it('deducts fees from the fee payer balance', async () => {
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
       await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
 
-      const tx = mockTxWithPublicCalls({
+      const tx = await mockTxWithPublicCalls({
         numberOfSetupCalls: 1,
         numberOfAppLogicCalls: 1,
         hasPublicTeardownCall: true,
@@ -841,11 +838,11 @@ describe('public_tx_simulator', () => {
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
 
       await expect(
         simulator.simulate(
-          mockTxWithPublicCalls({
+          await mockTxWithPublicCalls({
             numberOfSetupCalls: 1,
             numberOfAppLogicCalls: 1,
             hasPublicTeardownCall: true,
@@ -857,10 +854,10 @@ describe('public_tx_simulator', () => {
 
     it('allows disabling fee balance checks for fee estimation', async () => {
       simulator = createSimulator({ enforceFeePayment: false });
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
 
       const txResult = await simulator.simulate(
-        mockTxWithPublicCalls({
+        await mockTxWithPublicCalls({
           numberOfSetupCalls: 1,
           numberOfAppLogicCalls: 1,
           hasPublicTeardownCall: true,

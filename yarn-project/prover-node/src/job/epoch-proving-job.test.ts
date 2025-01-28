@@ -10,11 +10,12 @@ import {
 } from '@aztec/circuit-types';
 import { BlockHeader, Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
+import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -40,7 +41,7 @@ describe('epoch-proving-job', () => {
   let proof: Proof;
   let blocks: L2Block[];
   let txs: Tx[];
-  let header: BlockHeader;
+  let initialHeader: BlockHeader;
   let epochNumber: number;
 
   // Constants
@@ -65,7 +66,7 @@ describe('epoch-proving-job', () => {
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32 },
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProver>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
@@ -74,28 +75,33 @@ describe('epoch-proving-job', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
     publicProcessor = mock<PublicProcessor>();
-    metrics = new ProverNodeMetrics(new NoopTelemetryClient());
+    metrics = new ProverNodeMetrics(getTelemetryClient());
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();
-    header = BlockHeader.empty();
     epochNumber = 1;
-    blocks = times(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
+    initialHeader = BlockHeader.empty();
+    blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
     txs = times(NUM_TXS, i =>
       mock<Tx>({
-        getTxHash: () => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash,
+        getTxHash: () => Promise.resolve(blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash),
       }),
     );
 
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
-    l2BlockSource.getBlockHeader.mockResolvedValue(header);
+    l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
+    db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
     publisher.submitEpochProof.mockResolvedValue(true);
-    publicProcessor.process.mockImplementation((txs: Iterable<Tx>) =>
-      Promise.resolve([Array.from(txs).map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })), [], []]),
-    );
+    publicProcessor.process.mockImplementation(async txs => {
+      const txsArray = await toArray(txs);
+      const processedTxs = await Promise.all(
+        txsArray.map(async tx => mock<ProcessedTx>({ hash: await tx.getTxHash() })),
+      );
+      return [processedTxs, [], []];
+    });
   });
 
   it('works', async () => {
@@ -111,9 +117,11 @@ describe('epoch-proving-job', () => {
   });
 
   it('fails if fails to process txs for a block', async () => {
-    publicProcessor.process.mockImplementation((txs: Iterable<Tx>) =>
-      Promise.resolve([[], Array.from(txs).map(tx => ({ error: new Error('Failed to process tx'), tx })), []]),
-    );
+    publicProcessor.process.mockImplementation(async txs => {
+      const txsArray = await toArray(txs);
+      const errors = txsArray.map(tx => ({ error: new Error('Failed to process tx'), tx }));
+      return [[], errors, []];
+    });
 
     const job = createJob();
     await job.run();
@@ -123,7 +131,7 @@ describe('epoch-proving-job', () => {
   });
 
   it('fails if does not process all txs for a block', async () => {
-    publicProcessor.process.mockImplementation((_txs: Iterable<Tx>) => Promise.resolve([[], [], []]));
+    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], []]));
 
     const job = createJob();
     await job.run();

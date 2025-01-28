@@ -8,10 +8,10 @@ pub unconstrained fn sort_by<T, let N: u32, Env>(
     ordering: fn[Env](T, T) -> bool,
 ) -> [T; N] {
     let mut result = array;
-    let sorted_index = unsafe { get_sorting_index(array, ordering) };
+    let sorted_index = get_sorting_index(array, ordering);
     // Ensure the indexes are correct
     for i in 0..N {
-        let pos = unsafe { find_index_hint(sorted_index, |index: u32| index == i) };
+        let pos = find_index_hint(sorted_index, |index: u32| index == i);
         assert(sorted_index[pos] == i);
     }
     // Sort the array using the indexes

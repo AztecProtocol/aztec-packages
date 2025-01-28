@@ -13,7 +13,13 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue, SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -108,13 +114,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   public constructor(
     private database: ProvingBrokerDatabase,
-    client: TelemetryClient,
     {
       jobTimeoutMs = 30_000,
       timeoutIntervalMs = 10_000,
       maxRetries = 3,
       maxEpochsToKeepResultsFor = 1,
     }: ProofRequestBrokerConfig = {},
+    client: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('prover-client:proving-broker'),
   ) {
     this.tracer = client.getTracer('ProvingBroker');
@@ -141,13 +147,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return count;
   };
 
-  public start(): Promise<void> {
+  public async start(): Promise<void> {
     if (this.started) {
       this.logger.info('Proving Broker already started');
       return Promise.resolve();
     }
     this.logger.info('Proving Broker started');
-    for (const [item, result] of this.database.allProvingJobs()) {
+    for await (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
         provingJobId: item.id,
         status: result ? result.status : 'pending',

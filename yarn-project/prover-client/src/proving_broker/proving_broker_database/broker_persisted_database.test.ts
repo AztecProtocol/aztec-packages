@@ -1,5 +1,5 @@
 import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { toArray } from '@aztec/foundation/iterable';
 
 import { existsSync } from 'fs';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -24,7 +24,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
     };
-    db = await KVBrokerDatabase.new(config, new NoopTelemetryClient());
+    db = await KVBrokerDatabase.new(config);
   });
 
   afterEach(async () => {
@@ -160,7 +160,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         expectedJobs.push([job, result]);
       }
     }
-    const allJobs = Array.from(db.allProvingJobs());
+    const allJobs = await toArray(db.allProvingJobs());
     expect(allJobs.length).toBe(numJobs);
     expectArrayEquivalence(expectedJobs, allJobs);
   });
@@ -211,7 +211,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     expectSubdirectoriesExist(directory, epochNumbers, true);
     const expectedJobsAfterEpoch14 = expectedJobs.filter(x => x[0].epochNumber > 14);
     await db.deleteAllProvingJobsOlderThanEpoch(15);
-    const allJobs = Array.from(db.allProvingJobs());
+    const allJobs = await toArray(db.allProvingJobs());
     expect(allJobs.length).toBe(expectedJobsAfterEpoch14.length);
     expectArrayEquivalence(expectedJobsAfterEpoch14, allJobs);
 
@@ -259,10 +259,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await mkdir(garbageDirectory, { recursive: true });
 
     // Now create another instance
-    const secondDb = await KVBrokerDatabase.new(config, new NoopTelemetryClient());
+    const secondDb = await KVBrokerDatabase.new(config);
 
     // All data should be restored
-    const allJobs = Array.from(secondDb.allProvingJobs());
+    const allJobs = await toArray(secondDb.allProvingJobs());
     expect(allJobs.length).toBe(numJobs);
     expectArrayEquivalence(expectedJobs, allJobs);
   });

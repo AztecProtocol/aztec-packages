@@ -265,6 +265,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                                        nullptr,
                                                        /* libra commitments = */ {},
                                                        /* libra evaluations = */ {},
+                                                       {},
+                                                       {},
                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                        RefVector(c_evaluations));
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);

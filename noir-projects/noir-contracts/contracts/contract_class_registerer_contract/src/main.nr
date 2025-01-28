@@ -56,7 +56,8 @@ contract ContractClassRegisterer {
             (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
         assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
-        let mut computed_public_bytecode_commitment = 0;
+        // The first value in the running hash is the bytecode length in bytes
+        let mut computed_public_bytecode_commitment = packed_public_bytecode[0];
         // We can hash up to MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1, since the first element is the length
         for i in 0..(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1) {
             // While we are forced to run the hash MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS times in the circuit,

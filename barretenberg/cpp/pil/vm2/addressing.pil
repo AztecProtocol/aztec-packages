@@ -1,8 +1,8 @@
 // This is a virtual gadget, which is part of the execution trace.
-namespace execution(256);
+namespace execution;
 
-pol commit stack_pointer_val;
-pol commit stack_pointer_tag;
+pol commit base_address_val;
+pol commit base_address_tag;
 pol commit sel_addressing_error;  // true if any error type
 pol commit addressing_error_kind;  // TODO: might need to be selectors
 pol commit addressing_error_idx;  // operand index for error, if any

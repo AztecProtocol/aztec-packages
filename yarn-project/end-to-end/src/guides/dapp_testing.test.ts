@@ -100,7 +100,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
+        ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
       });
 
@@ -122,7 +122,7 @@ describe('guides/dapp/testing', () => {
       it('checks public storage', async () => {
         // docs:start:public-storage
         await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );
@@ -131,17 +131,17 @@ describe('guides/dapp/testing', () => {
         // docs:end:public-storage
       });
 
-      it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
-        // docs:start:unencrypted-logs
+      it('checks public logs, [Kinda broken with current implementation]', async () => {
+        // docs:start:public-logs
         const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
-        const tx = await testContract.methods.emit_unencrypted(value).send().wait();
+        const tx = await testContract.methods.emit_public(value).send().wait();
         const filter = {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
-        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
-        // docs:end:unencrypted-logs
+        const logs = (await pxe.getPublicLogs(filter)).logs;
+        expect(logs[0].log.log[0]).toEqual(value);
+        // docs:end:public-logs
       });
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
@@ -183,7 +183,7 @@ describe('guides/dapp/testing', () => {
         const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );

@@ -18,6 +18,7 @@ inputs:
     default: BestEffort
 runs:
   # define an action, runs in OS of caller
+  # ami-052a1e16394277fdf is an ubuntu 22.04.4 jammy
   using: composite
   steps:
     - name: Select Instance Type and AMI

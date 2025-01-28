@@ -3,9 +3,9 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, trait
 use std::option::Option;
 
 pub struct PropertySelector {
-    pub(crate) index: u8, // index of the field in the serialized note array
-    pub(crate) offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
-    pub(crate) length: u8, // number of bytes to read after the offset
+    pub index: u8, // index of the field in the serialized note array
+    pub offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    pub length: u8, // number of bytes to read after the offset
 }
 
 pub struct Select {

@@ -3,6 +3,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  CheatCodes,
   type Logger,
   type PXE,
   SignerlessWallet,
@@ -52,6 +53,7 @@ export class FeesTest {
   public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
+  public cheatCodes!: CheatCodes;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -133,7 +135,8 @@ export class FeesTest {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+        const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
@@ -142,13 +145,13 @@ export class FeesTest {
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
-
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        const canonicalFeeJuice = await getCanonicalFeeJuice();
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
         if (!bobInstance) {
           throw new Error('Bob instance not found');
         }
-        await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
+        await this.aliceWallet.registerAccount(accountKeys[1][0], await computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);

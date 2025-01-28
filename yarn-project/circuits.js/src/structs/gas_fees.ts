@@ -45,10 +45,16 @@ export class GasFees {
   }
 
   mul(scalar: number | bigint) {
-    return new GasFees(
-      new Fr(this.feePerDaGas.toBigInt() * BigInt(scalar)),
-      new Fr(this.feePerL2Gas.toBigInt() * BigInt(scalar)),
-    );
+    if (scalar === 1 || scalar === 1n) {
+      return this.clone();
+    } else if (typeof scalar === 'bigint') {
+      return new GasFees(new Fr(this.feePerDaGas.toBigInt() * scalar), new Fr(this.feePerL2Gas.toBigInt() * scalar));
+    } else {
+      return new GasFees(
+        new Fr(this.feePerDaGas.toNumberUnsafe() * scalar),
+        new Fr(this.feePerL2Gas.toNumberUnsafe() * scalar),
+      );
+    }
   }
 
   static from(fields: FieldsOf<GasFees>) {

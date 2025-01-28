@@ -19,7 +19,7 @@ export interface ProvingBrokerDatabase {
   /**
    * Returns an iterator over all saved proving jobs
    */
-  allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]>;
+  allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]>;
 
   /**
    * Saves the result of a proof request

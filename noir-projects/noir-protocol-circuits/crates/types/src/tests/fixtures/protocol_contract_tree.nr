@@ -1,6 +1,6 @@
 use crate::{
     constants::PROTOCOL_CONTRACT_TREE_HEIGHT, merkle_tree::merkle_tree::MerkleTree,
-    tests::fixtures::contracts::get_protocol_contract,
+    tests::fixtures::contracts::get_protocol_contract, traits::ToField,
 };
 
 global PROTOCOL_CONTRACT_TREE_WIDTH: u32 = 1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8;

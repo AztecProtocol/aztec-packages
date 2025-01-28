@@ -81,6 +81,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     fn validate_unchanged_data(self) {
         assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            self.previous_kernel.claimed_first_nullifier,
+        );
         assert_eq(self.output.constants, self.previous_kernel.constants);
 
         assert_eq(
@@ -190,7 +194,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let kept_note_hashes = self.hints.kept_note_hashes;
         let output_note_hashes = self.output.end.note_hashes;
         let sorted_indexes = self.hints.sorted_note_hash_indexes;
-        let first_nullifier = self.output.end.nullifiers[0].value();
         let is_private_only = self.output.is_private_only;
         let min_revertible_side_effect_counter = self.output.min_revertible_side_effect_counter;
 
@@ -202,7 +205,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 let siloed_note_hash = silo_note_hash(note_hash);
                 let siloed_unique_note_hash = compute_unique_siloed_note_hash(
                     siloed_note_hash,
-                    first_nullifier,
+                    self.output.claimed_first_nullifier,
                     sorted_index,
                 );
                 // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx

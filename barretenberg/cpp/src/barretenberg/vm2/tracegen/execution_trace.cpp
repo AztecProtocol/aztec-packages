@@ -52,6 +52,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },
                       { C::execution_op4, static_cast<FF>(operands.at(3)) },
                       { C::execution_pc, ex_event.pc },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
                       { C::execution_rop1, static_cast<FF>(resolved_operands.at(0)) },
                       { C::execution_rop2, static_cast<FF>(resolved_operands.at(1)) },
                       { C::execution_rop3, static_cast<FF>(resolved_operands.at(2)) },
@@ -65,8 +66,8 @@ void ExecutionTraceBuilder::process(
         trace.set(
             row,
             { {
-                { C::execution_stack_pointer_val, addr_event.stack_pointer_val },
-                { C::execution_stack_pointer_tag, static_cast<size_t>(addr_event.stack_pointer_tag) },
+                { C::execution_base_address_val, addr_event.base_address_val },
+                { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address_tag) },
                 { C::execution_sel_addressing_error, addr_event.error.has_value() ? 1 : 0 },
                 { C::execution_addressing_error_idx, addr_event.error.has_value() ? addr_event.error->operand_idx : 0 },
                 { C::execution_addressing_error_kind,

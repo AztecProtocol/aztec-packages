@@ -12,8 +12,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   type Chain,
@@ -113,7 +112,7 @@ export class SlasherClient extends WithTracer {
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
     super(telemetry, 'slasher');
@@ -316,7 +315,10 @@ export class SlasherClient extends WithTracer {
     const blockHash =
       blockNumber == 0
         ? ''
-        : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
+        : await this.l2BlockSource
+            .getBlockHeader(blockNumber)
+            .then(header => header?.hash())
+            .then(hash => hash?.toString());
     return Promise.resolve({
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
@@ -334,7 +336,9 @@ export class SlasherClient extends WithTracer {
     }
 
     const lastBlockNum = blocks[blocks.length - 1].number;
-    await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
+    await Promise.all(
+      blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
+    );
     await this.synchedLatestBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     this.startServiceIfSynched();

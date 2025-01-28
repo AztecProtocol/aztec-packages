@@ -43,10 +43,10 @@ describe('e2e_l1_with_wall_time', () => {
   const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
     const provenTxs = [];
     for (let i = 0; i < numTxs; i++) {
-      const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+      const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
       const deployMethod = await accountManager.getDeployMethod();
       const tx = await deployMethod.prove({
-        contractAddressSalt: accountManager.salt,
+        contractAddressSalt: new Fr(accountManager.salt),
         skipClassRegistration: true,
         skipPublicDeployment: true,
         universalDeploy: true,
