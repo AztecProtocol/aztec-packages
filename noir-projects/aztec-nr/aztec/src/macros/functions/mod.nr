@@ -81,6 +81,21 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
+comptime fn create_note_discovery_call() -> Quoted {
+    quote {
+        unsafe { dep::aztec::note::discovery::discover_new_notes(context.this_address(), |serialized_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+            let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, serialized_note_content);
+
+            Option::some(
+                aztec::note::discovery::NoteHashAndNullifier {
+                    note_hash: hashes[0],
+                    inner_nullifier: hashes[3],
+                },
+            )
+        }) };
+    }
+}
+
 /// Private functions are executed client-side and preserve privacy.
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
@@ -160,6 +175,8 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    let note_discovery_call = create_note_discovery_call();
+
     // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel
     // circuit expects.
     let return_value_var_name = quote { macro__returned__values };
@@ -211,6 +228,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $note_discovery_call
     };
 
     let to_append = quote {
@@ -334,9 +352,13 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     } else {
         quote {}
     };
+
+    let note_discovery_call = create_note_discovery_call();
+
     let to_prepend = quote {
         $context_creation
         $storage_init
+        $note_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});

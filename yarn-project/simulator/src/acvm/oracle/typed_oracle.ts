@@ -250,6 +250,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('deliverNote');
   }
 
+  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getLogByTag');
+  }
+
   dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
     throw new OracleMethodNotAvailableError('dbStore');
   }

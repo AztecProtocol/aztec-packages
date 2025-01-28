@@ -1,5 +1,5 @@
 use crate::note::discovery::MAX_NOTE_SERIALIZED_LEN;
-use dep::protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX};
+use dep::protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, log_with_tx_data::LogWithTxData};
 
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 5; // todo replace with constant from miranda's pr. make sure to use data and not raw size (excl addr) and remove tag
 
@@ -66,16 +66,9 @@ unconstrained fn deliver_note_oracle(
     recipient: AztecAddress,
 ) -> bool {}
 
-pub struct LogWithTxData {
-    pub log_content: BoundedVec<Field, PUBLIC_LOG_SIZE_IN_FIELDS>,
-    pub tx_hash: Field,
-    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    pub first_nullifier_in_tx: Field,
-}
-
 pub unconstrained fn get_log_by_tag(tag: Field) -> Option<LogWithTxData> {
     get_log_by_tag_oracle(tag)
 }
 
-#[oracle(deliverNote)]
+#[oracle(getLogByTag)]
 unconstrained fn get_log_by_tag_oracle(tag: Field) -> Option<LogWithTxData> {}

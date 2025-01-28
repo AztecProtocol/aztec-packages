@@ -469,6 +469,8 @@ comptime fn generate_setup_payload(
             }
 
             pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+                aztec::encrypted_logs::partial::compute_and_emit_partial_note_private_log(context, recipient, sender, self.log_plaintext);
+
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
                     context.this_address(),
                     recipient,

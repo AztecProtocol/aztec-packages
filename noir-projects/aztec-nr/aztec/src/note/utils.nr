@@ -4,9 +4,13 @@ use crate::{
     utils::array,
 };
 
-use dep::protocol_types::hash::{
-    compute_siloed_note_hash, compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-    compute_unique_note_hash,
+use dep::protocol_types::{
+    address::AztecAddress,
+    hash::{
+        compute_siloed_note_hash,
+        compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
+        compute_unique_note_hash,
+    },
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(
@@ -118,7 +122,9 @@ where
 
 pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
     deserialize_content: fn([Field; N]) -> T,
-    note_header: NoteHeader,
+    contract_address: AztecAddress,
+    nonce: Field,
+    storage_slot: Field,
     compute_nullifier: bool,
     serialized_note: [Field; S],
 ) -> [Field; 4]
@@ -126,11 +132,11 @@ where
     T: NoteInterface<N> + NullifiableNote,
 {
     let mut note = deserialize_content(array::subarray(serialized_note, 0));
-    note.set_header(note_header);
+    note.set_header(NoteHeader::new(contract_address, nonce, storage_slot));
 
     let note_hash = note.compute_note_hash();
-    let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, note_hash);
-    let unique_note_hash = compute_unique_note_hash(note_header.nonce, siloed_note_hash);
+    let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);
+    let unique_note_hash = compute_unique_note_hash(nonce, siloed_note_hash);
 
     let inner_nullifier = if compute_nullifier {
         note.compute_nullifier_without_context()

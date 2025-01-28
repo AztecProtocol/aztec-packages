@@ -17,7 +17,7 @@ import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
-import { type NoteData } from '../acvm/index.js';
+import { type LogWithTxData, type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';
 
 /**
@@ -256,6 +256,8 @@ export interface DBOracle extends CommitmentsDB {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void>;
+
+  getLogByTag(tag: Fr): Promise<LogWithTxData>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

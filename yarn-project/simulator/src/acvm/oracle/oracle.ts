@@ -1,11 +1,12 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField } from '../serialize.js';
+import { toACVMBoundedVec, toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -407,6 +408,26 @@ export class Oracle {
     );
 
     return toACVMField(true);
+  }
+
+  async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
+    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
+    // Delivery might fail due to temporary issues, such as poor node connectivity.
+
+    const log = await this.typedOracle.getLogByTag(fromACVMField(tag));
+
+    const logContentBVec = toACVMBoundedVec(log.logContent, PUBLIC_LOG_SIZE_IN_FIELDS);
+    const uniqueNoteHashesInTxBVec = toACVMBoundedVec(log.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX);
+
+    return [
+      logContentBVec.storage,
+      logContentBVec.len,
+      toACVMField(log.txHash),
+      uniqueNoteHashesInTxBVec.storage,
+      uniqueNoteHashesInTxBVec.len,
+      toACVMField(log.firstNullifierInTx),
+    ];
   }
 
   async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
