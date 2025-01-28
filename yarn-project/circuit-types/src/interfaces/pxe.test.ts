@@ -384,6 +384,10 @@ class MockPXE implements PXE {
     deepStrictEqual(contract.artifact, this.artifact);
     return Promise.resolve();
   }
+  updateContract(contractAddress: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+    expect(contractAddress).toEqual(this.address);
+    return Promise.resolve();
+  }
   getContracts(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }

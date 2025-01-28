@@ -147,6 +147,15 @@ export interface PXE {
   registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
+   * Updates a deployed contract in the PXE Service. This is used to update the contract artifact when
+   * an update has happened, so the new code can be used in the simulation of local transactions.
+   * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
+   * @param contractAddress - The address of the contract to update.
+   * @param artifact - The updated artifact for the contract.
+   */
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Retrieves the addresses of contracts added to this PXE Service.
    * @returns An array of contracts addresses registered on this PXE Service.
    */
@@ -467,6 +476,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.object({ instance: ContractInstanceWithAddressSchema, artifact: z.optional(ContractArtifactSchema) }))
     .returns(z.void()),
+  updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
   simulateTx: z

@@ -23,21 +23,16 @@ import { PrivateFunctionsTree } from './private_functions_tree.js';
 export class ContractDataOracle {
   /** Map from contract class id to private function tree. */
   private contractClasses: Map<string, PrivateFunctionsTree> = new Map();
-  /** Map from address to contract instance. */
-  private contractInstances: Map<string, ContractInstance> = new Map();
 
   constructor(private db: ContractArtifactDatabase & ContractInstanceDatabase) {}
 
   /** Returns a contract instance for a given address. Throws if not found. */
   public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstance> {
-    if (!this.contractInstances.has(contractAddress.toString())) {
-      const instance = await this.db.getContractInstance(contractAddress);
-      if (!instance) {
-        throw new ContractNotFoundError(contractAddress.toString());
-      }
-      this.contractInstances.set(contractAddress.toString(), instance);
+    const instance = await this.db.getContractInstance(contractAddress);
+    if (!instance) {
+      throw new ContractNotFoundError(contractAddress.toString());
     }
-    return this.contractInstances.get(contractAddress.toString())!;
+    return instance;
   }
 
   /** Returns a contract class for a given class id. Throws if not found. */

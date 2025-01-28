@@ -360,7 +360,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
   ) {
     this.log.debug(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
+      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;

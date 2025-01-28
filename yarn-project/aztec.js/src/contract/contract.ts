@@ -1,4 +1,4 @@
-import { PublicKeys } from '@aztec/circuits.js';
+import { PublicKeys, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
@@ -25,6 +25,12 @@ export class Contract extends ContractBase {
     const instance = await wallet.getContractInstance(address);
     if (instance === undefined) {
       throw new Error(`Contract instance at ${address.toString()} has not been registered in the wallet's PXE`);
+    }
+    const thisContractClass = getContractClassFromArtifact(artifact);
+    if (!thisContractClass.id.equals(instance.contractClassId)) {
+      // wallet holds an outdated version of this contract
+      await wallet.updateContract(address, artifact);
+      instance.contractClassId = thisContractClass.id;
     }
     return new Contract(instance, artifact, wallet);
   }

@@ -259,8 +259,31 @@ export class PXEService implements PXE {
       }
     }
 
-    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
+    this.log.info(
+      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.contractClassId}`,
+    );
+  }
+
+  public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    const currentInstance = await this.db.getContractInstance(contractAddress);
+    if (!currentInstance) {
+      throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
+    }
+    const contractClass = getContractClassFromArtifact(artifact);
+
+    await this.db.addContractArtifact(contractClass.id, artifact);
+
+    const publicFunctionSignatures = artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+    await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+
+    // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+    await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+    currentInstance.contractClassId = contractClass.id;
+    await this.db.addContractInstance(currentInstance);
+    this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
   }
 
   public getContracts(): Promise<AztecAddress[]> {

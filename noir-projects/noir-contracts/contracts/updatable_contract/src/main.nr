@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract UpdatableContract {
+contract Updatable {
     use aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use aztec::macros::{functions::{initializer, private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
@@ -30,9 +30,7 @@ contract UpdatableContract {
             owner,
             owner,
         ));
-        UpdatableContract::at(context.this_address()).set_public_value(initial_value).enqueue(
-            &mut context,
-        );
+        Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
     }
 
     #[public]
