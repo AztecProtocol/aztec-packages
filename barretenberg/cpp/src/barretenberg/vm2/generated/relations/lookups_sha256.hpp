@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm2 {
@@ -74,7 +75,7 @@ template <typename FF_>
 class lookup_sha256_round_constant_relation
     : public GenericLookupRelation<lookup_sha256_round_constant_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_SHA256_ROUND_CONSTANT";
+    static constexpr std::string_view NAME = "LOOKUP_SHA256_ROUND_CONSTANT";
 };
 template <typename FF_>
 using lookup_sha256_round_constant = GenericLookup<lookup_sha256_round_constant_lookup_settings, FF_>;
