@@ -74,6 +74,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
+                                               IsUsingShortScalars<Flavor>,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,

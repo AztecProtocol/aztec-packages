@@ -117,11 +117,22 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
+
+            if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+                // Using short scalars
+                for (size_t i = 0; i < UltraZKFlavor::NUM_ALL_ENTITIES; i++) {
+                    std::string label = "rho_" + std::to_string(i);
+                    manifest_expected.add_challenge(round, label);
+                    round++;
+                }
+            }
         }
 
-        manifest_expected.add_challenge(round, "rho");
+        if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
+            manifest_expected.add_challenge(round, "rho");
+            round++;
+        }
 
-        round++;
         for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);

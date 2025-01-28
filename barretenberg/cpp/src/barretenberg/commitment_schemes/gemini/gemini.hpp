@@ -93,7 +93,7 @@ template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const 
 };
 } // namespace gemini
 
-template <typename Curve, typename Flavor = void> class GeminiProver_ {
+template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
@@ -113,7 +113,7 @@ template <typename Curve, typename Flavor = void> class GeminiProver_ {
                                             Polynomial& batched_to_be_shifted,
                                             const std::shared_ptr<Transcript>& transcript,
                                             Fr& rho,
-                                            Fr& rho_challenge_power,
+                                            Fr& rho_power,
                                             bool has_zk);
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
@@ -142,7 +142,8 @@ template <typename Curve, typename Flavor = void> class GeminiProver_ {
                                     const std::shared_ptr<Transcript>& transcript,
                                     RefSpan<Polynomial> concatenated_polynomials = {},
                                     const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {},
-                                    bool has_zk = false);
+                                    bool has_zk = false,
+                                    bool use_short_scalars = false);
 
 }; // namespace bb
 

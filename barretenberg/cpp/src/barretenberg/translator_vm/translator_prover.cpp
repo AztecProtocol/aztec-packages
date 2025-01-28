@@ -26,7 +26,6 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
 void TranslatorProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->proving_key->circuit_size);
-    info("translator circuit size ", circuit_size);
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);

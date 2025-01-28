@@ -39,6 +39,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
                                                                       output.challenge,
                                                                       Commitment::one(builder),
                                                                       transcript,
+                                                                      IsUsingShortScalars<Flavor>,
                                                                       Flavor::REPEATED_COMMITMENTS,
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);

@@ -11,7 +11,7 @@
 
 namespace bb {
 
-template <typename Curve, typename Flavor = void> class ShpleminiProver_ {
+template <typename Curve> class ShpleminiProver_ {
   public:
     using FF = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -21,7 +21,7 @@ template <typename Curve, typename Flavor = void> class ShpleminiProver_ {
 
     using VK = CommitmentKey<Curve>;
     using ShplonkProver = ShplonkProver_<Curve>;
-    using GeminiProver = GeminiProver_<Curve, Flavor>;
+    using GeminiProver = GeminiProver_<Curve>;
 
     template <typename Transcript>
     static OpeningClaim prove(const FF circuit_size,
@@ -30,6 +30,7 @@ template <typename Curve, typename Flavor = void> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
+                              const bool use_short_scalars = false,
                               const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials = {},
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},
                               const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {},
@@ -46,7 +47,8 @@ template <typename Curve, typename Flavor = void> class ShpleminiProver_ {
                                                                        transcript,
                                                                        concatenated_polynomials,
                                                                        groups_to_be_concatenated,
-                                                                       has_zk);
+                                                                       has_zk,
+                                                                       use_short_scalars);
         // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
         OpeningClaim new_claim;
         std::vector<OpeningClaim> libra_opening_claims;
@@ -207,6 +209,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
+        const bool use_short_scalars = false,
         const RepeatedCommitmentsData& repeated_commitments = {},
         const bool has_zk = false,
         bool* consistency_checked = nullptr, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1191).
@@ -219,10 +222,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
-        // isolate UltraZK this way
-        bool use_short_scalars =
-            has_zk && ((unshifted_commitments.size() == 35) || (unshifted_commitments.size() == 54));
-
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -241,22 +240,19 @@ template <typename Curve> class ShpleminiVerifier_ {
             batched_evaluation = transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
 
-        // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
-        const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
-        std::vector<Fr> unshifted_batching_challenges;
-        std::vector<Fr> shifted_batching_challenges;
+        // Used when use_short_scalars = false
+        Fr multivariate_batching_challenge{ 1 };
+        // Used with short scalars
+        std::array<std::vector<Fr>, 2> multivariate_batching_challenges;
 
-        // Create separate short challenges for prover commitments
-        if (use_short_scalars) {
-            unshifted_batching_challenges.push_back(multivariate_batching_challenge);
-            for (size_t idx = 0; idx < unshifted_commitments.size() - 1; idx++) {
-                unshifted_batching_challenges.push_back(
-                    transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
-            }
-            for (size_t idx = 0; idx < shifted_commitments.size(); idx++) {
-                shifted_batching_challenges.push_back(
-                    transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
-            }
+        // Get the multivariate batching challenge(s)
+        if (!use_short_scalars) {
+            // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
+            multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
+        } else {
+            // Get an individual 128-bit challenge for each commitment
+            multivariate_batching_challenges = get_multivariate_challenges_for_short_scalars_batching(
+                unshifted_commitments.size(), shifted_commitments.size(), transcript);
         }
 
         // Process Gemini transcript data:
@@ -356,8 +352,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                             shifted_commitments,
                                                             unshifted_evaluations,
                                                             shifted_evaluations,
-                                                            unshifted_batching_challenges,
-                                                            shifted_batching_challenges,
+                                                            multivariate_batching_challenges,
                                                             unshifted_scalar,
                                                             shifted_scalar,
                                                             commitments,
@@ -443,6 +438,25 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
+
+    template <typename Transcript>
+    static std::array<std::vector<Fr>, 2> get_multivariate_challenges_for_short_scalars_batching(
+        const size_t num_unshifted, const size_t num_shifted, const std::shared_ptr<Transcript>& transcript)
+    {
+        std::vector<Fr> unshifted_batching_challenges;
+        std::vector<Fr> shifted_batching_challenges;
+
+        // Create separate short challenges for prover commitments
+        for (size_t idx = 0; idx < num_unshifted; idx++) {
+            unshifted_batching_challenges.push_back(
+                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx)));
+        }
+        for (size_t idx = 0; idx < num_shifted; idx++) {
+            shifted_batching_challenges.push_back(
+                transcript->template get_challenge<Fr>("rho_" + std::to_string(idx + num_unshifted)));
+        }
+        return { std::move(unshifted_batching_challenges), std::move(shifted_batching_challenges) };
+    }
     /**
      * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched
      * multilinear polynomial at the sumcheck challenge.
@@ -559,44 +573,46 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
 
-    static void batch_multivariate_opening_claims_short_scalars(RefSpan<Commitment> unshifted_commitments,
-                                                                RefSpan<Commitment> shifted_commitments,
-                                                                RefSpan<Fr> unshifted_evaluations,
-                                                                RefSpan<Fr> shifted_evaluations,
-                                                                const std::vector<Fr>& unshifted_batching_challenges,
-                                                                const std::vector<Fr>& shifted_batching_challenges,
-                                                                const Fr& unshifted_scalar,
-                                                                const Fr& shifted_scalar,
-                                                                std::vector<Commitment>& commitments,
-                                                                std::vector<Fr>& scalars,
-                                                                Fr& batched_evaluation)
+    static void batch_multivariate_opening_claims_short_scalars(
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> shifted_commitments,
+        RefSpan<Fr> unshifted_evaluations,
+        RefSpan<Fr> shifted_evaluations,
+        const std::array<std::vector<Fr>, 2>& multivariate_batching_challenges,
+        const Fr& unshifted_scalar,
+        const Fr& shifted_scalar,
+        std::vector<Commitment>& commitments,
+        std::vector<Fr>& scalars,
+        Fr& batched_evaluation)
     {
 
-        // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
         std::vector<Commitment> unshifted_comms;
         unshifted_comms.reserve(unshifted_commitments.size());
         std::vector<Commitment> shifted_comms;
         shifted_comms.reserve(shifted_commitments.size());
+
+        // Compute the batched evaluations of unshifted polynomials
         for (auto [unshifted_commitment, unshifted_evaluation, unshifted_batching_challenge] :
-             zip_view(unshifted_commitments, unshifted_evaluations, unshifted_batching_challenges)) {
+             zip_view(unshifted_commitments, unshifted_evaluations, multivariate_batching_challenges[0])) {
             // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
             batched_evaluation += unshifted_evaluation * unshifted_batching_challenge;
             unshifted_comms.emplace_back(std::move(unshifted_commitment));
         }
 
+        // Compute the batched evaluation of shifted polynomials
         for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
-             zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
+             zip_view(shifted_commitments, shifted_evaluations, multivariate_batching_challenges[1])) {
             // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
             batched_evaluation += shifted_evaluation * shifted_batching_challenge;
             shifted_comms.emplace_back(std::move(shifted_commitment));
         }
 
+        // Use batch mul with short scalars to minimize the recursive verification costs
         if constexpr (Curve::is_stdlib_type) {
-            // The case of UltraZKRecursive
-            if constexpr ((std::is_same_v<typename Curve::Builder, UltraCircuitBuilder>)&&!(
-                              std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
+            // The case of UltraZKRecursive and MegaZKRecursive with UltraCircuitBuilder
+            if constexpr (std::is_same_v<Curve, stdlib::bn254<UltraCircuitBuilder>>) {
                 Commitment batched_unshifted =
-                    Commitment::bn254_endo_batch_mul({}, {}, unshifted_comms, unshifted_batching_challenges, 128);
+                    Commitment::bn254_endo_batch_mul({}, {}, unshifted_comms, multivariate_batching_challenges[0], 128);
 
                 commitments[1] += batched_unshifted;
                 scalars[1] = -unshifted_scalar;
@@ -604,7 +620,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                 // Due to a small number of shifted commitments, another batch mul with short scalars is slightly more
                 // expensive than adding such commitments to the accumulator
                 for (auto [shifted_commitment, shifted_evaluation, shifted_batching_challenge] :
-                     zip_view(shifted_commitments, shifted_evaluations, shifted_batching_challenges)) {
+                     zip_view(shifted_commitments, shifted_evaluations, multivariate_batching_challenges[1])) {
                     // Move shifted commitments to the 'commitments' vector
                     commitments.emplace_back(std::move(shifted_commitment));
                     // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
@@ -612,12 +628,12 @@ template <typename Curve> class ShpleminiVerifier_ {
                 }
             };
 
-            // The case of MegaZKRecursive
-            if constexpr ((std::is_same_v<typename Curve::Builder, MegaCircuitBuilder>)&&!(
-                              std::is_same_v<typename Curve::NativeCurve, curve::Grumpkin>)) {
+            // The case of MegaZKRecursive with MegaCircuitBuilder
+            if constexpr (std::is_same_v<Curve, stdlib::bn254<MegaCircuitBuilder>>) {
                 Commitment batched_unshifted =
-                    Commitment::batch_mul(unshifted_comms, unshifted_batching_challenges, 128);
-                Commitment batched_shifted = Commitment::batch_mul(shifted_comms, shifted_batching_challenges, 128);
+                    Commitment::batch_mul(unshifted_comms, multivariate_batching_challenges[0], 128);
+                Commitment batched_shifted =
+                    Commitment::batch_mul(shifted_comms, multivariate_batching_challenges[1], 128);
 
                 commitments[1] += batched_unshifted;
                 scalars[1] = -unshifted_scalar;
@@ -626,10 +642,9 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
 
         } else {
-            // Native verification
-
-            Commitment batched_unshifted = batch_mul_native(unshifted_comms, unshifted_batching_challenges);
-            Commitment batched_shifted = batch_mul_native(shifted_comms, shifted_batching_challenges);
+            // Native case
+            Commitment batched_unshifted = batch_mul_native(unshifted_comms, multivariate_batching_challenges[0]);
+            Commitment batched_shifted = batch_mul_native(shifted_comms, multivariate_batching_challenges[1]);
 
             commitments.emplace_back(std::move(batched_unshifted));
             commitments.emplace_back(std::move(batched_shifted));

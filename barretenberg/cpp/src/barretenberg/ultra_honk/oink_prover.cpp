@@ -100,7 +100,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     {
         PROFILE_THIS_NAME("COMMIT::wires");
         const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-
         if (proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_region_data.get_ranges());

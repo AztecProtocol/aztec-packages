@@ -118,11 +118,17 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
+
+            for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
+                std::string label = "rho_" + std::to_string(i);
+                manifest_expected.add_challenge(round, label);
+                round++;
+            }
+        } else {
+            manifest_expected.add_challenge(round, "rho");
+            round++;
         }
 
-        manifest_expected.add_challenge(round, "rho");
-
-        round++;
         for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
