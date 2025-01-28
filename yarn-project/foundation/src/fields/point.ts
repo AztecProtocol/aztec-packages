@@ -50,10 +50,10 @@ export class Point {
    *
    * @returns A randomly generated Point instance.
    */
-  static random() {
+  static async random() {
     while (true) {
       try {
-        return Point.fromXAndSign(Fr.random(), randomBoolean());
+        return await Point.fromXAndSign(Fr.random(), randomBoolean());
       } catch (e: any) {
         if (!(e instanceof NotOnCurveError)) {
           throw e;
@@ -83,7 +83,7 @@ export class Point {
    * @param buffer - The buffer containing the x coordinate and the sign of the y coordinate.
    * @returns A Point instance.
    */
-  static fromCompressedBuffer(buffer: Buffer | BufferReader) {
+  static fromCompressedBuffer(buffer: Buffer | BufferReader): Promise<Point> {
     const reader = BufferReader.asReader(buffer);
     const value = toBigIntBE(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
@@ -127,8 +127,8 @@ export class Point {
    * Instead it is a boolean flag that determines whether the y coordinate is <= (Fr.MODULUS - 1) / 2
    * @returns The point as an array of 2 fields
    */
-  static fromXAndSign(x: Fr, sign: boolean) {
-    const y = Point.YFromX(x);
+  static async fromXAndSign(x: Fr, sign: boolean) {
+    const y = await Point.YFromX(x);
     if (y == null) {
       throw new NotOnCurveError(x);
     }
@@ -146,7 +146,7 @@ export class Point {
   /**
    * @returns
    */
-  static YFromX(x: Fr): Fr | null {
+  static YFromX(x: Fr): Promise<Fr | null> {
     // Calculate y^2 = x^3 - 17 (i.e. the Grumpkin curve equation)
     const ySquared = x.square().mul(x).sub(new Fr(17));
 

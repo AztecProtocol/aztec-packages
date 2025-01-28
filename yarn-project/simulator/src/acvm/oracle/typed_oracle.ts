@@ -13,6 +13,7 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -54,10 +55,6 @@ class OracleMethodNotAvailableError extends Error {
 export abstract class TypedOracle {
   getRandomField(): Fr {
     return Fr.random();
-  }
-
-  storeArrayInExecutionCache(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('storeArrayInExecutionCache');
   }
 
   storeInExecutionCache(_values: Fr[]): Promise<Fr> {

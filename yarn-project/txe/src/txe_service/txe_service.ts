@@ -48,12 +48,12 @@ export class TXEService {
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
+    const txe = await TXE.create(logger, trees, executionCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -95,8 +95,8 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  deriveKeys(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+  async deriveKeys(secret: ForeignCallSingle) {
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
@@ -116,7 +116,7 @@ export class TXEService {
       `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
     );
 
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -177,10 +177,10 @@ export class TXEService {
   }
 
   async addAccount(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
     const artifact = SchnorrAccountContractArtifact;
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -269,11 +269,6 @@ export class TXEService {
   async getBlockNumber() {
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  async storeArrayInExecutionCache(args: ForeignCallArray) {
-    const hash = await this.typedOracle.storeArrayInExecutionCache(fromArray(args));
-    return toForeignCallResult([toSingle(hash)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.

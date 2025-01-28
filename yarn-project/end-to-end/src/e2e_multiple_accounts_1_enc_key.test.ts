@@ -33,16 +33,16 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     for (let i = 0; i < numAccounts; i++) {
       logger.info(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = GrumpkinScalar.random();
-      const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
+      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitSetup({ interval: 0.1 });
-      const completeAddress = account.getCompleteAddress();
+      const completeAddress = await account.getCompleteAddress();
       wallets.push(wallet);
       accounts.push(completeAddress);
     }
     logger.info('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
+    const encryptionPublicKey = (await deriveKeys(encryptionPrivateKey)).publicKeys.masterIncomingViewingPublicKey;
 
     for (const account of accounts) {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);

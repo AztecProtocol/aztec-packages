@@ -48,8 +48,6 @@ pub trait NoteInterface<let N: u32> {
 
     fn get_note_type_id() -> Field;
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 64];
-
     /// Returns the non-siloed note hash, i.e. the inner hash computed by the contract during private execution. Note
     /// hashes are later siloed by contract address and nonce by the kernels before being committed to the state tree.
     ///

@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.72.0...aztec-package-v0.72.1) (2025-01-24)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.72.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.71.0...aztec-package-v0.72.0) (2025-01-24)
+
+
+### Features
+
+* Gaztec ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
+* Lazy wasm pt. 2 ([#11410](https://github.com/AztecProtocol/aztec-packages/issues/11410)) ([01510f4](https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2))
+* Lazy wasm pt3 ([#11435](https://github.com/AztecProtocol/aztec-packages/issues/11435)) ([7068d05](https://github.com/AztecProtocol/aztec-packages/commit/7068d055d91a6e81e6fbb670e17c77ee209a1a80))
+
+
+### Bug Fixes
+
+* Init fee juice contract in sandbox ([#11379](https://github.com/AztecProtocol/aztec-packages/issues/11379)) ([caab526](https://github.com/AztecProtocol/aztec-packages/commit/caab52671cfcf20b395a9e44a8768dc81d986cb5))
+* Use simulation to estimate gas used ([#11211](https://github.com/AztecProtocol/aztec-packages/issues/11211)) ([63776f0](https://github.com/AztecProtocol/aztec-packages/commit/63776f0d217fad800bf8a6c6144d6bb52844e629))
+
+
+### Miscellaneous
+
+* Trace propagation from json rpc client to server ([#11325](https://github.com/AztecProtocol/aztec-packages/issues/11325)) ([85ccc15](https://github.com/AztecProtocol/aztec-packages/commit/85ccc1512cd9b1c461660ad8127dae848fde1878))
+
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.70.0...aztec-package-v0.71.0) (2025-01-17)
+
+
+### Features
+
+* Track block building helpers ([#11190](https://github.com/AztecProtocol/aztec-packages/issues/11190)) ([a749dc1](https://github.com/AztecProtocol/aztec-packages/commit/a749dc1656c0b4d1b0715dae90883b800be591ca)), closes [#11184](https://github.com/AztecProtocol/aztec-packages/issues/11184)
+
 ## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.1...aztec-package-v0.70.0) (2025-01-15)
 
 

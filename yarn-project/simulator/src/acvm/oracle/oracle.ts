@@ -1,5 +1,9 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+<<<<<<< HEAD
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
+=======
+import { LogWithTxData } from '@aztec/circuits.js';
+>>>>>>> nv/get-logs-oracle
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -18,11 +22,6 @@ export class Oracle {
   getRandomField(): ACVMField {
     const val = this.typedOracle.getRandomField();
     return toACVMField(val);
-  }
-
-  async storeArrayInExecutionCache(values: ACVMField[]): Promise<ACVMField> {
-    const hash = await this.typedOracle.storeArrayInExecutionCache(values.map(fromACVMField));
-    return toACVMField(hash);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
@@ -411,23 +410,13 @@ export class Oracle {
   }
 
   async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
-    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
-    // Delivery might fail due to temporary issues, such as poor node connectivity.
-
     const log = await this.typedOracle.getLogByTag(fromACVMField(tag));
 
-    const logContentBVec = toACVMBoundedVec(log.logContent, PUBLIC_LOG_SIZE_IN_FIELDS);
-    const uniqueNoteHashesInTxBVec = toACVMBoundedVec(log.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX);
-
-    return [
-      logContentBVec.storage,
-      logContentBVec.len,
-      toACVMField(log.txHash),
-      uniqueNoteHashesInTxBVec.storage,
-      uniqueNoteHashesInTxBVec.len,
-      toACVMField(log.firstNullifierInTx),
-    ];
+    if (log == null) {
+      return [toACVMField(0), ...LogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+    } else {
+      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
+    }
   }
 
   async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
@@ -476,4 +465,8 @@ export class Oracle {
       frToNumber(fromACVMField(numEntries)),
     );
   }
+}
+
+function toACVMFieldSingleOrArray(value: Fr | Fr[]) {
+  return Array.isArray(value) ? value.map(toACVMField) : toACVMField(value);
 }

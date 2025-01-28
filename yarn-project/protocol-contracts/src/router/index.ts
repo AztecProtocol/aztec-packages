@@ -10,9 +10,9 @@ export const RouterArtifact = loadContractArtifact(RouterJson as NoirCompiledCon
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export function getCanonicalRouter(): ProtocolContract {
+export async function getCanonicalRouter(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = makeProtocolContract('Router', RouterArtifact);
+    protocolContract = await makeProtocolContract('Router', RouterArtifact);
   }
   return protocolContract;
 }

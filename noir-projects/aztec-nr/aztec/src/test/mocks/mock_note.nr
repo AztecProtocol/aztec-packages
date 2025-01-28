@@ -68,28 +68,6 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
         76
     }
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
-        let serialized_note = self.serialize_content();
-
-        let mut buffer: [u8; MOCK_NOTE_LENGTH * 32 + 64] = [0; MOCK_NOTE_LENGTH * 32 + 64];
-
-        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = MockNote::get_note_type_id().to_be_bytes();
-
-        for i in 0..32 {
-            buffer[i] = storage_slot_bytes[i];
-            buffer[32 + i] = note_type_id_bytes[i];
-        }
-
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-            for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
-            }
-        }
-        buffer
-    }
-
     fn compute_note_hash(self: Self) -> Field {
         assert(
             self.header.storage_slot != 0,

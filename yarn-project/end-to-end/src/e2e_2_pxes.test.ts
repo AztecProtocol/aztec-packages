@@ -178,13 +178,13 @@ describe('e2e_2_pxes', () => {
 
     // setup an account that is shared across PXEs
     const sharedSecretKey = Fr.random();
-    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
-    const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
+    const sharedAccountOnA = await getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
+    const sharedAccountAddress = await sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
 
     await sharedWalletOnA.registerSender(walletA.getAddress());
 
-    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
+    const sharedAccountOnB = await getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 

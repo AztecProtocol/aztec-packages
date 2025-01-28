@@ -1,5 +1,6 @@
 include "alu.pil";
 include "addressing.pil";
+include "range_check.pil";
 include "precomputed.pil";
 
 namespace execution;
@@ -20,6 +21,7 @@ pol commit rop3;
 pol commit rop4;
 
 pol commit pc;
+pol commit bytecode_id;
 pol commit clk;
 pol commit last;
 

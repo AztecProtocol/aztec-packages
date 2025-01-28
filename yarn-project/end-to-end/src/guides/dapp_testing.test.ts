@@ -131,17 +131,17 @@ describe('guides/dapp/testing', () => {
         // docs:end:public-storage
       });
 
-      it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
-        // docs:start:unencrypted-logs
+      it('checks public logs, [Kinda broken with current implementation]', async () => {
+        // docs:start:public-logs
         const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
-        const tx = await testContract.methods.emit_unencrypted(value).send().wait();
+        const tx = await testContract.methods.emit_public(value).send().wait();
         const filter = {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
-        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
-        // docs:end:unencrypted-logs
+        const logs = (await pxe.getPublicLogs(filter)).logs;
+        expect(logs[0].log.log[0]).toEqual(value);
+        // docs:end:public-logs
       });
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {

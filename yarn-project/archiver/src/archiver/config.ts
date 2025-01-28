@@ -22,7 +22,7 @@ export type ArchiverConfig = {
   archiverUrl?: string;
 
   /** URL for an L1 consensus client */
-  l1ConsensusClientUrl: string;
+  l1ConsensusHostUrl?: string;
 
   /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
   archiverPollingIntervalMS?: number;
@@ -36,7 +36,7 @@ export type ArchiverConfig = {
   /** The deployed L1 contract addresses */
   l1Contracts: L1ContractAddresses;
 
-  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 } & L1ReaderConfig &
   L1ContractsConfig;
@@ -47,10 +47,10 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description:
       'URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.',
   },
-  l1ConsensusClientUrl: {
-    env: 'L1_CONSENSUS_CLIENT_URL',
+  l1ConsensusHostUrl: {
+    env: 'L1_CONSENSUS_HOST_URL',
     description: 'URL for an L1 consensus client.',
-    parseEnv: (val: string) => (val ? val : 'http://localhost:5052'),
+    parseEnv: (val: string) => val,
   },
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
@@ -64,7 +64,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   maxLogs: {
     env: 'ARCHIVER_MAX_LOGS',
-    description: 'The max number of logs that can be obtained in 1 "getUnencryptedLogs" call.',
+    description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
   },
   ...l1ReaderConfigMappings,

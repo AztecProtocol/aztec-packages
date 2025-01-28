@@ -2,7 +2,8 @@ import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type L2Block,
   L2BlockHash,
@@ -22,7 +23,6 @@ import {
   TxReceipt,
   TxScopedL2Log,
   type TxValidationResult,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -36,8 +36,10 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type ProtocolContractAddresses,
+  type PublicLog,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -192,45 +194,46 @@ export class TXENode implements AztecNode {
   /**
    * Adds public logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the public logs.
-   * @param privateLogs - The unencrypted logs to be added.
+   * @param publicLogs - The public logs to be added.
    */
-  addPublicLogsByTags(blockNumber: number, unencryptedLogs: UnencryptedL2Log[]) {
-    unencryptedLogs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.#logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
+  addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
+    publicLogs.forEach(log => {
+      // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+      const firstFieldBuf = log.log[0].toBuffer();
+      // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
+      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+      if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
+        // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
+        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
+        this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
         return;
       }
-      try {
-        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-        // This means that for every 32 bytes of payload, we only have 1 byte of data.
-        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
-
-        this.#logger.verbose(
-          `Found tagged unencrypted log with tag ${tag.toString()} in block ${this.getBlockNumber()}`,
-        );
-
-        const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-        const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber)),
-          this.#noteIndex,
-          blockNumber,
-          true,
-          log.toBuffer(),
-        );
-
-        currentLogs.push(scopedLog);
-        this.#logsByTags.set(tag.toString(), currentLogs);
-      } catch (err) {
-        this.#logger.warn(`Failed to add tagged log to store: ${err}`);
+      // Check that the length values line up with the log contents
+      const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
+      const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
+      // Add 1 for the first field holding lengths
+      const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+      // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+      if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+        this.#logger.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
+        return;
       }
+      // The first elt stores lengths => tag is in fields[1]
+      const tag = log.log[1];
+
+      this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+
+      const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        blockNumber,
+        true,
+        log.toBuffer(),
+      );
+
+      currentLogs.push(scopedLog);
+      this.#logsByTags.set(tag.toString(), currentLogs);
     });
   }
   /**
@@ -268,7 +271,8 @@ export class TXENode implements AztecNode {
     // hold a reference to them.
     // We should likely migrate this so that the trees are owned by the node.
 
-    if (blockNumber == 'latest') {
+    // TODO: blockNumber is being passed as undefined, figure out why
+    if (blockNumber === 'latest' || blockNumber === undefined) {
       blockNumber = await this.getBlockNumber();
     }
 
@@ -497,12 +501,12 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    throw new Error('TXE Node method getUnencryptedLogs not implemented');
+  getPublicLogs(_filter: LogFilter): Promise<GetPublicLogsResponse> {
+    throw new Error('TXE Node method getPublicLogs not implemented');
   }
 
   /**
@@ -510,7 +514,7 @@ export class TXENode implements AztecNode {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(_filter: LogFilter): Promise<GetContractClassLogsResponse> {
     throw new Error('TXE Node method getContractClassLogs not implemented');
   }
 

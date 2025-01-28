@@ -31,7 +31,7 @@ describe('deploy_l1_contracts', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
     initialValidators = times(3, EthAddress.random);
-    l2FeeJuiceAddress = AztecAddress.random();
+    l2FeeJuiceAddress = await AztecAddress.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
   });
