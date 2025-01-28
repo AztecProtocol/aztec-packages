@@ -7,6 +7,9 @@
 #   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "")
 #   FRESH_INSTALL (default: "false")
+#     "false": do a helm upgrade
+#     "true": delete namespace before-hand
+#     "no-deploy": don't even attempt helm upgrade, target existing KIND cluster
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_METRICS (default: "true")
 # Used by deploy_kind.sh
@@ -148,5 +151,5 @@ else
   export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
   export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS="$aztec_epoch_proof_claim_window_in_l2_slots"
 
-  yarn --cwd ../../yarn-project/end-to-end test "$test"
+  yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"
 fi
