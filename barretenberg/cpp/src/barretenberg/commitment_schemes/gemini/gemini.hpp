@@ -103,15 +103,14 @@ template <typename Curve> class GeminiProver_ {
     /**
      * @brief Class responsible for computation of the batched multilinear polynomials required by the Gemini protocol
      * @details Opening multivariate polynomials using Gemini requires the computation of three batched polynomials. The
-     * first, here denoted A₀, is the linear combination of all polynomials to be opened. If we denote the linear
-     * combinations (based on challenge rho) of the unshifted and the to-be-shited-by-1 polynomials respectively by F
-     * and G, then A₀ = F + G/X. This is the polynomial that is "folded" in Gemini to produce d-1 univariate polynomials
-     * Fold_i, i = 1, ..., d-1.
-     * The second and third, A₀₊ and A₀₋, are the partially evaluated batched polynomials A₀₊ = F + G/r,  A₀₋ = F - G/r.
-     * These are required in order to prove the opening of shifted polynomials G_i/X from the commitments to their
-     * unshifted counterparts G_i.
+     * first, here denoted A₀, is a linear combination of all polynomials to be opened. If we denote the linear
+     * combinations (based on challenge rho) of the unshifted and the to-be-shited-by-1 polynomials by F and G,
+     * respectively, then A₀ = F + G/X. This polynomial is "folded" in Gemini to produce d-1 univariate polynomials
+     * Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated batched polynomials A₀₊ = F + G/r, and
+     * A₀₋ = F - G/r. These are required in order to prove the opening of shifted polynomials G_i/X from the commitments
+     * to their unshifted counterparts G_i.
      * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein that
-     * could be made more efficient by e.g. reusing already initialized polynomials, often at the expense of clarity.
+     * could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of clarity.
      */
     class PolynomialBatcher {
 
@@ -158,8 +157,6 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
-            Polynomial full_batched(full_batched_size);
-
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
@@ -167,6 +164,8 @@ template <typename Curve> class GeminiProver_ {
                     running_scalar *= challenge;
                 }
             };
+
+            Polynomial full_batched(full_batched_size);
 
             // if necessary, add randomness to the full batched polynomial for ZK
             if (has_random_polynomial) {
