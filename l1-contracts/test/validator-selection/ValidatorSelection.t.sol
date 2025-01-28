@@ -255,15 +255,15 @@ contract ValidatorSelectionTest is DecoderBase {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
 
-    StructToAvoidDeepStacks memory ree;
+    StructToAvoidDeepStacks memory mem;
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    ree.proposer = rollup.getCurrentProposer();
-    ree.shouldRevert = false;
+    mem.proposer = rollup.getCurrentProposer();
+    mem.shouldRevert = false;
 
     rollup.setupEpoch();
 
@@ -282,9 +282,9 @@ contract ValidatorSelectionTest is DecoderBase {
       txHashes: txHashes
     });
 
-    if (_signatureCount > 0 && ree.proposer != address(0)) {
+    if (_signatureCount > 0 && mem.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
-      ree.needed = validators.length * 2 / 3 + 1;
+      mem.needed = validators.length * 2 / 3 + 1;
 
       Signature[] memory signatures = new Signature[](_signatureCount);
 
@@ -294,12 +294,12 @@ contract ValidatorSelectionTest is DecoderBase {
       }
 
       if (_expectRevert) {
-        ree.shouldRevert = true;
-        if (_signatureCount < ree.needed) {
+        mem.shouldRevert = true;
+        if (_signatureCount < mem.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
               Errors.ValidatorSelection__InsufficientAttestationsProvided.selector,
-              ree.needed,
+              mem.needed,
               _signatureCount
             )
           );
@@ -310,19 +310,19 @@ contract ValidatorSelectionTest is DecoderBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
-        address realProposer = ree.proposer;
-        ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
+        address realProposer = mem.proposer;
+        mem.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", mem.proposer)))));
         vm.expectRevert(
           abi.encodeWithSelector(
-            Errors.ValidatorSelection__InvalidProposer.selector, realProposer, ree.proposer
+            Errors.ValidatorSelection__InvalidProposer.selector, realProposer, mem.proposer
           )
         );
-        ree.shouldRevert = true;
+        mem.shouldRevert = true;
       }
-      vm.prank(ree.proposer);
+      vm.prank(mem.proposer);
       rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 
-      if (ree.shouldRevert) {
+      if (mem.shouldRevert) {
         return;
       }
     } else {
@@ -330,7 +330,7 @@ contract ValidatorSelectionTest is DecoderBase {
       rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
     }
 
-    assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
+    assertEq(_expectRevert, mem.shouldRevert, "Does not match revert expectation");
 
     bytes32 l2ToL1MessageTreeRoot;
     {

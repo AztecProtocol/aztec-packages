@@ -69,6 +69,13 @@ library SampleLib {
       _NAMESPACE.erc7201Slot().deriveMapping(sampledIndex).asBoolean().tstore(true);
     }
 
+    // TODO(md): sampling takes place in multiple places
+    //           it should only happen once
+    //           clear transient storage
+    for (uint256 i = 0; i < indices.length; i++) {
+      _NAMESPACE.erc7201Slot().deriveMapping(indices[i]).asBoolean().tstore(false);
+    }
+
     return indices;
   }
 
