@@ -36,7 +36,7 @@ When it comes to notes encryption and decryption:
 
 ### Address keys
 
-Address keys are used for account address derivation. 
+Address keys are used for account [address derivation](../accounts/index.md).
 
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
 
@@ -46,7 +46,7 @@ Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing ke
 
 ### Signing keys
 
-Thanks to the native account abstraction, authorization logic can be implemented in an alternative way using Google authorization credentials, vanilla password logic or Face ID mechanism. In all these cases signing keys are not relevant.
+Thanks to the native [account abstraction](../accounts#background/index.md), authorization logic can be implemented in an alternative way using Google authorization credentials, vanilla password logic or Face ID mechanism. In all these cases signing keys are not relevant.
 
 However if one wants to implement authorization logic containing signatures (e.g. ECDSA or Shnorr) they will need signing keys. Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
 
@@ -75,7 +75,7 @@ When it comes to storing the signing key in a private note, there are several de
 #### Using Shared Mutable state
 
 :::note
-By Shared Mutable we mean privately readable publicly mutable state.
+By [Shared Mutable](../shared_state#sharedmutable/index.md) we mean privately readable publicly mutable state.
 :::
 
 To make public state accessible privately, there should be a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
@@ -94,7 +94,7 @@ All key pairs (except for the signing keys) are generated in the [Private Execut
 
 ### Keys derivation 
 
-All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations). Where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar. 
+All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md). Where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar. 
 
 The address private key is an exception and derived in a way described above in the section “Address keys”.
 
@@ -114,7 +114,7 @@ App-siloed keys allow to minimize damage of potential key leaks as a leak of the
 
 App-siloed keys are derived from the corresponding master keys and the contract address. For example, for the app-siloed nullifier secret key: `nsk_app = hash(nsk_m, app_contract_address)`. 
 
-App-siloed keys are derived in PXE every time the user interacts with the application.
+App-siloed keys [are derived](../storage_slots#implementation/index.md) in PXE every time the user interacts with the application.
 
 App-siloed incoming viewing key also allows per-application auditability. A user may choose to disclose this key for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
 
