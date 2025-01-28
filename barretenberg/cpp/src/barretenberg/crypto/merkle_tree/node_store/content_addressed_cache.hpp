@@ -86,6 +86,7 @@ template <typename LeafValueType> class ContentAddressedCache {
         TreeMeta meta_;
         // Captures the cache's node hashes at the time of checkpoint. If the node does not exist in the cache, the
         // optional will == nullopt
+        // TODO (PhilWindle): Consider where a more optimal approach is a single unordered map, instead of 1 per level
         std::vector<std::unordered_map<index_t, std::optional<fr>>> nodes_by_index_;
         // Captures the cache's leaf pre-images at the time of checkpoint. Again, if the leaf does not exist in the
         // cache, the optional will == nullopt

@@ -196,4 +196,14 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
   close(): Promise<void> {
     return Promise.resolve();
   }
+
+  createCheckpoint(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  commitCheckpoint(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  revertCheckpoint(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
 }

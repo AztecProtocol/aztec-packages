@@ -178,7 +178,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
 
     void checkpoint();
-
     void revert_checkpoint();
     void commit_checkpoint();
 
@@ -257,6 +256,10 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
     initialise_from_block(referenceBlockNumber);
 }
 
+// Much Like the commit/rollback/set finalised/remove historic blocks apis
+// These 3 apis (checkpoint/revert_checkpoint/commit_checkpoint) all assume they are not called
+// during the process of reading/writing uncommitted state
+// This is reasonable, they intended for use by forks at the point of starting/ending a function call
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::checkpoint()
 {
     cache_.checkpoint();

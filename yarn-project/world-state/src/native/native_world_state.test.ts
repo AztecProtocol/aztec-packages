@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, MerkleTreeWriteOperations, SiblingPath } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -13,10 +13,13 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { fr, makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { FeeJuicePortalLinkReferences } from '@aztec/l1-artifacts/FeeJuicePortalBytecode';
 
 import { jest } from '@jest/globals';
+import { fork } from 'child_process';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -787,5 +790,201 @@ describe('NativeWorldState', () => {
 
       await Promise.all([setupFork.close(), testFork.close()]);
     }, 30_000);
+  });
+
+  describe('Checkpoints', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(1, 2, fork);
+      await fork.close();
+
+      await ws.handleL2BlockAndMessages(block, messages);
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    const getSiblingPaths = async (fork: MerkleTreeWriteOperations) => {
+      return await Promise.all(
+        [
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          MerkleTreeId.NOTE_HASH_TREE,
+          MerkleTreeId.NULLIFIER_TREE,
+          MerkleTreeId.PUBLIC_DATA_TREE,
+        ].map(x => fork.getSiblingPath(x, 0n)),
+      );
+    };
+
+    const advanceState = async (fork: MerkleTreeWriteOperations) => {
+      await Promise.all([
+        fork.appendLeaves(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          Array.from({ length: 8 }, () => Fr.random()),
+        ),
+        fork.appendLeaves(
+          MerkleTreeId.NOTE_HASH_TREE,
+          Array.from({ length: 8 }, () => Fr.random()),
+        ),
+        fork.sequentialInsert(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          Array.from({ length: 8 }, () => PublicDataWrite.random().toBuffer()),
+        ),
+        fork.batchInsert(
+          MerkleTreeId.NULLIFIER_TREE,
+          Array.from({ length: 8 }, () => Fr.random().toBuffer()),
+          0,
+        ),
+      ]);
+      return getSiblingPaths(fork);
+    };
+
+    const compareState = async (
+      fork: MerkleTreeWriteOperations,
+      pathsToCheck: SiblingPath<number>[],
+      expectedEqual: boolean,
+    ) => {
+      const siblingPaths = await getSiblingPaths(fork);
+
+      if (expectedEqual) {
+        expect(siblingPaths).toEqual(pathsToCheck);
+      } else {
+        expect(siblingPaths).not.toEqual(pathsToCheck);
+      }
+      return siblingPaths;
+    };
+
+    it('can checkpoint and revert', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.revertCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      await fork.close();
+    });
+
+    it('can checkpoint and commit', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.close();
+    });
+
+    it('can revert all deeper commits', async () => {
+      const fork = await ws.fork();
+
+      // This is the base checkpoint, this will revert all of the others
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const numCommits = 10;
+
+      for (let i = 0; i < numCommits; i++) {
+        await fork.createCheckpoint();
+        await advanceState(fork);
+      }
+
+      const siblingPathsAfter = await getSiblingPaths(fork);
+
+      // now commit all of these
+      for (let i = 0; i < numCommits; i++) {
+        await fork.commitCheckpoint();
+      }
+
+      // check we still have the same state
+      await compareState(fork, siblingPathsAfter, true);
+
+      // now revert the base checkpoint
+      await fork.revertCheckpoint();
+
+      await compareState(fork, siblingPathsBefore, true);
+
+      await fork.close();
+    });
+
+    it('can checkpoint many levels', async () => {
+      const fork = await ws.fork();
+
+      const stackDepth = 5;
+
+      const siblingsAtEachLevel = [];
+
+      let index = 0;
+
+      for (; index < stackDepth - 1; index++) {
+        siblingsAtEachLevel[index] = await advanceState(fork);
+        await fork.createCheckpoint();
+      }
+
+      // Add one more depth
+      siblingsAtEachLevel[index] = await advanceState(fork);
+
+      await compareState(fork, siblingsAtEachLevel[stackDepth - 1], true);
+
+      let checkpointIndex = index;
+
+      // Alternate committing and reverting half the levels
+      for (; index > stackDepth / 2; index--) {
+        if (index % 2 == 0) {
+          // Here we change the checkpoint index
+          await fork.revertCheckpoint();
+          checkpointIndex = index - 1;
+        } else {
+          // We don't change the checkpoint index
+          await fork.commitCheckpoint();
+        }
+        await compareState(fork, siblingsAtEachLevel[checkpointIndex], true);
+      }
+
+      // Now go down the stack again
+      for (; index < stackDepth - 1; index++) {
+        siblingsAtEachLevel[index] = await advanceState(fork);
+        await fork.createCheckpoint();
+      }
+
+      // Add one more depth
+      siblingsAtEachLevel[index] = await advanceState(fork);
+
+      await compareState(fork, siblingsAtEachLevel[stackDepth - 1], true);
+
+      checkpointIndex = index;
+
+      // Alternate committing and reverting all the levels
+      for (; index > 0; index--) {
+        if (index % 2 == 0) {
+          // Here we change the checkpoint index
+          await fork.revertCheckpoint();
+          checkpointIndex = index - 1;
+        } else {
+          // We don't change the checkpoint index
+          await fork.commitCheckpoint();
+        }
+        await compareState(fork, siblingsAtEachLevel[checkpointIndex], true);
+      }
+
+      await fork.close();
+    });
   });
 });

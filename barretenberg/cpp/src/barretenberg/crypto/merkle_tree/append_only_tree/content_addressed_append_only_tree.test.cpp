@@ -1870,7 +1870,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
 
     // We now alternate committing and reverting the checkpoints half way up the stack
 
-    for (; index > 10; index--) {
+    for (; index > stackDepth / 2; index--) {
         if (index % 2 == 0) {
             revert_checkpoint_tree(tree, true);
             checkpointIndex = index - 1;
