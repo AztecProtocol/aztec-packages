@@ -127,21 +127,11 @@ template <typename Curve> class GeminiProver_ {
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
 
-        // Compute the linear combination of the polynomials in the provided set; update the running scalar in place
-        Polynomial batch(RefVector<Polynomial> polynomials, const Fr& challenge, Fr& running_scalar)
-        {
-            // initialize the batched polynomial based on the structure of the first polynomial in the set
-            Polynomial batched(polynomials[0].size(), polynomials[0].virtual_size(), polynomials[0].start_index());
-            for (auto& poly : polynomials) {
-                batched.add_scaled(poly, running_scalar);
-                running_scalar *= challenge;
-            }
-            return batched;
-        }
-
       public:
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
+            , batched_unshifted(full_batched_size)
+            , batched_to_be_shifted_by_one(Polynomial::shiftable(full_batched_size))
         {}
 
         bool has_unshifted() const { return unshifted.size() > 0; }
@@ -170,20 +160,28 @@ template <typename Curve> class GeminiProver_ {
         {
             Polynomial full_batched(full_batched_size);
 
-            // if necessary, initialize the full batched polynomial with randomness for ZK
+            // lambda for batching polynomials; updates the running scalar in place
+            auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
+                for (auto& poly : polynomials_to_batch) {
+                    batched.add_scaled(poly, running_scalar);
+                    running_scalar *= challenge;
+                }
+            };
+
+            // if necessary, add randomness to the full batched polynomial for ZK
             if (has_random_polynomial) {
                 full_batched += random_polynomial;
             }
 
             // compute the linear combination F of the unshifted polynomials
             if (has_unshifted()) {
-                batched_unshifted = batch(unshifted, challenge, running_scalar);
+                batch(batched_unshifted, unshifted);
                 full_batched += batched_unshifted; // A₀ = F
             }
 
             // compute the linear combination G of the to-be-shifted polynomials
             if (has_to_be_shifted_by_one()) {
-                batched_to_be_shifted_by_one = batch(to_be_shifted_by_one, challenge, running_scalar);
+                batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
                 full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ = F + G/X
             }
 
