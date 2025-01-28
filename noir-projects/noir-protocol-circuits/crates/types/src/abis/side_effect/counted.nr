@@ -1,4 +1,4 @@
-use crate::{traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader}};
+use crate::{traits::{Deserialize, Empty, Serialize}, utils::{reader::Reader}};
 use super::Ordered;
 
 pub struct Counted<T> {
@@ -30,18 +30,18 @@ where
     }
 }
 
-impl<T, let N: u32> Serialize<N> for Counted<T>
+impl<T, const N: usize> Serialize<N> for Counted<T>
 where
-    T: Serialize<N - 1>,
+    T: Serialize<{ N - 1 }>,
 {
     fn serialize(self) -> [Field; N] {
-        array_concat(self.inner.serialize(), [self.counter as Field])
+        self.inner.serialize().concat([self.counter as Field])
     }
 }
 
-impl<T, let N: u32> Deserialize<N> for Counted<T>
+impl<T, const N: usize> Deserialize<N> for Counted<T>
 where
-    T: Deserialize<N - 1>,
+    T: Deserialize<{ N - 1 }>,
 {
     fn deserialize(fields: [Field; N]) -> Self {
         let mut reader = Reader::new(fields);
