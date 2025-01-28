@@ -1,5 +1,6 @@
 *
 !/avm-transpiler/target/release/avm-transpiler
+!/aztec-nargo/compile_then_postprocess.sh
 !/barretenberg/cpp/build/bin/bb
 !/barretenberg/ts/dest/
 !/barretenberg/ts/package.json
