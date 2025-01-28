@@ -66,6 +66,8 @@ Storing the signing public key in a private note makes it accessible from the en
 
 Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers and commitments per transaction. However, it does not allow the user to rotate their key if they lose it.
 
+#include_code public_key_note noir-projects/noir-contracts/contracts/schnorr_account_contract/src/public_key_note.nr rust
+
 :::note
 When it comes to storing the signing key in a private note, there are several details that rely on the wallets:
 - A note with a key is managed similar to any other private note. Wallets are expected to backup all the notes so that they can be restored on another device (e.g. if the user wants to move to another device). 
