@@ -27,6 +27,7 @@ function test_cmds {
   echo "$run_test simple e2e_cross_chain_messaging/l1_to_l2"
   echo "$run_test simple e2e_cross_chain_messaging/l2_to_l1"
   echo "$run_test simple e2e_cross_chain_messaging/token_bridge_failure_cases"
+  echo "$run_test simple e2e_cross_chain_messaging/token_bridge_tutorial_test"
   echo "$run_test simple e2e_cross_chain_messaging/token_bridge_private"
   echo "$run_test simple e2e_cross_chain_messaging/token_bridge_public"
   echo "$run_test simple e2e_crowdfunding_and_claim"
@@ -91,14 +92,14 @@ function test_cmds {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  *)
-    echo "Unknown command: $cmd"
-    exit 1
+"clean")
+  git clean -fdx
+  ;;
+"test-cmds")
+  test_cmds
+  ;;
+*)
+  echo "Unknown command: $cmd"
+  exit 1
   ;;
 esac
