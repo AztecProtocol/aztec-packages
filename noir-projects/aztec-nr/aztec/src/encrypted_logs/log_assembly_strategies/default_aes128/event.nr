@@ -21,7 +21,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     traits::Serialize,
-    utils::arrays::{array_concat, array_concat_3, array_concat_4},
+    utils::arrays::{array_concat, array_concat_4},
 };
 use std::aes128::aes128_encrypt;
 

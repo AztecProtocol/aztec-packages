@@ -16,20 +16,12 @@ use dep::protocol_types::{
     abis::note_hash::NoteHash,
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    utils::arrays::{array_concat, array_concat_3, array_concat_4},
+    utils::arrays::{array_concat, array_concat_4},
 };
 use std::aes128::aes128_encrypt;
 
-pub(crate) global TAG_SIZE_IN_FIELDS: u32 = 1;
-pub(crate) global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
-
 pub(crate) global EPH_PK_Y_SIGN_SIZE_IN_BYTES: u32 = 1; // Technically, this only needs to occupy 1 bit, but we fill one byte here, for ease.
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
-
-pub(crate) global CONTRACT_ADDRESS_SIZE_IN_BYTES: u32 = 32;
-
-// Difficult to name: the number of bytes needed to convey the size (in bytes) of the ciphertext
-pub(crate) global SIZE_OF_ENCODING_OF_CIPHERTEXT_SIZE_IN_BYTES: u32 = 2;
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
@@ -159,9 +151,11 @@ fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
 // Ok, so we have the following bytes:
 // eph_pk_sign, header_ciphertext, ciphertext:
 // Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
-fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
+fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(
+    _ct: [u8; CT],
+) -> [u8; EPH_PK_Y_SIGN_SIZE_IN_BYTES + HEADER_CIPHERTEXT_SIZE_IN_BYTES + CT] {
     // 1 + 48 + CT
-    [0; 1 + 48 + CT]
+    [0; EPH_PK_Y_SIGN_SIZE_IN_BYTES + HEADER_CIPHERTEXT_SIZE_IN_BYTES + CT]
 }
 
 // Recall:
@@ -174,6 +168,11 @@ fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8
 fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
     _lbwop: [u8; LBWOP],
 ) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
+    // This static assertion is trivially true, but leaving it here to help people understand.
+    std::static_assert(
+        (LBWOP + (31 * ((LBWOP + 30) / 31)) - LBWOP) % 31 == 0,
+        "Padded log bytes should be divisible by 31",
+    );
     [0; (31 * ((LBWOP + 30) / 31)) - LBWOP]
 }
 
