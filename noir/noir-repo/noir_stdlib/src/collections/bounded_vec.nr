@@ -345,7 +345,7 @@ impl<T, let MaxLen: u32> BoundedVec<T, MaxLen> {
     /// let bounded_vec: BoundedVec<Field, 10> = BoundedVec::from_array([1, 2, 3])
     /// ```
     pub fn from_array<let Len: u32>(array: [T; Len]) -> Self {
-        static_assert(Len <= MaxLen, "from array out of bounds");
+        assert(Len <= MaxLen, "from array out of bounds");
         let mut vec: BoundedVec<T, MaxLen> = BoundedVec::new();
         vec.extend_from_array(array);
         vec
