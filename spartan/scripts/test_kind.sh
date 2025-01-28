@@ -33,8 +33,8 @@ install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
 
-# Ensure dependencies
-../bootstrap.sh
+# Ensure we have kind context
+../bootstrap.sh kind
 
 # Check required environment variable
 if [ -z "$namespace" ]; then
@@ -52,20 +52,11 @@ if [ "$install_metrics" = "true" ]; then
   ../bootstrap.sh metrics-kind
 fi
 
-stern_pid=""
-function copy_stern_to_log() {
-  stern spartan -n $namespace > logs/test_kind.log &
-  stern_pid=$!
-}
-
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
   echo "Deleting existing namespace due to FRESH_INSTALL=true"
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
-
-# Start capturing before we start our network deploy
-copy_stern_to_log
 
 function cleanup() {
   # kill everything in our process group except our process
@@ -76,6 +67,15 @@ function cleanup() {
   fi
 }
 trap cleanup SIGINT SIGTERM EXIT
+
+stern_pid=""
+function copy_stern_to_log() {
+  stern spartan -n $namespace > logs/test_kind.log &
+  stern_pid=$!
+}
+
+# Start capturing before we start our network deploy
+copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
