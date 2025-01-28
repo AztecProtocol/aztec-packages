@@ -6,7 +6,7 @@ on:
       cluster:
         description: The cluster to deploy to, e.g. aztec-gke-private
         required: true
-        default: aztec-gke-private
+        default: "aztec-gke-private"
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
