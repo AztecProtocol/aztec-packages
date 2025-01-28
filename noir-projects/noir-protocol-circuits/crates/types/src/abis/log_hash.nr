@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::{reader::Reader},
 };
 
 pub struct LogHash {
@@ -96,10 +96,7 @@ impl Empty for ScopedLogHash {
 
 impl Serialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
     fn serialize(self) -> [Field; SCOPED_LOG_HASH_LENGTH] {
-        array_concat(
-            self.log_hash.serialize(),
-            [self.contract_address.to_field()],
-        )
+        self.log_hash.serialize().concat([self.contract_address.to_field()])
     }
 }
 
