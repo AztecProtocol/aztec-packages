@@ -9,7 +9,6 @@ contract ContractInstanceDeployer {
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
         traits::Serialize,
-        utils::arrays::array_concat,
     };
     use dep::contract_class_registerer::ContractClassRegisterer;
     use std::meta::derive;
@@ -123,7 +122,7 @@ contract ContractInstanceDeployer {
         let payload = Serialize::<15>::serialize(event);
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
-        let padded_log = array_concat(payload, [0; 3]);
+        let padded_log = payload.concat([0; 3]);
         context.emit_private_log(padded_log);
     }
 }
