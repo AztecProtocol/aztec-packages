@@ -297,6 +297,7 @@ export class L1TxUtils {
     let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastAttemptSent = Date.now();
+    let lastGasPrice: GasPrice | undefined;
     const initialTxTime = lastAttemptSent;
 
     let txTimedOut = false;
@@ -365,6 +366,7 @@ export class L1TxUtils {
                 }
               : undefined,
           );
+          lastGasPrice = newGasPrice;
 
           this.logger?.debug(
             `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
@@ -400,17 +402,6 @@ export class L1TxUtils {
       // Check if tx has timed out.
       txTimedOut = isTimedOut();
     }
-
-    // Get the last used gas price if available
-    const lastTx = await this.publicClient.getTransaction({ hash: currentTxHash });
-    const lastGasPrice =
-      lastTx.maxFeePerGas && lastTx.maxPriorityFeePerGas
-        ? {
-            maxFeePerGas: lastTx.maxFeePerGas,
-            maxPriorityFeePerGas: lastTx.maxPriorityFeePerGas,
-            maxFeePerBlobGas: lastTx.maxFeePerBlobGas,
-          }
-        : undefined;
 
     // Fire cancellation without awaiting to avoid blocking the main thread
     this.attemptTxCancellation(nonce, lastGasPrice, attempts)
