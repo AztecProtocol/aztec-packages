@@ -327,8 +327,19 @@ fn test_array_concat() {
 fn test_array_concat_3() {
     let array0 = [1, 2, 3];
     let array1 = [4, 5];
-    let concatenated = array_concat(array0, array1);
-    assert_eq(concatenated, [1, 2, 3, 4, 5]);
+    let array2 = [6, 7, 8, 9];
+    let concatenated = array_concat_3(array0, array1, array2);
+    assert_eq(concatenated, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}
+
+#[test]
+fn test_array_concat_4() {
+    let array0 = [1];
+    let array1 = [2, 3];
+    let array2 = [4, 5, 6, 7];
+    let array3 = [8, 9, 10];
+    let concatenated = array_concat_4(array0, array1, array2, array3);
+    assert_eq(concatenated, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
