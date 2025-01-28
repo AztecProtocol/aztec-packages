@@ -14,8 +14,8 @@ import {
   initExecutionEnvironment,
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
-import { PublicEnqueuedCallSideEffectTrace } from '../../public/enqueued_call_side_effect_trace.js';
 import { WorldStateDB } from '../../public/public_db_sources.js';
+import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import { AvmPersistableStateManager, AvmSimulator } from '../../server.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -42,10 +42,10 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    const trace = new PublicEnqueuedCallSideEffectTrace();
+    const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);
     // FIXME: merkle ops should work, but I'm seeing frequent (but inconsistent) bytecode retrieval
-    // failures on 2nd call to simulateEnqueuedCall with merkle ops on
+    // failures on 2nd call to simulateCall with merkle ops on
     const stateManager = await AvmPersistableStateManager.create(
       worldStateDB,
       trace,

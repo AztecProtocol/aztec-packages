@@ -28,8 +28,8 @@ import { MerkleTrees } from '@aztec/world-state';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from '../public/public_db_sources.js';
+import { SideEffectTrace } from '../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -1038,7 +1038,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     describe('Side effect trace errors on overflow', () => {
-      const trace = new PublicEnqueuedCallSideEffectTrace();
+      const trace = new SideEffectTrace();
       const persistableState = initPersistableStateManager({ worldStateDB, trace });
 
       it.each([
