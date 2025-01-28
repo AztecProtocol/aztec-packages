@@ -2,7 +2,6 @@ use dep::protocol_types::{
     address::AztecAddress,
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
     traits::{FromField, Packable, ToField},
-    utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
@@ -242,7 +241,7 @@ where
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     ) -> Field {
-        let concatenated: [Field; 4] = array_concat(value_change.pack(), delay_change.pack());
+        let concatenated: [Field; 4] = value_change.pack().concat(delay_change.pack());
         poseidon2_hash(concatenated)
     }
 }
