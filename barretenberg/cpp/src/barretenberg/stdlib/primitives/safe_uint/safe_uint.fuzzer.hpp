@@ -326,16 +326,15 @@ template <typename Builder> class SafeUintFuzzBase {
                     e = e.to_montgomery_form();
                 }
                 if (rng.next() & 1) {
-                    value_data = e + fr(rng.next() & 0xff);
+                    e += fr(rng.next() & 0xff);
                 } else {
-                    value_data = e - fr(rng.next() & 0xff);
+                    e -= fr(rng.next() & 0xff);
                 }
                 if (convert_to_montgomery) {
                     e = e.from_montgomery_form();
                 }
             } else {
                 // Substitute field element with a special value
-                MONT_CONVERSION
                 switch (rng.next() % 8) {
                 case 0:
                     e = fr::zero();
@@ -365,7 +364,9 @@ template <typename Builder> class SafeUintFuzzBase {
                     abort();
                     break;
                 }
-                INV_MONT_CONVERSION
+                if (convert_to_montgomery) {
+                    e = e.from_montgomery_form();
+                }
             }
             // Return instruction
             return e;
@@ -533,9 +534,8 @@ template <typename Builder> class SafeUintFuzzBase {
             if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT ||
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
-                *Data = instruction.id;
-                *(Data + 1) = instruction.arguments.element.bit_range;
-                fr::serialize_to_buffer(instruction.arguments.element.value, Data + 2);
+                *Data = instruction.arguments.element.bit_range;
+                fr::serialize_to_buffer(instruction.arguments.element.value, Data + 1);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::ADD ||

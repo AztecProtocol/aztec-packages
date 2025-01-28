@@ -367,16 +367,15 @@ template <typename Builder> class FieldBase {
                     e = e.to_montgomery_form();
                 }
                 if (rng.next() & 1) {
-                    value_data = e + bb::fr(rng.next() & 0xff);
+                    e += bb::fr(rng.next() & 0xff);
                 } else {
-                    value_data = e - bb::fr(rng.next() & 0xff);
+                    e -= bb::fr(rng.next() & 0xff);
                 }
                 if (convert_to_montgomery) {
                     e = e.from_montgomery_form();
                 }
             } else {
                 // Substitute field element with a special value
-                MONT_CONVERSION
                 switch (rng.next() % 9) {
                 case 0:
                     e = bb::fr::zero();
@@ -409,7 +408,9 @@ template <typename Builder> class FieldBase {
                     abort();
                     break;
                 }
-                INV_MONT_CONVERSION
+                if (convert_to_montgomery) {
+                    e = e.from_montgomery_form();
+                }
             }
             // Return instruction
             return e;
@@ -646,8 +647,7 @@ template <typename Builder> class FieldBase {
             if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT ||
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
-                *Data = instruction.id;
-                memcpy(Data + 1, &instruction.arguments.element.data[0], sizeof(instruction.arguments.element.data));
+                bb::fr::serialize_to_buffer(insturction.arguments.element.data, Data);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::ASSERT_ZERO ||
