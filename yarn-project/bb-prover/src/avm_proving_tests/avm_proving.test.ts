@@ -33,7 +33,7 @@ describe('AVM WitGen & Circuit', () => {
     let tester: AvmProvingTester;
 
     beforeEach(async () => {
-      avmTestContractClass = makeContractClassPublic(
+      avmTestContractClass = await makeContractClassPublic(
         /*seed=*/ avmTestContractClassSeed,
         /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
       );
@@ -78,7 +78,7 @@ describe('AVM WitGen & Circuit', () => {
     let tester: AvmProvingTester;
 
     beforeEach(async () => {
-      avmTestContractClass = makeContractClassPublic(
+      avmTestContractClass = await makeContractClassPublic(
         /*seed=*/ avmTestContractClassSeed,
         /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
       );
@@ -403,7 +403,7 @@ describe('AVM WitGen & Circuit', () => {
         privateFunctions: [],
         unconstrainedFunctions: [],
       };
-      avmTestContractClass = makeContractClassPublic(
+      avmTestContractClass = await makeContractClassPublic(
         /*seed=*/ avmTestContractClassSeed,
         /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
       );
@@ -447,7 +447,7 @@ describe('AVM v2', () => {
   let tester: AvmProvingTesterV2;
 
   beforeEach(async () => {
-    avmTestContractClass = makeContractClassPublic(
+    avmTestContractClass = await makeContractClassPublic(
       /*seed=*/ avmTestContractClassSeed,
       /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
     );

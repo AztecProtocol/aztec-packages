@@ -69,7 +69,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     if (!contractArtifact) {
       throw new Error(`Contract not found at address: ${address}`);
     }
-    const fnSelector = getFunctionSelector(fnName, contractArtifact);
+    const fnSelector = await getFunctionSelector(fnName, contractArtifact);
     const fnAbi = getContractFunctionArtifact(fnName, contractArtifact);
     const encodedArgs = encodeArguments(fnAbi!, args);
     const calldata = [fnSelector.toField(), ...encodedArgs];

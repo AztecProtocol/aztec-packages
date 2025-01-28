@@ -42,12 +42,12 @@ export abstract class BaseAvmSimulationTester {
 
   async setFeePayerBalance(feePayer: AztecAddress, balance: Fr) {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     await this.setPublicStorage(feeJuiceAddress, balanceSlot, balance);
   }
 
   async setPublicStorage(address: AztecAddress, slot: Fr, value: Fr) {
-    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(address, slot);
     // get existing preimage
     const publicDataWrite = new PublicDataWrite(leafSlot, value);
     await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()], 0);
@@ -64,13 +64,13 @@ export abstract class BaseAvmSimulationTester {
     seed = 0,
   ): Promise<ContractInstanceWithAddress> {
     const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
-    const contractClass = makeContractClassPublic(
+    const contractClass = await makeContractClassPublic(
       seed,
       /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
     );
 
     const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
-    const initializationHash = computeInitializationHash(constructorAbi, constructorArgs);
+    const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
     const contractInstance = await makeContractInstanceFromClassId(contractClass.id, seed, {
       deployer,
       initializationHash,
@@ -93,7 +93,7 @@ export abstract class BaseAvmSimulationTester {
 
   async addContractInstance(contractInstance: ContractInstanceWithAddress) {
     if (!this.skipContractDeployments) {
-      const contractAddressNullifier = siloNullifier(
+      const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractInstance.address.toField(),
       );

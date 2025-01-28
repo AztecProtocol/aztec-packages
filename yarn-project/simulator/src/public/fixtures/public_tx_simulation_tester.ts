@@ -68,7 +68,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     for (let i = 0; i < setupCalls.length; i++) {
       const address = setupCalls[i].address;
       const contractArtifact = await this.contractDataSource.getContractArtifact(address);
-      const req = executionRequestForCall(
+      const req = await executionRequestForCall(
         sender,
         address,
         setupCalls[i].fnName,
@@ -82,7 +82,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     for (let i = 0; i < appCalls.length; i++) {
       const address = appCalls[i].address;
       const contractArtifact = await this.contractDataSource.getContractArtifact(address);
-      const req = executionRequestForCall(
+      const req = await executionRequestForCall(
         sender,
         address,
         appCalls[i].fnName,
@@ -97,7 +97,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     if (teardownCall) {
       const address = teardownCall.address;
       const contractArtifact = await this.contractDataSource.getContractArtifact(address);
-      teardownExecutionRequest = executionRequestForCall(
+      teardownExecutionRequest = await executionRequestForCall(
         sender,
         address,
         teardownCall.fnName,
@@ -111,7 +111,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     // but make sure each tx has a unique first nullifier.
     const firstNullifier = new Fr(420000 + this.txCount++);
 
-    const tx: Tx = createTxForPublicCalls(
+    const tx: Tx = await createTxForPublicCalls(
       firstNullifier,
       setupExecutionRequests,
       appExecutionRequests,
@@ -151,15 +151,15 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   }
 }
 
-function executionRequestForCall(
+async function executionRequestForCall(
   sender: AztecAddress,
   address: AztecAddress,
   fnName: string,
   args: Fr[] = [],
   isStaticCall: boolean = false,
   contractArtifact: ContractArtifact = AvmTestContractArtifact,
-): PublicExecutionRequest {
-  const fnSelector = getFunctionSelector(fnName, contractArtifact);
+): Promise<PublicExecutionRequest> {
+  const fnSelector = await getFunctionSelector(fnName, contractArtifact);
   const fnAbi = getContractFunctionArtifact(fnName, contractArtifact);
   const encodedArgs = encodeArguments(fnAbi!, args);
   const calldata = [fnSelector.toField(), ...encodedArgs];

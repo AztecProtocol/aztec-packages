@@ -52,7 +52,7 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
-    avmTestContractClass = makeContractClassPublic(
+    avmTestContractClass = await makeContractClassPublic(
       /*seed=*/ avmTestContractClassSeed,
       /*publicDispatchFunction=*/ {
         bytecode: avmTestContractBytecode,
