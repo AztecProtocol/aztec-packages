@@ -9,10 +9,10 @@ import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
 import {SlashPayload} from "./SlashPayload.sol";
 
 contract SlashFactory is ISlashFactory {
-  IValidatorSelection public immutable ValidatorSelection;
+  IValidatorSelection public immutable VALIDATOR_SELECTION;
 
-  constructor(IValidatorSelection _ValidatorSelection) {
-    ValidatorSelection = _ValidatorSelection;
+  constructor(IValidatorSelection _validatorSelection) {
+    VALIDATOR_SELECTION = _validatorSelection;
   }
 
   function createSlashPayload(Epoch _epoch, uint256 _amount)
@@ -27,7 +27,7 @@ contract SlashFactory is ISlashFactory {
     }
 
     SlashPayload payload =
-      new SlashPayload{salt: bytes32(Epoch.unwrap(_epoch))}(_epoch, ValidatorSelection, _amount);
+      new SlashPayload{salt: bytes32(Epoch.unwrap(_epoch))}(_epoch, VALIDATOR_SELECTION, _amount);
 
     emit SlashPayloadCreated(address(payload), _epoch, _amount);
     return IPayload(address(payload));
@@ -60,7 +60,7 @@ contract SlashFactory is ISlashFactory {
               salt,
               keccak256(
                 abi.encodePacked(
-                  type(SlashPayload).creationCode, abi.encode(_epoch, ValidatorSelection, _amount)
+                  type(SlashPayload).creationCode, abi.encode(_epoch, VALIDATOR_SELECTION, _amount)
                 )
               )
             )
