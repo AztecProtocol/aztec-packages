@@ -148,6 +148,7 @@ StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req
 {
     bool reverse = req.reverse.value_or(false);
     uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
+    bool one_page = req.onePage.value_or(false);
     lmdblib::Key key = req.key;
 
     auto tx = _store->create_shared_read_transaction();
@@ -181,8 +182,8 @@ StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req
     }
 
     auto [done, first_page] = _advance_cursor(cursor, reverse, page_size);
-    // cursor finished after reading a single page
-    if (done) {
+    // cursor finished after reading a single page or client only wanted the first page
+    if (done || one_page) {
         return { std::nullopt, first_page };
     }
 

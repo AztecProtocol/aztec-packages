@@ -72,8 +72,9 @@ struct StartCursorRequest {
     lmdblib::Key key;
     std::optional<bool> reverse;
     std::optional<uint32_t> count;
+    std::optional<bool> onePage;
     std::string db;
-    MSGPACK_FIELDS(key, reverse, count, db);
+    MSGPACK_FIELDS(key, reverse, count, onePage, db);
 };
 
 struct StartCursorResponse {

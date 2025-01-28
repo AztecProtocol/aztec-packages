@@ -73,6 +73,7 @@ describe('ReadTransaction', () => {
         db: Database.DATA,
         key: Buffer.from('foo'),
         count: CURSOR_PAGE_SIZE,
+        onePage: false,
         reverse: false,
       }),
     ).to.be.true;
@@ -152,6 +153,7 @@ describe('ReadTransaction', () => {
         reverse: false,
         count: CURSOR_PAGE_SIZE,
         db: Database.DATA,
+        onePage: false,
       })
       .resolves({
         duration,

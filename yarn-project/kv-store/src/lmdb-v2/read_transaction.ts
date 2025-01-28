@@ -62,11 +62,12 @@ export class ReadTransaction {
       key: startKey,
       reverse,
       count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
+      onePage: typeof limit === 'number' && limit < CURSOR_PAGE_SIZE,
       db,
     });
 
     let { cursor, entries } = response;
-    let done = false;
+    let done = typeof cursor !== 'number';
     let count = 0;
 
     try {

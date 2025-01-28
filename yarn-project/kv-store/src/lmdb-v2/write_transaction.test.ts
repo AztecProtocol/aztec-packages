@@ -287,7 +287,6 @@ describe('NativeWriteTransaction', () => {
       response: {
         cursor: 42,
         entries: [[Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]]],
-        done: false,
       },
       duration,
     });
@@ -318,7 +317,6 @@ describe('NativeWriteTransaction', () => {
       response: {
         cursor: 42,
         entries: [[Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]]],
-        done: false,
       },
       duration,
     });

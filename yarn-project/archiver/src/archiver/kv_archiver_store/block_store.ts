@@ -1,6 +1,6 @@
 import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, BlockHeader, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { take, toArray } from '@aztec/foundation/iterable';
+import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, type Range } from '@aztec/kv-store';
 
@@ -240,7 +240,7 @@ export class BlockStore {
    * @returns The number of the latest L2 block processed.
    */
   async getSynchedL2BlockNumber(): Promise<number> {
-    const [lastBlockNumber] = await toArray(take(this.#blocks.keysAsync({ reverse: true }), 1));
+    const [lastBlockNumber] = await toArray(this.#blocks.keysAsync({ reverse: true, limit: 1 }));
     return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
   }
 
@@ -272,7 +272,7 @@ export class BlockStore {
     return this.#lastProvenL2Epoch.set(epochNumber);
   }
 
-  #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
+  #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
@@ -281,7 +281,6 @@ export class BlockStore {
       throw new Error(`Invalid start: ${start}`);
     }
 
-    const end = start + limit;
-    return { start, end };
+    return { start, limit };
   }
 }

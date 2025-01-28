@@ -50,6 +50,7 @@ interface StartCursorRequest {
   key: Key;
   reverse: boolean;
   count: number | null;
+  onePage: boolean | null;
   db: string;
 }
 
