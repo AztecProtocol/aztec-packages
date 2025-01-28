@@ -1,16 +1,22 @@
+#include "custom_allocator.hpp" // Add this include
 #include <benchmark/benchmark.h>
 #include <vector>
 
-using namespace benchmark;
-
-void eg(State& state)
+void eg(benchmark::State& state)
 {
     for (auto _ : state) {
         std::vector<int> v(1 << 22);
-        DoNotOptimize(v);
+        benchmark::DoNotOptimize(v);
     }
 }
 
-BENCHMARK(eg)->Unit(kMicrosecond);
+BENCHMARK(eg)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK_MAIN();
+// Register the custom memory manager and run the benchmark
+int main(int argc, char** argv)
+{
+    benchmark::RegisterMemoryManager(new BenchmarkMemoryManager());
+    ::benchmark::Initialize(&argc, argv);
+    ::benchmark::RunSpecifiedBenchmarks();
+    return 0;
+}

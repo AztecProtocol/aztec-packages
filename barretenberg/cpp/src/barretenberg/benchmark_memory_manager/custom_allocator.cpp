@@ -12,27 +12,28 @@ void* TrackingAllocator::malloc(size_t size)
     total_memory += size;
     max_memory = std::max(max_memory, total_memory);
 
-    void* ptr = std::malloc(size);
+    void* ptr = __builtin_malloc(size);
     if (!ptr) {
         throw std::bad_alloc();
     }
-    allocations.emplace_back(ptr, size);
+    // allocations.emplace_back(ptr, size);
     return ptr;
 }
 
 void TrackingAllocator::free(void* ptr)
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    __builtin_free(ptr);
 
-    for (auto it = allocations.begin(); it != allocations.end(); ++it) {
-        if (it->first == ptr) {
-            total_deallocated++;
-            total_memory -= it->second;
-            allocations.erase(it);
-            std::free(ptr);
-            return;
-        }
-    }
+    // for (auto it = allocations.begin(); it != allocations.end(); ++it) {
+    //     if (it->first == ptr) {
+    //         total_deallocated++;
+    //         total_memory -= it->second;
+    //         // allocations.erase(it);
+    //         __builtin_free(ptr);
+    //         return;
+    //     }
+    // }
 
     // Optional: handle unknown pointer
     std::cerr << "Warning: Attempting to free unknown pointer" << std::endl;
