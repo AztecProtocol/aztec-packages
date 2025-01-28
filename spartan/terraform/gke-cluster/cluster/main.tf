@@ -6,7 +6,7 @@ resource "google_container_cluster" "primary" {
   initial_node_count = 1
   # Remove default node pool after cluster creation
   remove_default_node_pool = true
-  deletion_protection      = false
+  deletion_protection      = true
 
   # Kubernetes version
   min_master_version = "latest"
