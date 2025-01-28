@@ -2,12 +2,12 @@
 #include "./tree_meta.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/content_addressed_cache.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_transaction.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -245,11 +245,7 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
     initialise();
 }
 
-template <typename LeafValueType>
 ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
-                                                                                uint32_t levels,
-                                                                                const index_t& referenceBlockNumber,
-                                                                                PersistedStoreType::SharedPtr dataStore)
     : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
     , cache_(levels)
@@ -283,9 +279,10 @@ index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size_to_o
         // We are a fork. Take from constant data
         sizeLimit = forkConstantData_.initialised_from_block_.value().size;
     } else {
-        // We are the main tree. Read from the store
+        // We are the main tree. Read from the store, only use committed so as to not violate any requests for purely
+        // committed data
         TreeMeta m;
-        get_meta(m, tx, true);
+        get_meta(m, tx, false);
         sizeLimit = m.committedSize;
     }
     if (requestContext.maxIndex.has_value() && requestContext.maxIndex.value() < sizeLimit) {

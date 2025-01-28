@@ -6,7 +6,7 @@ import {
   Note,
   NoteAndSlot,
   type NoteStatus,
-  type PrivateExecutionResult,
+  type PrivateCallExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -58,7 +58,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private nestedExecutions: PrivateExecutionResult[] = [];
+  private nestedExecutions: PrivateCallExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
@@ -95,7 +95,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.executionCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
-      throw new Error('Invalid arguments size');
+      throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args.length}`);
     }
 
     const privateContextInputs = new PrivateContextInputs(
@@ -158,14 +158,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public getPublicTeardownFunctionCall() {
     return this.publicTeardownFunctionCall;
-  }
-
-  /**
-   * Store values in the execution cache.
-   * @param values - Values to store.
-   */
-  public override storeArrayInExecutionCache(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.executionCache.store(args));
   }
 
   /**
@@ -312,10 +304,22 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Adding a siloed nullifier into the current set of all pending nullifiers created
+   * within the current transaction/execution.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
+   * @param noteHash - A hash of the new note.
+   */
+  public override notifyCreatedNullifier(innerNullifier: Fr) {
+    this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
+    return Promise.resolve();
+  }
+
+  /**
    * Emit a contract class unencrypted log.
    * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
+   * TODO(#8945): Contract class logs are currently sha hashes. When these are fields, delete this.
    * @param log - The unencrypted log to be emitted.
    */
   public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
@@ -327,7 +331,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
     if (
       childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||

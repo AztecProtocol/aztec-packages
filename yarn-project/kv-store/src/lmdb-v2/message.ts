@@ -1,0 +1,128 @@
+import { type MsgpackChannel } from '@aztec/native';
+
+export enum Database {
+  DATA = 'data',
+  INDEX = 'index',
+}
+
+export const CURSOR_PAGE_SIZE = 10;
+
+export enum LMDBMessageType {
+  OPEN_DATABASE = 100,
+  GET,
+  HAS,
+
+  START_CURSOR,
+  ADVANCE_CURSOR,
+  CLOSE_CURSOR,
+
+  BATCH,
+
+  CLOSE,
+}
+
+type Key = Uint8Array;
+type Value = Uint8Array;
+type OptionalValues = Array<Value[] | null>;
+type KeyOptionalValues = [Key, null | Array<Value>];
+type KeyValues = [Key, Value[]];
+
+interface OpenDatabaseRequest {
+  db: string;
+  uniqueKeys?: boolean;
+}
+
+interface GetRequest {
+  keys: Key[];
+  db: string;
+}
+
+interface GetResponse {
+  values: OptionalValues;
+}
+
+interface HasRequest {
+  entries: KeyOptionalValues[];
+  db: string;
+}
+
+interface StartCursorRequest {
+  key: Key;
+  reverse: boolean;
+  db: string;
+}
+
+interface AdvanceCursorRequest {
+  cursor: number;
+  count: number | null;
+}
+
+interface CloseCursorRequest {
+  cursor: number;
+}
+
+export interface Batch {
+  addEntries: Array<KeyValues>;
+  removeEntries: Array<KeyOptionalValues>;
+}
+
+interface BatchRequest {
+  batches: Map<string, Batch>;
+}
+
+export type LMDBRequestBody = {
+  [LMDBMessageType.OPEN_DATABASE]: OpenDatabaseRequest;
+
+  [LMDBMessageType.GET]: GetRequest;
+  [LMDBMessageType.HAS]: HasRequest;
+
+  [LMDBMessageType.START_CURSOR]: StartCursorRequest;
+  [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorRequest;
+  [LMDBMessageType.CLOSE_CURSOR]: CloseCursorRequest;
+
+  [LMDBMessageType.BATCH]: BatchRequest;
+
+  [LMDBMessageType.CLOSE]: void;
+};
+
+interface GetResponse {
+  values: OptionalValues;
+}
+
+interface HasResponse {
+  exists: boolean[];
+}
+
+interface CursorResponse {
+  cursor: number | null;
+}
+
+interface AdvanceCursorResponse {
+  entries: Array<KeyValues>;
+  done: boolean;
+}
+
+interface BatchResponse {
+  durationNs: number;
+}
+
+interface BoolResponse {
+  ok: true;
+}
+
+export type LMDBResponse = {
+  [LMDBMessageType.OPEN_DATABASE]: BoolResponse;
+
+  [LMDBMessageType.GET]: GetResponse;
+  [LMDBMessageType.HAS]: HasResponse;
+
+  [LMDBMessageType.START_CURSOR]: CursorResponse;
+  [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorResponse;
+  [LMDBMessageType.CLOSE_CURSOR]: BoolResponse;
+
+  [LMDBMessageType.BATCH]: BatchResponse;
+
+  [LMDBMessageType.CLOSE]: BoolResponse;
+};
+
+export type TypeSafeMessageChannel = MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponse>;

@@ -19,6 +19,7 @@ import {
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
+  FormattedViemError,
   type GasPrice,
   type L1ContractsConfig,
   L1TxUtils,
@@ -36,8 +37,7 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
@@ -209,7 +209,7 @@ export class L1Publisher {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
 
-    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
 
     this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
@@ -417,7 +417,7 @@ export class L1Publisher {
       digest: Buffer.alloc(32),
       signatures: [],
     },
-  ): Promise<void> {
+  ): Promise<bigint> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
@@ -442,6 +442,7 @@ export class L1Publisher {
       }
       throw error;
     }
+    return ts;
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -546,8 +547,8 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = formatViemError(err);
-      logger.error(`Failed to vote`, msg);
+      const { message, metaMessages } = formatViemError(err);
+      logger.error(`Failed to vote`, message, { metaMessages });
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
     }
@@ -610,15 +611,15 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    await this.validateBlockForSubmission(block.header, {
+    const ts = await this.validateBlockForSubmission(block.header, {
       digest: digest.toBuffer(),
       signatures: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
-      : await this.sendProposeTx(proposeTxArgs, opts);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts, ts)
+      : await this.sendProposeTx(proposeTxArgs, opts, ts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -690,9 +691,17 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right`, err, {
-        proofQuote: proofQuote.toInspect(),
-      });
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Failed to claim epoch proof right`, message, {
+          metaMessages,
+          proofQuote: proofQuote.toInspect(),
+        });
+      } else {
+        this.log.error(`Failed to claim epoch proof right`, err, {
+          proofQuote: proofQuote.toInspect(),
+        });
+      }
       return false;
     }
 
@@ -962,6 +971,8 @@ export class L1Publisher {
 
   private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
+    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils.estimateGas(
       this.account,
       {
@@ -969,7 +980,7 @@ export class L1Publisher {
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
           functionName: 'validateBlobs',
-          args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
+          args: [blobInput],
         }),
       },
       {},
@@ -979,12 +990,6 @@ export class L1Publisher {
       },
     );
 
-    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-    //        viem will use the current state to simulate against, which means that
-    //        we will fail estimation in the case where we are simulating for the
-    //        first ethereum block within our slot (as current time is not in the
-    //        slot yet).
-    const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -1004,10 +1009,10 @@ export class L1Publisher {
       attestations,
       // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
-      Blob.getEthBlobEvaluationInputs(encodedData.blobs),
+      blobInput,
     ] as const;
 
-    return { args, gas: gasGuesstimate };
+    return { args, blobEvaluationGas };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -1043,26 +1048,58 @@ export class L1Publisher {
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
     opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
   ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'propose',
         args,
       });
+
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_GAS_GUESS * 2n,
+        },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+      );
+
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
-          fixedGas: gas,
           ...opts,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1077,7 +1114,12 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed.`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }
@@ -1086,26 +1128,58 @@ export class L1Publisher {
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
     opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
   ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
+
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
+
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS * 2n,
+        },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+      );
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
-          fixedGas: gas,
           ...opts,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1121,7 +1195,12 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed.`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }

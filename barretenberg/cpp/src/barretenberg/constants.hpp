@@ -11,7 +11,7 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 20;
 
-static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
+static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
 // static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;

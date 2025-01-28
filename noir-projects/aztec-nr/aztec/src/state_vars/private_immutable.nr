@@ -1,7 +1,6 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Serialize},
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::Packable,
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};
@@ -24,7 +23,7 @@ pub struct PrivateImmutable<Note, Context> {
 
 impl<T, Context, let N: u32> Storage<T, N> for PrivateImmutable<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
+    T: Packable<N>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot

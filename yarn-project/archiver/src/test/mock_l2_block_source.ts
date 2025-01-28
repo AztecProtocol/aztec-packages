@@ -24,10 +24,10 @@ export class MockL2BlockSource implements L2BlockSource {
 
   private log = createLogger('archiver:mock_l2_block_source');
 
-  public createBlocks(numBlocks: number) {
+  public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = L2Block.random(blockNum);
+      const block = await L2Block.random(blockNum);
       this.l2Blocks.push(block);
     }
 

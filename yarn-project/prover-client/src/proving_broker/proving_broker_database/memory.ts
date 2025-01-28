@@ -51,7 +51,7 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return this.deleteProvingJobs(toDelete);
   }
 
-  *allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
+  async *allProvingJobs(): AsyncIterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
     for (const item of this.jobs.values()) {
       yield [item, this.results.get(item.id)] as const;
     }

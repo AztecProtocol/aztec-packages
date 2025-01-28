@@ -1,7 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  Fr,
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
@@ -11,17 +10,13 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
+import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
 
 import assert from 'assert';
-import bindings from 'bindings';
-import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { cpus } from 'os';
-import { isAnyArrayBuffer } from 'util/types';
 
 import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
-  MessageHeader,
-  TypedMessage,
   WorldStateMessageType,
   type WorldStateRequest,
   type WorldStateRequestCategories,
@@ -32,24 +27,6 @@ import {
 } from './message.js';
 import { WorldStateOpsQueue } from './world_state_ops_queue.js';
 
-// small extension to pack an NodeJS Fr instance to a representation that the C++ code can understand
-// this only works for writes. Unpacking from C++ can't create Fr instances because the data is passed
-// as raw, untagged, buffers. On the NodeJS side we don't know what the buffer represents
-// Adding a tag would be a solution, but it would have to be done on both sides and it's unclear where else
-// C++ fr instances are sent/received/stored.
-addExtension({
-  Class: Fr,
-  write: fr => fr.toBuffer(),
-});
-
-export interface NativeInstance {
-  call(msg: Buffer | Uint8Array): Promise<any>;
-}
-
-const NATIVE_LIBRARY_NAME = 'world_state_napi';
-const NATIVE_CLASS_NAME = 'WorldState';
-
-const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
 export interface NativeWorldStateInstance {
@@ -65,28 +42,10 @@ export interface NativeWorldStateInstance {
 export class NativeWorldState implements NativeWorldStateInstance {
   private open = true;
 
-  /** Each message needs a unique ID */
-  private nextMessageId = 0;
-
-  /** A long-lived msgpack encoder */
-  private encoder = new Encoder({
-    // always encode JS objects as MessagePack maps
-    // this makes it compatible with other MessagePack decoders
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-
-  /** A long-lived msgpack decoder */
-  private decoder = new Decoder({
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-
-  /** The actual native instance */
-  private instance: any;
-
   // We maintain a map of queue to fork
   private queues = new Map<number, WorldStateOpsQueue>();
+
+  private instance: MsgpackChannel<WorldStateMessageType, WorldStateRequest, WorldStateResponse>;
 
   /** Creates a new native WorldState instance */
   constructor(
@@ -99,7 +58,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     log.info(
       `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
     );
-    this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
+    const ws = new BaseNativeWorldState(
       dataDir,
       {
         [MerkleTreeId.NULLIFIER_TREE]: NULLIFIER_TREE_HEIGHT,
@@ -116,6 +75,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
       dbMapSizeKb,
       threads,
     );
+    this.instance = new MsgpackChannel(ws);
+    // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
   }
 
@@ -212,118 +173,62 @@ export class NativeWorldState implements NativeWorldStateInstance {
     messageType: T,
     body: WorldStateRequest[T] & WorldStateRequestCategories,
   ): Promise<WorldStateResponse[T]> {
-    const messageId = this.nextMessageId++;
+    let logMetadata: Record<string, any> = {};
+
     if (body) {
-      let data: Record<string, any> = {};
       if ('treeId' in body) {
-        data['treeId'] = MerkleTreeId[body.treeId];
+        logMetadata['treeId'] = MerkleTreeId[body.treeId];
       }
 
       if ('revision' in body) {
-        data = { ...data, ...body.revision };
+        logMetadata = { ...logMetadata, ...body.revision };
       }
 
       if ('forkId' in body) {
-        data['forkId'] = body.forkId;
+        logMetadata['forkId'] = body.forkId;
       }
 
       if ('blockNumber' in body) {
-        data['blockNumber'] = body.blockNumber;
+        logMetadata['blockNumber'] = body.blockNumber;
       }
 
       if ('toBlockNumber' in body) {
-        data['toBlockNumber'] = body.toBlockNumber;
+        logMetadata['toBlockNumber'] = body.toBlockNumber;
       }
 
       if ('leafIndex' in body) {
-        data['leafIndex'] = body.leafIndex;
+        logMetadata['leafIndex'] = body.leafIndex;
       }
 
       if ('blockHeaderHash' in body) {
-        data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
+        logMetadata['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
       }
 
       if ('leaves' in body) {
-        data['leavesCount'] = body.leaves.length;
+        logMetadata['leavesCount'] = body.leaves.length;
       }
 
       // sync operation
       if ('paddedNoteHashes' in body) {
-        data['notesCount'] = body.paddedNoteHashes.length;
-        data['nullifiersCount'] = body.paddedNullifiers.length;
-        data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.publicDataWrites.length;
+        logMetadata['notesCount'] = body.paddedNoteHashes.length;
+        logMetadata['nullifiersCount'] = body.paddedNullifiers.length;
+        logMetadata['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
+        logMetadata['publicDataWritesCount'] = body.publicDataWrites.length;
       }
-
-      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
-    } else {
-      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
-    const start = process.hrtime.bigint();
-
-    const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
-    const encodedRequest = this.encoder.encode(request);
-    const encodingEnd = process.hrtime.bigint();
-    const encodingDuration = Number(encodingEnd - start) / 1_000_000;
-
-    let encodedResponse: any;
     try {
-      encodedResponse = await this.instance.call(encodedRequest);
+      const { duration, response } = await this.instance.sendMessage(messageType, body);
+      this.log.trace(`Call ${WorldStateMessageType[messageType]} took (ms)`, {
+        duration,
+        ...logMetadata,
+      });
+
+      this.instrumentation.recordRoundTrip(duration.totalUs, messageType);
+      return response;
     } catch (error) {
-      this.log.error(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} failed: ${error}`);
+      this.log.error(`Call ${WorldStateMessageType[messageType]} failed: ${error}`, error, logMetadata);
       throw error;
     }
-
-    const callEnd = process.hrtime.bigint();
-
-    const callDuration = Number(callEnd - encodingEnd) / 1_000_000;
-
-    const buf = Buffer.isBuffer(encodedResponse)
-      ? encodedResponse
-      : isAnyArrayBuffer(encodedResponse)
-      ? Buffer.from(encodedResponse)
-      : encodedResponse;
-
-    if (!Buffer.isBuffer(buf)) {
-      throw new TypeError(
-        'Invalid encoded response: expected Buffer or ArrayBuffer, got ' +
-          (encodedResponse === null ? 'null' : typeof encodedResponse),
-      );
-    }
-
-    const decodedResponse = this.decoder.unpack(buf);
-    if (!TypedMessage.isTypedMessageLike(decodedResponse)) {
-      throw new TypeError(
-        'Invalid response: expected TypedMessageLike, got ' +
-          (decodedResponse === null ? 'null' : typeof decodedResponse),
-      );
-    }
-
-    const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
-    const decodingEnd = process.hrtime.bigint();
-    const decodingDuration = Number(decodingEnd - callEnd) / 1_000_000;
-    const totalDuration = Number(decodingEnd - start) / 1_000_000;
-    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
-      totalDuration,
-      encodingDuration,
-      callDuration,
-      decodingDuration,
-    });
-
-    if (response.header.requestId !== request.header.messageId) {
-      throw new Error(
-        'Response ID does not match request: ' + response.header.requestId + ' != ' + request.header.messageId,
-      );
-    }
-
-    if (response.msgType !== messageType) {
-      throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
-    }
-
-    const callDurationUs = Number(callEnd - encodingEnd) / 1000;
-    this.instrumentation.recordRoundTrip(callDurationUs, messageType);
-
-    return response.value;
   }
 }

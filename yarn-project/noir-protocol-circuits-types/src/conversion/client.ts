@@ -650,6 +650,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
     inputs.is_private_only,
+    mapFieldFromNoir(inputs.claimed_first_nullifier),
   );
 }
 
@@ -664,6 +665,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     is_private_only: inputs.isPrivateOnly,
+    claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
   };
 }
 

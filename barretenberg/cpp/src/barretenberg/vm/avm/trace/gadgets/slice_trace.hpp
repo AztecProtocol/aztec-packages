@@ -39,12 +39,14 @@ class AvmSliceTraceBuilder {
                                     uint8_t space_id,
                                     uint32_t col_offset,
                                     uint32_t copy_size,
-                                    uint32_t direct_dst_offset);
+                                    uint32_t direct_dst_offset,
+                                    uint32_t top_calldata_offset);
     void create_return_slice(std::vector<FF> const& returndata,
                              uint32_t clk,
                              uint8_t space_id,
                              uint32_t direct_ret_offset,
-                             uint32_t ret_size);
+                             uint32_t ret_size,
+                             uint32_t top_returndata_offset);
 
   private:
     std::vector<SliceTraceEntry> slice_trace;
@@ -54,6 +56,7 @@ class AvmSliceTraceBuilder {
                       uint32_t col_offset,
                       uint32_t copy_size,
                       uint32_t addr,
+                      uint32_t top_column_offset,
                       bool rw);
 };
 

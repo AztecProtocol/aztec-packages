@@ -16,11 +16,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
-  createAndStartTelemetryClient,
+  type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
-} from '@aztec/telemetry-client/start';
+  initTelemetryClient,
+} from '@aztec/telemetry-client';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -100,8 +100,8 @@ export async function deployContractsToL1(
 export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
-  /** Enable the contracts to track and pay for gas */
-  enableGas: boolean;
+  /** Salt used to deploy L1 contracts.*/
+  l1Salt: string;
 };
 
 /**
@@ -125,6 +125,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+      salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
     });
 
     const chain = aztecNodeConfig.l1RpcUrl
@@ -144,20 +145,18 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await watcher.start();
   }
 
-  const telemetry = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient });
   const pxe = await createAztecPXE(node);
 
-  if (config.enableGas) {
-    await setupCanonicalL2FeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-      aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
-      undefined,
-      logger.info,
-    );
-  }
+  await setupCanonicalL2FeeJuice(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+    aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
+    undefined,
+    logger.info,
+  );
 
   const stop = async () => {
     await node.stop();

@@ -1,6 +1,7 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L1RollupConstants,
@@ -381,13 +382,21 @@ export class Archiver implements ArchiveSource, Traceable {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-        // if we are here then we must have a valid proven epoch number
-        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
-        this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
-          provenBlockNumber,
-          provenEpochNumber,
-        });
+        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
+          this.store.getProvenL2EpochNumber(),
+          this.store.getProvenL2BlockNumber(),
+        ]);
+        if (
+          localProvenEpochNumber !== Number(provenEpochNumber) ||
+          localProvenBlockNumber !== Number(provenBlockNumber)
+        ) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+          this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
+            provenBlockNumber,
+            provenEpochNumber,
+          });
+        }
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
@@ -709,12 +718,12 @@ export class Archiver implements ArchiveSource, Traceable {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.store.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.store.getPublicLogs(filter);
   }
 
   /**
@@ -722,7 +731,7 @@ export class Archiver implements ArchiveSource, Traceable {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
 
@@ -1059,10 +1068,10 @@ class ArchiverStoreHelper
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.store.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.store.getPublicLogs(filter);
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<number> {

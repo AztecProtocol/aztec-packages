@@ -36,9 +36,7 @@ describe('e2e_non_contract_account', () => {
       .wait({ interval: 0.1, debug: true });
 
     const expectedSiloedNullifier = siloNullifier(contract.address, nullifier);
-    const siloedNullifier = debugInfo!.nullifiers[1];
-
-    expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
+    expect(debugInfo?.nullifiers).toContainEqual(expectedSiloedNullifier);
   });
 
   // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed

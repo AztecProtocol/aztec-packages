@@ -124,7 +124,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     return multimap;
   }
 
-  openCounter<K extends Key | Array<string | number>>(_name: string): AztecAsyncCounter<K> {
+  openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
     throw new Error('Method not implemented.');
   }
 
@@ -189,5 +189,9 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
   estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
     return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  }
+
+  close(): Promise<void> {
+    return Promise.resolve();
   }
 }

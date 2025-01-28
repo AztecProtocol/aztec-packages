@@ -16,6 +16,7 @@ import {
   allPxeConfigMappings,
   createPXEService,
 } from '@aztec/pxe';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
@@ -76,7 +77,7 @@ export async function addPXE(
     process.exit(1);
   }
 
-  const node = deps.node ?? createAztecNodeClient(nodeUrl!);
+  const node = deps.node ?? createAztecNodeClient(nodeUrl!, makeTracedFetch([1, 2, 3], true));
   const pxe = await createPXEService(node, pxeConfig as PXEServiceConfig);
 
   // register basic contracts

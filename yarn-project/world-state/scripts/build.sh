@@ -5,11 +5,11 @@ set -e
 cd "$(dirname "$0")/.."
 
 # relatiev path from the directory containing package.json
-WORLD_STATE_LIB_PATH=../../barretenberg/cpp/build-pic/lib/world_state_napi.node
+WORLD_STATE_LIB_PATH=../../barretenberg/cpp/build-pic/lib/nodejs_module.node
 PRESET=${PRESET:-clang16-pic}
 
 build_addon() {
-  (cd ../../barretenberg/cpp; cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert; cmake --build --preset $PRESET --target world_state_napi; echo $PWD; mkdir -p build/bin;  cp ./build-pic/lib/world_state_napi.node ./build/bin/world_state_napi.node)
+  (cd ../../barretenberg/cpp; cmake --preset $PRESET; cmake --build --preset $PRESET --target nodejs_module; echo $PWD; mkdir -p build/bin;  cp ./build-pic/lib/nodejs_module.node ./build/bin/nodejs_module.node)
 }
 
 cp_addon_lib() {
@@ -17,9 +17,9 @@ cp_addon_lib() {
     echo "Copying $(realpath $WORLD_STATE_LIB_PATH) to build directory"
     rm -rf build
     mkdir build
-    cp $WORLD_STATE_LIB_PATH build/world_state_napi.node
+    cp $WORLD_STATE_LIB_PATH build/nodejs_module.node
   else
-    echo "world_state_napi.node not found at $WORLD_STATE_LIB_PATH"
+    echo "nodejs_module.node not found at $WORLD_STATE_LIB_PATH"
     echo "Skipping copy to build directory"
     echo "NativeWorldStateService will not work without this file"
   fi

@@ -1,4 +1,4 @@
-import { type PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
+import { type PrivateCallExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,
@@ -42,8 +42,8 @@ import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuit
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
-  executionStack: PrivateExecutionResult[],
-  extractReadRequests: (execution: PrivateExecutionResult) => ReadRequest[],
+  executionStack: PrivateCallExecutionResult[],
+  extractReadRequests: (execution: PrivateCallExecutionResult) => ReadRequest[],
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
@@ -101,7 +101,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
-    private executionStack: PrivateExecutionResult[],
+    private executionStack: PrivateCallExecutionResult[],
     private noteHashNullifierCounterMap: Map<number, number>,
     private validationRequestsSplitCounter: number,
   ) {

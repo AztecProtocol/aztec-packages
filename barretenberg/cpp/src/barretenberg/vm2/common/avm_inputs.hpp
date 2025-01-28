@@ -50,13 +50,25 @@ struct ContractClassHint {
     MSGPACK_FIELDS(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
 };
 
+struct TreeRoots {
+    FF publicDataTree;
+    FF nullifierTree;
+    FF noteHashTree;
+    FF l1ToL2MessageTree;
+
+    bool operator==(const TreeRoots& other) const = default;
+
+    MSGPACK_FIELDS(publicDataTree, nullifierTree, noteHashTree, l1ToL2MessageTree);
+};
+
 struct ExecutionHints {
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
+    TreeRoots initialTreeRoots;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(contractInstances, contractClasses);
+    MSGPACK_FIELDS(contractInstances, contractClasses, initialTreeRoots);
 };
 
 struct PublicExecutionRequest {

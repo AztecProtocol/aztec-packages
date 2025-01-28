@@ -7,7 +7,6 @@
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
@@ -15,6 +14,7 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <algorithm>
 #include <array>
@@ -29,6 +29,7 @@
 
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
+using namespace bb::lmdblib;
 
 using Store = ContentAddressedCachedTreeStore<bb::fr>;
 using TreeType = ContentAddressedAppendOnlyTree<Store, Poseidon2HashPolicy>;

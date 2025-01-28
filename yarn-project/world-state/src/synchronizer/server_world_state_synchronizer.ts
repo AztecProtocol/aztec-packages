@@ -23,8 +23,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { TraceableL2BlockStream } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusFull } from '../native/message.js';
@@ -53,7 +52,7 @@ export class ServerWorldStateSynchronizer
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
-    private instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+    private instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     private readonly log = createLogger('world_state'),
   ) {
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();

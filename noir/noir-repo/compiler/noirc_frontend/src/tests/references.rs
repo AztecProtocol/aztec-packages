@@ -89,7 +89,6 @@ fn constrained_reference_to_unconstrained() {
         if x == 5  {
             /// Safety: test context
             unsafe {
-            //@safety: test context
                 mut_ref_input(x_ref, y);        
             }
         }

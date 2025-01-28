@@ -10,7 +10,7 @@ import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createP2PClient } from '@aztec/p2p';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';
 
@@ -64,7 +64,7 @@ export async function createProverCoordination(
 
   if (config.proverCoordinationNodeUrl) {
     log.info('Using prover coordination via node url');
-    return createAztecNodeClient(config.proverCoordinationNodeUrl);
+    return createAztecNodeClient(config.proverCoordinationNodeUrl, makeTracedFetch([1, 2, 3], false));
   } else {
     throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }
