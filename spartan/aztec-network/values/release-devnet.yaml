@@ -28,7 +28,7 @@ bot:
   txIntervalSeconds: 30
 
 network:
-  public: true
+  public: false
 
 images:
   aztec:
