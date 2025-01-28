@@ -125,6 +125,7 @@ where
     length
 }
 
+// TODO(#11555): replace with `.concat`.
 pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
     let mut result = [array1[0]; N + M];
     for i in 1..N {
@@ -316,6 +317,14 @@ unconstrained fn find_index_not_found() {
 
 #[test]
 fn test_array_concat() {
+    let array0 = [1, 2, 3];
+    let array1 = [4, 5];
+    let concatenated = array_concat(array0, array1);
+    assert_eq(concatenated, [1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn test_array_concat_3() {
     let array0 = [1, 2, 3];
     let array1 = [4, 5];
     let concatenated = array_concat(array0, array1);
