@@ -54,7 +54,9 @@ describe('Logs', () => {
       ))!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
+      expect(decryptedEvent0.eventTypeId).toStrictEqual(
+        await EventSelector.fromSignature('ExampleEvent0(Field,Field)'),
+      );
 
       // We decode our event into the event type
       const event0Metadata = new EventMetadata<ExampleEvent0>(TestLogContract.events.ExampleEvent0);
@@ -79,7 +81,7 @@ describe('Logs', () => {
       expect(badEvent0).toBe(undefined);
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
-      expect(decryptedEvent1.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
+      expect(decryptedEvent1.eventTypeId).toStrictEqual(await EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
 
       // We expect the fields to have been populated correctly
       expect(event1?.value2).toStrictEqual(new AztecAddress(preimage[2]));

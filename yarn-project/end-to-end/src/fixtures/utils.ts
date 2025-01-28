@@ -116,7 +116,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
+    vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
@@ -470,7 +470,7 @@ export async function setup(
 
   const telemetry = getTelemetryClient(opts.telemetryConfig);
 
-  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
+  const blobSinkClient = createBlobSinkClient(config);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
     publisher,
@@ -586,7 +586,7 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   const instances = await Promise.all(
     accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
   );
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
@@ -718,7 +718,7 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient();
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {

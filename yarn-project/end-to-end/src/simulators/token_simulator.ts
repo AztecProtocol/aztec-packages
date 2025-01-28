@@ -97,9 +97,9 @@ export class TokenSimulator {
 
   async checkPublic() {
     // public calls
-    const calls = [this.token.methods.total_supply().request()];
+    const calls = [await this.token.methods.total_supply().request()];
     for (const address of this.accounts) {
-      calls.push(this.token.methods.balance_of_public(address).request());
+      calls.push(await this.token.methods.balance_of_public(address).request());
     }
 
     const results = (
@@ -128,7 +128,7 @@ export class TokenSimulator {
 
     const defaultCalls = [];
     for (const address of defaultLookups) {
-      defaultCalls.push(this.token.methods.balance_of_private(address).request());
+      defaultCalls.push(await this.token.methods.balance_of_private(address).request());
     }
     const results = (
       await Promise.all(chunk(defaultCalls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))

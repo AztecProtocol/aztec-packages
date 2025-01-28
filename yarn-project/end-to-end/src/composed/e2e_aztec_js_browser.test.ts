@@ -46,6 +46,13 @@ const setupApp = async () => {
   }
 
   const app = new Koa();
+  app.use(async (ctx, next) => {
+    if (ctx.url.endsWith('.gz')) {
+      ctx.set('Content-Encoding', 'gzip');
+      ctx.res.removeHeader('Content-Length');
+    }
+    await next();
+  });
   app.use(serve(path.resolve(__dirname, '../web')));
   const server = app.listen(PORT, () => {
     logger.info(`Web Server started at http://localhost:${PORT}`);

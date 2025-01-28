@@ -19,11 +19,11 @@ export function randomInBlock<T>(data: T): InBlock<T> {
   };
 }
 
-export function wrapInBlock<T>(data: T, block: L2Block): InBlock<T> {
+export async function wrapInBlock<T>(data: T, block: L2Block): Promise<InBlock<T>> {
   return {
     data,
     l2BlockNumber: block.number,
-    l2BlockHash: block.hash().toString(),
+    l2BlockHash: (await block.hash()).toString(),
   };
 }
 

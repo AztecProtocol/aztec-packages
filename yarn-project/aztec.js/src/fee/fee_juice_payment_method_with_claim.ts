@@ -24,7 +24,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    */
   override async getFunctionCalls(): Promise<FunctionCall[]> {
     const canonicalFeeJuice = await getCanonicalFeeJuice();
-    const selector = FunctionSelector.fromNameAndParameters(
+    const selector = await FunctionSelector.fromNameAndParameters(
       canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
 

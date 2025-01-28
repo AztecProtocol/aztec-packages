@@ -27,10 +27,11 @@ enum class Column { {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES };
 // C++ doesn't allow enum extension, so we'll have to cast.
 enum class ColumnAndShifts {
     {{shoutySnakeCase name}}_ALL_ENTITIES,
-    // Sentinel.
-    NUM_COLUMNS,
+    SENTINEL_DO_NOT_USE,
 };
 
+constexpr auto NUM_COLUMNS_WITH_SHIFTS = {{len all_cols_and_shifts}};
+constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = {{len all_cols}};
 constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutySnakeCase name}}_TO_BE_SHIFTED_COLUMNS }; }();
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutySnakeCase name}}_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());

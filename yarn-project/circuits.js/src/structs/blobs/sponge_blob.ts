@@ -53,21 +53,21 @@ export class SpongeBlob {
     return SpongeBlob.fromBuffer(this.toBuffer());
   }
 
-  absorb(fields: Fr[]) {
+  async absorb(fields: Fr[]) {
     if (this.fields + fields.length > this.expectedFields) {
       throw new Error(
         `Attempted to fill spongeblob with ${this.fields + fields.length}, but it has a max of ${this.expectedFields}`,
       );
     }
-    this.sponge.absorb(fields);
+    await this.sponge.absorb(fields);
     this.fields += fields.length;
   }
 
-  squeeze(): Fr {
+  async squeeze(): Promise<Fr> {
     // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
     // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness
     if (this.fields != this.expectedFields) {
-      this.sponge.absorb([Fr.ONE]);
+      await this.sponge.absorb([Fr.ONE]);
     }
     return this.sponge.squeeze();
   }
@@ -141,37 +141,37 @@ export class Poseidon2Sponge {
   // Note: there isn't currently an impl in ts that allows for a custom aborption via an
   // existing sponge.
   // A custom blob-based impl of noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr
-  performDuplex() {
+  async performDuplex() {
     for (let i = 0; i < this.cache.length; i++) {
       if (i < this.cacheSize) {
         this.state[i] = this.state[i].add(this.cache[i]);
       }
     }
-    const perm = poseidon2Permutation(this.state);
+    const perm = await poseidon2Permutation(this.state);
     // ts doesn't understand that the above always gives 4
     this.state = [perm[0], perm[1], perm[2], perm[3]];
   }
 
-  absorb(fields: Fr[]) {
+  async absorb(fields: Fr[]) {
     if (this.squeezeMode) {
       throw new Error(`Poseidon sponge is not able to absorb more inputs.`);
     }
-    fields.forEach(field => {
+    for (const field of fields) {
       if (this.cacheSize == this.cache.length) {
-        this.performDuplex();
+        await this.performDuplex();
         this.cache[0] = field;
         this.cacheSize = 1;
       } else {
         this.cache[this.cacheSize++] = field;
       }
-    });
+    }
   }
 
-  squeeze(): Fr {
+  async squeeze(): Promise<Fr> {
     if (this.squeezeMode) {
       throw new Error(`Poseidon sponge has already been squeezed.`);
     }
-    this.performDuplex();
+    await this.performDuplex();
     this.squeezeMode = true;
     return this.state[0];
   }

@@ -117,7 +117,7 @@ export class SequencerClient {
    * @param config - New parameters.
    */
   public updateSequencerConfig(config: SequencerConfig) {
-    this.sequencer.updateConfig(config);
+    return this.sequencer.updateConfig(config);
   }
 
   /**

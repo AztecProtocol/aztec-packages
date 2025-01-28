@@ -13,6 +13,6 @@ export function deriveStorageSlotInMap(
     /** Convert key to a field. */
     toField: () => Fr;
   },
-): Fr {
+): Promise<Fr> {
   return poseidon2Hash([mapSlot, key.toField()]);
 }
