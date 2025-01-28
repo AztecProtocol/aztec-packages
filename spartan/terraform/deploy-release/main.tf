@@ -102,7 +102,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "telemetry.useGcloudObservability"
-    value = "true"
+    value = "false"
   }
 
   # Setting timeout and wait conditions
