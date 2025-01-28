@@ -15,14 +15,17 @@
 #include "barretenberg/vm2/generated/flavor.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_power_of_2.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_range.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_sha256_params.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2 {
@@ -48,6 +51,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
+                           precomputed_builder.process_sha256_round_constants(trace));
         },
     };
 }
@@ -114,7 +119,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
             // Subtrace jobs.
-            std::array<std::function<void()>, 2>{
+            std::array<std::function<void()>, 3>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution",
@@ -127,13 +132,17 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
                     clear_events(events.alu);
                 },
-            });
+                [&]() {
+                    Sha256TraceBuilder sha256_builder(trace);
+                    AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
+                    clear_events(events.sha256_compression);
+                } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
 
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = std::array<std::function<void()>, 13>{
+        auto jobs_interactions = std::array<std::function<void()>, 14>{
             [&]() {
                 LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings> lookup_execution_bitwise;
                 lookup_execution_bitwise.process(trace);
@@ -186,6 +195,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoRange<lookup_rng_chk_is_r7_16_bit_lookup_settings> lookup_rng_chk_is_r7_16_bit;
                 lookup_rng_chk_is_r7_16_bit.process(trace);
             },
+            [&]() {
+                LookupIntoSha256Params<lookup_sha256_round_constant_lookup_settings> lookup_sha256_round_constant;
+                lookup_sha256_round_constant.process(trace);
+            }
+
         };
         AVM_TRACK_TIME("tracegen/interactions", execute_jobs(jobs_interactions));
     }
