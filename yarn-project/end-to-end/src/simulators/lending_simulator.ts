@@ -190,7 +190,7 @@ export class LendingSimulator {
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, AztecAddress.fromField(this.account.key())]) {
+    for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
       const privatePos = await this.lendingContract.methods.get_position(key).simulate();
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);

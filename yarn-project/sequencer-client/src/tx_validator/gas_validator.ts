@@ -74,20 +74,21 @@ export class GasTxValidator implements TxValidator<Tx> {
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(
       this.#feeJuiceAddress,
-      computeFeePayerBalanceStorageSlot(feePayer),
+      await computeFeePayerBalanceStorageSlot(feePayer),
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
     const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+    const increasePublicBalanceSelector = await FunctionSelector.fromSignature(
+      '_increase_public_balance((Field),(Field,Field))',
+    );
     const claimFunctionCall = setupFns.find(
       fn =>
         fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
         fn.args.length > 2 &&
         // Public functions get routed through the dispatch function, whose first argument is the target function selector.
-        fn.args[0].equals(
-          FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))').toField(),
-        ) &&
+        fn.args[0].equals(increasePublicBalanceSelector.toField()) &&
         fn.args[1].equals(feePayer.toField()) &&
         !fn.callContext.isStaticCall,
     );

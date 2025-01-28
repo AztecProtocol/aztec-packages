@@ -12,7 +12,7 @@ contract SchnorrAccount {
         auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
         functions::{initializer, noinitcheck, private, view},
