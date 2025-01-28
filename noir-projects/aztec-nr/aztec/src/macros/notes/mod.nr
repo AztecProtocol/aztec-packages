@@ -34,15 +34,11 @@ comptime fn get_next_note_type_id() -> Field {
 /// the length of the packed note.
 ///
 /// impl NoteInterface<N> for NoteStruct {
-///     fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 64] {
+///     fn pack_content(self) -> [Field; N] {
 ///         ...
 ///     }
 ///
 ///     fn unpack_content(packed_content: [Field; N]) -> Self {
-///         ...
-///     }
-///
-///     fn pack_content(self) -> [Field; N] {
 ///         ...
 ///     }
 ///
@@ -118,13 +114,13 @@ comptime fn generate_note_interface(
     (
         quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
-                $unpacked_content
-            }
-
             fn pack_content(self) -> [Field; $content_len] {
                 $content_aux_vars
                 [$content_fields]
+            }
+
+            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
+                $unpacked_content
             }
 
             fn get_note_type_id() -> Field {
