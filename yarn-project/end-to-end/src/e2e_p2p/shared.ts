@@ -9,13 +9,20 @@ import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
-export const submitComplexTxsTo = async (logger: Logger, spamContract: SpamContract, numTxs: number) => {
+export const submitComplexTxsTo = async (
+  logger: Logger,
+  spamContract: SpamContract,
+  numTxs: number,
+  opts: { callPublic?: boolean } = {},
+) => {
   const txs: SentTx[] = [];
 
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, false).send();
+    const tx = spamContract.methods
+      .spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic)
+      .send({ skipPublicSimulation: true });
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash}`);
@@ -42,7 +49,7 @@ export const createPXEServiceAndSubmitTransactions = async (
   const pxeService = await createPXEService(node, rpcConfig, true);
 
   const secretKey = Fr.random();
-  const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
+  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
   await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
   const txs = await submitTxsTo(logger, pxeService, numTxs);
@@ -58,10 +65,10 @@ export const createPXEServiceAndSubmitTransactions = async (
 const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
   const provenTxs = [];
   for (let i = 0; i < numTxs; i++) {
-    const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+    const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
     const deployMethod = await accountManager.getDeployMethod();
     const tx = await deployMethod.prove({
-      contractAddressSalt: accountManager.salt,
+      contractAddressSalt: new Fr(accountManager.salt),
       skipClassRegistration: true,
       skipPublicDeployment: true,
       universalDeploy: true,

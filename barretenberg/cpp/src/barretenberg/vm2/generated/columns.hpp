@@ -3,13 +3,15 @@
 #include <array>
 #include <optional>
 
+#include "barretenberg/common/std_string.hpp"
+
 namespace bb::avm2 {
 
 // The entities that will be used in the flavor.
 // clang-format off
-#define AVM2_PRECOMPUTED_ENTITIES precomputed_bitwise_input_a, precomputed_bitwise_input_b, precomputed_bitwise_op_id, precomputed_bitwise_output, precomputed_clk, precomputed_first_row, precomputed_sel_bitwise
-#define AVM2_WIRE_ENTITIES execution_input, alu_dst_addr, alu_ia, alu_ia_addr, alu_ib, alu_ib_addr, alu_ic, alu_op, alu_sel_op_add, execution_addressing_error_idx, execution_addressing_error_kind, execution_clk, execution_ex_opcode, execution_indirect, execution_last, execution_op1, execution_op1_after_relative, execution_op2, execution_op2_after_relative, execution_op3, execution_op3_after_relative, execution_op4, execution_op4_after_relative, execution_pc, execution_rop1, execution_rop2, execution_rop3, execution_rop4, execution_sel, execution_sel_addressing_error, execution_sel_op1_is_address, execution_sel_op2_is_address, execution_sel_op3_is_address, execution_sel_op4_is_address, execution_stack_pointer_tag, execution_stack_pointer_val, lookup_dummy_precomputed_counts, lookup_dummy_dynamic_counts
-#define AVM2_DERIVED_WITNESS_ENTITIES perm_dummy_dynamic_inv, lookup_dummy_precomputed_inv, lookup_dummy_dynamic_inv
+#define AVM2_PRECOMPUTED_ENTITIES precomputed_bitwise_input_a, precomputed_bitwise_input_b, precomputed_bitwise_op_id, precomputed_bitwise_output, precomputed_clk, precomputed_first_row, precomputed_power_of_2, precomputed_sel_bitwise, precomputed_sel_range_16, precomputed_sel_range_8
+#define AVM2_WIRE_ENTITIES execution_input, alu_dst_addr, alu_ia, alu_ia_addr, alu_ib, alu_ib_addr, alu_ic, alu_op, alu_sel_op_add, execution_addressing_error_idx, execution_addressing_error_kind, execution_base_address_tag, execution_base_address_val, execution_bytecode_id, execution_clk, execution_ex_opcode, execution_indirect, execution_last, execution_op1, execution_op1_after_relative, execution_op2, execution_op2_after_relative, execution_op3, execution_op3_after_relative, execution_op4, execution_op4_after_relative, execution_pc, execution_rop1, execution_rop2, execution_rop3, execution_rop4, execution_sel, execution_sel_addressing_error, execution_sel_op1_is_address, execution_sel_op2_is_address, execution_sel_op3_is_address, execution_sel_op4_is_address, range_check_dyn_diff, range_check_dyn_rng_chk_bits, range_check_dyn_rng_chk_pow_2, range_check_is_lte_u112, range_check_is_lte_u128, range_check_is_lte_u16, range_check_is_lte_u32, range_check_is_lte_u48, range_check_is_lte_u64, range_check_is_lte_u80, range_check_is_lte_u96, range_check_rng_chk_bits, range_check_sel, range_check_sel_r0_16_bit_rng_lookup, range_check_sel_r1_16_bit_rng_lookup, range_check_sel_r2_16_bit_rng_lookup, range_check_sel_r3_16_bit_rng_lookup, range_check_sel_r4_16_bit_rng_lookup, range_check_sel_r5_16_bit_rng_lookup, range_check_sel_r6_16_bit_rng_lookup, range_check_u16_r0, range_check_u16_r1, range_check_u16_r2, range_check_u16_r3, range_check_u16_r4, range_check_u16_r5, range_check_u16_r6, range_check_u16_r7, range_check_value, lookup_rng_chk_pow_2_counts, lookup_rng_chk_diff_counts, lookup_rng_chk_is_r0_16_bit_counts, lookup_rng_chk_is_r1_16_bit_counts, lookup_rng_chk_is_r2_16_bit_counts, lookup_rng_chk_is_r3_16_bit_counts, lookup_rng_chk_is_r4_16_bit_counts, lookup_rng_chk_is_r5_16_bit_counts, lookup_rng_chk_is_r6_16_bit_counts, lookup_rng_chk_is_r7_16_bit_counts, lookup_dummy_precomputed_counts, lookup_dummy_dynamic_counts
+#define AVM2_DERIVED_WITNESS_ENTITIES perm_dummy_dynamic_inv, lookup_rng_chk_pow_2_inv, lookup_rng_chk_diff_inv, lookup_rng_chk_is_r0_16_bit_inv, lookup_rng_chk_is_r1_16_bit_inv, lookup_rng_chk_is_r2_16_bit_inv, lookup_rng_chk_is_r3_16_bit_inv, lookup_rng_chk_is_r4_16_bit_inv, lookup_rng_chk_is_r5_16_bit_inv, lookup_rng_chk_is_r6_16_bit_inv, lookup_rng_chk_is_r7_16_bit_inv, lookup_dummy_precomputed_inv, lookup_dummy_dynamic_inv
 #define AVM2_SHIFTED_ENTITIES execution_sel_shift
 #define AVM2_TO_BE_SHIFTED(e) e.execution_sel
 #define AVM2_ALL_ENTITIES AVM2_PRECOMPUTED_ENTITIES, AVM2_WIRE_ENTITIES, AVM2_DERIVED_WITNESS_ENTITIES, AVM2_SHIFTED_ENTITIES
@@ -25,12 +27,21 @@ enum class Column { AVM2_UNSHIFTED_ENTITIES };
 // C++ doesn't allow enum extension, so we'll have to cast.
 enum class ColumnAndShifts {
     AVM2_ALL_ENTITIES,
-    // Sentinel.
-    NUM_COLUMNS,
+    SENTINEL_DO_NOT_USE,
 };
 
+constexpr auto NUM_COLUMNS_WITH_SHIFTS = 102;
+constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 101;
 constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_TO_BE_SHIFTED_COLUMNS }; }();
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
+
+// Two layers are needed to properly expand the macro. Don't ask why.
+#define VARARGS_TO_STRING(...) #__VA_ARGS__
+#define UNPACK_TO_STRING(...) VARARGS_TO_STRING(__VA_ARGS__)
+inline const std::vector<std::string>& COLUMN_NAMES = []() {
+    static auto vec = detail::split_and_trim(UNPACK_TO_STRING(AVM2_ALL_ENTITIES), ',');
+    return vec;
+}();
 
 } // namespace bb::avm2

@@ -14,7 +14,7 @@ contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
@@ -31,6 +31,7 @@ contract NFT {
     };
     use dep::compressed_string::FieldCompressedString;
     use std::meta::derive;
+
     // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
@@ -203,6 +204,11 @@ contract NFT {
         // We create a setup payload with unpopulated/zero token id for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
+
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let note_randomness = unsafe { random() };
         let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
 
@@ -328,6 +334,7 @@ contract NFT {
         assert(notes.len() == 1, "NFT not found when transferring");
 
         let mut new_note = NFTNote::new(token_id, to);
+
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }
     // docs:end:transfer_in_private

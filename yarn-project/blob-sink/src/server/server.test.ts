@@ -1,8 +1,8 @@
-import { Blob } from '@aztec/foundation/blob';
-import { Fr } from '@aztec/foundation/fields';
+import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
 
 import request from 'supertest';
 
+import { outboundTransform } from '../encoding/index.js';
 import { BlobSinkServer } from './server.js';
 
 describe('BlobSinkService', () => {
@@ -20,13 +20,13 @@ describe('BlobSinkService', () => {
   });
 
   describe('should store and retrieve a blob sidecar', () => {
-    const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const testFields2 = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
-    const blob2 = Blob.fromFields(testFields2);
     const blockId = '0x1234';
+    let blob: Blob;
+    let blob2: Blob;
 
     beforeEach(async () => {
+      blob = await makeEncodedBlob(3);
+      blob2 = await makeEncodedBlob(3);
       // Post the blob
       const postResponse = await request(service.getApp())
         .post('/blob_sidecar')
@@ -36,11 +36,11 @@ describe('BlobSinkService', () => {
           blobs: [
             {
               index: 0,
-              blob: blob.toBuffer(),
+              blob: outboundTransform(blob.toBuffer()),
             },
             {
               index: 1,
-              blob: blob2.toBuffer(),
+              blob: outboundTransform(blob2.toBuffer()),
             },
           ],
         });
@@ -56,13 +56,16 @@ describe('BlobSinkService', () => {
 
       // Convert the response blob back to a Blob object and verify it matches
       const retrievedBlobs = getResponse.body.data;
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
 
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
-      const retrievedBlob2 = Blob.fromBuffer(Buffer.from(retrievedBlobs[1].blob, 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
 
     it('should retrieve specific indicies', async () => {
@@ -75,24 +78,28 @@ describe('BlobSinkService', () => {
       expect(getWithIndicies.body.data.length).toBe(2);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
-      const retrievedBlob2 = Blob.fromBuffer(Buffer.from(retrievedBlobs[1].blob, 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
 
-    it('should retreive a single index', async () => {
+    it('should retrieve a single index', async () => {
       const getWithIndicies = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}?indices=1`);
 
       expect(getWithIndicies.status).toBe(200);
       expect(getWithIndicies.body.data.length).toBe(1);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
   });
 

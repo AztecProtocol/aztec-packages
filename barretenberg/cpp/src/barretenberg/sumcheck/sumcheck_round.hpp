@@ -67,8 +67,9 @@ template <typename Flavor> class SumcheckProverRound {
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
-        (std::is_same_v<typename Flavor::Curve, curve::BN254>) ? BATCHED_RELATION_PARTIAL_LENGTH : 3;
+    // The length of the polynomials used to mask the Sumcheck Round Univariates.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::Curve::LIBRA_UNIVARIATES_LENGTH;
+
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)

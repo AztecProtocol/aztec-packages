@@ -1,4 +1,5 @@
 import {
+  type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
@@ -139,7 +140,7 @@ export class KernelProver {
 
     const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
 
-    const executionStack = [executionResult];
+    const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
     let output = NULL_PROVE_OUTPUT;
@@ -213,10 +214,14 @@ export class KernelProver {
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
-          getVKTreeRoot(),
+          await getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,
+          executionResult.firstNullifier,
+        );
+        this.log.debug(
+          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
         );
 
         pushTestData('private-kernel-inputs-init', proofInput);
@@ -331,11 +336,11 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
+  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
+    const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
+    const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
@@ -352,7 +357,7 @@ export class KernelProver {
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
     const protocolContractSiblingPath = isProtocolContract(contractAddress)
-      ? getProtocolContractSiblingPath(contractAddress)
+      ? await getProtocolContractSiblingPath(contractAddress)
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
     return PrivateCallData.from({
@@ -369,12 +374,15 @@ export class KernelProver {
   }
 
   private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
-    const makesPublicCalls =
-      executionResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
-      !executionResult.publicTeardownFunctionCall.isEmpty();
-    return (
-      !makesPublicCalls &&
-      executionResult.nestedExecutions.every(nestedExecution => this.isPrivateOnly(nestedExecution))
-    );
+    const isPrivateOnlyRecursive = (callResult: PrivateCallExecutionResult): boolean => {
+      const makesPublicCalls =
+        callResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
+        !callResult.publicTeardownFunctionCall.isEmpty();
+      return (
+        !makesPublicCalls &&
+        callResult.nestedExecutions.every(nestedExecution => isPrivateOnlyRecursive(nestedExecution))
+      );
+    };
+    return isPrivateOnlyRecursive(executionResult.entrypoint);
   }
 }

@@ -45,7 +45,9 @@ export {
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
   type L2Claim,
+  type U128Like,
   type WrappedFieldLike,
+  type IntentAction,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';
@@ -109,14 +111,13 @@ export {
   LogId,
   MerkleTreeId,
   Note,
-  PackedValues,
+  HashedValues,
   SiblingPath,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2BlockL2Logs,
   UnencryptedL2Log,
   UniqueNote,
   createAztecNodeClient,
@@ -153,7 +154,6 @@ export { EthCheatCodes, deployL1Contract, deployL1Contracts, type DeployL1Contra
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
 export * from './api/fee.js';
-export * from './api/init.js';
 // Granular export, even if not in the api folder
 export * from './contract/index.js';
 export * from './api/addresses.js';

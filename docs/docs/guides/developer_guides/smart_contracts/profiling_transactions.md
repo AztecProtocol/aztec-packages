@@ -46,8 +46,10 @@ aztec-wallet send transfer -ca token --args accounts:owner 40 -f user
 
 Instead of sending the above transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
 
+For the time being, you also need to set `BB_BINARY_PATH` and `BB_WORKING_DIRECTORY` environment variables with the below values.
+
 ```bash
-aztec-wallet simulate --profile transfer -ca token --args accounts:owner 40 -f user
+BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb BB_WORKING_DIRECTORY=~/.bb/work-dir aztec-wallet simulate --profile transfer -ca token --args accounts:owner 40 -f user
 ```
 
 This will print the following results after some time:

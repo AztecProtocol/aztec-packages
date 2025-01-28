@@ -143,7 +143,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getInitialStateReference(): Promise<StateReference> {
-    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
+    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, { canonical: true });
 
     return new StateReference(
       treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
@@ -193,7 +193,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
-      blockHeaderHash: header.hash().toBuffer(),
+      blockHeaderHash: (await header.hash()).toBuffer(),
       blockStateRef: blockStateReference(header.state),
     });
   }

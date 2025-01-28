@@ -23,7 +23,7 @@ import {Transcript, TranscriptLib} from "./Transcript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
-import {CommitmentSchemeLib as PCS, ShpleminiIntermediates} from "./CommitmentScheme.sol";
+import {CommitmentSchemeLib as PCS} from "./CommitmentScheme.sol";
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -203,7 +203,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (bool verified)
     {
-        ShpleminiIntermediates memory mem; // stack
+        PCS.ShpleminiIntermediates memory mem; // stack
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = PCS.computeSquares(tp.geminiR);

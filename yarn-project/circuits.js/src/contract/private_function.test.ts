@@ -12,25 +12,25 @@ describe('PrivateFunction', () => {
     { selector: makeSelector(3), vkHash: fr(4) },
   ];
 
-  it('computes merkle tree', () => {
-    const tree = computePrivateFunctionsTree(privateFunctions);
+  it('computes merkle tree', async () => {
+    const tree = await computePrivateFunctionsTree(privateFunctions);
     expect(tree.nodes.map(node => node.toString())).toMatchSnapshot();
   });
 
-  it('computes merkle tree root', () => {
-    const root = computePrivateFunctionsRoot(privateFunctions);
+  it('computes merkle tree root', async () => {
+    const root = await computePrivateFunctionsRoot(privateFunctions);
     expect(root.toString()).toMatchSnapshot();
   });
 
-  it('tree and root methods agree', () => {
-    const tree = computePrivateFunctionsTree(privateFunctions);
-    const root = computePrivateFunctionsRoot(privateFunctions);
+  it('tree and root methods agree', async () => {
+    const tree = await computePrivateFunctionsTree(privateFunctions);
+    const root = await computePrivateFunctionsRoot(privateFunctions);
     expect(Fr.fromBuffer(tree.root).equals(root)).toBe(true);
   });
 
-  it('sorts functions before computing tree', () => {
-    const root = computePrivateFunctionsRoot(privateFunctions);
-    const rootReversed = computePrivateFunctionsRoot([...privateFunctions].reverse());
+  it('sorts functions before computing tree', async () => {
+    const root = await computePrivateFunctionsRoot(privateFunctions);
+    const rootReversed = await computePrivateFunctionsRoot([...privateFunctions].reverse());
     expect(root.equals(rootReversed)).toBe(true);
   });
 });

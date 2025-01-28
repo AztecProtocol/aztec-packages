@@ -154,6 +154,9 @@ export interface P2PConfig extends P2PReqRespConfig {
    * The chain id of the L1 chain.
    */
   l1ChainId: number;
+
+  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
+  archivedTxLimit: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -304,6 +307,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_REQUEST_BATCH_SIZE',
     description: 'The number of blocks to fetch in a single batch.',
     ...numberConfigHelper(20),
+  },
+  archivedTxLimit: {
+    env: 'P2P_ARCHIVED_TX_LIMIT',
+    description:
+      'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
+    ...numberConfigHelper(0),
   },
   ...p2pReqRespConfigMappings,
 };

@@ -188,6 +188,14 @@ export class RollupCheatCodes {
     await action(owner, this.rollup);
     await this.ethCheatCodes.stopImpersonating(owner);
   }
+
+  /** Directly calls the L1 gas fee oracle. */
+  public async updateL1GasFeeOracle() {
+    await this.asOwner(async (account, rollup) => {
+      await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      this.logger.warn(`Updated L1 gas fee oracle`);
+    });
+  }
 }
 
 /**
@@ -215,7 +223,7 @@ export class AztecCheatCodes {
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
+  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Promise<Fr> {
     const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
     return deriveStorageSlotInMap(mapSlot, keyFr);
   }

@@ -2,7 +2,7 @@ use crate::{
     abis::side_effect::{Ordered, OrderedValue, Scoped},
     address::AztecAddress,
     constants::{LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

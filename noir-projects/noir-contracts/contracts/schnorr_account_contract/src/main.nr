@@ -12,7 +12,7 @@ contract SchnorrAccount {
         auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
         functions::{initializer, noinitcheck, private, view},
@@ -63,7 +63,10 @@ contract SchnorrAccount {
         // Load public key from storage
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
+
         // Load auth witness
+        /// Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        /// Hence it's safe.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {

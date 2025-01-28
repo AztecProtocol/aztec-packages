@@ -1,7 +1,7 @@
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -45,7 +45,7 @@ describe('Discv5Service', () => {
   };
 
   beforeEach(async () => {
-    const telemetryClient = new NoopTelemetryClient();
+    const telemetryClient = getTelemetryClient();
     store = openTmpStore(true);
     bootNode = new BootstrapNode(store, telemetryClient);
     await bootNode.start(baseConfig);
@@ -144,6 +144,6 @@ describe('Discv5Service', () => {
       keepProvenTxsInPoolFor: 0,
       l1ChainId: 31337,
     };
-    return new DiscV5Service(peerId, config, new NoopTelemetryClient());
+    return new DiscV5Service(peerId, config);
   };
 });

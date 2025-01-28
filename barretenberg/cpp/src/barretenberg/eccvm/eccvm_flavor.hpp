@@ -338,13 +338,6 @@ class ECCVMFlavor {
         // this getter is necessary for more uniform zk verifiers
         auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
-        // the getter for all witnesses including derived and shifted ones
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
-        };
-        // this getter is necessary for a universal ZK Sumcheck
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
@@ -957,7 +950,8 @@ class ECCVMFlavor {
         Commitment lookup_inverses_comm;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<Commitment, CONST_PROOF_SIZE_LOG_N> sumcheck_round_commitments;
+        std::array<std::array<FF, 2>, CONST_PROOF_SIZE_LOG_N> sumcheck_round_evaluations;
         FF libra_claimed_evaluation;
         Commitment libra_big_sum_commitment;
         Commitment libra_quotient_commitment;
@@ -1171,9 +1165,10 @@ class ECCVMFlavor {
             libra_sum =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_univariates.emplace_back(NativeTranscript::template deserialize_from_buffer<
-                                                  bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                    NativeTranscript::proof_data, num_frs_read));
+                sumcheck_round_commitments[i] = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                    NativeTranscript::proof_data, num_frs_read);
+                sumcheck_round_evaluations[i] = NativeTranscript::template deserialize_from_buffer<std::array<FF, 2>>(
+                    NativeTranscript::proof_data, num_frs_read);
             }
 
             libra_claimed_evaluation = NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
@@ -1325,7 +1320,10 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(sumcheck_round_commitments[i],
+                                                               NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(sumcheck_round_evaluations[i],
+                                                               NativeTranscript::proof_data);
             }
 
             NativeTranscript::template serialize_to_buffer(libra_claimed_evaluation, proof_data);

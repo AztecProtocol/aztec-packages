@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <stdexcept>
 
@@ -58,6 +59,7 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
 
   protected:
     using LookupSettings = LookupSettings_;
+    using ArrayTuple = std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>;
 
     void init(TraceContainer& trace) override
     {
@@ -67,13 +69,13 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
             (void)dst_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
 
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
-            row_idx.insert({ get_key(dst_values), row });
+            row_idx.insert({ dst_values, row });
         });
     }
 
-    uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
+    uint32_t find_in_dst(const ArrayTuple& tup) const override
     {
-        auto it = row_idx.find(get_key(tup));
+        auto it = row_idx.find(tup);
         if (it != row_idx.end()) {
             return it->second;
         }
@@ -83,20 +85,21 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
     }
 
   private:
-    FF get_key(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const
-    {
-        FF acc = 0;
-        for (const auto& el : tup) {
-            acc = acc * beta + el;
-        }
-        return acc + gamma;
-    }
-
-    // We use an RLC for the key instead of the tuple, to save memory.
-    // FIXME: reconsider, what if beta is 0.
-    unordered_flat_map<FF, uint32_t> row_idx;
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    // TODO: Using the whole tuple as the key is not memory efficient.
+    unordered_flat_map<ArrayTuple, uint32_t> row_idx;
 };
 
 } // namespace bb::avm2::tracegen
+
+// Define a hash function for std::array so that it can be used as a key in a std::unordered_map.
+template <typename T, size_t SIZE> struct std::hash<std::array<T, SIZE>> {
+    std::size_t operator()(const std::array<T, SIZE>& arr) const noexcept
+    {
+        std::size_t hash = 0;
+        for (const auto& elem : arr) {
+            hash = std::rotl(hash, 1);
+            hash ^= std::hash<T>{}(elem);
+        }
+        return hash;
+    }
+};

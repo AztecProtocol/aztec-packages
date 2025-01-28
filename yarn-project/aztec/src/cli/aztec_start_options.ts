@@ -1,6 +1,7 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
@@ -19,7 +20,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 
@@ -69,12 +70,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Deploy test accounts on sandbox start',
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.noPXE',
@@ -256,6 +251,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
+  ],
+  BLOB_SINK: [
+    {
+      flag: '--blob-sink',
+      description: 'Starts Aztec Blob Sink with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('blobSink', blobSinkConfigMapping),
   ],
   'PROVER NODE': [
     {

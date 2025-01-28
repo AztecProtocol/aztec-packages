@@ -14,11 +14,13 @@ import {
   SpanStatusCode,
   Tracer,
 } from '@opentelemetry/api';
+import { isPromise } from 'node:util/types';
 
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
+import { getTelemetryClient } from './start.js';
 
-export { Span, ValueType } from '@opentelemetry/api';
+export { Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
@@ -149,16 +151,16 @@ type SpanDecorator<T extends Traceable, F extends (...args: any[]) => any> = (
  */
 export function trackSpan<T extends Traceable, F extends (...args: any[]) => any>(
   spanName: string | ((this: T, ...args: Parameters<F>) => string),
-  attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Attributes),
+  attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Promise<Attributes> | Attributes),
   extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Attributes,
 ): SpanDecorator<T, F> {
   // the return value of trackSpan is a decorator
   return (originalMethod: F, _context: ClassMethodDecoratorContext<T>) => {
     // the return value of the decorator replaces the original method
     // in this wrapper method we start a span, call the original method, and then end the span
-    return function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
+    return async function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
       const name = typeof spanName === 'function' ? spanName.call(this, ...args) : spanName;
-      const currentAttrs = typeof attributes === 'function' ? attributes.call(this, ...args) : attributes;
+      const currentAttrs = typeof attributes === 'function' ? await attributes.call(this, ...args) : attributes;
 
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
@@ -220,4 +222,46 @@ export function wrapCallbackInSpan<F extends (...args: any[]) => any>(
       span.end();
     }
   }) as F;
+}
+
+export function runInSpan<A extends any[], R>(
+  tracer: Tracer | string,
+  spanName: string,
+  callback: (span: Span, ...args: A) => R,
+): (...args: A) => R {
+  return (...args: A): R => {
+    const actualTracer = typeof tracer === 'string' ? getTelemetryClient().getTracer(tracer) : tracer;
+    return actualTracer.startActiveSpan(spanName, (span: Span): R => {
+      let deferSpanEnd = false;
+      try {
+        const res = callback(span, ...args);
+        if (isPromise(res)) {
+          deferSpanEnd = true;
+          return res
+            .catch(err => {
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: String(err),
+              });
+              throw err;
+            })
+            .finally(() => {
+              span.end();
+            }) as R;
+        } else {
+          return res;
+        }
+      } catch (err) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: String(err),
+        });
+        throw err;
+      } finally {
+        if (!deferSpanEnd) {
+          span.end();
+        }
+      }
+    });
+  };
 }

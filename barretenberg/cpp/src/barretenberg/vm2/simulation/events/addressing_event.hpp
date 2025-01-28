@@ -12,7 +12,7 @@
 namespace bb::avm2::simulation {
 
 enum class AddressingEventError {
-    STACK_POINTER_INVALID_ADDRESS,
+    BASE_ADDRESS_INVALID_ADDRESS,
     RELATIVE_COMPUTATION_OOB,
     INDIRECT_INVALID_ADDRESS,
     FINAL_ADDRESS_INVALID,
@@ -35,8 +35,8 @@ struct AddressingEvent {
     Instruction instruction;
     std::vector<Operand> after_relative;
     std::vector<Operand> resolved_operands;
-    MemoryValue stack_pointer_val;
-    MemoryTag stack_pointer_tag;
+    MemoryValue base_address_val;
+    MemoryTag base_address_tag;
     const InstructionSpec* spec = nullptr;
     std::optional<AddressingException> error;
 };

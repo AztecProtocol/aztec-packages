@@ -1,6 +1,6 @@
 import { type EnvVar } from './env_var.js';
 
-export { EnvVar } from './env_var.js';
+export { type EnvVar } from './env_var.js';
 
 export interface ConfigMapping {
   env?: EnvVar;
@@ -102,13 +102,18 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
 export function booleanConfigHelper(
   defaultVal = false,
 ): Required<Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }> {
-  const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : ['1', 'true', 'TRUE'].includes(val));
+  const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : parseBooleanEnv(val));
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultVal,
     isBoolean: true,
   };
+}
+
+/** Parses an env var as boolean. Returns true only if value is 1, true, or TRUE. */
+export function parseBooleanEnv(val: string | undefined): boolean {
+  return val !== undefined && ['1', 'true', 'TRUE'].includes(val);
 }
 
 /**

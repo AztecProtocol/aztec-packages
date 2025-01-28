@@ -257,6 +257,24 @@ struct ExecutionHints {
         return *this;
     }
 
+    void print_sizes() const
+    {
+        vinfo("hints.enqueued_call_hints size: ", enqueued_call_hints.size());
+        vinfo("hints.contract_instance_hints size: ", contract_instance_hints.size());
+        vinfo("hints.contract_bytecode_hints size: ", all_contract_bytecode.size());
+        if (all_contract_bytecode.size() > 0) {
+            // Using [0] is fine now for the top-level call, but we might need to index by address in future
+            vinfo("0th bytecode size: ", all_contract_bytecode[0].bytecode.size());
+        }
+        vinfo("hints.storage_read_hints size: ", storage_read_hints.size());
+        vinfo("hints.storage_write_hints size: ", storage_write_hints.size());
+        vinfo("hints.nullifier_read_hints size: ", nullifier_read_hints.size());
+        vinfo("hints.nullifier_write_hints size: ", nullifier_write_hints.size());
+        vinfo("hints.note_hash_read_hints size: ", note_hash_read_hints.size());
+        vinfo("hints.note_hash_write_hints size: ", note_hash_write_hints.size());
+        vinfo("hints.l1_to_l2_message_read_hints size: ", l1_to_l2_message_read_hints.size());
+    }
+
     static void push_vec_into_map(std::unordered_map<uint32_t, FF>& into_map,
                                   const std::vector<std::pair<FF, FF>>& from_pair_vec)
     {
