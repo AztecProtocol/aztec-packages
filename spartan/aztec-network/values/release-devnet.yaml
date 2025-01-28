@@ -1,5 +1,7 @@
 telemetry:
-  enabled: true
+  enabled: false
+  useGcloudObservability: false
+  otelCollectorEndpoint: ""
 
 validator:
   replicas: 1
