@@ -199,24 +199,24 @@ template <typename Curve> class GeminiProver_ {
          */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
-            Polynomial& batched_F = batched_unshifted; // alias
+            // Initialize A₀₊ and compute A₀₊ += Random and A₀₊ += F as necessary
+            Polynomial A_0_pos(full_batched_size); // A₀₊
 
-            // if necessary, add randomness to the batched polynomials for ZK
             if (has_random_polynomial) {
-                batched_F += random_polynomial;
+                A_0_pos += random_polynomial; // A₀₊ += random
+            }
+            if (has_unshifted()) {
+                A_0_pos += batched_unshifted; // A₀₊ += F
             }
 
-            Polynomial A_0_pos = batched_F; // A₀₊ = F
-            Polynomial A_0_neg = batched_F; // A₀₋ = F
+            Polynomial A_0_neg = A_0_pos;
 
             if (has_to_be_shifted_by_one()) {
-                Polynomial& batched_G = batched_to_be_shifted_by_one; // alias
+                Fr r_inv = r_challenge.invert();       // r⁻¹
+                batched_to_be_shifted_by_one *= r_inv; // G = G/r
 
-                Fr r_inv = r_challenge.invert(); // r⁻¹
-                batched_G *= r_inv;              // G = G/r
-
-                A_0_pos += batched_G; // A₀₊ = F + G/r
-                A_0_neg -= batched_G; // A₀₋ = F - G/r
+                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ = F + G/r
+                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ = F - G/r
             }
 
             return { A_0_pos, A_0_neg };
