@@ -124,14 +124,14 @@ void prove_tube(const std::string& output_path)
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
     std::string vkPath = output_path + "/vk";
-    std::string proofPath = output_path + "/proof";
+    std::string proof_path = output_path + "/proof";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
     init_bn254_crs(1 << 25);
     init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
-    auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
+    auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vkPath));
 
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
@@ -1068,33 +1068,33 @@ void prove_output_all(const std::string& bytecode_path,
 
     // We have been given a directory, we will write the proof and verification key
     // into the directory in both 'binary' and 'fields' formats
-    std::string vkOutputPath = output_path + "/vk";
-    std::string proofPath = output_path + "/proof";
-    std::string vkFieldsOutputPath = output_path + "/vk_fields.json";
-    std::string proofFieldsPath = output_path + "/proof_fields.json";
+    std::string vk_output_path = output_path + "/vk";
+    std::string proof_path = output_path + "/proof";
+    std::string vk_fields_output_path = output_path + "/vk_fields.json";
+    std::string proof_field_path = output_path + "/proof_fields.json";
 
     std::shared_ptr<bb::plonk::verification_key> vk = acir_composer.init_verification_key();
 
     // Write the 'binary' proof
-    write_file(proofPath, proof);
-    vinfo("proof written to: ", proofPath);
+    write_file(proof_path, proof);
+    vinfo("proof written to: ", proof_path);
 
     // Write the proof as fields
     auto proofAsFields = acir_composer.serialize_proof_into_fields(proof, vk->as_data().num_public_inputs);
-    std::string proofJson = to_json(proofAsFields);
-    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    info("proof as fields written to: ", proofFieldsPath);
+    std::string proof_json = to_json(proofAsFields);
+    write_file(proof_field_path, { proof_json.begin(), proof_json.end() });
+    info("proof as fields written to: ", proof_field_path);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(*vk);
-    write_file(vkOutputPath, serialized_vk);
-    vinfo("vk written to: ", vkOutputPath);
+    write_file(vk_output_path, serialized_vk);
+    vinfo("vk written to: ", vk_output_path);
 
     // Write the vk as fields
     auto data = acir_composer.serialize_verification_key_into_fields();
     std::string vk_json = vk_to_json(data);
-    write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    vinfo("vk as fields written to: ", vkFieldsOutputPath);
+    write_file(vk_fields_output_path, { vk_json.begin(), vk_json.end() });
+    vinfo("vk as fields written to: ", vk_fields_output_path);
 }
 
 /**
@@ -1142,33 +1142,33 @@ void prove_honk_output_all(const std::string& bytecode_path,
 
     // We have been given a directory, we will write the proof and verification key
     // into the directory in both 'binary' and 'fields' formats
-    std::string vkOutputPath = output_path + "/vk";
-    std::string proofPath = output_path + "/proof";
-    std::string vkFieldsOutputPath = output_path + "/vk_fields.json";
-    std::string proofFieldsPath = output_path + "/proof_fields.json";
+    std::string vk_output_path = output_path + "/vk";
+    std::string proof_path = output_path + "/proof";
+    std::string vk_fields_output_path = output_path + "/vk_fields.json";
+    std::string proof_field_path = output_path + "/proof_fields.json";
 
     VerificationKey vk(
         prover.proving_key->proving_key); // uses a partial form of the proving key which only has precomputed entities
 
     // Write the 'binary' proof
-    write_file(proofPath, to_buffer</*include_size=*/true>(proof));
-    vinfo("binary proof written to: ", proofPath);
+    write_file(proof_path, to_buffer</*include_size=*/true>(proof));
+    vinfo("binary proof written to: ", proof_path);
 
     // Write the proof as fields
-    std::string proofJson = to_json(proof);
-    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
-    vinfo("proof as fields written to: ", proofFieldsPath);
+    std::string proof_json = to_json(proof);
+    write_file(proof_field_path, { proof_json.begin(), proof_json.end() });
+    vinfo("proof as fields written to: ", proof_field_path);
 
     // Write the vk as binary
     auto serialized_vk = to_buffer(vk);
-    write_file(vkOutputPath, serialized_vk);
-    vinfo("vk written to: ", vkOutputPath);
+    write_file(vk_output_path, serialized_vk);
+    vinfo("vk written to: ", vk_output_path);
 
     // Write the vk as fields
     std::vector<bb::fr> vk_data = vk.to_field_elements();
     auto vk_json = honk_vk_to_json(vk_data);
-    write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
-    vinfo("vk as fields written to: ", vkFieldsOutputPath);
+    write_file(vk_fields_output_path, { vk_json.begin(), vk_json.end() });
+    vinfo("vk as fields written to: ", vk_fields_output_path);
 }
 
 bool flag_present(std::vector<std::string>& args, const std::string& flag)
