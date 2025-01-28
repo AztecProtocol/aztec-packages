@@ -834,7 +834,7 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Break up the tube proof into the honk portion and the ipa portion
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
+        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
         // The extra calculation is for the IPA proof length.
         debug("proof size: ", proof.size());
         debug("num public inputs: ", num_public_inputs);
@@ -1207,16 +1207,17 @@ int main(int argc, char* argv[])
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const API::Flags flags = [&args]() {
-            return API::Flags{ .oracle_hash = get_option(args, "--oracle_hash", "poseidon2"),
-                               .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
-                               .initialize_pairing_point_accumulator =
-                                   get_option(args, "--initialize_accumulator", "false") };
+            return API::Flags{
+                .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false"),
+                .ipa_accumulation = get_option(args, "--ipa_accumulation", "true"),
+                .oracle_hash = get_option(args, "--oracle_hash", "poseidon2"),
+                .output_type = get_option(args, "--output_type", "fields_msgpack"),
+                .input_type = get_option(args, "--input_type", "compiletime_stack"),
+            };
         }();
 
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
-            ASSERT(flags.input_type.has_value());
-            ASSERT(flags.output_type.has_value());
+            info(flags);
             if (command == "prove") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 // TODO(#7371): remove this (msgpack version...)
@@ -1343,13 +1344,8 @@ int main(int argc, char* argv[])
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
 #endif
-        } else if (command == "prove_ultra_rollup_honk") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "verify_ultra_rollup_honk") {
-            return verify_honk<UltraRollupFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_keccak_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path, recursive);

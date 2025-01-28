@@ -173,25 +173,60 @@ class UltraHonkAPI : public API {
                  to_buffer(UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key)) };
     }
 
-    template <typename Flavor>
-    bool _verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
+    SerializedProofAndKey _prove_rollup(const std::filesystem::path& bytecode_path,
+                                        const std::filesystem::path& witness_path)
     {
-        using VK = typename Flavor::VerificationKey;
+        UltraProver_<UltraRollupFlavor> prover = compute_valid_prover<UltraRollupFlavor>(
+            bytecode_path, witness_path, /*initialize_pairing_point_accumulator*/ false);
+        return { to_buffer</*include_size=*/true>(prover.construct_proof()),
+                 to_buffer(UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key)) };
+    }
 
-        info("reading proof from ", proof_path);
-        const auto proof = from_buffer<HonkProof>(read_file(proof_path));
+    template <typename Flavor>
+    bool _verify(const bool ipa_accumulation,
+                 const std::filesystem::path& proof_path,
+                 const std::filesystem::path& vk_path)
+    {
+        using VerificationKey = Flavor::VerificationKey;
+        using Verifier = UltraVerifier_<Flavor>;
 
-        info("reading vk from ", vk_path);
-        auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
         auto g2_data = get_bn254_g2_data(CRS_PATH);
         srs::init_crs_factory({}, g2_data);
+        auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
+        auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
         vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-        UltraVerifier_<Flavor> verifier{ vk };
-        const bool verified = verifier.verify_proof(proof);
-        info("verified: ", verified);
+        std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
+        if (ipa_accumulation) {
+            init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+            ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        };
+
+        Verifier verifier{ vk, ipa_verification_key };
+
+        bool verified;
+        if (ipa_accumulation) {
+            // Break up the tube proof into the honk portion and the ipa portion
+            const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+            const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
+            // The extra calculation is for the IPA proof length.
+            vinfo("proof size: ", proof.size());
+            vinfo("num public inputs: ", num_public_inputs);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
+            ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
+            // split out the ipa proof
+            const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+                static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+            auto ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
+            auto tube_honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+            verified = verifier.verify_proof(proof, ipa_proof);
+        } else {
+            verified = verifier.verify_proof(proof);
+        }
+
+        vinfo("verified: ", verified);
         return verified;
-    };
+    }
 
   public:
     void prove(const API::Flags& flags,
@@ -199,18 +234,23 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        vinfo("proving with ", *flags.oracle_hash);
         const auto buffers = [&]() {
-            if (*flags.oracle_hash == "poseidon2") {
-                return _prove_poseidon2(flags, bytecode_path, witness_path);
-            } else if (*flags.oracle_hash == "keccak") {
-                return _prove_keccak(flags, bytecode_path, witness_path);
-            } else {
-                throw_or_abort(std::format("Unknown oracle_hash type provided: {}", *flags.oracle_hash));
+            if (*flags.ipa_accumulation == "true") {
+                vinfo("proving with ipa_accumulation");
+                return _prove_rollup(bytecode_path, witness_path);
             }
+            if (*flags.oracle_hash == "poseidon2") {
+                vinfo("proving with poseidon2");
+                return _prove_poseidon2(flags, bytecode_path, witness_path);
+            }
+            if (*flags.oracle_hash == "keccak") {
+                vinfo("proving with keccak");
+                return _prove_keccak(flags, bytecode_path, witness_path);
+            }
+            throw_or_abort(std::format("Invalid proving options specified")); // WORKTODO: make flags printable
         }();
 
-        info("writing UltraVanillaClientIVC proof...");
+        info("writing proof...");
         if (output_dir == "-") {
             vinfo("output dir is -");
             write_bytes_to_stdout(buffers.proof);
@@ -241,15 +281,20 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
-        info("verifying with ", *flags.oracle_hash);
-        if (*flags.oracle_hash == "poseidon2") {
-            return _verify<UltraFlavor>(proof_path, vk_path);
-        } else if (*flags.oracle_hash == "keccak") {
-            return _verify<UltraKeccakFlavor>(proof_path, vk_path);
-        } else {
-            throw_or_abort("Invalid oracle hash type provided!");
-            return 0;
+        const bool ipa_accumulation = *flags.ipa_accumulation == "true";
+        if (ipa_accumulation) {
+            vinfo("verifying with ipa accumulation");
+            return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
         }
+        if (*flags.oracle_hash == "poseidon2") {
+            vinfo("verifying with poseidon2");
+            return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
+        }
+        if (*flags.oracle_hash == "keccak") {
+            vinfo("verifying with keccak");
+            return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
+        }
+        return false;
     };
 
     bool prove_and_verify(const API::Flags& flags,
