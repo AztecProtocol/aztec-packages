@@ -41,8 +41,7 @@ describe('execution_result', () => {
   describe('serialization', () => {
     it('serializes and deserializes correctly', async () => {
       const instance = await PrivateExecutionResult.random();
-      jsonParseWithSchema;
-      expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
+      expect(await jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
     });
   });
 

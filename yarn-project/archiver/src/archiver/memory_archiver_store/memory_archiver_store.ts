@@ -191,14 +191,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  public addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  public async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
     if (blocks.length === 0) {
       return Promise.resolve(true);
     }
 
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
-    this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects.map(txEffect => wrapInBlock(txEffect, b.data))));
+    const flatTxEffects = blocks.flatMap(b => b.data.body.txEffects.map(txEffect => ({ block: b, txEffect })));
+    const wrappedTxEffects = await Promise.all(
+      flatTxEffects.map(flatTxEffect => wrapInBlock(flatTxEffect.txEffect, flatTxEffect.block.data)),
+    );
+    this.txEffects.push(...wrappedTxEffects);
 
     return Promise.resolve(true);
   }
@@ -325,22 +329,25 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  addNullifiers(blocks: L2Block[]): Promise<boolean> {
-    blocks.forEach(block => {
-      const dataStartIndexForBlock =
-        block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
-        block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
-      block.body.txEffects.forEach((txEffects, txIndex) => {
-        const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
-        txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
-          this.blockScopedNullifiers.set(nullifier.toString(), {
-            index: BigInt(dataStartIndexForTx + nullifierIndex),
-            blockNumber: block.number,
-            blockHash: block.hash().toString(),
+  async addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    await Promise.all(
+      blocks.map(async block => {
+        const dataStartIndexForBlock =
+          block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
+          block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
+        const blockHash = await block.hash();
+        block.body.txEffects.forEach((txEffects, txIndex) => {
+          const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+          txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
+            this.blockScopedNullifiers.set(nullifier.toString(), {
+              index: BigInt(dataStartIndexForTx + nullifierIndex),
+              blockNumber: block.number,
+              blockHash: blockHash.toString(),
+            });
           });
         });
-      });
-    });
+      }),
+    );
     return Promise.resolve(true);
   }
 
@@ -448,24 +455,22 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.data.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
-          return Promise.resolve(
-            new TxReceipt(
-              txHash,
-              TxReceipt.statusFromRevertCode(txEffect.revertCode),
-              '',
-              txEffect.transactionFee.toBigInt(),
-              L2BlockHash.fromField(block.data.hash()),
-              block.data.number,
-            ),
+          return new TxReceipt(
+            txHash,
+            TxReceipt.statusFromRevertCode(txEffect.revertCode),
+            '',
+            txEffect.transactionFee.toBigInt(),
+            L2BlockHash.fromField(await block.data.hash()),
+            block.data.number,
           );
         }
       }
     }
-    return Promise.resolve(undefined);
+    return undefined;
   }
 
   /**
@@ -735,17 +740,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  public async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

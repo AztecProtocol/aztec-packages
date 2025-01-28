@@ -1,4 +1,4 @@
-import { BarretenbergLazy, RawBuffer } from '@aztec/bb.js';
+import { BarretenbergSync, RawBuffer } from '@aztec/bb.js';
 
 import { Buffer } from 'buffer';
 
@@ -22,9 +22,9 @@ export class Aes128 {
     paddingBuffer.fill(numPaddingBytes);
     const input = Buffer.concat([data, paddingBuffer]);
 
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     return Buffer.from(
-      await api.aesEncryptBufferCbc(new RawBuffer(input), new RawBuffer(iv), new RawBuffer(key), input.length),
+      api.aesEncryptBufferCbc(new RawBuffer(input), new RawBuffer(iv), new RawBuffer(key), input.length),
     );
   }
 
@@ -36,9 +36,9 @@ export class Aes128 {
    * @returns Decrypted data.
    */
   public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const paddedBuffer = Buffer.from(
-      await api.aesDecryptBufferCbc(new RawBuffer(data), new RawBuffer(iv), new RawBuffer(key), data.length),
+      api.aesDecryptBufferCbc(new RawBuffer(data), new RawBuffer(iv), new RawBuffer(key), data.length),
     );
     const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
     return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);

@@ -95,10 +95,10 @@ export class TXENode implements AztecNode {
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
-  setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
+  async setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
     // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
     // simply the hash of the block number.
-    const blockHash = poseidon2Hash([blockNumber]);
+    const blockHash = await poseidon2Hash([blockNumber]);
 
     this.#txEffectsByTxHash.set(txHash.toString(), {
       l2BlockHash: blockHash.toString(),

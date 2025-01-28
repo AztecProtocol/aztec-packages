@@ -4,7 +4,7 @@ import {
   type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
-  getFunctionArtifact,
+  getFunctionArtifactByName,
 } from '@aztec/foundation/abi';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
@@ -42,7 +42,7 @@ export class DeployAccountMethod extends DeployMethod {
     this.#authWitnessProvider = authWitnessProvider;
     this.#feePaymentArtifact =
       typeof feePaymentNameOrArtifact === 'string'
-        ? getFunctionArtifact(artifact, feePaymentNameOrArtifact)
+        ? getFunctionArtifactByName(artifact, feePaymentNameOrArtifact)
         : feePaymentNameOrArtifact;
   }
 
@@ -53,7 +53,7 @@ export class DeployAccountMethod extends DeployMethod {
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
-      const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
+      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
       const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
 
@@ -61,7 +61,7 @@ export class DeployAccountMethod extends DeployMethod {
         name: this.#feePaymentArtifact.name,
         to: address,
         args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload, false]),
-        selector: FunctionSelector.fromNameAndParameters(
+        selector: await FunctionSelector.fromNameAndParameters(
           this.#feePaymentArtifact.name,
           this.#feePaymentArtifact.parameters,
         ),
@@ -74,7 +74,7 @@ export class DeployAccountMethod extends DeployMethod {
       exec.hashedArguments ??= [];
 
       exec.authWitnesses.push(
-        await this.#authWitnessProvider.createAuthWit(computeCombinedPayloadHash(emptyAppPayload, feePayload)),
+        await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
 
       exec.hashedArguments.push(...emptyAppPayload.hashedArguments);

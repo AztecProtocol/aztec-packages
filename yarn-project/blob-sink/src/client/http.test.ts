@@ -30,7 +30,7 @@ describe('HttpBlobSinkClient', () => {
 
   it('should handle server connection errors gracefully', async () => {
     const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
-    const blob = Blob.fromFields([Fr.random()]);
+    const blob = await Blob.fromFields([Fr.random()]);
 
     const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
     expect(success).toBe(false);
@@ -52,8 +52,8 @@ describe('HttpBlobSinkClient', () => {
 
     const MOCK_SLOT_NUMBER = 1;
 
-    beforeEach(() => {
-      testBlob = makeEncodedBlob(3);
+    beforeEach(async () => {
+      testBlob = await makeEncodedBlob(3);
     });
 
     const startExecutionHostServer = (): Promise<void> => {

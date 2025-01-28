@@ -32,7 +32,7 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Iterable<Tx>,
+  txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
   globalVariables: GlobalVariables,
   opts?: { validateOnly?: boolean },
 ) => Promise<{
@@ -251,18 +251,18 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Transaction re-execution complete`);
 
     if (numFailedTxs > 0) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExFailedTxsError(numFailedTxs);
     }
 
     if (block.body.txEffects.length !== txHashes.length) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
-      this.metrics.recordFailedReexecution(proposal);
+      await this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
   }
@@ -327,11 +327,12 @@ export class ValidatorClient extends WithTracer implements Validator {
     let attestations: BlockAttestation[] = [];
     while (true) {
       const collectedAttestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot, proposalId))];
-      const newAttestations = collectedAttestations.filter(
-        collected => !attestations.some(old => old.getSender().equals(collected.getSender())),
-      );
-      for (const attestation of newAttestations) {
-        this.log.debug(`Received attestation for slot ${slot} from ${attestation.getSender().toString()}`);
+      const oldSenders = await Promise.all(attestations.map(attestation => attestation.getSender()));
+      for (const collected of collectedAttestations) {
+        const collectedSender = await collected.getSender();
+        if (!oldSenders.some(sender => sender.equals(collectedSender))) {
+          this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
+        }
       }
       attestations = collectedAttestations;
 

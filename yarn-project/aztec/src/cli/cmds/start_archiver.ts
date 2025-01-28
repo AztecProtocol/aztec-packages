@@ -1,4 +1,10 @@
-import { Archiver, type ArchiverConfig, KVArchiverDataStore, archiverConfigMappings } from '@aztec/archiver';
+import {
+  Archiver,
+  type ArchiverConfig,
+  KVArchiverDataStore,
+  archiverConfigMappings,
+  getArchiverConfigFromEnv,
+} from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { ArchiverApiSchema } from '@aztec/circuit-types';
@@ -8,6 +14,7 @@ import { createStore } from '@aztec/kv-store/lmdb';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
+import { validateL1Config } from '../validation.js';
 
 /** Starts a standalone archiver. */
 export async function startArchiver(
@@ -23,6 +30,8 @@ export async function startArchiver(
     },
     'archiver',
   );
+
+  await validateL1Config({ ...getArchiverConfigFromEnv(), ...archiverConfig });
 
   const storeLog = createLogger('archiver:lmdb');
   const store = await createStore('archiver', archiverConfig, storeLog);
