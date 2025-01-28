@@ -24,8 +24,10 @@ import {
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  LogWithTxData,
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
@@ -41,6 +43,7 @@ import {
 } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
@@ -704,6 +707,32 @@ export class SimulatorOracle implements DBOracle {
       slot: noteDao.storageSlot,
       nullifier: noteDao.siloedNullifier.toString,
     });
+  }
+
+  public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    const logs = await this.aztecNode.getLogsByTags([tag]);
+    const logsForTag = logs[0];
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      throw new Error(`Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log`);
+    }
+
+    const log = logsForTag[0];
+
+    const txEffect = await this.aztecNode.getTxEffect(log.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${log.txHash} which is known to exist`);
+    }
+
+    const reader = BufferReader.asReader(log.logData);
+    return new LogWithTxData(
+      reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr),
+      log.txHash.hash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
+    );
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {

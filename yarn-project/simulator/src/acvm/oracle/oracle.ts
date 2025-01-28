@@ -1,4 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { LogWithTxData } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -404,6 +405,16 @@ export class Oracle {
     return toACVMField(true);
   }
 
+  async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getLogByTag(fromACVMField(tag));
+
+    if (log == null) {
+      return [toACVMField(0), ...LogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+    } else {
+      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
+    }
+  }
+
   async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
     await this.typedOracle.dbStore(
       AztecAddress.fromField(fromACVMField(contractAddress)),
@@ -450,4 +461,8 @@ export class Oracle {
       frToNumber(fromACVMField(numEntries)),
     );
   }
+}
+
+function toACVMFieldSingleOrArray(value: Fr | Fr[]) {
+  return Array.isArray(value) ? value.map(toACVMField) : toACVMField(value);
 }

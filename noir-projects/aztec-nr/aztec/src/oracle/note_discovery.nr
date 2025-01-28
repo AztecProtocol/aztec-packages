@@ -1,5 +1,8 @@
 use crate::note::discovery::MAX_NOTE_SERIALIZED_LEN;
-use dep::protocol_types::address::AztecAddress;
+use dep::protocol_types::{
+    address::AztecAddress,
+    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
+};
 
 /// Informs PXE of a note's existence so that it can later retrieved by the `getNotes` oracle. The note will be scoped
 /// to `contract_address`, meaning other contracts will not be able to access it unless authorized.
@@ -36,6 +39,18 @@ pub unconstrained fn deliver_note(
     )
 }
 
+pub struct LogWithTxData {
+    pub log_content: BoundedVec<Field, PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
+    pub tx_hash: Field,
+    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    pub first_nullifier_in_tx: Field,
+}
+
+// todo: return a bounded vec of these
+pub unconstrained fn get_log_by_tag(tag: Field) -> Option<LogWithTxData> {
+    get_log_by_tag_oracle(tag)
+}
+
 #[oracle(deliverNote)]
 unconstrained fn deliver_note_oracle(
     contract_address: AztecAddress,
@@ -47,3 +62,6 @@ unconstrained fn deliver_note_oracle(
     tx_hash: Field,
     recipient: AztecAddress,
 ) -> bool {}
+
+#[oracle(getLogByTag)]
+unconstrained fn get_log_by_tag_oracle(tag: Field) -> Option<LogWithTxData> {}

@@ -12,6 +12,7 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
+  LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -256,6 +257,8 @@ export interface DBOracle extends CommitmentsDB {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void>;
+
+  getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.
