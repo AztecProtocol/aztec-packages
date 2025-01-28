@@ -14,10 +14,6 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -85,7 +81,7 @@ TEST_F(LMDBEnvironmentTest, can_write_to_database)
     EXPECT_NO_THROW(tx.commit());
 
     {
-        LMDBTreeWriteTransaction::SharedPtr tx = std::make_shared<LMDBTreeWriteTransaction>(environment);
+        LMDBWriteTransaction::SharedPtr tx = std::make_shared<LMDBWriteTransaction>(environment);
         auto key = serialise(std::string("Key"));
         auto data = serialise(std::string("TestData"));
         EXPECT_NO_THROW(tx->put_value(key, data, *db));
@@ -103,7 +99,7 @@ TEST_F(LMDBEnvironmentTest, can_read_from_database)
     EXPECT_NO_THROW(tx.commit());
 
     {
-        LMDBTreeWriteTransaction::SharedPtr tx = std::make_shared<LMDBTreeWriteTransaction>(environment);
+        LMDBWriteTransaction::SharedPtr tx = std::make_shared<LMDBWriteTransaction>(environment);
         auto key = serialise(std::string("Key"));
         auto data = serialise(std::string("TestData"));
         EXPECT_NO_THROW(tx->put_value(key, data, *db));
@@ -112,7 +108,7 @@ TEST_F(LMDBEnvironmentTest, can_read_from_database)
 
     {
         environment->wait_for_reader();
-        LMDBTreeReadTransaction::SharedPtr tx = std::make_shared<LMDBTreeReadTransaction>(environment);
+        LMDBReadTransaction::SharedPtr tx = std::make_shared<LMDBReadTransaction>(environment);
         auto key = serialise(std::string("Key"));
         auto expected = serialise(std::string("TestData"));
         std::vector<uint8_t> data;
@@ -134,7 +130,7 @@ TEST_F(LMDBEnvironmentTest, can_write_and_read_multiple)
 
     {
         for (uint64_t count = 0; count < numValues; count++) {
-            LMDBTreeWriteTransaction::SharedPtr tx = std::make_shared<LMDBTreeWriteTransaction>(environment);
+            LMDBWriteTransaction::SharedPtr tx = std::make_shared<LMDBWriteTransaction>(environment);
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
             EXPECT_NO_THROW(tx->put_value(key, data, *db));
@@ -145,7 +141,7 @@ TEST_F(LMDBEnvironmentTest, can_write_and_read_multiple)
     {
         for (uint64_t count = 0; count < numValues; count++) {
             environment->wait_for_reader();
-            LMDBTreeReadTransaction::SharedPtr tx = std::make_shared<LMDBTreeReadTransaction>(environment);
+            LMDBReadTransaction::SharedPtr tx = std::make_shared<LMDBReadTransaction>(environment);
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto expected = serialise((std::stringstream() << "TestData" << count).str());
             std::vector<uint8_t> data;
@@ -170,7 +166,7 @@ TEST_F(LMDBEnvironmentTest, can_read_multiple_threads)
 
     {
         for (uint64_t count = 0; count < numValues; count++) {
-            LMDBTreeWriteTransaction::SharedPtr tx = std::make_shared<LMDBTreeWriteTransaction>(environment);
+            LMDBWriteTransaction::SharedPtr tx = std::make_shared<LMDBWriteTransaction>(environment);
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
             EXPECT_NO_THROW(tx->put_value(key, data, *db));
@@ -183,7 +179,7 @@ TEST_F(LMDBEnvironmentTest, can_read_multiple_threads)
             for (uint64_t iteration = 0; iteration < numIterationsPerThread; iteration++) {
                 for (uint64_t count = 0; count < numValues; count++) {
                     environment->wait_for_reader();
-                    LMDBTreeReadTransaction::SharedPtr tx = std::make_shared<LMDBTreeReadTransaction>(environment);
+                    LMDBReadTransaction::SharedPtr tx = std::make_shared<LMDBReadTransaction>(environment);
                     auto key = serialise((std::stringstream() << "Key" << count).str());
                     auto expected = serialise((std::stringstream() << "TestData" << count).str());
                     std::vector<uint8_t> data;

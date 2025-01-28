@@ -245,7 +245,11 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
     initialise();
 }
 
+template <typename LeafValueType>
 ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
+                                                                                uint32_t levels,
+                                                                                const index_t& referenceBlockNumber,
+                                                                                PersistedStoreType::SharedPtr dataStore)
     : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
     , cache_(levels)
