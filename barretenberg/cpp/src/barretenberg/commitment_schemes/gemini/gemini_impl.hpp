@@ -65,7 +65,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:masking_poly_eval",
                                      random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
         // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
-        polynomial_batcher.initialize_batched_unshifted(std::move(random_polynomial));
+        polynomial_batcher.set_random_polynomial(std::move(random_polynomial));
     }
 
     // Get the batching challenge
@@ -251,7 +251,7 @@ std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curv
         }
     }
 
-    return { std::move(A_0_pos), std::move(A_0_neg) };
+    return { A_0_pos, A_0_neg };
 };
 
 /**
