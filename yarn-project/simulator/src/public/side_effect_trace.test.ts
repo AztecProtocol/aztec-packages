@@ -30,10 +30,10 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { randomInt } from 'crypto';
 
-import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
+import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 
-describe('Enqueued-call Side Effect Trace', () => {
+describe('Public Side Effect Trace', () => {
   const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
@@ -49,14 +49,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   let startCounter: number;
   let startCounterPlus1: number;
-  let trace: PublicEnqueuedCallSideEffectTrace;
+  let trace: SideEffectTrace;
   let address: AztecAddress;
 
   beforeEach(async () => {
     address = await AztecAddress.random();
     startCounter = randomInt(/*max=*/ 1000000);
     startCounterPlus1 = startCounter + 1;
-    trace = new PublicEnqueuedCallSideEffectTrace(startCounter);
+    trace = new SideEffectTrace(startCounter);
   });
 
   it('Should trace storage reads', () => {
@@ -371,7 +371,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     });
 
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
-      trace = new PublicEnqueuedCallSideEffectTrace(
+      trace = new SideEffectTrace(
         0,
         new SideEffectArrayLengths(
           MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -403,7 +403,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, async () => {
       const existsDefault = true;
 
-      const nestedTrace = new PublicEnqueuedCallSideEffectTrace(startCounter);
+      const nestedTrace = new SideEffectTrace(startCounter);
       let testCounter = startCounter;
       const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
       const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);

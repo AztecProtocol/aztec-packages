@@ -1327,11 +1327,19 @@ export async function makeMapAsync<T extends Bufferable>(
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
-export async function makeContractInstanceFromClassId(classId: Fr, seed = 0): Promise<ContractInstanceWithAddress> {
+export async function makeContractInstanceFromClassId(
+  classId: Fr,
+  seed = 0,
+  overrides?: {
+    deployer?: AztecAddress;
+    initializationHash?: Fr;
+    publicKeys?: PublicKeys;
+  },
+): Promise<ContractInstanceWithAddress> {
   const salt = new Fr(seed);
-  const initializationHash = new Fr(seed + 1);
-  const deployer = new AztecAddress(new Fr(seed + 2));
-  const publicKeys = await PublicKeys.random();
+  const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
+  const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
+  const publicKeys = overrides?.publicKeys ?? (await PublicKeys.random());
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
