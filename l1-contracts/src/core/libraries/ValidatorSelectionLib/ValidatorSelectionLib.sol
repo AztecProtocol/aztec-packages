@@ -234,7 +234,7 @@ library ValidatorSelectionLib {
     StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
-  ) private view returns (address[] memory) {
+  ) private returns (address[] memory) {
     EpochData storage epoch = _validatorSelectionStore.epochs[_epochNumber];
 
     if (epoch.sampleSeed != 0) {
