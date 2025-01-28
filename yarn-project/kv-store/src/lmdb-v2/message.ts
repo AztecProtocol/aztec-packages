@@ -49,6 +49,7 @@ interface HasRequest {
 interface StartCursorRequest {
   key: Key;
   reverse: boolean;
+  count: number | null;
   db: string;
 }
 
@@ -93,8 +94,9 @@ interface HasResponse {
   exists: boolean[];
 }
 
-interface CursorResponse {
+interface StartCursorResponse {
   cursor: number | null;
+  entries: Array<KeyValues>;
 }
 
 interface AdvanceCursorResponse {
@@ -116,7 +118,7 @@ export type LMDBResponseBody = {
   [LMDBMessageType.GET]: GetResponse;
   [LMDBMessageType.HAS]: HasResponse;
 
-  [LMDBMessageType.START_CURSOR]: CursorResponse;
+  [LMDBMessageType.START_CURSOR]: StartCursorResponse;
   [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorResponse;
   [LMDBMessageType.CLOSE_CURSOR]: BoolResponse;
 

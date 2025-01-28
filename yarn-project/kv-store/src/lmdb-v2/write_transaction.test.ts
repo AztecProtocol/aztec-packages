@@ -4,7 +4,7 @@ import { MsgpackChannel } from '@aztec/native';
 import { expect } from 'chai';
 import { SinonStubbedInstance, createStubInstance } from 'sinon';
 
-import { Batch, Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
+import { Batch, CURSOR_PAGE_SIZE, Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
 import { WriteTransaction } from './write_transaction.js';
 
 const duration = { encodingUs: 0, decodingUs: 0, totalUs: 0, callUs: 0 };
@@ -124,10 +124,10 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over pending data', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
     channel.sendMessage
-      .withArgs(LMDBMessageType.ADVANCE_CURSOR)
-      .resolves({ response: { entries: [], done: true }, duration });
+      .withArgs(LMDBMessageType.START_CURSOR)
+      .resolves({ response: { cursor: null, entries: [] }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).rejects(new Error('Cursor empty'));
 
     await tx.set(Buffer.from('foo'), Buffer.from('1'));
     await tx.set(Buffer.from('bar'), Buffer.from('2'));
@@ -142,9 +142,12 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over uncommitted and committed data', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: 42, entries: [[Buffer.from('bar'), [Buffer.from('3')]]] },
+      duration,
+    });
     channel.sendMessage
-      .withArgs(LMDBMessageType.ADVANCE_CURSOR)
+      .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
       .resolves({ response: { entries: [[Buffer.from('baz'), [Buffer.from('3')]]], done: true }, duration });
 
     await tx.set(Buffer.from('foo'), Buffer.from('1'));
@@ -159,10 +162,13 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over overritten data', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: 42, entries: [[Buffer.from('baz'), [Buffer.from('3')]]] },
+      duration,
+    });
     channel.sendMessage
-      .withArgs(LMDBMessageType.ADVANCE_CURSOR)
-      .resolves({ response: { entries: [[Buffer.from('baz'), [Buffer.from('3')]]], done: true }, duration });
+      .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
+      .resolves({ response: { entries: [[Buffer.from('foo'), [Buffer.from('1')]]], done: true }, duration });
 
     await tx.remove(Buffer.from('foo'));
     await tx.set(Buffer.from('bar'), Buffer.from('2'));
@@ -178,7 +184,10 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates until end key', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: 42, entries: [[Buffer.from('bar'), [Buffer.from('1')]]] },
+      duration,
+    });
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR)
       .resolves({ response: { entries: [[Buffer.from('baz'), [Buffer.from('3')]]], done: true }, duration });
@@ -196,10 +205,10 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates in reverse', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
-    channel.sendMessage
-      .withArgs(LMDBMessageType.ADVANCE_CURSOR)
-      .resolves({ response: { entries: [[Buffer.from('baz'), [Buffer.from('3')]]], done: true }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: null, entries: [[Buffer.from('baz'), [Buffer.from('3')]]] },
+      duration,
+    });
 
     await tx.remove(Buffer.from('foo'));
     await tx.set(Buffer.from('bar'), Buffer.from('2'));
@@ -215,10 +224,13 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates in reverse with end key', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: 42, entries: [[Buffer.from('baz'), [Buffer.from('3')]]] },
+      duration,
+    });
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR)
-      .resolves({ response: { entries: [[Buffer.from('baz'), [Buffer.from('3')]]], done: true }, duration });
+      .resolves({ response: { entries: [[Buffer.from('bar'), [Buffer.from('3')]]], done: true }, duration });
 
     await tx.remove(Buffer.from('foo'));
     await tx.set(Buffer.from('bar'), Buffer.from('2'));
@@ -230,13 +242,13 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over pending index data', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: { cursor: 42, entries: [[Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]]] },
+      duration,
+    });
     channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).resolves({
       response: {
-        entries: [
-          [Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]],
-          [Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]],
-        ],
+        entries: [[Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]]],
         done: true,
       },
       duration,
@@ -256,14 +268,10 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over pending index data up to end key', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
-    channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).resolves({
-      response: {
-        entries: [],
-        done: true,
-      },
-      duration,
-    });
+    channel.sendMessage
+      .withArgs(LMDBMessageType.START_CURSOR)
+      .resolves({ response: { cursor: null, entries: [], done: true }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).rejects(new Error('Should not bew called'));
 
     await tx.setIndex(Buffer.from('foo'), Buffer.from('1'));
     await tx.removeIndex(Buffer.from('foo'), Buffer.from('8'));
@@ -275,13 +283,17 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over pending index data in reverse', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: {
+        cursor: 42,
+        entries: [[Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]]],
+        done: false,
+      },
+      duration,
+    });
     channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).resolves({
       response: {
-        entries: [
-          [Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]],
-          [Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]],
-        ],
+        entries: [[Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]]],
         done: true,
       },
       duration,
@@ -302,13 +314,17 @@ describe('NativeWriteTransaction', () => {
   });
 
   it('correctly iterates over pending index data in reverse up to given end key', async () => {
-    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({ response: { cursor: 42 }, duration });
+    channel.sendMessage.withArgs(LMDBMessageType.START_CURSOR).resolves({
+      response: {
+        cursor: 42,
+        entries: [[Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]]],
+        done: false,
+      },
+      duration,
+    });
     channel.sendMessage.withArgs(LMDBMessageType.ADVANCE_CURSOR).resolves({
       response: {
-        entries: [
-          [Buffer.from('foo'), [Buffer.from('2'), Buffer.from('4'), Buffer.from('8')]],
-          [Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]],
-        ],
+        entries: [[Buffer.from('baz'), [Buffer.from('3'), Buffer.from('6')]]],
         done: true,
       },
       duration,

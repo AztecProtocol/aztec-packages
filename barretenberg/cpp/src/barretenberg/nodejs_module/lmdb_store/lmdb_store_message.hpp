@@ -71,13 +71,15 @@ struct BatchRequest {
 struct StartCursorRequest {
     lmdblib::Key key;
     std::optional<bool> reverse;
+    std::optional<uint32_t> count;
     std::string db;
-    MSGPACK_FIELDS(key, reverse, db);
+    MSGPACK_FIELDS(key, reverse, count, db);
 };
 
 struct StartCursorResponse {
     std::optional<uint64_t> cursor;
-    MSGPACK_FIELDS(cursor);
+    lmdblib::KeyDupValuesVector entries;
+    MSGPACK_FIELDS(cursor, entries);
 };
 
 struct AdvanceCursorRequest {

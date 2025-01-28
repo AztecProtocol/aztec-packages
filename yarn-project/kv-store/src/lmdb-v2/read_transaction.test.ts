@@ -49,11 +49,11 @@ describe('ReadTransaction', () => {
   it('iterates the database', async () => {
     channel.sendMessage.onCall(0).resolves({
       duration,
-      response: { cursor: 42 },
+      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
     });
     channel.sendMessage.onCall(1).resolves({
       duration,
-      response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: true },
+      response: { entries: [[Buffer.from('quux'), [Buffer.from('another value')]]], done: true },
     });
     channel.sendMessage.onCall(2).resolves({
       duration,
@@ -61,22 +61,26 @@ describe('ReadTransaction', () => {
     });
 
     const iterable = tx.iterate(Buffer.from('foo'));
+    const entries = await toArray(iterable);
 
-    for await (const entry of iterable) {
-      expect(
-        channel.sendMessage.calledWith(LMDBMessageType.ADVANCE_CURSOR, {
-          cursor: 42,
-          count: CURSOR_PAGE_SIZE,
-        }),
-      ).to.be.true;
-      expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
-    }
+    expect(entries).to.deep.eq([
+      [Buffer.from('foo'), Buffer.from('a value')],
+      [Buffer.from('quux'), Buffer.from('another value')],
+    ]);
 
     expect(
       channel.sendMessage.calledWith(LMDBMessageType.START_CURSOR, {
         db: Database.DATA,
         key: Buffer.from('foo'),
+        count: CURSOR_PAGE_SIZE,
         reverse: false,
+      }),
+    ).to.be.true;
+
+    expect(
+      channel.sendMessage.calledWith(LMDBMessageType.ADVANCE_CURSOR, {
+        cursor: 42,
+        count: CURSOR_PAGE_SIZE,
       }),
     ).to.be.true;
 
@@ -90,17 +94,11 @@ describe('ReadTransaction', () => {
   it('closes the cursor early', async () => {
     channel.sendMessage.onCall(0).resolves({
       duration,
-      response: { cursor: 42 },
+      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
-      .onCall(0)
-      .resolves({
-        duration,
-        response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
-      })
-      .onCall(1)
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
     channel.sendMessage
@@ -122,17 +120,11 @@ describe('ReadTransaction', () => {
   it('closes the cursor even if in the case of an error', async () => {
     channel.sendMessage.onCall(0).resolves({
       duration,
-      response: { cursor: 42 },
+      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
-      .onCall(0)
-      .resolves({
-        duration,
-        response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
-      })
-      .onCall(1)
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
     channel.sendMessage
@@ -155,10 +147,15 @@ describe('ReadTransaction', () => {
 
   it('handles empty cursors', async () => {
     channel.sendMessage
-      .withArgs(LMDBMessageType.START_CURSOR, { key: Buffer.from('foo'), reverse: false, db: Database.DATA })
+      .withArgs(LMDBMessageType.START_CURSOR, {
+        key: Buffer.from('foo'),
+        reverse: false,
+        count: CURSOR_PAGE_SIZE,
+        db: Database.DATA,
+      })
       .resolves({
         duration,
-        response: { cursor: null },
+        response: { cursor: null, entries: [], done: true },
       });
 
     const arr = await toArray(tx.iterate(Buffer.from('foo')));
