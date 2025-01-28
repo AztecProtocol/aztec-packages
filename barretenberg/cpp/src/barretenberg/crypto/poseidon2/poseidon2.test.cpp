@@ -12,10 +12,10 @@ auto& engine = numeric::get_debug_randomness();
 TEST(Poseidon2, HashBasicTests)
 {
 
-    fr a = fr::random_element(&engine);
-    fr b = fr::random_element(&engine);
-    fr c = fr::random_element(&engine);
-    fr d = fr::random_element(&engine);
+    FF a = fr::random_element(&engine);
+    FF b = fr::random_element(&engine);
+    FF c = fr::random_element(&engine);
+    FF d = fr::random_element(&engine);
 
     std::vector<fr> input1{ a, b, c, d };
     std::vector<fr> input2{ d, c, b, a };
