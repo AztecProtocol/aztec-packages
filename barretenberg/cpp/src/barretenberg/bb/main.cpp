@@ -81,7 +81,7 @@ std::string honk_vk_to_json(std::vector<bb::fr>& data)
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
+bool prove_and_verify(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/0);
     auto witness = get_witness(witnessPath);
@@ -108,58 +108,6 @@ bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const
     auto verified = acir_composer.verify_proof(proof);
 
     return verified;
-}
-
-template <IsUltraFlavor Flavor>
-bool proveAndVerifyHonkAcirFormat(acir_format::AcirProgram program, acir_format::ProgramMetadata metadata)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    // Construct a bberg circuit from the acir representation
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Construct Honk proof
-    Prover prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-
-    // Verify Honk proof
-    auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
-
-    Verifier verifier{ verification_key };
-
-    const bool verified = verifier.verify_proof(proof);
-    vinfo(verified ? "\033[32mVERIFIED\033[0m" : "\033[31mNOT VERIFIED\033[0m");
-    return verified;
-}
-
-/**
- * @brief Constructs and verifies a Honk proof for an acir-generated circuit
- *
- * @tparam Flavor
- * @param bytecodePath Path to serialized acir circuit data
- * @param witnessPath Path to serialized acir witness data
- */
-template <IsUltraFlavor Flavor>
-bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
-{
-    uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-    }
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
-
-    // Populate the acir constraint system and witness from gzipped data
-    acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
-    program.witness = get_witness(witnessPath);
-
-    return proveAndVerifyHonkAcirFormat<Flavor>(program, metadata);
 }
 
 /**
@@ -287,7 +235,7 @@ void prove(const std::string& bytecodePath,
     auto proof = acir_composer.create_proof();
 
     if (outputPath == "-") {
-        writeRawBytesToStdout(proof);
+        write_bytes_to_stdout(proof);
         vinfo("proof written to stdout");
     } else {
         write_file(outputPath, proof);
@@ -306,7 +254,7 @@ void prove(const std::string& bytecodePath,
  * @param bytecodePath Path to the file containing the serialized circuit
  */
 template <typename Builder = UltraCircuitBuilder>
-void gateCount(const std::string& bytecodePath, bool recursive, uint32_t honk_recursion)
+void gate_count(const std::string& bytecodePath, bool recursive, uint32_t honk_recursion)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Try to only do this when necessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
@@ -324,7 +272,7 @@ void gateCount(const std::string& bytecodePath, bool recursive, uint32_t honk_re
         auto builder = acir_format::create_circuit<Builder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         size_t circuit_size = builder.num_gates;
-        vinfo("Calculated circuit size in gateCount: ", circuit_size);
+        vinfo("Calculated circuit size in gate_count: ", circuit_size);
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
@@ -357,7 +305,7 @@ void gateCount(const std::string& bytecodePath, bool recursive, uint32_t honk_re
     const char* jsonData = functions_string.c_str();
     size_t length = strlen(jsonData);
     std::vector<uint8_t> data(jsonData, jsonData + length);
-    writeRawBytesToStdout(data);
+    write_bytes_to_stdout(data);
 }
 
 /**
@@ -427,7 +375,7 @@ void gate_count_for_ivc(const std::string& bytecodePath)
     const char* jsonData = functions_string.c_str();
     size_t length = strlen(jsonData);
     std::vector<uint8_t> data(jsonData, jsonData + length);
-    writeRawBytesToStdout(data);
+    write_bytes_to_stdout(data);
 }
 
 /**
@@ -478,7 +426,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath, co
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_vk);
+        write_bytes_to_stdout(serialized_vk);
         vinfo("vk written to stdout");
     } else {
         write_file(outputPath, serialized_vk);
@@ -497,7 +445,7 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath, co
     auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_pk);
+        write_bytes_to_stdout(serialized_pk);
         vinfo("pk written to stdout");
     } else {
         write_file(outputPath, serialized_pk);
@@ -526,7 +474,7 @@ void contract(const std::string& output_path, const std::string& vk_path)
     auto contract = acir_composer.get_solidity_verifier();
 
     if (output_path == "-") {
-        writeStringToStdout(contract);
+        write_string_to_stdout(contract);
         vinfo("contract written to stdout");
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
@@ -560,7 +508,7 @@ void contract_honk(const std::string& output_path, const std::string& vk_path)
     std::string contract = get_honk_solidity_verifier(std::move(vk));
 
     if (output_path == "-") {
-        writeStringToStdout(contract);
+        write_string_to_stdout(contract);
         vinfo("contract written to stdout");
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
@@ -601,7 +549,7 @@ void proof_as_fields(const std::string& proof_path, std::string const& vk_path, 
     auto json = to_json(data);
 
     if (output_path == "-") {
-        writeStringToStdout(json);
+        write_string_to_stdout(json);
         vinfo("proof as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
@@ -631,7 +579,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 
     auto json = vk_to_json(data);
     if (output_path == "-") {
-        writeStringToStdout(json);
+        write_string_to_stdout(json);
         vinfo("vk as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
@@ -841,7 +789,7 @@ void prove_honk(const std::string& bytecodePath,
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath, recursive);
     auto proof = prover.construct_proof();
     if (outputPath == "-") {
-        writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
+        write_bytes_to_stdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
     } else {
         write_file(outputPath, to_buffer</*include_size=*/true>(proof));
@@ -927,7 +875,7 @@ void write_vk_honk(const std::string& bytecodePath, const std::string& outputPat
 
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_vk);
+        write_bytes_to_stdout(serialized_vk);
         vinfo("vk written to stdout");
     } else {
         write_file(outputPath, serialized_vk);
@@ -978,7 +926,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     // Write the VK to file as a buffer
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
-        writeRawBytesToStdout(serialized_vk);
+        write_bytes_to_stdout(serialized_vk);
         vinfo("vk written to stdout");
     } else {
         write_file(outputPath, serialized_vk);
@@ -1055,7 +1003,7 @@ void proof_as_fields_honk(const std::string& proof_path, const std::string& outp
     auto json = to_json(proof);
 
     if (output_path == "-") {
-        writeStringToStdout(json);
+        write_string_to_stdout(json);
         vinfo("proof as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
@@ -1084,7 +1032,7 @@ template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_pat
     std::vector<bb::fr> data = verification_key->to_field_elements();
     auto json = honk_vk_to_json(data);
     if (output_path == "-") {
-        writeStringToStdout(json);
+        write_string_to_stdout(json);
         vinfo("vk as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
@@ -1302,7 +1250,7 @@ int main(int argc, char* argv[])
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
-            writeStringToStdout(BB_VERSION);
+            write_string_to_stdout(BB_VERSION);
             return 0;
         }
 
@@ -1313,7 +1261,7 @@ int main(int argc, char* argv[])
             UltraHonkAPI api;
             execute_command(command, flags, api);
         } else if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
+            return prove_and_verify(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path, recursive);
@@ -1335,9 +1283,9 @@ int main(int argc, char* argv[])
             auto tube_vk_path = output_path + "/vk";
             return verify_honk<UltraRollupFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
-            gateCount<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+            gate_count<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_mega_honk") {
-            gateCount<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+            gate_count<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
         } else if (command == "verify") {

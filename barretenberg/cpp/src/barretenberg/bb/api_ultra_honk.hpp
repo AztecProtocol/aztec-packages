@@ -213,7 +213,7 @@ class UltraHonkAPI : public API {
         info("writing UltraVanillaClientIVC proof...");
         if (output_dir == "-") {
             vinfo("output dir is -");
-            writeRawBytesToStdout(buffers.proof);
+            write_bytes_to_stdout(buffers.proof);
             vinfo("proof written to stdout");
         } else {
             vinfo("output dir is ", output_dir);
@@ -327,7 +327,7 @@ class UltraHonkAPI : public API {
 
         if (output_path == "-") {
             vinfo("writing vk to stdout");
-            writeRawBytesToStdout(serialized_vk);
+            write_bytes_to_stdout(serialized_vk);
             vinfo("vk written to stdout");
         } else {
             write_file(output_path, serialized_vk);
@@ -375,7 +375,7 @@ class UltraHonkAPI : public API {
         std::string contract = get_honk_solidity_verifier(std::move(vk));
 
         if (output_path == "-") {
-            writeStringToStdout(contract);
+            write_string_to_stdout(contract);
             info("contract written to stdout");
         } else {
             write_file(output_path, { contract.begin(), contract.end() });
