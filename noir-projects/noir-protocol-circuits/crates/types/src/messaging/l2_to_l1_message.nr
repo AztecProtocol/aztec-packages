@@ -3,7 +3,7 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::{reader::Reader},
 };
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
@@ -106,7 +106,7 @@ impl Empty for ScopedL2ToL1Message {
 
 impl Serialize<SCOPED_L2_TO_L1_MESSAGE_LENGTH> for ScopedL2ToL1Message {
     fn serialize(self) -> [Field; SCOPED_L2_TO_L1_MESSAGE_LENGTH] {
-        array_concat(self.message.serialize(), [self.contract_address.to_field()])
+        self.message.serialize().concat([self.contract_address.to_field()])
     }
 }
 
