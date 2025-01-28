@@ -85,5 +85,5 @@ export const createP2PClient = async <T extends P2PClientType>(
     logger.verbose('P2P is disabled. Using dummy P2P service');
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(clientType, store, l2BlockSource, mempools, p2pService, config, telemetry);
+  return new P2PClient(clientType, store, l2BlockSource, mempools, p2pService, proofVerifier, config, telemetry);
 };
