@@ -65,18 +65,32 @@ export class AnvilTestWatcher {
       const currentSlot = await this.rollup.read.getCurrentSlot();
       const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
       const blockLog = await this.rollup.read.getBlock([pendingBlockNumber]);
+      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([currentSlot + 1n]));
 
       if (currentSlot === blockLog.slotNumber) {
         // We should jump to the next slot
-        const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
         try {
-          await this.cheatcodes.warp(Number(timestamp));
-          this.dateProvider?.setTime(Number(timestamp) * 1000);
+          await this.cheatcodes.warp(nextSlotTimestamp);
+          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
         } catch (e) {
-          this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
+          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
         }
 
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        return;
+      }
+
+      const currentTimestamp = this.dateProvider?.now() ?? Date.now();
+      if (currentTimestamp > nextSlotTimestamp * 1000) {
+        try {
+          await this.cheatcodes.warp(nextSlotTimestamp);
+          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
+        } catch (e) {
+          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
+        }
+
+        this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
+        return;
       }
     } catch (err) {
       this.logger.error('mineIfSlotFilled failed');
