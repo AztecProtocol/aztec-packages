@@ -27,7 +27,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         PolynomialBatcher polynomial_batcher(circuit_size);
         polynomial_batcher.set_unshifted(multilinear_polynomials);
-        polynomial_batcher.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
+        polynomial_batcher.set_to_be_shifted_by_one(multilinear_polynomials_to_be_shifted);
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -78,7 +78,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         PolynomialBatcher polynomial_batcher(circuit_size);
         polynomial_batcher.set_unshifted(multilinear_polynomials);
-        polynomial_batcher.set_to_be_1_shifted(multilinear_polynomials_to_be_shifted);
+        polynomial_batcher.set_to_be_shifted_by_one(multilinear_polynomials_to_be_shifted);
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1

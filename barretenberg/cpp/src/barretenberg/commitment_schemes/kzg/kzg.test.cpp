@@ -120,7 +120,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2 });
-    polynomial_batcher.set_to_be_1_shifted({ poly2 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -206,7 +206,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
-    polynomial_batcher.set_to_be_1_shifted({ poly1, poly3 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly1, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -291,7 +291,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
-    polynomial_batcher.set_to_be_1_shifted({ poly1, poly3 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly1, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -386,7 +386,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgShiftsRemoval)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
-    polynomial_batcher.set_to_be_1_shifted({ poly2, poly3 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1

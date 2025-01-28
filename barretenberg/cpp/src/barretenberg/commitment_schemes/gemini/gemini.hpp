@@ -101,12 +101,15 @@ template <typename Curve> class GeminiProver_ {
 
   public:
     /**
-     * @brief Computation of batched polynomials for the Gemini protocol
-     * @details Given the relevant sets of polynomials e.g. unshifted (F_i), to-be-shifted (G_i), computes the full
-     * batched polynomial A₀ as the linear combination of all polynomials to be opened. Also computes the partially
-     * evaluated batched polynomials A₀₊ = F + G/r and A₀₋ = F - G/r which are required for proving the opening of
-     * shifted polynomials from the commitments to their unshifted counterparts.
-     *
+     * @brief Class responsible for computation of the batched multilinear polynomials required by the Gemini protocol
+     * @details Opening multivariate polynomials using Gemini requires the computation of three batched polynomials. The
+     * first, here denoted A₀, is the linear combination of all polynomials to be opened. If we denote the linear
+     * combinations (based on challenge rho) of the unshifted and the to-be-shited-by-1 polynomials respectively by F
+     * and G, then A₀ = F + G/X. This is the polynomial that is "folded" in Gemini to produce d-1 univariate polynomials
+     * Fold_i, i = 1, ..., d-1.
+     * The second and third, A₀₊ and A₀₋, are the partially evaluated batched polynomials A₀₊ = F + G/r,  A₀₋ = F - G/r.
+     * These are required in order to prove the opening of shifted polynomials G_i/X from the commitments to their
+     * unshifted counterparts G_i.
      */
     class PolynomialBatcher {
 
@@ -116,13 +119,13 @@ template <typename Curve> class GeminiProver_ {
         Polynomial random_polynomial; // random polynomial used for ZK
         bool has_random_polynomial = false;
 
-        RefVector<Polynomial> unshifted;       // set of unshifted polynomials
-        RefVector<Polynomial> to_be_1_shifted; // set of polynomials to be left shifted by 1
+        RefVector<Polynomial> unshifted;            // set of unshifted polynomials
+        RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
 
-        Polynomial batched_unshifted;       // linear combination of unshifted polynomials
-        Polynomial batched_to_be_1_shifted; // linear combination of to-be-shifted polynomials
+        Polynomial batched_unshifted;            // linear combination of unshifted polynomials
+        Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
 
-        // Compute the linear combination of the polynomials in the set; update the running scalar in place
+        // Compute the linear combination of the polynomials in the provided set; update the running scalar in place
         Polynomial batch(RefVector<Polynomial> polynomials, const Fr& challenge, Fr& running_scalar)
         {
             // initialize the batched polynomial based on the structure of the first polynomial in the set
@@ -140,13 +143,13 @@ template <typename Curve> class GeminiProver_ {
         {}
 
         bool has_unshifted() const { return unshifted.size() > 0; }
-        bool has_to_be_1_shifted() const { return to_be_1_shifted.size() > 0; }
+        bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
-        void set_to_be_1_shifted(RefVector<Polynomial> polynomials) { to_be_1_shifted = polynomials; }
+        void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
 
-        // Initialize the batched unshifted polynomial; used to add randomness for ZK
+        // Initialize the random polynomial used to add randomness to the batched polynomials for ZK
         void set_random_polynomial(Polynomial&& random)
         {
             has_random_polynomial = true;
@@ -170,9 +173,9 @@ template <typename Curve> class GeminiProver_ {
             }
 
             // compute the linear combination G of the to-be-shifted polynomials
-            if (has_to_be_1_shifted()) {
-                batched_to_be_1_shifted = batch(to_be_1_shifted, challenge, running_scalar);
-                full_batched += batched_to_be_1_shifted.shifted(); // A₀ = F + G/X
+            if (has_to_be_shifted_by_one()) {
+                batched_to_be_shifted_by_one = batch(to_be_shifted_by_one, challenge, running_scalar);
+                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ = F + G/X
             }
 
             return full_batched;
@@ -183,6 +186,7 @@ template <typename Curve> class GeminiProver_ {
         {
             Polynomial& batched_F = batched_unshifted; // alias
 
+            // if necessary, add randomness to the batched polynomials for ZK
             if (has_random_polynomial) {
                 batched_F += random_polynomial;
             }
@@ -190,8 +194,8 @@ template <typename Curve> class GeminiProver_ {
             Polynomial A_0_pos = batched_F; // A₀₊ = F
             Polynomial A_0_neg = batched_F; // A₀₋ = F
 
-            if (has_to_be_1_shifted()) {
-                Polynomial& batched_G = batched_to_be_1_shifted; // alias
+            if (has_to_be_shifted_by_one()) {
+                Polynomial& batched_G = batched_to_be_shifted_by_one; // alias
 
                 Fr r_inv = r_challenge.invert(); // r⁻¹
                 batched_G *= r_inv;              // G = G/r

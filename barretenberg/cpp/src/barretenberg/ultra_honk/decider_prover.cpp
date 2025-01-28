@@ -69,7 +69,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
 
     PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
     polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_1_shifted(proving_key->proving_key.polynomials.get_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted_by_one(proving_key->proving_key.polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {

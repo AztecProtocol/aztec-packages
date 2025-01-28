@@ -85,7 +85,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
         PolynomialBatcher polynomial_batcher(N);
         polynomial_batcher.set_unshifted(RefVector(f_polynomials));
-        polynomial_batcher.set_to_be_1_shifted(RefVector(g_polynomials));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector(g_polynomials));
 
         // Initialize an empty NativeTranscript
         auto prover_transcript = NativeTranscript::prover_init_empty();

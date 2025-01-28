@@ -71,9 +71,9 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr rho_challenge = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
+    Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
-    Polynomial A_0 = polynomial_batcher.compute_batched(rho, rho_challenge);
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
 
     size_t num_groups = groups_to_be_concatenated.size();
     size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
@@ -88,11 +88,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
 
         for (size_t i = 0; i < num_groups; ++i) {
-            batched_concatenated.add_scaled(concatenated_polynomials[i], rho_challenge);
+            batched_concatenated.add_scaled(concatenated_polynomials[i], running_scalar);
             for (size_t j = 0; j < num_chunks_per_group; ++j) {
-                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
+                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], running_scalar);
             }
-            rho_challenge *= rho;
+            running_scalar *= rho;
         }
         // If proving for translator, add contribution of the batched concatenation polynomials
         A_0 += batched_concatenated;

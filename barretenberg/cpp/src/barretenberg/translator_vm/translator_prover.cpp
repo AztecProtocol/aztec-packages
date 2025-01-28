@@ -147,7 +147,7 @@ void TranslatorProver::execute_pcs_rounds()
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
-    polynomial_batcher.set_to_be_1_shifted(key->proving_key->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,

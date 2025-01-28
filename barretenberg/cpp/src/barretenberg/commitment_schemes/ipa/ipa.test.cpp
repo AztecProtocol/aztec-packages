@@ -258,7 +258,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2 });
-    polynomial_batcher.set_to_be_1_shifted({ poly2 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -313,7 +313,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2 });
-    polynomial_batcher.set_to_be_1_shifted({ poly2 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -383,7 +383,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
 
     PolynomialBatcher polynomial_batcher(n);
     polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
-    polynomial_batcher.set_to_be_1_shifted({ poly2, poly3 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2, poly3 });
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1

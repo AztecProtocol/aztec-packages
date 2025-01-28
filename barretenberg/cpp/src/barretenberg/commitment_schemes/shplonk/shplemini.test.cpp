@@ -200,7 +200,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     PolynomialBatcher polynomial_batcher(this->n);
     polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
-    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     Fr running_scalar = Fr(1);
     Polynomial batched = polynomial_batcher.compute_batched(rho, running_scalar);
@@ -315,7 +315,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
 
     PolynomialBatcher polynomial_batcher(this->n);
     polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
-    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
@@ -431,7 +431,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     PolynomialBatcher polynomial_batcher(this->n);
     polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
-    polynomial_batcher.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,

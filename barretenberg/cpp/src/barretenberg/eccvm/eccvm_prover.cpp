@@ -132,7 +132,7 @@ void ECCVMProver::execute_pcs_rounds()
     // evaluations produced by Sumcheck
     PolynomialBatcher polynomial_batcher(key->circuit_size);
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_1_shifted(key->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
 
     const OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
