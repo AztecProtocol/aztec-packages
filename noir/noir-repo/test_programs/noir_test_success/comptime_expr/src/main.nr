@@ -553,9 +553,9 @@ mod tests {
     #[test]
     fn test_expr_as_unsafe() {
         comptime {
-            let expr = quote {  
+            let expr = quote {
                 /// Safety: test
-                unsafe { 1; 4; 23 } 
+                unsafe { 1; 4; 23 }
                 }
                 .as_expr()
                 .unwrap();
@@ -567,9 +567,9 @@ mod tests {
     #[test]
     fn test_expr_modify_for_unsafe() {
         comptime {
-            let expr = quote { 
+            let expr = quote {
                 /// Safety: test
-                unsafe { 1; 4; 23 } 
+                unsafe { 1; 4; 23 }
             }
                 .as_expr()
                 .unwrap();
@@ -761,7 +761,7 @@ mod tests {
     }
 
     comptime fn times_two(expr: Expr) -> Option<Expr> {
-        expr.as_integer().and_then(|(value, _)| {
+        expr.as_integer().and_then(|(value, _): (Field, bool)| {
             let value = value * 2;
             quote { $value }.as_expr()
         })
