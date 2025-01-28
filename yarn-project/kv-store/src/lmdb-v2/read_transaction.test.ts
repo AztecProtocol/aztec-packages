@@ -5,7 +5,7 @@ import { MsgpackChannel, RoundtripDuration } from '@aztec/native';
 import { expect } from 'chai';
 import { SinonStubbedInstance, createStubInstance } from 'sinon';
 
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, LMDBResponse, TypeSafeMessageChannel } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, LMDBResponseBody, TypeSafeMessageChannel } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 
 const duration = { encodingUs: 0, decodingUs: 0, totalUs: 0, callUs: 0 };
@@ -22,7 +22,7 @@ describe('ReadTransaction', () => {
   it('sends GET requests', async () => {
     const getDeferred = promiseWithResolvers<{
       duration: RoundtripDuration;
-      response: LMDBResponse[LMDBMessageType.GET];
+      response: LMDBResponseBody[LMDBMessageType.GET];
     }>();
 
     channel.sendMessage.returns(getDeferred.promise);

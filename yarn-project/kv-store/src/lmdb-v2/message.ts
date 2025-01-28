@@ -110,7 +110,7 @@ interface BoolResponse {
   ok: true;
 }
 
-export type LMDBResponse = {
+export type LMDBResponseBody = {
   [LMDBMessageType.OPEN_DATABASE]: BoolResponse;
 
   [LMDBMessageType.GET]: GetResponse;
@@ -125,4 +125,4 @@ export type LMDBResponse = {
   [LMDBMessageType.CLOSE]: BoolResponse;
 };
 
-export type TypeSafeMessageChannel = MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponse>;
+export type TypeSafeMessageChannel = MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;

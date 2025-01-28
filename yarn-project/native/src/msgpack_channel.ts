@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { MessageHeader, TypedMessage } from '@aztec/foundation/message';
 
-import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
 export interface MessageReceiver {
@@ -25,7 +25,7 @@ addExtension({
   write: fr => fr.toBuffer(),
 });
 
-export type MessageBody<T extends number> = { [K in T]: object | void };
+type MessageBody<T extends number> = { [K in T]: object | void };
 
 export class MsgpackChannel<
   M extends number = number,
@@ -36,12 +36,6 @@ export class MsgpackChannel<
   private encoder = new Encoder({
     // always encode JS objects as MessagePack maps
     // this makes it compatible with other MessagePack decoders
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-
-  /** A long-lived msgpack decoder */
-  private decoder = new Decoder({
     useRecords: false,
     int64AsType: 'bigint',
   });
@@ -63,6 +57,7 @@ export class MsgpackChannel<
 
     const start = process.hrtime.bigint();
     const requestId = this.msgId++;
+
     const request = new TypedMessage(msgType, new MessageHeader({ requestId }), body);
     const encodedRequest = this.encoder.encode(request);
     const encodingEnd = process.hrtime.bigint();
@@ -85,7 +80,7 @@ export class MsgpackChannel<
       );
     }
 
-    const decodedResponse = this.decoder.unpack(buf);
+    const decodedResponse = this.encoder.unpack(buf);
     if (!TypedMessage.isTypedMessageLike(decodedResponse)) {
       throw new TypeError(
         'Invalid response: expected TypedMessageLike, got ' +

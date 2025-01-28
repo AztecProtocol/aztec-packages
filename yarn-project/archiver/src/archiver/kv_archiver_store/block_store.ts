@@ -1,6 +1,6 @@
 import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, BlockHeader, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { toArray } from '@aztec/foundation/iterable';
+import { take, toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, type Range } from '@aztec/kv-store';
 
@@ -240,7 +240,7 @@ export class BlockStore {
    * @returns The number of the latest L2 block processed.
    */
   async getSynchedL2BlockNumber(): Promise<number> {
-    const [lastBlockNumber] = await toArray(this.#blocks.keysAsync({ reverse: true, limit: 1 }));
+    const [lastBlockNumber] = await toArray(take(this.#blocks.keysAsync({ reverse: true }), 1));
     return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
   }
 

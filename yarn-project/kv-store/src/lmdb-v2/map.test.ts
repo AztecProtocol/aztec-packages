@@ -1,4 +1,4 @@
 import { describeAztecMap } from '../interfaces/map_test_suite.js';
-import { AztecLMDBStoreV2 } from './store.js';
+import { openTmpStore } from './factory.js';
 
-describeAztecMap('LMDBMap', () => AztecLMDBStoreV2.tmp(), true);
+describeAztecMap('LMDBMap', () => openTmpStore('test'), true);

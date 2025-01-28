@@ -127,10 +127,10 @@ export function singleKeyCmp(a: [Uint8Array, Uint8Array[] | null], b: Uint8Array
   return Buffer.compare(a[0], b);
 }
 
-export async function execInWriteTx<T>(store: AztecLMDBStoreV2, fn: (tx: WriteTransaction) => Promise<T>): Promise<T> {
-  const currentWrite = store.getWriteTx();
+export function execInWriteTx<T>(store: AztecLMDBStoreV2, fn: (tx: WriteTransaction) => Promise<T>): Promise<T> {
+  const currentWrite = store.getCurrentWriteTx();
   if (currentWrite) {
-    return await fn(currentWrite);
+    return fn(currentWrite);
   } else {
     return store.transactionAsync(fn);
   }
@@ -140,7 +140,7 @@ export async function execInReadTx<T>(
   store: AztecLMDBStoreV2,
   fn: (tx: ReadTransaction) => T | Promise<T>,
 ): Promise<T> {
-  const currentWrite = store.getWriteTx();
+  const currentWrite = store.getCurrentWriteTx();
   if (currentWrite) {
     return await fn(currentWrite);
   } else {

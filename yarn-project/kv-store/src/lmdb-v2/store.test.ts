@@ -2,6 +2,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { expect } from 'chai';
 
+import { openTmpStore } from './factory.js';
 import { ReadTransaction } from './read_transaction.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
@@ -9,7 +10,7 @@ describe('AztecLMDBStoreV2', () => {
   let store: AztecLMDBStoreV2;
 
   beforeEach(async () => {
-    store = await AztecLMDBStoreV2.tmp();
+    store = await openTmpStore('test');
   });
 
   afterEach(async () => {
@@ -30,14 +31,28 @@ describe('AztecLMDBStoreV2', () => {
     const writeChecks = promiseWithResolvers<void>();
     const delay = promiseWithResolvers<void>();
     const getValues = async (tx?: ReadTransaction) => {
-      tx ??= store.getReadTx();
-      const data = await tx.get(Buffer.from('foo'));
-      const index = await tx.getIndex(Buffer.from('foo'));
+      let shouldClose = false;
+      if (!tx) {
+        tx = store.getCurrentWriteTx();
+        if (!tx) {
+          shouldClose = true;
+          tx = store.getReadTx();
+        }
+      }
 
-      return {
-        data,
-        index,
-      };
+      try {
+        const data = await tx.get(Buffer.from('foo'));
+        const index = await tx.getIndex(Buffer.from('foo'));
+
+        return {
+          data,
+          index,
+        };
+      } finally {
+        if (shouldClose) {
+          tx.close();
+        }
+      }
     };
 
     // before doing any writes, we should have an empty db
