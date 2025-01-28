@@ -98,7 +98,7 @@ function test_cmds {
   echo FLOW=sol_honk $run_test assert_statement
   echo FLOW=sol_honk $run_test 1_mul
   echo FLOW=sol_honk $run_test slices
-  echo FLOW=sol_honk $run_test verify_honk_proof
+  echo FLOW=sol_honk $run_test verify_honk_proof # WORKTODO: double check whether this passing native ver check is actually meaningful
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
