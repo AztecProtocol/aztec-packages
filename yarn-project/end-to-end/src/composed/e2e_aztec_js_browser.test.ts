@@ -22,11 +22,14 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
  * This test is a bit of a special case as it's on a web browser and not only on anvil and node.js.
  * To run the test, do the following:
  *    1) Build the whole repository,
- *    2) go to `yarn-project/end-to-end` and build the web packed package with `yarn build:web`,
- *    3) if you intend to use a remotely running environment then export the URL of your PXE e.g.
- *       `export PXE_URL='http://localhost:8080'`
- *    4) go to `yarn-project/end-to-end` and run the test: `yarn test aztec_js_browser`
- *    5) If you get dependency error run `apt install libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2t64`.
+ *    2) If playwright is not installed, install it with `sudo npx playwright install`,
+ *    3) go to `yarn-project/end-to-end` and build the web packed package with `yarn build:web`,
+ *    4) run the test: `export CHROME_BIN="/mnt/user-data/<user>/.cache/ms-playwright/chromium-1148/chrome-linux/chrome"`
+ *    5) start anvil: `anvil`,
+ *    6) start sandbox in another terminal: `cd yarn-project/aztec && yarn start:sandbox`,
+ *    7) open new terminal and run `export ETHEREUM_HOST='http://localhost:8545/' && export PXE_URL='http://localhost:8080'`
+ *    8) go to `yarn-project/end-to-end` and run the test: `LOG_LEVEL=debug yarn test:e2e-no-docker e2e_aztec_js_browser`
+ *    9) If you get dependency error run `apt install libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2t64`.
  *
  * NOTE 1: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
  *         unexpectedly running in the background. Kill it with `killall chrome`
@@ -35,7 +38,6 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
  *         you have to register it on `TypeRegistry` class, implement fromJSON method just like TypeRegistry requires
  *         and add a case in `contractArtifactFromBuffer(...)` function.
  */
-
 const setupApp = async () => {
   const { pxe: pxeService } = await setup(0);
   let pxeURL = PXE_URL;
