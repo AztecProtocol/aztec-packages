@@ -15,8 +15,6 @@ import {
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
-  LeonidasLibAbi,
-  LeonidasLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -30,6 +28,8 @@ import {
   SlashFactoryBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
+  ValidatorSelectionLibAbi,
+  ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -128,9 +128,9 @@ export const l1Artifacts = {
     libraries: {
       linkReferences: RollupLinkReferences,
       libraryCode: {
-        LeonidasLib: {
-          contractAbi: LeonidasLibAbi,
-          contractBytecode: LeonidasLibBytecode as Hex,
+        ValidatorSelectionLib: {
+          contractAbi: ValidatorSelectionLibAbi,
+          contractBytecode: ValidatorSelectionLibBytecode as Hex,
         },
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
