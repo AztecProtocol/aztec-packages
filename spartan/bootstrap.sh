@@ -86,7 +86,8 @@ case "$cmd" in
     hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
     ;;
   "test-kind")
-    scripts/test_kind.sh
+    shift
+    scripts/test_kind.sh $@
     ;;
   "gke")
     gke
