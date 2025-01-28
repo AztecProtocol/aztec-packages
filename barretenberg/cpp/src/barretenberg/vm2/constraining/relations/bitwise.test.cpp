@@ -21,6 +21,15 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bitwise = bb::avm2::bitwise<FF>;
 
+TEST(BitwiseConstrainingTest, EmptyRow)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    check_relation<bitwise>(trace.as_rows());
+}
+
 // Testing a positive AND operation for each integral type (U1, U8, ... U128)
 TEST(BitwiseConstrainingTest, AndWithTracegen)
 {
@@ -129,6 +138,146 @@ TEST(BitwiseConstrainingTest, mixedOperationsWithTracegen)
 
     EXPECT_EQ(trace.get_num_rows(), 13); // 13 = 3 * 1 + 1 * 2 + 2 * 4 (2U1 + 1U8 + 1U16 + 2U32)
     check_relation<bitwise>(trace.as_rows());
+}
+
+TEST(BitwiseConstrainingTest, negativeWrongInit)
+{
+    TestTraceContainer::RowTraceContainer trace = {
+        {
+            .bitwise_acc_ia = 25,
+            .bitwise_acc_ib = 25,
+            .bitwise_acc_ic = 25,
+            .bitwise_ia_byte = 24,
+            .bitwise_ib_byte = 27,
+            .bitwise_ic_byte = 28,
+            .bitwise_last = 1,
+        },
+    };
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_A), "BITW_INIT_A");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_B), "BITW_INIT_B");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_C), "BITW_INIT_C");
+}
+
+TEST(BitwiseConstrainingTest, negativeTruncateCtr)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_ctr = 4,
+        },
+        {
+            .bitwise_ctr = 3,
+        },
+        {
+            .bitwise_ctr = 2,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_CTR_DECREMENT),
+                              "BITW_CTR_DECREMENT");
+}
+
+TEST(BitwiseConstrainingTest, negativeGapCtr)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_ctr = 4,
+        },
+        {
+            .bitwise_ctr = 2,
+            .bitwise_last = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_CTR_DECREMENT),
+                              "BITW_CTR_DECREMENT");
+}
+
+TEST(BitwiseConstrainingTest, negativeLastSetBeforeEnd)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_ctr = 8,
+        },
+        {
+            .bitwise_ctr = 7,
+
+        },
+        {
+            .bitwise_ctr = 6,
+            .bitwise_last = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_LAST_FOR_CTR_ONE),
+                              "BITW_LAST_FOR_CTR_ONE");
+}
+
+TEST(BitwiseConstrainingTest, negativeDeactivateRow)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_ctr = 8,
+            .bitwise_sel = 1,
+        },
+        {
+            .bitwise_ctr = 7,
+            .bitwise_sel = 0,
+        },
+        {
+            .bitwise_ctr = 6,
+            .bitwise_sel = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_SEL_CTR_NON_ZERO),
+                              "BITW_SEL_CTR_NON_ZERO");
+}
+
+TEST(BitwiseConstrainingTest, negativeChangeOpIDBeforeEnd)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::XOR),
+        },
+        {
+            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        },
+        {
+            .bitwise_last = 1,
+            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::XOR),
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_OP_ID_REL),
+                              "BITW_OP_ID_REL");
+}
+
+TEST(BitwiseConstrainingTest, negativeWrongAccumulation)
+{
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
+        {
+            .bitwise_acc_ia = 0xaa1f, // Correct: 0xaa11
+            .bitwise_acc_ib = 0xbb2f, // Correct: 0xbb22
+            .bitwise_acc_ic = 0xcc3f, // Correct: 0xcc33
+            .bitwise_ia_byte = 0x11,
+            .bitwise_ib_byte = 0x22,
+            .bitwise_ic_byte = 0x33,
+        },
+        {
+            .bitwise_acc_ia = 0xaa,
+            .bitwise_acc_ib = 0xbb,
+            .bitwise_acc_ic = 0xcc,
+            .bitwise_last = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_ACC_REL_A),
+                              "BITW_ACC_REL_A");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_ACC_REL_B),
+                              "BITW_ACC_REL_B");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(test_container.as_rows(), bitwise::SR_BITW_ACC_REL_C),
+                              "BITW_ACC_REL_C");
 }
 
 } // namespace
