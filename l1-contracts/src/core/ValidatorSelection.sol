@@ -10,12 +10,13 @@ import {
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
 } from "@aztec/core/libraries/TimeMath.sol";
+import {ValidatorSelectionLib} from
+  "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {Staking} from "@aztec/core/staking/Staking.sol";
+
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
@@ -39,7 +40,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
   // The time that the contract was deployed
   Timestamp public immutable GENESIS_TIME;
 
-  ValidatorSelectionStorage private ValidatorSelectionStore;
+  ValidatorSelectionStorage private validatorSelectionStore;
 
   constructor(
     IERC20 _stakingAsset,
@@ -74,7 +75,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionStore.epochs[_epoch].committee;
+    return validatorSelectionStore.epochs[_epoch].committee;
   }
 
   /**
@@ -88,7 +89,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     returns (address[] memory)
   {
     return ValidatorSelectionLib.getCommitteeAt(
-      ValidatorSelectionStore, stakingStore, getCurrentEpoch(), TARGET_COMMITTEE_SIZE
+      validatorSelectionStore, stakingStore, getCurrentEpoch(), TARGET_COMMITTEE_SIZE
     );
   }
 
@@ -106,7 +107,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     returns (address[] memory)
   {
     return ValidatorSelectionLib.getCommitteeAt(
-      ValidatorSelectionStore, stakingStore, getEpochAt(_ts), TARGET_COMMITTEE_SIZE
+      validatorSelectionStore, stakingStore, getEpochAt(_ts), TARGET_COMMITTEE_SIZE
     );
   }
 
@@ -123,7 +124,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     override(IValidatorSelection)
     returns (uint256)
   {
-    return ValidatorSelectionLib.getSampleSeed(ValidatorSelectionStore, getEpochAt(_ts));
+    return ValidatorSelectionLib.getSampleSeed(validatorSelectionStore, getEpochAt(_ts));
   }
 
   /**
@@ -132,7 +133,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    * @return The sample seed for the current epoch
    */
   function getCurrentSampleSeed() external view override(IValidatorSelection) returns (uint256) {
-    return ValidatorSelectionLib.getSampleSeed(ValidatorSelectionStore, getCurrentEpoch());
+    return ValidatorSelectionLib.getSampleSeed(validatorSelectionStore, getCurrentEpoch());
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -170,11 +171,11 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    */
   function setupEpoch() public override(IValidatorSelection) {
     Epoch epochNumber = getCurrentEpoch();
-    EpochData storage epoch = ValidatorSelectionStore.epochs[epochNumber];
+    EpochData storage epoch = validatorSelectionStore.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
-      epoch.sampleSeed = ValidatorSelectionLib.getSampleSeed(ValidatorSelectionStore, epochNumber);
-      epoch.nextSeed = ValidatorSelectionStore.lastSeed = _computeNextSeed(epochNumber);
+      epoch.sampleSeed = ValidatorSelectionLib.getSampleSeed(validatorSelectionStore, epochNumber);
+      epoch.nextSeed = validatorSelectionStore.lastSeed = _computeNextSeed(epochNumber);
       epoch.committee = ValidatorSelectionLib.sampleValidators(
         stakingStore, epoch.sampleSeed, TARGET_COMMITTEE_SIZE
       );
@@ -262,7 +263,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     Slot slot = getSlotAt(_ts);
     Epoch epochNumber = getEpochAtSlot(slot);
     return ValidatorSelectionLib.getProposerAt(
-      ValidatorSelectionStore, stakingStore, slot, epochNumber, TARGET_COMMITTEE_SIZE
+      validatorSelectionStore, stakingStore, slot, epochNumber, TARGET_COMMITTEE_SIZE
     );
   }
 
@@ -343,7 +344,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
   ) internal view {
     Epoch epochNumber = getEpochAtSlot(_slot);
     ValidatorSelectionLib.validateValidatorSelection(
-      ValidatorSelectionStore,
+      validatorSelectionStore,
       stakingStore,
       _slot,
       epochNumber,

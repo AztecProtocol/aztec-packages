@@ -2,10 +2,10 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
   EpochData, ValidatorSelectionStorage
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -36,25 +36,25 @@ library ValidatorSelectionLib {
   }
 
   function getProposerAt(
-    ValidatorSelectionStorage storage _ValidatorSelectionStore,
+    ValidatorSelectionStorage storage _validatorSelectionStore,
     StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) external view returns (address) {
     return _getProposerAt(
-      _ValidatorSelectionStore, _stakingStore, _slot, _epochNumber, _targetCommitteeSize
+      _validatorSelectionStore, _stakingStore, _slot, _epochNumber, _targetCommitteeSize
     );
   }
 
   function getCommitteeAt(
-    ValidatorSelectionStorage storage _ValidatorSelectionStore,
+    ValidatorSelectionStorage storage _validatorSelectionStore,
     StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) external view returns (address[] memory) {
     return
-      _getCommitteeAt(_ValidatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
+      _getCommitteeAt(_validatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
   }
 
   /**
@@ -74,7 +74,7 @@ library ValidatorSelectionLib {
    * @param _digest - The digest of the block
    */
   function validateValidatorSelection(
-    ValidatorSelectionStorage storage _ValidatorSelectionStore,
+    ValidatorSelectionStorage storage _validatorSelectionStore,
     StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
@@ -86,11 +86,11 @@ library ValidatorSelectionLib {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
     address[] memory committee =
-      _getCommitteeAt(_ValidatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
+      _getCommitteeAt(_validatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
     address attester = committee.length == 0
       ? address(0)
       : committee[computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_ValidatorSelectionStore, _epochNumber), committee.length
+        _epochNumber, _slot, getSampleSeed(_validatorSelectionStore, _epochNumber), committee.length
       )];
     address proposer = _stakingStore.info[attester].proposer;
 
@@ -151,7 +151,7 @@ library ValidatorSelectionLib {
    *
    * @return The sample seed for the epoch
    */
-  function getSampleSeed(ValidatorSelectionStorage storage _ValidatorSelectionStore, Epoch _epoch)
+  function getSampleSeed(ValidatorSelectionStorage storage _validatorSelectionStore, Epoch _epoch)
     internal
     view
     returns (uint256)
@@ -159,17 +159,17 @@ library ValidatorSelectionLib {
     if (Epoch.unwrap(_epoch) == 0) {
       return type(uint256).max;
     }
-    uint256 sampleSeed = _ValidatorSelectionStore.epochs[_epoch].sampleSeed;
+    uint256 sampleSeed = _validatorSelectionStore.epochs[_epoch].sampleSeed;
     if (sampleSeed != 0) {
       return sampleSeed;
     }
 
-    sampleSeed = _ValidatorSelectionStore.epochs[_epoch - Epoch.wrap(1)].nextSeed;
+    sampleSeed = _validatorSelectionStore.epochs[_epoch - Epoch.wrap(1)].nextSeed;
     if (sampleSeed != 0) {
       return sampleSeed;
     }
 
-    return _ValidatorSelectionStore.lastSeed;
+    return _validatorSelectionStore.lastSeed;
   }
 
   /**
@@ -206,7 +206,7 @@ library ValidatorSelectionLib {
   }
 
   function _getProposerAt(
-    ValidatorSelectionStorage storage _ValidatorSelectionStore,
+    ValidatorSelectionStorage storage _validatorSelectionStore,
     StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
@@ -217,25 +217,25 @@ library ValidatorSelectionLib {
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
     address[] memory committee =
-      _getCommitteeAt(_ValidatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
+      _getCommitteeAt(_validatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
     if (committee.length == 0) {
       return address(0);
     }
 
     address attester = committee[computeProposerIndex(
-      _epochNumber, _slot, getSampleSeed(_ValidatorSelectionStore, _epochNumber), committee.length
+      _epochNumber, _slot, getSampleSeed(_validatorSelectionStore, _epochNumber), committee.length
     )];
 
     return _stakingStore.info[attester].proposer;
   }
 
   function _getCommitteeAt(
-    ValidatorSelectionStorage storage _ValidatorSelectionStore,
+    ValidatorSelectionStorage storage _validatorSelectionStore,
     StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
   ) private view returns (address[] memory) {
-    EpochData storage epoch = _ValidatorSelectionStore.epochs[_epochNumber];
+    EpochData storage epoch = _validatorSelectionStore.epochs[_epochNumber];
 
     if (epoch.sampleSeed != 0) {
       uint256 committeeSize = epoch.committee.length;
@@ -251,7 +251,7 @@ library ValidatorSelectionLib {
     }
 
     // Emulate a sampling of the validators
-    uint256 sampleSeed = getSampleSeed(_ValidatorSelectionStore, _epochNumber);
+    uint256 sampleSeed = getSampleSeed(_validatorSelectionStore, _epochNumber);
     return _sampleValidators(_stakingStore, sampleSeed, _targetCommitteeSize);
   }
 
