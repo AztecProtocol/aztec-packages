@@ -684,6 +684,7 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
+        size_t real_eccvm_circuit_size;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
@@ -691,6 +692,7 @@ class ECCVMFlavor {
             : Base(std::max(1UL << CONST_ECCVM_LOG_N,
                             builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates())),
                    0)
+            , real_eccvm_circuit_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
