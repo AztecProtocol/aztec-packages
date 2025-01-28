@@ -35,21 +35,21 @@ describe('SpongeBlob', () => {
     expect(fields.length).toBe(SPONGE_BLOB_LENGTH);
   });
 
-  it('matches an ordinary short poseidon2 hash', () => {
+  it('matches an ordinary short poseidon2 hash', async () => {
     spongeBlob = SpongeBlob.init(4);
     const input = [Fr.ONE, new Fr(2), new Fr(3), new Fr(4)];
-    spongeBlob.absorb(input);
-    const expectedHash = poseidon2Hash(input);
-    const res = spongeBlob.squeeze();
+    await spongeBlob.absorb(input);
+    const expectedHash = await poseidon2Hash(input);
+    const res = await spongeBlob.squeeze();
     expect(res).toEqual(expectedHash);
   });
 
-  it('matches an ordinary long poseidon2 hash', () => {
+  it('matches an ordinary long poseidon2 hash', async () => {
     spongeBlob = SpongeBlob.init(4096);
     const input = Array(4096).fill(new Fr(3));
-    spongeBlob.absorb(input);
-    const expectedHash = poseidon2Hash(input);
-    const res = spongeBlob.squeeze();
+    await spongeBlob.absorb(input);
+    const expectedHash = await poseidon2Hash(input);
+    const res = await spongeBlob.squeeze();
     expect(res).toEqual(expectedHash);
   });
 });

@@ -2,9 +2,9 @@
 
 #include <array>
 #include <functional>
-#include <list>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -13,16 +13,24 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
+#include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_power_of_2.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_range.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_sha256_params.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_unary.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2 {
@@ -34,7 +42,7 @@ namespace {
 
 auto build_precomputed_columns_jobs(TraceContainer& trace)
 {
-    return std::array<std::function<void()>, 3>{
+    return std::vector<std::function<void()>>{
         [&]() {
             PrecomputedTraceBuilder precomputed_builder;
             AVM_TRACK_TIME("tracegen/precomputed/misc", precomputed_builder.process_misc(trace));
@@ -48,6 +56,9 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/unary", precomputed_builder.process_unary(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
+                           precomputed_builder.process_sha256_round_constants(trace));
         },
     };
 }
@@ -55,6 +66,15 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
 void execute_jobs(std::span<std::function<void()>> jobs)
 {
     parallel_for(jobs.size(), [&](size_t i) { jobs[i](); });
+}
+
+// We need this to be able to make a vector of unique_ptrs.
+template <typename R, typename... Ts> std::vector<R> make_jobs(Ts&&... args)
+{
+    std::vector<R> jobs;
+    jobs.reserve(sizeof...(Ts));
+    (jobs.push_back(std::move(args)), ...);
+    return jobs;
 }
 
 template <typename T> inline void clear_events(T& c)
@@ -114,7 +134,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
             // Subtrace jobs.
-            std::array<std::function<void()>, 2>{
+            std::vector<std::function<void()>>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution",
@@ -127,67 +147,58 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
                     clear_events(events.alu);
                 },
-            });
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_decomposition",
+                                   bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
+                    clear_events(events.bytecode_decomposition);
+                },
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_hashing",
+                                   bytecode_builder.process_hashing(events.bytecode_hashing, trace));
+                    clear_events(events.bytecode_hashing);
+                },
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_retrieval",
+                                   bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
+                    clear_events(events.bytecode_retrieval);
+                },
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/instruction_fetching",
+                                   bytecode_builder.process_instruction_fetching(events.instruction_fetching, trace));
+                    clear_events(events.instruction_fetching);
+                },
+                [&]() {
+                    Sha256TraceBuilder sha256_builder(trace);
+                    AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
+                    clear_events(events.sha256_compression);
+                } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
 
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = std::array<std::function<void()>, 13>{
-            [&]() {
-                LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings> lookup_execution_bitwise;
-                lookup_execution_bitwise.process(trace);
-            },
-            [&]() {
-                LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings> lookup_execution_execution;
-                lookup_execution_execution.process(trace);
-            },
-            [&]() {
-                PermutationBuilder<perm_dummy_dynamic_permutation_settings> perm_execution_execution;
-                perm_execution_execution.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_diff_lookup_settings> lookup_rng_chk_diff;
-                lookup_rng_chk_diff.process(trace);
-            },
-            [&]() {
-                LookupIntoPowerOf2<lookup_rng_chk_pow_2_lookup_settings> lookup_rng_chk_pow_2;
-                lookup_rng_chk_pow_2.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r0_16_bit_lookup_settings> lookup_rng_chk_is_r0_16_bit;
-                lookup_rng_chk_is_r0_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r1_16_bit_lookup_settings> lookup_rng_chk_is_r1_16_bit;
-                lookup_rng_chk_is_r1_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r2_16_bit_lookup_settings> lookup_rng_chk_is_r2_16_bit;
-                lookup_rng_chk_is_r2_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r3_16_bit_lookup_settings> lookup_rng_chk_is_r3_16_bit;
-                lookup_rng_chk_is_r3_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r4_16_bit_lookup_settings> lookup_rng_chk_is_r4_16_bit;
-                lookup_rng_chk_is_r4_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r5_16_bit_lookup_settings> lookup_rng_chk_is_r5_16_bit;
-                lookup_rng_chk_is_r5_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r6_16_bit_lookup_settings> lookup_rng_chk_is_r6_16_bit;
-                lookup_rng_chk_is_r6_16_bit.process(trace);
-            },
-            [&]() {
-                LookupIntoRange<lookup_rng_chk_is_r7_16_bit_lookup_settings> lookup_rng_chk_is_r7_16_bit;
-                lookup_rng_chk_is_r7_16_bit.process(trace);
-            },
-        };
-        AVM_TRACK_TIME("tracegen/interactions", execute_jobs(jobs_interactions));
+        auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+            std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
+            std::make_unique<LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings>>(),
+            std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_diff_lookup_settings>>(),
+            std::make_unique<LookupIntoPowerOf2<lookup_rng_chk_pow_2_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r0_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r1_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r2_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r3_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r4_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r5_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r6_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoRange<lookup_rng_chk_is_r7_16_bit_lookup_settings>>(),
+            std::make_unique<LookupIntoUnary<lookup_bytecode_to_read_unary_lookup_settings>>(),
+            std::make_unique<LookupIntoSha256Params<lookup_sha256_round_constant_lookup_settings>>());
+        AVM_TRACK_TIME("tracegen/interactions",
+                       parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
 
     print_trace_stats(trace);

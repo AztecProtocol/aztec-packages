@@ -16,9 +16,9 @@ import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from "../../utils/conversion";
-import { Fragment, useContext, useState } from "react";
+import { useContext, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
-import { AztecContext } from "../home/home";
+import { AztecContext } from "../../aztecEnv";
 
 const container = css({
   display: "flex",

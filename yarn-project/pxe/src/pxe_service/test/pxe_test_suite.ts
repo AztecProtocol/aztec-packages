@@ -47,7 +47,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('registers a class and adds a contract for it', async () => {
       const artifact = randomContractArtifact();
-      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClass = await getContractClassFromArtifact(artifact);
       const contractClassId = contractClass.id;
       const instance = await randomContractInstanceWithAddress({ contractClassId });
 
@@ -62,7 +62,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('refuses to register a class with a mismatched address', async () => {
       const artifact = randomContractArtifact();
-      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClass = await getContractClassFromArtifact(artifact);
       const contractClassId = contractClass.id;
       const instance = await randomContractInstanceWithAddress({ contractClassId });
       await expect(
