@@ -42,7 +42,7 @@ TEST_F(KZGTest, single)
 {
 
     auto witness = bb::Polynomial<Fr>::random(n);
-    const Commitment commitment = commit(witness);
+    const Commitment commitment = ck->commit(witness);
 
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
@@ -60,8 +60,8 @@ TEST_F(KZGTest, single)
 }
 
 /**
- * @brief Test opening proof of a polynomial given by its evaluations at \f$ i = 0, \ldots, n \f$. Should only be
- * used for small values of \f$ n \f$.
+ * @brief Test opening proof of a polynomial given by its evaluations at \f$ i = 0, \ldots, n \f$. Should only be used
+ * for small values of \f$ n \f$.
  *
  */
 TEST_F(KZGTest, SingleInLagrangeBasis)
@@ -75,7 +75,7 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     // compute the monomial coefficients
     bb::Polynomial<Fr> witness_polynomial(std::span<Fr>(eval_points), std::span<Fr>(witness), n);
     // commit to the polynomial in the monomial form
-    g1::element commitment = commit(witness_polynomial);
+    g1::element commitment = ck->commit(witness_polynomial);
 
     const Fr challenge = Fr::random_element();
     // evaluate the original univariate
@@ -101,8 +101,8 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
 TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 {
 
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
-    // random point.
+    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
+    // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
     auto instance_witness = InstanceWitnessGenerator(n, 2, 1, mle_opening_point, ck);
@@ -159,8 +159,8 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 
 TEST_F(KZGTest, ShpleminiKzgWithShift)
 {
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
-    // random point.
+    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
+    // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
     auto instance_witness = InstanceWitnessGenerator(n, 4, 2, mle_opening_point, ck);
@@ -212,9 +212,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 {
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
-
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
-    // random point.
+    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
+    // point.
     auto instance_witness = InstanceWitnessGenerator(n, 4, 2, mle_opening_point, ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
@@ -277,9 +276,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 {
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
-
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a
-    // random point.
+    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
+    // point.
     auto instance_witness = InstanceWitnessGenerator(n, 4, 2, mle_opening_point, ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();

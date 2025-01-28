@@ -27,8 +27,11 @@ class IPATest : public CommitmentTest<Curve> {
 
     static std::shared_ptr<CK> ck;
     static std::shared_ptr<VK> vk;
+
+    // Default polynomial size
     static constexpr size_t n = 128;
 
+    // For edge cases
     static constexpr size_t small_n = 8;
     static constexpr size_t small_log_n = 3;
 
@@ -51,7 +54,7 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
         p.at(i) = Fr::zero();
     }
     p.at(3) = Fr::one();
-    GroupElement commitment = this->commit(p);
+    GroupElement commitment = ck->commit(p);
     auto srs_elements = ck->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
@@ -69,7 +72,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
 {
     Polynomial poly(small_n);
     // Commit to a zero polynomial
-    Commitment commitment = this->commit(poly);
+    Commitment commitment = ck->commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
 
     auto [x, eval] = this->random_eval(poly);
@@ -96,7 +99,7 @@ TEST_F(IPATest, OpenAtZero)
     auto poly = Polynomial::random(n);
     const Fr x = Fr::zero();
     const Fr eval = poly.evaluate(x);
-    const Commitment commitment = this->commit(poly);
+    const Commitment commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -119,7 +122,7 @@ TEST_F(IPATest, ChallengesAreZero)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = this->commit(poly);
+    auto commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -168,7 +171,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
         poly.at(i + (n / 2)) = poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = this->commit(poly);
+    auto commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -203,7 +206,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 TEST_F(IPATest, Commit)
 {
     auto poly = Polynomial::random(n);
-    const GroupElement commitment = this->commit(poly);
+    const GroupElement commitment = ck->commit(poly);
     auto srs_elements = ck->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
@@ -220,7 +223,7 @@ TEST_F(IPATest, Open)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = this->commit(poly);
+    auto commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 

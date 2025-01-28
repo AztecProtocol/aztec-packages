@@ -17,9 +17,16 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     static constexpr size_t log_n = 4;
 
     using CK = CommitmentKey<Curve>;
-    static std::shared_ptr<CK> ck;
+    using VK = VerifierCommitmentKey<Curve>;
 
-    static void SetUpTestSuite() { ck = create_commitment_key<CK>(n); }
+    static std::shared_ptr<CK> ck;
+    static std::shared_ptr<VK> vk;
+
+    static void SetUpTestSuite()
+    {
+        ck = create_commitment_key<CK>(n);
+        vk = create_verifier_commitment_key<VK>();
+    }
 
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           InstanceWitnessGenerator<Curve> instance_witness)
@@ -33,7 +40,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                                                  RefVector(instance_witness.unshifted_polynomials),
                                                  RefVector(instance_witness.to_be_shifted_polynomials),
                                                  multilinear_evaluation_point,
-                                                 this->ck,
+                                                 ck,
                                                  prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
@@ -55,7 +62,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
-            this->verify_opening_claim(verifier_claim, prover_claim.polynomial);
+            this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
             ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
         }
     }
@@ -78,7 +85,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                                                  RefVector(instance_witness.unshifted_polynomials),
                                                  RefVector(instance_witness.to_be_shifted_polynomials),
                                                  multilinear_evaluation_point,
-                                                 this->commitment_key,
+                                                 ck,
                                                  prover_transcript,
                                                  concatenated_polynomials,
                                                  groups_to_be_concatenated);
@@ -104,7 +111,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
-            this->verify_opening_claim(verifier_claim, prover_claim.polynomial);
+            this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
             ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
         }
     }
@@ -168,3 +175,4 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
         to_vector_of_ref_vectors(concatenation_groups_commitments));
 }
 template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::CK> GeminiTest<Curve>::ck = nullptr;
+template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::VK> GeminiTest<Curve>::vk = nullptr;
