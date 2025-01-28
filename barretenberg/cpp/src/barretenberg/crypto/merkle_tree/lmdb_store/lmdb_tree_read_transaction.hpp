@@ -10,6 +10,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
@@ -22,6 +23,7 @@ namespace bb::crypto::merkle_tree {
 class LMDBTreeReadTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBTreeReadTransaction>;
+    using SharedPtr = std::shared_ptr<LMDBTreeReadTransaction>;
 
     LMDBTreeReadTransaction(LMDBEnvironment::SharedPtr env);
     LMDBTreeReadTransaction(const LMDBTreeReadTransaction& other) = delete;

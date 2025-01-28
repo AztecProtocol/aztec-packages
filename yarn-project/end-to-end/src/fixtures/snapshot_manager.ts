@@ -26,7 +26,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -353,7 +353,7 @@ async function setupFromFresh(
       client: deployL1ContractsValues.publicClient,
     });
 
-    const blockReward = await rewardDistributor.read.BLOCK_REWARD([]);
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
@@ -386,7 +386,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
@@ -492,7 +492,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   await watcher.start();
 
   logger.verbose('Creating aztec node...');
-  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 
@@ -553,7 +553,7 @@ export const addAccounts =
     logger.verbose('Simulating account deployment...');
     const provenTxs = await Promise.all(
       accountKeys.map(async ([secretKey, signPk], index) => {
-        const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
+        const account = await getSchnorrAccount(pxe, secretKey, signPk, 1);
 
         // only register the contract class once
         let skipClassRegistration = true;
@@ -566,7 +566,7 @@ export const addAccounts =
 
         const deployMethod = await account.getDeployMethod();
         const provenTx = await deployMethod.prove({
-          contractAddressSalt: account.salt,
+          contractAddressSalt: new Fr(account.salt),
           skipClassRegistration,
           skipPublicDeployment: true,
           universalDeploy: true,
@@ -577,7 +577,7 @@ export const addAccounts =
 
     logger.verbose('Account deployment tx hashes:');
     for (const provenTx of provenTxs) {
-      logger.verbose(provenTx.getTxHash().toString());
+      logger.verbose((await provenTx.getTxHash()).toString());
     }
 
     logger.verbose('Deploying accounts...');
@@ -601,14 +601,18 @@ export async function publicDeployAccounts(
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
 
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
 
   const calls: FunctionCall[] = [];
   if (!alreadyRegistered) {
-    calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
+    const registerContractCall = await registerContractClass(sender, SchnorrAccountContractArtifact);
+    calls.push(await registerContractCall.request());
   }
-  calls.push(...instances.map(instance => deployInstance(sender, instance!).request()));
+  const requests = await Promise.all(
+    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
+  );
+  calls.push(...requests);
 
   const batch = new BatchCall(sender, calls);
   await batch.send().wait({ proven: waitUntilProven });

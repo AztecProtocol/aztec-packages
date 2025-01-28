@@ -18,3 +18,19 @@ else
     echo -e "${RED}✗ Failed to download aztec-spartan.sh${NC}"
     exit 1
 fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "jq is not installed. Installing jq..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y jq
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y jq
+    elif command -v brew &> /dev/null; then
+        brew install jq
+    else
+        echo -e "${RED}✗ Could not install jq. Please install it manually.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ jq has been installed${NC}"
+fi

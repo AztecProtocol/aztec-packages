@@ -104,8 +104,8 @@ export class SequencerClient {
       contractDataSource,
       l1Constants,
       deps.dateProvider,
-      telemetryClient,
       { ...config, maxL1TxInclusionTimeIntoSlot },
+      telemetryClient,
     );
     await validatorClient?.start();
     await sequencer.start();
@@ -117,7 +117,7 @@ export class SequencerClient {
    * @param config - New parameters.
    */
   public updateSequencerConfig(config: SequencerConfig) {
-    this.sequencer.updateConfig(config);
+    return this.sequencer.updateConfig(config);
   }
 
   /**

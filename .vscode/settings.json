@@ -189,5 +189,6 @@
     "wasi",
     "memfree",
     "tmpfs"
-  ]
+  ],
+  "noir.nargoPath": "${workspaceFolder}/noir/noir-repo/target/release/nargo"
 }

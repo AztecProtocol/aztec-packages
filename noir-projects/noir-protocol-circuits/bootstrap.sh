@@ -41,9 +41,11 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
-
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+keccak_honk_regex=rollup_root
+# We do this for the rollup root only.
+verifier_generate_regex=rollup_root
 
 function on_exit() {
   rm -rf $tmp_dir
@@ -55,7 +57,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex
+export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex keccak_honk_regex verifier_generate_regex
 
 function compile {
   set -euo pipefail
@@ -87,8 +89,15 @@ function compile {
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
+    # -h 2 injects a fake ipa claim
     local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
     local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
+  elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
+    local proto="ultra_keccak_honk"
+    # the root rollup does not need to inject a fake ipa claim
+    # and does not need to inject a default agg obj, so no -h flag
+    local write_vk_cmd="write_vk_ultra_keccak_honk"
+    local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
   else
     local proto="ultra_honk"
     local write_vk_cmd="write_vk_ultra_honk -h 1"
@@ -113,9 +122,20 @@ function compile {
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
     # echo_stderrr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
+
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
-    cache_upload vk-$hash.tar.gz $key_path &> /dev/null
+    if echo "$name" | grep -qE "${verifier_generate_regex}"; then
+      local verifier_path="$key_dir/${name}_verifier.sol"
+      SECONDS=0
+      # Generate solidity verifier for this contract.
+      echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
+      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
+      # Include the verifier path if we create it.
+      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
+    else
+      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
+    fi
   fi
 }
 
@@ -138,6 +158,9 @@ function build {
   return $code
 }
 
+# We don't blindly execute all circuits as some will have no `Prover.toml`.
+CIRCUITS_TO_EXECUTE="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
+
 function test {
   set -eu
   name=$(basename "$PWD")
@@ -146,6 +169,10 @@ function test {
 
   RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
+
+  for circuit in $CIRCUITS_TO_EXECUTE; do
+    $NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check
+  done
 }
 
 export -f compile test build
@@ -155,7 +182,7 @@ case "$CMD" in
     git clean -fdx
     ;;
   "clean-keys")
-    rm -rf target/keys
+    rm -rf $key_dir
     ;;
   ""|"fast"|"full")
     build
@@ -170,6 +197,9 @@ case "$CMD" in
   "test-cmds")
     $NARGO test --list-tests --silence-warnings | while read -r package test; do
       echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    for circuit in $CIRCUITS_TO_EXECUTE; do
+      echo "$NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
     done
     ;;
   "ci")

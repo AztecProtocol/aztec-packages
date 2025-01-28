@@ -23,7 +23,10 @@ export type ProverConfig = ActualProverConfig & {
   nodeUrl?: string;
   /** Identifier of the prover */
   proverId: Fr;
+  /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
+  /** Store for failed proof inputs. */
+  failedProofStore?: string;
 };
 
 export const ProverConfigSchema = z.object({
@@ -59,6 +62,11 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     env: 'PROVER_AGENT_COUNT',
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
+  },
+  failedProofStore: {
+    env: 'PROVER_FAILED_PROOF_STORE',
+    description:
+      'Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.',
   },
 };
 

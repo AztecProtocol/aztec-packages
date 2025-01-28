@@ -3,10 +3,6 @@
 
 namespace bb::{{snakeCase name}} {
 
-AvmFlavor::AllConstRefValues::AllConstRefValues(const RefArray<AvmFlavor::AllConstRefValues::BaseDataType, AvmFlavor::NUM_ALL_ENTITIES>& il) :
-    {{#each (join fixed witness_without_inverses inverses shifted) as |item|}}{{item}}(il[{{@index}}]){{#unless @last}},{{/unless}}{{/each}}
-  {}
-
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
@@ -18,33 +14,6 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
         prover_poly = key_poly.shifted();
     }
 }
-
-AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_idx) const
-{
-    {{!--
-    // TODO: try to make something like this work.
-    // Right now it's too risky because it relies on the order of the columns in `get_all()`.
-    RefArray all_cols = get_all();
-    std::array<const FF*, {{len all_cols_and_shifts}}> refs;
-    for (size_t i = 0; i < refs.size(); ++i) {
-        refs[i] = &all_cols[i][row_idx];
-    }
-    // Note: the order of the constructor must match the order of the columns in `get_all()`!
-    return AllConstRefValues(refs);
-      --}}
-    return RefArray{
-      {{#each (join fixed witness_without_inverses inverses shifted) as |item|}}
-      {{item}}[row_idx]{{#unless @last}},{{/unless}}
-      {{/each}}
-    };
-}
-
-AvmFlavor::CommitmentLabels::CommitmentLabels()
-{
-    {{#each all_cols as |item|}}
-    Base::{{item}} = "{{shoutySnakeCase item}}";
-    {{/each}}
-};
 
 void AvmFlavor::Transcript::deserialize_full_transcript() {
     size_t num_frs_read = 0;

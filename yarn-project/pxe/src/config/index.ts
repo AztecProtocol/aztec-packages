@@ -4,6 +4,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
@@ -99,7 +100,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
   ...dataConfigMappings,
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
-    parseEnv: (val: string) => ['1', 'true', 'TRUE'].includes(val) || !!process.env.NETWORK,
+    parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
   },

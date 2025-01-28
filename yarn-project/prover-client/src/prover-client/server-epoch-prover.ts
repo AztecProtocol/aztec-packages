@@ -13,8 +13,8 @@ export class ServerEpochProver implements EpochProver {
     this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
     this.facade.start();
   }
-  startTubeCircuits(txs: Tx[]): void {
-    this.orchestrator.startTubeCircuits(txs);
+  startTubeCircuits(txs: Tx[]): Promise<void> {
+    return this.orchestrator.startTubeCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
@@ -35,8 +35,12 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages);
+  startNewBlock(
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+    previousBlockHeader: BlockHeader,
+  ): Promise<void> {
+    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages, previousBlockHeader);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {
     return this.orchestrator.addTxs(txs);

@@ -1,20 +1,15 @@
-# Useful if the spot runners are in a bad state
-name: Start/Stop Personal Spot
+# Useful if the publish npm runner is in a bad state
+name: Start Legacy Runner
 on:
   workflow_dispatch:
     inputs:
       username:
         description: 'Username (optional)'
-        required: false
-      action:
-        description: "Defaults to 'start', can be 'stop', 'restart'"
-        required: false
-        default: 'start'
+        required: true
 jobs:
   start-build:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ inputs.username || github.actor }}
+      username: ${{ inputs.username }}
       runner_type: builder-x86
-      runner_action: ${{ inputs.action }}
     secrets: inherit

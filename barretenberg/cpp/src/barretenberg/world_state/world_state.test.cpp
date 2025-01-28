@@ -184,6 +184,13 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::ARCHIVE));
         // this is the expected archive tree root at genesis
         EXPECT_EQ(info.meta.root, bb::fr("0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae"));
+
+        // The leaf at index 0 is the genesis block hash.
+        assert_leaf_value(ws,
+                          WorldStateRevision::committed(),
+                          MerkleTreeId::ARCHIVE,
+                          0,
+                          fr("0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75"));
     }
 }
 

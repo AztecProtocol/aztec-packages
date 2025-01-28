@@ -114,7 +114,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
     const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
@@ -243,9 +243,13 @@ export class P2PNetworkTest {
       'setup-account',
       addAccounts(1, this.logger, false),
       async ({ accountKeys }, ctx) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
-        await Promise.all(accountManagers.map(a => a.register()));
-        const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        const wallets = await Promise.all(
+          accountKeys.map(async ak => {
+            const account = await getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1);
+            return account.getWallet();
+          }),
+        );
+
         this.wallet = wallets[0];
       },
     );

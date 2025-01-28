@@ -1,3 +1,4 @@
+import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
@@ -14,7 +15,14 @@ export default {
     main: './src/web/main.ts',
   },
   module: {
+    parser: {
+      javascript: { importMeta: false },
+    },
     rules: [
+      {
+        test: /\.gz$/,
+        type: 'asset/resource',
+      },
       {
         test: /\.tsx?$/,
         use: [
@@ -40,6 +48,14 @@ export default {
     outputModule: true,
   },
   plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          context: '../../barretenberg/ts/dest/browser',
+          from: '*.gz',
+        },
+      ],
+    }),
     new webpack.DefinePlugin({
       'process.env': {
         NODE_ENV: JSON.stringify('production'),

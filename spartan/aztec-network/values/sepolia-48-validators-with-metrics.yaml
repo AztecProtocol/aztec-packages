@@ -1,19 +1,22 @@
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
+
+aztec:
+  slotDuration: 36 # in seconds,
 
 network:
   setupL2Contracts: false
   public: false
 
 ethereum:
-  externalHost:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
+  externalHost:
 
 validator:
-  l1FixedPriorityFeePerGas: 1
-  l1GasLimitBufferPercentage: 5
+  l1FixedPriorityFeePerGas: 2
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 500
   replicas: 48
   validatorKeys:
   validatorAddresses:
@@ -75,4 +78,4 @@ proverNode:
   proverPublisherPrivateKey:
 
 bot:
-  txIntervalSeconds: 5
+  txIntervalSeconds: 0

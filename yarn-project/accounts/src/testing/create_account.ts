@@ -10,10 +10,11 @@ import { getSchnorrAccount } from '../schnorr/index.js';
  * @param pxe - PXE.
  * @returns - A wallet for a fresh account.
  */
-export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
+export async function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
   const secretKey = Fr.random();
   const signingKey = deriveSigningKey(secretKey);
-  return getSchnorrAccount(pxe, secretKey, signingKey).waitSetup();
+  const account = await getSchnorrAccount(pxe, secretKey, signingKey);
+  return account.waitSetup();
 }
 
 /**
@@ -40,7 +41,7 @@ export async function createAccounts(
   const accountsAndDeployments = await Promise.all(
     secrets.map(async (secret, index) => {
       const signingKey = deriveSigningKey(secret);
-      const account = getSchnorrAccount(pxe, secret, signingKey);
+      const account = await getSchnorrAccount(pxe, secret, signingKey);
 
       // only register the contract class once
       let skipClassRegistration = true;
@@ -53,7 +54,7 @@ export async function createAccounts(
 
       const deployMethod = await account.getDeployMethod();
       const provenTx = await deployMethod.prove({
-        contractAddressSalt: account.salt,
+        contractAddressSalt: new Fr(account.salt),
         skipClassRegistration,
         skipPublicDeployment: true,
         universalDeploy: true,

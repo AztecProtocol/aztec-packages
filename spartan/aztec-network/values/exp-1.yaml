@@ -11,7 +11,6 @@ aztec:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 images:
   aztec:
@@ -172,7 +171,8 @@ jobs:
     enable: false
 
 ethereum:
-  resources:
-    requests:
-      memory: "5Gi"
-      cpu: "1.5"
+  execution:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"

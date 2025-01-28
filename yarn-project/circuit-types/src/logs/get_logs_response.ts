@@ -5,20 +5,34 @@ import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/ser
 import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
+import { ExtendedPublicLog } from './extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
-/** Response for the getUnencryptedLogs archiver call. */
-export type GetUnencryptedLogsResponse = {
+/** Response for the getContractClassLogs archiver call. */
+export type GetContractClassLogsResponse = {
   /** An array of ExtendedUnencryptedL2Log elements. */
   logs: ExtendedUnencryptedL2Log[];
   /** Indicates if a limit has been reached. */
   maxLogsHit: boolean;
 };
 
-export const GetUnencryptedLogsResponseSchema = z.object({
+export const GetContractClassLogsResponseSchema = z.object({
   logs: z.array(ExtendedUnencryptedL2Log.schema),
   maxLogsHit: z.boolean(),
-}) satisfies ZodFor<GetUnencryptedLogsResponse>;
+}) satisfies ZodFor<GetContractClassLogsResponse>;
+
+/** Response for the getPublicLogs archiver call. */
+export type GetPublicLogsResponse = {
+  /** An array of ExtendedPublicLog elements. */
+  logs: ExtendedPublicLog[];
+  /** Indicates if a limit has been reached. */
+  maxLogsHit: boolean;
+};
+
+export const GetPublicLogsResponseSchema = z.object({
+  logs: z.array(ExtendedPublicLog.schema),
+  maxLogsHit: z.boolean(),
+}) satisfies ZodFor<GetPublicLogsResponse>;
 
 export class TxScopedL2Log {
   constructor(
@@ -36,7 +50,7 @@ export class TxScopedL2Log {
      */
     public blockNumber: number,
     /*
-     * Indicates if the log comes from the unencrypted logs stream (partial note)
+     * Indicates if the log comes from the public logs stream (partial note)
      */
     public isFromPublic: boolean,
     /*

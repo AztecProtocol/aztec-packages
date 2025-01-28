@@ -18,12 +18,19 @@
 
 // Relations
 #include "relations/alu.hpp"
+#include "relations/bc_decomposition.hpp"
+#include "relations/bc_retrieval.hpp"
 #include "relations/execution.hpp"
+#include "relations/instr_fetching.hpp"
+#include "relations/range_check.hpp"
+#include "relations/sha256.hpp"
 
 // Lookup and permutation relations
-#include "relations/lookup_dummy_dynamic.hpp"
-#include "relations/lookup_dummy_precomputed.hpp"
-#include "relations/perm_dummy_dynamic.hpp"
+#include "relations/lookups_bc_decomposition.hpp"
+#include "relations/lookups_execution.hpp"
+#include "relations/lookups_range_check.hpp"
+#include "relations/lookups_sha256.hpp"
+#include "relations/perms_execution.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -52,13 +59,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 41;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 14;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 364;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 63;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 49;
+    static constexpr size_t NUM_ALL_ENTITIES = 441;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -67,7 +74,12 @@ class AvmFlavor {
     using MainRelations_ = std::tuple<
         // Relations
         avm2::alu<FF_>,
-        avm2::execution<FF_>>;
+        avm2::bc_decomposition<FF_>,
+        avm2::bc_retrieval<FF_>,
+        avm2::execution<FF_>,
+        avm2::instr_fetching<FF_>,
+        avm2::range_check<FF_>,
+        avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -75,8 +87,20 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
+        lookup_rng_chk_diff_relation<FF_>,
+        lookup_rng_chk_is_r0_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r1_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r2_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r3_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r4_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r5_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r6_16_bit_relation<FF_>,
+        lookup_rng_chk_is_r7_16_bit_relation<FF_>,
+        lookup_rng_chk_pow_2_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>,
         perm_dummy_dynamic_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
@@ -147,8 +171,9 @@ class AvmFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
+        static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
-        auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
+        static const auto& get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
 
     template <typename DataType>
@@ -163,9 +188,11 @@ class AvmFlavor {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
 
-        auto get_unshifted_labels()
+        static const auto& get_unshifted_labels()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
+            static const auto labels =
+                concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
+            return labels;
         }
 
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
@@ -176,6 +203,7 @@ class AvmFlavor {
     class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
       public:
         using FF = typename Polynomial::FF;
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>);
 
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
@@ -191,17 +219,10 @@ class AvmFlavor {
         // folded element by element.
         std::vector<FF> public_inputs;
 
-        std::vector<std::string> get_labels() const
-        {
-            return concatenate(PrecomputedEntities<Polynomial>::get_labels(),
-                               WitnessEntities<Polynomial>::get_labels());
-        }
         auto get_witness_polynomials() { return WitnessEntities<Polynomial>::get_all(); }
         auto get_precomputed_polynomials() { return PrecomputedEntities<Polynomial>::get_all(); }
         auto get_selectors() { return PrecomputedEntities<Polynomial>::get_all(); }
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
-        // This order matters! must match get_unshifted in entity classes
-        auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
     };
 
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
@@ -247,8 +268,6 @@ class AvmFlavor {
         using DataType = BaseDataType&;
 
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
-
-        AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
     };
 
     /**
@@ -266,12 +285,13 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        [[nodiscard]] size_t get_polynomial_size() const { return execution_input.size(); }
-        /**
-         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
-         * represents one row in the execution trace.
-         */
-        [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const;
+        size_t get_polynomial_size() const { return execution_input.size(); }
+        AllConstRefValues get_row(size_t row_idx) const
+        {
+            return [row_idx](auto&... entities) -> AllConstRefValues {
+                return { entities[row_idx]... };
+            }(AVM2_ALL_ENTITIES);
+        }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
@@ -305,14 +325,6 @@ class AvmFlavor {
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
 
-    class CommitmentLabels : public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
-
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>
     class VerifierCommitments_ : public AllEntities<Commitment_> {
@@ -322,13 +334,21 @@ class AvmFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
+            this->precomputed_as_unary = verification_key->precomputed_as_unary;
             this->precomputed_bitwise_input_a = verification_key->precomputed_bitwise_input_a;
             this->precomputed_bitwise_input_b = verification_key->precomputed_bitwise_input_b;
             this->precomputed_bitwise_op_id = verification_key->precomputed_bitwise_op_id;
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
+            this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
+            this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
+            this->precomputed_sha256_compression_round_constant =
+                verification_key->precomputed_sha256_compression_round_constant;
         }
     };
 

@@ -1,5 +1,6 @@
 import {
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -19,6 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 
@@ -62,17 +64,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -154,12 +154,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns The requested L2 blocks
    */
   getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
-    try {
-      return Promise.resolve(Array.from(this.#blockStore.getBlocks(start, limit)));
-    } catch (err) {
-      // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
-      return Promise.reject(err);
-    }
+    return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
   /**
@@ -290,13 +285,13 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     try {
-      return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
+      return Promise.resolve(this.#logStore.getPublicLogs(filter));
     } catch (err) {
       return Promise.reject(err);
     }
@@ -307,7 +302,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {
