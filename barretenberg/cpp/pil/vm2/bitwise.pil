@@ -75,8 +75,11 @@ pol commit ctr_min_one_inv;
 (ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1 = 0;
 
 // Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
+#[BITW_INIT_A]
 last * (acc_ia - ia_byte) = 0;
+#[BITW_INIT_B]
 last * (acc_ib - ib_byte) = 0;
+#[BITW_INIT_C]
 last * (acc_ic - ic_byte) = 0;
 
 #[BITW_ACC_REL_A]

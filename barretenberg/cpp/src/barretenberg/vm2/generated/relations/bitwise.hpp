@@ -130,6 +130,12 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
             return "BITW_SEL_CTR_NON_ZERO";
         case 5:
             return "BITW_LAST_FOR_CTR_ONE";
+        case 6:
+            return "BITW_INIT_A";
+        case 7:
+            return "BITW_INIT_B";
+        case 8:
+            return "BITW_INIT_C";
         case 9:
             return "BITW_ACC_REL_A";
         case 10:
@@ -145,6 +151,9 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr size_t SR_BITW_CTR_DECREMENT = 3;
     static constexpr size_t SR_BITW_SEL_CTR_NON_ZERO = 4;
     static constexpr size_t SR_BITW_LAST_FOR_CTR_ONE = 5;
+    static constexpr size_t SR_BITW_INIT_A = 6;
+    static constexpr size_t SR_BITW_INIT_B = 7;
+    static constexpr size_t SR_BITW_INIT_C = 8;
     static constexpr size_t SR_BITW_ACC_REL_A = 9;
     static constexpr size_t SR_BITW_ACC_REL_B = 10;
     static constexpr size_t SR_BITW_ACC_REL_C = 11;
