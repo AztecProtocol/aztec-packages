@@ -384,13 +384,13 @@ jobs:
             INSTALL_METRICS=false ./spartan/scripts/test_kind.sh ./src/spartan/smoke.test.ts ci-smoke.yaml
       - name: Copy Network Logs
         if: always()
-        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        run: scripts/copy_from_tester spartan/scripts/logs/test_kind.log test_kind.log || true
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kind-network-smoke.log
-          path: network-test.log
+          path: test_kind.log
 
   kind-network-test:
     needs: [images-e2e, configure]
@@ -435,14 +435,14 @@ jobs:
             fi
       - name: Copy Network Logs
         if: always()
-        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        run: scripts/copy_from_tester spartan/scripts/logs/test_kind.log test_kind.log || true
 
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
-          path: network-test.log
+          path: test_kind.log
 
   bb-bench:
     runs-on: ubuntu-latest

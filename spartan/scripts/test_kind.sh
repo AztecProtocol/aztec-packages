@@ -54,6 +54,7 @@ function copy_stern_to_log() {
 
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
+  echo "Deleting existing namespace due to FRESH_INSTALL=true"
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
@@ -70,8 +71,8 @@ function cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-# uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
-./deploy_kind.sh $namespace
+# # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
+# ./deploy_kind.sh $namespace
 
 # Find 3 free ports between 9000 and 10000
 free_ports=$(find_ports 3)
