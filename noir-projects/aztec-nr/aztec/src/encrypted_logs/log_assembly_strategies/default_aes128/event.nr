@@ -180,8 +180,7 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_plaintext(final_plaintext);
-    /// Safety: this randomness won't be constrained to be random. It's in the
-    /// interest of the executor of this fn to encrypt with random bytes.
+    /// Safety: These values preserve the privacy of the caller, so it's in their interest to make them actually random.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let log_bytes = array_concat_4(
