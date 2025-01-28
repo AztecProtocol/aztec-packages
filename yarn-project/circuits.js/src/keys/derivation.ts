@@ -9,17 +9,17 @@ import { PublicKeys } from '../types/public_keys.js';
 import { type KeyPrefix } from './key_types.js';
 import { getKeyGenerator } from './utils.js';
 
-export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Fr {
+export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
   return computeAppSecretKey(masterNullifierSecretKey, app, 'n'); // 'n' is the key prefix for nullifier secret key
 }
 
-export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
+export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Promise<Fr> {
   const generator = getKeyGenerator(keyPrefix);
   return poseidon2HashWithSeparator([skM.hi, skM.lo, app], generator);
 }
 
-export function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress) {
-  const ovskAppFr = computeAppSecretKey(ovsk, app, 'ov'); // 'ov' is the key prefix for outgoing viewing key
+export async function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress): Promise<Fq> {
+  const ovskAppFr = await computeAppSecretKey(ovsk, app, 'ov'); // 'ov' is the key prefix for outgoing viewing key
   // Here we are intentionally converting Fr (output of poseidon) to Fq. This is fine even though a distribution of
   // P = s * G will not be uniform because 2 * (q - r) / q is small.
   return GrumpkinScalar.fromBuffer(ovskAppFr.toBuffer());
@@ -51,7 +51,7 @@ export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr)
   // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
-  const preaddress = computePreaddress(publicKeys.hash(), partialAddress);
+  const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
   const address = await new Grumpkin().add(
     await derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
     publicKeys.masterIncomingViewingPublicKey,
@@ -129,7 +129,7 @@ export async function computeTaggingSecretPoint(
   ivsk: Fq,
   externalAddress: AztecAddress,
 ) {
-  const knownPreaddress = computePreaddress(knownAddress.publicKeys.hash(), knownAddress.partialAddress);
+  const knownPreaddress = await computePreaddress(await knownAddress.publicKeys.hash(), knownAddress.partialAddress);
   // TODO: #8970 - Computation of address point from x coordinate might fail
   const externalAddressPoint = await externalAddress.toAddressPoint();
   const curve = new Grumpkin();

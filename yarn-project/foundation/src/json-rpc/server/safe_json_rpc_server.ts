@@ -217,7 +217,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = parseWithOptionals(jsonParams, this.schema[methodName].parameters());
+    const args = await parseWithOptionals(jsonParams, this.schema[methodName].parameters());
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;

@@ -150,23 +150,26 @@ export class EpochProvingState {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public async getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+    return new BlockMergeRollupInputs([
+      await this.#getPreviousRollupData(left),
+      await this.#getPreviousRollupData(right),
+    ]);
   }
 
-  public getRootRollupInputs(proverId: Fr) {
+  public async getRootRollupInputs(proverId: Fr) {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
     return RootRollupInputs.from({
-      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
+      previousRollupData: [await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)],
       proverId,
     });
   }
@@ -238,7 +241,7 @@ export class EpochProvingState {
       : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  #getPreviousRollupData({
+  async #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
@@ -246,12 +249,12 @@ export class EpochProvingState {
     BlockRootOrBlockMergePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >) {
-    const leafIndex = getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupBlockData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
     );
   }
 }

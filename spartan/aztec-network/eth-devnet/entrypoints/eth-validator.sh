@@ -26,4 +26,5 @@ lighthouse vc \
     --testnet-dir=/genesis \
     --init-slashing-protection \
     --suggested-fee-recipient="0xff00000000000000000000000000000000c0ffee" \
+    --log-format=JSON \
     --debug-level=debug

@@ -14,7 +14,7 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
   it('should store and retrieve a blob', async () => {
     // Create a test blob with random fields
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
+    const blob = await Blob.fromFields(testFields);
     const blockId = '0x12345';
     const blobWithIndex = new BlobWithIndex(blob, 0);
 
@@ -33,7 +33,7 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
 
   it('Should allow requesting a specific index of blob', async () => {
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
+    const blob = await Blob.fromFields(testFields);
     const blockId = '0x12345';
     const blobWithIndex = new BlobWithIndex(blob, 0);
     const blobWithIndex2 = new BlobWithIndex(blob, 1);
@@ -56,8 +56,8 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
   it('Differentiate between blockHash and slot', async () => {
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
     const testFieldsSlot = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
-    const blobSlot = Blob.fromFields(testFieldsSlot);
+    const blob = await Blob.fromFields(testFields);
+    const blobSlot = await Blob.fromFields(testFieldsSlot);
     const blockId = '0x12345';
     const slot = '12345';
     const blobWithIndex = new BlobWithIndex(blob, 0);
@@ -86,8 +86,8 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
 
   it('should handle multiple blobs with different block IDs', async () => {
     // Create two different blobs
-    const blob1 = Blob.fromFields([Fr.random(), Fr.random()]);
-    const blob2 = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+    const blob1 = await Blob.fromFields([Fr.random(), Fr.random()]);
+    const blob2 = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobWithIndex1 = new BlobWithIndex(blob1, 0);
     const blobWithIndex2 = new BlobWithIndex(blob2, 0);
 
@@ -107,8 +107,8 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
 
   it('should overwrite blob when using same block ID', async () => {
     // Create two different blobs
-    const originalBlob = Blob.fromFields([Fr.random()]);
-    const newBlob = Blob.fromFields([Fr.random(), Fr.random()]);
+    const originalBlob = await Blob.fromFields([Fr.random()]);
+    const newBlob = await Blob.fromFields([Fr.random(), Fr.random()]);
     const blockId = '1';
     const originalBlobWithIndex = new BlobWithIndex(originalBlob, 0);
     const newBlobWithIndex = new BlobWithIndex(newBlob, 0);
@@ -127,8 +127,8 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
   });
 
   it('should handle multiple blobs with the same block ID', async () => {
-    const blob1 = Blob.fromFields([Fr.random()]);
-    const blob2 = Blob.fromFields([Fr.random()]);
+    const blob1 = await Blob.fromFields([Fr.random()]);
+    const blob2 = await Blob.fromFields([Fr.random()]);
     const blobWithIndex1 = new BlobWithIndex(blob1, 0);
     const blobWithIndex2 = new BlobWithIndex(blob2, 0);
 
