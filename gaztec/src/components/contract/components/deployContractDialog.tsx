@@ -25,7 +25,7 @@ import {
   getDefaultInitializer,
   getInitializer,
 } from "@aztec/foundation/abi";
-import { AztecContext } from "../../home/home";
+import { AztecContext } from "../../../aztecEnv";
 import { parseAliasedBuffersAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
 import { GITHUB_TAG_PREFIX } from "../../../utils/constants";

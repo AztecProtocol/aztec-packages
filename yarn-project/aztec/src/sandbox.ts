@@ -80,10 +80,10 @@ export async function deployContractsToL1(
     ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
     : { chainInfo: localAnvil };
 
-  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
+  const l1Contracts = await waitThenDeploy(aztecNodeConfig, async () =>
     deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, {
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,

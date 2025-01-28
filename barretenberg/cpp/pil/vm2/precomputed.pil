@@ -25,3 +25,7 @@ pol constant sel_range_16; // 1 in the first 2^16 rows [0, 2^16)
 // For a given row, the exponent is clk (value = 2^clk)
 // Populated for the first 256 rows [0, 255]
 pol constant power_of_2;
+
+// SHA256 Round Params Lookup
+pol constant sel_sha256_compression;
+pol constant sha256_compression_round_constant;

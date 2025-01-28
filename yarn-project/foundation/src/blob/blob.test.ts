@@ -3,7 +3,7 @@ import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
 
 import { poseidon2Hash } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { Blob } from './index.js';
+import { Blob, makeEncodedBlob } from './index.js';
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 /* eslint-disable import/no-named-as-default-member */
@@ -74,12 +74,12 @@ describe('blob', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should evaluate a blob of 400 items', () => {
+  it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
     const blobItems = Array(400).fill(new Fr(3));
-    const ourBlob = Blob.fromFields(blobItems);
-    const blobItemsHash = poseidon2Hash(Array(400).fill(new Fr(3)));
+    const ourBlob = await Blob.fromFields(blobItems);
+    const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
     expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
 
     // We add zeros before getting commitment as we do not store the blob along with
@@ -87,7 +87,7 @@ describe('blob', () => {
     const dataWithZeros = Buffer.concat([ourBlob.data], BYTES_PER_BLOB);
     expect(blobToKzgCommitment(dataWithZeros)).toEqual(ourBlob.commitment);
 
-    const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
+    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
     expect(z).toEqual(ourBlob.challengeZ);
 
     const res = computeKzgProof(dataWithZeros, ourBlob.challengeZ.toBuffer());
@@ -103,7 +103,7 @@ describe('blob', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should evaluate full blobs', () => {
+  it('should evaluate full blobs', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blobs
 
@@ -113,15 +113,15 @@ describe('blob', () => {
         blobItems[j * FIELD_ELEMENTS_PER_BLOB + i] = new Fr(i + 2);
       }
     }
-    const blobItemsHash = poseidon2Hash(blobItems);
-    const blobs = Blob.getBlobs(blobItems);
-    blobs.forEach(ourBlob => {
+    const blobItemsHash = await poseidon2Hash(blobItems);
+    const blobs = await Blob.getBlobs(blobItems);
+    for (const ourBlob of blobs) {
       // const ourBlob = Blob.fromFields(blobItems.slice(j * FIELD_ELEMENTS_PER_BLOB, (j + 1) * FIELD_ELEMENTS_PER_BLOB), blobItemsHash);
       expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
 
       expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
 
-      const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
+      const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
       expect(z).toEqual(ourBlob.challengeZ);
 
       const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
@@ -135,13 +135,20 @@ describe('blob', () => {
         ourBlob.proof,
       );
       expect(isValid).toBe(true);
-    });
+    }
   });
 
-  it('Should serialise and deserialise a blob', () => {
-    const blob = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+  it('Should serialise and deserialise a blob', async () => {
+    const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobBuffer = blob.toBuffer();
     const deserialisedBlob = Blob.fromBuffer(blobBuffer);
+    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+  });
+
+  it('Should create a blob from a JSON object', async () => {
+    const blob = await makeEncodedBlob(3);
+    const blobJson = blob.toJson();
+    const deserialisedBlob = await Blob.fromJson(blobJson);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
   });
 });

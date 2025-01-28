@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm2 {
@@ -62,7 +63,7 @@ class perm_dummy_dynamic_permutation_settings {
 template <typename FF_>
 class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy_dynamic_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_DUMMY_DYNAMIC";
+    static constexpr std::string_view NAME = "PERM_DUMMY_DYNAMIC";
 };
 template <typename FF_> using perm_dummy_dynamic = GenericPermutation<perm_dummy_dynamic_permutation_settings, FF_>;
 

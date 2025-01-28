@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{Deserialize, FromField, Serialize, ToField};
+use crate::traits::{Deserialize, FromField, Packable, Serialize, ToField};
 
 pub struct ContractClassId {
     pub inner: Field,
@@ -32,6 +32,17 @@ impl Serialize<1> for ContractClassId {
 impl Deserialize<1> for ContractClassId {
     fn deserialize(fields: [Field; 1]) -> Self {
         Self { inner: fields[0] }
+    }
+}
+
+// Implement the Packable trait so ContractClassId can be stored in contract's storage.
+impl Packable<1> for ContractClassId {
+    fn pack(self) -> [Field; 1] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; 1]) -> Self {
+        Self::deserialize(fields)
     }
 }
 
