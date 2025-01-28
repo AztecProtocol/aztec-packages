@@ -19,7 +19,7 @@ use crate::{
     traits::{FromField, Hash, is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
-use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
+use super::{constants::TWO_POW_64, utils::{field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -244,7 +244,7 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    let inputs_with_separator = [separator.to_field()].concat(inputs);
     poseidon2_hash(inputs_with_separator)
 }
 
