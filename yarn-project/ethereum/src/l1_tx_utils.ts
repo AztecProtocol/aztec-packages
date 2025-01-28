@@ -674,7 +674,7 @@ export class L1TxUtils {
         priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
       },
       false,
-      Math.max(attempts, 1), // '0' attempt skips fee bump logic
+      attempts + 1,
       previousGasPrice,
     );
 
