@@ -266,7 +266,11 @@ where
 
 // Important note: this function -- although called "unconstrained" -- the
 // function is not labelled as `unconstrained`, because we pass a reference to the
-// context. Pushing something to the context must always be constrained.
+// context.
+/// This is the same as `encode_and_encrypt_event`, except the encryption and therefore
+/// contents of the events are not constrained, meaning the caller can place arbitrary content
+/// there. Whether this is acceptable for your app will depend on whether the sender
+// is incentivised (somehow) to act honestly and provide the correct event log or not.
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
