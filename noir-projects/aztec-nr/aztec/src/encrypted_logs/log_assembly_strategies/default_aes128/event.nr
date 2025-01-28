@@ -231,7 +231,8 @@ where
     }
     let offset = final_log_without_padding.len();
     for i in offset..final_log.len() {
-        /// Safety: randomness cannot be constrained.
+        /// Safety: These values preserve the privacy of the caller, so it's in their interest to make them actually
+        /// random.
         final_log[i] = unsafe { random() };
     }
 
