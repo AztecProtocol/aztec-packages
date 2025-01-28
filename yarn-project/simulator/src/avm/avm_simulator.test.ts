@@ -2,7 +2,6 @@ import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-typ
 import {
   DEPLOYER_CONTRACT_ADDRESS,
   GasFees,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   PublicDataTreeLeafPreimage,
   PublicKeys,
   SerializableContractInstance,
@@ -30,7 +29,6 @@ import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '../public/fixtures/index.js';
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
@@ -149,44 +147,6 @@ describe('AVM simulator: injected bytecode', () => {
 });
 
 describe('AVM simulator: transpiled Noir contracts', () => {
-  it('bulk testing', async () => {
-    const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    await simulateAvmTestContractCall('bulk_testing', args, /*expectRevert=*/ false);
-  });
-
-  it('call max unique contract classes', async () => {
-    const contractDataSource = await MockedAvmTestContractDataSource.create();
-    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
-    const args = Array.from(contractDataSource.contractInstances.values())
-      .map(instance => instance.address.toField())
-      .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
-    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
-    args.push(args[0]);
-    // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
-    args.push(contractDataSource.instanceSameClassAsFirstContract.address.toField());
-    await simulateAvmTestContractCall(
-      'nested_call_to_add_n_times_different_addresses',
-      args,
-      /*expectRevert=*/ false,
-      contractDataSource,
-    );
-  });
-
-  it('call too many unique contract classes fails', async () => {
-    const contractDataSource = await MockedAvmTestContractDataSource.create();
-    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
-    // should fail because we are trying to call MAX+1 unique class IDs
-    const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
-    // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
-    args.push(new Fr(0));
-    await simulateAvmTestContractCall(
-      'nested_call_to_add_n_times_different_addresses',
-      args,
-      /*expectRevert=*/ true,
-      contractDataSource,
-    );
-  });
-
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
     const context = initContext();
     const results = await new AvmSimulator(context).execute();

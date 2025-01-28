@@ -99,7 +99,7 @@ export class PublicTxContext {
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*publicLogs*/ 0,
     );
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
+    const trace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,
       previousAccumulatedDataArrayLengths,
     );
@@ -109,7 +109,7 @@ export class PublicTxContext {
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = await AvmPersistableStateManager.create(
       worldStateDB,
-      enqueuedCallTrace,
+      trace,
       doMerkleOperations,
       firstNullifier,
     );
@@ -136,7 +136,7 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
-      enqueuedCallTrace,
+      trace,
     );
   }
 

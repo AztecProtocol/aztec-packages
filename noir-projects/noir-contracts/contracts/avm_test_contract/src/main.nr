@@ -670,7 +670,14 @@ contract AvmTest {
      * be optimized away.
      ************************************************************************/
     #[public]
-    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+    fn bulk_testing(
+        args_field: [Field; 10],
+        args_u8: [u8; 10],
+        get_instance_for_address: AztecAddress,
+        expected_deployer: AztecAddress,
+        expected_class_id: ContractClassId,
+        expected_initialization_hash: Field,
+    ) {
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");
@@ -692,9 +699,12 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        // address should match yarn-project/simulator/src/public/fixtures/index.ts's
-        // MockedAvmTestContractDataSource.otherContractInstance
-        test_get_contract_instance(AztecAddress::from_field(0x4444));
+        test_get_contract_instance_matches(
+            get_instance_for_address,
+            expected_deployer,
+            expected_class_id,
+            expected_initialization_hash,
+        );
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
