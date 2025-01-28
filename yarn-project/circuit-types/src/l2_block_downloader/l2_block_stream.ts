@@ -120,7 +120,10 @@ export class L2BlockStream {
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     const sourceBlockHash =
       args.sourceCache.find(id => id.number === blockNumber && id.hash)?.hash ??
-      (await this.l2BlockSource.getBlockHeader(blockNumber).then(h => h?.hash().toString()));
+      (await this.l2BlockSource
+        .getBlockHeader(blockNumber)
+        .then(h => h?.hash())
+        .then(hash => hash?.toString()));
     this.log.trace(`Comparing block hashes for block ${blockNumber}`, {
       localBlockHash,
       sourceBlockHash,

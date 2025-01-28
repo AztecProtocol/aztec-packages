@@ -114,7 +114,7 @@ describe('prover/orchestrator', () => {
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
-        const txs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         await context.setEndTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
@@ -131,10 +131,12 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
         orchestrator.startNewEpoch(1, 1, 1);
-        const processedTxs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
-        const txs = processedTxs.map(tx => ({ getTxHash: () => tx.hash, clientIvcProof: tx.clientIvcProof } as Tx));
-        orchestrator.startTubeCircuits(txs);
+        const txs = processedTxs.map(
+          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof } as Tx),
+        );
+        await orchestrator.startTubeCircuits(txs);
 
         await sleep(100);
         expect(getTubeSpy).toHaveBeenCalledTimes(2);

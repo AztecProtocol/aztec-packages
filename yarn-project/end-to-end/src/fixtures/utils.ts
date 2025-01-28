@@ -116,7 +116,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
+    vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
@@ -586,7 +586,7 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   const instances = await Promise.all(
     accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
   );
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }

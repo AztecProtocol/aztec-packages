@@ -6,9 +6,9 @@ import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 
 describe('ContractClass', () => {
-  it('creates a contract class from a contract compilation artifact', () => {
+  it('creates a contract class from a contract compilation artifact', async () => {
     const artifact = getBenchmarkContractArtifact();
-    const contractClass = getContractClassFromArtifact({
+    const contractClass = await getContractClassFromArtifact({
       ...artifact,
       artifactHash: Fr.fromHexString('0x1234'),
     });
@@ -21,9 +21,11 @@ describe('ContractClass', () => {
 
     // Check function selectors match
     const publicFunctionSelectors = [FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR))];
-    const privateFunctionSelectors = artifact.functions
-      .filter(fn => fn.functionType === FunctionType.PRIVATE)
-      .map(fn => FunctionSelector.fromNameAndParameters(fn));
+    const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
+
+    const privateFunctionSelectors = await Promise.all(
+      privateFunctions.map(fn => FunctionSelector.fromNameAndParameters(fn)),
+    );
 
     expect(new Set(contractClass.publicFunctions.map(fn => fn.selector))).toEqual(new Set(publicFunctionSelectors));
     expect(new Set(contractClass.privateFunctions.map(fn => fn.selector))).toEqual(new Set(privateFunctionSelectors));

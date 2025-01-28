@@ -224,7 +224,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(
+  public async tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -234,7 +234,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafPath: Fr[] = emptyPublicDataPath(),
     newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
     insertionPath: Fr[] = emptyPublicDataPath(),
-  ) {
+  ): Promise<void> {
     if (protocolWrite) {
       if (
         this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
@@ -259,7 +259,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       this.userPublicDataWritesLength++;
     }
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
 
     // New hinting

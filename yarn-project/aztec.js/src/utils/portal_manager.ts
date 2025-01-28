@@ -49,9 +49,9 @@ function stringifyEthAddress(address: EthAddress | Hex, name?: string) {
 }
 
 /** Generates a pair secret and secret hash */
-export function generateClaimSecret(logger?: Logger): [Fr, Fr] {
+export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
   const secret = Fr.random();
-  const secretHash = computeSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
   logger?.verbose(`Generated claim secret=${secret.toString()} hash=${secretHash.toString()}`);
   return [secret, secretHash];
 }
@@ -144,7 +144,7 @@ export class L1FeeJuicePortalManager {
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
   public async bridgeTokensPublic(to: AztecAddress, amount: bigint, mint = false): Promise<L2AmountClaim> {
-    const [claimSecret, claimSecretHash] = generateClaimSecret();
+    const [claimSecret, claimSecretHash] = await generateClaimSecret();
     if (mint) {
       await this.tokenManager.mint(amount, this.walletClient.account.address);
     }
