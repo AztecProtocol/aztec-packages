@@ -199,6 +199,7 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
+        vinfo("proving with ", *flags.oracle_hash);
         const auto buffers = [&]() {
             if (*flags.oracle_hash == "poseidon2") {
                 return _prove_poseidon2(flags, bytecode_path, witness_path);
@@ -240,6 +241,7 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
+        info("verifying with ", *flags.oracle_hash);
         if (*flags.oracle_hash == "poseidon2") {
             return _verify<UltraFlavor>(proof_path, vk_path);
         } else if (*flags.oracle_hash == "keccak") {

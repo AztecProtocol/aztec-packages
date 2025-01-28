@@ -35,7 +35,7 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack}"
+    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --oracle_hash ${HASH:-poseidon2}"
     $BIN prove $FLAGS $BFLAG
     $BIN verify $FLAGS
     # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs

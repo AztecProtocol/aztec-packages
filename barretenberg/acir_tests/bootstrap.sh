@@ -127,6 +127,7 @@ function test_cmds {
     echo FLOW=prove_then_verify $run_test $(basename $t)
   done
   echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
+  echo FLOW=prove_then_verify --scheme ultra_honk --oracle_hash keccak $run_test assert_statement
   echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:

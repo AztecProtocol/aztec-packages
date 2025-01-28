@@ -19,7 +19,7 @@ export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove -o $outdir $FLAGS $BFLAG
 # $BIN write_vk -o $VK $FLAGS $BFLAG
-$BIN verify -k $VK -p $PROOF $FLAGS # this should be done elsewhere as this doens't catch regressions
+$BIN verify -k $VK -p $PROOF $FLAGS # useful for debugging
 $BIN proof_as_fields_honk $BASE_FLAGS -p $PROOF -o $PROOF_AS_FIELDS
 $BIN contract $FLAGS -k $VK -o $VERIFIER_CONTRACT
 
