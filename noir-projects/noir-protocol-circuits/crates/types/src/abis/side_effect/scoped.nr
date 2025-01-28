@@ -2,7 +2,7 @@ use crate::{
     address::AztecAddress,
     tests::types::TestValue,
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct Scoped<T> {
@@ -34,16 +34,16 @@ where
     }
 }
 
-impl<T, let N: u32> Serialize<N> for Scoped<T>
+impl<T, const N: usize> Serialize<N> for Scoped<T>
 where
     T: Serialize<N - 1>,
 {
     fn serialize(self) -> [Field; N] {
-        array_concat(self.inner.serialize(), [self.contract_address.to_field()])
+        self.inner.serialize().concat([self.contract_address.to_field()])
     }
 }
 
-impl<T, let N: u32> Deserialize<N> for Scoped<T>
+impl<T, const N: usize> Deserialize<N> for Scoped<T>
 where
     T: Deserialize<N - 1>,
 {
