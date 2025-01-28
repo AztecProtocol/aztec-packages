@@ -477,4 +477,57 @@ describe('GasUtils', () => {
     ).rejects.toThrow(/timed out/);
     expect(Date.now() - now).toBeGreaterThanOrEqual(990);
   }, 60_000);
+
+  it('attempts to cancel timed out transactions', async () => {
+    // Disable auto-mining to control block production
+    await cheatCodes.setIntervalMining(0);
+    await cheatCodes.setAutomine(false);
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Send initial transaction
+    const { txHash } = await gasUtils.sendTransaction(request);
+    const initialTx = await publicClient.getTransaction({ hash: txHash });
+
+    // Try to monitor with a short timeout
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait for cancellation tx to be sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await publicClient.getBlock({ blockTag: 'pending' });
+    const pendingTxHash = pendingBlock.transactions[0];
+    const cancelTx = await publicClient.getTransaction({ hash: pendingTxHash });
+
+    // // Verify cancellation tx
+    expect(cancelTx).toBeDefined();
+    expect(cancelTx!.nonce).toBe(nonce);
+    expect(cancelTx!.to!.toLowerCase()).toBe(walletClient.account.address.toLowerCase());
+    expect(cancelTx!.value).toBe(0n);
+    expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
+    expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+    expect(cancelTx!.gas).toBe(21000n);
+
+    // Mine a block to process the cancellation
+    await cheatCodes.evmMine();
+
+    // Verify the original transaction is no longer present
+    await expect(publicClient.getTransaction({ hash: txHash })).rejects.toThrow();
+  }, 10_000);
 });

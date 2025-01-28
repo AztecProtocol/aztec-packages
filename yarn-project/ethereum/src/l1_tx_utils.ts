@@ -400,6 +400,30 @@ export class L1TxUtils {
       // Check if tx has timed out.
       txTimedOut = isTimedOut();
     }
+
+    // Get the last used gas price if available
+    const lastTx = await this.publicClient.getTransaction({ hash: currentTxHash });
+    const lastGasPrice =
+      lastTx.maxFeePerGas && lastTx.maxPriorityFeePerGas
+        ? {
+            maxFeePerGas: lastTx.maxFeePerGas,
+            maxPriorityFeePerGas: lastTx.maxPriorityFeePerGas,
+            maxFeePerBlobGas: lastTx.maxFeePerBlobGas,
+          }
+        : undefined;
+
+    // Fire cancellation without awaiting to avoid blocking the main thread
+    this.attemptTxCancellation(nonce, lastGasPrice, attempts)
+      .then(cancelTxHash => {
+        this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+      })
+      .catch(err => {
+        const viemError = formatViemError(err);
+        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+          metaMessages: viemError.metaMessages,
+        });
+      });
+
     this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
       txHash: currentTxHash,
       ...tx,
@@ -469,7 +493,6 @@ export class L1TxUtils {
       // same for blob gas fee
       maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
     }
-
     if (attempt > 0) {
       const configBump =
         gasConfig.priorityFeeRetryBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeRetryBumpPercentage!;
@@ -478,7 +501,6 @@ export class L1TxUtils {
       const minBumpPercentage = isBlobTx ? MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE : MIN_REPLACEMENT_BUMP_PERCENTAGE;
 
       const bumpPercentage = configBump > minBumpPercentage ? configBump : minBumpPercentage;
-
       // Calculate minimum required fees based on previous attempt
       // multiply by 100 & divide by 100 to maintain some precision
       const minPriorityFee =
@@ -632,5 +654,45 @@ export class L1TxUtils {
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
     const gasConfig = { ...this.config, ..._gasConfig };
     return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+  }
+
+  /**
+   * Attempts to cancel a transaction by sending a 0-value tx to self with same nonce but higher gas prices
+   * @param nonce - The nonce of the transaction to cancel
+   * @param previousGasPrice - The gas price of the previous transaction
+   * @param attempts - The number of attempts to cancel the transaction
+   * @returns The hash of the cancellation transaction
+   */
+  private async attemptTxCancellation(nonce: number, previousGasPrice?: GasPrice, attempts = 1) {
+    const account = this.walletClient.account;
+
+    // Get gas price with higher priority fee for cancellation
+    const cancelGasPrice = await this.getGasPrice(
+      {
+        ...this.config,
+        // Use much higher bump for cancellation to ensure it replaces the original tx
+        priorityFeeRetryBumpPercentage: 300, // 200% bump should be enough to replace any tx
+      },
+      false,
+      Math.max(attempts, 1),
+      previousGasPrice,
+    );
+
+    this.logger?.debug(`Attempting to cancel transaction with nonce ${nonce}`, {
+      maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
+      maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
+    });
+
+    // Send 0-value tx to self with higher gas price
+    const cancelTxHash = await this.walletClient.sendTransaction({
+      to: account.address,
+      value: 0n,
+      nonce,
+      gas: 21_000n, // Standard ETH transfer gas
+      maxFeePerGas: cancelGasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+    });
+
+    return cancelTxHash;
   }
 }
