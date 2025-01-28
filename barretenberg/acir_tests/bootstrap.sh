@@ -98,7 +98,7 @@ function test_cmds {
   echo FLOW=sol_honk $run_test assert_statement
   echo FLOW=sol_honk $run_test 1_mul
   echo FLOW=sol_honk $run_test slices
-  echo FLOW=sol_honk $run_test verify_honk_proof # WORKTODO: double check whether this passing native ver check is actually meaningful
+  echo FLOW=sol_honk $run_test verify_honk_proof
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
@@ -127,7 +127,6 @@ function test_cmds {
     echo FLOW=prove_then_verify $run_test $(basename $t)
   done
   echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo FLOW=prove_then_verify --scheme ultra_honk --oracle_hash keccak $run_test assert_statement
   echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:
@@ -137,6 +136,7 @@ function test_cmds {
   done
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify --oracle_hash keccak $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify $run_test fold_basic
   echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
 
