@@ -670,7 +670,7 @@ export class L1TxUtils {
     const cancelGasPrice = await this.getGasPrice(
       {
         ...this.config,
-        // Use much higher bump for cancellation to ensure it replaces the original tx
+        // Use high bump for cancellation to ensure it replaces the original tx
         priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
       },
       false,
