@@ -36,4 +36,4 @@ test('Deploying, setting, and getting a number', async ({ page }) => {
   const verifyNumberDialogPromise = handleDialog('Number is: 1');
   await page.getByRole('button', { name: 'Get Number' }).click();
   await verifyNumberDialogPromise;
-});
+} );

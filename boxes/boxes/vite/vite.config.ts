@@ -1,6 +1,7 @@
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -29,34 +30,27 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
     // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts
-    // and noir WASMs.
+    // These are the protocol circuit artifacts and noir/bb WASMs.
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
         "../../../yarn-project/noir-protocol-circuits-types/artifacts",
         "../../../noir/packages/noirc_abi/web",
         "../../../noir/packages/acvm_js/web",
+        "../../../barretenberg/ts/dest/browser",
       ],
     },
   },
   plugins: [
     react(),
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
-  ],
-  build: {
-    // Needed to support bb.js top level await until
-    // https://github.com/Menci/vite-plugin-top-level-await/pull/63 is merged
-    // and we can use the plugin again (or we get rid of TLA)
-    target: "esnext",
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (id.includes("bb-prover")) {
-            return "@aztec/bb-prover";
-          }
+    viteStaticCopy({
+      targets: [
+        {
+          src: "../../../barretenberg/ts/dest/browser/*.gz",
+          dest: "assets/",
         },
-      },
-    },
-  },
+      ],
+    }),
+  ],
 });
