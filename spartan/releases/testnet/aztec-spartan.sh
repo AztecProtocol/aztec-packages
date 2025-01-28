@@ -93,13 +93,20 @@ check_docker() {
         return 0
     else
         echo -e "${RED}Docker or Docker Compose not found${NC}"
-        read -p "Would you like to install Docker? [Y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-            install_docker
-            return $?
+        # If macOS
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            echo -e "${YELLOW}macOS detected. Please install Docker Desktop for Mac:${NC}"
+            echo "https://www.docker.com/products/docker-desktop"
+            return 1
+        else
+            read -p "Would you like to install Docker? [Y/n] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                install_docker
+                return $?
+            fi
+            return 1
         fi
-        return 1
     fi
 }
 
@@ -134,7 +141,7 @@ get_node_info() {
     echo -e "${BLUE}Fetching node info...${NC}"
     CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
     # TODO: use the correct (corresponding) image
-    # Can't do it today because `release/troll-turtle` doesn't support --json flag
+    # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
     NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
 
     # Extract the relevant fields
@@ -165,15 +172,15 @@ configure_environment() {
     if [ -n "$NETWORK" ]; then
         NETWORK="$NETWORK"
     else
-        read -p "Network [troll-turtle]: " NETWORK
-        NETWORK=${NETWORK:-troll-turtle}
+        read -p "Network [unhinged-unicorn]: " NETWORK
+        NETWORK=${NETWORK:-unhinged-unicorn}
     fi
 
-    # if the network is `troll-turtle`
-    if [ "$NETWORK" = "troll-turtle" ]; then
-        BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.213.6:8080}"
-        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.19.127.9:8545}"
-        IMAGE="${IMAGE:-aztecprotocol/aztec:troll-turtle}"
+    # if the network is `unhinged-unicorn`
+    if [ "$NETWORK" = "unhinged-unicorn" ]; then
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.214.254:8545}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
     else
         # unknown network
         echo -e "${RED}Unknown network: $NETWORK${NC}"
@@ -216,6 +223,20 @@ configure_environment() {
         done
     fi
 
+    if [ -n "$CLI_COINBASE" ]; then
+    COINBASE="$CLI_COINBASE"
+    else
+        while true; do
+            read -p "Validator Address (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
+            COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+            if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+                break
+            else
+                echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+            fi
+        done
+    fi
+
     if [ -n "$CLI_IP" ]; then
         IP="$CLI_IP"
     else
@@ -250,7 +271,6 @@ configure_environment() {
     cat > .env << EOF
 P2P_UDP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
 P2P_TCP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
-COINBASE=0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 VALIDATOR_DISABLED=false
 VALIDATOR_PRIVATE_KEY=${KEY}
 SEQ_PUBLISHER_PRIVATE_KEY=${KEY}
@@ -264,7 +284,7 @@ PROVER_REAL_PROOFS=true
 PXE_PROVER_ENABLED=true
 ETHEREUM_SLOT_DURATION=12sec
 AZTEC_SLOT_DURATION=36
-AZTEC_EPOCH_DURATION=32
+AZTEC_EPOCH_DURATION=48
 AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=13
 ETHEREUM_HOST=${ETHEREUM_HOST}
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
@@ -393,4 +413,3 @@ case "$1" in
         exit 1
         ;;
 esac
-

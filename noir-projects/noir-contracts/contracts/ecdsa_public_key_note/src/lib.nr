@@ -66,36 +66,9 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] {
-        let serialized_note = self.serialize_content();
-
-        let mut buffer: [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] = [0; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64];
-
-        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = EcdsaPublicKeyNote::get_note_type_id().to_be_bytes();
-
-        for i in 0..32 {
-            buffer[i] = storage_slot_bytes[i];
-            buffer[32 + i] = note_type_id_bytes[i];
-        }
-
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-            for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
-            }
-        }
-        buffer
-    }
-
     fn get_note_type_id() -> Field {
-        comptime
-        {
-            let bytes = "EcdsaPublicKeyNote".as_bytes();
-            let hash = aztec::protocol_types::hash::poseidon2_hash_bytes(bytes);
-            let hash_bytes = hash.to_be_bytes::<4>();
-            aztec::protocol_types::utils::field::field_from_bytes(hash_bytes, true)
-        }
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
     fn get_header(self) -> NoteHeader {

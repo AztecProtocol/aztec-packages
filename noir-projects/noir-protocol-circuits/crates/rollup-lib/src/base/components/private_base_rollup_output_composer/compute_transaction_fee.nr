@@ -29,7 +29,7 @@ pub fn compute_transaction_fee(
 
 mod tests {
     use super::compute_transaction_fee;
-    use types::abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings};
+    use types::{abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings}, traits::Empty};
 
     struct TestBuilder {
         gas_fees: GasFees,

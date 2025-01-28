@@ -1,11 +1,16 @@
-import { type ProverAgentConfig, proverAgentConfigMappings } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
-import { InlineProofStore, ProvingAgent, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import {
+  InlineProofStore,
+  type ProverAgentConfig,
+  ProvingAgent,
+  createProvingJobBrokerClient,
+  proverAgentConfigMappings,
+} from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
 
@@ -35,9 +40,7 @@ export async function startProverAgent(
 
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl);
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);
   const proofStore = new InlineProofStore();
   const agents = times(
@@ -47,9 +50,9 @@ export async function startProverAgent(
         broker,
         proofStore,
         prover,
-        telemetry,
         config.proverAgentProofTypes,
         config.proverAgentPollIntervalMs,
+        telemetry,
       ),
   );
 

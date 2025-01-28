@@ -1,8 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import Koa from 'koa';
 import Router from 'koa-router';
@@ -16,7 +15,7 @@ const { HTTP_PORT } = process.env;
  */
 async function main(
   config: BootnodeConfig,
-  telemetryClient: TelemetryClient = new NoopTelemetryClient(),
+  telemetryClient: TelemetryClient = getTelemetryClient(),
   logger = debugLogger,
 ) {
   const store = await createStore('p2p-bootstrap', config, logger);

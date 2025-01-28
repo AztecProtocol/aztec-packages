@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { type Tx, mockTx } from '@aztec/circuit-types';
 import { type AztecAddress, type ContractDataSource, Fr, type FunctionSelector } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 
@@ -14,6 +14,14 @@ describe('PhasesTxValidator', () => {
   let allowedContract: AztecAddress;
   let allowedSetupSelector1: FunctionSelector;
   let allowedSetupSelector2: FunctionSelector;
+
+  const expectValid = async (tx: Tx) => {
+    await expect(txValidator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
+  };
+
+  const expectInvalid = async (tx: Tx, reason: string) => {
+    await expect(txValidator.validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
+  };
 
   beforeEach(() => {
     allowedContractClass = Fr.random();
@@ -50,15 +58,15 @@ describe('PhasesTxValidator', () => {
   });
 
   it('allows setup functions on the contracts allow list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
-    patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
 
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    await expectValid(tx);
   });
 
   it('allows setup functions on the contracts class allow list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
-    const { address } = patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const { address } = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
 
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
@@ -70,19 +78,19 @@ describe('PhasesTxValidator', () => {
       }
     });
 
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    await expectValid(tx);
   });
 
   it('rejects txs with setup functions not on the allow list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
 
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[], [tx]]);
+    await expectInvalid(tx, 'Setup function not on allow list');
   });
 
   it('rejects setup functions not on the contracts class list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     // good selector, bad contract class
-    const { address } = patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
+    const { address } = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
         return Promise.resolve({
@@ -92,21 +100,22 @@ describe('PhasesTxValidator', () => {
         return Promise.resolve(undefined);
       }
     });
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[], [tx]]);
+
+    await expectInvalid(tx, 'Setup function not on allow list');
   });
 
   it('allows multiple setup functions on the allow list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
-    patchNonRevertibleFn(tx, 1, { address: allowedContract, selector: allowedSetupSelector2 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
+    await patchNonRevertibleFn(tx, 1, { address: allowedContract, selector: allowedSetupSelector2 });
 
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    await expectValid(tx);
   });
 
   it('rejects if one setup functions is not on the allow list', async () => {
-    const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
 
-    await expect(txValidator.validateTxs([tx])).resolves.toEqual([[], [tx]]);
+    await expectInvalid(tx, 'Setup function not on allow list');
   });
 });

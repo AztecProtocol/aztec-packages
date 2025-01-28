@@ -1,7 +1,9 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/generated/columns.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
+
 #include <algorithm>
 #include <cassert>
 
@@ -17,14 +19,17 @@ template <typename FF> std::string field_to_string(const FF& ff)
     return result;
 }
 
-void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path const& filename)
+void dump_trace_as_csv([[maybe_unused]] std::vector<Row> const& trace,
+                       [[maybe_unused]] std::filesystem::path const& filename)
 {
+    assert(false && "Not implemented");
+    /*
     std::ofstream file;
     file.open(filename);
 
     // Filter zero columns indices (ugly and slow).
     std::set<size_t> non_zero_columns;
-    const size_t num_columns = Row::names().size();
+    const size_t num_columns = static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS);
     for (const Row& row : trace) {
         const auto row_vec = row.as_vector();
         for (size_t i = 0; i < num_columns; ++i) {
@@ -36,7 +41,7 @@ void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path cons
     std::vector<size_t> sorted_non_zero_columns(non_zero_columns.begin(), non_zero_columns.end());
     std::sort(sorted_non_zero_columns.begin(), sorted_non_zero_columns.end());
 
-    const auto& names = Row::names();
+    const auto& names = avm::COLUMN_NAMES;
     file << "ROW_NUMBER,";
     for (const auto& column_idx : sorted_non_zero_columns) {
         file << names[column_idx] << ",";
@@ -61,6 +66,7 @@ void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path cons
             file << std::endl;
         }
     }
+    */
 }
 
 bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
@@ -117,6 +123,8 @@ std::string to_name(AvmError error)
         return "TAG CHECKING ERROR";
     case AvmError::ADDR_RES_TAG_ERROR:
         return "ADDRESS RESOLUTION TAG ERROR";
+    case AvmError::MEM_SLICE_OUT_OF_RANGE:
+        return "MEMORY SLICE OUT OF RANGE";
     case AvmError::REL_ADDR_OUT_OF_RANGE:
         return "RELATIVE ADDRESS IS OUT OF RANGE";
     case AvmError::DIV_ZERO:
@@ -127,16 +135,22 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
-    case AvmError::RADIX_OUT_OF_BOUNDS:
-        return "RADIX OUT OF BOUNDS";
+    case AvmError::INVALID_TORADIXBE_INPUTS:
+        return "INVALID TO_RADIX_BE INPUTS";
     case AvmError::DUPLICATE_NULLIFIER:
         return "DUPLICATE NULLIFIER";
     case AvmError::SIDE_EFFECT_LIMIT_REACHED:
         return "SIDE EFFECT LIMIT REACHED";
     case AvmError::OUT_OF_GAS:
         return "OUT OF GAS";
+    case AvmError::STATIC_CALL_ALTERATION:
+        return "STATIC CALL ALTERATION";
     case AvmError::FAILED_BYTECODE_RETRIEVAL:
         return "FAILED BYTECODE RETRIEVAL";
+    case AvmError::MSM_POINTS_LEN_INVALID:
+        return "MSM POINTS LEN INVALID";
+    case AvmError::MSM_POINT_NOT_ON_CURVE:
+        return "MSM POINT NOT ON CURVE";
     default:
         throw std::runtime_error("Invalid error type");
         break;

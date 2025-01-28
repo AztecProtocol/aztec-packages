@@ -36,7 +36,11 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
-  const siloedNullifier0 = siloNullifier(address, value0);
+  let siloedNullifier0: Fr;
+
+  beforeAll(async () => {
+    siloedNullifier0 = await siloNullifier(address, value0);
+  });
 
   beforeEach(() => {
     worldStateDB = mock<WorldStateDB>();
@@ -124,9 +128,9 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(Fr.fromBuffer(context.persistableState.txHash.toBuffer()), 0);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      const siloedNotehash = await siloNoteHash(address, value0);
+      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });
@@ -305,7 +309,7 @@ describe('Accrued Substate', () => {
       expect(inst.serialize()).toEqual(buf);
     });
 
-    it('Should append unencrypted logs correctly', async () => {
+    it('Should append public logs correctly', async () => {
       const startOffset = 0;
       const logSizeOffset = 20;
 
@@ -318,8 +322,8 @@ describe('Accrued Substate', () => {
 
       await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
 
-      expect(trace.traceUnencryptedLog).toHaveBeenCalledTimes(1);
-      expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, values);
+      expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
+      expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
     });
   });
 

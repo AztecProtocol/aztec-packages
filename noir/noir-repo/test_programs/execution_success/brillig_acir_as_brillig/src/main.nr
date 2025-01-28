@@ -1,4 +1,5 @@
 fn main(x: u32) {
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         assert(entry_point(x) == 2);

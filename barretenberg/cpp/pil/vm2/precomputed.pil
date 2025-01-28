@@ -1,0 +1,40 @@
+// General/shared precomputed columns.
+namespace precomputed;
+
+// From 0 and incrementing up to the size of the circuit (2^21).
+pol constant clk;
+
+// 1 only at row 0.
+pol constant first_row;
+
+// AND/OR/XOR of all 8-bit numbers.
+// The tables are "stacked". First AND, then OR, then XOR.
+// Note: think if we can avoid the selector.
+pol constant sel_bitwise; // 1 in the first 3 * 256 rows.
+pol constant bitwise_op_id; // identifies if operation is AND/OR/XOR.
+pol constant bitwise_input_a; // column of all 8-bit numbers.
+pol constant bitwise_input_b; // column of all 8-bit numbers.
+pol constant bitwise_output; // output = a AND/OR/XOR b.
+
+// Boolean selectors for 8-bit and 16-bit range checks.
+// We reuse clk for the actual values.
+pol constant sel_range_8;  // 1 in the first 2^8 rows [0, 2^8)
+pol constant sel_range_16; // 1 in the first 2^16 rows [0, 2^16)
+
+// All the powers of 2 from 0 to 255
+// For a given row, the exponent is clk (value = 2^clk)
+// Populated for the first 256 rows [0, 255]
+pol constant power_of_2;
+
+// SHA256 Round Params Lookup
+pol constant sel_sha256_compression;
+pol constant sha256_compression_round_constant;
+
+// Unary representation of a number, from 0 to 64.
+// Example: 0 -> 0
+//          1 -> 1
+//          2 -> 11
+//          3 -> 111
+// You get it. It can be extended up to 254 bits if needed.
+pol constant sel_unary;
+pol constant as_unary;

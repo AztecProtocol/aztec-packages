@@ -1,5 +1,5 @@
 ^docs/src
 ^docs/scripts
 ^docs/static
-^docs/*.js
-^docs/*.json
+^docs/.*\.js
+^docs/.*\.json

@@ -37,7 +37,7 @@ Initializers are commonly used to set an admin, such as this example:
 
 #include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-Here, the initializer is writing to storage. It can also call another function. Learn more about calling functions from functions [here](./call_functions.md).
+Here, the initializer is writing to storage. It can also call another function. Learn more about calling functions from functions [here](./call_contracts.md).
 
 ## Multiple initializers
 

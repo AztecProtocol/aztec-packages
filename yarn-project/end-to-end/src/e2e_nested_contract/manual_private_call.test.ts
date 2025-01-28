@@ -16,13 +16,16 @@ describe('e2e_nested_contract manual', () => {
   });
 
   it('performs nested calls', async () => {
-    await parentContract.methods.entry_point(childContract.address, childContract.methods.value.selector).send().wait();
+    await parentContract.methods
+      .entry_point(childContract.address, await childContract.methods.value.selector())
+      .send()
+      .wait();
   });
 
   it('fails simulation if calling a function not allowed to be called externally', async () => {
     await expect(
       parentContract.methods
-        .entry_point(childContract.address, (childContract.methods as any).value_internal.selector)
+        .entry_point(childContract.address, await (childContract.methods as any).value_internal.selector())
         .prove(),
     ).rejects.toThrow(/Assertion failed: Function value_internal can only be called internally/);
   });

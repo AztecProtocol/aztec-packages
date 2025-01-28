@@ -108,8 +108,8 @@ describe('e2e_token_contract transfer private', () => {
       const action = asset
         .withWallet(wallets[1])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
-      const messageHash = computeAuthWitMessageHash(
-        { caller: accounts[1].address, action: action.request() },
+      const messageHash = await computeAuthWitMessageHash(
+        { caller: accounts[1].address, action },
         {
           chainId: wallets[0].getChainId(),
           version: wallets[0].getVersion(),
@@ -131,8 +131,8 @@ describe('e2e_token_contract transfer private', () => {
       const action = asset
         .withWallet(wallets[2])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
-      const expectedMessageHash = computeAuthWitMessageHash(
-        { caller: accounts[2].address, action: action.request() },
+      const expectedMessageHash = await computeAuthWitMessageHash(
+        { caller: accounts[2].address, action },
         {
           chainId: wallets[0].getChainId(),
           version: wallets[0].getVersion(),
@@ -172,7 +172,7 @@ describe('e2e_token_contract transfer private', () => {
         isValidInPublic: false,
       });
 
-      const innerHash = computeInnerAuthWitHashFromAction(accounts[1].address, action.request());
+      const innerHash = await computeInnerAuthWitHashFromAction(accounts[1].address, await action.request());
       await asset.withWallet(wallets[0]).methods.cancel_authwit(innerHash).send().wait();
 
       expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
@@ -196,9 +196,7 @@ describe('e2e_token_contract transfer private', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_private(badAccount.address, accounts[1].address, 0, nonce)
         .send();
-      await expect(txCancelledAuthwit.wait()).rejects.toThrow(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
-      );
+      await expect(txCancelledAuthwit.wait()).rejects.toThrow('Assertion failed: Message not authorized by account');
     });
   });
 });

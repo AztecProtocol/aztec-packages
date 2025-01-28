@@ -137,6 +137,7 @@ export class AvmSimulator {
     this.bytecode = bytecode;
 
     const { machineState } = this.context;
+    const callStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
@@ -180,6 +181,11 @@ export class AvmSimulator {
       const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
+      const totalGasUsed: Gas = {
+        l2Gas: callStartGas.l2Gas - machineState.l2GasLeft,
+        daGas: callStartGas.daGas - machineState.daGasLeft,
+      };
+      this.log.debug(`Executed ${instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
 
       this.tallyPrintFunction();
       // Return results for processing by calling context

@@ -74,6 +74,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
@@ -83,9 +87,9 @@ spec:
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
             - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.externalHost }}"
+              value: "{{ .Values.ethereum.execution.externalHost }}"
             - name: ETHEREUM_PORT
-              value: "{{ .Values.ethereum.service.port }}"
+              value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST
               value: "{{ .Values.bootNode.externalHost }}"
             - name: BOOT_NODE_PORT
@@ -96,4 +100,6 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
 {{ end }}

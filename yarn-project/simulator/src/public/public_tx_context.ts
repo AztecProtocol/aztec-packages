@@ -7,7 +7,7 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-  TxHash,
+  type TxHash,
 } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
@@ -61,6 +61,7 @@ export class PublicTxContext {
   public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
 
   constructor(
+    public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
     private readonly startStateReference: StateReference,
@@ -96,19 +97,21 @@ export class PublicTxContext {
       /*noteHashes*/ 0,
       /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
-      /*unencryptedLogsHashes*/ 0,
+      /*publicLogs*/ 0,
     );
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,
       previousAccumulatedDataArrayLengths,
     );
 
+    const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
+
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = await AvmPersistableStateManager.create(
       worldStateDB,
       enqueuedCallTrace,
       doMerkleOperations,
-      fetchTxHash(nonRevertibleAccumulatedDataFromPrivate),
+      firstNullifier,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -117,6 +120,7 @@ export class PublicTxContext {
     const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
 
     return new PublicTxContext(
+      await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
       await db.getStateReference(),
@@ -186,14 +190,6 @@ export class PublicTxContext {
   getFinalRevertCode(): RevertCode {
     assert(this.halted, 'Cannot know the final revert code until tx execution ends');
     return this.revertCode;
-  }
-
-  /**
-   * Construct & return transaction hash.
-   * @returns The transaction's hash.
-   */
-  getTxHash(): TxHash {
-    return fetchTxHash(this.nonRevertibleAccumulatedDataFromPrivate);
   }
 
   /**
@@ -323,13 +319,14 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
+  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
 
-    const noteHashTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const noteHashTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+
     // Pad the note hash and nullifier trees
     const paddedNoteHashTreeSize =
       this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
@@ -378,7 +375,7 @@ export class PublicTxContext {
   /**
    * Generate the proving request for the AVM circuit.
    */
-  generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
+  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
     const hints = this.trace.getAvmCircuitHints();
     return {
       type: ProvingRequestType.PUBLIC_VM,
@@ -387,7 +384,7 @@ export class PublicTxContext {
         [],
         PublicCircuitPublicInputs.empty(),
         hints,
-        this.generateAvmCircuitPublicInputs(endStateReference),
+        await this.generateAvmCircuitPublicInputs(endStateReference),
       ),
     };
   }
@@ -451,13 +448,4 @@ function applyMaxToAvailableGas(availableGas: Gas) {
     /*daGas=*/ availableGas.daGas,
     /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
   );
-}
-
-function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData): TxHash {
-  // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-  const firstNullifier = nonRevertibleAccumulatedData.nullifiers[0];
-  if (!firstNullifier || firstNullifier.isZero()) {
-    throw new Error(`Cannot get tx hash since first nullifier is missing`);
-  }
-  return new TxHash(firstNullifier.toBuffer());
 }

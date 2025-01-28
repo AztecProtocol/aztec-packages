@@ -58,16 +58,6 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "global_variables must be empty")]
-fn validate_propagated_values_global_variables_non_empty_fails() {
-    let mut builder = TailOutputValidatorBuilder::new();
-
-    // Tweak the value in the output.
-    builder.output.global_variables.chain_id = 1;
-
-    builder.validate();
-}
-
 /**
  * max_block_number
  */

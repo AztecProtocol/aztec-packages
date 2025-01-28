@@ -448,7 +448,7 @@ Read more about interacting with contracts using `aztec.js` [by following this t
 
 ### Aztec.nr interfaces
 
-An Aztec.nr contract can [call a function](./writing_contracts/call_functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
+An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
 
 To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one.
 

@@ -1,6 +1,9 @@
+import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
+import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
+  type GasPrice,
   type L1ContractsConfig,
   type L1TxRequest,
   type L1TxUtilsConfig,
@@ -11,7 +14,6 @@ import { Blob } from '@aztec/foundation/blob';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import express, { json } from 'express';
@@ -40,7 +42,7 @@ interface MockL1TxUtils {
   sendAndMonitorTransaction: (
     request: L1TxRequest,
     _gasConfig?: Partial<L1TxUtilsConfig>,
-  ) => Promise<TransactionReceipt>;
+  ) => Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }>;
 }
 
 interface MockRollupContractWrite {
@@ -71,7 +73,7 @@ class MockRollupContract {
   }
 }
 
-const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('L1Publisher', () => {
@@ -91,6 +93,7 @@ describe('L1Publisher', () => {
   let blockHash: Buffer;
   let body: Buffer;
 
+  let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
 
   // An l1 publisher with some private methods exposed
@@ -98,14 +101,15 @@ describe('L1Publisher', () => {
 
   const GAS_GUESS = 300_000n;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockBlobSinkServer = undefined;
+    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
-    l2Block = L2Block.random(42);
+    l2Block = await L2Block.random(42);
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = l2Block.header.hash().toBuffer();
+    blockHash = (await l2Block.header.hash()).toBuffer();
     body = l2Block.body.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
@@ -136,7 +140,7 @@ describe('L1Publisher', () => {
       Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
       L1TxUtilsConfig;
 
-    publisher = new L1Publisher(config, new NoopTelemetryClient());
+    publisher = new L1Publisher(config, { blobSinkClient });
 
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;
@@ -146,8 +150,13 @@ describe('L1Publisher', () => {
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
     publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValue(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
+    (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
+    (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -176,7 +185,7 @@ describe('L1Publisher', () => {
 
     app.post('/blob_sidecar', (req, res) => {
       const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
-        Blob.fromBuffer(Buffer.from(b.blob.data)),
+        Blob.fromBuffer(inboundTransform(Buffer.from(b.blob.data))),
       );
 
       expect(blobsBuffers).toEqual(blobs);
@@ -197,7 +206,7 @@ describe('L1Publisher', () => {
 
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
 
     // Check the blobs were forwarded to the blob sink service
     const sendToBlobSinkSpy = jest.spyOn(publisher as any, 'sendBlobsToBlobSink');
@@ -231,8 +240,9 @@ describe('L1Publisher', () => {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
-      { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
-      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg, maxFeePerBlobGas: 10000000000n },
+      // val + (val * 20n) / 100n
+      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
+      { blobs: expectedBlobs.map(b => b.data), kzg },
     );
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);
@@ -244,7 +254,9 @@ describe('L1Publisher', () => {
 
   it('does not retry if sending a propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction
+      .mockRejectedValueOnce(new Error())
+      .mockResolvedValueOnce({ receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -262,7 +274,9 @@ describe('L1Publisher', () => {
 
   it('does not retry if sending a publish and propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction
+      .mockRejectedValueOnce(new Error())
+      .mockResolvedValueOnce({ receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -271,7 +285,10 @@ describe('L1Publisher', () => {
 
   it('returns false if publish and propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({
+      receipt: { ...proposeTxReceipt, status: 'reverted' },
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -281,7 +298,10 @@ describe('L1Publisher', () => {
   it('returns false if propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
 
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({
+      receipt: { ...proposeTxReceipt, status: 'reverted' },
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -291,7 +311,11 @@ describe('L1Publisher', () => {
   it('returns false if sending publish and progress tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
-      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+      () =>
+        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+          receipt: TransactionReceipt;
+          gasPrice: GasPrice;
+        }>,
     );
     const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
@@ -304,7 +328,11 @@ describe('L1Publisher', () => {
   it('returns false if sending propose tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
-      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+      () =>
+        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+          receipt: TransactionReceipt;
+          gasPrice: GasPrice;
+        }>,
     );
 
     const resultPromise = publisher.proposeL2Block(l2Block);

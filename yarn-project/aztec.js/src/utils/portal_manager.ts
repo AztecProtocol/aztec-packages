@@ -36,7 +36,7 @@ export type L2Claim = {
 };
 
 /** L1 to L2 message info that corresponds to an amount to claim. */
-export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: Fr };
+export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: bigint };
 
 /** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
 export type L2AmountClaimWithRecipient = L2AmountClaim & {
@@ -49,9 +49,9 @@ function stringifyEthAddress(address: EthAddress | Hex, name?: string) {
 }
 
 /** Generates a pair secret and secret hash */
-export function generateClaimSecret(logger?: Logger): [Fr, Fr] {
+export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
   const secret = Fr.random();
-  const secretHash = computeSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
   logger?.verbose(`Generated claim secret=${secret.toString()} hash=${secretHash.toString()}`);
   return [secret, secretHash];
 }
@@ -144,7 +144,7 @@ export class L1FeeJuicePortalManager {
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
   public async bridgeTokensPublic(to: AztecAddress, amount: bigint, mint = false): Promise<L2AmountClaim> {
-    const [claimSecret, claimSecretHash] = generateClaimSecret();
+    const [claimSecret, claimSecretHash] = await generateClaimSecret();
     if (mint) {
       await this.tokenManager.mint(amount, this.walletClient.account.address);
     }
@@ -173,7 +173,7 @@ export class L1FeeJuicePortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
@@ -264,7 +264,7 @@ export class L1ToL2TokenPortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
@@ -306,7 +306,7 @@ export class L1ToL2TokenPortalManager {
     );
 
     return {
-      claimAmount: new Fr(amount),
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       recipient: to,

@@ -1,5 +1,6 @@
 import {
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -156,18 +157,18 @@ export interface ArchiverDataStore {
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.
@@ -264,7 +265,7 @@ export interface ArchiverDataStore {
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**

@@ -5,6 +5,95 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+
+## TBD
+
+### [Aztec.nr] Introduction of `Packable` trait
+We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array.
+This is in contrast to the `Serialize` and `Deserialize` traits, which follows Noir's intrinsic serialization format.
+This is a breaking change because we now require `Packable` trait implementation for any type that is to be stored in contract storage.
+
+Example implementation of Packable trait for `U128` type from `noir::std`:
+
+```
+use crate::traits::{Packable, ToField};
+
+let U128_PACKED_LEN: u32 = 1;
+
+impl Packable<U128_PACKED_LEN> for U128 {
+    fn pack(self) -> [Field; U128_PACKED_LEN] {
+        [self.to_field()]
+    }
+
+    fn unpack(fields: [Field; U128_PACKED_LEN]) -> Self {
+        U128::from_integer(fields[0])
+    }
+}
+```
+
+### Logs for notes, partial notes, and events have been refactored.
+
+We're preparing to make log assembly more customisable. These paths have changed.
+```diff
+- use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
++ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+```
+
+And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.
+
+The way in which logs are assembled in this "default_aes128" strategy is has also changed. I repeat: **Encrypted log layouts have changed**. The corresponding typescript for note discovery has also been changed, but if you've rolled your own functions for parsing and decrypting logs, those will be broken by this change.
+
+### `NoteInferface` and `EventInterface` no-longer have a `to_be_bytes` method.
+
+You can remove this method from any custom notes or events that you've implemented.
+
+
+## 0.72.0
+### Some functions in `aztec.js` and `@aztec/accounts` are now async
+In our efforts to make libraries more browser-friendly and providing with more bundling options for `bb.js` (like a non top-level-await version), some functions are being made async, in particular those that access our cryptographic functions.
+
+```diff
+- AztecAddress.random();
++ await AztecAddress.random();
+
+- getSchnorrAccount();
++ await getSchnorrAccount();
+```
+
+### Public logs replace unencrypted logs
+Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
+```diff
+- getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>
+- getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
++ getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>
++ getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
+```
+
+The context method in aztec.nr is now:
+```diff
+- context.emit_unencrypted_log(log)
++ context.emit_public_log(log)
+```
+
+These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:
+```diff
+- unencryptedLogs: UnencryptedTxL2Logs
+- unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]
++ publicLogs: PublicLog[]
++ public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX]
+```
+A `PublicLog` contains the log (as an array of fields) and the app address.
+
+This PR also renamed encrypted events to private events:
+```diff
+- getEncryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
++ getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
+```
+
+## 0.70.0
+### [Aztec.nr] Removal of `getSiblingPath` oracle
+Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
+
 ## 0.68.0
 ### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
 Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted

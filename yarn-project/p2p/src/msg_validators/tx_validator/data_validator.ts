@@ -1,29 +1,14 @@
-import { Tx, type TxValidator } from '@aztec/circuit-types';
+import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');
 
-  validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
-    const validTxs: Tx[] = [];
-    const invalidTxs: Tx[] = [];
-    for (const tx of txs) {
-      if (!this.#hasCorrectExecutionRequests(tx)) {
-        invalidTxs.push(tx);
-        continue;
-      }
-
-      validTxs.push(tx);
-    }
-
-    return Promise.resolve([validTxs, invalidTxs]);
+  validateTx(tx: Tx): Promise<TxValidationResult> {
+    return this.#hasCorrectExecutionRequests(tx);
   }
 
-  validateTx(tx: Tx): Promise<boolean> {
-    return Promise.resolve(this.#hasCorrectExecutionRequests(tx));
-  }
-
-  #hasCorrectExecutionRequests(tx: Tx): boolean {
+  async #hasCorrectExecutionRequests(tx: Tx): Promise<TxValidationResult> {
     const callRequests = [
       ...tx.data.getRevertiblePublicCallRequests(),
       ...tx.data.getNonRevertiblePublicCallRequests(),
@@ -34,31 +19,34 @@ export class DataTxValidator implements TxValidator<Tx> {
           callRequests.length
         }. Got ${tx.enqueuedPublicFunctionCalls.length}.`,
       );
-      return false;
+      return { result: 'invalid', reason: ['Wrong number of execution requests for public calls'] };
     }
-
-    const invalidExecutionRequestIndex = tx.enqueuedPublicFunctionCalls.findIndex(
-      (execRequest, i) => !execRequest.isForCallRequest(callRequests[i]),
-    );
+    const invalidExecutionRequestIndex = (
+      await Promise.all(
+        tx.enqueuedPublicFunctionCalls.map(
+          async (execRequest, i) => !(await execRequest.isForCallRequest(callRequests[i])),
+        ),
+      )
+    ).findIndex(Boolean);
     if (invalidExecutionRequestIndex !== -1) {
       this.#log.warn(
-        `Rejecting tx ${Tx.getHash(
+        `Rejecting tx ${await Tx.getHash(
           tx,
         )} because of incorrect execution requests for public call at index ${invalidExecutionRequestIndex}.`,
       );
-      return false;
+      return { result: 'invalid', reason: ['Incorrect execution request for public call'] };
     }
 
     const teardownCallRequest = tx.data.getTeardownPublicCallRequest();
     const isInvalidTeardownExecutionRequest =
       (!teardownCallRequest && !tx.publicTeardownFunctionCall.isEmpty()) ||
-      (teardownCallRequest && !tx.publicTeardownFunctionCall.isForCallRequest(teardownCallRequest));
+      (teardownCallRequest && !(await tx.publicTeardownFunctionCall.isForCallRequest(teardownCallRequest)));
     if (isInvalidTeardownExecutionRequest) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} because of incorrect teardown execution requests.`);
-      return false;
+      this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} because of incorrect teardown execution requests.`);
+      return { result: 'invalid', reason: ['Incorrect teardown execution request'] };
     }
 
-    return true;
+    return { result: 'valid' };
   }
 
   // TODO: Check logs.

@@ -33,19 +33,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/builder@npm:latest":
-  version: 0.52.0
-  resolution: "@aztec/builder@npm:0.52.0"
-  dependencies:
-    "@aztec/foundation": "npm:0.52.0"
-    "@aztec/types": "npm:0.52.0"
-    commander: "npm:^12.1.0"
-  bin:
-    aztec-builder: dest/bin/cli.js
-  checksum: 10c0/2207259255fc3e2ffbbd08829f2a4adc9070befaf09e0541213beaf378632a501c29104e447f310aebbf65a21e3cb77b99259a4122e9253640ee232ce4413675
-  languageName: node
-  linkType: hard
-
 "@aztec/circuit-types@link:../yarn-project/circuit-types::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/circuit-types@link:../yarn-project/circuit-types::locator=aztec-app%40workspace%3A."
@@ -78,7 +65,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     idb: "npm:^8.0.0"
-    lmdb: "npm:^3.0.6"
+    lmdb: "npm:^3.2.0"
   languageName: node
   linkType: soft
 
@@ -94,7 +81,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/builder": "npm:latest"
     "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^20.5.9"
@@ -139,9 +125,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A.":
+"@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite":
   version: 0.0.0-use.local
-  resolution: "@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A."
+  resolution: "@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite"
   languageName: node
   linkType: soft
 
@@ -151,7 +137,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/builder": "npm:latest"
     "@playwright/test": "npm:^1.49.0"
     "@types/node": "npm:^20.11.17"
     assert: "npm:^2.1.0"
@@ -1553,44 +1538,44 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-darwin-arm64@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-darwin-arm64@npm:3.1.6"
+"@lmdb/lmdb-darwin-arm64@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-darwin-arm64@npm:3.2.1"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-darwin-x64@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-darwin-x64@npm:3.1.6"
+"@lmdb/lmdb-darwin-x64@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-darwin-x64@npm:3.2.1"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-arm64@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-linux-arm64@npm:3.1.6"
+"@lmdb/lmdb-linux-arm64@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-linux-arm64@npm:3.2.1"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-arm@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-linux-arm@npm:3.1.6"
+"@lmdb/lmdb-linux-arm@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-linux-arm@npm:3.2.1"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-x64@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-linux-x64@npm:3.1.6"
+"@lmdb/lmdb-linux-x64@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-linux-x64@npm:3.2.1"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-win32-x64@npm:3.1.6":
-  version: 3.1.6
-  resolution: "@lmdb/lmdb-win32-x64@npm:3.1.6"
+"@lmdb/lmdb-win32-x64@npm:3.2.1":
+  version: 3.2.1
+  resolution: "@lmdb/lmdb-win32-x64@npm:3.2.1"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -1664,18 +1649,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
-
 "@nolyfill/is-core-module@npm:1.0.39":
   version: 1.0.39
   resolution: "@nolyfill/is-core-module@npm:1.0.39"
@@ -1743,18 +1716,6 @@ __metadata:
     rollup:
       optional: true
   checksum: 10c0/22d10cf44fa56a6683d5ac4df24a9003379b3dcaae9897f5c30c844afc2ebca83cfaa5557f13a1399b1c8a0d312c3217bcacd508b7ebc4b2cbee401bd1ec8be2
-  languageName: node
-  linkType: hard
-
-"@rollup/plugin-virtual@npm:^3.0.2":
-  version: 3.0.2
-  resolution: "@rollup/plugin-virtual@npm:3.0.2"
-  peerDependencies:
-    rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
-  peerDependenciesMeta:
-    rollup:
-      optional: true
-  checksum: 10c0/7115edb7989096d1ce334939fcf6e1ba365586b487bf61b2dd4f915386197f350db70904030342c0720fe58f5a52828975c645c4d415c1d432d9b1b6760a22ef
   languageName: node
   linkType: hard
 
@@ -2121,7 +2082,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@swc/core@npm:^1.7.0, @swc/core@npm:^1.7.26":
+"@swc/core@npm:^1.7.26":
   version: 1.9.3
   resolution: "@swc/core@npm:1.9.3"
   dependencies:
@@ -8398,16 +8359,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lmdb@npm:^3.0.6":
-  version: 3.1.6
-  resolution: "lmdb@npm:3.1.6"
+"lmdb@npm:^3.2.0":
+  version: 3.2.1
+  resolution: "lmdb@npm:3.2.1"
   dependencies:
-    "@lmdb/lmdb-darwin-arm64": "npm:3.1.6"
-    "@lmdb/lmdb-darwin-x64": "npm:3.1.6"
-    "@lmdb/lmdb-linux-arm": "npm:3.1.6"
-    "@lmdb/lmdb-linux-arm64": "npm:3.1.6"
-    "@lmdb/lmdb-linux-x64": "npm:3.1.6"
-    "@lmdb/lmdb-win32-x64": "npm:3.1.6"
+    "@lmdb/lmdb-darwin-arm64": "npm:3.2.1"
+    "@lmdb/lmdb-darwin-x64": "npm:3.2.1"
+    "@lmdb/lmdb-linux-arm": "npm:3.2.1"
+    "@lmdb/lmdb-linux-arm64": "npm:3.2.1"
+    "@lmdb/lmdb-linux-x64": "npm:3.2.1"
+    "@lmdb/lmdb-win32-x64": "npm:3.2.1"
     msgpackr: "npm:^1.11.2"
     node-addon-api: "npm:^6.1.0"
     node-gyp: "npm:latest"
@@ -8429,7 +8390,7 @@ __metadata:
       optional: true
   bin:
     download-lmdb-prebuilds: bin/download-prebuilds.js
-  checksum: 10c0/081804f72aab6eb0f712654e3bbb2d454dd455bbfe09f223e10728971f201cfc166d4d6dd6a3099aabf79e4fd62e9c2a5eb9117bd5f2153ec5a419333f69a338
+  checksum: 10c0/cccf17b95a821c56d3eef87abbdd7c30e4bc3147fbdd1cae44a5ba8f1977dbb3177021cfda9b7e8a293fc53fe78fc81979ce032885b777d3bec556c255c25724
   languageName: node
   linkType: hard
 
@@ -11973,15 +11934,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uuid@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "uuid@npm:10.0.0"
-  bin:
-    uuid: dist/bin/uuid
-  checksum: 10c0/eab18c27fe4ab9fb9709a5d5f40119b45f2ec8314f8d4cf12ce27e4c6f4ffa4a6321dc7db6c515068fa373c075b49691ba969f0010bf37f44c37ca40cd6bf7fe
-  languageName: node
-  linkType: hard
-
 "uuid@npm:^8.3.2":
   version: 8.3.2
   resolution: "uuid@npm:8.3.2"
@@ -12040,19 +11992,6 @@ __metadata:
   peerDependencies:
     vite: ^2.0.0 || ^3.0.0 || ^4.0.0 || ^5.0.0
   checksum: 10c0/f8ddc452eb6fba280977d037f8a6406aa522e69590641ce72ce5bb31c3498856a9f63ab3671bc6a822dcd1ff9ba5cac02cacef4a0e170fd8500cdeeb38c81675
-  languageName: node
-  linkType: hard
-
-"vite-plugin-top-level-await@npm:^1.4.4":
-  version: 1.4.4
-  resolution: "vite-plugin-top-level-await@npm:1.4.4"
-  dependencies:
-    "@rollup/plugin-virtual": "npm:^3.0.2"
-    "@swc/core": "npm:^1.7.0"
-    uuid: "npm:^10.0.0"
-  peerDependencies:
-    vite: ">=2.8"
-  checksum: 10c0/013e7b2e28632d93d04c4061187198e699064fc208a1657c100354b32da30921fa835879fc17779d5e0b074855237408da2fadd720fa0f4571137427a1efd5e3
   languageName: node
   linkType: hard
 
@@ -12162,13 +12101,11 @@ __metadata:
     "@aztec/key-store": "link:../../../yarn-project/key-store"
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store"
     "@aztec/pxe": "link:../../../yarn-project/pxe"
+    "@aztec/simulator": "link:../../../yarn-project/simulator"
     "@eslint/js": "npm:^9.13.0"
-    "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js"
-    "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    buffer: "npm:^6.0.3"
     eslint: "npm:^9.13.0"
     eslint-plugin-react-hooks: "npm:^5.1.0"
     eslint-plugin-react-refresh: "npm:^0.4.16"
@@ -12180,7 +12117,6 @@ __metadata:
     typescript-eslint: "npm:^8.11.0"
     vite: "npm:^6.0.3"
     vite-plugin-node-polyfills: "npm:^0.22.0"
-    vite-plugin-top-level-await: "npm:^1.4.4"
   languageName: unknown
   linkType: soft
 

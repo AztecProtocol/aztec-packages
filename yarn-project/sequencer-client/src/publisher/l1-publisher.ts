@@ -1,9 +1,10 @@
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
   type EpochProofClaim,
   type EpochProofQuote,
   type L2Block,
-  SignatureDomainSeperator,
+  SignatureDomainSeparator,
   type TxHash,
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
@@ -16,7 +17,15 @@ import {
   type Proof,
 } from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { type EthereumChain, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
+import {
+  type EthereumChain,
+  FormattedViemError,
+  type GasPrice,
+  type L1ContractsConfig,
+  L1TxUtils,
+  createEthereumChain,
+  formatViemError,
+} from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
@@ -27,15 +36,15 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ExtRollupLibAbi, LeonidasLibAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
   type BaseError,
   type Chain,
   type Client,
-  ContractFunctionExecutionError,
+  type ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -63,7 +72,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -115,6 +123,14 @@ type L1ProcessArgs = {
   txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
+};
+
+type L1ProcessReturnType = {
+  receipt: TransactionReceipt | undefined;
+  args: any;
+  functionName: string;
+  data: Hex;
+  gasPrice: GasPrice;
 };
 
 /** Arguments to the submitEpochProof method of the rollup contract */
@@ -177,8 +193,7 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkUrl: string | undefined;
-
+  private blobSinkClient: BlobSinkClientInterface;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -189,12 +204,15 @@ export class L1Publisher {
 
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
-    client: TelemetryClient,
+    deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-    this.blobSinkUrl = config.blobSinkUrl;
-    this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
+
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+
+    this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
@@ -399,7 +417,7 @@ export class L1Publisher {
       digest: Buffer.alloc(32),
       signatures: [],
     },
-  ): Promise<void> {
+  ): Promise<bigint> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
@@ -421,41 +439,10 @@ export class L1Publisher {
       if (error instanceof ContractFunctionRevertedError) {
         const err = error as ContractFunctionRevertedError;
         this.log.debug(`Validation failed: ${err.message}`, err.data);
-      } else if (error instanceof ContractFunctionExecutionError) {
-        let err = error as ContractFunctionRevertedError;
-        if (!tryGetCustomErrorName(err)) {
-          // If we get here, it's because the custom error no longer exists in Rollup.sol,
-          // but in another lib. The below reconstructs the error message.
-          try {
-            await this.publicClient.estimateGas({
-              data: encodeFunctionData({
-                abi: this.rollupContract.abi,
-                functionName: 'validateHeader',
-                args,
-              }),
-              account: this.account,
-              to: this.rollupContract.address,
-            });
-          } catch (estGasErr: unknown) {
-            const possibleAbis = [ExtRollupLibAbi, LeonidasLibAbi];
-            possibleAbis.forEach(abi => {
-              const possibleErr = getContractError(estGasErr as BaseError, {
-                args: [],
-                abi: abi,
-                functionName: 'validateHeader',
-                address: this.rollupContract.address,
-                sender: this.account.address,
-              });
-              err = tryGetCustomErrorName(possibleErr) ? possibleErr : err;
-            });
-          }
-          throw err;
-        }
-      } else {
-        this.log.debug(`Unexpected error during validation: ${error}`);
       }
       throw error;
     }
+    return ts;
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -560,8 +547,8 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = prettyLogViemErrorMsg(err);
-      logger.error(`Failed to vote`, msg);
+      const { message, metaMessages } = formatViemError(err);
+      logger.error(`Failed to vote`, message, { metaMessages });
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
     }
@@ -589,22 +576,23 @@ export class L1Publisher {
     attestations?: Signature[],
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
-      blockHash: block.hash().toString(),
+      blockHash: (await block.hash()).toString(),
     };
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
+    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: block.header.hash().toBuffer(),
+      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -623,25 +611,30 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    await this.validateBlockForSubmission(block.header, {
+    const ts = await this.validateBlockForSubmission(block.header, {
       digest: digest.toBuffer(),
       signatures: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
-      : await this.sendProposeTx(proposeTxArgs);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts, ts)
+      : await this.sendProposeTx(proposeTxArgs, opts, ts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
 
-    const { receipt, args, functionName, data } = result;
+    const { receipt, args, functionName, data, gasPrice } = result;
 
     // Tx was mined successfully
     if (receipt.status === 'success') {
+      // Send the blobs to the blob sink
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      });
+
       const tx = await this.getTransactionStats(receipt.transactionHash);
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
@@ -655,11 +648,6 @@ export class L1Publisher {
       };
       this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
-      // Send the blobs to the blob sink
-      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
-      });
 
       return true;
     }
@@ -675,9 +663,9 @@ export class L1Publisher {
         address: this.rollupContract.address,
       },
       {
-        blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
+        blobs: proposeTxArgs.blobs.map(b => b.data),
         kzg,
-        maxFeePerBlobGas: 10000000000n,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
     );
     this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
@@ -691,11 +679,10 @@ export class L1Publisher {
   /** Calls claimEpochProofRight in the Rollup contract to submit a chosen prover quote for the previous epoch. */
   public async claimEpochProofRight(proofQuote: EpochProofQuote) {
     const timer = new Timer();
-
-    let receipt;
+    let result;
     try {
       this.log.debug(`Submitting claimEpochProofRight transaction`);
-      receipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      result = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: RollupAbi,
@@ -704,11 +691,21 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right: ${prettyLogViemErrorMsg(err)}`, err, {
-        proofQuote: proofQuote.toInspect(),
-      });
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Failed to claim epoch proof right`, message, {
+          metaMessages,
+          proofQuote: proofQuote.toInspect(),
+        });
+      } else {
+        this.log.error(`Failed to claim epoch proof right`, err, {
+          proofQuote: proofQuote.toInspect(),
+        });
+      }
       return false;
     }
+
+    const { receipt } = result;
 
     if (receipt.status === 'success') {
       const tx = await this.getTransactionStats(receipt.transactionHash);
@@ -771,8 +768,7 @@ export class L1Publisher {
           },
         ],
       });
-      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors,
-      // and viem provides no way to get the revert reason from a given tx.
+      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
       // This throws a EstimateGasExecutionError with the custom error information:
@@ -784,13 +780,13 @@ export class L1Publisher {
       });
       return undefined;
     } catch (simulationErr: any) {
-      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use ExtRollupLibAbi to get the error msg.
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.
       const contractErr =
         simulationErr.name === 'ContractFunctionExecutionError'
           ? simulationErr
           : getContractError(simulationErr as BaseError, {
               args: [],
-              abi: ExtRollupLibAbi,
+              abi: RollupAbi,
               functionName: args.functionName,
               address: args.address,
               sender: this.account.address,
@@ -933,41 +929,50 @@ export class L1Publisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }): Promise<string | undefined> {
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getSubmitEpochProofArgs(args);
+
+    const txArgs = [
+      {
+        epochSize: argsArray[0],
+        args: argsArray[1],
+        fees: argsArray[2],
+        blobPublicInputs: argsArray[3],
+        aggregationObject: argsArray[4],
+        proof: proofHex,
+      },
+    ] as const;
+
+    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    const data = encodeFunctionData({
+      abi: this.rollupContract.abi,
+      functionName: 'submitEpochRootProof',
+      args: txArgs,
+    });
     try {
-      const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const argsArray = this.getSubmitEpochProofArgs(args);
-
-      const txArgs = [
-        {
-          epochSize: argsArray[0],
-          args: argsArray[1],
-          fees: argsArray[2],
-          blobPublicInputs: argsArray[3],
-          aggregationObject: argsArray[4],
-          proof: proofHex,
-        },
-      ] as const;
-
-      this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-
-      const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'submitEpochRootProof',
-          args: txArgs,
-        }),
+        data,
       });
 
-      return txReceipt.transactionHash;
+      return receipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
+      const errorMsg = await this.tryGetErrorFromRevertedTx(data, {
+        args: [...txArgs],
+        functionName: 'submitEpochRootProof',
+        abi: this.rollupContract.abi,
+        address: this.rollupContract.address,
+      });
+      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }
 
   private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
+    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils.estimateGas(
       this.account,
       {
@@ -975,23 +980,16 @@ export class L1Publisher {
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
           functionName: 'validateBlobs',
-          args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
+          args: [blobInput],
         }),
       },
       {},
       {
-        blobs: encodedData.blobs.map(b => b.dataWithZeros),
+        blobs: encodedData.blobs.map(b => b.data),
         kzg,
-        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       },
     );
 
-    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-    //        viem will use the current state to simulate against, which means that
-    //        we will fail estimation in the case where we are simulating for the
-    //        first ethereum block within our slot (as current time is not in the
-    //        slot yet).
-    const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -1011,10 +1009,10 @@ export class L1Publisher {
       attestations,
       // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
-      Blob.getEthBlobEvaluationInputs(encodedData.blobs),
+      blobInput,
     ] as const;
 
-    return { args, gas: gasGuesstimate };
+    return { args, blobEvaluationGas };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -1049,40 +1047,79 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+    opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'propose',
         args,
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_GAS_GUESS * 2n,
+        },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+      );
+
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
-          fixedGas: gas,
+          ...opts,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args,
         functionName: 'propose',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }
@@ -1090,39 +1127,80 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+    opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
+
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS * 2n,
+        },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+      );
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
-        { fixedGas: gas },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          ...opts,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
+        },
+        {
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
 
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }
@@ -1176,38 +1254,8 @@ export class L1Publisher {
    *   In the future this will move to be the beacon block id - which takes a bit more work
    *   to calculate and will need to be mocked in e2e tests
    */
-  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    if (!this.blobSinkUrl) {
-      this.log.verbose('No blob sink url configured');
-      return false;
-    }
-
-    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
-    try {
-      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
-          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
-        }),
-      });
-
-      if (res.ok) {
-        return true;
-      }
-
-      this.log.error('Failed to send blobs to blob sink', res.status);
-      return false;
-    } catch (err) {
-      this.log.error(`Error sending blobs to blob sink`, err);
-      return false;
-    }
+  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }
 

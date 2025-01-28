@@ -20,7 +20,7 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
-    defaultValue: l1ContractAddressesMapping,
+    nested: l1ContractAddressesMapping,
   },
 };
 

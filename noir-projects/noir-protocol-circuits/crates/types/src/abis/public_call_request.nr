@@ -2,7 +2,7 @@ use crate::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_CALL_REQUEST_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
 };
 

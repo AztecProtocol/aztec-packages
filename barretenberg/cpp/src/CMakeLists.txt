@@ -95,11 +95,16 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
+add_subdirectory(barretenberg/vm2)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
+endif()
+
+if(SMT AND ACIR_FORMAL_PROOFS)
+    add_subdirectory(barretenberg/acir_formal_proofs)
 endif()
 
 add_subdirectory(barretenberg/benchmark)
@@ -167,6 +172,7 @@ set(BARRETENBERG_TARGET_OBJECTS
 if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
 endif()
 
 if(NOT WASM)

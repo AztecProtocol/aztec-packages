@@ -47,11 +47,11 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  if ! rustup show | grep "1.74" > /dev/null; then
+  if ! rustup show | grep "1.75" > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.74 not installed."
+    echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -96,15 +96,6 @@ function check_toolchains {
     encourage_dev_container
     echo "yarn not found."
     echo "Installation: corepack enable"
-    exit 1
-  fi
-  # Check for yarn version
-  local yarn_min_version="4.5.2"
-  local yarn_installed_version=$(yarn --version)
-  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
-    echo "Installation: yarn set version $yarn_min_version; yarn install"
     exit 1
   fi
 }
@@ -201,9 +192,41 @@ case "$cmd" in
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    check_arch=false
+    version="0.1.0"
+
+    # Check for --check-arch flag in args
+    for arg in "$@"; do
+      if [ "$arg" = "--check-arch" ]; then
+        check_arch=true
+        break
+      fi
+      if [ "$arg" = "--version" ]; then
+        version=$2
+        shift 2
+      fi
+    done
+
     docker pull $image &>/dev/null || true
     if docker_has_image $image; then
-      exit
+      if [ "$check_arch" = true ]; then
+        # Check we're on the correct architecture
+        image_arch=$(docker inspect $image --format '{{.Architecture}}')
+        host_arch=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+
+        if [ "$image_arch" != "$host_arch" ]; then
+          echo "Warning: Image architecture ($image_arch) doesn't match host architecture ($host_arch)"
+          echo "Rebuilding image for correct architecture..."
+        else
+          echo "Image $image already exists and has been downloaded with correct architecture." && exit
+        fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
+      else
+        echo "Image $image already exists and has been downloaded." && exit
+      fi
+    else
+      echo "Image $image does not exist, building..."
     fi
     github_group "image-aztec"
     source $ci3/source_tmp
@@ -212,7 +235,8 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
+
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
@@ -279,6 +303,8 @@ esac
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
+echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"

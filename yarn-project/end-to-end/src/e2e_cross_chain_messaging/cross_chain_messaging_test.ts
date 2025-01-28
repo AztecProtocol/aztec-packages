@@ -86,10 +86,14 @@ export class CrossChainMessagingTest {
       '3_accounts',
       addAccounts(3, this.logger),
       async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.wallets = await Promise.all(
+          accountKeys.map(async ak => {
+            const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+            return account.getWallet();
+          }),
+        );
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.accounts = await pxe.getRegisteredAccounts();
 
         this.rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

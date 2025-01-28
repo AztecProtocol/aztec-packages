@@ -30,8 +30,8 @@ describe('epoch proof quote', () => {
     checkEquivalence(quote, deserialised);
   });
 
-  it('should serialize and deserialize from JSON', () => {
-    const deserialised = jsonParseWithSchema(jsonStringify(quote), EpochProofQuote.schema);
+  it('should serialize and deserialize from JSON', async () => {
+    const deserialised = await jsonParseWithSchema(jsonStringify(quote), EpochProofQuote.schema);
     checkEquivalence(quote, deserialised);
   });
 });

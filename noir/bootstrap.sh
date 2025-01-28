@@ -10,7 +10,8 @@ function build {
   if ! cache_download noir-$hash.tar.gz; then
     # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-    parallel denoise ::: ./scripts/bootstrap_native.sh ./scripts/bootstrap_packages.sh
+    denoise ./scripts/bootstrap_native.sh
+    denoise ./scripts/bootstrap_packages.sh
     cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm packages
   fi
   github_endgroup

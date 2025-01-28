@@ -69,7 +69,7 @@ export class Barretenberg extends BarretenbergApi {
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, this.options.crsPath);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -89,26 +89,28 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
+let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
-let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 
 export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
 
-  static async new() {
+  private static async new() {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1);
     await wasm.init(module, threads);
     return new BarretenbergSync(wasm);
   }
 
-  static initSingleton() {
-    if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new().then(s => (barretenbergSyncSingleton = s));
+  static async initSingleton() {
+    if (!barrentenbergSyncSingletonPromise) {
+      barrentenbergSyncSingletonPromise = BarretenbergSync.new();
     }
-    return barretenbergSyncSingletonPromise;
+
+    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    return barretenbergSyncSingleton;
   }
 
   static getSingleton() {
@@ -122,9 +124,3 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return this.wasm;
   }
 }
-
-// If we're in ESM environment, use top level await. CJS users need to call it manually.
-// Need to ignore for cjs build.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-await BarretenbergSync.initSingleton(); // POSTPROCESS ESM ONLY

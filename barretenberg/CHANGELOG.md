@@ -1,5 +1,124 @@
 # Changelog
 
+## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.72.0...barretenberg-v0.72.1) (2025-01-24)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.72.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.71.0...barretenberg-v0.72.0) (2025-01-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* public logs ([#11091](https://github.com/AztecProtocol/aztec-packages/issues/11091))
+
+### Features
+
+* **avm:** Address and class id derivation setup ([#11354](https://github.com/AztecProtocol/aztec-packages/issues/11354)) ([5f3cffc](https://github.com/AztecProtocol/aztec-packages/commit/5f3cffc42bf2280367d44603ae6f509c46b6fede))
+* **avm:** Bytecode manager changes ([#11347](https://github.com/AztecProtocol/aztec-packages/issues/11347)) ([4a9c072](https://github.com/AztecProtocol/aztec-packages/commit/4a9c0724e3dd6fa3ea8753fc17a090c33c307d01))
+* **avm:** Include initial tree roots in DB ([#11360](https://github.com/AztecProtocol/aztec-packages/issues/11360)) ([4d149be](https://github.com/AztecProtocol/aztec-packages/commit/4d149be20e73321fece072a1b7e410225b5dc8c9))
+* **avm:** Interactive debugger ([#11477](https://github.com/AztecProtocol/aztec-packages/issues/11477)) ([53e57d3](https://github.com/AztecProtocol/aztec-packages/commit/53e57d3d52dd477714bc984c4a13bc8e5664877e))
+* Eccvm sumcheck with commitments to round univariates ([#11206](https://github.com/AztecProtocol/aztec-packages/issues/11206)) ([fe34b05](https://github.com/AztecProtocol/aztec-packages/commit/fe34b0580a308665c655a897c72f06bd05dcd4c4))
+* Lazy wasm pt. 2 ([#11410](https://github.com/AztecProtocol/aztec-packages/issues/11410)) ([01510f4](https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2))
+* Public logs ([#11091](https://github.com/AztecProtocol/aztec-packages/issues/11091)) ([f4725d2](https://github.com/AztecProtocol/aztec-packages/commit/f4725d2237c6e9c6b7b17248f8c33343cb9ea7f1))
+* UH recursion in the browser ([#11049](https://github.com/AztecProtocol/aztec-packages/issues/11049)) ([c3c04a4](https://github.com/AztecProtocol/aztec-packages/commit/c3c04a4cb92f0447431160d425bda66a997c0d66))
+
+
+### Bug Fixes
+
+* Hackily fix the public input columns of avm recursion constraint ([#11428](https://github.com/AztecProtocol/aztec-packages/issues/11428)) ([436c3c6](https://github.com/AztecProtocol/aztec-packages/commit/436c3c63b76e36d172619436b3237133f295aca7))
+* Verify start state of a block ([#11290](https://github.com/AztecProtocol/aztec-packages/issues/11290)) ([5eb3e8f](https://github.com/AztecProtocol/aztec-packages/commit/5eb3e8f498093ae52b8a29939051cd8c66aed3c1))
+
+
+### Miscellaneous
+
+* Add a couple of comments in the AVM range check gadget ([#11402](https://github.com/AztecProtocol/aztec-packages/issues/11402)) ([f1fd2d1](https://github.com/AztecProtocol/aztec-packages/commit/f1fd2d104d01a4582d8a48a6ab003d8791010967))
+* **avm:** Do not use commit_sparse ([#11447](https://github.com/AztecProtocol/aztec-packages/issues/11447)) ([9796e1e](https://github.com/AztecProtocol/aztec-packages/commit/9796e1ea2720e6ee01be20b4c9226257c9efb0a9))
+* **avm:** Remove some codegen bloat ([#11418](https://github.com/AztecProtocol/aztec-packages/issues/11418)) ([6b0106c](https://github.com/AztecProtocol/aztec-packages/commit/6b0106c1eedf098779e7903ac37e96e6b3a9d478))
+* Bump CRS and constants ([#11306](https://github.com/AztecProtocol/aztec-packages/issues/11306)) ([9e5ea3a](https://github.com/AztecProtocol/aztec-packages/commit/9e5ea3a6a45c1266504ec3c259b9c11aa4fd9f7a))
+* Fixed VK in MegaZK/ECCVM/Translator/Tube Recursive Verifier circuits ([#11377](https://github.com/AztecProtocol/aztec-packages/issues/11377)) ([5018c94](https://github.com/AztecProtocol/aztec-packages/commit/5018c94db30ea80c93d194453d1c837a51fbe3a0))
+* Minor Gemini refactor to prep for opening k-shifts ([#11393](https://github.com/AztecProtocol/aztec-packages/issues/11393)) ([30a063a](https://github.com/AztecProtocol/aztec-packages/commit/30a063a65f95403773d13da0d9a896da45d9608d))
+* More granular error handling for toradixBE ([#11378](https://github.com/AztecProtocol/aztec-packages/issues/11378)) ([64f4052](https://github.com/AztecProtocol/aztec-packages/commit/64f4052d498496724ec56b207ca0f89c3fe87ac8)), closes [#11295](https://github.com/AztecProtocol/aztec-packages/issues/11295)
+* Print warning in builder when failure happens. ([#11205](https://github.com/AztecProtocol/aztec-packages/issues/11205)) ([5a52e95](https://github.com/AztecProtocol/aztec-packages/commit/5a52e950428b511ea3024efb32c6d1c9b810fd89))
+* Redo typo PR by Daulox92 ([#11458](https://github.com/AztecProtocol/aztec-packages/issues/11458)) ([f3ba327](https://github.com/AztecProtocol/aztec-packages/commit/f3ba32709a9776d6b737e976fb652ae466ca916e))
+* Redo typo PR by teenager-ETH ([#11320](https://github.com/AztecProtocol/aztec-packages/issues/11320)) ([77854e2](https://github.com/AztecProtocol/aztec-packages/commit/77854e2c92ccf11dea3770845928ca5077a606d8))
+* **sol:** Generate & compile verifier contract in bootstrap ([#11364](https://github.com/AztecProtocol/aztec-packages/issues/11364)) ([bf3b12a](https://github.com/AztecProtocol/aztec-packages/commit/bf3b12a374dddb8f7993e0c1537cfa6042f86f38))
+
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.70.0...barretenberg-v0.71.0) (2025-01-17)
+
+
+### Bug Fixes
+
+* Reallocate commitment key to avoid pippenger error ([#11249](https://github.com/AztecProtocol/aztec-packages/issues/11249)) ([8fc2011](https://github.com/AztecProtocol/aztec-packages/commit/8fc2011fbe0e3545924898a53e851279b8cc0084))
+* Resolve misc bugs handling phases in avm witgen ([#11218](https://github.com/AztecProtocol/aztec-packages/issues/11218)) ([29bc4bd](https://github.com/AztecProtocol/aztec-packages/commit/29bc4bdd5b59ee1050951e0c143654ef3cdd25b0))
+
+
+### Miscellaneous
+
+* **avm:** Calldata, returndata slices out of range padded with zeros ([#11265](https://github.com/AztecProtocol/aztec-packages/issues/11265)) ([a469c94](https://github.com/AztecProtocol/aztec-packages/commit/a469c94ccfa37723aa79f132e55c31ae7c4c6693)), closes [#10933](https://github.com/AztecProtocol/aztec-packages/issues/10933)
+* Move shared pcs functionality to internal library in solidity and small refactorings in sumcheck ([#11230](https://github.com/AztecProtocol/aztec-packages/issues/11230)) ([507ae9d](https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd))
+
+## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.1...barretenberg-v0.70.0) (2025-01-15)
+
+
+### Features
+
+* Allow concurrent world state access ([#11216](https://github.com/AztecProtocol/aztec-packages/issues/11216)) ([17aa4b4](https://github.com/AztecProtocol/aztec-packages/commit/17aa4b4cf2164d29d24d4da29d4b55d273802747))
+* **avm2:** Avm redesign init ([#10906](https://github.com/AztecProtocol/aztec-packages/issues/10906)) ([231f017](https://github.com/AztecProtocol/aztec-packages/commit/231f017d14c3d261b28ab19dcbdf368c561d0cc7))
+* Permutation argument optimizations  ([#10960](https://github.com/AztecProtocol/aztec-packages/issues/10960)) ([de99603](https://github.com/AztecProtocol/aztec-packages/commit/de9960345da17e97464d2c36c35e3eada4fa3680))
+* Use tail public inputs as transaction hash ([#11100](https://github.com/AztecProtocol/aztec-packages/issues/11100)) ([34be2c3](https://github.com/AztecProtocol/aztec-packages/commit/34be2c3800c2d99c11fe3448e01c77abf60c726d))
+
+
+### Bug Fixes
+
+* **avm:** AVM circuit fixes related calldata, returndata and call_ptr ([#11207](https://github.com/AztecProtocol/aztec-packages/issues/11207)) ([2f05dc0](https://github.com/AztecProtocol/aztec-packages/commit/2f05dc02fe7b147c7cd6fc235134279dbf332c08))
+* **avm:** Mac build ([#11195](https://github.com/AztecProtocol/aztec-packages/issues/11195)) ([c4f4452](https://github.com/AztecProtocol/aztec-packages/commit/c4f44520a8cc234219f7e9e021b0574a894aa06e))
+* **avm:** Mac build (retry) ([#11197](https://github.com/AztecProtocol/aztec-packages/issues/11197)) ([0a4b763](https://github.com/AztecProtocol/aztec-packages/commit/0a4b763a39fde0f37ac5baa3bd1e3052c01ca946))
+* **bootstrap:** Don't download bad cache if unstaged changes ([#11198](https://github.com/AztecProtocol/aztec-packages/issues/11198)) ([2bd895b](https://github.com/AztecProtocol/aztec-packages/commit/2bd895bb0887fddc45433224b3ebef04660f744c))
+* Remove max lookup table size constant (for now) ([#11095](https://github.com/AztecProtocol/aztec-packages/issues/11095)) ([7e9e268](https://github.com/AztecProtocol/aztec-packages/commit/7e9e2681e314145237f95f79ffdc95ad25a0e319))
+
+
+### Miscellaneous
+
+* **avm:** Fix mac build ([#11147](https://github.com/AztecProtocol/aztec-packages/issues/11147)) ([1775e53](https://github.com/AztecProtocol/aztec-packages/commit/1775e53025f9946ba26b8b624a0f15f4ccdabd2f))
+* **avm:** Improve column stats ([#11135](https://github.com/AztecProtocol/aztec-packages/issues/11135)) ([535a14c](https://github.com/AztecProtocol/aztec-packages/commit/535a14c8c59399ce7579c69f6aec862f71981699))
+* **avm:** Re-enable bb-prover tests in CI, change some to check-circuit-only, enable multi-enqueued call tests ([#11180](https://github.com/AztecProtocol/aztec-packages/issues/11180)) ([3092212](https://github.com/AztecProtocol/aztec-packages/commit/3092212d61cb1359d10b1741b48627518e5437d7))
+* **avm:** Vm2 followup cleanup ([#11186](https://github.com/AztecProtocol/aztec-packages/issues/11186)) ([6de4013](https://github.com/AztecProtocol/aztec-packages/commit/6de4013c1204b3478b6d444c0cff5ca9c5c6cd03))
+* **docs:** Update tx concepts page ([#10947](https://github.com/AztecProtocol/aztec-packages/issues/10947)) ([d9d9798](https://github.com/AztecProtocol/aztec-packages/commit/d9d9798f90cce34ff03cc89d8aa18bb9db0414f1))
+* Move witness computation into class plus some other cleanup ([#11140](https://github.com/AztecProtocol/aztec-packages/issues/11140)) ([d41e9ab](https://github.com/AztecProtocol/aztec-packages/commit/d41e9abc8c2428be224400ec43f4844adfd954c3))
+* Redo typo PR by longxiangqiao ([#11109](https://github.com/AztecProtocol/aztec-packages/issues/11109)) ([b8ef30e](https://github.com/AztecProtocol/aztec-packages/commit/b8ef30e2a147b5318b70ff2146186dfbae70af42))
+* Refactor Solidity Transcript and improve error handling in  sol_honk flow ([#11158](https://github.com/AztecProtocol/aztec-packages/issues/11158)) ([58fdf87](https://github.com/AztecProtocol/aztec-packages/commit/58fdf87560fc2c43255675c83dbc36eb370ca5b0))
+* SmallSubgroupIPA tests  ([#11106](https://github.com/AztecProtocol/aztec-packages/issues/11106)) ([f034e2a](https://github.com/AztecProtocol/aztec-packages/commit/f034e2af6f372e393b63ff19ca6d118d03506e1f))
+
+## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.0...barretenberg-v0.69.1) (2025-01-08)
+
+
+### Features
+
+* Acir formal proofs ([#10973](https://github.com/AztecProtocol/aztec-packages/issues/10973)) ([1cb7cd7](https://github.com/AztecProtocol/aztec-packages/commit/1cb7cd78d089fd1e2706d9d5993b6115bcdd6a84))
+* Derive transcript structure between non-zk and zk flavors and between Ultra and UltraKeccak ([#11086](https://github.com/AztecProtocol/aztec-packages/issues/11086)) ([48286c6](https://github.com/AztecProtocol/aztec-packages/commit/48286c671a61dbe18e5f8e0c44e71ab6c3fd109a))
+* Fix commitments and openings of masking polynomials used in zk sumcheck  ([#10773](https://github.com/AztecProtocol/aztec-packages/issues/10773)) ([fc48dcc](https://github.com/AztecProtocol/aztec-packages/commit/fc48dcca537fa790ed6866ad4e184cb89c2617a2))
+* Improve witness generation for cycle_group::batch_mul ([#9563](https://github.com/AztecProtocol/aztec-packages/issues/9563)) ([7da7f2b](https://github.com/AztecProtocol/aztec-packages/commit/7da7f2bb6c26a7c55a5869d21c3a5f546880a001))
+
+
+### Bug Fixes
+
+* Add bytecode instances in reverse ([#11064](https://github.com/AztecProtocol/aztec-packages/issues/11064)) ([036496c](https://github.com/AztecProtocol/aztec-packages/commit/036496ce7496132b7376c9a6708a9a6ed460771d))
+* Reset pc to 0 for next enqueued call in avm witgen ([#11043](https://github.com/AztecProtocol/aztec-packages/issues/11043)) ([44e4816](https://github.com/AztecProtocol/aztec-packages/commit/44e481650e99de0bcae6e5299413e12cb15227b9))
+* Update requests per call should be less than per tx ([#11072](https://github.com/AztecProtocol/aztec-packages/issues/11072)) ([da5e95f](https://github.com/AztecProtocol/aztec-packages/commit/da5e95ffab1694bad22817edd9abdf8e48c992ca))
+
+
+### Miscellaneous
+
+* **avm:** Handle specific MSM errors ([#11068](https://github.com/AztecProtocol/aztec-packages/issues/11068)) ([a5097a9](https://github.com/AztecProtocol/aztec-packages/commit/a5097a994e7ecc0be2b6c7d7b320bd7bad5a27a0)), closes [#10854](https://github.com/AztecProtocol/aztec-packages/issues/10854)
+* **avm:** More column information in permutations ([#11070](https://github.com/AztecProtocol/aztec-packages/issues/11070)) ([8829f24](https://github.com/AztecProtocol/aztec-packages/commit/8829f2421238945f042338bac0c9e7342517248b))
+* Clean up proof lengths and IPA ([#11020](https://github.com/AztecProtocol/aztec-packages/issues/11020)) ([800c834](https://github.com/AztecProtocol/aztec-packages/commit/800c83475c2b23ac6cf501c998f7c57b3803ad8f))
+* Fix write_recursion_inputs flow in bootstrap ([#11080](https://github.com/AztecProtocol/aztec-packages/issues/11080)) ([cd5a615](https://github.com/AztecProtocol/aztec-packages/commit/cd5a615f154446878cb8681d70b9e55c14511690))
+* Restore `prove_then_verify` test on `verify_rollup_honk_proof` ([#11018](https://github.com/AztecProtocol/aztec-packages/issues/11018)) ([79e289d](https://github.com/AztecProtocol/aztec-packages/commit/79e289d4c77c36e847851ec2a910ed0bc122d307))
+* Unify honk verifier contracts ([#11067](https://github.com/AztecProtocol/aztec-packages/issues/11067)) ([9968849](https://github.com/AztecProtocol/aztec-packages/commit/9968849f1e3680ad26edb174d81693f0ced0edd4))
+
 ## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.2...barretenberg-v0.69.0) (2025-01-03)
 
 

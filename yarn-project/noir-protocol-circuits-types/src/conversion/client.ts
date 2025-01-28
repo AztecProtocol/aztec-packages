@@ -61,7 +61,6 @@ import type {
   Counted as CountedPublicCallRequestNoir,
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
-  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
@@ -84,6 +83,7 @@ import type {
   PrivateLogData as PrivateLogDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequest as ReadRequestNoir,
@@ -102,7 +102,6 @@ import type {
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
-  mapCombinedAccumulatedDataFromNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapFunctionSelectorFromNoir,
@@ -124,6 +123,7 @@ import {
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
+  mapPrivateToRollupAccumulatedDataFromNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapScopedL2ToL1MessageFromNoir,
@@ -650,6 +650,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
     inputs.is_private_only,
+    mapFieldFromNoir(inputs.claimed_first_nullifier),
   );
 }
 
@@ -664,6 +665,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     is_private_only: inputs.isPrivateOnly,
+    claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
   };
 }
 
@@ -683,9 +685,9 @@ export function mapPrivateKernelDataToNoir(
 }
 
 export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
-  inputs: KernelCircuitPublicInputsNoir,
+  inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
 ): PrivateKernelTailCircuitPublicInputs {
-  const forRollup = new PartialPrivateTailPublicInputsForRollup(mapCombinedAccumulatedDataFromNoir(inputs.end));
+  const forRollup = new PartialPrivateTailPublicInputsForRollup(mapPrivateToRollupAccumulatedDataFromNoir(inputs.end));
   return new PrivateKernelTailCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),

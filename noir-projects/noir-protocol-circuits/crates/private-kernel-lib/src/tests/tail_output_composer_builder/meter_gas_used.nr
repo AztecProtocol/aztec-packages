@@ -17,7 +17,7 @@ fn new_builder() -> FixtureBuilder {
 #[test]
 fn meter_gas_used_empty_succeeds() {
     let builder = new_builder();
-    let data = builder.to_combined_accumulated_data();
+    let data = builder.to_private_to_rollup_accumulated_data();
     let gas = meter_gas_used(data);
     assert_eq(gas, Gas::tx_overhead());
 }
@@ -48,7 +48,7 @@ fn meter_gas_used_everything_succeeds() {
     metered_da_bytes += 51;
     computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
 
-    let data = builder.to_combined_accumulated_data();
+    let data = builder.to_private_to_rollup_accumulated_data();
     let gas = meter_gas_used(data);
 
     assert_eq(

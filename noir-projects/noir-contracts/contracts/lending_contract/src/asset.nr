@@ -1,5 +1,5 @@
 use dep::aztec::prelude::AztecAddress;
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
 
 // Struct to be used to represent "totals". Generally, there should be one per Asset.
 // It stores the global values that are shared among all users, such as an accumulator
@@ -38,5 +38,15 @@ impl Deserialize<SERIALIZED_LEN> for Asset {
         let oracle = AztecAddress::from_field(fields[5]);
 
         Asset { interest_accumulator, last_updated_ts, loan_to_value, oracle }
+    }
+}
+
+impl Packable<SERIALIZED_LEN> for Asset {
+    fn pack(self) -> [Field; SERIALIZED_LEN] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; SERIALIZED_LEN]) -> Self {
+        Self::deserialize(fields)
     }
 }

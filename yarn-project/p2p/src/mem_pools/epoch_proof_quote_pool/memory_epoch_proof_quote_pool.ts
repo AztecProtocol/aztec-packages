@@ -1,5 +1,5 @@
 import { type EpochProofQuote } from '@aztec/circuit-types';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type EpochProofQuotePool } from './epoch_proof_quote_pool.js';
@@ -8,7 +8,7 @@ export class MemoryEpochProofQuotePool implements EpochProofQuotePool {
   private quotes: Map<bigint, EpochProofQuote[]>;
   private metrics: PoolInstrumentation<EpochProofQuote>;
 
-  constructor(telemetry: TelemetryClient) {
+  constructor(telemetry: TelemetryClient = getTelemetryClient()) {
     this.quotes = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.EPOCH_PROOF_QUOTE_POOL);
   }

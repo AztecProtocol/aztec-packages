@@ -1,12 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
 import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/circuit-types/config';
-import {
   type ConfigMappingsType,
   bigintConfigHelper,
   getConfigFromMappings,
@@ -14,6 +8,12 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
 import {
   type ProverClientConfig,
   bbConfigMappings,
@@ -53,6 +53,9 @@ type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
+  txGatheringTimeoutMs: number;
+  txGatheringIntervalMs: number;
+  txGatheringMaxParallelRequests: number;
 };
 
 export type QuoteProviderConfig = {
@@ -76,6 +79,21 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
     ...numberConfigHelper(32),
+  },
+  txGatheringTimeoutMs: {
+    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
+    description: 'The maximum amount of time to wait for tx data to be available',
+    ...numberConfigHelper(60_000),
+  },
+  txGatheringIntervalMs: {
+    env: 'PROVER_NODE_TX_GATHERING_INTERVAL_MS',
+    description: 'How often to check that tx data is available',
+    ...numberConfigHelper(1_000),
+  },
+  txGatheringMaxParallelRequests: {
+    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS',
+    description: 'How many txs to load up a time',
+    ...numberConfigHelper(100),
   },
 };
 
