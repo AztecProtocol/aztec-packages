@@ -164,7 +164,7 @@ jobs:
 
           export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
 
-          $REPO/yarn-project/end-to-end/scripts/bash/generate_devnet_config.sh
+          $REPO/spartan/scripts/generate_devnet_config.sh
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
