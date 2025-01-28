@@ -110,7 +110,7 @@ interface IRollup {
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
 
   function validateHeader(
     bytes calldata _header,
@@ -119,7 +119,7 @@ interface IRollup {
     Timestamp _currentTime,
     bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
-  ) external view;
+  ) external;
 
   // solhint-disable-next-line func-name-mixedcase
   function INBOX() external view returns (IInbox);
@@ -161,8 +161,7 @@ interface IRollup {
   function getEpochToProve() external view returns (Epoch);
   function getClaimableEpoch() external view returns (Epoch);
   function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
-    external
-    view;
+    external;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
     uint256 _epochSize,

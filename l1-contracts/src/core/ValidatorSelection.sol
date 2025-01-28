@@ -84,7 +84,6 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    */
   function getCurrentEpochCommittee()
     external
-    view
     override(IValidatorSelection)
     returns (address[] memory)
   {
@@ -102,7 +101,6 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    */
   function getCommitteeAt(Timestamp _ts)
     external
-    view
     override(IValidatorSelection)
     returns (address[] memory)
   {
@@ -234,7 +232,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    *
    * @return The address of the proposer
    */
-  function getCurrentProposer() public view override(IValidatorSelection) returns (address) {
+  function getCurrentProposer() public override(IValidatorSelection) returns (address) {
     return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
@@ -259,7 +257,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    *
    * @return The address of the proposer
    */
-  function getProposerAt(Timestamp _ts) public view override(IValidatorSelection) returns (address) {
+  function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = getSlotAt(_ts);
     Epoch epochNumber = getEpochAtSlot(slot);
     return ValidatorSelectionLib.getProposerAt(
@@ -341,7 +339,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     Signature[] memory _signatures,
     bytes32 _digest,
     DataStructures.ExecutionFlags memory _flags
-  ) internal view {
+  ) internal {
     Epoch epochNumber = getEpochAtSlot(_slot);
     ValidatorSelectionLib.validateValidatorSelection(
       validatorSelectionStore,

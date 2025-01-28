@@ -375,7 +375,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _archive)
     external
-    view
     override(IRollup)
     returns (Slot, uint256)
   {
@@ -421,7 +420,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
     Timestamp _currentTime,
     bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
-  ) external view override(IRollup) {
+  ) external override(IRollup) {
     _validateHeader(
       ExtRollupLib.decodeHeader(_header),
       _signatures,
@@ -677,7 +676,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
 
   function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
     public
-    view
     override(IRollup)
   {
     Slot currentSlot = getSlotAt(_ts);
@@ -840,7 +838,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
     uint256 _manaBaseFee,
     bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
-  ) internal view {
+  ) internal {
     uint256 pendingBlockNumber = canPruneAtTime(_currentTime)
       ? rollupStore.tips.provenBlockNumber
       : rollupStore.tips.pendingBlockNumber;
@@ -886,7 +884,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
     bytes32 _digest,
     Timestamp _currentTime,
     DataStructures.ExecutionFlags memory _flags
-  ) internal view {
+  ) internal {
     // Ensure that the slot proposed is NOT in the future
     Slot currentSlot = getSlotAt(_currentTime);
     require(_slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot));

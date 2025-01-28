@@ -31,7 +31,7 @@ library ValidatorSelectionLib {
     StakingStorage storage _stakingStore,
     uint256 _seed,
     uint256 _targetCommitteeSize
-  ) external view returns (address[] memory) {
+  ) external returns (address[] memory) {
     return _sampleValidators(_stakingStore, _seed, _targetCommitteeSize);
   }
 
@@ -41,7 +41,7 @@ library ValidatorSelectionLib {
     Slot _slot,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
-  ) external view returns (address) {
+  ) external returns (address) {
     return _getProposerAt(
       _validatorSelectionStore, _stakingStore, _slot, _epochNumber, _targetCommitteeSize
     );
@@ -52,7 +52,7 @@ library ValidatorSelectionLib {
     StakingStorage storage _stakingStore,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
-  ) external view returns (address[] memory) {
+  ) external returns (address[] memory) {
     return
       _getCommitteeAt(_validatorSelectionStore, _stakingStore, _epochNumber, _targetCommitteeSize);
   }
@@ -82,7 +82,7 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     DataStructures.ExecutionFlags memory _flags,
     uint256 _targetCommitteeSize
-  ) external view {
+  ) external {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
     address[] memory committee =
@@ -184,7 +184,7 @@ library ValidatorSelectionLib {
     StakingStorage storage _stakingStore,
     uint256 _seed,
     uint256 _targetCommitteeSize
-  ) private view returns (address[] memory) {
+  ) private returns (address[] memory) {
     uint256 validatorSetSize = _stakingStore.attesters.length();
     if (validatorSetSize == 0) {
       return new address[](0);
@@ -196,7 +196,7 @@ library ValidatorSelectionLib {
     }
 
     uint256[] memory indices =
-      SampleLib.computeCommitteeClever(_targetCommitteeSize, validatorSetSize, _seed);
+      SampleLib.computeCommittee(_targetCommitteeSize, validatorSetSize, _seed);
 
     address[] memory committee = new address[](_targetCommitteeSize);
     for (uint256 i = 0; i < _targetCommitteeSize; i++) {
@@ -211,7 +211,7 @@ library ValidatorSelectionLib {
     Slot _slot,
     Epoch _epochNumber,
     uint256 _targetCommitteeSize
-  ) private view returns (address) {
+  ) private returns (address) {
     // @note this is deliberately "bad" for the simple reason of code reduction.
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
