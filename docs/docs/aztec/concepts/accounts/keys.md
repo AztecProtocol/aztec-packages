@@ -19,7 +19,7 @@ The first three pairs are embedded into the protocol while the signing key is ab
 
 Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`). 
 
-To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and nullifier secret key. To compute the nullifier, the user needs to prove that they know the nullifier secret key. In particular, they prove that their nullifier secret key is embedded into their address. 
+To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app siloed nullifier secret key, the latter is derived using the nullifier master secret key.  To compute the nullifier, the protocol checks that the app siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address. 
 
 ### Incoming viewing keys
 
