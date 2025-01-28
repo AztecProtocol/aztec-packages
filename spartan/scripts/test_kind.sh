@@ -30,8 +30,6 @@ fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
-# NOTE: slated for removal along with e2e image!
-use_docker=${USE_DOCKER:-true}
 
 # Ensure we have kind context
 ../bootstrap.sh kind
@@ -39,12 +37,6 @@ use_docker=${USE_DOCKER:-true}
 # Check required environment variable
 if [ -z "$namespace" ]; then
   echo "Environment variable NAMESPACE is required."
-  exit 1
-fi
-
-# Only check for end-to-end image if a test is specified
-if [ "$use_docker" = "true" ] && ! docker_has_image "aztecprotocol/end-to-end:$aztec_docker_tag"; then
-  echo "End-to-end Docker image not found. It needs to be built."
   exit 1
 fi
 
@@ -104,52 +96,25 @@ aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
 aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
 
-if [ "$use_docker" = "true" ]; then
-  echo "RUNNING TEST: $test (docker)"
-  # Run test in Docker.
-  # Note this will go away soon with the end-to-end image (which also means we deal with the duplication for now.)
-  docker run --rm --network=host \
-    -v ~/.kube:/root/.kube \
-    -e K8S=local \
-    -e INSTANCE_NAME="spartan" \
-    -e SPARTAN_DIR="/usr/src/spartan" \
-    -e NAMESPACE="$namespace" \
-    -e HOST_PXE_PORT=$pxe_port \
-    -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$anvil_port \
-    -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_METRICS_PORT=$metrics_port \
-    -e CONTAINER_METRICS_PORT=80 \
-    -e GRAFANA_PASSWORD=$grafana_password \
-    -e DEBUG=${DEBUG:-""} \
-    -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
-    -e ETHEREUM_SLOT_DURATION=$ethereum_slot_duration \
-    -e AZTEC_SLOT_DURATION=$aztec_slot_duration \
-    -e AZTEC_EPOCH_DURATION=$aztec_epoch_duration \
-    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$aztec_epoch_proof_claim_window_in_l2_slots \
-    aztecprotocol/end-to-end:$aztec_docker_tag $test
-else
-  echo "RUNNING TEST: $test"
-  # Run test locally.
-  export K8S="local"
-  export INSTANCE_NAME="spartan"
-  export SPARTAN_DIR="$(pwd)/.."
-  export NAMESPACE="$namespace"
-  export HOST_PXE_PORT="$pxe_port"
-  export CONTAINER_PXE_PORT="8081"
-  export HOST_ETHEREUM_PORT="$anvil_port"
-  export CONTAINER_ETHEREUM_PORT="8545"
-  export HOST_METRICS_PORT="$metrics_port"
-  export CONTAINER_METRICS_PORT="80"
-  export GRAFANA_PASSWORD="$grafana_password"
-  export DEBUG="${DEBUG:-""}"
-  export LOG_JSON="1"
-  export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
-  export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
-  export AZTEC_SLOT_DURATION="$aztec_slot_duration"
-  export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
-  export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS="$aztec_epoch_proof_claim_window_in_l2_slots"
+echo "RUNNING TEST: $test"
+# Run test locally.
+export K8S="local"
+export INSTANCE_NAME="spartan"
+export SPARTAN_DIR="$(pwd)/.."
+export NAMESPACE="$namespace"
+export HOST_PXE_PORT="$pxe_port"
+export CONTAINER_PXE_PORT="8081"
+export HOST_ETHEREUM_PORT="$anvil_port"
+export CONTAINER_ETHEREUM_PORT="8545"
+export HOST_METRICS_PORT="$metrics_port"
+export CONTAINER_METRICS_PORT="80"
+export GRAFANA_PASSWORD="$grafana_password"
+export DEBUG="${DEBUG:-""}"
+export LOG_JSON="1"
+export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
+export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
+export AZTEC_SLOT_DURATION="$aztec_slot_duration"
+export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
+export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS="$aztec_epoch_proof_claim_window_in_l2_slots"
 
-  yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"
-fi
+yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"

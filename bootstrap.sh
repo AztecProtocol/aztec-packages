@@ -243,28 +243,6 @@ case "$cmd" in
       docker push $image
     fi
   ;;
-  "_image-e2e")
-    image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
-    docker pull $image &>/dev/null || true
-    if docker_has_image $image; then
-      echo "Image $image already exists." && exit
-    fi
-    echo_header "image-e2e"
-    source $ci3/source_tmp
-    echo "earthly artifact build:"
-    scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
-    scripts/earthly-ci --artifact +bootstrap-end-to-end/anvil $TMP/anvil
-    echo "docker image build:"
-    docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
-    docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
-    docker build -f Dockerfile.end-to-end -t $image $TMP
-    if [ "${CI:-0}" = 1 ]; then
-      docker push $image
-    fi
-  ;;
-  "image-e2e")
-    parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
-  ;;
   "image-faucet")
     image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
     if docker_has_image $image; then
