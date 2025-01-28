@@ -30,6 +30,9 @@ install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
 
+# Ensure dependencies are installed.
+../bootstrap.sh
+
 # Check required environment variable
 if [ -z "$namespace" ]; then
   echo "Environment variable NAMESPACE is required."
