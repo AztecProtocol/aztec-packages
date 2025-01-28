@@ -1,39 +1,60 @@
 #!/usr/bin/env python3
 import json
 import sys
+import re
 
 TIME_COUNTERS_USED = ["commit(t)", "Goblin::merge(t)"]
 
 def modify_benchmark_data(file_paths, prefixes):
     combined_results = {"benchmarks": []}
+    memory_pattern = re.compile(r"\(mem: ([\d.]+)MiB\)")
 
     for file_path, prefix in zip(file_paths, prefixes):
         with open(file_path, 'r') as file:
-            data = json.load(file)
-            # Modify benchmark names and extract specific data
-            for benchmark in data['benchmarks']:
-                # Prefix benchmark names
-                benchmark['name'] = f"{prefix}{benchmark['name']}"
-                benchmark['run_name'] = f"{prefix}{benchmark['run_name']}"
+            # if file is a txt, load as text
+            if file_path.endswith(".txt"):
+                last_memory = None
+                for line in reversed(file.readlines()):
+                    match = memory_pattern.search(line)
+                    if match:
+                        last_memory = match.group(1)
+                        break
+                if last_memory:
+                    new_entry = {
+                        "name": f"{prefix}UltraHonkVerifierWasmMemory",
+                        "threads": 16,
+                        "iterations": 1,
+                        "real_time": last_memory,
+                        "cpu_time": last_memory,
+                        "time_unit": "ns"
+                    }
+                    combined_results['benchmarks'].append(new_entry)
+            else:
+                data = json.load(file)
+                # Modify benchmark names and extract specific data
+                for benchmark in data['benchmarks']:
+                    # Prefix benchmark names
+                    benchmark['name'] = f"{prefix}{benchmark['name']}"
+                    benchmark['run_name'] = f"{prefix}{benchmark['run_name']}"
 
-                if prefix != "":
-                    combined_results['benchmarks'].append(benchmark)
-                # Isolate batch_mul_with_endomorphism
-                for counter in TIME_COUNTERS_USED:
-                    if counter in benchmark:
-                        new_entry = {
-                            "name": f"{counter}",
-                            "run_name": benchmark['run_name'],
-                            "run_type": benchmark['run_type'],
-                            "repetitions": benchmark['repetitions'],
-                            "repetition_index": benchmark['repetition_index'],
-                            "threads": benchmark['threads'],
-                            "iterations": benchmark['iterations'],
-                            "real_time": benchmark[counter],
-                            "cpu_time": benchmark[counter],
-                            "time_unit": "ns"
-                        }
-                        combined_results['benchmarks'].append(new_entry)
+                    if prefix != "":
+                        combined_results['benchmarks'].append(benchmark)
+                    # Isolate batch_mul_with_endomorphism
+                    for counter in TIME_COUNTERS_USED:
+                        if counter in benchmark:
+                            new_entry = {
+                                "name": f"{counter}",
+                                "run_name": benchmark['run_name'],
+                                "run_type": benchmark['run_type'],
+                                "repetitions": benchmark['repetitions'],
+                                "repetition_index": benchmark['repetition_index'],
+                                "threads": benchmark['threads'],
+                                "iterations": benchmark['iterations'],
+                                "real_time": benchmark[counter],
+                                "cpu_time": benchmark[counter],
+                                "time_unit": "ns"
+                            }
+                            combined_results['benchmarks'].append(new_entry)
 
     return combined_results
 
