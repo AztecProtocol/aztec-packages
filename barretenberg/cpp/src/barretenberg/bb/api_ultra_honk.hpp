@@ -5,10 +5,48 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 #include "libdeflate.h"
 
 namespace bb {
+
+/**
+ * @brief Create a Honk a prover from program bytecode and an optional witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath
+ * @param witnessPath
+ * @return UltraProver_<Flavor>
+ */
+template <typename Flavor>
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
+                                          const std::string& witnessPath,
+                                          const bool recursive)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    uint32_t honk_recursion = 0;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+    }
+    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+
+    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
+    if (!witnessPath.empty()) {
+        program.witness = get_witness(witnessPath);
+    }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
+    auto prover = Prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+
+    return std::move(prover);
+}
 
 class VectorCircuitSource : public CircuitSource<UltraFlavor> {
     using Builder = UltraCircuitBuilder;
@@ -57,6 +95,11 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
     }
 };
 
+struct SerializedProofAndKey {
+    std::vector<uint8_t> proof;
+    std::vector<uint8_t> key;
+};
+
 class UltraHonkAPI : public API {
     static std::vector<acir_format::AcirProgram> _build_stack(const std::string& input_type,
                                                               const std::filesystem::path& bytecode_path,
@@ -80,11 +123,9 @@ class UltraHonkAPI : public API {
         return stack;
     };
 
-  public:
-    void prove(const API::Flags& flags,
-               const std::filesystem::path& bytecode_path,
-               const std::filesystem::path& witness_path,
-               const std::filesystem::path& output_dir) override
+    SerializedProofAndKey _prove_poseidon2(const API::Flags& flags,
+                                           const std::filesystem::path& bytecode_path,
+                                           const std::filesystem::path& witness_path)
     {
         info("entered prove function");
         if (!flags.output_type || *flags.output_type != "fields_msgpack") {
@@ -112,21 +153,74 @@ class UltraHonkAPI : public API {
         const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
-        UltraVanillaClientIVC::Proof proof =
-            ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
+        HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
+        return { to_buffer</*include_size=*/true>(proof), to_buffer(*ivc.previous_vk) };
+    }
+
+    SerializedProofAndKey _prove_keccak(const API::Flags& flags,
+                                        const std::filesystem::path& bytecode_path,
+                                        const std::filesystem::path& witness_path)
+    {
+        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
+               (*flags.initialize_pairing_point_accumulator) == "false");
+        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+
+        UltraKeccakProver prover =
+            compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
+        return { to_buffer</*include_size=*/true>(prover.construct_proof()),
+                 to_buffer(UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key)) };
+    }
+
+    template <typename Flavor>
+    bool _verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
+    {
+        using VK = typename Flavor::VerificationKey;
+
+        info("reading proof from ", proof_path);
+        const auto proof = from_buffer<HonkProof>(read_file(proof_path));
+
+        info("reading vk from ", vk_path);
+        auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
+        auto g2_data = get_bn254_g2_data(CRS_PATH);
+        srs::init_crs_factory({}, g2_data);
+        vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
+        UltraVerifier_<Flavor> verifier{ vk };
+        const bool verified = verifier.verify_proof(proof);
+        info("verified: ", verified);
+        return verified;
+    };
+
+  public:
+    void prove(const API::Flags& flags,
+               const std::filesystem::path& bytecode_path,
+               const std::filesystem::path& witness_path,
+               const std::filesystem::path& output_dir) override
+    {
+        const auto buffers = [&]() {
+            if (*flags.oracle_hash == "poseidon2") {
+                return _prove_poseidon2(flags, bytecode_path, witness_path);
+            } else if (*flags.oracle_hash == "keccak") {
+                return _prove_keccak(flags, bytecode_path, witness_path);
+            } else {
+                throw_or_abort(std::format("Unknown oracle_hash type provided: {}", *flags.oracle_hash));
+            }
+        }();
 
         info("writing UltraVanillaClientIVC proof...");
         if (output_dir == "-") {
             vinfo("output dir is -");
-            writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
+            writeRawBytesToStdout(buffers.proof);
             vinfo("proof written to stdout");
         } else {
             vinfo("output dir is ", output_dir);
             info("writing proof to ", output_dir / "proof");
-            write_file(output_dir / "proof", to_buffer</*include_size=*/true>(proof));
+            write_file(output_dir / "proof", buffers.proof);
             // WORKTODO: remove
             info("writing vk to ", output_dir / "vk");
-            write_file(output_dir / "vk", to_buffer(*ivc.previous_vk));
+            write_file(output_dir / "vk", buffers.key);
         }
     };
 
@@ -142,22 +236,18 @@ class UltraHonkAPI : public API {
      * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
      * @return true (resp., false) if the proof is valid (resp., invalid).
      */
-    bool verify([[maybe_unused]] const API::Flags& flags,
+    bool verify(const API::Flags& flags,
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
-        auto g2_data = get_bn254_g2_data(CRS_PATH);
-        srs::init_crs_factory({}, g2_data);
-
-        info("reading proof from ", proof_path);
-        const auto proof = from_buffer<UltraVanillaClientIVC::Proof>(read_file(proof_path));
-        info("reading vk from ", vk_path);
-        auto vk = from_buffer<UltraVanillaClientIVC::VK>(read_file(vk_path));
-        vk.pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
-        const bool verified = UltraVanillaClientIVC::verify(proof, std::make_shared<UltraVanillaClientIVC::VK>(vk));
-        info("verified: ", verified);
-        return verified;
+        if (*flags.oracle_hash == "poseidon2") {
+            return _verify<UltraFlavor>(proof_path, vk_path);
+        } else if (*flags.oracle_hash == "keccak") {
+            return _verify<UltraKeccakFlavor>(proof_path, vk_path);
+        } else {
+            throw_or_abort("Invalid oracle hash type provided!");
+            return 0;
+        }
     };
 
     bool prove_and_verify(const API::Flags& flags,

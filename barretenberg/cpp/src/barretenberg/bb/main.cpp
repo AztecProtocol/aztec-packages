@@ -17,7 +17,6 @@
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -820,43 +819,6 @@ bool avm2_verify(const std::filesystem::path& proof_path,
 #endif
 
 /**
- * @brief Create a Honk a prover from program bytecode and an optional witness
- *
- * @tparam Flavor
- * @param bytecodePath
- * @param witnessPath
- * @return UltraProver_<Flavor>
- */
-template <typename Flavor>
-UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
-                                          const std::string& witnessPath,
-                                          const bool recursive)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-    }
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
-
-    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
-    if (!witnessPath.empty()) {
-        program.witness = get_witness(witnessPath);
-    }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-    auto prover = Prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-
-    return std::move(prover);
-}
-
-/**
  * @brief Creates a proof for an ACIR circuit
  *
  * Communication:
@@ -1297,7 +1259,8 @@ int main(int argc, char* argv[])
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const API::Flags flags = [&args]() {
-            return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
+            return API::Flags{ .oracle_hash = get_option(args, "--oracle_hash", "poseidon2"),
+                               .output_type = get_option(args, "--output_type", "fields_msgpack"),
                                .input_type = get_option(args, "--input_type", "compiletime_stack"),
                                .initialize_pairing_point_accumulator =
                                    get_option(args, "--initialize_accumulator", "false") };
@@ -1360,9 +1323,6 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_rollup_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk_output_all<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_ultra_keccak_honk_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_mega_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
@@ -1435,9 +1395,6 @@ int main(int argc, char* argv[])
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
 #endif
-        } else if (command == "prove_ultra_keccak_honk") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
