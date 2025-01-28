@@ -671,10 +671,10 @@ export class L1TxUtils {
       {
         ...this.config,
         // Use much higher bump for cancellation to ensure it replaces the original tx
-        priorityFeeRetryBumpPercentage: 300, // 200% bump should be enough to replace any tx
+        priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
       },
       false,
-      Math.max(attempts, 1),
+      Math.max(attempts, 1), // '0' attempt skips fee bump logic
       previousGasPrice,
     );
 
