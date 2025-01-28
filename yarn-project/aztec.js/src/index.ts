@@ -94,7 +94,6 @@ export {
   AuthWitness,
   Body,
   Comparator,
-  ContractClass2BlockL2Logs,
   EncryptedLogPayload,
   EpochProofQuote,
   EpochProofQuotePayload,

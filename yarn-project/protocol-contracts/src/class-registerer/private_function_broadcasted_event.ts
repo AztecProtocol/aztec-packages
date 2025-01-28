@@ -1,5 +1,6 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  ContractClassLog,
   type ExecutablePrivateFunctionWithMembershipProof,
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -27,22 +28,24 @@ export class PrivateFunctionBroadcastedEvent {
     public readonly privateFunction: BroadcastedPrivateFunction,
   ) {}
 
-  static isPrivateFunctionBroadcastedEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG.toBuffer());
+  static isPrivateFunctionBroadcastedEvent(log: ContractClassLog) {
+    return log.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
   }
 
-  static fromLog(log: Buffer) {
+  static fromLog(log: ContractClassLog) {
+    const asBuffer = log.toBuffer();
     const expectedLength =
       32 *
       (MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS +
         REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS);
-    if (log.length !== expectedLength) {
+    // TODO(MW): check
+    if (asBuffer.length !== expectedLength) {
       throw new Error(
-        `Unexpected PrivateFunctionBroadcastedEvent log length: got ${log.length} but expected ${expectedLength}`,
+        `Unexpected PrivateFunctionBroadcastedEvent log length: got ${asBuffer.length} but expected ${expectedLength}`,
       );
     }
 
-    const reader = new BufferReader(log.subarray(32));
+    const reader = new BufferReader(asBuffer.subarray(32));
     const event = PrivateFunctionBroadcastedEvent.fromBuffer(reader);
     if (!reader.isEmpty()) {
       throw new Error(

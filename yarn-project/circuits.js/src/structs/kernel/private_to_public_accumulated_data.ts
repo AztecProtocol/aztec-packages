@@ -20,8 +20,8 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH,
 } from '../../constants.gen.js';
+import { ScopedContractClassLogData } from '../contract_class_log_data.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
 import { PrivateLog } from '../private_log.js';
 import { PublicCallRequest } from '../public_call_request.js';
 
@@ -31,7 +31,7 @@ export class PrivateToPublicAccumulatedData {
     public readonly nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     public readonly l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     public readonly privateLogs: Tuple<PrivateLog, typeof MAX_PRIVATE_LOGS_PER_TX>,
-    public readonly contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public readonly contractClassLogs: Tuple<ScopedContractClassLogData, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     public readonly publicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
   ) {}
 
@@ -41,7 +41,7 @@ export class PrivateToPublicAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       arraySerializedSizeOfNonEmpty(this.privateLogs) +
-      arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.contractClassLogs) +
       arraySerializedSizeOfNonEmpty(this.publicCallRequests)
     );
   }
@@ -52,7 +52,7 @@ export class PrivateToPublicAccumulatedData {
       fields.nullifiers,
       fields.l2ToL1Msgs,
       fields.privateLogs,
-      fields.contractClassLogsHashes,
+      fields.contractClassLogs,
       fields.publicCallRequests,
     ] as const;
   }
@@ -64,7 +64,7 @@ export class PrivateToPublicAccumulatedData {
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedContractClassLogData),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
   }
@@ -80,7 +80,7 @@ export class PrivateToPublicAccumulatedData {
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedContractClassLogData),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
   }
@@ -105,7 +105,7 @@ export class PrivateToPublicAccumulatedData {
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedContractClassLogData.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
     );
   }
@@ -128,7 +128,7 @@ export class PrivateToPublicAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
         .join(', ')}],
-      contractClassLogsHashes: [${this.contractClassLogsHashes
+      contractClassLogs: [${this.contractClassLogs
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
         .join(', ')}],

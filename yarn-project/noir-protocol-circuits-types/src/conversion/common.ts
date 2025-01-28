@@ -2,7 +2,10 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   ContentCommitment,
+  ContractClassLog,
+  ContractClassLogData,
   EthAddress,
   Fr,
   FunctionSelector,
@@ -12,7 +15,6 @@ import {
   GlobalVariables,
   GrumpkinScalar,
   L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -32,8 +34,8 @@ import {
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
   PublicLog,
+  ScopedContractClassLogData,
   ScopedL2ToL1Message,
-  ScopedLogHash,
   StateReference,
   TxContext,
   type VerificationKeyAsFields,
@@ -45,6 +47,7 @@ import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
   ContentCommitment as ContentCommitmentNoir,
+  ContractClassLogData as ContractClassLogDataNoir,
   Field,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
@@ -54,7 +57,6 @@ import type {
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  LogHash as LogHashNoir,
   Log as LogNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
@@ -71,7 +73,7 @@ import type {
   PublicDataWrite as PublicDataWriteNoir,
   PublicLog as PublicLogNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
-  ScopedLogHash as ScopedLogHashNoir,
+  Scoped as ScopedNoir,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
@@ -267,6 +269,47 @@ export function mapPublicLogFromNoir(log: PublicLogNoir) {
   return new PublicLog(
     mapAztecAddressFromNoir(log.contract_address),
     mapTupleFromNoir(log.log.fields, log.log.fields.length, mapFieldFromNoir),
+  );
+}
+
+export function mapContractClassLogToNoir(log: ContractClassLog): LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS> {
+  return {
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    fields: Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, (_, idx) =>
+      mapFieldToNoir(log.fields[idx]),
+    ) as Tuple<string, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
+  };
+}
+
+export function mapContractClassLogFromNoir(log: LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>) {
+  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+  return new ContractClassLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
+}
+
+export function mapContractClassLogDataToNoir(data: ContractClassLogData): ContractClassLogDataNoir {
+  return {
+    log: mapContractClassLogToNoir(data.log),
+    counter: mapNumberToNoir(data.counter),
+  };
+}
+
+export function mapContractClassLogDataFromNoir(data: ContractClassLogDataNoir) {
+  return new ContractClassLogData(mapContractClassLogFromNoir(data.log), mapNumberFromNoir(data.counter));
+}
+
+export function mapScopedContractClassLogDataToNoir(
+  data: ScopedContractClassLogData,
+): ScopedNoir<ContractClassLogDataNoir> {
+  return {
+    inner: mapContractClassLogDataToNoir(data.inner),
+    contract_address: mapAztecAddressToNoir(data.contractAddress),
+  };
+}
+
+export function mapScopedContractClassLogDataFromNoir(data: ScopedNoir<ContractClassLogDataNoir>) {
+  return new ScopedContractClassLogData(
+    mapContractClassLogDataFromNoir(data.inner),
+    mapAztecAddressFromNoir(data.contract_address),
   );
 }
 
@@ -625,56 +668,6 @@ export function mapPartialStateReferenceToNoir(
   };
 }
 
-/**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
-  return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
-  return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
-  );
-}
-
 export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWriteNoir {
   return {
     leaf_slot: mapFieldToNoir(write.leafSlot),
@@ -695,11 +688,10 @@ export function mapPrivateToRollupAccumulatedDataToNoir(
     nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(
-      privateToRollupAccumulatedData.contractClassLogsHashes,
-      mapScopedLogHashToNoir,
+    contract_class_logs: mapTuple(
+      privateToRollupAccumulatedData.contractClassLogs,
+      mapScopedContractClassLogDataToNoir,
     ),
-    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
   };
 }
 
@@ -722,11 +714,10 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
     mapTupleFromNoir(privateToRollupAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
 
     mapTupleFromNoir(
-      privateToRollupAccumulatedData.contract_class_logs_hashes,
+      privateToRollupAccumulatedData.contract_class_logs,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      mapScopedLogHashFromNoir,
+      mapScopedContractClassLogDataFromNoir,
     ),
-    mapFieldFromNoir(privateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 

@@ -7,13 +7,11 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../interfaces/private_kernel_prover.js';
-import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
   type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
-  collectSortedContractClassLogs,
 } from '../private_execution_result.js';
 import { type GasUsed } from './gas_used.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
@@ -30,17 +28,10 @@ export class PrivateSimulationResult {
   }
 
   toSimulatedTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      ClientIvcProof.empty(),
-      contractClassLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
-    );
+    const tx = new Tx(this.publicInputs, ClientIvcProof.empty(), enqueuedPublicFunctions, teardownPublicFunction);
     return tx;
   }
 }
@@ -119,17 +110,10 @@ export class TxProvingResult {
   ) {}
 
   toTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      this.clientIvcProof,
-      contractClassLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
-    );
+    const tx = new Tx(this.publicInputs, this.clientIvcProof, enqueuedPublicFunctions, teardownPublicFunction);
     return tx;
   }
 

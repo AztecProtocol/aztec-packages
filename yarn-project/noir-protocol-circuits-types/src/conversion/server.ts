@@ -139,8 +139,8 @@ import {
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
   mapPublicLogToNoir,
+  mapScopedContractClassLogDataToNoir,
   mapScopedL2ToL1MessageToNoir,
-  mapScopedLogHashToNoir,
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
@@ -466,7 +466,7 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     private_logs: mapTuple(data.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
+    contract_class_logs: mapTuple(data.contractClassLogs, mapScopedContractClassLogDataToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
   };
 }

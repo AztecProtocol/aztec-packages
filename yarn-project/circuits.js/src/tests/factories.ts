@@ -25,6 +25,7 @@ import {
   AvmExecutionHints,
   BLOBS_PER_BLOCK,
   BaseParityInputs,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   CallContext,
   CombinedConstantData,
   ContractStorageRead,
@@ -39,7 +40,6 @@ import {
   KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -94,7 +94,6 @@ import {
   RollupTypes,
   RootParityInput,
   RootParityInputs,
-  ScopedLogHash,
   StateReference,
   TUBE_PROOF_LENGTH,
   TxContext,
@@ -127,6 +126,8 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  ContractClassLog,
+  ContractClassLogData,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
@@ -136,6 +137,7 @@ import {
   PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
+  ScopedContractClassLogData,
   ScopedL2ToL1Message,
   TreeSnapshots,
   TxConstantData,
@@ -175,14 +177,6 @@ import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapsh
  * @param seed - The seed to use for generating the object.
  * @returns A side effect object.
  */
-function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, fr(seed + 2));
-}
-
-function makeScopedLogHash(seed: number) {
-  return new ScopedLogHash(makeLogHash(seed), makeAztecAddress(seed + 3));
-}
-
 function makeNoteHash(seed: number) {
   return new NoteHash(fr(seed), seed + 1);
 }
@@ -201,6 +195,19 @@ function makePrivateLogData(seed: number) {
 
 function makePublicLog(seed: number) {
   return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
+}
+
+function makeContractClassLog(seed: number) {
+  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
+  return new ContractClassLog(makeTuple(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS * 1, fr, seed));
+}
+
+function makeContractClassLogData(seed: number) {
+  return new ContractClassLogData(makeContractClassLog(seed + 0x100), seed);
+}
+
+function makeScopedContractClassLogData(seed: number) {
+  return new ScopedContractClassLogData(makeContractClassLogData(seed + 0x100), makeAztecAddress(seed + 0x200));
 }
 
 /**
@@ -321,8 +328,12 @@ export function makePrivateToRollupAccumulatedData(seed = 1, full = false): Priv
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xe00), // contract_class_log_preimages_length
+    tupleGenerator(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      makeScopedContractClassLogData,
+      seed + 0xa00,
+      ScopedContractClassLogData.empty,
+    ),
   );
 }
 
@@ -332,7 +343,7 @@ export function makePrivateToPublicAccumulatedData(seed = 1) {
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
     makeTuple(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700),
-    makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
+    makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedContractClassLogData, seed + 0x900),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
   );
 }
@@ -574,7 +585,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
     l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
+    contractClassLogs: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogData, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),

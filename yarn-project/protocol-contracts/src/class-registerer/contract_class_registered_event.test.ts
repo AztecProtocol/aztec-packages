@@ -1,11 +1,11 @@
-import { computePublicBytecodeCommitment } from '@aztec/circuits.js';
+import { ContractClassLog, computePublicBytecodeCommitment } from '@aztec/circuits.js';
 
 import { getSampleContractClassRegisteredEventPayload } from '../tests/fixtures.js';
 import { ContractClassRegisteredEvent } from './contract_class_registered_event.js';
 
 describe('ContractClassRegisteredEvent', () => {
   it('parses an event as emitted by the ContractClassRegisterer', () => {
-    const log = getSampleContractClassRegisteredEventPayload();
+    const log = ContractClassLog.fromBuffer(getSampleContractClassRegisteredEventPayload());
     expect(ContractClassRegisteredEvent.isContractClassRegisteredEvent(log)).toBe(true);
 
     const event = ContractClassRegisteredEvent.fromLog(log);

@@ -1,7 +1,6 @@
 import {
-  type ContractClass2BlockL2Logs,
+  ExtendedContractClassLog,
   ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
@@ -18,6 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
+  ContractClassLog,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
@@ -29,11 +29,17 @@ import {
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type PublicLog,
+  REGISTERER_CONTRACT_ADDRESS,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
+import {
+  REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG,
+} from '@aztec/protocol-contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -62,7 +68,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private publicLogsPerBlock: Map<number, PublicLog[]> = new Map();
 
-  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+  private contractClassLogsPerBlock: Map<number, ContractClassLog[]> = new Map();
 
   private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
@@ -304,7 +310,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       void this.#storeTaggedLogsFromPublic(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
-      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
+      this.contractClassLogsPerBlock.set(
+        block.number,
+        block.body.txEffects.map(txEffect => txEffect.contractClassLogs).flat(),
+      );
     });
     return Promise.resolve(true);
   }
@@ -651,34 +660,44 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const contractAddress = filter.contractAddress;
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const logs: ExtendedContractClassLog[] = [];
 
     for (; fromBlock < toBlock; fromBlock++) {
       const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
       const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
 
       if (blockLogs) {
-        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
-          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
-            const log = txLogs[logIndexInTx];
-            if (
-              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-              (!contractAddress || log.contractAddress.equals(contractAddress))
-            ) {
-              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
-              if (logs.length === this.maxLogs) {
-                return Promise.resolve({
-                  logs,
-                  maxLogsHit: true,
-                });
-              }
+        for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
+          const log = blockLogs[logIndex];
+          // TODO(MW): this is a hack
+          const thisContractAddress = [
+            REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
+            REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG,
+            REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG,
+          ].includes(log.fields[0])
+            ? AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)
+            : AztecAddress.ZERO;
+          const thisTxEffect = block.data.body.txEffects.filter(effect => effect.contractClassLogs.includes(log))[0];
+          const thisTxIndexInBlock = block.data.body.txEffects.indexOf(thisTxEffect);
+          const thisLogIndexInTx = thisTxEffect.contractClassLogs.indexOf(log);
+          if (
+            (!txHash || thisTxEffect.txHash.equals(txHash)) &&
+            (!contractAddress || thisContractAddress.equals(contractAddress)) &&
+            thisTxIndexInBlock >= txIndexInBlock &&
+            thisLogIndexInTx >= logIndexInTx
+          ) {
+            logs.push(
+              new ExtendedContractClassLog(new LogId(block.data.number, thisTxIndexInBlock, thisLogIndexInTx), log),
+            );
+            if (logs.length === this.maxLogs) {
+              return Promise.resolve({
+                logs,
+                maxLogsHit: true,
+              });
             }
           }
-          logIndexInTx = 0;
         }
       }
-      txIndexInBlock = 0;
     }
 
     return Promise.resolve({

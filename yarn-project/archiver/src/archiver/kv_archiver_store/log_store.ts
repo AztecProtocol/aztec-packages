@@ -1,16 +1,14 @@
 import {
-  ContractClass2BlockL2Logs,
+  ExtendedContractClassLog,
   ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,
   type LogFilter,
   LogId,
   TxScopedL2Log,
-  UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
+import { ContractClassLog, type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
 import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
@@ -174,8 +172,18 @@ export class LogStore {
           )
           .flat();
 
+        const contractClassLogsInBlock = block.body.txEffects
+          .map((txEffect, txIndex) =>
+            [
+              numToUInt32BE(txIndex),
+              numToUInt32BE(txEffect.contractClassLogs.length),
+              txEffect.contractClassLogs.map(log => log.toBuffer()),
+            ].flat(),
+          )
+          .flat();
+
         void this.#publicLogsByBlock.set(block.number, Buffer.concat(publicLogsInBlock));
-        void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
+        void this.#contractClassLogsByBlock.set(block.number, Buffer.concat(contractClassLogsInBlock));
       });
 
       return true;
@@ -340,13 +348,22 @@ export class LogStore {
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
-    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
-    const contractClassLogsInBlock = contractClassLogsBuffer
-      ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
-      : new ContractClass2BlockL2Logs([]);
-    const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
+    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber) ?? Buffer.alloc(0);
+    const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const reader = new BufferReader(contractClassLogsBuffer);
+    while (reader.remainingBytes() > 0) {
+      const indexOfTx = reader.readNumber();
+      const numLogsInTx = reader.readNumber();
+      contractClassLogsInBlock[indexOfTx] = [];
+      for (let i = 0; i < numLogsInTx; i++) {
+        contractClassLogsInBlock[indexOfTx].push(reader.readObject(ContractClassLog));
+      }
+    }
+
+    const txLogs = contractClassLogsInBlock[txIndex];
+
+    const logs: ExtendedContractClassLog[] = [];
     const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
 
     return { logs, maxLogsHit };
@@ -364,13 +381,22 @@ export class LogStore {
       };
     }
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const logs: ExtendedContractClassLog[] = [];
 
     let maxLogsHit = false;
     loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
-      const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
-      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
-        const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();
+      const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
+      const reader = new BufferReader(logBuffer);
+      while (reader.remainingBytes() > 0) {
+        const indexOfTx = reader.readNumber();
+        const numLogsInTx = reader.readNumber();
+        contractClassLogsInBlock[indexOfTx] = [];
+        for (let i = 0; i < numLogsInTx; i++) {
+          contractClassLogsInBlock[indexOfTx].push(reader.readObject(ContractClassLog));
+        }
+      }
+      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.length; txIndex++) {
+        const txLogs = contractClassLogsInBlock[txIndex];
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);
@@ -383,19 +409,20 @@ export class LogStore {
   }
 
   #accumulateLogs(
-    results: (ExtendedUnencryptedL2Log | ExtendedPublicLog)[],
+    results: (ExtendedContractClassLog | ExtendedPublicLog)[],
     blockNumber: number,
     txIndex: number,
-    txLogs: (UnencryptedL2Log | PublicLog)[],
+    txLogs: (ContractClassLog | PublicLog)[],
     filter: LogFilter,
   ): boolean {
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
-      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
-        if (log instanceof UnencryptedL2Log) {
-          results.push(new ExtendedUnencryptedL2Log(new LogId(blockNumber, txIndex, logIndex), log));
+      // TODO(MW): fix hack for contract class
+      if (!filter.contractAddress || (log instanceof PublicLog && log.contractAddress.equals(filter.contractAddress))) {
+        if (log instanceof ContractClassLog) {
+          results.push(new ExtendedContractClassLog(new LogId(blockNumber, txIndex, logIndex), log));
         } else {
           results.push(new ExtendedPublicLog(new LogId(blockNumber, txIndex, logIndex), log));
         }

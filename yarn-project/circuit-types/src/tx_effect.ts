@@ -1,7 +1,10 @@
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  ContractClassLog,
   Fr,
   L2_L1_MSGS_PREFIX,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -39,7 +42,6 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
 export { RevertCodeEnum } from '@aztec/circuits.js';
@@ -89,10 +91,9 @@ export class TxEffect {
      */
     public publicLogs: PublicLog[],
     /**
-     * The logs and logs lengths of the txEffect
+     * The private logs.
      */
-    public contractClassLogsLength: Fr,
-    public contractClassLogs: ContractClassTxL2Logs,
+    public contractClassLogs: ContractClassLog[],
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
     // functions (isZero and isEmpty)
@@ -155,8 +156,7 @@ export class TxEffect {
       serializeArrayOfBufferableToVector(this.publicDataWrites, 1),
       serializeArrayOfBufferableToVector(this.privateLogs, 1),
       serializeArrayOfBufferableToVector(this.publicLogs, 1),
-      this.contractClassLogsLength,
-      this.contractClassLogs,
+      serializeArrayOfBufferableToVector(this.contractClassLogs, 1),
     ]);
   }
 
@@ -183,8 +183,7 @@ export class TxEffect {
       reader.readVectorUint8Prefix(PublicDataWrite),
       reader.readVectorUint8Prefix(PrivateLog),
       reader.readVectorUint8Prefix(PublicLog),
-      Fr.fromBuffer(reader),
-      reader.readObject(ContractClassTxL2Logs),
+      reader.readVectorUint8Prefix(ContractClassLog),
     );
   }
 
@@ -217,7 +216,6 @@ export class TxEffect {
   }
 
   static async random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): Promise<TxEffect> {
-    const contractClassLogs = await ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
@@ -228,25 +226,12 @@ export class TxEffect {
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
       await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
-      new Fr(contractClassLogs.getKernelLength()),
-      contractClassLogs,
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => ContractClassLog.random()),
     );
   }
 
   static empty(): TxEffect {
-    return new TxEffect(
-      RevertCode.OK,
-      TxHash.zero(),
-      Fr.ZERO,
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      Fr.ZERO,
-      ContractClassTxL2Logs.empty(),
-    );
+    return new TxEffect(RevertCode.OK, TxHash.zero(), Fr.ZERO, [], [], [], [], [], [], []);
   }
 
   isEmpty(): boolean {
@@ -378,11 +363,11 @@ export class TxEffect {
       flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length * PUBLIC_LOG_SIZE_IN_FIELDS));
       flattened.push(...this.publicLogs.map(l => l.toFields()).flat());
     }
-    // TODO(#8954): When logs are refactored into fields, we will append the values here
-    // Currently appending the single log hash as an interim solution
-    if (this.contractClassLogs.unrollLogs().length) {
-      flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.unrollLogs().length));
-      flattened.push(...this.contractClassLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
+    if (this.contractClassLogs.length) {
+      flattened.push(
+        this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.length * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
+      );
+      flattened.push(...this.contractClassLogs.map(l => l.fields).flat());
     }
 
     // The first value appended to each list of fields representing a tx effect is:
@@ -397,7 +382,7 @@ export class TxEffect {
    * Decodes a flat packed array of prefixed fields to TxEffect
    * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields as below
    */
-  static fromBlobFields(fields: Fr[] | FieldReader, contractClassLogs?: ContractClassTxL2Logs) {
+  static fromBlobFields(fields: Fr[] | FieldReader) {
     const ensureEmpty = <T>(arr: Array<T>) => {
       if (arr.length) {
         throw new Error('Invalid fields given to TxEffect.fromBlobFields(): Attempted to assign property twice.');
@@ -461,41 +446,22 @@ export class TxEffect {
           }
           break;
         }
-        // TODO(#8954): When logs are refactored into fields, we will append the read fields here
-        case CONTRACT_CLASS_LOGS_PREFIX:
-          // effect.contractClassLogs = ContractClassTxL2Logs.fromFields(reader.readFieldArray(length));
-          ensureEmpty(effect.contractClassLogs.functionLogs);
-          if (!contractClassLogs) {
-            throw new Error(`Tx effect has contractClassLogs logs, but they were not passed raw to .fromBlobFields()`);
+        case CONTRACT_CLASS_LOGS_PREFIX: {
+          ensureEmpty(effect.contractClassLogs);
+          const flatContractClassLogs = reader.readFieldArray(length);
+          for (let i = 0; i < length; i += CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) {
+            effect.contractClassLogs.push(
+              ContractClassLog.fromFields(flatContractClassLogs.slice(i, i + CONTRACT_CLASS_LOG_SIZE_IN_FIELDS)),
+            );
           }
-          this.checkInjectedLogs(contractClassLogs, reader.readFieldArray(length));
-          effect.contractClassLogs = contractClassLogs;
-          effect.contractClassLogsLength = new Fr(contractClassLogs.getKernelLength());
           break;
+        }
         case REVERT_CODE_PREFIX:
         default:
           throw new Error(`Too many fields to decode given to TxEffect.fromBlobFields()`);
       }
     }
-
-    // If the input fields have no logs, ensure we match the original struct by reassigning injected logs
-    effect.contractClassLogs =
-      !effect.contractClassLogs.getTotalLogCount() && contractClassLogs ? contractClassLogs : effect.contractClassLogs;
     return effect;
-  }
-
-  // TODO(#8954): Remove below when logs are refactored into fields
-  private static checkInjectedLogs(injected: TxL2Logs, expectedHashes: Fr[]) {
-    injected.unrollLogs().forEach((log, i) => {
-      const logHash = log.getSiloedHash();
-      if (!Fr.fromBuffer(logHash).equals(expectedHashes[i])) {
-        throw new Error(
-          `Log hash mismatch when reconstructing tx effect. Expected: ${Fr.fromBuffer(logHash)}, Got: ${
-            expectedHashes[i]
-          }`,
-        );
-      }
-    });
   }
 
   static from(fields: FieldsOf<TxEffect>) {
@@ -509,7 +475,6 @@ export class TxEffect {
       fields.publicDataWrites,
       fields.privateLogs,
       fields.publicLogs,
-      fields.contractClassLogsLength,
       fields.contractClassLogs,
     );
   }
@@ -526,8 +491,7 @@ export class TxEffect {
         publicDataWrites: z.array(PublicDataWrite.schema),
         privateLogs: z.array(PrivateLog.schema),
         publicLogs: z.array(PublicLog.schema),
-        contractClassLogsLength: schemas.Fr,
-        contractClassLogs: ContractClassTxL2Logs.schema,
+        contractClassLogs: z.array(ContractClassLog.schema),
       })
       .transform(TxEffect.from);
   }
@@ -543,8 +507,7 @@ export class TxEffect {
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
       privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
       publicLogs: [${this.publicLogs.map(l => l.toString()).join(', ')}],
-      contractClassLogsLength: ${this.contractClassLogsLength},
-      contractClassLogs: ${jsonStringify(this.contractClassLogs)}
+      contractClassLogs: [${this.contractClassLogs.map(l => l.toString()).join(', ')}],
      }`;
   }
 

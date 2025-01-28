@@ -128,8 +128,6 @@ export class PublicTxSimulator {
       // You can't submit contracts in public, so this is only relevant for private-created side effects
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx);
-      // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
 
     return {

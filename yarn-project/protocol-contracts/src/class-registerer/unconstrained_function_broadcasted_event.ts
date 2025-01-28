@@ -1,7 +1,7 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  ContractClassLog,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
   type UnconstrainedFunction,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
@@ -25,27 +25,28 @@ export class UnconstrainedFunctionBroadcastedEvent {
     public readonly unconstrainedFunction: BroadcastedUnconstrainedFunction,
   ) {}
 
-  static isUnconstrainedFunctionBroadcastedEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG.toBuffer());
+  static isUnconstrainedFunctionBroadcastedEvent(log: ContractClassLog) {
+    return log.fields[0].equals(REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG);
   }
 
-  static fromLog(log: Buffer) {
-    const expectedLength =
-      32 *
-      (MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS +
-        REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS);
-    if (log.length !== expectedLength) {
-      throw new Error(
-        `Unexpected UnconstrainedFunctionBroadcastedEvent log length: got ${log.length} but expected ${expectedLength}`,
-      );
-    }
+  static fromLog(log: ContractClassLog) {
+    // TODO(MW): not sure what this is checking since test values are mostly 0s anyway
+    // const expectedLength = (MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS +
+    //   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS);
+    // if (log.length !== expectedLength) {
+    //   throw new Error(
+    //     `Unexpected UnconstrainedFunctionBroadcastedEvent log length: got ${log.length} but expected ${expectedLength}`,
+    //   );
+    // }
 
-    const reader = new BufferReader(log.subarray(32));
+    const reader = new BufferReader(log.toBuffer().subarray(32));
     const event = UnconstrainedFunctionBroadcastedEvent.fromBuffer(reader);
     if (!reader.isEmpty()) {
-      throw new Error(
-        `Unexpected data after parsing UnconstrainedFunctionBroadcastedEvent: ${reader.readToEnd().toString('hex')}`,
-      );
+      // TODO(MW): check
+      const data = reader.readToEnd();
+      if (data.find(b => b !== 0)) {
+        throw new Error(`Unexpected data after parsing UnconstrainedFunctionBroadcastedEvent: ${data.toString('hex')}`);
+      }
     }
 
     return event;

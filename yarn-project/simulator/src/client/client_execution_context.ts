@@ -337,7 +337,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.contractClassLogs.some(item => !item.isEmpty())
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }

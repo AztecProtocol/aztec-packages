@@ -283,7 +283,6 @@ export class AztecKVTxPool implements TxPool {
         const archivedTx: Tx = new Tx(
           tx.data,
           ClientIvcProof.empty(),
-          tx.contractClassLogs,
           tx.enqueuedPublicFunctionCalls,
           tx.publicTeardownFunctionCall,
         );

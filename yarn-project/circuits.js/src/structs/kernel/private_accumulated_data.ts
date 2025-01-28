@@ -11,8 +11,8 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
 } from '../../constants.gen.js';
+import { ScopedContractClassLogData } from '../contract_class_log_data.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import { PrivateCallRequest } from '../private_call_request.js';
@@ -42,10 +42,9 @@ export class PrivateAccumulatedData {
      */
     public privateLogs: Tuple<ScopedPrivateLogData, typeof MAX_PRIVATE_LOGS_PER_TX>,
     /**
-     * Accumulated contract class logs from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Accumulated logs from the registerer from all the previous kernel iterations.
      */
-    public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogs: Tuple<ScopedContractClassLogData, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Accumulated public call requests from all the previous kernel iterations.
      */
@@ -62,7 +61,7 @@ export class PrivateAccumulatedData {
       this.nullifiers,
       this.l2ToL1Msgs,
       this.privateLogs,
-      this.contractClassLogsHashes,
+      this.contractClassLogs,
       this.publicCallRequests,
       this.privateCallStack,
     );
@@ -84,7 +83,7 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedContractClassLogData),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
     );
@@ -105,7 +104,7 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedContractClassLogData.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),
     );

@@ -6,7 +6,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClass2BlockL2Logs } from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {
@@ -60,7 +59,7 @@ export class Body {
    * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
    * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
-  static fromBlobFields(fields: Fr[], contractClassLogs?: ContractClass2BlockL2Logs) {
+  static fromBlobFields(fields: Fr[]) {
     const txEffectsFields: Fr[][] = [];
     let checkedFields = 0;
     while (checkedFields !== fields.length) {
@@ -73,7 +72,7 @@ export class Body {
     }
     const txEffects = txEffectsFields
       .filter(effect => effect.length)
-      .map((effect, i) => TxEffect.fromBlobFields(effect, contractClassLogs?.txLogs[i]));
+      .map((effect, i) => TxEffect.fromBlobFields(effect));
     return new this(txEffects);
   }
 
@@ -81,12 +80,6 @@ export class Body {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
 }`;
-  }
-
-  get contractClassLogs(): ContractClass2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
-
-    return new ContractClass2BlockL2Logs(logs);
   }
 
   static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {

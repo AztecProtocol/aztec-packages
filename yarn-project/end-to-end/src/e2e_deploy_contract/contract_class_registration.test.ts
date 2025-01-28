@@ -111,7 +111,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.data;
+      const logData = logs.logs[0].log.toBuffer();
       writeTestData('yarn-project/protocol-contracts/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
@@ -125,7 +125,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
       const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.data;
+      const logData = logs.logs[0].log.toBuffer();
       writeTestData('yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);

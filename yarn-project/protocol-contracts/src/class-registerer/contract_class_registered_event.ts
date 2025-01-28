@@ -1,4 +1,5 @@
 import {
+  ContractClassLog,
   type ContractClassPublic,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
@@ -23,12 +24,12 @@ export class ContractClassRegisteredEvent {
     public readonly packedPublicBytecode: Buffer,
   ) {}
 
-  static isContractClassRegisteredEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG.toBuffer());
+  static isContractClassRegisteredEvent(log: ContractClassLog) {
+    return log.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
   }
 
-  static fromLog(log: Buffer) {
-    const reader = new BufferReader(log.subarray(32));
+  static fromLog(log: ContractClassLog) {
+    const reader = new BufferReader(log.toBuffer().subarray(32));
     const contractClassId = reader.readObject(Fr);
     const version = reader.readObject(Fr).toNumber();
     const artifactHash = reader.readObject(Fr);

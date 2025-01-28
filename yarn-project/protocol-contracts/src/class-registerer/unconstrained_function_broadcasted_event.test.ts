@@ -1,3 +1,4 @@
+import { ContractClassLog } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -14,7 +15,7 @@ describe('UnconstrainedFunctionBroadcastedEvent', () => {
   beforeAll(() => setupCustomSnapshotSerializers(expect));
 
   it('parses an event as emitted by the ContractClassRegisterer', () => {
-    const log = getSampleUnconstrainedFunctionBroadcastedEventPayload();
+    const log = ContractClassLog.fromBuffer(getSampleUnconstrainedFunctionBroadcastedEventPayload());
     expect(UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log)).toBe(true);
 
     const event = UnconstrainedFunctionBroadcastedEvent.fromLog(log);

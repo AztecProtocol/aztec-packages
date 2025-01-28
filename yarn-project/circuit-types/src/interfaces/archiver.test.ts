@@ -25,8 +25,8 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import {
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
@@ -179,7 +179,7 @@ describe('ArchiverApiSchema', () => {
       txHash: TxHash.random(),
       contractAddress: await AztecAddress.random(),
     });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
   it('getPublicFunction', async () => {
@@ -339,7 +339,7 @@ class MockArchiver implements ArchiverApi {
   async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return { logs: [await ExtendedContractClassLog.random()], maxLogsHit: true };
   }
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
