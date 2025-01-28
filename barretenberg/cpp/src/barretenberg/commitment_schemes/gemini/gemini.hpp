@@ -110,6 +110,8 @@ template <typename Curve> class GeminiProver_ {
      * The second and third, A₀₊ and A₀₋, are the partially evaluated batched polynomials A₀₊ = F + G/r,  A₀₋ = F - G/r.
      * These are required in order to prove the opening of shifted polynomials G_i/X from the commitments to their
      * unshifted counterparts G_i.
+     * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein that
+     * could be made more efficient by e.g. reusing already initialized polynomials, often at the expense of clarity.
      */
     class PolynomialBatcher {
 
@@ -156,7 +158,14 @@ template <typename Curve> class GeminiProver_ {
             random_polynomial = random;
         }
 
-        // Compute the full batched polynomial as the linear combination of all polynomials to be opened
+        /**
+         * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened
+         * @details If the random polynomial is set, it is added to the batched polynomial for ZK
+         *
+         * @param challenge batching challenge
+         * @param running_scalar power of the batching challenge
+         * @return Polynomial A₀
+         */
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
             Polynomial full_batched(full_batched_size);
@@ -181,7 +190,13 @@ template <typename Curve> class GeminiProver_ {
             return full_batched;
         }
 
-        // Compute the partially evaluated batched polynomials A₀₊ = F + G/r and A₀₋ = F - G/r
+        /**
+         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F - G/r
+         * @details If the random polynomial is set, it is added to each batched polynomial for ZK
+         *
+         * @param r_challenge partial evaluation challenge
+         * @return std::pair<Polynomial, Polynomial> {A₀₊, A₀₋}
+         */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
             Polynomial& batched_F = batched_unshifted; // alias
