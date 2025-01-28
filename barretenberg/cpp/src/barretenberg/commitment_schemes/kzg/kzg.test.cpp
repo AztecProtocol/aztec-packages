@@ -13,7 +13,7 @@ class KZGTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using KZG = KZG<Curve>;
+    using PCS = KZG<curve::BN254>;
 
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
@@ -51,10 +51,10 @@ TEST_F(KZGTest, single)
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    KZG::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+    PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = KZG::reduce_verify(opening_claim, verifier_transcript);
+    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
@@ -85,10 +85,10 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    KZG::compute_opening_proof(ck, { witness_polynomial, opening_pair }, prover_transcript);
+    PCS::compute_opening_proof(ck, { witness_polynomial, opening_pair }, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    auto pairing_points = KZG::reduce_verify(opening_claim, verifier_transcript);
+    auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
@@ -128,7 +128,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -150,7 +150,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 
     // KZG verifier:
     // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)
-    auto pairing_points = KZG::reduce_verify(shplonk_verifier_claim, verifier_transcript);
+    auto pairing_points = PCS::reduce_verify(shplonk_verifier_claim, verifier_transcript);
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
@@ -186,7 +186,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -203,7 +203,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
                                                        mle_opening_point,
                                                        vk->get_g1_identity(),
                                                        verifier_transcript);
-    const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -242,7 +242,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -268,7 +268,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                                        {},
                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                        RefVector(c_evaluations));
-    const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -301,7 +301,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    KZG::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -333,7 +333,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
                                                        verifier_transcript,
                                                        repeated_commitments);
 
-    const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
