@@ -7,9 +7,9 @@ import {
 } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 
-export function buildProtocolContractTree(contracts: { address: AztecAddress; leaf: Fr }[]): MerkleTree {
-  const calculator = new MerkleTreeCalculator(PROTOCOL_CONTRACT_TREE_HEIGHT, Buffer.alloc(32), (a, b) =>
-    poseidon2Hash([a, b]).toBuffer(),
+export async function buildProtocolContractTree(contracts: { address: AztecAddress; leaf: Fr }[]): Promise<MerkleTree> {
+  const calculator = await MerkleTreeCalculator.create(PROTOCOL_CONTRACT_TREE_HEIGHT, Buffer.alloc(32), async (a, b) =>
+    (await poseidon2Hash([a, b])).toBuffer(),
   );
 
   const leaves = new Array(2 ** PROTOCOL_CONTRACT_TREE_HEIGHT).fill(Buffer.alloc(32));

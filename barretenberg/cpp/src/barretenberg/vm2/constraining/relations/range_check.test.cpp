@@ -1,7 +1,7 @@
-#include <cmath>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
 
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"

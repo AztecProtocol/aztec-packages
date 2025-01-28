@@ -134,7 +134,7 @@ describe('e2e_epochs', () => {
   });
 
   it('submits proof claim alone if there are no txs to build a block', async () => {
-    context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+    await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await waitUntilEpochStarts(1);
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);

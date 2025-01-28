@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract PendingNoteHashes {
     // Libs
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::macros::{functions::private, storage::storage};
     use dep::aztec::note::note_emission::NoteEmission;
     use dep::aztec::prelude::{

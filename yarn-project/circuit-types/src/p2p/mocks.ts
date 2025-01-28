@@ -16,7 +16,7 @@ export interface MakeConsensusPayloadOptions {
   txHashes?: TxHash[];
 }
 
-const makeAndSignConsensusPayload = (
+const makeAndSignConsensusPayload = async (
   domainSeparator: SignatureDomainSeparator,
   options?: MakeConsensusPayloadOptions,
 ) => {
@@ -33,19 +33,19 @@ const makeAndSignConsensusPayload = (
     txHashes,
   });
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
+  const hash = await getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
   const signature = signer.sign(hash);
 
   return { payload, signature };
 };
 
-export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
+export const makeBlockProposal = async (options?: MakeConsensusPayloadOptions): Promise<BlockProposal> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
   return new BlockProposal(payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
+export const makeBlockAttestation = async (options?: MakeConsensusPayloadOptions): Promise<BlockAttestation> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
   return new BlockAttestation(payload, signature);
 };

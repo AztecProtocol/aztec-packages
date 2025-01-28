@@ -126,7 +126,10 @@ export function randomMemoryFields(length: number): Field[] {
   return [...Array(length)].map(_ => new Field(Fr.random()));
 }
 
-export function getFunctionSelector(functionName: string, contractArtifact: ContractArtifact): FunctionSelector {
+export function getFunctionSelector(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): Promise<FunctionSelector> {
   const fnArtifact = contractArtifact.functions.find(f => f.name === functionName)!;
   assert(!!fnArtifact, `Function ${functionName} not found in ${contractArtifact.name}`);
   const params = fnArtifact.parameters;
@@ -162,7 +165,7 @@ export function resolveContractAssertionMessage(
   return resolveAssertionMessageFromRevertData(output, functionArtifact);
 }
 
-export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
   return getFunctionSelector(functionName, AvmTestContractArtifact);
 }
 

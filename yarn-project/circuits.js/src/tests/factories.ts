@@ -1256,15 +1256,18 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export function makeContractClassPublic(seed = 0, publicDispatchFunction?: PublicFunction): ContractClassPublic {
+export async function makeContractClassPublic(
+  seed = 0,
+  publicDispatchFunction?: PublicFunction,
+): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
   const publicFunctions = publicDispatchFunction
     ? [publicDispatchFunction]
     : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
   const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
-  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
-  const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
+  const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
+  const id = await computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
     id,
     artifactHash,
@@ -1338,11 +1341,11 @@ export async function makeContractInstanceFromClassId(
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await PublicKeys.random());
 
-  const saltedInitializationHash = poseidon2HashWithSeparator(
+  const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
-  const partialAddress = poseidon2HashWithSeparator(
+  const partialAddress = await poseidon2HashWithSeparator(
     [classId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
@@ -1358,7 +1361,7 @@ export async function makeContractInstanceFromClassId(
 }
 
 export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecodeHints> {
-  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = makeContractClassPublic(seed);
+  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = await makeContractClassPublic(seed);
   const instance = await makeContractInstanceFromClassId(id, seed + 0x1000);
 
   const avmHintInstance = new AvmContractInstanceHint(
@@ -1372,7 +1375,7 @@ export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecod
     makeAvmNullifierReadTreeHints(seed + 0x2000),
   );
 
-  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+  const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
 
   return new AvmContractBytecodeHints(packedBytecode, avmHintInstance, {
     artifactHash,

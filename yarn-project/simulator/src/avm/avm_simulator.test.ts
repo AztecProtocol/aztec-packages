@@ -169,7 +169,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
   it('addition via dispatch', async () => {
     const calldata: Fr[] = [
-      FunctionSelector.fromSignature('add_args_return(Field,Field)').toField(),
+      (await FunctionSelector.fromSignature('add_args_return(Field,Field)')).toField(),
       new Fr(1),
       new Fr(2),
     ];
@@ -184,14 +184,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
   it('get_args_hash via dispatch', async () => {
     const calldata = [new Fr(8), new Fr(1), new Fr(2), new Fr(3)];
-    const dispatchCalldata = [FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])').toField(), ...calldata];
+    const dispatchCalldata = [
+      (await FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])')).toField(),
+      ...calldata,
+    ];
 
     const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
     const bytecode = getAvmTestContractBytecode('public_dispatch');
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([computeVarArgsHash(calldata)]);
+    expect(results.output).toEqual([await computeVarArgsHash(calldata)]);
   });
 
   it('modulo and u1', async () => {
@@ -294,7 +297,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     // This doesnt include infinites
-    const expectedResult = pedersenCommit([Buffer.from([100]), Buffer.from([1])], 20).map(f => new Fr(f));
+    const expectedResult = (await pedersenCommit([Buffer.from([100]), Buffer.from([1])], 20)).map(f => new Fr(f));
     // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
     const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
     expectedResult.push(new Fr(isInf));
@@ -390,7 +393,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
     ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ pedersenFromMemoryFields],
     ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
-  ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Fr[]) => {
+  ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Promise<Fr[]>) => {
     it(`Should execute contract function that performs ${name}`, async () => {
       const calldata = input.map(e => e.toFr());
 
@@ -399,7 +402,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual(output(input));
+      expect(results.output).toEqual(await output(input));
     });
   });
 
@@ -486,11 +489,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const listSlot1 = new Fr(listSlotNumber1);
     const value0 = new Fr(420);
     const value1 = new Fr(69);
-    const siloedNullifier0 = siloNullifier(address, value0);
+    let siloedNullifier0: Fr;
 
     let worldStateDB: WorldStateDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
+
+    beforeAll(async () => {
+      siloedNullifier0 = await siloNullifier(address, value0);
+    });
 
     beforeEach(() => {
       worldStateDB = mock<WorldStateDB>();
@@ -612,9 +619,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.output).toEqual([]);
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(context.persistableState.firstNullifier, 0);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      const siloedNotehash = await siloNoteHash(address, value0);
+      const nonce = await computeNoteHashNonce(context.persistableState.firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
@@ -848,9 +855,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
@@ -883,16 +890,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -907,16 +914,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -928,22 +935,22 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
-        const targetFunctionSelector = FunctionSelector.fromSignature(
+        const targetFunctionSelector = await FunctionSelector.fromSignature(
           'nested_call_to_add_with_gas(Field,Field,Field,Field)',
         );
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
         const artifact = getAvmTestContractArtifact('public_dispatch');
-        mockGetBytecode(worldStateDB, artifact.bytecode);
+        await mockGetBytecode(worldStateDB, artifact.bytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -956,16 +963,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -986,16 +993,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1011,16 +1018,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        await mockGetBytecode(worldStateDB, nestedBytecode);
 
-        const contractClass = makeContractClassPublic(0, {
+        const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
+        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1077,13 +1084,18 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     const slotNumber0 = 1; // must update Noir contract if changing this
     const slot0 = new Fr(slotNumber0);
-    const leafSlot0 = computePublicDataTreeLeafSlot(address, slot0);
 
     let worldStateDB: WorldStateDB;
     let merkleTrees: MerkleTreeWriteOperations;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
     let ephemeralForest: AvmEphemeralForest;
+
+    let leafSlot0: Fr;
+
+    beforeAll(async () => {
+      leafSlot0 = await computePublicDataTreeLeafSlot(address, slot0);
+    });
 
     beforeEach(async () => {
       trace = mock<PublicSideEffectTraceInterface>();
@@ -1294,26 +1306,26 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 });
 
-function sha256FromMemoryBytes(bytes: Uint8[]): Fr[] {
-  return [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+function sha256FromMemoryBytes(bytes: Uint8[]): Promise<Fr[]> {
+  return Promise.resolve([...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
 }
 
-function keccak256FromMemoryBytes(bytes: Uint8[]): Fr[] {
-  return [...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+function keccak256FromMemoryBytes(bytes: Uint8[]): Promise<Fr[]> {
+  return Promise.resolve([...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
 }
 
-function keccakF1600FromMemoryUint64s(mem: Uint64[]): Fr[] {
-  return [...keccakf1600(mem.map(u => u.toBigInt()))].map(b => new Fr(b));
+function keccakF1600FromMemoryUint64s(mem: Uint64[]): Promise<Fr[]> {
+  return Promise.resolve([...keccakf1600(mem.map(u => u.toBigInt()))].map(b => new Fr(b)));
 }
 
-function poseidon2FromMemoryFields(fields: Fieldable[]): Fr[] {
-  return [poseidon2Hash(fields)];
+async function poseidon2FromMemoryFields(fields: Fieldable[]): Promise<Fr[]> {
+  return [await poseidon2Hash(fields)];
 }
 
-function pedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
-  return [pedersenHash(fields)];
+async function pedersenFromMemoryFields(fields: Fieldable[]): Promise<Fr[]> {
+  return [await pedersenHash(fields)];
 }
 
-function indexedPedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
-  return [pedersenHash(fields, /*index=*/ 20)];
+async function indexedPedersenFromMemoryFields(fields: Fieldable[]): Promise<Fr[]> {
+  return [await pedersenHash(fields, /*index=*/ 20)];
 }

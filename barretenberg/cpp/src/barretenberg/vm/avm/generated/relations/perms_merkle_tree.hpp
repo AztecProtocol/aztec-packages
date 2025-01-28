@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -63,7 +64,7 @@ template <typename FF_>
 class perm_merkle_poseidon2_relation
     : public GenericPermutationRelation<perm_merkle_poseidon2_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_MERKLE_POSEIDON2";
+    static constexpr std::string_view NAME = "PERM_MERKLE_POSEIDON2";
 };
 template <typename FF_>
 using perm_merkle_poseidon2 = GenericPermutation<perm_merkle_poseidon2_permutation_settings, FF_>;

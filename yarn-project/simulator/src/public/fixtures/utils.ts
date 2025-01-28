@@ -25,20 +25,20 @@ export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export function createTxForPublicCalls(
+export async function createTxForPublicCalls(
   firstNullifier: Fr,
   setupExecutionRequests: PublicExecutionRequest[],
   appExecutionRequests: PublicExecutionRequest[],
   teardownExecutionRequest?: PublicExecutionRequest,
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
-): Tx {
+): Promise<Tx> {
   assert(
     setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
-  const setupCallRequests = setupExecutionRequests.map(er => er.toCallRequest());
-  const appCallRequests = appExecutionRequests.map(er => er.toCallRequest());
+  const setupCallRequests = await Promise.all(setupExecutionRequests.map(er => er.toCallRequest()));
+  const appCallRequests = await Promise.all(appExecutionRequests.map(er => er.toCallRequest()));
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
@@ -54,7 +54,7 @@ export function createTxForPublicCalls(
     forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
   }
   if (teardownExecutionRequest) {
-    forPublic.publicTeardownCallRequest = teardownExecutionRequest.toCallRequest();
+    forPublic.publicTeardownCallRequest = await teardownExecutionRequest.toCallRequest();
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
@@ -84,7 +84,7 @@ export function createTxForPublicCalls(
   return tx;
 }
 
-export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
   const params = artifact.parameters;

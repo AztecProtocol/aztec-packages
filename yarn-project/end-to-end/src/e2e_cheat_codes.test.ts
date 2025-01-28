@@ -183,7 +183,7 @@ describe('e2e_cheat_codes', () => {
       await mintTokensToPrivate(token, wallet, admin, mintAmount);
       await token.methods.sync_notes().simulate();
 
-      const balancesAdminSlot = cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
+      const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 
       // check if note was added to pending shield:
       const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);

@@ -205,7 +205,7 @@ export class BlacklistTokenContractTest {
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
+        const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
