@@ -740,7 +740,8 @@ template <typename Builder> class BigFieldBase {
             if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT ||
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
-                bb::fq::serialize_to_buffer(instruction.arguments.element.value, Data);
+                *Data = instruction.id;
+                bb::fq::serialize_to_buffer(instruction.arguments.element.value, Data + 1);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::SQR ||

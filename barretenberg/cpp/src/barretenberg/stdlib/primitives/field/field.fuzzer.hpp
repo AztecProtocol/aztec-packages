@@ -647,6 +647,7 @@ template <typename Builder> class FieldBase {
             if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT ||
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
+                *Data = instruction.id;
                 bb::fr::serialize_to_buffer(insturction.arguments.element.data, Data);
             }
 

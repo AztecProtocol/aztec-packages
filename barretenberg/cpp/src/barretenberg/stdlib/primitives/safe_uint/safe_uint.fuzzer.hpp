@@ -534,8 +534,9 @@ template <typename Builder> class SafeUintFuzzBase {
             if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT ||
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
-                *Data = instruction.arguments.element.bit_range;
-                fr::serialize_to_buffer(instruction.arguments.element.value, Data + 1);
+                *Data = instruction.id;
+                *(Data + 1) = instruction.arguments.element.bit_range;
+                fr::serialize_to_buffer(instruction.arguments.element.value, Data + 2);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::ADD ||
