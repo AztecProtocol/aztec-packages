@@ -145,6 +145,7 @@ impl Context {
         self.mark_terminator_values_as_used(function, block);
 
         let mut rc_tracker = RcTracker::default();
+        rc_tracker.mark_function_parameter_arrays_as_used(function);
         rc_tracker.mark_terminator_arrays_as_used(function, block);
 
         let instructions_len = block.instructions().len();
@@ -608,6 +609,19 @@ impl RcTracker {
         });
     }
 
+    /// Mark any array parameters to the function itself as possibly mutated.
+    fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
+        for parameter in function.parameters() {
+            let typ = function.dfg.type_of_value(*parameter);
+            if typ.contains_an_array() {
+                let typ = typ.get_contained_array();
+                // Want to store the array type which is being referenced,
+                // because it's the underlying array that the `inc_rc` is associated with.
+                self.mutated_array_types.insert(typ.clone());
+            }
+        }
+    }
+
     fn track_inc_rcs_to_remove(&mut self, instruction_id: InstructionId, function: &Function) {
         let instruction = &function.dfg[instruction_id];
 
@@ -933,7 +947,7 @@ mod test {
     }
 
     #[test]
-    fn remove_inc_rcs_that_are_never_mutably_borrowed() {
+    fn does_not_remove_inc_rcs_that_are_never_mutably_borrowed() {
         let src = "
         brillig(inline) fn main f0 {
           b0(v0: [Field; 2]):
@@ -955,7 +969,9 @@ mod test {
         let expected = "
         brillig(inline) fn main f0 {
           b0(v0: [Field; 2]):
+            inc_rc v0
             v2 = array_get v0, index u32 0 -> Field
+            inc_rc v0
             return v2
         }
         ";
