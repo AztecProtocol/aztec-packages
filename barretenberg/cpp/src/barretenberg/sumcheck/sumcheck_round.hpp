@@ -596,7 +596,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * method computes the evaluation of \f$ \tilde{F} \f$ taking these values as arguments.
      *
      */
-    FF compute_full_relation_purported_value(ClaimedEvaluations purported_evaluations,
+    FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_sparators,
                                              const RelationSeparator alpha)

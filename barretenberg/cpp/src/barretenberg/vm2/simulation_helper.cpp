@@ -9,7 +9,16 @@
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_stack.hpp"
+#include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
+#include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
+#include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
+#include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
@@ -25,49 +34,30 @@ namespace {
 
 // Configuration for full simulation (for proving).
 struct ProvingSettings {
-    using ExecutionEventEmitter = EventEmitter<ExecutionEvent>;
-    using AluEventEmitter = EventEmitter<AluEvent>;
-    using MemoryEventEmitter = EventEmitter<MemoryEvent>;
-    using AddressingEventEmitter = EventEmitter<AddressingEvent>;
-    using BytecodeRetrievalEventEmitter = EventEmitter<BytecodeRetrievalEvent>;
-    using BytecodeHashingEventEmitter = EventEmitter<BytecodeHashingEvent>;
-    using BytecodeDecompositionEventEmitter = EventEmitter<BytecodeDecompositionEvent>;
-    using AddressDerivationEventEmitter = EventEmitter<AddressDerivationEvent>;
-    using ClassIdDerivationEventEmitter = EventEmitter<ClassIdDerivationEvent>;
-    using SiloingEventEmitter = EventEmitter<SiloingEvent>;
-    using Sha256CompressionEventEmitter = EventEmitter<Sha256CompressionEvent>;
+    template <typename E> using DefaultEventEmitter = EventEmitter<E>;
 };
 
 // Configuration for fast simulation.
 struct FastSettings {
-    using ExecutionEventEmitter = NoopEventEmitter<ExecutionEvent>;
-    using AluEventEmitter = NoopEventEmitter<AluEvent>;
-    using MemoryEventEmitter = NoopEventEmitter<MemoryEvent>;
-    using AddressingEventEmitter = NoopEventEmitter<AddressingEvent>;
-    using BytecodeRetrievalEventEmitter = NoopEventEmitter<BytecodeRetrievalEvent>;
-    using BytecodeHashingEventEmitter = NoopEventEmitter<BytecodeHashingEvent>;
-    using BytecodeDecompositionEventEmitter = NoopEventEmitter<BytecodeDecompositionEvent>;
-    using AddressDerivationEventEmitter = NoopEventEmitter<AddressDerivationEvent>;
-    using ClassIdDerivationEventEmitter = NoopEventEmitter<ClassIdDerivationEvent>;
-    using SiloingEventEmitter = NoopEventEmitter<SiloingEvent>;
-    using Sha256CompressionEventEmitter = NoopEventEmitter<Sha256CompressionEvent>;
+    template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
 };
 
 } // namespace
 
 template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
 {
-    typename S::ExecutionEventEmitter execution_emitter;
-    typename S::AluEventEmitter alu_emitter;
-    typename S::MemoryEventEmitter memory_emitter;
-    typename S::AddressingEventEmitter addressing_emitter;
-    typename S::BytecodeRetrievalEventEmitter bytecode_retrieval_emitter;
-    typename S::BytecodeHashingEventEmitter bytecode_hashing_emitter;
-    typename S::BytecodeDecompositionEventEmitter bytecode_decomposition_emitter;
-    typename S::AddressDerivationEventEmitter address_derivation_emitter;
-    typename S::ClassIdDerivationEventEmitter class_id_derivation_emitter;
-    typename S::SiloingEventEmitter siloing_emitter;
-    typename S::Sha256CompressionEventEmitter sha256_compression_emitter;
+    typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
+    typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
+    typename S::template DefaultEventEmitter<AddressingEvent> addressing_emitter;
+    typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
+    typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
+    typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
+    typename S::template DefaultEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
+    typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
+    typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
+    typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
 
     HintedRawDataDB db(inputs.hints);
     AddressDerivation address_derivation(address_derivation_emitter);
@@ -80,7 +70,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        class_id_derivation,
                                        bytecode_retrieval_emitter,
                                        bytecode_hashing_emitter,
-                                       bytecode_decomposition_emitter);
+                                       bytecode_decomposition_emitter,
+                                       instruction_fetching_emitter);
     ContextProvider context_provider(bytecode_manager, memory_emitter);
 
     Alu alu(alu_emitter);
@@ -100,6 +91,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              bytecode_retrieval_emitter.dump_events(),
              bytecode_hashing_emitter.dump_events(),
              bytecode_decomposition_emitter.dump_events(),
+             instruction_fetching_emitter.dump_events(),
              address_derivation_emitter.dump_events(),
              class_id_derivation_emitter.dump_events(),
              siloing_emitter.dump_events(),
