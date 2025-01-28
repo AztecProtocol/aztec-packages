@@ -123,13 +123,14 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
+                                               /*use_short_scalars=*/false,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation,
-                                               {},
-                                               {},
+                                               /*sumcheck_round_commitments=*/{},
+                                               /*sumcheck_round_evaluations=*/{},
                                                commitments.get_groups_to_be_concatenated(),
                                                sumcheck_output.claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);

@@ -130,6 +130,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,
+                                               /* use_short_scalars =*/false,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,

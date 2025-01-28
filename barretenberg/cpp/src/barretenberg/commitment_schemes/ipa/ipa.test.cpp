@@ -408,6 +408,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
                                                                               mle_opening_point,
                                                                               this->vk()->get_g1_identity(),
                                                                               verifier_transcript,
+                                                                              /*use_short_scalars=*/false,
                                                                               repeated_commitments);
 
     auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);

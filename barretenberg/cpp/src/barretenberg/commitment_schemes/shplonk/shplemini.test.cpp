@@ -328,6 +328,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                       const_size_mle_opening_point,
                                                       ck,
                                                       prover_transcript,
+                                                      /* use_short_scalars =*/false,
                                                       small_subgroup_ipa_prover.get_witness_polynomials());
 
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -372,6 +373,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                        const_size_mle_opening_point,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,
+                                                       /* use_short_scalars =*/false,
                                                        {},
                                                        true,
                                                        &consistency_checked,
@@ -440,6 +442,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                       challenge,
                                                       ck,
                                                       prover_transcript,
+                                                      /* use_short_scalars =*/false,
                                                       small_subgroup_ipa_prover.get_witness_polynomials(),
                                                       pcs_instance_witness.round_univariates,
                                                       pcs_instance_witness.sumcheck_evaluations);
@@ -483,6 +486,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                        challenge,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,
+                                                       /* use_short_scalars =*/false,
                                                        {},
                                                        true,
                                                        &consistency_checked,

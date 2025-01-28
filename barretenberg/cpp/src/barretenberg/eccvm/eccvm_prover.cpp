@@ -136,6 +136,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
+                         /*use_short_scalars=*/false,
                          small_subgroup_ipa_prover.get_witness_polynomials(),
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);

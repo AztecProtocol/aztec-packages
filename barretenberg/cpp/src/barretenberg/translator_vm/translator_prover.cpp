@@ -153,6 +153,7 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,
+                                       /*use_short_scalars=*/false,
                                        small_subgroup_ipa_prover.get_witness_polynomials(),
                                        {},
                                        {},

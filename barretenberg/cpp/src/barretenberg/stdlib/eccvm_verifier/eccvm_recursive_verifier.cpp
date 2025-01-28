@@ -97,6 +97,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
+                                               /* use_short_scalars= */ false,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
