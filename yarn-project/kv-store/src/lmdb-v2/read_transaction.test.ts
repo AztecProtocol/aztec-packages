@@ -1,29 +1,25 @@
 import { toArray } from '@aztec/foundation/iterable';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { MsgpackChannel, RoundtripDuration } from '@aztec/native';
 
 import { expect } from 'chai';
-import { SinonStubbedInstance, createStubInstance } from 'sinon';
+import { SinonStubbedInstance, stub } from 'sinon';
 
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, LMDBResponseBody, TypeSafeMessageChannel } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageChannel, LMDBMessageType, LMDBResponseBody } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 
-const duration = { encodingUs: 0, decodingUs: 0, totalUs: 0, callUs: 0 };
-
 describe('ReadTransaction', () => {
-  let channel: SinonStubbedInstance<TypeSafeMessageChannel>;
+  let channel: SinonStubbedInstance<LMDBMessageChannel>;
   let tx: ReadTransaction;
 
   beforeEach(() => {
-    channel = createStubInstance(MsgpackChannel);
+    channel = stub<LMDBMessageChannel>({
+      sendMessage: stub(),
+    });
     tx = new ReadTransaction(channel);
   });
 
   it('sends GET requests', async () => {
-    const getDeferred = promiseWithResolvers<{
-      duration: RoundtripDuration;
-      response: LMDBResponseBody[LMDBMessageType.GET];
-    }>();
+    const getDeferred = promiseWithResolvers<LMDBResponseBody[LMDBMessageType.GET]>();
 
     channel.sendMessage.returns(getDeferred.promise);
 
@@ -37,10 +33,7 @@ describe('ReadTransaction', () => {
     ).to.be.true;
 
     getDeferred.resolve({
-      duration,
-      response: {
-        values: [[Buffer.from('foo')]],
-      },
+      values: [[Buffer.from('foo')]],
     });
 
     expect(await resp).to.deep.eq(Buffer.from('foo'));
@@ -48,16 +41,16 @@ describe('ReadTransaction', () => {
 
   it('iterates the database', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
     channel.sendMessage.onCall(1).resolves({
-      duration,
-      response: { entries: [[Buffer.from('quux'), [Buffer.from('another value')]]], done: true },
+      entries: [[Buffer.from('quux'), [Buffer.from('another value')]]],
+      done: true,
     });
     channel.sendMessage.onCall(2).resolves({
-      duration,
-      response: { ok: true },
+      ok: true,
     });
 
     const iterable = tx.iterate(Buffer.from('foo'));
@@ -94,17 +87,16 @@ describe('ReadTransaction', () => {
 
   it('closes the cursor early', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
-    channel.sendMessage
-      .withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 })
-      .resolves({ duration, response: { ok: true } });
+    channel.sendMessage.withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 }).resolves({ ok: true });
 
     for await (const entry of tx.iterate(Buffer.from('foo'))) {
       expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
@@ -120,17 +112,16 @@ describe('ReadTransaction', () => {
 
   it('closes the cursor even if in the case of an error', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42, entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
-    channel.sendMessage
-      .withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 })
-      .resolves({ duration, response: { ok: true } });
+    channel.sendMessage.withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 }).resolves({ ok: true });
 
     try {
       for await (const entry of tx.iterate(Buffer.from('foo'))) {
@@ -156,8 +147,9 @@ describe('ReadTransaction', () => {
         onePage: false,
       })
       .resolves({
-        duration,
-        response: { cursor: null, entries: [], done: true },
+        cursor: null,
+        entries: [],
+        done: true,
       });
 
     const arr = await toArray(tx.iterate(Buffer.from('foo')));

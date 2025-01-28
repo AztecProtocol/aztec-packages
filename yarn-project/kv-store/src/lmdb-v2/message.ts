@@ -128,4 +128,6 @@ export type LMDBResponseBody = {
   [LMDBMessageType.CLOSE]: BoolResponse;
 };
 
-export type TypeSafeMessageChannel = MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
+export interface LMDBMessageChannel {
+  sendMessage<T extends LMDBMessageType>(msgType: T, body: LMDBRequestBody[T]): Promise<LMDBResponseBody[T]>;
+}

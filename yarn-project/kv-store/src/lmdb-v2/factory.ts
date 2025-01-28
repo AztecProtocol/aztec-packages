@@ -47,9 +47,15 @@ export async function createStore(
     log.info(
       `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB (LMDB v2)`,
     );
-    store = await AztecLMDBStoreV2.new(dataDirectory, config.dataStoreMapSizeKB);
+    store = await AztecLMDBStoreV2.new(
+      dataDirectory,
+      config.dataStoreMapSizeKB,
+      MAX_READERS,
+      () => Promise.resolve(),
+      log,
+    );
   } else {
-    store = await openTmpStore(name, true, config.dataStoreMapSizeKB, log);
+    store = await openTmpStore(name, true, config.dataStoreMapSizeKB, MAX_READERS, log);
   }
 
   return store;
@@ -57,8 +63,9 @@ export async function createStore(
 
 export async function openTmpStore(
   name: string,
-  ephemeral: boolean = false,
+  ephemeral: boolean = true,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
+  maxReaders = MAX_READERS,
   log: Logger = createLogger('kv-store:lmdb-v2:' + name),
 ): Promise<AztecLMDBStoreV2> {
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
@@ -74,5 +81,5 @@ export async function openTmpStore(
     }
   };
 
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, MAX_READERS, cleanup, log);
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, log);
 }

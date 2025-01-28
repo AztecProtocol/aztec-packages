@@ -1,11 +1,9 @@
 import { Logger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
+import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { mkdtemp, rm } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { rm } from 'fs/promises';
 
 import { AztecAsyncArray } from '../interfaces/array.js';
 import { Key } from '../interfaces/common.js';
@@ -15,15 +13,16 @@ import { AztecAsyncSet } from '../interfaces/set.js';
 import { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import { AztecAsyncKVStore } from '../interfaces/store.js';
 import { LMDBMap, LMDBMultiMap } from './map.js';
-import { Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
+import { Database, LMDBMessageChannel, LMDBMessageType, LMDBRequestBody, LMDBResponseBody } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
-export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
-  private channel: TypeSafeMessageChannel;
+export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
+  private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
   private writerQueue = new SerialQueue();
+  private availableCursors: Semaphore;
 
   private constructor(
     private dataDir: string,
@@ -32,21 +31,24 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
     private log: Logger,
     private cleanup?: () => Promise<void>,
   ) {
+    this.log.info(`Starting data store with maxReaders ${maxReaders}`);
     this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders));
+    // leave one reader to always be available for regular, atomic, reads
+    this.availableCursors = new Semaphore(maxReaders - 1);
   }
 
   private async start() {
-    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    this.writerQueue.start();
+
+    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.DATA,
       uniqueKeys: true,
     });
 
-    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.INDEX,
       uniqueKeys: false,
     });
-
-    this.writerQueue.start();
   }
 
   public static async new(
@@ -62,7 +64,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
   }
 
   public getReadTx(): ReadTransaction {
-    return new ReadTransaction(this.channel);
+    return new ReadTransaction(this);
   }
 
   public getCurrentWriteTx(): WriteTransaction | undefined {
@@ -106,7 +108,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
     }
 
     return this.writerQueue.put(async () => {
-      const tx = new WriteTransaction(this.channel);
+      const tx = new WriteTransaction(this);
       try {
         const res = await this.writerCtx.run(tx, callback, tx);
         await tx.commit();
@@ -141,6 +143,27 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
 
   async close() {
     await this.writerQueue.cancel();
-    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
+    await this.sendMessage(LMDBMessageType.CLOSE, undefined);
+  }
+
+  public async sendMessage<T extends LMDBMessageType>(
+    msgType: T,
+    body: LMDBRequestBody[T],
+  ): Promise<LMDBResponseBody[T]> {
+    if (msgType === LMDBMessageType.START_CURSOR) {
+      await this.availableCursors.acquire();
+    }
+
+    const { response } = await this.channel.sendMessage(msgType, body);
+
+    if (
+      msgType === LMDBMessageType.CLOSE_CURSOR ||
+      // it's possible for a START_CURSOR command to not return a cursor (e.g. db is empty)
+      (msgType === LMDBMessageType.START_CURSOR &&
+        typeof (response as LMDBResponseBody[LMDBMessageType.START_CURSOR]).cursor !== 'number')
+    ) {
+      this.availableCursors.release();
+    }
+    return response;
   }
 }

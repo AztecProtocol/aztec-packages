@@ -1,9 +1,9 @@
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageChannel, LMDBMessageType } from './message.js';
 
 export class ReadTransaction {
   protected open = true;
 
-  constructor(protected channel: TypeSafeMessageChannel) {}
+  constructor(protected channel: LMDBMessageChannel) {}
 
   public close(): void {
     if (!this.open) {
@@ -20,13 +20,13 @@ export class ReadTransaction {
 
   public async get(key: Uint8Array): Promise<Uint8Array | undefined> {
     this.assertIsOpen();
-    const { response } = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.DATA });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.DATA });
     return response.values[0]?.[0] ?? undefined;
   }
 
   public async getIndex(key: Uint8Array): Promise<Uint8Array[]> {
     this.assertIsOpen();
-    const { response } = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.INDEX });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.INDEX });
     return response.values[0] ?? [];
   }
 
@@ -58,7 +58,7 @@ export class ReadTransaction {
   ): AsyncIterable<[Uint8Array, T]> {
     this.assertIsOpen();
 
-    const { response } = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
+    const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
       key: startKey,
       reverse,
       count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
@@ -97,7 +97,7 @@ export class ReadTransaction {
           break;
         }
 
-        const { response } = await this.channel.sendMessage(LMDBMessageType.ADVANCE_CURSOR, {
+        const response = await this.channel.sendMessage(LMDBMessageType.ADVANCE_CURSOR, {
           cursor,
           count: CURSOR_PAGE_SIZE,
         });

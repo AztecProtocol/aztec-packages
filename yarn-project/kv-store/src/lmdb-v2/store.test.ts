@@ -1,16 +1,20 @@
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { expect } from 'chai';
+import { stub } from 'sinon';
 
 import { openTmpStore } from './factory.js';
 import { ReadTransaction } from './read_transaction.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
+const testMaxReaders = 4;
+
 describe('AztecLMDBStoreV2', () => {
   let store: AztecLMDBStoreV2;
 
   beforeEach(async () => {
-    store = await openTmpStore('test');
+    store = await openTmpStore('test', true, 10 * 1024 * 1024, testMaxReaders);
   });
 
   afterEach(async () => {
@@ -126,5 +130,52 @@ describe('AztecLMDBStoreV2', () => {
 
     await Promise.all(promises);
     expect(Buffer.from((await store.getReadTx().get(key))!).readUint32BE()).to.eq(rounds);
+  });
+
+  it('guards against too many cursors being opened at the same time', async () => {
+    await store.transactionAsync(async tx => {
+      for (let i = 0; i < 100; i++) {
+        await tx.set(Buffer.from(String(i)), Buffer.from(String(i)));
+      }
+    });
+
+    const readTx = store.getReadTx();
+    const cursors: AsyncIterator<[Uint8Array, Uint8Array]>[] = [];
+
+    // fill up with cursors
+    for (let i = 0; i < testMaxReaders; i++) {
+      cursors.push(readTx.iterate(Buffer.from('1'))[Symbol.asyncIterator]());
+    }
+
+    // the first few iterators should be fine
+    await expect(Promise.all(cursors.slice(0, -1).map(it => it.next()))).eventually.to.deep.eq([
+      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
+      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
+      { value: [Buffer.from('1'), Buffer.from('1')], done: false },
+    ]);
+
+    // this promise should be blocked until we release a cursor
+    const fn = stub();
+    cursors.at(-1)!.next().then(fn, fn);
+
+    expect(fn.notCalled).to.be.true;
+    await sleep(100);
+    expect(fn.notCalled).to.be.true;
+
+    // but we can still do regular reads
+    await expect(readTx.get(Buffer.from('99'))).eventually.to.deep.eq(Buffer.from('99'));
+
+    // early-return one of the cursors
+    await cursors[0].return!();
+
+    // this should have unblocked the last cursor from progressing
+    await sleep(10);
+    expect(fn.calledWith({ value: [Buffer.from('1'), Buffer.from('1')], done: false })).to.be.true;
+
+    for (let i = 1; i < testMaxReaders; i++) {
+      await cursors[i].return!();
+    }
+
+    readTx.close();
   });
 });
