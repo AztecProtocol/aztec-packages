@@ -157,7 +157,7 @@ jobs:
       - name: Generate eth devnet config
         id: generate-eth-devnet-config
         run: |
-          REPO=$(git rev-parse --show-toplevel)
+          export REPO=$(git rev-parse --show-toplevel)
 
           export VALUES_PATH="$REPO/spartan/aztec-network/values/${{ env.VALUES_FILE }}"
           export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
