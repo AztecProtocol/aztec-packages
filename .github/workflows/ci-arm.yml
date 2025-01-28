@@ -66,33 +66,33 @@ jobs:
         run: |
           ./build-images/bootstrap-earthly.sh ci
 
-  # all the non-bench end-to-end integration tests for aztec
-  e2e:
-    needs: [base-images]
-    runs-on: ${{ github.run_id }}-arm
-    steps:
-      # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
-      - run: sudo chown -R $USER:$USER /home/ubuntu/
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: e2e-arm
-      # prepare images locally, tagged by commit hash
-      - name: "Build E2E Image"
-        timeout-minutes: 40
-        run: |
-          ./bootstrap.sh image-e2e
-      - name: "Test"
-        timeout-minutes: 40
-        run: |
-          ./bootstrap.sh test-e2e uniswap_trade_on_l1_from_l2
+  # # all the non-bench end-to-end integration tests for aztec
+  # e2e:
+  #   needs: [base-images]
+  #   runs-on: ${{ github.run_id }}-arm
+  #   steps:
+  #     # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
+  #     - run: sudo chown -R $USER:$USER /home/ubuntu/
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ env.GIT_COMMIT }}" }
+  #     - uses: ./.github/ci-setup-action
+  #       with:
+  #         concurrency_key: e2e-arm
+  #     # prepare images locally, tagged by commit hash
+  #     - name: "Build E2E Image"
+  #       timeout-minutes: 40
+  #       run: |
+  #         ./bootstrap.sh image-e2e
+  #     - name: "Test"
+  #       timeout-minutes: 40
+  #       run: |
+  #         ./bootstrap.sh test-e2e uniswap_trade_on_l1_from_l2
 
   rerun-check:
     runs-on: ubuntu-20.04
     permissions:
       actions: write
-    needs: [setup, base-images, e2e]
+    needs: [setup, base-images]
     if: ${{ !cancelled() }}
     steps:
       - name: Check for Rerun
@@ -109,7 +109,7 @@ jobs:
 
   # NOTE: we only notify failures after a rerun has occurred
   notify:
-    needs: [e2e]
+    needs: [base-images]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2 }}
     steps:

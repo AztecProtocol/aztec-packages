@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     "./server": "./dest/server/index.js",
-    "./client": "./dest/client/index.js"
+    "./client": "./dest/client/index.js",
+    "./encoding": "./dest/encoding/index.js"
   },
   "inherits": [
     "../package.common.json"
@@ -56,6 +57,7 @@
     "@aztec/kv-store": "workspace:*",
     "@aztec/telemetry-client": "workspace:*",
     "express": "^4.21.1",
+    "snappy": "^7.2.2",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"

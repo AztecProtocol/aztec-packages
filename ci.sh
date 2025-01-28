@@ -187,17 +187,6 @@ case "$cmd" in
       echo "No pull request found for branch $BRANCH."
     fi
     ;;
-  "test-kind-network")
-    test=${1:-transfer.test.ts}
-    values=${2:-3-validators}
-    ./bootstrap.sh image-e2e
-    cd yarn-project/end-to-end
-    NAMESPACE="kind-network-test" FRESH_INSTALL=true VALUES_FILE=$values.yaml ./scripts/network_test.sh ./src/spartan/$test
-    ;;
-  "test-network")
-    shift 1
-    scripts/run_native_testnet.sh -i $@
-    ;;
   "gha-url")
     workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
     run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
@@ -223,7 +212,7 @@ case "$cmd" in
     print_usage
     ;;
   *)
-    echo "Unknown command: $cmd"
+    echo "Unknown command: $cmd, see ./ci.sh help"
     exit 1
     ;;
 esac

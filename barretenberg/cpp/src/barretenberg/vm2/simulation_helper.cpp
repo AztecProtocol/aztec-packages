@@ -9,9 +9,11 @@
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_stack.hpp"
+#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 
@@ -33,6 +35,7 @@ struct ProvingSettings {
     using AddressDerivationEventEmitter = EventEmitter<AddressDerivationEvent>;
     using ClassIdDerivationEventEmitter = EventEmitter<ClassIdDerivationEvent>;
     using SiloingEventEmitter = EventEmitter<SiloingEvent>;
+    using Sha256CompressionEventEmitter = EventEmitter<Sha256CompressionEvent>;
 };
 
 // Configuration for fast simulation.
@@ -47,6 +50,7 @@ struct FastSettings {
     using AddressDerivationEventEmitter = NoopEventEmitter<AddressDerivationEvent>;
     using ClassIdDerivationEventEmitter = NoopEventEmitter<ClassIdDerivationEvent>;
     using SiloingEventEmitter = NoopEventEmitter<SiloingEvent>;
+    using Sha256CompressionEventEmitter = NoopEventEmitter<Sha256CompressionEvent>;
 };
 
 } // namespace
@@ -63,6 +67,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::AddressDerivationEventEmitter address_derivation_emitter;
     typename S::ClassIdDerivationEventEmitter class_id_derivation_emitter;
     typename S::SiloingEventEmitter siloing_emitter;
+    typename S::Sha256CompressionEventEmitter sha256_compression_emitter;
 
     HintedRawDataDB db(inputs.hints);
     AddressDerivation address_derivation(address_derivation_emitter);
@@ -84,6 +89,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ContextStack context_stack;
     Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
+    Sha256 sha256(sha256_compression_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
 
@@ -96,7 +102,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              bytecode_decomposition_emitter.dump_events(),
              address_derivation_emitter.dump_events(),
              class_id_derivation_emitter.dump_events(),
-             siloing_emitter.dump_events() };
+             siloing_emitter.dump_events(),
+             sha256_compression_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

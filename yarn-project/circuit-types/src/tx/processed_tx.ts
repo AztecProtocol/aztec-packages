@@ -76,12 +76,12 @@ export type FailedTx = {
   error: Error;
 };
 
-export function makeProcessedTxFromPrivateOnlyTx(
+export async function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
   feePaymentPublicDataWrite: PublicDataWrite | undefined,
   globalVariables: GlobalVariables,
-): ProcessedTx {
+): Promise<ProcessedTx> {
   const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
 
   const publicDataWrites = feePaymentPublicDataWrite ? [feePaymentPublicDataWrite] : [];
@@ -89,7 +89,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
-    tx.getTxHash(),
+    await tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
@@ -127,13 +127,13 @@ export function toNumBlobFields(txs: ProcessedTx[]): number {
   }, 0);
 }
 
-export function makeProcessedTxFromTxWithPublicCalls(
+export async function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
-): ProcessedTx {
+): Promise<ProcessedTx> {
   const avmOutput = avmProvingRequest.inputs.output;
 
   const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
@@ -149,7 +149,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
 
   const txEffect = new TxEffect(
     revertCode,
-    tx.getTxHash(),
+    await tx.getTxHash(),
     avmOutput.transactionFee,
     avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),

@@ -4,23 +4,22 @@ import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { PublicKeys } from '../types/public_keys.js';
 import { computeAddress, computePreaddress } from './derivation.js';
 
-// TODO: Why are snapshots not matching in CI?
+// WORKTODO: Why are snapshots not matching in CI?
 describe.skip('🔑', () => {
-  it('computing public keys hash matches Noir', () => {
+  it('computing public keys hash matches Noir', async () => {
     const masterNullifierPublicKey = new Point(new Fr(1), new Fr(2), false);
     const masterIncomingViewingPublicKey = new Point(new Fr(3), new Fr(4), false);
     const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6), false);
     const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8), false);
 
     const expected = Fr.fromHexString('0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad');
-    expect(
-      new PublicKeys(
-        masterNullifierPublicKey,
-        masterIncomingViewingPublicKey,
-        masterOutgoingViewingPublicKey,
-        masterTaggingPublicKey,
-      ).hash(),
-    ).toEqual(expected);
+    const publicKeysHash = await new PublicKeys(
+      masterNullifierPublicKey,
+      masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+    ).hash();
+    expect(publicKeysHash).toEqual(expected);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -30,11 +29,11 @@ describe.skip('🔑', () => {
     );
   });
 
-  it('Pre address from partial matches Noir', () => {
+  it('Pre address from partial matches Noir', async () => {
     const publicKeysHash = new Fr(1n);
     const partialAddress = new Fr(2n);
-    const address = computePreaddress(publicKeysHash, partialAddress).toString();
-    expect(address).toMatchSnapshot();
+    const address = await computePreaddress(publicKeysHash, partialAddress);
+    expect(address.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

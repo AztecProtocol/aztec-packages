@@ -11,7 +11,7 @@ import { sha256ToField } from '@aztec/foundation/crypto';
  * @param secret - The secret to unlock the message.
  * @returns The L1 to L2 message.
  */
-export const buildL1ToL2Message = (
+export const buildL1ToL2Message = async (
   selector: string,
   contentPreimage: Fr[],
   targetContract: AztecAddress,
@@ -22,7 +22,7 @@ export const buildL1ToL2Message = (
   const selectorBuf = Buffer.from(selector, 'hex');
 
   const content = sha256ToField([selectorBuf, ...contentPreimage]);
-  const secretHash = computeSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
 
   return new L1ToL2Message(
     new L1Actor(EthAddress.random(), 1),

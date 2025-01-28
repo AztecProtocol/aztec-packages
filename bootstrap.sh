@@ -89,6 +89,13 @@ function check_toolchains {
       exit 1
     fi
   done
+  # Check for yarn availability
+  if ! command -v yarn > /dev/null; then
+    encourage_dev_container
+    echo "yarn not found."
+    echo "Installation: corepack enable"
+    exit 1
+  fi
 }
 
 # Install pre-commit git hooks.
@@ -97,6 +104,7 @@ function install_hooks {
   echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
   echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
+  echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
 }
 

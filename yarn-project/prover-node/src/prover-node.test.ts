@@ -151,7 +151,9 @@ describe('prover-node', () => {
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxByHash.mockImplementation(hash => Promise.resolve(mock<Tx>({ getTxHash: () => hash })));
+    mockCoordination.getTxByHash.mockImplementation(hash =>
+      Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) })),
+    );
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
@@ -419,7 +421,7 @@ describe('prover-node', () => {
       coordination = p2pClient;
 
       // But still mock getTxByHash
-      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => hash }));
+      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) }));
       jest.spyOn(p2pClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
       jest.spyOn(otherP2PClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
 

@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 
 namespace bb::avm2::simulation {
@@ -23,6 +24,7 @@ struct EventsContainer {
     EventEmitterInterface<AddressDerivationEvent>::Container address_derivation;
     EventEmitterInterface<ClassIdDerivationEvent>::Container class_id_derivation;
     EventEmitterInterface<SiloingEvent>::Container siloing;
+    EventEmitterInterface<Sha256CompressionEvent>::Container sha256_compression;
 };
 
 } // namespace bb::avm2::simulation

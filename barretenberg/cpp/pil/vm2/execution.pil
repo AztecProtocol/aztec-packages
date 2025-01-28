@@ -1,6 +1,8 @@
 include "alu.pil";
 include "addressing.pil";
+include "range_check.pil";
 include "precomputed.pil";
+include "sha256.pil";
 
 namespace execution;
 
