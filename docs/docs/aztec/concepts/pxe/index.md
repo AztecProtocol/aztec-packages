@@ -38,7 +38,6 @@ flowchart TB
     end
     PXE --Queries world-state (causes privacy leaks)--> Node
     Wallet --Track tx state (may be handled via PXE)--> Node
-
 ```
 
 ## Components
