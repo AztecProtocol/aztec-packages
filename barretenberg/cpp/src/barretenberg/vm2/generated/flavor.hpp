@@ -20,10 +20,12 @@
 #include "relations/alu.hpp"
 #include "relations/execution.hpp"
 #include "relations/range_check.hpp"
+#include "relations/sha256.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_range_check.hpp"
+#include "relations/lookups_sha256.hpp"
 #include "relations/perms_execution.hpp"
 
 // Metaprogramming to concatenate tuple types.
@@ -53,13 +55,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 91;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 217;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 28;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 102;
+    static constexpr size_t NUM_ALL_ENTITIES = 257;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -69,7 +71,8 @@ class AvmFlavor {
         // Relations
         avm2::alu<FF_>,
         avm2::execution<FF_>,
-        avm2::range_check<FF_>>;
+        avm2::range_check<FF_>,
+        avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -89,6 +92,7 @@ class AvmFlavor {
         lookup_rng_chk_is_r6_16_bit_relation<FF_>,
         lookup_rng_chk_is_r7_16_bit_relation<FF_>,
         lookup_rng_chk_pow_2_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>,
         perm_dummy_dynamic_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
@@ -159,6 +163,7 @@ class AvmFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
+        auto get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
         auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
@@ -316,14 +321,6 @@ class AvmFlavor {
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
 
-    class CommitmentLabels : public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
-
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>
     class VerifierCommitments_ : public AllEntities<Commitment_> {
@@ -343,6 +340,9 @@ class AvmFlavor {
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sha256_compression_round_constant =
+                verification_key->precomputed_sha256_compression_round_constant;
         }
     };
 

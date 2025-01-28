@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -68,7 +69,7 @@ class incl_main_tag_err_lookup_settings {
 template <typename FF_>
 class incl_main_tag_err_relation : public GenericLookupRelation<incl_main_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "INCL_MAIN_TAG_ERR";
+    static constexpr std::string_view NAME = "INCL_MAIN_TAG_ERR";
 };
 template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_err_lookup_settings, FF_>;
 
@@ -131,7 +132,7 @@ class incl_mem_tag_err_lookup_settings {
 template <typename FF_>
 class incl_mem_tag_err_relation : public GenericLookupRelation<incl_mem_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "INCL_MEM_TAG_ERR";
+    static constexpr std::string_view NAME = "INCL_MEM_TAG_ERR";
 };
 template <typename FF_> using incl_mem_tag_err = GenericLookup<incl_mem_tag_err_lookup_settings, FF_>;
 

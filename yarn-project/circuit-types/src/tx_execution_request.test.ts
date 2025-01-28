@@ -6,6 +6,6 @@ describe('TxExecutionRequest', () => {
   it('serializes and deserializes', async () => {
     const request = await TxExecutionRequest.random();
     const json = jsonStringify(request);
-    expect(jsonParseWithSchema(json, TxExecutionRequest.schema)).toEqual(request);
+    expect(await jsonParseWithSchema(json, TxExecutionRequest.schema)).toEqual(request);
   });
 });

@@ -269,8 +269,8 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const tx = await new BatchCall(aliceWallet, [
-      bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate).request(),
-      bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).request(),
+      await bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate).request(),
+      await bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).request(),
     ])
       .send({
         fee: {

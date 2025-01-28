@@ -531,7 +531,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       throw new Error('State in header does not match current state');
     }
 
-    const blockHash = header.hash();
+    const blockHash = await header.hash();
     await this.#appendLeaves(MerkleTreeId.ARCHIVE, [blockHash]);
   }
 

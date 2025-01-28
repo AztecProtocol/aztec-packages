@@ -148,7 +148,7 @@ export class BlockHeader {
     return BlockHeader.fromBuffer(hexToBuffer(str));
   }
 
-  hash(): Fr {
+  hash(): Promise<Fr> {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 
