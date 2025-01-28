@@ -13,6 +13,7 @@ class PrecomputedTraceBuilder final {
     void process_sel_range_8(TraceContainer& trace);
     void process_sel_range_16(TraceContainer& trace);
     void process_power_of_2(TraceContainer& trace);
+    void process_sha256_round_constants(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

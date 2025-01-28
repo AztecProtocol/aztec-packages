@@ -76,6 +76,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async poseidon2HashAccumulate(inputsBuffer: Fr[]): Promise<Fr> {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = await this.wasm.callWasmExport(
+      'poseidon2_hash_accumulate',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async poseidon2Hashes(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];

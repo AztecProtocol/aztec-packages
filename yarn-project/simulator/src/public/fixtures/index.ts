@@ -76,14 +76,14 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   );
   const setupExecutionRequests: PublicExecutionRequest[] = [];
   for (let i = 0; i < setupFunctionNames.length; i++) {
-    const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
+    const functionSelector = await getAvmTestContractFunctionSelector(setupFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     setupExecutionRequests.push(executionRequest);
   }
   const appExecutionRequests: PublicExecutionRequest[] = [];
   for (let i = 0; i < appFunctionNames.length; i++) {
-    const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
+    const functionSelector = await getAvmTestContractFunctionSelector(appFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...appArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     appExecutionRequests.push(executionRequest);
@@ -91,12 +91,12 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
 
   let teardownExecutionRequest: PublicExecutionRequest | undefined = undefined;
   if (teardownFunctionName) {
-    const functionSelector = getAvmTestContractFunctionSelector(teardownFunctionName);
+    const functionSelector = await getAvmTestContractFunctionSelector(teardownFunctionName);
     const fnArgs = [functionSelector.toField(), ...teardownArgs];
     teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
   }
 
-  const tx: Tx = createTxForPublicCalls(
+  const tx: Tx = await createTxForPublicCalls(
     setupExecutionRequests,
     appExecutionRequests,
     Fr.random(),
@@ -147,7 +147,7 @@ export async function simulateAvmTestContractCall(
   });
 
   const sender = await AztecAddress.random();
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  const functionSelector = await getAvmTestContractFunctionSelector(functionName);
   args = [functionSelector.toField(), ...args];
   const environment = initExecutionEnvironment({
     calldata: args,
@@ -167,19 +167,19 @@ export async function simulateAvmTestContractCall(
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export function createTxForPublicCalls(
+export async function createTxForPublicCalls(
   setupExecutionRequests: PublicExecutionRequest[],
   appExecutionRequests: PublicExecutionRequest[],
   firstNullifier: Fr,
   teardownExecutionRequest?: PublicExecutionRequest,
   gasUsedByPrivate: Gas = Gas.empty(),
-): Tx {
+): Promise<Tx> {
   assert(
     setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
-  const setupCallRequests = setupExecutionRequests.map(er => er.toCallRequest());
-  const appCallRequests = appExecutionRequests.map(er => er.toCallRequest());
+  const setupCallRequests = await Promise.all(setupExecutionRequests.map(er => er.toCallRequest()));
+  const appCallRequests = await Promise.all(appExecutionRequests.map(er => er.toCallRequest()));
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
@@ -195,7 +195,7 @@ export function createTxForPublicCalls(
     forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
   }
   if (teardownExecutionRequest) {
-    forPublic.publicTeardownCallRequest = teardownExecutionRequest.toCallRequest();
+    forPublic.publicTeardownCallRequest = await teardownExecutionRequest.toCallRequest();
   }
 
   const teardownGasLimits = teardownExecutionRequest ? gasLimits : Gas.empty();
@@ -225,12 +225,6 @@ export function createTxForPublicCalls(
 }
 
 export class MockedAvmTestContractDataSource implements ContractDataSource {
-  private fnName = 'public_dispatch';
-  public fnSelector: FunctionSelector = getAvmTestContractFunctionSelector(this.fnName);
-  private bytecode: Buffer;
-  private publicFn: PublicFunction;
-  private bytecodeCommitment: Fr;
-
   // maps contract class ID to class
   private contractClasses: Map<string, ContractClassPublic> = new Map();
   // maps contract instance address to instance
@@ -243,24 +237,27 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
     SerializableContractInstance.default().withAddress(AztecAddress.fromNumber(0));
   public otherContractInstance!: ContractInstanceWithAddress;
 
-  private constructor(private skipContractDeployments: boolean) {
-    this.bytecode = getAvmTestContractBytecode(this.fnName);
-    this.fnSelector = getAvmTestContractFunctionSelector(this.fnName);
-    this.publicFn = { bytecode: this.bytecode, selector: this.fnSelector };
-    this.bytecodeCommitment = computePublicBytecodeCommitment(this.bytecode);
+  private constructor(
+    private skipContractDeployments: boolean,
+    public fnName: string,
+    private publicFn: PublicFunction,
+  ) {}
+
+  get fnSelector() {
+    return this.publicFn.selector;
   }
 
   async deployContracts(merkleTrees: MerkleTreeWriteOperations) {
     if (!this.skipContractDeployments) {
       for (const contractInstance of this.contractInstances.values()) {
-        const contractAddressNullifier = siloNullifier(
+        const contractAddressNullifier = await siloNullifier(
           AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
           contractInstance.address.toField(),
         );
         await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
       }
 
-      const instanceSameClassAsFirstContractNullifier = siloNullifier(
+      const instanceSameClassAsFirstContractNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         this.instanceSameClassAsFirstContract.address.toField(),
       );
@@ -271,7 +268,7 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
       );
 
       // other contract address used by the bulk test's GETCONTRACTINSTANCE test
-      const otherContractAddressNullifier = siloNullifier(
+      const otherContractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         this.otherContractInstance.address.toField(),
       );
@@ -280,10 +277,14 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
   }
 
   public static async create(skipContractDeployments: boolean = false): Promise<MockedAvmTestContractDataSource> {
-    const dataSource = new MockedAvmTestContractDataSource(skipContractDeployments);
+    const fnName = 'public_dispatch';
+    const bytecode = getAvmTestContractBytecode(fnName);
+    const fnSelector = await getAvmTestContractFunctionSelector(fnName);
+    const publicFn = { bytecode: bytecode, selector: fnSelector };
+    const dataSource = new MockedAvmTestContractDataSource(skipContractDeployments, fnName, publicFn);
     // create enough unique classes to hit the limit (plus two extra)
     for (let i = 0; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1; i++) {
-      const contractClass = makeContractClassPublic(/*seed=*/ i, dataSource.publicFn);
+      const contractClass = await makeContractClassPublic(/*seed=*/ i, dataSource.publicFn);
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id, /*seed=*/ i);
       dataSource.contractClasses.set(contractClass.id.toString(), contractClass);
       dataSource.contractInstances.set(contractInstance.address.toString(), contractInstance);
@@ -328,7 +329,7 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
   }
 
   getBytecodeCommitment(_id: Fr): Promise<Fr> {
-    return Promise.resolve(this.bytecodeCommitment);
+    return computePublicBytecodeCommitment(this.publicFn.bytecode);
   }
 
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
@@ -365,7 +366,7 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
   }
 }
 
-function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
   const params = artifact.parameters;

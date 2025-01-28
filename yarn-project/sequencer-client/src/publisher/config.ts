@@ -78,7 +78,7 @@ export const getPublisherConfigMappings: (
   },
   ...l1TxUtilsConfigMappings,
   blobSinkUrl: {
-    env: `${scope}_BLOB_SINK_URL`,
+    env: 'BLOB_SINK_URL',
     description: 'The URL of the blob sink.',
     parseEnv: (val?: string) => val,
   },

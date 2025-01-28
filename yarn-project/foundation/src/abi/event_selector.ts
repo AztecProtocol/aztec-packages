@@ -40,12 +40,12 @@ export class EventSelector extends Selector {
    * @param signature - Signature to generate the selector for (e.g. "transfer(field,field)").
    * @returns selector.
    */
-  static fromSignature(signature: string) {
+  static async fromSignature(signature: string) {
     // throw if signature contains whitespace
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    const hash = poseidon2HashBytes(Buffer.from(signature));
+    const hash = await poseidon2HashBytes(Buffer.from(signature));
     // We take the last Selector.SIZE big endian bytes
     const bytes = hash.toBuffer().slice(-Selector.SIZE);
     return EventSelector.fromBuffer(bytes);

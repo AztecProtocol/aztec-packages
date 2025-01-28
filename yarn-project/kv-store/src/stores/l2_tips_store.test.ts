@@ -22,7 +22,7 @@ describe('L2TipsStore', () => {
   });
 
   const makeBlock = (number: number): L2Block =>
-    ({ number, header: { hash: () => new Fr(number) } as BlockHeader } as L2Block);
+    ({ number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block);
 
   const makeTip = (number: number) => ({ number, hash: number === 0 ? undefined : new Fr(number).toString() });
 

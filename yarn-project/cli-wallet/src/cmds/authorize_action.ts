@@ -27,7 +27,8 @@ export async function authorizeAction(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
-  const witness = await wallet.setPublicAuthWit({ caller, action }, true).send().wait();
+  const setAuthwitnessInteraction = await wallet.setPublicAuthWit({ caller, action }, true);
+  const witness = await setAuthwitnessInteraction.send().wait();
 
   log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

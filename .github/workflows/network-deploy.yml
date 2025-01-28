@@ -3,6 +3,10 @@ name: Aztec Network Deployment
 on:
   workflow_call:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
@@ -50,6 +54,10 @@ on:
         required: true
   workflow_dispatch:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
@@ -103,10 +111,10 @@ jobs:
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
-      CLUSTER_NAME: aztec-gke
+      CLUSTER_NAME: ${{ inputs.cluster }}
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
-      GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+      GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
 
     steps:
       - name: Checkout code

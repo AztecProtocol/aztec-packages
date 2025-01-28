@@ -39,7 +39,7 @@ export async function createProverNode(
   } = {},
 ) {
   const telemetry = deps.telemetry ?? getTelemetryClient();
-  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');
   const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);

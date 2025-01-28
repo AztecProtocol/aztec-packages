@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -68,7 +69,7 @@ class lookup_mem_rng_chk_0_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_0_relation : public GenericLookupRelation<lookup_mem_rng_chk_0_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_MEM_RNG_CHK_0";
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_0";
 };
 template <typename FF_> using lookup_mem_rng_chk_0 = GenericLookup<lookup_mem_rng_chk_0_lookup_settings, FF_>;
 
@@ -131,7 +132,7 @@ class lookup_mem_rng_chk_1_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_1_relation : public GenericLookupRelation<lookup_mem_rng_chk_1_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_MEM_RNG_CHK_1";
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_1";
 };
 template <typename FF_> using lookup_mem_rng_chk_1 = GenericLookup<lookup_mem_rng_chk_1_lookup_settings, FF_>;
 
@@ -194,7 +195,7 @@ class lookup_mem_rng_chk_2_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_2_relation : public GenericLookupRelation<lookup_mem_rng_chk_2_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_MEM_RNG_CHK_2";
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_2";
 };
 template <typename FF_> using lookup_mem_rng_chk_2 = GenericLookup<lookup_mem_rng_chk_2_lookup_settings, FF_>;
 

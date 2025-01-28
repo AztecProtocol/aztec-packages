@@ -11,7 +11,7 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { AztecContext } from "../../home/home";
+import { AztecContext } from "../../../aztecEnv";
 import { FunctionParameter } from "../../common/fnParameter";
 
 const creationForm = css({
@@ -61,13 +61,11 @@ export function CreateAuthwitDialog({
         action,
       });
     } else {
-      await wallet
-        .setPublicAuthWit(
-          { caller: AztecAddress.fromString(caller), action },
-          true
-        )
-        .send()
-        .wait();
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        { caller: AztecAddress.fromString(caller), action },
+        true
+      );
+      await validateActionInteraction.send().wait();
     }
     setAlias("");
     setCreating(false);
