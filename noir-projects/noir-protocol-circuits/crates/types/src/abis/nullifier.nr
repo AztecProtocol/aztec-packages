@@ -4,7 +4,7 @@ use crate::{
     constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
     hash::compute_siloed_nullifier,
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::{reader::Reader},
 };
 
 pub struct Nullifier {
@@ -115,12 +115,11 @@ impl Empty for ScopedNullifier {
 
 impl Serialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
     fn serialize(self) -> [Field; SCOPED_NULLIFIER_LENGTH] {
-        array_concat(
-            self.nullifier.serialize(),
-            [self.contract_address.to_field()],
+        self.nullifier.serialize().concat([self.contract_address.to_field()],
         )
     }
 }
+
 
 impl Deserialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
     fn deserialize(values: [Field; SCOPED_NULLIFIER_LENGTH]) -> Self {
