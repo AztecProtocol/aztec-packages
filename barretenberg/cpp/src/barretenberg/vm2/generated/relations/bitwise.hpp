@@ -12,7 +12,7 @@ template <typename FF_> class bitwiseImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 5, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -47,8 +47,8 @@ template <typename FF_> class bitwiseImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp =
-                (((new_term.bitwise_ctr_shift - new_term.bitwise_ctr) + FF(1)) * (FF(1) - new_term.bitwise_last));
+            auto tmp = ((new_term.bitwise_sel * ((new_term.bitwise_ctr_shift - new_term.bitwise_ctr) + FF(1))) *
+                        (FF(1) - new_term.bitwise_last));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
@@ -62,11 +62,12 @@ template <typename FF_> class bitwiseImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = ((((new_term.bitwise_ctr - FF(1)) *
-                          ((new_term.bitwise_last * (FF(1) - new_term.bitwise_ctr_min_one_inv)) +
-                           new_term.bitwise_ctr_min_one_inv)) +
-                         new_term.bitwise_last) -
-                        FF(1));
+            auto tmp =
+                (new_term.bitwise_sel * ((((new_term.bitwise_ctr - FF(1)) *
+                                           ((new_term.bitwise_last * (FF(1) - new_term.bitwise_ctr_min_one_inv)) +
+                                            new_term.bitwise_ctr_min_one_inv)) +
+                                          new_term.bitwise_last) -
+                                         FF(1)));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }

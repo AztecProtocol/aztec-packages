@@ -164,12 +164,15 @@ TEST(BitwiseConstrainingTest, negativeTruncateCtr)
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
             .bitwise_ctr = 4,
+            .bitwise_sel = 1,
         },
         {
             .bitwise_ctr = 3,
+            .bitwise_sel = 1,
         },
         {
             .bitwise_ctr = 2,
+            .bitwise_sel = 1,
         },
     });
 
@@ -182,10 +185,12 @@ TEST(BitwiseConstrainingTest, negativeGapCtr)
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
             .bitwise_ctr = 4,
+            .bitwise_sel = 1,
         },
         {
             .bitwise_ctr = 2,
             .bitwise_last = 1,
+            .bitwise_sel = 1,
         },
     });
 
@@ -198,14 +203,17 @@ TEST(BitwiseConstrainingTest, negativeLastSetBeforeEnd)
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
             .bitwise_ctr = 8,
+            .bitwise_sel = 1,
         },
         {
             .bitwise_ctr = 7,
+            .bitwise_sel = 1,
 
         },
         {
             .bitwise_ctr = 6,
             .bitwise_last = 1,
+            .bitwise_sel = 1,
         },
     });
 

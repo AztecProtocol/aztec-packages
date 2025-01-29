@@ -59,7 +59,8 @@ pol commit op_id;
 (op_id' - op_id) * (1 - last) = 0;
 
 #[BITW_CTR_DECREMENT]
-(ctr' - ctr + 1) * (1 - last) = 0;
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (ctr' - ctr + 1) * (1 - last) = 0;
 
 // sel is set to 1 if and only if ctr != 0. (and sel == 0 <==> ctr == 0)
 // sel is a boolean that is set to 1 if ctr != 0.
@@ -70,9 +71,10 @@ pol commit ctr_inv;
 ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
 
 // Similarly, we prove that last == 1 <==> ctr - 1 == 0 <==> ctr == 1
+// Note: sel factor is required for an empty row to satisfy this relation
 pol commit ctr_min_one_inv;
 #[BITW_LAST_FOR_CTR_ONE]
-(ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1 = 0;
+sel * ((ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1) = 0;
 
 // Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
 #[BITW_INIT_A]
@@ -98,3 +100,16 @@ precomputed.sel_integral_tag {precomputed.clk, precomputed.integral_tag_length};
 sel {op_id, ia_byte, ib_byte, ic_byte}
 in
 precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
+
+// Alternative implementation as potential speed-up
+//
+// In vm1, we had an approach which requires one extra row per bitwise operation but 
+// had 2 less columns and #[BITW_CTR_DECREMENT] would have degree 0 and the degree 4 relation
+// #[BITW_LAST_FOR_CTR_ONE] is not present.
+// The main difference is that we decrement ctr down to zero (extra line) and impose an initialization
+// condition for acc_ia, acc_ib, acc_ic to be zero on this last row.
+// Column last can be removed and sel is used instead of (1 - last).
+// Note that sel == 0 on last row of each operation, but the skippable condition
+// remains valid as the last row will be empty with our witness generator.
+//
+// It might be worth to measure the difference among both approaches.
