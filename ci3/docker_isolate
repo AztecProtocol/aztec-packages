@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+NO_CD=1
+source $(git rev-parse --show-toplevel)/ci3/source
 name=docker-isolate-$(hash_str "$*")
 [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
 trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
@@ -12,7 +14,7 @@ docker run --rm \
   --user $(id -u):$(id -g) \
   -v$HOME/.bb-crs:/root/.bb-crs \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
-  --workdir /app/aztec-packages \
+  --workdir /app/aztec-packages/$(git rev-parse --show-prefix) \
   -e FORCE_COLOR=true \
   aztecprotocol/build:3.0 \
   $@
