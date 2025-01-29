@@ -228,8 +228,8 @@ ethereum:
   # 10 times the default of 131072
   maxTxInputSizeBytes: "1310720"
   args: ""
-  externalHost: ""
   execution:
+    externalHost: ""
     service:
       port: 8545
       targetPort: 8545
@@ -240,6 +240,7 @@ ethereum:
         cpu: "1"
     storageSize: "80Gi"
   beacon:
+    externalHost: ""
     service:
       port: 5052
       targetPort: 5052
