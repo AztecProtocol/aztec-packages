@@ -58,11 +58,11 @@ template <typename LeafValueType> class ContentAddressedCache {
                                             const uint256_t& retrieved_value,
                                             const index_t& db_index) const;
 
-    bool get_leaf_preimage_by_hash(const fr& leaf_hash, IndexedLeafValueType& leafPreImage) const;
-    void put_leaf_preimage_by_hash(const fr& leaf_hash, const IndexedLeafValueType& leafPreImage);
+    bool get_leaf_preimage_by_hash(const fr& leaf_hash, IndexedLeafValueType& leaf_pre_image) const;
+    void put_leaf_preimage_by_hash(const fr& leaf_hash, const IndexedLeafValueType& leaf_pre_image);
 
-    bool get_leaf_by_index(const index_t& index, IndexedLeafValueType& leaf) const;
-    void put_leaf_by_index(const index_t& index, const IndexedLeafValueType& leaf);
+    bool get_leaf_by_index(const index_t& index, IndexedLeafValueType& leaf_pre_image) const;
+    void put_leaf_by_index(const index_t& index, const IndexedLeafValueType& leaf_pre_image);
 
     void update_leaf_key_index(const index_t& index, const fr& leaf_key);
     std::optional<index_t> get_leaf_key_index(const fr& leaf_key) const;
@@ -322,11 +322,11 @@ std::pair<bool, index_t> ContentAddressedCache<LeafValueType>::find_low_value(co
 
 template <typename LeafValueType>
 bool ContentAddressedCache<LeafValueType>::get_leaf_preimage_by_hash(const fr& leaf_hash,
-                                                                     IndexedLeafValueType& leafPreImage) const
+                                                                     IndexedLeafValueType& leaf_pre_image) const
 {
     typename std::unordered_map<fr, IndexedLeafValueType>::const_iterator it = leaves_.find(leaf_hash);
     if (it != leaves_.end()) {
-        leafPreImage = it->second;
+        leaf_pre_image = it->second;
         return true;
     }
     return false;
@@ -334,18 +334,19 @@ bool ContentAddressedCache<LeafValueType>::get_leaf_preimage_by_hash(const fr& l
 
 template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_leaf_preimage_by_hash(const fr& leaf_hash,
-                                                                     const IndexedLeafValueType& leafPreImage)
+                                                                     const IndexedLeafValueType& leaf_pre_image)
 {
-    leaves_[leaf_hash] = leafPreImage;
+    leaves_[leaf_hash] = leaf_pre_image;
 }
 
 template <typename LeafValueType>
-bool ContentAddressedCache<LeafValueType>::get_leaf_by_index(const index_t& index, IndexedLeafValueType& leaf) const
+bool ContentAddressedCache<LeafValueType>::get_leaf_by_index(const index_t& index,
+                                                             IndexedLeafValueType& leaf_pre_image) const
 {
     typename std::unordered_map<index_t, IndexedLeafValueType>::const_iterator it =
         leaf_pre_image_by_index_.find(index);
     if (it != leaf_pre_image_by_index_.end()) {
-        leaf = it->second;
+        leaf_pre_image = it->second;
         return true;
     }
     return false;
@@ -353,11 +354,11 @@ bool ContentAddressedCache<LeafValueType>::get_leaf_by_index(const index_t& inde
 
 template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& index,
-                                                             const IndexedLeafValueType& leafPreImage)
+                                                             const IndexedLeafValueType& leaf_pre_image)
 {
     // If there is no current journal then we just update the cache and leave
     if (journals_.empty()) {
-        leaf_pre_image_by_index_[index] = leafPreImage;
+        leaf_pre_image_by_index_[index] = leaf_pre_image;
         return;
     }
 
@@ -366,17 +367,17 @@ void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& inde
 
     // If there is no leaf pre-image at the given index then add the index location to the journal's collection of empty
     // locations
-    auto cacheIter = leaf_pre_image_by_index_.find(index);
-    if (cacheIter == leaf_pre_image_by_index_.end()) {
+    auto cache_iter = leaf_pre_image_by_index_.find(index);
+    if (cache_iter == leaf_pre_image_by_index_.end()) {
         journal.leaf_pre_image_by_index_[index] = std::nullopt;
     } else {
         // There is a leaf pre-image. If the journal does not have a pre-image at this index then add it to the journal
         auto journalIter = journal.leaf_pre_image_by_index_.find(index);
         if (journalIter == journal.leaf_pre_image_by_index_.end()) {
-            journal.leaf_pre_image_by_index_[index] = cacheIter->second;
+            journal.leaf_pre_image_by_index_[index] = cache_iter->second;
         }
     }
-    leaf_pre_image_by_index_[index] = leafPreImage;
+    leaf_pre_image_by_index_[index] = leaf_pre_image;
 }
 
 template <typename LeafValueType>
