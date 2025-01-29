@@ -160,7 +160,7 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
     auto instance_witness = MockWitnessGenerator(this->n, 2, 0, u, this->ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-        generate_concatenation_inputs<TypeParam>(u, /*mun_concatenated=*/3, /*concatenation_index=*/2, this->ck);
+        generate_concatenation_inputs<TypeParam>(u, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck);
 
     this->execute_gemini_and_verify_claims_with_concatenation(
         u,
