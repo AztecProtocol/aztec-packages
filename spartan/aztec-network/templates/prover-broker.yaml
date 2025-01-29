@@ -135,6 +135,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-broker
 spec:
   type: ClusterIP
   selector:

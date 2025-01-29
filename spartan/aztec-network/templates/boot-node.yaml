@@ -279,6 +279,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-boot-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: boot-node
 spec:
   # If this is a public network, we want to expose the boot node as a LoadBalancer
   {{- if .Values.network.public }}

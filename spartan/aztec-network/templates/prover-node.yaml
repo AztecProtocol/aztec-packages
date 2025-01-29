@@ -225,6 +225,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-node
 spec:
   type: ClusterIP
   selector:
