@@ -12,7 +12,6 @@ import {
   GlobalVariables,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PublicCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
   RevertCode,
@@ -113,13 +112,7 @@ export async function makeBloatedProcessedTx({
       seed + 0x2000,
     );
 
-    const avmCircuitInputs = new AvmCircuitInputs(
-      '',
-      [],
-      PublicCircuitPublicInputs.empty(),
-      AvmExecutionHints.empty(),
-      avmOutput,
-    );
+    const avmCircuitInputs = new AvmCircuitInputs('', [], AvmExecutionHints.empty(), avmOutput);
 
     const gasUsed = {
       totalGas: Gas.empty(),

@@ -42,7 +42,7 @@ async function main() {
 function writeProofInputs(input: ProvingJobInputs, outDir: string) {
   switch (input.type) {
     case ProvingRequestType.PUBLIC_VM: {
-      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.output.toBuffer());
+      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.publicInputs.toBuffer());
       logger.info(`Wrote AVM public inputs to ${AVM_PUBLIC_INPUTS_FILENAME}`);
       writeFileSync(`${outDir}/${AVM_HINTS_FILENAME}`, input.inputs.avmHints.toBuffer());
       logger.info(`Wrote AVM hints to ${AVM_HINTS_FILENAME}`);

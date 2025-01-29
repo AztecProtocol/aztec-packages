@@ -22,7 +22,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
-  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
   TreeSnapshots,
@@ -380,7 +379,6 @@ export class PublicTxContext {
       inputs: new AvmCircuitInputs(
         'public_dispatch',
         [],
-        PublicCircuitPublicInputs.empty(),
         hints,
         await this.generateAvmCircuitPublicInputs(endStateReference),
       ),
