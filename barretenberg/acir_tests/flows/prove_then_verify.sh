@@ -35,13 +35,13 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --oracle_hash ${HASH:-poseidon2} --ipa_accumulation ${ROLLUP:-false}"
-    $BIN prove $FLAGS $BFLAG
-    $BIN verify $FLAGS
+    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --output_type ${OUTPUT_TYPE:-fields_msgpack} --oracle_hash ${HASH:-poseidon2} --ipa_accumulation ${ROLLUP:-false}"
+    # $BIN prove $FLAGS $BFLAG
+    # $BIN verify $FLAGS
     # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
-    # $BIN verify $FLAGS \
-    #     -k <($BIN write_vk -o - $FLAGS $BFLAG) \
-    #     -p <($BIN prove -o - $FLAGS $BFLAG)
+    $BIN verify $FLAGS \
+        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
+        -p <($BIN prove -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api

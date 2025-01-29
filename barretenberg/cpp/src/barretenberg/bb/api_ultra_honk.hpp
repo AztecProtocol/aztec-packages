@@ -231,51 +231,131 @@ class UltraHonkAPI : public API {
         return verified;
     }
 
+    enum class OutputFlag : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
+
+    template <typename ProverOutput>
+    void _write_data(const ProverOutput& prover_output,
+                     bool output_all,
+                     OutputFlag output_type,
+                     const std::filesystem::path& output_dir)
+    {
+        enum class ObjectToWrite : size_t { PROOF, VK };
+        const bool output_to_stdout = output_dir == "-";
+
+        const auto write_bytes = [&](const ObjectToWrite& obj) {
+            switch (obj) {
+            case ObjectToWrite::PROOF: {
+                const auto buf = to_buffer</*include_size*/ true>(prover_output.proof);
+                if (output_to_stdout) {
+                    write_bytes_to_stdout(buf);
+                } else {
+                    write_file(output_dir / "proof", buf);
+                }
+                break;
+            }
+            case ObjectToWrite::VK: {
+                const auto buf = to_buffer(prover_output.key);
+                if (output_to_stdout) {
+                    write_bytes_to_stdout(buf);
+                } else {
+                    write_file(output_dir / "vk", buf);
+                }
+                break;
+            }
+            }
+        };
+
+        const auto write_fields = [&](const ObjectToWrite& obj) {
+            switch (obj) {
+            case ObjectToWrite::PROOF: {
+                const std::string proof_json = to_json(prover_output.proof);
+                if (output_to_stdout) {
+                    throw_or_abort("Writing string of fields to stdout is not supported");
+                } else {
+                    info("writing proof as fields to ", output_dir / "proof_as_fields");
+                    write_file(output_dir / "proof_as_fields", { proof_json.begin(), proof_json.end() });
+                }
+                break;
+            }
+            case ObjectToWrite::VK: {
+                const std::string vk_json = to_json(prover_output.key.to_field_elements());
+                if (output_to_stdout) {
+                    throw_or_abort("Writing string of fields to stdout is not supported");
+                } else {
+                    info("writing vk as fields to ", output_dir / "vk_as_fields");
+                    write_file(output_dir / "vk_as_fields", { vk_json.begin(), vk_json.end() });
+                }
+                break;
+            }
+            }
+        };
+
+        switch (output_type) {
+        case OutputFlag::PROOF_ONLY: {
+            if (output_all) {
+                write_bytes(ObjectToWrite::PROOF);
+                write_fields(ObjectToWrite::PROOF);
+            } else {
+                write_bytes(ObjectToWrite::PROOF);
+            }
+            break;
+        }
+        case OutputFlag::VK_ONLY: {
+            if (output_all) {
+                write_bytes(ObjectToWrite::VK);
+                write_fields(ObjectToWrite::VK);
+            } else {
+                write_bytes(ObjectToWrite::VK);
+            }
+            break;
+        }
+        case OutputFlag::PROOF_AND_VK: {
+            if (output_all) {
+                write_bytes(ObjectToWrite::PROOF);
+                write_fields(ObjectToWrite::PROOF);
+                write_bytes(ObjectToWrite::VK);
+                write_fields(ObjectToWrite::VK);
+            } else {
+                write_bytes(ObjectToWrite::PROOF);
+                write_bytes(ObjectToWrite::VK);
+            }
+            break;
+        }
+        }
+    }
+
+    void _prove(const OutputFlag output_type,
+                const API::Flags& flags,
+                const std::filesystem::path& bytecode_path,
+                const std::filesystem::path& witness_path,
+                const std::filesystem::path& output_dir)
+    {
+        bool output_all = output_type == OutputFlag::PROOF_AND_VK;
+        if (*flags.ipa_accumulation == "true") {
+            vinfo("proving with ipa_accumulation");
+            _write_data(_prove_rollup(bytecode_path, witness_path), output_all, output_type, output_dir);
+        } else if (*flags.oracle_hash == "poseidon2") {
+            vinfo("proving with poseidon2");
+            _write_data(_prove_poseidon2(flags, bytecode_path, witness_path), output_all, output_type, output_dir);
+        } else if (*flags.oracle_hash == "keccak") {
+            vinfo("proving with keccak");
+            _write_data(_prove_keccak(flags, bytecode_path, witness_path), output_all, output_type, output_dir);
+        } else {
+            vinfo(flags);
+            throw_or_abort("Invalid proving options specified");
+        };
+    };
+
   public:
     void prove(const API::Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        const bool output_all = *flags.output_type == "bytes_and_fields";
-        const auto write_data = [&output_dir, &output_all](const auto& prover_output) {
-            info("writing proof...");
-            vinfo("output dir is ", output_dir);
-            if (output_dir == "-") {
-                write_bytes_to_stdout(to_buffer</*include_size*/ true>(prover_output.proof));
-            } else {
-                info("writing proof to ", output_dir / "proof");
-                write_file(output_dir / "proof", to_buffer</*include_size*/ true>(prover_output.proof));
-                // WORKTODO: remove
-                info("writing vk to ", output_dir / "vk");
-                write_file(output_dir / "vk", to_buffer(prover_output.key));
+        const OutputFlag output_type =
+            *flags.output_type == "bytes_and_fields" ? OutputFlag::PROOF_AND_VK : OutputFlag::PROOF_ONLY;
 
-                if (output_all) {
-                    info("writing proof as fields to ", output_dir / "proof_as_fields");
-                    const std::string proof_json = to_json(prover_output.proof);
-                    write_file(output_dir / "proof_as_fields", { proof_json.begin(), proof_json.end() });
-
-                    // WORKTODO: remove
-                    info("writing vk as fields to ", output_dir / "vk_as_fields");
-                    const std::string vk_json = to_json(prover_output.key.to_field_elements());
-                    write_file(output_dir / "vk_as_fields", { vk_json.begin(), vk_json.end() });
-                }
-            }
-        };
-
-        if (*flags.ipa_accumulation == "true") {
-            vinfo("proving with ipa_accumulation");
-            write_data(_prove_rollup(bytecode_path, witness_path));
-        } else if (*flags.oracle_hash == "poseidon2") {
-            vinfo("proving with poseidon2");
-            write_data(_prove_poseidon2(flags, bytecode_path, witness_path));
-        } else if (*flags.oracle_hash == "keccak") {
-            vinfo("proving with keccak");
-            write_data(_prove_keccak(flags, bytecode_path, witness_path));
-        } else {
-            vinfo(flags);
-            throw_or_abort("Invalid proving options specified");
-        };
+        _prove(output_type, flags, bytecode_path, witness_path, output_dir);
     };
 
     /**
@@ -346,39 +426,7 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
-        init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
-        UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
-        info("instantiated ivc class");
-
-        std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, "");
-        info("built stack");
-        VectorCircuitSource circuit_source{ stack };
-        info("created circuit source");
-
-        // WORKTODO: this should move in to source? repeated three times.
-        // ProgramMetadata should be a std::vector<ProgramMetadatum> + global size info?
-        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
-        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
-               (*flags.initialize_pairing_point_accumulator) == "false");
-        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
-        info("in write_vk initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
-
-        // We could also cache all vks and extract the but there's no real difference in efficiency here since we
-        // always (sometimes inefficiently) compute the final vk
-        ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
-        auto serialized_vk = to_buffer(ivc.previous_vk);
-        vinfo("serialized vk");
-
-        if (output_path == "-") {
-            vinfo("writing vk to stdout");
-            write_bytes_to_stdout(serialized_vk);
-            vinfo("vk written to stdout");
-        } else {
-            write_file(output_path, serialized_vk);
-            vinfo("vk written to: ", output_path);
-        }
+        _prove(OutputFlag::VK_ONLY, flags, bytecode_path, "", output_path);
     };
 
     /**
@@ -405,8 +453,6 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& output_path,
                   const std::filesystem::path& vk_path) override
     {
-        // ASSERT(flags.oracle_hash == "keccak");
-
         using VK = UltraKeccakFlavor::VerificationKey;
         // WOKTODO: not used?
         auto g2_data = get_bn254_g2_data(CRS_PATH);
