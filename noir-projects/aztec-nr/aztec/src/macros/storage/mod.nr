@@ -1,6 +1,6 @@
 use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
-use super::utils::get_serialized_size;
+use super::utils::get_packed_size;
 use super::utils::is_note;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout.
@@ -135,7 +135,7 @@ comptime fn generate_storage_field_constructor(
                 // TODO(#8659): remove the PublicMutable exception above
                 1
             } else {
-                get_serialized_size(stored_struct)
+                get_packed_size(stored_struct)
             }
         };
 
