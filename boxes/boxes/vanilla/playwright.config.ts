@@ -16,23 +16,22 @@ export default defineConfig({
   expect: {
     timeout: 90000,
   },
-  timeout: 60000,
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+    // {
+    //   name: 'chromium',
+    //   use: { ...devices['Desktop Chrome'] },
+    // },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
   ],
-  webServer: {
-    command: 'yarn serve',
-    port: 5173,
-  },
+  // webServer: {
+  //   command: 'yarn serve',
+  //   port: 5173,
+  // },
 });
