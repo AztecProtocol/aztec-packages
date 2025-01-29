@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/foundation/blob';
 import { times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
@@ -273,6 +274,7 @@ export class L1TxUtils {
     _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
     _blobInputs?: L1BlobInputs,
   ): Promise<TransactionReceipt> {
+    const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
     const blobInputs = _blobInputs || {};
@@ -288,6 +290,10 @@ export class L1TxUtils {
       true,
     );
 
+    if (!tx) {
+      throw new Error(`Failed to get L1 transaction ${initialTxHash} to monitor`);
+    }
+
     if (tx?.nonce === undefined || tx?.nonce === null) {
       throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
     }
@@ -297,6 +303,11 @@ export class L1TxUtils {
     let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastAttemptSent = Date.now();
+    let lastGasPrice: GasPrice = {
+      maxFeePerGas: tx.maxFeePerGas!,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
+      maxFeePerBlobGas: tx.maxFeePerBlobGas!,
+    };
     const initialTxTime = lastAttemptSent;
 
     let txTimedOut = false;
@@ -355,7 +366,7 @@ export class L1TxUtils {
           attempts++;
           const newGasPrice = await this.getGasPrice(
             gasConfig,
-            !!blobInputs,
+            isBlobTx,
             attempts,
             tx.maxFeePerGas && tx.maxPriorityFeePerGas
               ? {
@@ -365,6 +376,7 @@ export class L1TxUtils {
                 }
               : undefined,
           );
+          lastGasPrice = newGasPrice;
 
           this.logger?.debug(
             `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
@@ -401,19 +413,8 @@ export class L1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    // Get the last used gas price if available
-    const lastTx = await this.publicClient.getTransaction({ hash: currentTxHash });
-    const lastGasPrice =
-      lastTx.maxFeePerGas && lastTx.maxPriorityFeePerGas
-        ? {
-            maxFeePerGas: lastTx.maxFeePerGas,
-            maxPriorityFeePerGas: lastTx.maxPriorityFeePerGas,
-            maxFeePerBlobGas: lastTx.maxFeePerBlobGas,
-          }
-        : undefined;
-
     // Fire cancellation without awaiting to avoid blocking the main thread
-    this.attemptTxCancellation(nonce, lastGasPrice, attempts)
+    this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
       .then(cancelTxHash => {
         this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
       })
@@ -641,11 +642,13 @@ export class L1TxUtils {
       return result[0].gasUsed;
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
-        this.logger?.error('Node does not support eth_simulateV1 API');
         if (gasConfig.fallbackGasEstimate) {
-          this.logger?.debug(`Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`);
+          this.logger?.warn(
+            `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
+          );
           return gasConfig.fallbackGasEstimate;
         }
+        this.logger?.error('Node does not support eth_simulateV1 API');
       }
       throw err;
     }
@@ -663,18 +666,18 @@ export class L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  private async attemptTxCancellation(nonce: number, previousGasPrice?: GasPrice, attempts = 1) {
+  private async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
     const account = this.walletClient.account;
 
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
       {
         ...this.config,
-        // Use much higher bump for cancellation to ensure it replaces the original tx
-        priorityFeeRetryBumpPercentage: 300, // 200% bump should be enough to replace any tx
+        // Use high bump for cancellation to ensure it replaces the original tx
+        priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
       },
-      false,
-      Math.max(attempts, 1),
+      isBlobTx,
+      attempts + 1,
       previousGasPrice,
     );
 
@@ -684,15 +687,31 @@ export class L1TxUtils {
     });
 
     // Send 0-value tx to self with higher gas price
-    const cancelTxHash = await this.walletClient.sendTransaction({
-      to: account.address,
-      value: 0n,
-      nonce,
-      gas: 21_000n, // Standard ETH transfer gas
-      maxFeePerGas: cancelGasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-    });
-
-    return cancelTxHash;
+    if (!isBlobTx) {
+      const cancelTxHash = await this.walletClient.sendTransaction({
+        to: account.address,
+        value: 0n,
+        nonce,
+        gas: 21_000n, // Standard ETH transfer gas
+        maxFeePerGas: cancelGasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+      });
+      return cancelTxHash;
+    } else {
+      const blobData = new Uint8Array(131072).fill(0);
+      const kzg = Blob.getViemKzgInstance();
+      const cancelTxHash = await this.walletClient.sendTransaction({
+        to: account.address,
+        value: 0n,
+        nonce,
+        gas: 21_000n,
+        maxFeePerGas: cancelGasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
+        blobs: [blobData],
+        kzg,
+      });
+      return cancelTxHash;
+    }
   }
 }
