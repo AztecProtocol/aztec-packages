@@ -946,6 +946,7 @@ describe('NativeWorldState', () => {
 
       // This is the base checkpoint, this will revert all of the others
       await fork.createCheckpoint();
+      await advanceState(fork);
 
       const siblingPathsBefore = await getSiblingPaths(fork);
 
@@ -961,6 +962,7 @@ describe('NativeWorldState', () => {
       // now commit all of these
       for (let i = 0; i < numCommits; i++) {
         await fork.commitCheckpoint();
+        await advanceState(fork);
       }
 
       // check we still have the same state
@@ -1033,6 +1035,123 @@ describe('NativeWorldState', () => {
         }
         await compareState(fork, siblingsAtEachLevel[checkpointIndex], true);
       }
+
+      await fork.close();
+    });
+
+    it('can commit and revert', async () => {
+      const fork = await ws.fork();
+
+      const getLeaf = async (index: bigint) => {
+        const leaf = await fork.getLeafValue(MerkleTreeId.NULLIFIER_TREE, index);
+        return Fr.fromBuffer(leaf!);
+      };
+
+      const getPath = async (index: bigint) => {
+        return await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, index);
+      };
+
+      await fork.createCheckpoint();
+
+      const siblingPaths = [];
+      let size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      let index = 0;
+      const initialSize = size;
+      const initialLeaf = await getLeaf(size - 1n);
+      const initialPath = await getPath(size - 1n);
+
+      const nullifiers: Fr[] = [];
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.revertCheckpoint();
+      index--;
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.revertCheckpoint();
+      index--;
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.createCheckpoint();
+      index++;
+
+      nullifiers[index] = Fr.random();
+      await fork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[index].toBuffer()], 0);
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+
+      siblingPaths[index] = await fork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, size - 1n);
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+
+      await fork.commitCheckpoint();
+
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(await getLeaf(size - 1n)).toEqual(nullifiers[index]);
+      expect(await getPath(size - 1n)).toEqual(siblingPaths[index]);
+
+      await fork.revertCheckpoint();
+
+      index = 0;
+      size = (await fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).size;
+      expect(size).toBe(initialSize);
+      expect(await getLeaf(size - 1n)).toEqual(initialLeaf);
+      expect(await getPath(size - 1n)).toEqual(initialPath);
 
       await fork.close();
     });
