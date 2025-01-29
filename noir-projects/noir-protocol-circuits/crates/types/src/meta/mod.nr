@@ -1,4 +1,4 @@
-use super::traits::{Deserialize, Serialize};
+use super::traits::{Deserialize, Packable, Serialize};
 
 /// Generates code that deserializes a struct, primitive type, array or string from a field array.
 ///
@@ -9,6 +9,8 @@ use super::traits::{Deserialize, Serialize};
 /// - `num_already_consumed`: The number of fields already processed in previous recursion calls.
 /// - `to_replace`: The name of a specific field that should be replaced during deserialization.
 /// - `ro_replace_with`: The value to replace the `to_replace` field with (e.g., `NoteHeader::empty()`).
+/// - `should_unpack`: A boolean indicating whether the type should be unpacked (see description of `Packable`
+/// and `Serialize` trait for more information about the difference between packing and serialization).
 ///
 /// # Returns
 /// A tuple containing:
@@ -50,6 +52,17 @@ use super::traits::{Deserialize, Serialize};
 ///     header: NoteHeader::empty() // Default/empty header
 /// }
 /// ```
+/// # Nested Struct Example with Unpacking
+/// - given the same setup as above and given that U128, AztecAddress and Field implement the `Packable` trait
+///   when skipping `header` the result we get is:
+/// ```
+/// UintNote {
+///     value: aztec::protocol_types::traits::Packable::unpack([fields[0]]),
+///     owner: aztec::protocol_types::traits::Packable::unpack([fields[1]]),
+///     randomness: aztec::protocol_types::traits::Packable::unpack([fields[2]]),
+///     header: NoteHeader::empty()
+/// }
+/// ```
 ///
 /// # Panics
 /// - If the deserialization logic encounters a type it does not support.
@@ -61,6 +74,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
     num_already_consumed: u32,
     to_replace: Quoted,
     ro_replace_with: Quoted,
+    should_unpack: bool,
 ) -> (Quoted, u32) {
     let mut result = quote {};
     // Counter for the number of fields consumed
@@ -71,7 +85,30 @@ pub comptime fn generate_deserialize_from_fields<N>(
         // The currently processed field should be replaced so we do so
         result = ro_replace_with;
     } else {
-        if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+        // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
+        let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
+        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+
+        if (should_unpack & typ.implements(packable_constraint)) {
+            // Unpacking is enabled and the given type implements the `Packable` trait so we call the `unpack()`
+            // method, add the resulting field array to `aux_vars` and each field to `fields`.
+            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+            // We copy the packed fields into a new array and pass that to the unpack function in a quote
+            let mut packed_fields_quotes = &[];
+            for i in 0..packed_len {
+                let index_in_field_array = i + num_already_consumed;
+                packed_fields_quotes = packed_fields_quotes.push_back(
+                    quote { $field_array_name[$index_in_field_array] },
+                );
+            }
+            let packed_fields = packed_fields_quotes.join(quote {,});
+
+            // Now we call unpack on the type
+            result = quote { aztec::protocol_types::traits::Packable::unpack([ $packed_fields ]) };
+
+            consumed_counter = packed_len;
+        } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
             // The field is a primitive so we just reference it in the field array
             result = quote { $field_array_name[$num_already_consumed] as $typ };
             consumed_counter = 1;
@@ -93,6 +130,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
                 // We increment the consumed counter by the number of fields consumed in the recursion
                 consumed_counter += num_consumed_in_recursion;
@@ -126,6 +164,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
                 // We increment the consumed counter by the number of fields consumed in the recursion
                 consumed_counter += num_consumed_in_recursion;
@@ -154,6 +193,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
 
                 // We should consume just one field in the recursion so we sanity check that
@@ -185,12 +225,14 @@ pub comptime fn generate_deserialize_from_fields<N>(
 }
 
 /// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
-/// for serialization.
+/// for serialization. If `should_pack` is true, we check if the type implements the `Packable` trait and pack it
+/// if it does.
 ///
 /// # Parameters
 /// - `name`: The base identifier (e.g., `self`, `some_var`).
 /// - `typ`: The type being serialized (e.g., a custom struct, array, or primitive type).
 /// - `omit`: A list of field names (as `Quoted`) to be excluded from the serialized output.
+/// - `should_pack`: A boolean indicating whether the type should be packed.
 ///
 /// # Returns
 /// A tuple containing:
@@ -210,7 +252,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_u128 }, U128, &[])
+/// generate_serialize_to_fields(quote { my_u128 }, U128, &[], false)
 /// // Returns:
 /// // ([`my_u128.lo`, `my_u128.hi`], [])
 /// ```
@@ -227,7 +269,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
 ///
 /// Serializing while omitting `header`:
 /// ```rust
-/// generate_serialize_to_fields(quote { self }, UintNote, &[quote { self.header }])
+/// generate_serialize_to_fields(quote { self }, UintNote, &[quote { self.header }], false)
 /// // Returns:
 /// // ([`self.value.lo`, `self.value.hi`, `self.randomness`], [])
 /// ```
@@ -235,7 +277,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
 /// ## Array
 /// For an array type:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_array }, [Field; 3], &[])
+/// generate_serialize_to_fields(quote { my_array }, [Field; 3], &[], false)
 /// // Returns:
 /// // ([`my_array[0]`, `my_array[1]`, `my_array[2]`], [])
 /// ```
@@ -243,10 +285,29 @@ pub comptime fn generate_deserialize_from_fields<N>(
 /// ## String
 /// For a string field, where each character is serialized as a `Field`:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_string }, StringType, &[])
+/// generate_serialize_to_fields(quote { my_string }, StringType, &[], false)
 /// // Returns:
 /// // ([`my_string_as_bytes[0] as Field`, `my_string_as_bytes[1] as Field`, ...],
 /// // [`let my_string_as_bytes = my_string.as_bytes()`])
+/// ```
+///
+/// ## Nested Struct with Omitted Field and packing enabled
+/// - U128 has a `Packable` implementation hence it will be packed.
+///
+/// For a more complex struct:
+/// ```rust
+/// struct UintNote {
+///     value: U128,
+///     randomness: Field,
+///     header: NoteHeader,
+/// }
+/// ```
+///
+/// Serializing while omitting `header`:
+/// ```rust
+/// generate_serialize_to_fields(quote { self }, UintNote, &[quote { self.header }], true)
+/// // Returns:
+/// // ([`value_packed[0]`, `self.randomness`], [`let value_packed = self.value.pack()`])
 /// ```
 ///
 /// # Panics
@@ -256,13 +317,35 @@ pub comptime fn generate_serialize_to_fields(
     name: Quoted,
     typ: Type,
     omit: [Quoted],
+    should_pack: bool,
 ) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
     let mut aux_vars = &[];
 
     // Proceed if none of the omit rules omits this name
     if !omit.any(|to_omit| to_omit == name) {
-        if typ.is_field() {
+        // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
+        let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
+        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+
+        if (should_pack & typ.implements(packable_constraint)) {
+            // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
+            // method, add the resulting field array to `aux_vars` and each field to `fields`.
+            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+            // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
+            let name_at_one_token = collapse_to_one_token(name);
+            let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
+
+            // We add the individual fields to the fields array
+            let packed_struct = quote { let $packed_struct_name = $name.pack() };
+            for i in 0..packed_len {
+                fields = fields.push_back(quote { $packed_struct_name[$i] });
+            }
+
+            // We add the new auxiliary variable to the aux_vars array
+            aux_vars = aux_vars.push_back(packed_struct);
+        } else if typ.is_field() {
             // For field we just add the value to fields
             fields = fields.push_back(name);
         } else if typ.as_integer().is_some() | typ.is_bool() {
@@ -282,7 +365,12 @@ pub comptime fn generate_serialize_to_fields(
                     // can typically be `self` when implementing a method on a struct.
                     quote { $name.$param_name }
                 };
-                generate_serialize_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
+                generate_serialize_to_fields(
+                    quote {$maybe_prefixed_name},
+                    param_type,
+                    omit,
+                    should_pack,
+                )
             });
             let struct_flattened_fields = struct_flattened.fold(
                 &[],
@@ -295,12 +383,16 @@ pub comptime fn generate_serialize_to_fields(
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
         } else if typ.as_array().is_some() {
-            // For array we recursively call generate_serialize_to_fields for each element
+            // For array we recursively call `generate_serialize_to_fields(...)` for each element
             let (element_type, array_len) = typ.as_array().unwrap();
             let array_len = array_len.as_constant().unwrap();
             for i in 0..array_len {
-                let (element_fields, element_aux_vars) =
-                    generate_serialize_to_fields(quote { $name[$i] }, element_type, omit);
+                let (element_fields, element_aux_vars) = generate_serialize_to_fields(
+                    quote { $name[$i] },
+                    element_type,
+                    omit,
+                    should_pack,
+                );
                 fields = fields.append(element_fields);
                 aux_vars = aux_vars.append(element_aux_vars);
             }
@@ -330,9 +422,22 @@ pub comptime fn generate_serialize_to_fields(
     (fields, aux_vars)
 }
 
+/// From a quote that gets tokenized to a multiple tokens we collapse it to a single token by replacing all `.` with `_`.
+/// E.g. "self.value" -> "self_value"
+comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
+    let tokens = q.tokens();
+
+    let mut single_token = quote {};
+    for token in tokens {
+        let new_token = if token == quote {.} { quote {_} } else { token };
+        single_token = f"{single_token}{new_token}".quoted_contents();
+    }
+    single_token
+}
+
 pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[]);
+    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
         let joint = aux_vars.join(quote {;});
         quote { $joint; }
@@ -354,7 +459,7 @@ pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[]);
+    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let serialized_len = fields.len();
     let (deserialized, _) = generate_deserialize_from_fields(
         quote { self },
@@ -363,6 +468,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
         0,
         quote {},
         quote {},
+        false,
     );
     quote {
         impl Deserialize<$serialized_len> for $typ {
