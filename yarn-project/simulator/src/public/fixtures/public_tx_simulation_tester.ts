@@ -122,7 +122,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const avmResult = await simulator.simulate(tx);
 
     if (avmResult.revertCode.isOK()) {
-      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.output);
+      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);
     }
 
     return avmResult;

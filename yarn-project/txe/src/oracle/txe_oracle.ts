@@ -847,12 +847,14 @@ export class TXE implements TypedOracle {
     );
 
     const result = await simulator.simulate(tx);
-    const noteHashes = result.avmProvingRequest.inputs.output.accumulatedData.noteHashes.filter(s => !s.isEmpty());
+    const noteHashes = result.avmProvingRequest.inputs.publicInputs.accumulatedData.noteHashes.filter(
+      s => !s.isEmpty(),
+    );
 
     await this.addUniqueNoteHashesFromPublic(noteHashes);
 
     this.addPublicLogs(
-      result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
+      result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicLogs.filter(
         log => !log.contractAddress.equals(AztecAddress.ZERO),
       ),
     );
@@ -904,7 +906,7 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+    const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
     const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
     const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
 
@@ -1022,7 +1024,7 @@ export class TXE implements TypedOracle {
 
     // Apply side effects
     if (executionResult.revertCode.isOK()) {
-      const sideEffects = executionResult.avmProvingRequest.inputs.output.accumulatedData;
+      const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
       const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
       const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
