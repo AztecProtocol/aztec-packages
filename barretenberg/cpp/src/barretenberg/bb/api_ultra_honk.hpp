@@ -296,13 +296,16 @@ class UltraHonkAPI : public API {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
                 write_bytes(ObjectToWrite::PROOF);
+                break;
             }
             case OutputDataType::FIELDS: {
                 write_fields(ObjectToWrite::PROOF);
+                break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
+                break;
             }
             }
             break;
@@ -311,13 +314,16 @@ class UltraHonkAPI : public API {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
                 write_bytes(ObjectToWrite::VK);
+                break;
             }
             case OutputDataType::FIELDS: {
                 write_fields(ObjectToWrite::VK);
+                break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::VK);
                 write_fields(ObjectToWrite::VK);
+                break;
             }
             }
             break;
@@ -327,16 +333,19 @@ class UltraHonkAPI : public API {
             case OutputDataType::BYTES: {
                 write_bytes(ObjectToWrite::PROOF);
                 write_bytes(ObjectToWrite::VK);
+                break;
             }
             case OutputDataType::FIELDS: {
                 write_fields(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::VK);
+                break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
                 write_bytes(ObjectToWrite::VK);
                 write_fields(ObjectToWrite::VK);
+                break;
             }
             }
             break;
