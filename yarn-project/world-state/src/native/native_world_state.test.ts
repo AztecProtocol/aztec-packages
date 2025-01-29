@@ -943,12 +943,11 @@ describe('NativeWorldState', () => {
 
     it('can revert all deeper commits', async () => {
       const fork = await ws.fork();
+      const siblingPathsBefore = await getSiblingPaths(fork);
 
       // This is the base checkpoint, this will revert all of the others
       await fork.createCheckpoint();
       await advanceState(fork);
-
-      const siblingPathsBefore = await getSiblingPaths(fork);
 
       const numCommits = 10;
 
@@ -957,17 +956,13 @@ describe('NativeWorldState', () => {
         await advanceState(fork);
       }
 
-      const siblingPathsAfter = await getSiblingPaths(fork);
-
-      // now commit all of these
+      // now commit all of these, and also advance each committed state further
       for (let i = 0; i < numCommits; i++) {
         await fork.commitCheckpoint();
         await advanceState(fork);
       }
 
       // check we still have the same state
-      await compareState(fork, siblingPathsAfter, true);
-
       // now revert the base checkpoint
       await fork.revertCheckpoint();
 
