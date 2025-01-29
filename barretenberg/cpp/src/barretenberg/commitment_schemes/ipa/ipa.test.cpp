@@ -3,7 +3,7 @@
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
+#include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 using namespace bb;
 
 namespace {
@@ -32,8 +32,8 @@ class IPATest : public CommitmentTest<Curve> {
     static constexpr size_t n = 128;
 
     // For edge cases
-    static constexpr size_t small_n = 8;
     static constexpr size_t small_log_n = 3;
+    static constexpr size_t small_n = 1UL << small_log_n;
 
     static void SetUpTestSuite()
     {
@@ -246,7 +246,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
 
-    auto instance_witness = InstanceWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
+    auto instance_witness = MockWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -281,7 +281,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto instance_witness = InstanceWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
+    auto instance_witness = MockWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -320,7 +320,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto instance_witness = InstanceWitnessGenerator(small_n, 4, 2, mle_opening_point, ck);
+    auto instance_witness = MockWitnessGenerator(small_n, 4, 2, mle_opening_point, ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

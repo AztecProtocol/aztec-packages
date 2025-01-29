@@ -12,7 +12,7 @@ namespace bb {
  *
  * @tparam Curve
  */
-template <typename Curve> struct InstanceWitnessGenerator {
+template <typename Curve> struct MockWitnessGenerator {
   public:
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -35,11 +35,11 @@ template <typename Curve> struct InstanceWitnessGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
-    InstanceWitnessGenerator(const size_t n,
-                             const size_t num_polynomials,
-                             const size_t num_shiftable,
-                             const std::vector<Fr>& mle_opening_point,
-                             std::shared_ptr<CommitmentKey>& commitment_key)
+    MockWitnessGenerator(const size_t n,
+                         const size_t num_polynomials,
+                         const size_t num_shiftable,
+                         const std::vector<Fr>& mle_opening_point,
+                         std::shared_ptr<CommitmentKey>& commitment_key)
         : ck(commitment_key) // Initialize the commitment key
         , unshifted_polynomials(num_polynomials)
         , to_be_shifted_polynomials(num_shiftable)
@@ -88,7 +88,7 @@ template <typename Curve> struct InstanceWitnessGenerator {
     }
 
     // Generate zero polynomials to test edge cases in PCS
-    InstanceWitnessGenerator(const size_t n, const size_t num_zero_polynomials)
+    MockWitnessGenerator(const size_t n, const size_t num_zero_polynomials)
         : unshifted_polynomials(num_zero_polynomials)
         , polynomial_batcher(n)
     {

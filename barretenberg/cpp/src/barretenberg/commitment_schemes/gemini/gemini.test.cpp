@@ -1,4 +1,4 @@
-#include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
+#include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "gemini_impl.hpp"
 
 #include "../commitment_key.test.hpp"
@@ -14,8 +14,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using Commitment = typename Curve::AffineElement;
 
   public:
-    static constexpr size_t n = 16;
     static constexpr size_t log_n = 4;
+    static constexpr size_t n = 1UL << log_n;
 
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
@@ -30,7 +30,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     }
 
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
-                                          InstanceWitnessGenerator<Curve> instance_witness)
+                                          MockWitnessGenerator<Curve> instance_witness)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -66,7 +66,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
     void execute_gemini_and_verify_claims_with_concatenation(
         std::vector<Fr>& multilinear_evaluation_point,
-        InstanceWitnessGenerator<Curve> instance_witness,
+        MockWitnessGenerator<Curve> instance_witness,
         RefSpan<Polynomial<Fr>> concatenated_polynomials = {},
         RefSpan<Fr> concatenated_evaluations = {},
         const std::vector<RefVector<Polynomial<Fr>>>& groups_to_be_concatenated = {},
@@ -119,7 +119,7 @@ TYPED_TEST_SUITE(GeminiTest, ParamsTypes);
 TYPED_TEST(GeminiTest, Single)
 {
     auto u = this->random_evaluation_point(this->log_n);
-    auto instance_witness = InstanceWitnessGenerator(this->n, 1, 0, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 1, 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, instance_witness);
 }
@@ -128,7 +128,7 @@ TYPED_TEST(GeminiTest, SingleShift)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = InstanceWitnessGenerator(this->n, 0, 1, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 0, 1, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, instance_witness);
 }
@@ -138,7 +138,7 @@ TYPED_TEST(GeminiTest, Double)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = InstanceWitnessGenerator(this->n, 2, 0, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 2, 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, instance_witness);
 }
@@ -148,7 +148,7 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = InstanceWitnessGenerator(this->n, 2, 1, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 2, 1, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, instance_witness);
 }
@@ -157,7 +157,7 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = InstanceWitnessGenerator(this->n, 2, 0, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 2, 0, u, this->ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
         generate_concatenation_inputs<TypeParam>(u, /*mun_concatenated=*/3, /*concatenation_index=*/2, this->ck);

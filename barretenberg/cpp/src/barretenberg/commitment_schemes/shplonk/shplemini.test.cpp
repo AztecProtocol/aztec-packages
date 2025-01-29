@@ -7,7 +7,7 @@
 #include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
+#include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -94,7 +94,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     auto mle_opening_point = this->random_evaluation_point(this->log_n);
 
     auto pcs_instance_witness =
-        InstanceWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
+        MockWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
@@ -193,7 +193,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
 
     auto pcs_instance_witness =
-        InstanceWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
+        MockWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
@@ -300,7 +300,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                             const_size_mle_opening_point.begin() + this->log_n);
 
     // Generate random prover polynomials, compute their evaluations and commitments
-    InstanceWitnessGenerator<Curve> pcs_instance_witness(
+    MockWitnessGenerator<Curve> pcs_instance_witness(
         this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
@@ -413,7 +413,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Generate masking polynomials for Sumcheck Round Univariates
     ZKSumcheckData<TypeParam> zk_sumcheck_data(this->log_n, prover_transcript, ck);
     // Generate mock witness
-    InstanceWitnessGenerator<Curve> pcs_instance_witness(this->n, 1);
+    MockWitnessGenerator<Curve> pcs_instance_witness(this->n, 1);
 
     // Generate valid sumcheck polynomials of given length
     pcs_instance_witness.template compute_sumcheck_opening_data<TypeParam>(
