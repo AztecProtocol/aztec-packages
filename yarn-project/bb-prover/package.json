@@ -86,6 +86,8 @@
   "devDependencies": {
     "@aztec/ethereum": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",

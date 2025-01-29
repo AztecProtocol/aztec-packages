@@ -16,14 +16,14 @@ struct EpochData {
   uint256 nextSeed;
 }
 
-struct LeonidasStorage {
+struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => EpochData) epochs;
   // The last stored randao value, same value as `seed` in the last inserted epoch
   uint256 lastSeed;
 }
 
-interface ILeonidas {
+interface IValidatorSelection {
   // Likely changing to optimize in Pleistarchus
   function setupEpoch() external;
   function getCurrentProposer() external view returns (address);
