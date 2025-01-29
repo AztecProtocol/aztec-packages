@@ -17,7 +17,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-TEST(ExecutionConstrainingTest, AllPositive)
+TEST(ExecutionConstrainingTest, Basic)
 {
     // clang-format off
     TestTraceContainer trace({
@@ -29,7 +29,7 @@ TEST(ExecutionConstrainingTest, AllPositive)
     check_relation<execution>(trace.as_rows());
 }
 
-TEST(ExecutionConstrainingTest, ContinuityPositive)
+TEST(ExecutionConstrainingTest, Continuity)
 {
     // clang-format off
     TestTraceContainer trace({
