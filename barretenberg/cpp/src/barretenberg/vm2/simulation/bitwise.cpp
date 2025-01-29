@@ -12,9 +12,9 @@ void Bitwise::and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
     events.emit({
         .operation = BitwiseOperation::AND,
         .tag = tag,
-        .a = uint256_t::from_uint128(a),
-        .b = uint256_t::from_uint128(b),
-        .res = uint256_t::from_uint128(c),
+        .a = a,
+        .b = b,
+        .res = c,
     });
 }
 
@@ -23,9 +23,9 @@ void Bitwise::or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
     events.emit({
         .operation = BitwiseOperation::OR,
         .tag = tag,
-        .a = uint256_t::from_uint128(a),
-        .b = uint256_t::from_uint128(b),
-        .res = uint256_t::from_uint128(c),
+        .a = a,
+        .b = b,
+        .res = c,
     });
 }
 
@@ -34,9 +34,9 @@ void Bitwise::xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
     events.emit({
         .operation = BitwiseOperation::XOR,
         .tag = tag,
-        .a = uint256_t::from_uint128(a),
-        .b = uint256_t::from_uint128(b),
-        .res = uint256_t::from_uint128(c),
+        .a = a,
+        .b = b,
+        .res = c,
     });
 }
 

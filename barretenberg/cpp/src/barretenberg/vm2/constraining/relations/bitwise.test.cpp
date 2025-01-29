@@ -49,10 +49,9 @@ TEST(BitwiseConstrainingTest, AndWithTracegen)
               .res = 0x14444c0ccc30LLU },
             { .operation = BitwiseOperation::AND,
               .tag = MemoryTag::U128,
-              .a = uint256_t::from_uint128(uint128_t{ 0xb900000000000001 } << 64),
-              .b = uint256_t::from_uint128(uint128_t{ 0x1006021301080000 } << 64) +
-                   uint128_t{ 0x000000000000001080876844827 },
-              .res = uint256_t::from_uint128(uint128_t{ 0x1000000000000000 } << 64) },
+              .a = uint128_t{ 0xb900000000000001 } << 64,
+              .b = (uint128_t{ 0x1006021301080000 } << 64) + uint128_t{ 0x000000000000001080876844827 },
+              .res = uint128_t{ 0x1000000000000000 } << 64 },
         },
         trace);
 
@@ -78,10 +77,9 @@ TEST(BitwiseConstrainingTest, OrWithTracegen)
               .res = 0x7bfffccefcdfffLLU },
             { .operation = BitwiseOperation::OR,
               .tag = MemoryTag::U128,
-              .a = uint256_t::from_uint128(uint128_t{ 0xb900000000000000 } << 64),
-              .b = uint256_t::from_uint128(uint128_t{ 0x1006021301080000 } << 64) +
-                   uint128_t{ 0x000000000000001080876844827 },
-              .res = uint256_t::from_uint128(uint128_t{ 0xb906021301080000 } << 64) + uint128_t{ 0x0001080876844827 } },
+              .a = uint128_t{ 0xb900000000000000 } << 64,
+              .b = (uint128_t{ 0x1006021301080000 } << 64) + uint128_t{ 0x000000000000001080876844827 },
+              .res = (uint128_t{ 0xb906021301080000 } << 64) + uint128_t{ 0x0001080876844827 } },
         },
         trace);
 
@@ -108,11 +106,9 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
             {
                 .operation = BitwiseOperation::XOR,
                 .tag = MemoryTag::U128,
-                .a = uint256_t::from_uint128(uint128_t{ 0xb900000000000001 } << 64),
-                .b = uint256_t::from_uint128((uint128_t{ 0x1006021301080000 } << 64) +
-                                             uint128_t{ 0x000000000000001080876844827 }),
-                .res =
-                    uint256_t::from_uint128((uint128_t{ 0xa906021301080001 } << 64) + uint128_t{ 0x0001080876844827 }),
+                .a = uint128_t{ 0xb900000000000001 } << 64,
+                .b = (uint128_t{ 0x1006021301080000 } << 64) + uint128_t{ 0x000000000000001080876844827 },
+                .res = (uint128_t{ 0xa906021301080001 } << 64) + uint128_t{ 0x0001080876844827 },
             },
         },
         trace);
