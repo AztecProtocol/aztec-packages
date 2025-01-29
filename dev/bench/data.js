@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738147965317,
+  "lastUpdate": 1738153938627,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "58fdf87560fc2c43255675c83dbc36eb370ca5b0",
-          "message": "chore: refactor Solidity Transcript and improve error handling in  sol_honk flow (#11158)\n\nA cleanup PR in preparation for the ZK contract\r\n* create a RelationParameters struct so functions in `RelationsLib`\r\ndon't need to take the Transcript as function argument ( this will be\r\nuseful to reuse this library for both the zk and non-zk contract)\r\n* make `loadProof` less manual and more robust by creating some utility\r\nfunctions\r\n* ensure the `sol_honk` flow actually displays contract compilation\r\nerrors and clear errors (if possible) when deploying to aid debugging",
-          "timestamp": "2025-01-13T18:10:12Z",
-          "tree_id": "57d5e054a68a17745d84b91fa3a6bba6165b74cc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/58fdf87560fc2c43255675c83dbc36eb370ca5b0"
-        },
-        "date": 1736793295892,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19485.702408999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16643.027778 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21680.76442500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18908.085911000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4477.601942000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4187.847456 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 80369.192673,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 80369193000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13644.3322,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13644333000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3173461811,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3173461811 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 149391220,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 149391220 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 132688871,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132688871 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "570cdba42e9210fb701a4ff5502f4ba0b366ca41",
+          "message": "chore: Rename constraining unit tests in vm2 (#11581)",
+          "timestamp": "2025-01-29T13:06:29+01:00",
+          "tree_id": "ff4a3255745317338ee42e510133c4b65f6ab2a7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/570cdba42e9210fb701a4ff5502f4ba0b366ca41"
+        },
+        "date": 1738153930925,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18883.298175999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15956.365939 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21337.495406000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18809.159838 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4149.315693000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3823.2428970000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85117.005666,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85117006000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14599.871317,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14599872000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3103153557,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3103153557 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132750675,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132750675 ns\nthreads: 1"
           }
         ]
       }
