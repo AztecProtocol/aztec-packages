@@ -1,6 +1,6 @@
 VERSION 0.8
 
-# WORKTODO(adam): do packaging.
+# WORKTODO(adam): do packaging. Rahul says this can be a github mirror instead of the current published npm package
 publish-npm:
     FROM ../+bootstrap
     ARG VERSION
