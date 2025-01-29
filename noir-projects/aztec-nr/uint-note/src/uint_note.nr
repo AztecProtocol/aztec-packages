@@ -14,10 +14,10 @@ use dep::aztec::{
 #[partial_note(quote {value})]
 pub struct UintNote {
     // The amount of tokens in the note
-    value: U128,
     owner: AztecAddress,
     // Randomness of the note to hide its contents
     randomness: Field,
+    value: U128,
 }
 // docs:end:UintNote
 

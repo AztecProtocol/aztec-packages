@@ -8,13 +8,13 @@ use dep::protocol_types::{
     traits::ToField,
 };
 
-pub(crate) struct DiscoveredNoteInfo {
-    pub(crate) nonce: Field,
-    pub(crate) note_hash: Field,
-    pub(crate) inner_nullifier: Field,
+pub struct DiscoveredNoteInfo {
+    pub nonce: Field,
+    pub note_hash: Field,
+    pub inner_nullifier: Field,
 }
 
-unconstrained fn attempt_note_nonce_discovery<Env>(
+pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,

@@ -22,7 +22,7 @@ contract Token {
         context::{PrivateCallInterface, PrivateContext},
         encrypted_logs::log_assembly_strategies::default_aes128::{
             event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+            note::{compute_log, encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
         macros::{
             events::event,
@@ -33,10 +33,13 @@ contract Token {
         prelude::{
             AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{point::Point, traits::Serialize},
+        protocol_types::{debug_log::debug_log_format, point::Point, traits::Serialize},
     };
 
-    use dep::uint_note::uint_note::UintNote;
+    use dep::uint_note::{
+        partial_uint_note::{PartialUintNote, PartialUintNoteHidingPoint},
+        uint_note::UintNote,
+    };
 
     // docs:start:import_authwit
     use dep::authwit::auth::{
@@ -448,15 +451,22 @@ contract Token {
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
 
-        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        /// so a malicious sender could use non-random values to make the note less private. But they already know
-        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        /// information. We can therefore assume that the sender will cooperate in the random value generation.
-        let note_randomness = unsafe { random() };
-        let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
+        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        // so a malicious sender could use non-random values to make the note less private. But they already know
+        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        // information. We can therefore assume that the sender will cooperate in the random value generation.
 
-        // We get the keys and encrypt the log of the note
-        let setup_log = note_setup_payload.encrypt_log(context, to, from);
+        let partial = PartialUintNote::new(to, to_note_slot);
+        debug_log_format(
+            "Producing partial note: tag {0} storage slot {1} note type id {2}",
+            [partial.hiding_point.value.x, to_note_slot, UintNote::get_note_type_id() as Field],
+        );
+        let encrypted_log = compute_log(*context, partial, to, from);
+        context.emit_private_log(encrypted_log);
+
+        Token::at(context.this_address())
+            ._store_private_balance_increase_hiding_point(partial.hiding_point.value)
+            .enqueue(context);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -469,20 +479,12 @@ contract Token {
         // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
         // in our state variables we derive slots using a different hash function from multi scalar multiplication
         // (MSM).
-        let hiding_point_slot = note_setup_payload.hiding_point.x;
 
         // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
         // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
         // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
-        Token::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                hiding_point_slot,
-                note_setup_payload.hiding_point,
-                setup_log,
-            )
-            .enqueue(context);
 
-        hiding_point_slot
+        partial.hiding_point.value.x
     }
 
     // docs:start:finalize_transfer_to_private
@@ -595,12 +597,15 @@ contract Token {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        // Then we finalize the partial note with the `amount`
-        let finalization_payload =
-            UintNote::finalization_payload().new(context, hiding_point_slot, amount);
+        let hiding_point = PartialUintNoteHidingPoint::new(context.storage_read(hiding_point_slot));
+        assert(
+            !aztec::protocol_types::traits::is_empty(hiding_point.value),
+            "transfer not prepared",
+        );
+        let note_hash = hiding_point.complete(amount);
 
-        // At last we emit the note hash and the final log
-        finalization_payload.emit();
+        context.push_note_hash(note_hash);
+        context.emit_public_log([hiding_point.value.x, amount.pack()[0]]);
     }
 
     // docs:start:setup_refund
@@ -652,6 +657,12 @@ contract Token {
         );
     }
     // docs:end:setup_refund
+
+    #[public]
+    #[internal]
+    fn _store_private_balance_increase_hiding_point(hiding_point: Point) {
+        context.storage_write(hiding_point.x, hiding_point);
+    }
 
     // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
     // users to derive manually. This will however go away once we have a real transient storage since we will not need

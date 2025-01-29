@@ -713,10 +713,14 @@ export class SimulatorOracle implements DBOracle {
     const logs = await this.aztecNode.getLogsByTags([tag]);
     const logsForTag = logs[0];
 
+    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+
     if (logsForTag.length == 0) {
       return null;
     } else if (logsForTag.length > 1) {
-      throw new Error(`Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log`);
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
+      );
     }
 
     const log = logsForTag[0];

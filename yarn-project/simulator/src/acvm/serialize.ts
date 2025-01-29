@@ -51,25 +51,3 @@ export function toACVMWitness(witnessStartIndex: number, fields: Parameters<type
     return witness;
   }, new Map<number, ACVMField>());
 }
-
-/**
- * Converts a Ts Fr array into a Noir BoundedVec of Fields. Note that BoundedVecs are structs, and therefore translated
- * as two separate ACVMField arrays.
- *
- * @param values The array with the field elements
- * @param maxLength The maximum number of elements in the Noir BoundedVec. `values` must have a length smaller or equal
- * to this.
- * @returns The elements of the Noir BoundedVec.
- */
-export function toACVMBoundedVec(values: Fr[], maxLength: number): { storage: ACVMField[]; len: ACVMField } {
-  if (values.length > maxLength) {
-    throw new Error(
-      `Cannot convert an array of length ${values.length} into a BoundedVec of maximum length ${maxLength}`,
-    );
-  }
-
-  return {
-    storage: values.map(toACVMField).concat(Array(maxLength - values.length).fill(toACVMField(0))),
-    len: toACVMField(values.length),
-  };
-}

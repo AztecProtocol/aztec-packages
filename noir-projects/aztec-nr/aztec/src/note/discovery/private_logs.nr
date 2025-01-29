@@ -1,29 +1,21 @@
 use std::static_assert;
 
-use crate::{
-    oracle::note_discovery::{deliver_note, get_log_by_tag, sync_notes},
-    pxe_db::DBArray,
-    utils::array,
-};
+use crate::{oracle::note_discovery::{deliver_note, sync_notes}, pxe_db::DBArray, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
-    hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
-    traits::{Deserialize, FromField, Serialize, ToField},
 };
 
 use crate::note::discovery::{
     MAX_NOTE_SERIALIZED_LEN,
-    MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN,
     nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     NOTE_PRIVATE_LOG_RESERVED_FIELDS,
     NoteHashAndNullifier,
     partial_notes::{
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT, DeliveredPendingPartialNote,
     },
-    PUBLIC_LOG_SIZE_IN_FIELDS,
 };
 
 pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(

@@ -12,9 +12,9 @@ export class LogWithTxData {
 
   toNoirSerialization(): (Fr | Fr[])[] {
     return [
-      toBoundedVecStorage(this.logContent, PUBLIC_LOG_DATA_SIZE_IN_FIELDS),
+      ...toBoundedVecSerialization(this.logContent, PUBLIC_LOG_DATA_SIZE_IN_FIELDS),
       this.txHash,
-      toBoundedVecStorage(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
+      ...toBoundedVecSerialization(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
     ];
   }
@@ -24,12 +24,12 @@ export class LogWithTxData {
   }
 }
 
-function toBoundedVecStorage(array: Fr[], maxLength: number) {
+function toBoundedVecSerialization(array: Fr[], maxLength: number) {
   if (array.length > maxLength) {
     throw new Error(
       `An array of length ${array.length} cannot be converted to a BoundedVec of max length ${maxLength}`,
     );
   }
 
-  return array.concat(Array(maxLength - array.length).fill(new Fr(0)));
+  return [array.concat(Array(maxLength - array.length).fill(new Fr(0))), new Fr(array.length)];
 }

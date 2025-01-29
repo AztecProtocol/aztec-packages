@@ -1,10 +1,11 @@
 use crate::note::discovery::MAX_NOTE_SERIALIZED_LEN;
-use dep::protocol_types::{address::AztecAddress, constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS}, log_with_tx_data::LogWithTxData};
+use dep::protocol_types::{address::AztecAddress, log_with_tx_data::LogWithTxData};
 
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
 pub fn sync_notes() {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    /// call.
     unsafe {
         sync_notes_oracle_wrapper();
     }
@@ -50,13 +51,6 @@ pub unconstrained fn deliver_note(
         tx_hash,
         recipient,
     )
-}
-
-pub struct LogWithTxData {
-    pub log_content: BoundedVec<Field, PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
-    pub tx_hash: Field,
-    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    pub first_nullifier_in_tx: Field,
 }
 
 // todo: return a bounded vec of these

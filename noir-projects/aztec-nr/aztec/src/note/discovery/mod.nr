@@ -1,24 +1,12 @@
-use std::static_assert;
-
-use crate::{
-    context::unconstrained_context::UnconstrainedContext,
-    oracle::note_discovery::{deliver_note, get_log_by_tag, sync_notes},
-    pxe_db::DBArray,
-    utils::array,
-};
-
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
-    hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
-    traits::{Deserialize, FromField, Serialize, ToField},
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, debug_log::debug_log,
 };
 
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 14; // todo: move to constants
 
-mod private_logs;
-mod partial_notes;
-mod nonce_discovery;
+pub mod private_logs;
+pub mod partial_notes;
+pub mod nonce_discovery;
 
 // We reserve two fields in the note private log that are not part of the note content: one for the storage slot, and
 // one for the note type id.
@@ -40,6 +28,8 @@ pub unconstrained fn discover_new_notes<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
 ) {
+    debug_log("Performing note discovery");
+
     private_logs::fetch_and_process_private_tagged_logs(
         contract_address,
         compute_note_hash_and_nullifier,
