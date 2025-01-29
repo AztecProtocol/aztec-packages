@@ -159,12 +159,9 @@ jobs:
         run: |
           REPO=$(git rev-parse --show-toplevel)
 
-          export VALUES_PATH="$REPO/spartan/aztec-network/values/${{ env.VALUES_FILE }}"
-          export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
-
           export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
 
-          $REPO/spartan/scripts/generate_devnet_config.sh
+          $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
