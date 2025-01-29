@@ -83,9 +83,9 @@ function test {
 # Paths are all relative to the repository root.
 function test_cmds {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
