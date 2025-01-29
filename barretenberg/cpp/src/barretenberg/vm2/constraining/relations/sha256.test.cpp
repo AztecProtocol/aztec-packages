@@ -27,19 +27,19 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sha256 = bb::avm2::sha256<FF>;
 
-TEST(AvmConstrainingTest, Sha256PositiveEmptyRow)
+TEST(Sha256ConstrainingTest, EmptyRow)
 {
     TestTraceContainer trace({
         { { C::precomputed_clk, 1 } },
     });
 
-    check_relation<sha256>(trace.as_rows());
+    check_relation<sha256>(trace);
 }
 
 // This test imports a bunch of external code since hand-generating the sha256 trace is a bit laborious atm.
 // The test is a bit of a placeholder for now.
 // TOOD: Replace this with a hardcoded test vector and write a negative test
-TEST(AvmConstrainingTest, Sha256Positive)
+TEST(Sha256ConstrainingTest, Basic)
 {
     simulation::NoopEventEmitter<simulation::MemoryEvent> emitter;
     simulation::Memory mem(/*space_id=*/0, emitter);
@@ -71,9 +71,7 @@ TEST(AvmConstrainingTest, Sha256Positive)
     const auto sha256_event_container = sha256_event_emitter.dump_events();
     builder.process(sha256_event_container);
 
-    TestTraceContainer::RowTraceContainer rows = trace.as_rows();
-
-    check_relation<sha256>(rows);
+    check_relation<sha256>(trace);
 }
 
 } // namespace
