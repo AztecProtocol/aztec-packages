@@ -231,12 +231,13 @@ class UltraHonkAPI : public API {
         return verified;
     }
 
-    enum class OutputFlag : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
+    enum class OutputDataType : size_t { BYTES, FIELDS, BYTES_AND_FIELDS };
+    enum class OutputContent : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
 
     template <typename ProverOutput>
     void _write_data(const ProverOutput& prover_output,
-                     bool output_all,
-                     OutputFlag output_type,
+                     OutputDataType output_data_type,
+                     OutputContent output_content,
                      const std::filesystem::path& output_dir)
     {
         enum class ObjectToWrite : size_t { PROOF, VK };
@@ -272,8 +273,8 @@ class UltraHonkAPI : public API {
                 if (output_to_stdout) {
                     throw_or_abort("Writing string of fields to stdout is not supported");
                 } else {
-                    info("writing proof as fields to ", output_dir / "proof_as_fields");
-                    write_file(output_dir / "proof_as_fields", { proof_json.begin(), proof_json.end() });
+                    info("writing proof as fields to ", output_dir / "proof_as_fields.json");
+                    write_file(output_dir / "proof_as_fields.json", { proof_json.begin(), proof_json.end() });
                 }
                 break;
             }
@@ -282,64 +283,85 @@ class UltraHonkAPI : public API {
                 if (output_to_stdout) {
                     throw_or_abort("Writing string of fields to stdout is not supported");
                 } else {
-                    info("writing vk as fields to ", output_dir / "vk_as_fields");
-                    write_file(output_dir / "vk_as_fields", { vk_json.begin(), vk_json.end() });
+                    info("writing vk as fields to ", output_dir / "vk_as_fields.json");
+                    write_file(output_dir / "vk_as_fields.json", { vk_json.begin(), vk_json.end() });
                 }
                 break;
             }
             }
         };
 
-        switch (output_type) {
-        case OutputFlag::PROOF_ONLY: {
-            if (output_all) {
+        switch (output_content) {
+        case OutputContent::PROOF_ONLY: {
+            switch (output_data_type) {
+            case OutputDataType::BYTES: {
+                write_bytes(ObjectToWrite::PROOF);
+            }
+            case OutputDataType::FIELDS: {
+                write_fields(ObjectToWrite::PROOF);
+            }
+            case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
-            } else {
-                write_bytes(ObjectToWrite::PROOF);
+            }
             }
             break;
         }
-        case OutputFlag::VK_ONLY: {
-            if (output_all) {
+        case OutputContent::VK_ONLY: {
+            switch (output_data_type) {
+            case OutputDataType::BYTES: {
+                write_bytes(ObjectToWrite::VK);
+            }
+            case OutputDataType::FIELDS: {
+                write_fields(ObjectToWrite::VK);
+            }
+            case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::VK);
                 write_fields(ObjectToWrite::VK);
-            } else {
-                write_bytes(ObjectToWrite::VK);
+            }
             }
             break;
         }
-        case OutputFlag::PROOF_AND_VK: {
-            if (output_all) {
+        case OutputContent::PROOF_AND_VK: {
+            switch (output_data_type) {
+            case OutputDataType::BYTES: {
+                write_bytes(ObjectToWrite::PROOF);
+                write_bytes(ObjectToWrite::VK);
+            }
+            case OutputDataType::FIELDS: {
+                write_fields(ObjectToWrite::PROOF);
+                write_fields(ObjectToWrite::VK);
+            }
+            case OutputDataType::BYTES_AND_FIELDS: {
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
                 write_bytes(ObjectToWrite::VK);
                 write_fields(ObjectToWrite::VK);
-            } else {
-                write_bytes(ObjectToWrite::PROOF);
-                write_bytes(ObjectToWrite::VK);
+            }
             }
             break;
         }
         }
     }
 
-    void _prove(const OutputFlag output_type,
+    void _prove(const OutputDataType output_data_type,
+                const OutputContent output_content,
                 const API::Flags& flags,
                 const std::filesystem::path& bytecode_path,
                 const std::filesystem::path& witness_path,
                 const std::filesystem::path& output_dir)
     {
-        bool output_all = output_type == OutputFlag::PROOF_AND_VK;
         if (*flags.ipa_accumulation == "true") {
             vinfo("proving with ipa_accumulation");
-            _write_data(_prove_rollup(bytecode_path, witness_path), output_all, output_type, output_dir);
+            _write_data(_prove_rollup(bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "poseidon2") {
             vinfo("proving with poseidon2");
-            _write_data(_prove_poseidon2(flags, bytecode_path, witness_path), output_all, output_type, output_dir);
+            _write_data(
+                _prove_poseidon2(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "keccak") {
             vinfo("proving with keccak");
-            _write_data(_prove_keccak(flags, bytecode_path, witness_path), output_all, output_type, output_dir);
+            _write_data(
+                _prove_keccak(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else {
             vinfo(flags);
             throw_or_abort("Invalid proving options specified");
@@ -352,10 +374,34 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        const OutputFlag output_type =
-            *flags.output_type == "bytes_and_fields" ? OutputFlag::PROOF_AND_VK : OutputFlag::PROOF_ONLY;
+        if (!flags.output_type.has_value()) {
+            throw_or_abort("No output type provided");
+        }
+        if (!flags.output_content.has_value()) {
+            throw_or_abort("No output content provided");
+        }
+        const OutputDataType output_data_type = [&]() {
+            if (*flags.output_type == "bytes") {
+                return OutputDataType::BYTES;
+            } else if (*flags.output_type == "fields") {
+                return OutputDataType::FIELDS;
+            } else {
+                ASSERT(*flags.output_type == "bytes_and_fields");
+                return OutputDataType::BYTES_AND_FIELDS;
+            }
+        }();
+        const OutputContent output_content = [&]() {
+            if (*flags.output_type == "proof") {
+                return OutputContent::PROOF_ONLY;
+            } else if (*flags.output_type == "vk") {
+                return OutputContent::VK_ONLY;
+            } else {
+                ASSERT(*flags.output_type == "proof_and_vk");
+                return OutputContent::PROOF_AND_VK;
+            }
+        }();
 
-        _prove(output_type, flags, bytecode_path, witness_path, output_dir);
+        _prove(output_data_type, output_content, flags, bytecode_path, witness_path, output_dir);
     };
 
     /**
@@ -426,7 +472,7 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        _prove(OutputFlag::VK_ONLY, flags, bytecode_path, "", output_path);
+        _prove(OutputDataType::BYTES, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
     };
 
     /**

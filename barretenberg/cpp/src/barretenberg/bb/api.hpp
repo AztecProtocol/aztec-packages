@@ -10,8 +10,9 @@ class API {
         std::optional<std::string> initialize_pairing_point_accumulator; // fka recursive
         std::optional<std::string> ipa_accumulation;                     // true or false
         std::optional<std::string> oracle_hash;                          // poseidon2, keccak, ... starknet_poseidon??
-        std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
-        std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
+        std::optional<std::string> output_type;    // bytes, fields, bytes_and_fields, fields_msgpack
+        std::optional<std::string> input_type;     // compiletime_stack, runtime_stack
+        std::optional<std::string> output_content; // proof, vk, proof_and_vk
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -20,7 +21,8 @@ class API {
                << "  ipa_accumulation: " << *flags.ipa_accumulation << "\n"
                << "  oracle_hash: " << *flags.oracle_hash << "\n"
                << "  output_type: " << *flags.output_type << "\n"
-               << "  input_type: " << *flags.input_type << "\n]";
+               << "  input_type: " << *flags.input_type << "\n"
+               << "  output_content: " << *flags.output_content << "\n]";
             return os;
         }
     };
