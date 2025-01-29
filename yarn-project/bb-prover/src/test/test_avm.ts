@@ -31,17 +31,17 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { type PublicFunctionCallResult } from '@aztec/simulator/server';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
-export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuitPublicInputs {
+export async function getPublicInputs(result: PublicFunctionCallResult): Promise<PublicCircuitPublicInputs> {
   return PublicCircuitPublicInputs.from({
     callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
-    argsHash: computeVarArgsHash(result.executionRequest.args),
+    argsHash: await computeVarArgsHash(result.executionRequest.args),
     noteHashes: padArrayEnd(result.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_CALL),
     nullifiers: padArrayEnd(result.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_CALL),
     l2ToL1Msgs: padArrayEnd(result.l2ToL1Messages, L2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_CALL),
     startSideEffectCounter: result.startSideEffectCounter,
     endSideEffectCounter: result.endSideEffectCounter,
-    returnsHash: computeVarArgsHash(result.returnValues),
+    returnsHash: await computeVarArgsHash(result.returnValues),
     noteHashReadRequests: padArrayEnd(
       result.noteHashReadRequests,
       TreeLeafReadRequest.empty(),

@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 /**
@@ -28,10 +28,8 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api
-      .getWasm()
-      .callWasmExport('ecc_grumpkin__mul', [point.toBuffer(), scalar.toBuffer()], [64]);
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__mul', [point.toBuffer(), scalar.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -42,8 +40,8 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public async add(a: Point, b: Point): Promise<Point> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api.getWasm().callWasmExport('ecc_grumpkin__add', [a.toBuffer(), b.toBuffer()], [64]);
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__add', [a.toBuffer(), b.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -58,8 +56,8 @@ export class Grumpkin {
 
     const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api
       .getWasm()
       .callWasmExport(
         'ecc_grumpkin__batch_mul',
@@ -79,10 +77,8 @@ export class Grumpkin {
    * @returns Random field element.
    */
   public async getRandomFr(): Promise<Fr> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api
-      .getWasm()
-      .callWasmExport('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', [], [32]);
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api.getWasm().callWasmExport('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', [], [32]);
     return Fr.fromBuffer(Buffer.from(result));
   }
 
@@ -92,8 +88,8 @@ export class Grumpkin {
    * @returns Buffer representation of the field element.
    */
   public async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api
       .getWasm()
       .callWasmExport('ecc_grumpkin__reduce512_buffer_mod_circuit_modulus', [uint512Buf], [32]);
     return Fr.fromBuffer(Buffer.from(result));

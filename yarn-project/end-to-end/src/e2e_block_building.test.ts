@@ -463,7 +463,7 @@ describe('e2e_block_building', () => {
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = poseidon2Hash([testContract.address, values[0]]);
+      const expectedFirstField = await poseidon2Hash([testContract.address, values[0]]);
       expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
     }, 60_000);
   });

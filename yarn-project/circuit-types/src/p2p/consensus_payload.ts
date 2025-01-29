@@ -36,14 +36,14 @@ export class ConsensusPayload implements Signable {
     return [fields.header, fields.archive, fields.txHashes] as const;
   }
 
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
+  async getPayloadToSign(domainSeparator: SignatureDomainSeparator): Promise<Buffer> {
     const abi = parseAbiParameters('uint8, (bytes32, bytes32, (uint256, uint256), bytes, bytes32[])');
     const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,
       [
         this.archive.toString(),
-        this.header.hash().toString(),
+        (await this.header.hash()).toString(),
         [0n, 0n] /* @todo See #9963 */,
         this.header.toString(),
         txArray,

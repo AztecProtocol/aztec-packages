@@ -13,8 +13,8 @@ export class ServerEpochProver implements EpochProver {
     this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
     this.facade.start();
   }
-  startTubeCircuits(txs: Tx[]): void {
-    this.orchestrator.startTubeCircuits(txs);
+  startTubeCircuits(txs: Tx[]): Promise<void> {
+    return this.orchestrator.startTubeCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);

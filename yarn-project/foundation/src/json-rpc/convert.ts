@@ -8,8 +8,8 @@ import { type ZodFor } from '../schemas/types.js';
  * @param schema - Zod schema.
  * @returns Result of parsing json with schema.
  */
-export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): T {
-  return schema.parse(JSON.parse(json));
+export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): Promise<T> {
+  return schema.parseAsync(JSON.parse(json));
 }
 
 /**

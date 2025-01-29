@@ -16,7 +16,7 @@ export abstract class Gossipable {
    *
    *  - A digest of the message information, this key is used for deduplication
    */
-  abstract p2pMessageIdentifier(): Buffer32;
+  abstract p2pMessageIdentifier(): Promise<Buffer32>;
 
   /** To Buffer
    *

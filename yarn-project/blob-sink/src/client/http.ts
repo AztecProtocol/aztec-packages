@@ -65,27 +65,29 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @param indices - The indices of the blobs to get
    * @returns The blobs
    */
-  public async getBlobSidecar(blockHash: string, indices?: number[]): Promise<Blob[]> {
+  public async getBlobSidecar(blockHash: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
+    let blobs: Blob[] = [];
     if (this.config.blobSinkUrl) {
       this.log.debug('Getting blob sidecar from blob sink');
-      const blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
-      if (blobs.length > 0) {
-        this.log.debug(`Got ${blobs.length} blobs from blob sink`);
-        return blobs;
-      }
+      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
+      this.log.debug(`Got ${blobs.length} blobs from blob sink`);
     }
 
-    if (this.config.l1ConsensusHostUrl) {
+    if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
       this.log.debug('Getting slot number from consensus host');
       const slotNumber = await this.getSlotNumber(blockHash);
       if (slotNumber) {
         const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
+        this.log.debug(`Got ${blobs.length} blobs from consensus host`);
         if (blobs.length > 0) {
-          this.log.debug(`Got ${blobs.length} blobs from consensus host`);
           return blobs;
         }
       }
+    }
+
+    if (blobs.length > 0) {
+      return filterRelevantBlobs(blobs, blobHashes);
     }
 
     this.log.verbose('No blob sources available');
@@ -108,7 +110,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
+        const blobs = await Promise.all(body.data.map((b: BlobJson) => Blob.fromJson(b)));
         return blobs;
       }
 
@@ -189,4 +191,17 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     return undefined;
   }
+}
+
+/**
+ * Filter blobs based on a list of blob hashes
+ * @param blobs
+ * @param blobHashes
+ * @returns
+ */
+function filterRelevantBlobs(blobs: Blob[], blobHashes: Buffer[]): Blob[] {
+  return blobs.filter(blob => {
+    const blobHash = blob.getEthVersionedBlobHash();
+    return blobHashes.some(hash => hash.equals(blobHash));
+  });
 }

@@ -98,10 +98,17 @@ export async function processL2BlockProposedLogs(
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
+    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(publicClient, blobSinkClient, log.transactionHash!, l2BlockNumber);
+      const block = await getBlockFromRollupTx(
+        publicClient,
+        blobSinkClient,
+        log.transactionHash!,
+        blobHashes,
+        l2BlockNumber,
+      );
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -139,6 +146,7 @@ async function getBlockFromRollupTx(
   publicClient: PublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
+  blobHashes: Buffer[], // WORKTODO(md): buffer32?
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
@@ -169,7 +177,7 @@ async function getBlockFromRollupTx(
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
 
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
@@ -191,7 +199,7 @@ async function getBlockFromRollupTx(
   }
 
   // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
-  const blobCheck = Blob.getBlobs(blockFields);
+  const blobCheck = await Blob.getBlobs(blockFields);
   if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
     // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
     // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.

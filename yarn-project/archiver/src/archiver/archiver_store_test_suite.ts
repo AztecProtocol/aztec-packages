@@ -209,7 +209,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
         () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const expectedTx = getExpectedTx();
+        const expectedTx = await getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
@@ -227,7 +227,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
-        const expectedTx = getExpectedTx();
+        const expectedTx = await getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(undefined);
       });
@@ -300,10 +300,10 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractClass = makeContractClassPublic();
+        contractClass = await makeContractClassPublic();
         await store.addContractClasses(
           [contractClass],
-          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
           blockNum,
         );
       });
@@ -320,7 +320,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns contract class if later "deployment" class was deleted', async () => {
         await store.addContractClasses(
           [contractClass],
-          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
           blockNum + 1,
         );
         await store.deleteContractClasses([contractClass], blockNum + 1);

@@ -78,6 +78,7 @@
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",

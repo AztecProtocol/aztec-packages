@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { useContext, useState } from "react";
 import { deriveSigningKey } from "@aztec/circuits.js/keys";
-import { AztecContext } from "../../home/home";
+import { AztecContext } from "../../../aztecEnv";
 
 const creationForm = css({
   display: "flex",

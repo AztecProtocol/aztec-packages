@@ -24,7 +24,7 @@ describe('e2e_nested_contract manual', () => {
 
   it('performs public nested calls', async () => {
     await parentContract.methods
-      .pub_entry_point(childContract.address, childContract.methods.pub_get_value.selector, 42n)
+      .pub_entry_point(childContract.address, await childContract.methods.pub_get_value.selector(), 42n)
       .send()
       .wait();
   });
@@ -32,7 +32,7 @@ describe('e2e_nested_contract manual', () => {
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/640
   it('reads fresh value after write within the same tx', async () => {
     await parentContract.methods
-      .pub_entry_point_twice(childContract.address, childContract.methods.pub_inc_value.selector, 42n)
+      .pub_entry_point_twice(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
       .send()
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(84n));
@@ -43,10 +43,10 @@ describe('e2e_nested_contract manual', () => {
   // through the account contract, if the account entrypoint behaves properly, it will honor
   // this order and not run the private call first which results in the public calls being inverted.
   it('executes public calls in expected order', async () => {
-    const pubSetValueSelector = childContract.methods.pub_set_value.selector;
+    const pubSetValueSelector = await childContract.methods.pub_set_value.selector();
     const actions = [
-      childContract.methods.pub_set_value(20n).request(),
-      parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n).request(),
+      await childContract.methods.pub_set_value(20n).request(),
+      await parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n).request(),
     ];
 
     const tx = await new BatchCall(wallet, actions).send().wait();

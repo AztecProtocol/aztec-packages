@@ -19,19 +19,19 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates in non revertible data', async () => {
-    const badTx = mockTxForRollup();
+    const badTx = await mockTxForRollup();
     badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
     await expectInvalid(badTx, 'Duplicate nullifier in tx');
   });
 
   it('rejects duplicates in revertible data', async () => {
-    const badTx = mockTxForRollup();
+    const badTx = await mockTxForRollup();
     badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
     await expectInvalid(badTx, 'Duplicate nullifier in tx');
   });
 
   it('rejects duplicates across phases', async () => {
-    const badTx = mockTx(1, {
+    const badTx = await mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
     });
@@ -41,7 +41,7 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates against history', async () => {
-    const badTx = mockTx();
+    const badTx = await mockTx();
     nullifierSource.nullifiersExist.mockResolvedValue([true]);
     await expectInvalid(badTx, 'Existing nullifier');
   });
