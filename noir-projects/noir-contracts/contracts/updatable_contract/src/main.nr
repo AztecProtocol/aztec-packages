@@ -2,16 +2,16 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Updatable {
-    use aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use aztec::macros::{functions::{initializer, private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
-    use dep::contract_instance_deployer::ContractInstanceDeployer;
     use aztec::protocol_types::{
         constants::DEPLOYER_CONTRACT_ADDRESS,
         contract_class_id::ContractClassId,
         traits::{Hash, Serialize},
     };
+    use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;
 
     #[storage]
