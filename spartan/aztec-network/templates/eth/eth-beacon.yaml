@@ -74,6 +74,9 @@ spec:
     - protocol: TCP
       port: {{ .Values.ethereum.beacon.service.port }}
       targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
+      {{- if and (eq .Values.ethereum.beacon.service.type "NodePort") .Values.ethereum.beacon.service.nodePort }}
+      nodePort: {{ .Values.ethereum.beacon.service.nodePort }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
