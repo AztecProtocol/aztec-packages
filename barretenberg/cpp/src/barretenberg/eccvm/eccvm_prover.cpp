@@ -48,8 +48,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // 1. Record the start time
     auto start_time = std::chrono::high_resolution_clock::now();
     info("eccvm size?", key->real_eccvm_circuit_size);
-    std::vector<size_t> real_sizes;
-    real_sizes.reserve(key->polynomials.get_wires().size());
+
     size_t counter = 0;
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
