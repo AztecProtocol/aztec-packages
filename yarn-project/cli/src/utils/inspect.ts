@@ -12,7 +12,8 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
     return;
   }
 
-  log(`Block ${blockNumber} (${block.hash().toString()})`);
+  const blockHash = await block.hash();
+  log(`Block ${blockNumber} (${blockHash.toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
   log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(

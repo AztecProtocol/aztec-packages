@@ -75,7 +75,6 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
@@ -84,7 +83,6 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
@@ -92,7 +90,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     }
 
     // Get commitments to VM wires
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -101,7 +99,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     relation_parameters.gamma = gamma;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 

@@ -35,7 +35,7 @@ describe('benchmarks/build_block', () => {
 
   const TX_COUNT = 32;
   it(`builds a block with ${TX_COUNT} txs`, async () => {
-    sequencer.updateSequencerConfig({ minTxsPerBlock: TX_COUNT });
+    await sequencer.updateSequencerConfig({ minTxsPerBlock: TX_COUNT });
     const sentTxs = await sendTxs(TX_COUNT, context, contract);
     await waitTxs(sentTxs, context);
   });

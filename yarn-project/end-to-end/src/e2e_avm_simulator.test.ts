@@ -102,8 +102,8 @@ describe('e2e_avm_simulator', () => {
         const address = AztecAddress.fromBigInt(9090n);
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          avmContract.methods.set_storage_map(address, 100).request(),
-          avmContract.methods.add_storage_map(address, 100).request(),
+          await avmContract.methods.set_storage_map(address, 100).request(),
+          await avmContract.methods.add_storage_map(address, 100).request(),
         ])
           .send()
           .wait();
@@ -149,8 +149,8 @@ describe('e2e_avm_simulator', () => {
 
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          avmContract.methods.new_nullifier(nullifier).request(),
-          avmContract.methods.assert_nullifier_exists(nullifier).request(),
+          await avmContract.methods.new_nullifier(nullifier).request(),
+          await avmContract.methods.assert_nullifier_exists(nullifier).request(),
         ])
           .send()
           .wait();

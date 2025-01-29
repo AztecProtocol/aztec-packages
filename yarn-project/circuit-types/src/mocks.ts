@@ -40,7 +40,7 @@ import { TxEffect } from './tx_effect.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
-export const mockPrivateCallExecutionResult = (
+export const mockPrivateCallExecutionResult = async (
   seed = 1,
   numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -56,7 +56,11 @@ export const mockPrivateCallExecutionResult = (
   if (isForPublic) {
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      const r = publicCallRequests[i];
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+      i++;
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -84,11 +88,11 @@ export const mockPrivateCallExecutionResult = (
   );
 };
 
-export const mockPrivateExecutionResult = (seed = 1) => {
-  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), Fr.zero());
+export const mockPrivateExecutionResult = async (seed = 1) => {
+  return new PrivateExecutionResult(await mockPrivateCallExecutionResult(seed), Fr.zero());
 };
 
-export const mockTx = (
+export const mockTx = async (
   seed = 1,
   {
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -125,7 +129,10 @@ export const mockTx = (
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      const r = publicCallRequests[i];
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -163,8 +170,8 @@ export const mockTxForRollup = (seed = 1) =>
   mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
 export const mockSimulatedTx = async (seed = 1) => {
-  const privateExecutionResult = mockPrivateExecutionResult(seed);
-  const tx = mockTx(seed);
+  const privateExecutionResult = await mockPrivateExecutionResult(seed);
+  const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
     makeCombinedConstantData(),
@@ -222,7 +229,7 @@ export const randomContractInstanceWithAddress = async (
 
 export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
   return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
 };
 

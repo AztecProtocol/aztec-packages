@@ -18,12 +18,13 @@ export async function addContract(
   log: LogFn,
 ) {
   const artifact = await getContractArtifact(contractArtifactPath, log);
+  const contractClass = await getContractClassFromArtifact(artifact);
   const instance: ContractInstanceWithAddress = {
     version: 1,
     salt,
     initializationHash,
-    currentContractClassId: getContractClassFromArtifact(artifact).id,
-    originalContractClassId: getContractClassFromArtifact(artifact).id,
+    currentContractClassId: contractClass.id,
+    originalContractClassId: contractClass.id,
     publicKeys: publicKeys ?? PublicKeys.default(),
     address,
     deployer: deployer ?? AztecAddress.ZERO,

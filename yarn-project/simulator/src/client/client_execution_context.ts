@@ -166,7 +166,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @returns The hash of the values.
    */
   public override storeInExecutionCache(values: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.executionCache.store(values));
+    return this.executionCache.store(values);
   }
 
   /**
@@ -241,14 +241,22 @@ export class ClientExecutionContext extends ViewDataOracle {
         .join(', ')}`,
     );
 
-    notes.forEach(n => {
-      if (n.index !== undefined) {
-        const siloedNoteHash = siloNoteHash(n.contractAddress, n.noteHash);
-        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
+    const noteHashesAndIndexes = await Promise.all(
+      notes.map(async n => {
+        if (n.index !== undefined) {
+          const siloedNoteHash = await siloNoteHash(n.contractAddress, n.noteHash);
+          const uniqueNoteHash = await computeUniqueNoteHash(n.nonce, siloedNoteHash);
 
-        this.noteHashLeafIndexMap.set(uniqueNoteHash.toBigInt(), n.index);
-      }
-    });
+          return { hash: uniqueNoteHash, index: n.index };
+        }
+      }),
+    );
+
+    noteHashesAndIndexes
+      .filter(n => n !== undefined)
+      .forEach(n => {
+        this.noteHashLeafIndexMap.set(n!.hash.toBigInt(), n!.index);
+      });
 
     return notes;
   }
@@ -291,8 +299,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
-    const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
+  public override async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+    const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
       noteHash,
@@ -300,7 +308,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     if (nullifiedNoteHashCounter !== undefined) {
       this.noteHashNullifierCounterMap.set(nullifiedNoteHashCounter, counter);
     }
-    return Promise.resolve();
   }
 
   /**
@@ -310,8 +317,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param noteHash - A hash of the new note.
    */
   public override notifyCreatedNullifier(innerNullifier: Fr) {
-    this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
-    return Promise.resolve();
+    return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
   /**
@@ -369,7 +375,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const derivedTxContext = this.txContext.clone();
 
-    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
     const context = new ClientExecutionContext(
       argsHash,
@@ -426,7 +432,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
     const args = this.executionCache.getPreimage(argsHash);
 
     this.log.verbose(
@@ -476,7 +482,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.executionCache.store([
+    const newArgsHash = await this.executionCache.store([
       functionSelector.toField(),
       ...this.executionCache.getPreimage(argsHash),
     ]);
@@ -515,7 +521,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.executionCache.store([
+    const newArgsHash = await this.executionCache.store([
       functionSelector.toField(),
       ...this.executionCache.getPreimage(argsHash),
     ]);
@@ -530,8 +536,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     return newArgsHash;
   }
 
-  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
-    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
+  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+    return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   /**
@@ -541,7 +547,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private deriveCallContext(
+  private async deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
     isStaticCall = false,
@@ -549,7 +555,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return new CallContext(
       this.contractAddress,
       targetContractAddress,
-      FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
+      await FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isStaticCall,
     );
   }

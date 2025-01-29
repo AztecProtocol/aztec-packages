@@ -37,7 +37,7 @@ export interface PublicSideEffectTraceInterface {
     lowLeafPath?: Fr[],
     newLeafPreimage?: PublicDataTreeLeafPreimage,
     insertionPath?: Fr[],
-  ): void;
+  ): Promise<void>;
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
   traceNewNoteHash(uniqueNoteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   getNoteHashCount(): number;

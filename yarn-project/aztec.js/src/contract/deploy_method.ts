@@ -144,7 +144,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     // Obtain contract class from artifact and check it matches the reported one by the instance.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
-    const contractClass = getContractClassFromArtifact(this.artifact);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
     if (!instance.currentContractClassId.equals(contractClass.id)) {
       throw new Error(
         `Contract class mismatch when deploying contract: got ${instance.currentContractClassId.toString()} from instance and ${contractClass.id.toString()} from artifact`,
@@ -161,14 +161,15 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         this.log.info(
           `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
         );
-        calls.push((await registerContractClass(this.wallet, this.artifact)).request());
+        const registerContractClassInteraction = await registerContractClass(this.wallet, this.artifact);
+        calls.push(await registerContractClassInteraction.request());
       }
     }
 
     // Deploy the contract via the instance deployer.
     if (!options.skipPublicDeployment) {
       const deploymentInteraction = await deployInstance(this.wallet, instance);
-      calls.push(deploymentInteraction.request());
+      calls.push(await deploymentInteraction.request());
     }
 
     return { calls };
@@ -191,7 +192,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         this.constructorArtifact,
         this.args,
       );
-      calls.push(constructorCall.request());
+      calls.push(await constructorCall.request());
     }
     return { calls };
   }

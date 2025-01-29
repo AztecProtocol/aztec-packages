@@ -100,20 +100,23 @@ export async function addPXE(
       };
     }
 
-    Object.values(l2Contracts).forEach(async ({ name, address, artifact, initHash, salt }) => {
-      const instance: ContractInstanceWithAddress = {
-        version: 1,
-        salt,
-        initializationHash: initHash,
-        address,
-        deployer: AztecAddress.ZERO,
-        currentContractClassId: getContractClassFromArtifact(artifact!).id,
-        originalContractClassId: getContractClassFromArtifact(artifact!).id,
-        publicKeys: PublicKeys.default(),
-      };
-      userLog(`Registering ${name} at ${address.toString()}`);
-      await pxe.registerContract({ artifact, instance });
-    });
+    await Promise.all(
+      Object.values(l2Contracts).map(async ({ name, address, artifact, initHash, salt }) => {
+        const contractClass = await getContractClassFromArtifact(artifact!);
+        const instance: ContractInstanceWithAddress = {
+          version: 1,
+          salt,
+          initializationHash: initHash,
+          address,
+          deployer: AztecAddress.ZERO,
+          currentContractClassId: contractClass.id,
+          originalContractClassId: contractClass.id,
+          publicKeys: PublicKeys.default(),
+        };
+        userLog(`Registering ${name} at ${address.toString()}`);
+        await pxe.registerContract({ artifact, instance });
+      }),
+    );
   }
 
   // Add PXE to services list

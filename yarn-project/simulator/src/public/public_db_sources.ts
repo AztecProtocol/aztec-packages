@@ -44,16 +44,18 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * Add new contracts from a transaction
    * @param tx - The transaction to add contracts from.
    */
-  public addNewContracts(tx: Tx): Promise<void> {
+  public async addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.contractClassLogs.unrollLogs();
-    logs
+    const contractClassRegisteredEvents = logs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .forEach(log => {
-        const event = ContractClassRegisteredEvent.fromLog(log.data);
+      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+    await Promise.all(
+      contractClassRegisteredEvents.map(async event => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
-        this.classCache.set(event.contractClassId.toString(), event.toContractClassPublic());
-      });
+        this.classCache.set(event.contractClassId.toString(), await event.toContractClassPublic());
+      }),
+    );
 
     // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
     const contractInstanceEvents = tx.data
@@ -66,8 +68,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       );
       this.instanceCache.set(e.address.toString(), e.toContractInstance());
     });
-
-    return Promise.resolve();
   }
 
   /**
@@ -124,7 +124,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       return undefined;
     }
 
-    const value = computePublicBytecodeCommitment(contractClass.packedBytecode);
+    const value = await computePublicBytecodeCommitment(contractClass.packedBytecode);
     this.bytecodeCommitmentCache.set(key, value);
     return value;
   }
@@ -173,7 +173,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
    * @returns The current value in the storage slot.
    */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).value;
+    const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
     const uncommitted = this.publicUncommittedWriteCache.get(leafSlot);
     if (uncommitted !== undefined) {
       return uncommitted;
@@ -197,10 +197,10 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
    * @param newValue - The new value to store.
    * @returns The slot of the written leaf in the public data tree.
    */
-  public storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
-    const index = computePublicDataTreeLeafSlot(contract, slot).value;
+  public async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
+    const index = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
     this.publicUncommittedWriteCache.set(index, newValue);
-    return Promise.resolve(index);
+    return index;
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(
@@ -245,7 +245,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
       throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
     }
 
-    const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
+    const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
     const nullifierIndex = await this.getNullifierIndex(messageNullifier);
 
     if (nullifierIndex !== undefined) {
@@ -350,7 +350,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
 }
 
 export async function readPublicState(db: MerkleTreeReadOperations, contract: AztecAddress, slot: Fr): Promise<Fr> {
-  const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+  const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
   const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
   if (!lowLeafResult || !lowLeafResult.alreadyPresent) {

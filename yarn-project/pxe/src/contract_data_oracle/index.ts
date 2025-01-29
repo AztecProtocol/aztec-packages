@@ -92,7 +92,7 @@ export class ContractDataOracle {
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
     const tree = await this.getTreeForAddress(contractAddress);
-    const artifact = tree.getFunctionArtifact(selector);
+    const artifact = await tree.getFunctionArtifact(selector);
     return getFunctionDebugMetadata(tree.getArtifact(), artifact);
   }
 
@@ -133,7 +133,7 @@ export class ContractDataOracle {
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTreeForAddress(contractAddress);
     const { name: contractName } = tree.getArtifact();
-    const { name: functionName } = tree.getFunctionArtifact(selector);
+    const { name: functionName } = await tree.getFunctionArtifact(selector);
     return `${contractName}:${functionName}`;
   }
 
@@ -153,7 +153,7 @@ export class ContractDataOracle {
       if (!artifact) {
         throw new ContractClassNotFoundError(classId.toString());
       }
-      const tree = new PrivateFunctionsTree(artifact);
+      const tree = await PrivateFunctionsTree.create(artifact);
       this.contractClasses.set(classId.toString(), tree);
     }
     return this.contractClasses.get(classId.toString())!;

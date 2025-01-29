@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -83,7 +84,7 @@ template <typename FF_>
 class perm_pos2_fixed_pos2_perm_relation
     : public GenericPermutationRelation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS2_FIXED_POS2_PERM";
+    static constexpr std::string_view NAME = "PERM_POS2_FIXED_POS2_PERM";
 };
 template <typename FF_>
 using perm_pos2_fixed_pos2_perm = GenericPermutation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_>;

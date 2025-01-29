@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm2 {
@@ -79,7 +80,7 @@ class lookup_dummy_precomputed_lookup_settings {
 template <typename FF_>
 class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_dummy_precomputed_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_DUMMY_PRECOMPUTED";
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_PRECOMPUTED";
 };
 template <typename FF_> using lookup_dummy_precomputed = GenericLookup<lookup_dummy_precomputed_lookup_settings, FF_>;
 
@@ -152,7 +153,7 @@ class lookup_dummy_dynamic_lookup_settings {
 template <typename FF_>
 class lookup_dummy_dynamic_relation : public GenericLookupRelation<lookup_dummy_dynamic_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_DUMMY_DYNAMIC";
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_DYNAMIC";
 };
 template <typename FF_> using lookup_dummy_dynamic = GenericLookup<lookup_dummy_dynamic_lookup_settings, FF_>;
 

@@ -6,7 +6,7 @@ import { type Fr } from '../fields/fields.js';
 import { createLogger } from '../log/index.js';
 import { schemas } from '../schemas/schemas.js';
 import { type ZodFor } from '../schemas/types.js';
-import { type FunctionSelector } from './function_selector.js';
+import { FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
 /** A basic value. */
@@ -380,16 +380,36 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
 });
 
+export function getFunctionArtifactByName(artifact: ContractArtifact, functionName: string): FunctionArtifact {
+  const functionArtifact = artifact.functions.find(f => f.name === functionName);
+
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionName}`);
+  }
+
+  const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+  return { ...functionArtifact, debug: debugMetadata };
+}
+
 /** Gets a function artifact including debug metadata given its name or selector. */
-export function getFunctionArtifact(
+export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
-): FunctionArtifact {
-  const functionArtifact = artifact.functions.find(f =>
-    typeof functionNameOrSelector === 'string'
-      ? f.name === functionNameOrSelector
-      : functionNameOrSelector.equals(f.name, f.parameters),
-  );
+): Promise<FunctionArtifact> {
+  let functionArtifact;
+  if (typeof functionNameOrSelector === 'string') {
+    functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
+  } else {
+    const functionsAndSelectors = await Promise.all(
+      artifact.functions.map(async fn => ({
+        fn,
+        selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+      })),
+    );
+    functionArtifact = functionsAndSelectors.find(fnAndSelector =>
+      functionNameOrSelector.equals(fnAndSelector.selector),
+    )?.fn;
+  }
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }

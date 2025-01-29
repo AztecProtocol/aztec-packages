@@ -137,8 +137,8 @@ describe('ReqResp', () => {
 
   describe('Tx req protocol', () => {
     it('Can request a Tx from TxHash', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
@@ -158,13 +158,13 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       // Set tx hash since expect will compare private properties
-      res.getTxHash();
+      await res.getTxHash();
       expect(res).toEqual(tx);
     });
 
     it('Handle returning empty buffers', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
@@ -186,8 +186,8 @@ describe('ReqResp', () => {
     });
 
     it('Does not crash if tx hash returns undefined', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Return nothing
@@ -275,8 +275,8 @@ describe('ReqResp', () => {
     });
 
     it('should penalize peer if transaction validation fails', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       // Mock that the node will respond with the tx
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;

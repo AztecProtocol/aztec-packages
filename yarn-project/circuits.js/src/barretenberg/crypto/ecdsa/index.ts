@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { concatenateUint8Arrays } from '../../serialize.js';
@@ -17,8 +17,8 @@ export class Ecdsa {
    * @returns A secp256k1 public key.
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
     return Buffer.from(result);
   }
 
@@ -29,9 +29,9 @@ export class Ecdsa {
    * @returns An ECDSA signature of the form (r, s, v).
    */
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [r, s, v] = await api
+    const [r, s, v] = api
       .getWasm()
       .callWasmExport('ecdsa__construct_signature_', [messageArray, privateKey], [32, 32, 1]);
     return new EcdsaSignature(Buffer.from(r), Buffer.from(s), Buffer.from(v));
@@ -44,9 +44,9 @@ export class Ecdsa {
    * @returns The secp256k1 public key of the signer.
    */
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('ecdsa__recover_public_key_from_signature_', [messageArray, sig.r, sig.s, sig.v], [64]);
     return Buffer.from(result);
@@ -60,9 +60,9 @@ export class Ecdsa {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('ecdsa__verify_signature_', [messageArray, pubKey, sig.r, sig.s, sig.v], [1]);
     return result[0] === 1;

@@ -72,7 +72,7 @@ export class AvmPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
-  ) {
+  ): Promise<AvmPersistableStateManager> {
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
       worldStateDB,
@@ -126,11 +126,12 @@ export class AvmPersistableStateManager {
     this.trace.merge(forkedState.trace, reverted);
     if (reverted) {
       if (this.doMerkleOperations) {
-        this.log.debug(
+        this.log.trace(
           `Rolled back nullifier tree to root ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
         );
       }
     } else {
+      this.log.trace('Merging forked state into parent...');
       this.merkleTrees = forkedState.merkleTrees;
     }
   }
@@ -144,7 +145,7 @@ export class AvmPersistableStateManager {
    */
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.log.debug(`leafSlot=${leafSlot}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
@@ -169,7 +170,7 @@ export class AvmPersistableStateManager {
         );
       }
 
-      this.trace.tracePublicStorageWrite(
+      await this.trace.tracePublicStorageWrite(
         contractAddress,
         slot,
         value,
@@ -181,7 +182,7 @@ export class AvmPersistableStateManager {
         insertionPath,
       );
     } else {
-      this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+      await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
     }
   }
 
@@ -195,7 +196,7 @@ export class AvmPersistableStateManager {
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
     const { value, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.log.debug(`leafSlot=${leafSlot}`);
 
     if (this.doMerkleOperations) {
@@ -283,34 +284,34 @@ export class AvmPersistableStateManager {
    * Write a raw note hash, silo it and make it unique, then trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): void {
-    const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+  public async writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): Promise<void> {
+    const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
 
-    this.writeSiloedNoteHash(siloedNoteHash);
+    await this.writeSiloedNoteHash(siloedNoteHash);
   }
 
   /**
    * Write a note hash, make it unique, trace the write.
    * @param noteHash - the non unique note hash to write
    */
-  public writeSiloedNoteHash(noteHash: Fr): void {
-    const nonce = computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
-    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+  public async writeSiloedNoteHash(noteHash: Fr): Promise<void> {
+    const nonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
+    const uniqueNoteHash = await computeUniqueNoteHash(nonce, noteHash);
 
-    this.writeUniqueNoteHash(uniqueNoteHash);
+    await this.writeUniqueNoteHash(uniqueNoteHash);
   }
 
   /**
    * Write a note hash, trace the write.
    * @param noteHash - the siloed unique hash to write
    */
-  public writeUniqueNoteHash(noteHash: Fr): void {
+  public async writeUniqueNoteHash(noteHash: Fr): Promise<void> {
     this.log.debug(`noteHashes += @${noteHash}.`);
 
     if (this.doMerkleOperations) {
       // Should write a helper for this
       const leafIndex = new Fr(this.merkleTrees.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!.leafCount);
-      const insertionPath = this.merkleTrees.appendNoteHash(noteHash);
+      const insertionPath = await this.merkleTrees.appendNoteHash(noteHash);
       this.trace.traceNewNoteHash(noteHash, leafIndex, insertionPath);
     } else {
       this.trace.traceNewNoteHash(noteHash);
@@ -325,7 +326,7 @@ export class AvmPersistableStateManager {
    */
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     this.log.debug(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     const [exists, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
       siloedNullifier,
     );
@@ -407,7 +408,7 @@ export class AvmPersistableStateManager {
    */
   public async writeNullifier(contractAddress: AztecAddress, nullifier: Fr) {
     this.log.debug(`Inserting new nullifier (address=${nullifier}, nullifier=${contractAddress})`);
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     await this.writeSiloedNullifier(siloedNullifier);
   }
 
@@ -447,13 +448,15 @@ export class AvmPersistableStateManager {
         await this.nullifiers.append(siloedNullifier);
         // We append the new nullifier
         this.log.debug(
-          `Nullifier tree root before insertion ${this.merkleTrees.treeMap
+          `Nullifier tree root before insertion ${await this.merkleTrees.treeMap
             .get(MerkleTreeId.NULLIFIER_TREE)!
             .getRoot()}`,
         );
         const appendResult = await this.merkleTrees.appendNullifier(siloedNullifier);
         this.log.debug(
-          `Nullifier tree root after insertion ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
+          `Nullifier tree root after insertion ${await this.merkleTrees.treeMap
+            .get(MerkleTreeId.NULLIFIER_TREE)!
+            .getRoot()}`,
         );
         const lowLeafPreimage = appendResult.lowWitness.preimage as NullifierLeafPreimage;
         const lowLeafIndex = appendResult.lowWitness.index;
@@ -550,7 +553,7 @@ export class AvmPersistableStateManager {
       new Array<Fr>(),
     ];
     if (!contractAddressIsCanonical(contractAddress)) {
-      const contractAddressNullifier = siloNullifier(
+      const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );
@@ -615,7 +618,7 @@ export class AvmPersistableStateManager {
       new Array<Fr>(),
     ];
     if (!contractAddressIsCanonical(contractAddress)) {
-      const contractAddressNullifier = siloNullifier(
+      const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );

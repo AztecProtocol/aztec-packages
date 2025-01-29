@@ -283,7 +283,11 @@ describe('PXESchema', () => {
 
   it('getContractClass', async () => {
     const result = await context.client.getContractClass(Fr.random());
-    const expected = omit(getContractClassFromArtifact(artifact), 'privateFunctionsRoot', 'publicBytecodeCommitment');
+    const expected = omit(
+      await getContractClassFromArtifact(artifact),
+      'privateFunctionsRoot',
+      'publicBytecodeCommitment',
+    );
     expect(result).toEqual(expected);
   });
 
@@ -525,10 +529,10 @@ class MockPXE implements PXE {
     expect(address).toEqual(this.address);
     return Promise.resolve(this.instance);
   }
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
-    return Promise.resolve(contractClass);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
+    return contractClass;
   }
   getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
     expect(id).toBeInstanceOf(Fr);

@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -66,7 +67,7 @@ class perm_slice_mem_permutation_settings {
 template <typename FF_>
 class perm_slice_mem_relation : public GenericPermutationRelation<perm_slice_mem_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_SLICE_MEM";
+    static constexpr std::string_view NAME = "PERM_SLICE_MEM";
 };
 template <typename FF_> using perm_slice_mem = GenericPermutation<perm_slice_mem_permutation_settings, FF_>;
 

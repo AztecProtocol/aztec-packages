@@ -94,7 +94,7 @@ describe('Point', () => {
 
   it('serializes from and to JSON', async () => {
     const p = await Point.random();
-    const p2 = jsonParseWithSchema(jsonStringify(p), schemas.Point);
+    const p2 = await jsonParseWithSchema(jsonStringify(p), schemas.Point);
     expect(p).toEqual(p2);
     expect(p2).toBeInstanceOf(Point);
   });

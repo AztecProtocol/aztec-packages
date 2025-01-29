@@ -12,26 +12,26 @@ import {
 
 describe('ContractAddress', () => {
   setupCustomSnapshotSerializers(expect);
-  it('computePartialAddress', () => {
+  it('computePartialAddress', async () => {
     const mockInstance = {
       originalContractClassId: new Fr(1),
       saltedInitializationHash: new Fr(2),
     };
-    const result = computePartialAddress(mockInstance);
+    const result = await computePartialAddress(mockInstance);
     expect(result).toMatchSnapshot();
   });
 
-  it('computeSaltedInitializationHash', () => {
+  it('computeSaltedInitializationHash', async () => {
     const mockInstance = {
       initializationHash: new Fr(1),
       salt: new Fr(2),
       deployer: AztecAddress.fromField(new Fr(4)),
     };
-    const result = computeSaltedInitializationHash(mockInstance);
+    const result = await computeSaltedInitializationHash(mockInstance);
     expect(result).toMatchSnapshot();
   });
 
-  it('computeInitializationHash', () => {
+  it('computeInitializationHash', async () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.PRIVATE,
       isInitializer: false,
@@ -43,12 +43,12 @@ describe('ContractAddress', () => {
       errorTypes: {},
     };
     const mockArgs: any[] = [true];
-    const result = computeInitializationHash(mockInitFn, mockArgs);
+    const result = await computeInitializationHash(mockInitFn, mockArgs);
     expect(result).toMatchSnapshot();
   });
 
-  it('computeInitializationHash empty', () => {
-    const result = computeInitializationHash(undefined, []);
+  it('computeInitializationHash empty', async () => {
+    const result = await computeInitializationHash(undefined, []);
     expect(result).toEqual(Fr.ZERO);
   });
 
