@@ -10,7 +10,7 @@ use dep::aztec::{
 // serialized_note attack on it. This note has been developed purely for testing purposes so that it can easily be
 // manually added to PXE. Do not use for real applications.
 #[note]
-#[derive(Deserialize, Eq, Packable, Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct TestNote {
     value: Field,
 }
@@ -35,5 +35,26 @@ impl NullifiableNote for TestNote {
 impl TestNote {
     pub fn new(value: Field) -> Self {
         TestNote { value, header: NoteHeader::empty() }
+    }
+}
+
+// Note: We are not deriving Eq here because generally we don't want to include the header in the comparison.
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
+impl Eq for TestNote {
+    fn eq(self, other: Self) -> bool {
+        self.value == other.value
+    }
+}
+
+// Note: We are not deriving Packable here because that would pack the whole struct including the note header
+// (so the resulting field array size would be 5).
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
+impl Packable<1> for TestNote {
+    fn pack(self) -> [Field; 1] {
+        [self.value]
+    }
+
+    fn unpack(fields: [Field; 1]) -> Self {
+        TestNote { value: fields[0], header: NoteHeader::empty() }
     }
 }
