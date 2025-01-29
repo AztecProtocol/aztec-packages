@@ -120,7 +120,7 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
     check_relation<bitwise>(trace.as_rows());
 }
 
-TEST(BitwiseConstrainingTest, mixedOperationsWithTracegen)
+TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;
@@ -140,7 +140,7 @@ TEST(BitwiseConstrainingTest, mixedOperationsWithTracegen)
     check_relation<bitwise>(trace.as_rows());
 }
 
-TEST(BitwiseConstrainingTest, negativeWrongInit)
+TEST(BitwiseConstrainingTest, NegativeWrongInit)
 {
     TestTraceContainer::RowTraceContainer trace = {
         {
@@ -159,7 +159,7 @@ TEST(BitwiseConstrainingTest, negativeWrongInit)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_C), "BITW_INIT_C");
 }
 
-TEST(BitwiseConstrainingTest, negativeTruncateCtr)
+TEST(BitwiseConstrainingTest, NegativeTruncateCtr)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
@@ -180,7 +180,7 @@ TEST(BitwiseConstrainingTest, negativeTruncateCtr)
                               "BITW_CTR_DECREMENT");
 }
 
-TEST(BitwiseConstrainingTest, negativeGapCtr)
+TEST(BitwiseConstrainingTest, NegativeGapCtr)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
@@ -198,7 +198,7 @@ TEST(BitwiseConstrainingTest, negativeGapCtr)
                               "BITW_CTR_DECREMENT");
 }
 
-TEST(BitwiseConstrainingTest, negativeLastSetBeforeEnd)
+TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
@@ -221,7 +221,7 @@ TEST(BitwiseConstrainingTest, negativeLastSetBeforeEnd)
                               "BITW_LAST_FOR_CTR_ONE");
 }
 
-TEST(BitwiseConstrainingTest, negativeDeactivateRow)
+TEST(BitwiseConstrainingTest, NegativeDeactivateRow)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
@@ -242,7 +242,7 @@ TEST(BitwiseConstrainingTest, negativeDeactivateRow)
                               "BITW_SEL_CTR_NON_ZERO");
 }
 
-TEST(BitwiseConstrainingTest, negativeChangeOpIDBeforeEnd)
+TEST(BitwiseConstrainingTest, NegativeChangeOpIDBeforeEnd)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
@@ -261,7 +261,7 @@ TEST(BitwiseConstrainingTest, negativeChangeOpIDBeforeEnd)
                               "BITW_OP_ID_REL");
 }
 
-TEST(BitwiseConstrainingTest, negativeWrongAccumulation)
+TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
 {
     TestTraceContainer test_container = TestTraceContainer::from_rows({
         {

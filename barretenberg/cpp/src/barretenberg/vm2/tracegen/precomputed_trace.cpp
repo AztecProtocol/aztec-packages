@@ -52,6 +52,7 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
         case BitwiseOperation::XOR:
             return a ^ b;
         }
+        return 0; // Should never happen. To please the compiler.
     };
 
     for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {

@@ -19,6 +19,8 @@ uint8_t integral_tag_length(MemoryTag tag)
     case MemoryTag::FF:
         throw std::runtime_error("FF is not an integral tag");
     }
+
+    return 0; // Should never happen. To please the compiler.
 }
 
 } // namespace bb::avm2
