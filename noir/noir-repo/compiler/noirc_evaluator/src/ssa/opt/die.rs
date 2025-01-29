@@ -146,7 +146,7 @@ impl Context {
 
         let mut rc_tracker = RcTracker::default();
         rc_tracker.mark_function_parameter_arrays_as_used(function);
-        rc_tracker.mark_terminator_arrays_as_used(function, block);
+        //rc_tracker.mark_terminator_arrays_as_used(function, block);
 
         let instructions_len = block.instructions().len();
 
@@ -600,14 +600,16 @@ struct RcTracker {
 }
 
 impl RcTracker {
-    fn mark_terminator_arrays_as_used(&mut self, function: &Function, block: &BasicBlock) {
-        block.unwrap_terminator().for_each_value(|value| {
-            let typ = function.dfg.type_of_value(value);
-            if matches!(&typ, Type::Array(_, _) | Type::Slice(_)) {
-                self.mutated_array_types.insert(typ);
-            }
-        });
-    }
+    // TODO: This causes a failure with the private-kernel-init-simualted circuit; see:
+    // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2621586869
+    // fn mark_terminator_arrays_as_used(&mut self, function: &Function, block: &BasicBlock) {
+    //     block.unwrap_terminator().for_each_value(|value| {
+    //         let typ = function.dfg.type_of_value(value);
+    //         if matches!(&typ, Type::Array(_, _) | Type::Slice(_)) {
+    //             self.mutated_array_types.insert(typ);
+    //         }
+    //     });
+    // }
 
     /// Mark any array parameters to the function itself as possibly mutated.
     fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
