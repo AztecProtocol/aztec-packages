@@ -4,11 +4,13 @@ import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
@@ -47,8 +49,6 @@ export class P2PNetworkTest {
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
 
-  public bootstrapNodeEnr: string = '';
-
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
@@ -57,12 +57,15 @@ export class P2PNetworkTest {
 
   private gasUtils: L1TxUtilsWithBlobs | undefined = undefined;
 
+  public bootstrapNode!: BootstrapNode;
+  public bootstrapNodeEnr!: string;
+
   constructor(
     testName: string,
-    public bootstrapNode: BootstrapNode,
+    public telemetry: TelemetryClient,
     public bootNodePort: number,
     private numberOfNodes: number,
-    initialValidatorConfig: AztecNodeConfig,
+    config: Partial<AztecNodeConfig>,
     // If set enable metrics collection
     metricsPort?: number,
     assumeProvenThrough?: number,
@@ -75,24 +78,41 @@ export class P2PNetworkTest {
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
-    this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
     this.snapshotManager = createSnapshotManager(
       `e2e_p2p_network/${testName}`,
       process.env.E2E_DATA_PATH,
       {
-        ...initialValidatorConfig,
+        ...config,
         ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
         salt: 420,
         metricsPort: metricsPort,
       },
       {
-        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        aztecEpochDuration: config.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         aztecEpochProofClaimWindowInL2Slots:
-          initialValidatorConfig.aztecEpochProofClaimWindowInL2Slots ??
-          l1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
+          config.aztecEpochProofClaimWindowInL2Slots ?? l1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
         assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
         initialValidators: [],
+      },
+      {
+        // Creates a bootstrap node using the L1 deployment info right before creating
+        // the aztec node, so we can inject the bootstrap node's ENR into its config.
+        onBeforeCreateAztecNode: async aztecNodeConfig => {
+          this.logger.info(`Creating bootstrap node with chain config`, {
+            ...pick(aztecNodeConfig, 'l1ChainId', 'version'),
+            governanceAddress: aztecNodeConfig.l1Contracts.governanceAddress,
+          });
+
+          this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
+            BOOTSTRAP_NODE_PRIVATE_KEY,
+            this.bootNodePort,
+            this.telemetry,
+            aztecNodeConfig,
+          );
+          this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
+          const validatorConfig = await createValidatorConfig(aztecNodeConfig, this.bootstrapNodeEnr);
+          Object.assign(aztecNodeConfig, validatorConfig);
+        },
       },
     );
   }
@@ -112,23 +132,14 @@ export class P2PNetworkTest {
     initialConfig?: Partial<AztecNodeConfig>;
     assumeProvenThrough?: number;
   }) {
-    const port = basePort || (await getPort());
-
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
-    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
-    const initialValidatorConfig = await createValidatorConfig(
-      (initialConfig ?? {}) as AztecNodeConfig,
-      bootstrapNodeEnr,
-    );
 
     return new P2PNetworkTest(
       testName,
-      bootstrapNode,
-      port,
+      telemetry,
+      basePort ?? (await getPort()),
       numberOfNodes,
-      initialValidatorConfig,
+      initialConfig ?? {},
       metricsPort,
       assumeProvenThrough,
     );

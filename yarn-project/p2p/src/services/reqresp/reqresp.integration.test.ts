@@ -8,6 +8,7 @@ import {
   type WorldStateSynchronizer,
   mockTx,
 } from '@aztec/circuit-types';
+import { emptyChainConfig } from '@aztec/circuit-types/config';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -29,8 +30,8 @@ import { type AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import { type EpochProofQuotePool } from '../../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../../mem_pools/tx_pool/index.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../../services/types.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../../util.js';
+import { setAztecEnrKey } from '../../versioning.js';
 
 const TEST_TIMEOUT = 80000;
 
@@ -86,7 +87,7 @@ describe('Req Resp p2p client integration', () => {
         const tcpPublicAddr = multiaddr(convertToMultiaddr(tcpAnnounceAddress, 'tcp'));
 
         // ENRS must include the network and a discoverable address (udp for discv5)
-        enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+        setAztecEnrKey(enr, emptyChainConfig);
         enr.setLocationMultiaddr(udpPublicAddr);
         enr.setLocationMultiaddr(tcpPublicAddr);
 

@@ -1,3 +1,4 @@
+import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -10,8 +11,9 @@ import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
 import { convertToMultiaddr } from '../../util.js';
+import { setAztecEnrKey } from '../../versioning.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
-import { AZTEC_ENR_KEY, AZTEC_NET, Discv5Event, PeerEvent } from '../types.js';
+import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../types.js';
 
 const delayBeforeStart = 2000; // 2sec
 
@@ -25,6 +27,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   /** This instance's ENR */
   private enr: SignableENR;
 
+  /** Version identifiers. */
+  private versions: ComponentsVersions;
+
   /** UDP listen addr */
   private listenMultiAddrUdp: Multiaddr;
 
@@ -37,7 +42,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   constructor(
     private peerId: PeerId,
-    config: P2PConfig,
+    private config: P2PConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
   ) {
@@ -47,7 +52,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
-    this.enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+    this.versions = setAztecEnrKey(this.enr, config);
 
     if (!tcpAnnounceAddress) {
       throw new Error('You need to provide at least a TCP announce address.');
@@ -95,20 +100,29 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       peerId: this.peerId,
       enrUdp: await this.enr.getFullMultiaddr('udp'),
       enrTcp: await this.enr.getFullMultiaddr('tcp'),
+      versions: this.versions,
     });
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
     if (this.bootstrapNodes?.length) {
       // Do this conversion once since it involves an async function call
-      this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodes.map(enr => ENR.decodeTxt(enr).peerId()));
-      this.logger.info(`Adding bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
-      try {
-        this.bootstrapNodes.forEach(enr => {
+      const bootstrapNodesEnrs = this.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
+      this.bootstrapNodePeerIds = await Promise.all(bootstrapNodesEnrs.map(enr => enr.peerId()));
+      this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
+      for (const enr of bootstrapNodesEnrs) {
+        try {
+          if (!this.config.skipBootstrapNodeEnrVersionCheck) {
+            const value = enr.kvs.get(AZTEC_ENR_KEY);
+            if (!value) {
+              throw new Error('ENR does not contain aztec key');
+            }
+            checkCompressedComponentVersion(Buffer.from(value).toString(), this.versions);
+          }
           this.discv5.addEnr(enr);
-        });
-      } catch (e) {
-        this.logger.error(`Error adding bootnode ENRs: ${e}`);
+        } catch (e) {
+          this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
+        }
       }
     }
   }
@@ -169,13 +183,23 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onDiscovered(enr: ENR) {
-    // check the peer is an aztec peer
+    // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (value) {
-      const network = value[0];
-      // check if the peer is on the same network
-      if (network === AZTEC_NET) {
+      const compressedVersion = Buffer.from(value).toString();
+      try {
+        // And check it has the correct version
+        checkCompressedComponentVersion(compressedVersion, this.versions);
         this.emit(PeerEvent.DISCOVERED, enr);
+      } catch (err: any) {
+        if (err.name === 'ComponentsVersionsError') {
+          this.logger.info(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
+            compressedVersion,
+            expected: this.versions,
+          });
+        } else {
+          this.logger.error(`Error checking peer version: ${err.message}`);
+        }
       }
     }
   }

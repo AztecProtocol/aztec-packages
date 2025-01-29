@@ -1,3 +1,4 @@
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -13,7 +14,7 @@ import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqr
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig {
+export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /**
    * A flag dictating whether the P2P subsystem should be enabled.
    */
@@ -68,6 +69,9 @@ export interface P2PConfig extends P2PReqRespConfig {
    * A list of bootstrap peers to connect to.
    */
   bootstrapNodes: string[];
+
+  /** Whether to skip the version check in the bootstrap node ENR. */
+  skipBootstrapNodeEnrVersionCheck: boolean;
 
   /**
    * Protocol identifier for transaction gossiping.
@@ -150,11 +154,6 @@ export interface P2PConfig extends P2PReqRespConfig {
    */
   peerPenaltyValues: number[];
 
-  /**
-   * The chain id of the L1 chain.
-   */
-  l1ChainId: number;
-
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
 }
@@ -208,6 +207,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'BOOTSTRAP_NODES',
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
+  },
+  skipBootstrapNodeEnrVersionCheck: {
+    env: 'P2P_SKIP_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
+    description: 'Whether to skip the version check in the bootstrap node ENR.',
+    defaultValue: false,
   },
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',
@@ -298,11 +302,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },
-  l1ChainId: {
-    env: 'L1_CHAIN_ID',
-    description: 'The chain id of the L1 chain.',
-    ...numberConfigHelper(31337),
-  },
   blockRequestBatchSize: {
     env: 'P2P_BLOCK_REQUEST_BATCH_SIZE',
     description: 'The number of blocks to fetch in a single batch.',
@@ -315,6 +314,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...numberConfigHelper(0),
   },
   ...p2pReqRespConfigMappings,
+  ...chainConfigMappings,
 };
 
 /**
@@ -337,7 +337,8 @@ export type BootnodeConfig = Pick<
   'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
 > &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
-  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
+  ChainConfig;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',

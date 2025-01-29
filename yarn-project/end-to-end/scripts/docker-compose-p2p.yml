@@ -40,6 +40,7 @@ services:
       P2P_TCP_LISTEN_ADDR: '0.0.0.0:40400'
       P2P_NAT_ENABLED: 'false'
       P2P_ENABLED: 'true'
+      P2P_SKIP_BOOTSTRAP_NODE_ENR_VERSION_CHECK: 'true'
       BOOTSTRAP_NODES: '/ip4/p2p-bootstrap/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
     entrypoint: >
       sh -c '
