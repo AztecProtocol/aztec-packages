@@ -195,7 +195,7 @@ build:
           -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
   # Install playwright for browser testing.
-  RUN npx -y playwright@1.50 install --with-deps
+  RUN npx -y playwright@1.50.0 install --with-deps
 
   ARG TARGETARCH
   # NOTE: bump this version when doing non-backwards compatible changes
