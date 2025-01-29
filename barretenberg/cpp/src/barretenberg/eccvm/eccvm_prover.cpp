@@ -47,29 +47,20 @@ void ECCVMProver::execute_wire_commitments_round()
 {
     // 1. Record the start time
     auto start_time = std::chrono::high_resolution_clock::now();
-    info("real size? ", key->real_eccvm_circuit_size);
-    // 2. Execute operations
-    // auto wire_polys = key->polynomials.get_wires();
-    // // auto labels = commitment_labels.get_wires();
+    info("eccvm size?", key->real_eccvm_circuit_size);
     std::vector<size_t> real_sizes;
     real_sizes.reserve(key->polynomials.get_wires().size());
     size_t counter = 0;
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
-        // Initialize real_size to the full size of the wire
-        size_t real_size = wire.size();
-
-        // Traverse the wire from the end to find the first non-zero element
-        while (real_size > 0 && wire.at(real_size - 1) == FF(0)) {
-            real_size--;
-        }
-        info(counter, "  ", real_size);
         // Optionally store the real_size
-        real_sizes.push_back(real_size);
         if ((counter == 62) || (counter == 63)) {
+
             transcript->send_to_verifier(label, key->commitment_key->commit(wire));
         } else {
-            transcript->send_to_verifier(label, key->commitment_key->commit(wire, 4096));
+            PolynomialSpan<FF> wire_span = wire;
+            transcript->send_to_verifier(
+                label, key->commitment_key->commit(wire_span.subspan(0, key->real_eccvm_circuit_size)));
         }
         counter++;
     }

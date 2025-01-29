@@ -86,11 +86,11 @@ template <class Curve> class CommitmentKey {
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(PolynomialSpan<const Fr> polynomial, const size_t real_size = 0)
+    Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
-        size_t dyadic_poly_size = (real_size == 0) ? numeric::round_up_power_2(polynomial.size()) : real_size;
+        size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
         ASSERT(dyadic_poly_size <= dyadic_size && "Polynomial size exceeds commitment key size.");
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
         // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that

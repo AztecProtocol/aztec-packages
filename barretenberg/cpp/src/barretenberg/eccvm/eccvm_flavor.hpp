@@ -518,8 +518,7 @@ class ECCVMFlavor {
             const size_t num_rows =
                 std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
-            const size_t dyadic_num_rows =
-                std::max(1UL << CONST_ECCVM_LOG_N, 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1)));
+            const size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -689,10 +688,9 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         ProvingKey(const CircuitBuilder& builder)
-            : Base(std::max(1UL << CONST_ECCVM_LOG_N,
-                            builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates())),
-                   0)
+            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
             , real_eccvm_circuit_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+
             , polynomials(builder)
         {}
     };

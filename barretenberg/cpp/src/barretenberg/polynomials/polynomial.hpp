@@ -36,13 +36,15 @@ template <typename Fr> struct PolynomialSpan {
         ASSERT(index >= start_index && index < end_index());
         return span[index - start_index];
     }
-    PolynomialSpan subspan(size_t offset)
+    PolynomialSpan subspan(size_t offset, size_t length)
     {
         if (offset > span.size()) { // Return a null span
             return { 0, span.subspan(span.size()) };
         }
-        return { start_index + offset, span.subspan(offset) };
+        size_t new_length = std::min(length, span.size() - offset);
+        return { start_index + offset, span.subspan(offset, new_length) };
     }
+    operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
 /**
