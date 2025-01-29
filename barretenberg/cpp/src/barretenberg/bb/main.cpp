@@ -1209,13 +1209,14 @@ int main(int argc, char* argv[])
         const API::Flags flags = [&args]() {
             return API::Flags{
                 .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false"),
-                .ipa_accumulation = get_option(args, "--ipa_accumulation", "true"),
+                .ipa_accumulation = get_option(args, "--ipa_accumulation", "false"),
                 .oracle_hash = get_option(args, "--oracle_hash", "poseidon2"),
                 .output_type = get_option(args, "--output_type", "fields_msgpack"),
                 .input_type = get_option(args, "--input_type", "compiletime_stack"),
             };
         }();
 
+        // trigger build
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
             info(flags);
             if (command == "prove") {
