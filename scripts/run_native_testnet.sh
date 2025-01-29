@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
 : '
 This script sets up and runs a native testnet for the Aztec network.

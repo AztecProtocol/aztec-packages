@@ -1,0 +1,18 @@
+#!/bin/bash
+set -eu
+name=docker-isolate-$(hash_str "$*")
+[ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
+trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
+docker rm -f $name &>/dev/null || true
+# TODO: possibly compute --cpus and --memory flags
+docker run --rm \
+  ${name_arg:-} \
+  ${DOCKER_FLAGS:-} \
+  -v$(git rev-parse --show-toplevel):/app/aztec-packages \
+  --user $(id -u):$(id -g) \
+  -v$HOME/.bb-crs:/root/.bb-crs \
+  --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
+  --workdir /app/aztec-packages \
+  -e FORCE_COLOR=true \
+  aztecprotocol/build:3.0 \
+  $@
