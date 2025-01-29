@@ -168,7 +168,7 @@ export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtil
 
 export interface L1TxRequest {
   to: Address | null;
-  data: Hex;
+  data?: Hex;
   value?: bigint;
 }
 
@@ -273,6 +273,7 @@ export class L1TxUtils {
     params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
     _blobInputs?: L1BlobInputs,
+    isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
@@ -413,22 +414,24 @@ export class L1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    // Fire cancellation without awaiting to avoid blocking the main thread
-    this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
-      .then(cancelTxHash => {
-        this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
-      })
-      .catch(err => {
-        const viemError = formatViemError(err);
-        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
-          metaMessages: viemError.metaMessages,
+    if (!isCancelTx) {
+      // Fire cancellation without awaiting to avoid blocking the main thread
+      this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
+        .then(cancelTxHash => {
+          this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+        })
+        .catch(err => {
+          const viemError = formatViemError(err);
+          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+            metaMessages: viemError.metaMessages,
+          });
         });
-      });
 
-    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
-      txHash: currentTxHash,
-      ...tx,
-    });
+      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+        txHash: currentTxHash,
+        ...tx,
+      });
+    }
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
@@ -685,33 +688,56 @@ export class L1TxUtils {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
+    const request = {
+      to: account.address,
+      value: 0n,
+    };
 
     // Send 0-value tx to self with higher gas price
     if (!isBlobTx) {
       const cancelTxHash = await this.walletClient.sendTransaction({
-        to: account.address,
-        value: 0n,
+        ...request,
         nonce,
         gas: 21_000n, // Standard ETH transfer gas
         maxFeePerGas: cancelGasPrice.maxFeePerGas,
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
       });
-      return cancelTxHash;
+      const receipt = await this.monitorTransaction(
+        request,
+        cancelTxHash,
+        { gasLimit: 21_000n },
+        undefined,
+        undefined,
+        true,
+      );
+
+      return receipt.transactionHash;
     } else {
       const blobData = new Uint8Array(131072).fill(0);
       const kzg = Blob.getViemKzgInstance();
+      const blobInputs = {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
+      };
       const cancelTxHash = await this.walletClient.sendTransaction({
-        to: account.address,
-        value: 0n,
+        ...request,
+        ...blobInputs,
         nonce,
         gas: 21_000n,
         maxFeePerGas: cancelGasPrice.maxFeePerGas,
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
-        blobs: [blobData],
-        kzg,
       });
-      return cancelTxHash;
+      const receipt = await this.monitorTransaction(
+        request,
+        cancelTxHash,
+        { gasLimit: 21_000n },
+        undefined,
+        blobInputs,
+        true,
+      );
+
+      return receipt.transactionHash;
     }
   }
 }
