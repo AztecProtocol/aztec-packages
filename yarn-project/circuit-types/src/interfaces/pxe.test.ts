@@ -71,7 +71,8 @@ describe('PXESchema', () => {
     address = await AztecAddress.random();
     instance = {
       version: 1,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),

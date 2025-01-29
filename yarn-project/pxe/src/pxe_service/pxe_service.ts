@@ -230,9 +230,9 @@ export class PXEService implements PXE {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = getContractClassFromArtifact(artifact);
       const contractClassId = computeContractClassId(contractClass);
-      if (!contractClassId.equals(instance.contractClassId)) {
+      if (!contractClassId.equals(instance.currentContractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
@@ -251,17 +251,17 @@ export class PXEService implements PXE {
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      artifact = await this.db.getContractArtifact(instance.currentContractClassId);
       if (!artifact) {
         throw new Error(
-          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+          `Missing contract artifact for class id ${instance.currentContractClassId} for contract ${instance.address}`,
         );
       }
     }
 
     await this.db.addContractInstance(instance);
     this.log.info(
-      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.contractClassId}`,
+      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
     );
   }
 
@@ -281,7 +281,7 @@ export class PXEService implements PXE {
 
     // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
     await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
-    currentInstance.contractClassId = contractClass.id;
+    currentInstance.currentContractClassId = contractClass.id;
     await this.db.addContractInstance(currentInstance);
     this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
   }

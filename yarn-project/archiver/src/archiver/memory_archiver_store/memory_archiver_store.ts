@@ -127,9 +127,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const lastUpdate = updates[0];
       const currentBlockNumber = this.getLastBlockNumber();
       if (currentBlockNumber >= lastUpdate.blockOfChange) {
-        instance.contractClassId = lastUpdate.newContractClassId;
+        instance.currentContractClassId = lastUpdate.newContractClassId;
       } else if (!lastUpdate.prevContractClassId.isZero()) {
-        instance.contractClassId = lastUpdate.prevContractClassId;
+        instance.currentContractClassId = lastUpdate.prevContractClassId;
+      } else {
+        instance.currentContractClassId = instance.originalContractClassId;
       }
     }
     return Promise.resolve(instance);

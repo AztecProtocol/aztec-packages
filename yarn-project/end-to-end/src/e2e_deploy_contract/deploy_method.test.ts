@@ -50,7 +50,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
-    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.contractClassId)).toBeTrue();
+    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.currentContractClassId)).toBeTrue();
   });
 
   // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished

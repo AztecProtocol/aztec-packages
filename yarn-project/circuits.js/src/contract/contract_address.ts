@@ -22,7 +22,7 @@ import { type ContractInstance } from './interfaces/contract_instance.js';
 export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
+    | ({ originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): Promise<AztecAddress> {
   const partialAddress = computePartialAddress(instance);
   return computeAddress(instance.publicKeys, partialAddress);
@@ -34,8 +34,8 @@ export function computeContractAddressFromInstance(
  */
 export function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'deployer'>
-    | { contractClassId: Fr; saltedInitializationHash: Fr },
+    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer'>
+    | { originalContractClassId: Fr; saltedInitializationHash: Fr },
 ): Fr {
   const saltedInitializationHash =
     'saltedInitializationHash' in instance
@@ -43,7 +43,7 @@ export function computePartialAddress(
       : computeSaltedInitializationHash(instance);
 
   return poseidon2HashWithSeparator(
-    [instance.contractClassId, saltedInitializationHash],
+    [instance.originalContractClassId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
 }

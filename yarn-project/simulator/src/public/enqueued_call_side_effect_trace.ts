@@ -384,7 +384,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         exists,
         instance.salt,
         instance.deployer,
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         instance.publicKeys,
         membershipHint,
@@ -425,7 +425,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       exists,
       contractInstance.salt,
       contractInstance.deployer,
-      contractInstance.contractClassId,
+      contractInstance.currentContractClassId,
       contractInstance.initializationHash,
       contractInstance.publicKeys,
       membershipHint,
@@ -448,10 +448,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // Don't we still need to hint if the class ID already exists?
     // Because the circuit needs to prove that the called contract address corresponds to the class ID.
     // To do so, the circuit needs to know the class ID in the
-    if (this.gotBytecodeFromClassIds.has(contractInstance.contractClassId.toString())) {
+    if (this.gotBytecodeFromClassIds.has(contractInstance.currentContractClassId.toString())) {
       // this ensures there are no duplicates
       this.log.debug(
-        `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
+        `Contract class id ${contractInstance.currentContractClassId.toString()} already exists in previous hints`,
       );
       return;
     }
@@ -465,7 +465,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
     if (this.gotBytecodeFromClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
       this.log.debug(
-        `Bytecode retrieval failure for contract class ID ${contractInstance.contractClassId.toString()} (limit reached)`,
+        `Bytecode retrieval failure for contract class ID ${contractInstance.currentContractClassId.toString()} (limit reached)`,
       );
       throw new SideEffectLimitReachedError(
         'contract calls to unique class IDs',
@@ -475,12 +475,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
     this.log.debug(`Tracing bytecode & contract class for bytecode retrieval: class=${jsonStringify(contractClass)}`);
     this.avmCircuitHints.contractBytecodeHints.set(
-      contractInstance.contractClassId.toString(),
+      contractInstance.currentContractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
     // After adding the bytecode hint, mark the classId as retrieved to avoid duplication.
     // The above map alone isn't sufficient because we need to check the parent trace's (and its parent) as well.
-    this.gotBytecodeFromClassIds.add(contractInstance.contractClassId.toString());
+    this.gotBytecodeFromClassIds.add(contractInstance.currentContractClassId.toString());
   }
 
   /**

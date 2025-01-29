@@ -90,7 +90,11 @@ export class ContractInstanceStore {
     }
 
     const instance = SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
-    instance.contractClassId = this.getCurrentContractInstanceClassId(address, blockNumber, instance.contractClassId);
+    instance.currentContractClassId = this.getCurrentContractInstanceClassId(
+      address,
+      blockNumber,
+      instance.originalContractClassId,
+    );
     return instance;
   }
 }

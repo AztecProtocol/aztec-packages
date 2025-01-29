@@ -171,6 +171,6 @@ export class ContractDataOracle {
    */
   private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
     const instance = await this.getContractInstance(contractAddress);
-    return this.getTreeForClassId(instance.contractClassId);
+    return this.getTreeForClassId(instance.currentContractClassId);
   }
 }

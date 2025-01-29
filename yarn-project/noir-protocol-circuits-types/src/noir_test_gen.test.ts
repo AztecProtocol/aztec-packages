@@ -56,7 +56,14 @@ describe('Data generation for noir tests', () => {
     const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
       computeContractClassIdPreimage(contractClass);
     const deployer = AztecAddress.ZERO;
-    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
+    const instance: ContractInstance = {
+      ...contract,
+      version: 1,
+      initializationHash,
+      currentContractClassId: contractClassId,
+      originalContractClassId: contractClassId,
+      deployer,
+    };
     const address = await computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);
     const partialAddress = computePartialAddress(instance);

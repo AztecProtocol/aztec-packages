@@ -554,7 +554,7 @@ describe('Simulator oracle', () => {
       const contractArtifact = randomContractArtifact();
       contractArtifact.functions = [processLogFuncArtifact];
       await database.addContractInstance(contractInstance);
-      await database.addContractArtifact(contractInstance.contractClassId, contractArtifact);
+      await database.addContractArtifact(contractInstance.currentContractClassId, contractArtifact);
       contractAddress = contractInstance.address;
 
       addNotesSpy = jest.spyOn(database, 'addNotes');

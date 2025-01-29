@@ -213,7 +213,10 @@ export const randomContractInstanceWithAddress = async (
   opts: { contractClassId?: Fr } = {},
   address?: AztecAddress,
 ): Promise<ContractInstanceWithAddress> => {
-  const instance = await SerializableContractInstance.random(opts);
+  const instance = await SerializableContractInstance.random({
+    currentContractClassId: opts.contractClassId,
+    originalContractClassId: opts.contractClassId,
+  });
   return instance.withAddress(address ?? (await computeContractAddressFromInstance(instance)));
 };
 

@@ -133,7 +133,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -430,7 +430,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -655,7 +655,7 @@ export class TXEService {
   async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(addressFromSingle(address));
     return toForeignCallResult([
-      toSingle(instance.contractClassId),
+      toSingle(instance.currentContractClassId),
       // AVM requires an extra boolean indicating the instance was found
       toSingle(new Fr(1)),
     ]);

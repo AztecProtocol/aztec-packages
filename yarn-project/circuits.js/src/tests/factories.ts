@@ -1343,7 +1343,8 @@ export async function makeContractInstanceFromClassId(classId: Fr, seed = 0): Pr
     version: 1,
     salt,
     deployer,
-    contractClassId: classId,
+    currentContractClassId: classId,
+    originalContractClassId: classId,
     initializationHash,
     publicKeys,
   }).withAddress(address);
@@ -1358,7 +1359,7 @@ export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecod
     true,
     instance.salt,
     instance.deployer,
-    instance.contractClassId,
+    instance.currentContractClassId,
     instance.initializationHash,
     instance.publicKeys,
     makeAvmNullifierReadTreeHints(seed + 0x2000),

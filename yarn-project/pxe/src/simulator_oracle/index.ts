@@ -141,7 +141,7 @@ export class SimulatorOracle implements DBOracle {
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 

@@ -368,7 +368,8 @@ class MockArchiver implements ArchiverApi {
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return {
       address,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),

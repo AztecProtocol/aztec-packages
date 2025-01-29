@@ -630,17 +630,17 @@ export class AvmPersistableStateManager {
 
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
-      const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
-      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.contractClassId);
+      const contractClass = await this.worldStateDB.getContractClass(instance.currentContractClassId);
+      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.currentContractClassId);
 
       assert(
         contractClass,
-        `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
+        `Contract class not found in DB, but a contract instance was found with this class ID (${instance.currentContractClassId}). This should not happen!`,
       );
 
       assert(
         bytecodeCommitment,
-        `Bytecode commitment was not found in DB for contract class (${instance.contractClassId}). This should not happen!`,
+        `Bytecode commitment was not found in DB for contract class (${instance.currentContractClassId}). This should not happen!`,
       );
 
       const contractClassPreimage = {

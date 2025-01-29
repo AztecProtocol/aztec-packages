@@ -44,7 +44,8 @@ export class KernelOracle implements ProvingDataOracle {
     const instance = await this.contractDataOracle.getContractInstance(address);
     return {
       saltedInitializationHash: computeSaltedInitializationHash(instance),
-      ...instance,
+      publicKeys: instance.publicKeys,
+      contractClassId: instance.originalContractClassId,
     };
   }
 

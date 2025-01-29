@@ -683,9 +683,11 @@ export class Archiver implements ArchiveSource, Traceable {
     if (!instance) {
       throw new Error(`Contract ${address.toString()} not found`);
     }
-    const contractClass = await this.getContractClass(instance.contractClassId);
+    const contractClass = await this.getContractClass(instance.currentContractClassId);
     if (!contractClass) {
-      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+      throw new Error(
+        `Contract class ${instance.currentContractClassId.toString()} for ${address.toString()} not found`,
+      );
     }
     return contractClass.publicFunctions.find(f => f.selector.equals(selector));
   }

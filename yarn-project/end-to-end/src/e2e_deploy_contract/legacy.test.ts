@@ -115,6 +115,6 @@ describe('e2e_deploy_contract legacy', () => {
 
     // But the bad tx did not deploy
     const badInstance = await badDeploy.getInstance();
-    await expect(pxe.isContractClassPubliclyRegistered(badInstance.contractClassId)).resolves.toBeFalsy();
+    await expect(pxe.isContractClassPubliclyRegistered(badInstance.currentContractClassId)).resolves.toBeFalsy();
   });
 });

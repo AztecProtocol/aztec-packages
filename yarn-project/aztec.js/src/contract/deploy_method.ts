@@ -145,9 +145,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // Obtain contract class from artifact and check it matches the reported one by the instance.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
     const contractClass = getContractClassFromArtifact(this.artifact);
-    if (!instance.contractClassId.equals(contractClass.id)) {
+    if (!instance.currentContractClassId.equals(contractClass.id)) {
       throw new Error(
-        `Contract class mismatch when deploying contract: got ${instance.contractClassId.toString()} from instance and ${contractClass.id.toString()} from artifact`,
+        `Contract class mismatch when deploying contract: got ${instance.currentContractClassId.toString()} from instance and ${contractClass.id.toString()} from artifact`,
       );
     }
 

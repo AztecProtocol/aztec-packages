@@ -341,7 +341,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
       const differentAddr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1);
       const instanceWithSameClassId = await SerializableContractInstance.random({
-        contractClassId: firstInstance.contractClassId,
+        currentContractClassId: firstInstance.currentContractClassId,
       });
       // can re-trace different contract address if it has a duplicate class ID
       trace.traceGetBytecode(differentAddr, /*exists=*/ true, bytecode, instanceWithSameClassId);

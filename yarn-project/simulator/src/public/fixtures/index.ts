@@ -293,7 +293,7 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
     }
     // a contract with the same class but different instance/address as the first contract
     dataSource.instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-      dataSource.firstContractInstance.contractClassId,
+      dataSource.firstContractInstance.currentContractClassId,
       /*seed=*/ 1000,
     );
 
@@ -303,7 +303,8 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
       version: 1,
       salt: new Fr(0x123),
       deployer: new AztecAddress(new Fr(0x456)),
-      contractClassId: new Fr(0x789),
+      currentContractClassId: new Fr(0x789),
+      originalContractClassId: new Fr(0x789),
       initializationHash: new Fr(0x101112),
       publicKeys: new PublicKeys(
         new Point(new Fr(0x131415), new Fr(0x161718), false),
