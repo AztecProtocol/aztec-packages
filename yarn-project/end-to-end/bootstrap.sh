@@ -9,7 +9,7 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
 
-  if [ "${MASTER:-0}" -eq 1 ]; then
+  if [ "${REF_NAME:-}" == "master" ]; then
     # Only executed on master due to being so heavy.
     # Needs fixing.
     # echo "$prefix $run_test_script simple e2e_prover/full"

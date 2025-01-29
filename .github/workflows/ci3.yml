@@ -21,18 +21,26 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # Build for both architectures, but arm is only on master.
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+          - arch: arm64
+            master_only: true
     if: >
       (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow') &&
+      (matrix.master_only != true || github.ref == 'refs/heads/master')
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # Ensure it is not an artificial merge commit
+          # Ensure we checkout our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup
         run: |
-          # Ensure we can SSH into the spot instances we request
+          # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
@@ -40,15 +48,10 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ARCH: ${{ matrix.arch }}
+          LOG_ID: ${{ github.run_id }}
         run: |
-          export LOG_ID=${{ github.run_id }}
-          export BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}
-          [ "${{ github.ref_name }}" == "master" ] && export MASTER=1 || export MASTER=0
           ./ci.sh ec2
-      - name: Deploy
-        if: startsWith(github.ref, 'refs/tags/v') && github.ref =~ 'refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+'
-        run: |
-          ./ci.sh deploy "${GITHUB_REF#refs/tags/}"
       # TODO: We will need to extract the result from the remote container before termination.
       # Also only on master?
       # - name: Store benchmark result

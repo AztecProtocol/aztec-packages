@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 export preset=clang16-assert
 export pic_preset="clang16-pic"
@@ -17,7 +18,10 @@ function build_native {
     cmake --build --preset $preset
     cache_upload barretenberg-release-$hash.tar.gz build/bin
   fi
+}
 
+function build_world_state_napi {
+  set -eu
   (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-release-world-state-$hash.tar.gz; then
     rm -f build-pic/CMakeCache.txt
@@ -27,17 +31,31 @@ function build_native {
   fi
 }
 
+function build_darwin {
+  local arch=${1:-$(arch)}
+  if ! cache_download barretenberg-darwin-$hash.tar.gz; then
+    # Download sdk.
+    local osx_sdk="MacOSX14.0.sdk"
+    if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
+      echo "Downloading $osx_sdk..."
+      local osx_sdk_url="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${osx_sdk}.tar.xz"
+      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK && sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
+    fi
+
+    rm -f build-darwin-$arch/CMakeCache.txt
+    cmake --preset darwin-$arch && cmake --build --preset darwin-$arch --target bb
+    cache_upload barretenberg-darwin-$hash.tar.gz build-darwin-$arch/bin
+  fi
+}
+
 # Build single threaded wasm. Needed when no shared mem available.
 function build_wasm {
   set -eu
   if ! cache_download barretenberg-wasm-$hash.tar.gz; then
     rm -f build-wasm/CMakeCache.txt
-    cmake --preset wasm
-    cmake --build --preset wasm
-    /opt/wasi-sdk/bin/llvm-strip ./build-wasm/bin/barretenberg.wasm
+    cmake --preset wasm && cmake --build --preset wasm
     cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
   fi
-  (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 # Build multi-threaded wasm. Requires shared memory.
@@ -45,12 +63,9 @@ function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
     rm -f build-wasm-threads/CMakeCache.txt
-    cmake --preset wasm-threads
-    cmake --build --preset wasm-threads
-    /opt/wasi-sdk/bin/llvm-strip ./build-wasm-threads/bin/barretenberg.wasm
+    cmake --preset wasm-threads && cmake --build --preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
   fi
-  (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
 # Download ignition transcripts. Only needed for tests.
@@ -60,11 +75,25 @@ function download_old_crs {
   cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh
 }
 
-export -f build_native build_wasm build_wasm_threads download_old_crs
+function build_release {
+  rm -rf build-release
+  mkdir build-release
+  local arch=$(arch)
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
+  tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
+  tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
+  tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
+  tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
+  tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+}
+
+export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads download_old_crs
 
 function build {
   echo_header "bb cpp build"
-  parallel --line-buffered --tag denoise {} ::: build_native build_wasm build_wasm_threads download_old_crs
+  parallel --line-buffered --tag denoise {} ::: \
+    build_native build_world_state_napi build_wasm build_wasm_threads build_darwin download_old_crs
+  build_release
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -100,7 +129,8 @@ function build_benchmarks {
   fi
 }
 
-function benchmark {
+function bench {
+  echo_header "bb bench"
   build_benchmarks
 
   export HARDWARE_CONCURRENCY=16
@@ -147,6 +177,12 @@ function benchmark {
     > ./bench-out/bench.json
 }
 
+# Upload assets to release.
+function release {
+  echo_header "bb cpp release"
+  gh release upload $REF_NAME build-release/* --clobber
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -173,8 +209,8 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
-  "bench")
-    benchmark
+  bench|release|build_native|build_wasm|build_wasm_threads|build_darwin|build_release)
+    $cmd $@
     ;;
   *)
     echo "Unknown command: $cmd"

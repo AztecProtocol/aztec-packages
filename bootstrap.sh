@@ -152,9 +152,24 @@ function build {
     aztec-up
   )
 
-  # Build projects.
   for project in "${projects[@]}"; do
     $project/bootstrap.sh ${1:-}
+  done
+}
+
+function release {
+  projects=(
+    barretenberg/cpp
+    barretenberg/ts
+    # Should publish at least one of our boxes to it's own repo.
+    #boxes
+    aztec-up
+    docs
+    release-image
+  )
+
+  for project in "${projects[@]}"; do
+    $project/bootstrap.sh release
   done
 }
 
@@ -182,95 +197,6 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
-  "image-aztec")
-    image=aztecprotocol/aztec:$(git rev-parse HEAD)
-    check_arch=false
-    version="0.1.0"
-
-    # Check for --check-arch flag in args
-    for arg in "$@"; do
-      if [ "$arg" = "--check-arch" ]; then
-        check_arch=true
-        break
-      fi
-      if [ "$arg" = "--version" ]; then
-        version=$2
-        shift 2
-      fi
-    done
-
-    docker pull $image &>/dev/null || true
-    if docker_has_image $image; then
-      if [ "$check_arch" = true ]; then
-        # Check we're on the correct architecture
-        image_arch=$(docker inspect $image --format '{{.Architecture}}')
-        host_arch=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
-
-        if [ "$image_arch" != "$host_arch" ]; then
-          echo "Warning: Image architecture ($image_arch) doesn't match host architecture ($host_arch)"
-          echo "Rebuilding image for correct architecture..."
-        else
-          echo "Image $image already exists and has been downloaded with correct architecture." && exit
-        fi
-      elif [ -n "$version" ]; then
-        echo "Image $image already exists and has been downloaded. Setting version to $version."
-      else
-        echo "Image $image already exists and has been downloaded." && exit
-      fi
-    else
-      echo "Image $image does not exist, building..."
-    fi
-    echo_header "image-aztec"
-    source $ci3/source_tmp
-    echo "earthly artifact build:"
-    scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
-    echo "docker image build:"
-    docker pull aztecprotocol/aztec-base:v1.0-$(arch)
-    docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
-
-    if [ "${CI:-0}" = 1 ]; then
-      docker push $image
-    fi
-  ;;
-  "_image-e2e")
-    image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
-    docker pull $image &>/dev/null || true
-    if docker_has_image $image; then
-      echo "Image $image already exists." && exit
-    fi
-    echo_header "image-e2e"
-    source $ci3/source_tmp
-    echo "earthly artifact build:"
-    scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
-    scripts/earthly-ci --artifact +bootstrap-end-to-end/anvil $TMP/anvil
-    echo "docker image build:"
-    docker pull aztecprotocol/end-to-end-base:v1.0-$(arch)
-    docker tag aztecprotocol/end-to-end-base:v1.0-$(arch) aztecprotocol/end-to-end-base:latest
-    docker build -f Dockerfile.end-to-end -t $image $TMP
-    if [ "${CI:-0}" = 1 ]; then
-      docker push $image
-    fi
-  ;;
-  "image-e2e")
-    parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
-  ;;
-  "image-faucet")
-    image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
-    if docker_has_image $image; then
-      echo "Image $image already exists." && exit
-    fi
-    echo_header "image-faucet"
-    source $ci3/source_tmp
-    mkdir -p $TMP/usr
-    echo "earthly artifact build:"
-    scripts/earthly-ci --artifact +bootstrap-faucet/usr/src $TMP/usr/src
-    echo "docker image build:"
-    docker build -f Dockerfile.aztec-faucet -t $image $TMP
-    if [ "${CI:-0}" = 1 ]; then
-      docker push $image
-    fi
-  ;;
   ""|"fast"|"full")
     build $cmd
   ;;
@@ -283,10 +209,14 @@ case "$cmd" in
   "ci")
     build
     test
+    release
+    ;;
+  "release")
+    release
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|check|fast|full|test-cmds|test|ci|release>"
     exit 1
   ;;
 esac
