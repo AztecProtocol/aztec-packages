@@ -16,3 +16,7 @@ variable "cluster_name" {
 variable "service_account" {
 
 }
+
+variable "node_version" {
+  default = "1.30.5-gke.1713000"
+}
