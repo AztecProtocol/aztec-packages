@@ -72,6 +72,8 @@ impl Function {
     ) -> HashSet<ValueId> {
         let mut context = Context { flattened, ..Default::default() };
 
+        context.mark_function_parameter_arrays_as_used(self);
+
         for call_data in &self.dfg.data_bus.call_data {
             context.mark_used_instruction_results(&self.dfg, call_data.array_id);
         }
@@ -115,6 +117,10 @@ struct Context {
     /// the flattening of the CFG, but if that's not the case then we should not eliminate
     /// them just yet.
     flattened: bool,
+
+    // When tracking mutations we consider arrays with the same type as all being possibly mutated.
+    // This we consider to span all blocks of the functions.
+    mutated_array_types: HashSet<Type>,
 }
 
 impl Context {
@@ -144,9 +150,10 @@ impl Context {
         let block = &function.dfg[block_id];
         self.mark_terminator_values_as_used(function, block);
 
-        let mut rc_tracker = RcTracker::default();
-        rc_tracker.mark_function_parameter_arrays_as_used(function);
-        //rc_tracker.mark_terminator_arrays_as_used(function, block);
+        // Lend the shared array type to the tracker.
+        let mut mutated_array_types = std::mem::take(&mut self.mutated_array_types);
+        let mut rc_tracker = RcTracker::new(&mut mutated_array_types);
+        rc_tracker.mark_terminator_arrays_as_used(function, block);
 
         let instructions_len = block.instructions().len();
 
@@ -204,6 +211,9 @@ impl Context {
             .instructions_mut()
             .retain(|instruction| !self.instructions_to_remove.contains(instruction));
 
+        // Take the mutated array back.
+        std::mem::swap(&mut self.mutated_array_types, &mut mutated_array_types);
+
         false
     }
 
@@ -241,6 +251,19 @@ impl Context {
             || dfg.is_global(value_id)
         {
             self.used_values.insert(value_id);
+        }
+    }
+
+    /// Mark any array parameters to the function itself as possibly mutated.
+    fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
+        for parameter in function.parameters() {
+            let typ = function.dfg.type_of_value(*parameter);
+            if typ.contains_an_array() {
+                let typ = typ.get_contained_array();
+                // Want to store the array type which is being referenced,
+                // because it's the underlying array that the `inc_rc` is associated with.
+                self.mutated_array_types.insert(typ.clone());
+            }
         }
     }
 
@@ -575,8 +598,8 @@ fn apply_side_effects(
     (lhs, rhs)
 }
 
-#[derive(Default)]
-struct RcTracker {
+/// Per block RC tracker.
+struct RcTracker<'a> {
     // We can track IncrementRc instructions per block to determine whether they are useless.
     // IncrementRc and DecrementRc instructions are normally side effectual instructions, but we remove
     // them if their value is not used anywhere in the function. However, even when their value is used, their existence
@@ -590,38 +613,33 @@ struct RcTracker {
     // We also separately track all IncrementRc instructions and all array types which have been mutably borrowed.
     // If an array is the same type as one of those non-mutated array types, we can safely remove all IncrementRc instructions on that array.
     inc_rcs: HashMap<ValueId, HashSet<InstructionId>>,
-    // When tracking mutations we consider arrays with the same type as all being possibly mutated.
-    mutated_array_types: HashSet<Type>,
     // The SSA often creates patterns where after simplifications we end up with repeat
     // IncrementRc instructions on the same value. We track whether the previous instruction was an IncrementRc,
     // and if the current instruction is also an IncrementRc on the same value we remove the current instruction.
     // `None` if the previous instruction was anything other than an IncrementRc
     previous_inc_rc: Option<ValueId>,
+    // Mutated arrays shared across the blocks of the function.
+    mutated_array_types: &'a mut HashSet<Type>,
 }
 
-impl RcTracker {
-    // TODO: This causes a failure with the private-kernel-init-simualted circuit; see:
-    // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2621586869
-    // fn mark_terminator_arrays_as_used(&mut self, function: &Function, block: &BasicBlock) {
-    //     block.unwrap_terminator().for_each_value(|value| {
-    //         let typ = function.dfg.type_of_value(value);
-    //         if matches!(&typ, Type::Array(_, _) | Type::Slice(_)) {
-    //             self.mutated_array_types.insert(typ);
-    //         }
-    //     });
-    // }
-
-    /// Mark any array parameters to the function itself as possibly mutated.
-    fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
-        for parameter in function.parameters() {
-            let typ = function.dfg.type_of_value(*parameter);
-            if typ.contains_an_array() {
-                let typ = typ.get_contained_array();
-                // Want to store the array type which is being referenced,
-                // because it's the underlying array that the `inc_rc` is associated with.
-                self.mutated_array_types.insert(typ.clone());
-            }
+impl<'a> RcTracker<'a> {
+    fn new(mutated_array_types: &'a mut HashSet<Type>) -> Self {
+        Self {
+            rcs_with_possible_pairs: Default::default(),
+            rc_pairs_to_remove: Default::default(),
+            inc_rcs: Default::default(),
+            previous_inc_rc: Default::default(),
+            mutated_array_types,
         }
+    }
+
+    fn mark_terminator_arrays_as_used(&mut self, function: &Function, block: &BasicBlock) {
+        block.unwrap_terminator().for_each_value(|value| {
+            let typ = function.dfg.type_of_value(value);
+            if matches!(&typ, Type::Array(_, _) | Type::Slice(_)) {
+                self.mutated_array_types.insert(typ);
+            }
+        });
     }
 
     fn track_inc_rcs_to_remove(&mut self, instruction_id: InstructionId, function: &Function) {
