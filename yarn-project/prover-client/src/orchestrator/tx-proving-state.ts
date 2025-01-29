@@ -110,7 +110,7 @@ export class TxProvingState {
     );
 
     const avmProofData = new AvmProofData(
-      this.processedTx.avmProvingRequest.inputs.output,
+      this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
       await this.#getAvmVkData(),
     );
