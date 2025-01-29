@@ -24,87 +24,87 @@ class perm_main_alu_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_alu == 1 || in.alu_sel_alu == 1);
+        return (in._main_sel_alu() == 1 || in._alu_sel_alu() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_alu_inv,
-                                     in.main_sel_alu,
-                                     in.main_sel_alu,
-                                     in.alu_sel_alu,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_sel_op_add,
-                                     in.main_sel_op_sub,
-                                     in.main_sel_op_mul,
-                                     in.main_sel_op_div,
-                                     in.main_sel_op_eq,
-                                     in.main_sel_op_not,
-                                     in.main_sel_op_cast,
-                                     in.main_sel_op_lt,
-                                     in.main_sel_op_lte,
-                                     in.main_sel_op_shr,
-                                     in.main_sel_op_shl,
-                                     in.main_alu_in_tag,
-                                     in.alu_clk,
-                                     in.alu_ia,
-                                     in.alu_ib,
-                                     in.alu_ic,
-                                     in.alu_op_add,
-                                     in.alu_op_sub,
-                                     in.alu_op_mul,
-                                     in.alu_op_div,
-                                     in.alu_op_eq,
-                                     in.alu_op_not,
-                                     in.alu_op_cast,
-                                     in.alu_op_lt,
-                                     in.alu_op_lte,
-                                     in.alu_op_shr,
-                                     in.alu_op_shl,
-                                     in.alu_in_tag);
+        return std::forward_as_tuple(in._perm_main_alu_inv(),
+                                     in._main_sel_alu(),
+                                     in._main_sel_alu(),
+                                     in._alu_sel_alu(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_sel_op_add(),
+                                     in._main_sel_op_sub(),
+                                     in._main_sel_op_mul(),
+                                     in._main_sel_op_div(),
+                                     in._main_sel_op_eq(),
+                                     in._main_sel_op_not(),
+                                     in._main_sel_op_cast(),
+                                     in._main_sel_op_lt(),
+                                     in._main_sel_op_lte(),
+                                     in._main_sel_op_shr(),
+                                     in._main_sel_op_shl(),
+                                     in._main_alu_in_tag(),
+                                     in._alu_clk(),
+                                     in._alu_ia(),
+                                     in._alu_ib(),
+                                     in._alu_ic(),
+                                     in._alu_op_add(),
+                                     in._alu_op_sub(),
+                                     in._alu_op_mul(),
+                                     in._alu_op_div(),
+                                     in._alu_op_eq(),
+                                     in._alu_op_not(),
+                                     in._alu_op_cast(),
+                                     in._alu_op_lt(),
+                                     in._alu_op_lte(),
+                                     in._alu_op_shr(),
+                                     in._alu_op_shl(),
+                                     in._alu_in_tag());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_alu_inv,
-                                     in.main_sel_alu,
-                                     in.main_sel_alu,
-                                     in.alu_sel_alu,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_sel_op_add,
-                                     in.main_sel_op_sub,
-                                     in.main_sel_op_mul,
-                                     in.main_sel_op_div,
-                                     in.main_sel_op_eq,
-                                     in.main_sel_op_not,
-                                     in.main_sel_op_cast,
-                                     in.main_sel_op_lt,
-                                     in.main_sel_op_lte,
-                                     in.main_sel_op_shr,
-                                     in.main_sel_op_shl,
-                                     in.main_alu_in_tag,
-                                     in.alu_clk,
-                                     in.alu_ia,
-                                     in.alu_ib,
-                                     in.alu_ic,
-                                     in.alu_op_add,
-                                     in.alu_op_sub,
-                                     in.alu_op_mul,
-                                     in.alu_op_div,
-                                     in.alu_op_eq,
-                                     in.alu_op_not,
-                                     in.alu_op_cast,
-                                     in.alu_op_lt,
-                                     in.alu_op_lte,
-                                     in.alu_op_shr,
-                                     in.alu_op_shl,
-                                     in.alu_in_tag);
+        return std::forward_as_tuple(in._perm_main_alu_inv(),
+                                     in._main_sel_alu(),
+                                     in._main_sel_alu(),
+                                     in._alu_sel_alu(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_sel_op_add(),
+                                     in._main_sel_op_sub(),
+                                     in._main_sel_op_mul(),
+                                     in._main_sel_op_div(),
+                                     in._main_sel_op_eq(),
+                                     in._main_sel_op_not(),
+                                     in._main_sel_op_cast(),
+                                     in._main_sel_op_lt(),
+                                     in._main_sel_op_lte(),
+                                     in._main_sel_op_shr(),
+                                     in._main_sel_op_shl(),
+                                     in._main_alu_in_tag(),
+                                     in._alu_clk(),
+                                     in._alu_ia(),
+                                     in._alu_ib(),
+                                     in._alu_ic(),
+                                     in._alu_op_add(),
+                                     in._alu_op_sub(),
+                                     in._alu_op_mul(),
+                                     in._alu_op_div(),
+                                     in._alu_op_eq(),
+                                     in._alu_op_not(),
+                                     in._alu_op_cast(),
+                                     in._alu_op_lt(),
+                                     in._alu_op_lte(),
+                                     in._alu_op_shr(),
+                                     in._alu_op_shl(),
+                                     in._alu_in_tag());
     }
 };
 
@@ -129,47 +129,47 @@ class perm_main_bin_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_bin == 1 || in.binary_start == 1);
+        return (in._main_sel_bin() == 1 || in._binary_start() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_bin_inv,
-                                     in.main_sel_bin,
-                                     in.main_sel_bin,
-                                     in.binary_start,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_bin_op_id,
-                                     in.main_r_in_tag,
-                                     in.binary_clk,
-                                     in.binary_acc_ia,
-                                     in.binary_acc_ib,
-                                     in.binary_acc_ic,
-                                     in.binary_op_id,
-                                     in.binary_in_tag);
+        return std::forward_as_tuple(in._perm_main_bin_inv(),
+                                     in._main_sel_bin(),
+                                     in._main_sel_bin(),
+                                     in._binary_start(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_bin_op_id(),
+                                     in._main_r_in_tag(),
+                                     in._binary_clk(),
+                                     in._binary_acc_ia(),
+                                     in._binary_acc_ib(),
+                                     in._binary_acc_ic(),
+                                     in._binary_op_id(),
+                                     in._binary_in_tag());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_bin_inv,
-                                     in.main_sel_bin,
-                                     in.main_sel_bin,
-                                     in.binary_start,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_bin_op_id,
-                                     in.main_r_in_tag,
-                                     in.binary_clk,
-                                     in.binary_acc_ia,
-                                     in.binary_acc_ib,
-                                     in.binary_acc_ic,
-                                     in.binary_op_id,
-                                     in.binary_in_tag);
+        return std::forward_as_tuple(in._perm_main_bin_inv(),
+                                     in._main_sel_bin(),
+                                     in._main_sel_bin(),
+                                     in._binary_start(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_bin_op_id(),
+                                     in._main_r_in_tag(),
+                                     in._binary_clk(),
+                                     in._binary_acc_ia(),
+                                     in._binary_acc_ib(),
+                                     in._binary_acc_ic(),
+                                     in._binary_op_id(),
+                                     in._binary_in_tag());
     }
 };
 
@@ -194,43 +194,43 @@ class perm_main_conv_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_op_radix_be == 1 || in.conversion_sel_to_radix_be == 1);
+        return (in._main_sel_op_radix_be() == 1 || in._conversion_sel_to_radix_be() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_conv_inv,
-                                     in.main_sel_op_radix_be,
-                                     in.main_sel_op_radix_be,
-                                     in.conversion_sel_to_radix_be,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_id,
-                                     in.conversion_clk,
-                                     in.conversion_input,
-                                     in.conversion_radix,
-                                     in.conversion_num_limbs,
-                                     in.conversion_output_bits);
+        return std::forward_as_tuple(in._perm_main_conv_inv(),
+                                     in._main_sel_op_radix_be(),
+                                     in._main_sel_op_radix_be(),
+                                     in._conversion_sel_to_radix_be(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_id(),
+                                     in._conversion_clk(),
+                                     in._conversion_input(),
+                                     in._conversion_radix(),
+                                     in._conversion_num_limbs(),
+                                     in._conversion_output_bits());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_conv_inv,
-                                     in.main_sel_op_radix_be,
-                                     in.main_sel_op_radix_be,
-                                     in.conversion_sel_to_radix_be,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.main_id,
-                                     in.conversion_clk,
-                                     in.conversion_input,
-                                     in.conversion_radix,
-                                     in.conversion_num_limbs,
-                                     in.conversion_output_bits);
+        return std::forward_as_tuple(in._perm_main_conv_inv(),
+                                     in._main_sel_op_radix_be(),
+                                     in._main_sel_op_radix_be(),
+                                     in._conversion_sel_to_radix_be(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._main_id(),
+                                     in._conversion_clk(),
+                                     in._conversion_input(),
+                                     in._conversion_radix(),
+                                     in._conversion_num_limbs(),
+                                     in._conversion_output_bits());
     }
 };
 
@@ -255,39 +255,39 @@ class perm_main_sha256_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_op_sha256 == 1 || in.sha256_sel_sha256_compression == 1);
+        return (in._main_sel_op_sha256() == 1 || in._sha256_sel_sha256_compression() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_sha256_inv,
-                                     in.main_sel_op_sha256,
-                                     in.main_sel_op_sha256,
-                                     in.sha256_sel_sha256_compression,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.sha256_clk,
-                                     in.sha256_state,
-                                     in.sha256_input,
-                                     in.sha256_output);
+        return std::forward_as_tuple(in._perm_main_sha256_inv(),
+                                     in._main_sel_op_sha256(),
+                                     in._main_sel_op_sha256(),
+                                     in._sha256_sel_sha256_compression(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._sha256_clk(),
+                                     in._sha256_state(),
+                                     in._sha256_input(),
+                                     in._sha256_output());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_sha256_inv,
-                                     in.main_sel_op_sha256,
-                                     in.main_sel_op_sha256,
-                                     in.sha256_sel_sha256_compression,
-                                     in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
-                                     in.main_ic,
-                                     in.sha256_clk,
-                                     in.sha256_state,
-                                     in.sha256_input,
-                                     in.sha256_output);
+        return std::forward_as_tuple(in._perm_main_sha256_inv(),
+                                     in._main_sel_op_sha256(),
+                                     in._main_sel_op_sha256(),
+                                     in._sha256_sel_sha256_compression(),
+                                     in._main_clk(),
+                                     in._main_ia(),
+                                     in._main_ib(),
+                                     in._main_ic(),
+                                     in._sha256_clk(),
+                                     in._sha256_state(),
+                                     in._sha256_input(),
+                                     in._sha256_output());
     }
 };
 
@@ -312,39 +312,39 @@ class perm_main_pos2_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_op_poseidon2 == 1 || in.poseidon2_sel_poseidon_perm == 1);
+        return (in._main_sel_op_poseidon2() == 1 || in._poseidon2_sel_poseidon_perm() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_pos2_perm_inv,
-                                     in.main_sel_op_poseidon2,
-                                     in.main_sel_op_poseidon2,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_a,
-                                     in.main_mem_addr_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_input_addr,
-                                     in.poseidon2_output_addr);
+        return std::forward_as_tuple(in._perm_main_pos2_perm_inv(),
+                                     in._main_sel_op_poseidon2(),
+                                     in._main_sel_op_poseidon2(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_a(),
+                                     in._main_mem_addr_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_input_addr(),
+                                     in._poseidon2_output_addr());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_pos2_perm_inv,
-                                     in.main_sel_op_poseidon2,
-                                     in.main_sel_op_poseidon2,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_a,
-                                     in.main_mem_addr_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_input_addr,
-                                     in.poseidon2_output_addr);
+        return std::forward_as_tuple(in._perm_main_pos2_perm_inv(),
+                                     in._main_sel_op_poseidon2(),
+                                     in._main_sel_op_poseidon2(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_a(),
+                                     in._main_mem_addr_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_input_addr(),
+                                     in._poseidon2_output_addr());
     }
 };
 
@@ -369,55 +369,55 @@ class perm_main_mem_a_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_mem_op_a == 1 || in.mem_sel_op_a == 1);
+        return (in._main_sel_mem_op_a() == 1 || in._mem_sel_op_a() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_a_inv,
-                                     in.main_sel_mem_op_a,
-                                     in.main_sel_mem_op_a,
-                                     in.mem_sel_op_a,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_a,
-                                     in.main_ia,
-                                     in.main_rwa,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.main_sel_mov_ia_to_ic,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_mov_ia_to_ic);
+        return std::forward_as_tuple(in._perm_main_mem_a_inv(),
+                                     in._main_sel_mem_op_a(),
+                                     in._main_sel_mem_op_a(),
+                                     in._mem_sel_op_a(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_a(),
+                                     in._main_ia(),
+                                     in._main_rwa(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._main_sel_mov_ia_to_ic(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag(),
+                                     in._mem_sel_mov_ia_to_ic());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_a_inv,
-                                     in.main_sel_mem_op_a,
-                                     in.main_sel_mem_op_a,
-                                     in.mem_sel_op_a,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_a,
-                                     in.main_ia,
-                                     in.main_rwa,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.main_sel_mov_ia_to_ic,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_mov_ia_to_ic);
+        return std::forward_as_tuple(in._perm_main_mem_a_inv(),
+                                     in._main_sel_mem_op_a(),
+                                     in._main_sel_mem_op_a(),
+                                     in._mem_sel_op_a(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_a(),
+                                     in._main_ia(),
+                                     in._main_rwa(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._main_sel_mov_ia_to_ic(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag(),
+                                     in._mem_sel_mov_ia_to_ic());
     }
 };
 
@@ -442,55 +442,55 @@ class perm_main_mem_b_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_mem_op_b == 1 || in.mem_sel_op_b == 1);
+        return (in._main_sel_mem_op_b() == 1 || in._mem_sel_op_b() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_b_inv,
-                                     in.main_sel_mem_op_b,
-                                     in.main_sel_mem_op_b,
-                                     in.mem_sel_op_b,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_b,
-                                     in.main_ib,
-                                     in.main_rwb,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.main_sel_mov_ib_to_ic,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_mov_ib_to_ic);
+        return std::forward_as_tuple(in._perm_main_mem_b_inv(),
+                                     in._main_sel_mem_op_b(),
+                                     in._main_sel_mem_op_b(),
+                                     in._mem_sel_op_b(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_b(),
+                                     in._main_ib(),
+                                     in._main_rwb(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._main_sel_mov_ib_to_ic(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag(),
+                                     in._mem_sel_mov_ib_to_ic());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_b_inv,
-                                     in.main_sel_mem_op_b,
-                                     in.main_sel_mem_op_b,
-                                     in.mem_sel_op_b,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_b,
-                                     in.main_ib,
-                                     in.main_rwb,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.main_sel_mov_ib_to_ic,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_mov_ib_to_ic);
+        return std::forward_as_tuple(in._perm_main_mem_b_inv(),
+                                     in._main_sel_mem_op_b(),
+                                     in._main_sel_mem_op_b(),
+                                     in._mem_sel_op_b(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_b(),
+                                     in._main_ib(),
+                                     in._main_rwb(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._main_sel_mov_ib_to_ic(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag(),
+                                     in._mem_sel_mov_ib_to_ic());
     }
 };
 
@@ -515,51 +515,51 @@ class perm_main_mem_c_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_mem_op_c == 1 || in.mem_sel_op_c == 1);
+        return (in._main_sel_mem_op_c() == 1 || in._mem_sel_op_c() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_c_inv,
-                                     in.main_sel_mem_op_c,
-                                     in.main_sel_mem_op_c,
-                                     in.mem_sel_op_c,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_c,
-                                     in.main_ic,
-                                     in.main_rwc,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag);
+        return std::forward_as_tuple(in._perm_main_mem_c_inv(),
+                                     in._main_sel_mem_op_c(),
+                                     in._main_sel_mem_op_c(),
+                                     in._mem_sel_op_c(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_c(),
+                                     in._main_ic(),
+                                     in._main_rwc(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_c_inv,
-                                     in.main_sel_mem_op_c,
-                                     in.main_sel_mem_op_c,
-                                     in.mem_sel_op_c,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_c,
-                                     in.main_ic,
-                                     in.main_rwc,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag);
+        return std::forward_as_tuple(in._perm_main_mem_c_inv(),
+                                     in._main_sel_mem_op_c(),
+                                     in._main_sel_mem_op_c(),
+                                     in._mem_sel_op_c(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_c(),
+                                     in._main_ic(),
+                                     in._main_rwc(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag());
     }
 };
 
@@ -584,51 +584,51 @@ class perm_main_mem_d_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_mem_op_d == 1 || in.mem_sel_op_d == 1);
+        return (in._main_sel_mem_op_d() == 1 || in._mem_sel_op_d() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_d_inv,
-                                     in.main_sel_mem_op_d,
-                                     in.main_sel_mem_op_d,
-                                     in.mem_sel_op_d,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_d,
-                                     in.main_id,
-                                     in.main_rwd,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag);
+        return std::forward_as_tuple(in._perm_main_mem_d_inv(),
+                                     in._main_sel_mem_op_d(),
+                                     in._main_sel_mem_op_d(),
+                                     in._mem_sel_op_d(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_d(),
+                                     in._main_id(),
+                                     in._main_rwd(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_d_inv,
-                                     in.main_sel_mem_op_d,
-                                     in.main_sel_mem_op_d,
-                                     in.mem_sel_op_d,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_mem_addr_d,
-                                     in.main_id,
-                                     in.main_rwd,
-                                     in.main_r_in_tag,
-                                     in.main_w_in_tag,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw,
-                                     in.mem_r_in_tag,
-                                     in.mem_w_in_tag);
+        return std::forward_as_tuple(in._perm_main_mem_d_inv(),
+                                     in._main_sel_mem_op_d(),
+                                     in._main_sel_mem_op_d(),
+                                     in._mem_sel_op_d(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_mem_addr_d(),
+                                     in._main_id(),
+                                     in._main_rwd(),
+                                     in._main_r_in_tag(),
+                                     in._main_w_in_tag(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw(),
+                                     in._mem_r_in_tag(),
+                                     in._mem_w_in_tag());
     }
 };
 
@@ -653,39 +653,39 @@ class perm_main_mem_ind_addr_a_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_resolve_ind_addr_a == 1 || in.mem_sel_resolve_ind_addr_a == 1);
+        return (in._main_sel_resolve_ind_addr_a() == 1 || in._mem_sel_resolve_ind_addr_a() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_a_inv,
-                                     in.main_sel_resolve_ind_addr_a,
-                                     in.main_sel_resolve_ind_addr_a,
-                                     in.mem_sel_resolve_ind_addr_a,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_a,
-                                     in.main_mem_addr_a,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_a_inv(),
+                                     in._main_sel_resolve_ind_addr_a(),
+                                     in._main_sel_resolve_ind_addr_a(),
+                                     in._mem_sel_resolve_ind_addr_a(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_a(),
+                                     in._main_mem_addr_a(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_a_inv,
-                                     in.main_sel_resolve_ind_addr_a,
-                                     in.main_sel_resolve_ind_addr_a,
-                                     in.mem_sel_resolve_ind_addr_a,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_a,
-                                     in.main_mem_addr_a,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_a_inv(),
+                                     in._main_sel_resolve_ind_addr_a(),
+                                     in._main_sel_resolve_ind_addr_a(),
+                                     in._mem_sel_resolve_ind_addr_a(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_a(),
+                                     in._main_mem_addr_a(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 };
 
@@ -712,39 +712,39 @@ class perm_main_mem_ind_addr_b_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_resolve_ind_addr_b == 1 || in.mem_sel_resolve_ind_addr_b == 1);
+        return (in._main_sel_resolve_ind_addr_b() == 1 || in._mem_sel_resolve_ind_addr_b() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_b_inv,
-                                     in.main_sel_resolve_ind_addr_b,
-                                     in.main_sel_resolve_ind_addr_b,
-                                     in.mem_sel_resolve_ind_addr_b,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_b,
-                                     in.main_mem_addr_b,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_b_inv(),
+                                     in._main_sel_resolve_ind_addr_b(),
+                                     in._main_sel_resolve_ind_addr_b(),
+                                     in._mem_sel_resolve_ind_addr_b(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_b(),
+                                     in._main_mem_addr_b(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_b_inv,
-                                     in.main_sel_resolve_ind_addr_b,
-                                     in.main_sel_resolve_ind_addr_b,
-                                     in.mem_sel_resolve_ind_addr_b,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_b,
-                                     in.main_mem_addr_b,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_b_inv(),
+                                     in._main_sel_resolve_ind_addr_b(),
+                                     in._main_sel_resolve_ind_addr_b(),
+                                     in._mem_sel_resolve_ind_addr_b(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_b(),
+                                     in._main_mem_addr_b(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 };
 
@@ -771,39 +771,39 @@ class perm_main_mem_ind_addr_c_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_resolve_ind_addr_c == 1 || in.mem_sel_resolve_ind_addr_c == 1);
+        return (in._main_sel_resolve_ind_addr_c() == 1 || in._mem_sel_resolve_ind_addr_c() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_c_inv,
-                                     in.main_sel_resolve_ind_addr_c,
-                                     in.main_sel_resolve_ind_addr_c,
-                                     in.mem_sel_resolve_ind_addr_c,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_c,
-                                     in.main_mem_addr_c,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_c_inv(),
+                                     in._main_sel_resolve_ind_addr_c(),
+                                     in._main_sel_resolve_ind_addr_c(),
+                                     in._mem_sel_resolve_ind_addr_c(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_c(),
+                                     in._main_mem_addr_c(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_c_inv,
-                                     in.main_sel_resolve_ind_addr_c,
-                                     in.main_sel_resolve_ind_addr_c,
-                                     in.mem_sel_resolve_ind_addr_c,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_c,
-                                     in.main_mem_addr_c,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_c_inv(),
+                                     in._main_sel_resolve_ind_addr_c(),
+                                     in._main_sel_resolve_ind_addr_c(),
+                                     in._mem_sel_resolve_ind_addr_c(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_c(),
+                                     in._main_mem_addr_c(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 };
 
@@ -830,39 +830,39 @@ class perm_main_mem_ind_addr_d_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_resolve_ind_addr_d == 1 || in.mem_sel_resolve_ind_addr_d == 1);
+        return (in._main_sel_resolve_ind_addr_d() == 1 || in._mem_sel_resolve_ind_addr_d() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_d_inv,
-                                     in.main_sel_resolve_ind_addr_d,
-                                     in.main_sel_resolve_ind_addr_d,
-                                     in.mem_sel_resolve_ind_addr_d,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_d,
-                                     in.main_mem_addr_d,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_d_inv(),
+                                     in._main_sel_resolve_ind_addr_d(),
+                                     in._main_sel_resolve_ind_addr_d(),
+                                     in._mem_sel_resolve_ind_addr_d(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_d(),
+                                     in._main_mem_addr_d(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_mem_ind_addr_d_inv,
-                                     in.main_sel_resolve_ind_addr_d,
-                                     in.main_sel_resolve_ind_addr_d,
-                                     in.mem_sel_resolve_ind_addr_d,
-                                     in.main_clk,
-                                     in.main_space_id,
-                                     in.main_ind_addr_d,
-                                     in.main_mem_addr_d,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val);
+        return std::forward_as_tuple(in._perm_main_mem_ind_addr_d_inv(),
+                                     in._main_sel_resolve_ind_addr_d(),
+                                     in._main_sel_resolve_ind_addr_d(),
+                                     in._mem_sel_resolve_ind_addr_d(),
+                                     in._main_clk(),
+                                     in._main_space_id(),
+                                     in._main_ind_addr_d(),
+                                     in._main_mem_addr_d(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val());
     }
 };
 
