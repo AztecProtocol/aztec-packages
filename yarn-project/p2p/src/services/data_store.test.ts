@@ -1,6 +1,8 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { all } from '@aztec/foundation/iterable';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import {
   type Datastore,
@@ -21,22 +23,22 @@ const CLEANUP_TIMEOUT = 120_000;
 
 describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;
-  let aztecStore: AztecLmdbStore;
+  let aztecStore: AztecAsyncKVStore;
 
-  beforeEach(() => {
-    aztecStore = AztecLmdbStore.open();
+  beforeEach(async () => {
+    aztecStore = await openTmpStore('test');
     datastore = new AztecDatastore(aztecStore);
   });
 
   afterEach(async () => {
-    await aztecStore.delete();
+    await aztecStore.close();
   });
 
   it('should store and retrieve an item', async () => {
     const key = new Key('testKey');
     const value = new Uint8Array([1, 2, 3]);
     await datastore.put(key, value);
-    const retrieved = datastore.get(key);
+    const retrieved = await datastore.get(key);
 
     expect(retrieved).toEqual(value);
   });
@@ -46,11 +48,7 @@ describe('AztecDatastore with AztecLmdbStore', () => {
     await datastore.put(key, new Uint8Array([1, 2, 3]));
     await datastore.delete(key);
 
-    try {
-      datastore.get(key);
-    } catch (err) {
-      expect(err).toHaveProperty('code', 'ERR_NOT_FOUND');
-    }
+    await expect(datastore.get(key)).rejects.toHaveProperty('code', 'ERR_NOT_FOUND');
   });
 
   it('batch operations commit correctly', async () => {
@@ -65,13 +63,10 @@ describe('AztecDatastore with AztecLmdbStore', () => {
     batch.delete(key1);
     await batch.commit();
 
-    try {
-      datastore.get(key1); // key1 should be deleted
-    } catch (err) {
-      expect(err).toHaveProperty('code', 'ERR_NOT_FOUND');
-    }
-    const retrieved2 = datastore.get(key2);
+    // key1 should be deleted
+    await expect(datastore.get(key1)).rejects.toHaveProperty('code', 'ERR_NOT_FOUND');
 
+    const retrieved2 = await datastore.get(key2);
     expect(retrieved2.toString()).toEqual(value2.toString()); // key2 should exist
   });
 
@@ -123,7 +118,7 @@ describe('AztecDatastore with AztecLmdbStore', () => {
 
     // Check that data remains accessible even if it's no longer in the memory map
     for (let i = 0; i < 10; i++) {
-      const result = datastore.get(new Key(`key${i}`));
+      const result = await datastore.get(new Key(`key${i}`));
       expect(result).toEqual(new Uint8Array([i]));
     }
   });
@@ -135,7 +130,7 @@ describe('AztecDatastore with AztecLmdbStore', () => {
 
     // Check data consistency
     for (let i = 0; i < 20; i++) {
-      const value = datastore.get(new Key(`key${i}`));
+      const value = await datastore.get(new Key(`key${i}`));
       expect(value).toEqual(new Uint8Array([i]));
     }
   });
@@ -185,7 +180,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
       const v = uint8ArrayFromString('one');
       await store.put(k, v);
 
-      expect(store.get(k)).toEqual(v);
+      await expect(store.get(k)).resolves.toEqual(v);
     });
 
     it('parallel', async () => {

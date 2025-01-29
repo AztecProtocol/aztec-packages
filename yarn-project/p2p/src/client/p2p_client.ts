@@ -15,7 +15,7 @@ import {
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
 import {
   Attributes,
   type TelemetryClient,
@@ -194,9 +194,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   extends WithTracer
   implements P2P, P2P<P2PClientType.Prover>
 {
-  /** Property that indicates whether the client is running. */
-  private stopping = false;
-
   /** The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped. */
   private runningPromise!: Promise<void>;
 
@@ -206,9 +203,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
 
-  private synchedBlockHashes: AztecMap<number, string>;
-  private synchedLatestBlockNumber: AztecSingleton<number>;
-  private synchedProvenBlockNumber: AztecSingleton<number>;
+  private synchedBlockHashes: AztecAsyncMap<number, string>;
+  private synchedLatestBlockNumber: AztecAsyncSingleton<number>;
+  private synchedProvenBlockNumber: AztecAsyncSingleton<number>;
 
   private txPool: TxPool;
   private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
@@ -231,8 +228,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param log - A logger.
    */
   constructor(
-    clientType: T,
-    store: AztecKVStore,
+    _clientType: T,
+    store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
@@ -274,17 +271,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(this.synchedBlockHashes.get(number));
+    return this.synchedBlockHashes.getAsync(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    const latestBlockNumber = this.getSyncedLatestBlockNum();
+  public async getL2Tips(): Promise<L2Tips> {
+    const latestBlockNumber = await this.getSyncedLatestBlockNum();
     let latestBlockHash: string | undefined;
-    const provenBlockNumber = this.getSyncedProvenBlockNum();
+    const provenBlockNumber = await this.getSyncedProvenBlockNum();
     let provenBlockHash: string | undefined;
 
     if (latestBlockNumber > 0) {
-      latestBlockHash = this.synchedBlockHashes.get(latestBlockNumber);
+      latestBlockHash = await this.synchedBlockHashes.getAsync(latestBlockNumber);
       if (typeof latestBlockHash === 'undefined') {
         this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
         throw new Error();
@@ -292,7 +289,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     if (provenBlockNumber > 0) {
-      provenBlockHash = this.synchedBlockHashes.get(provenBlockNumber);
+      provenBlockHash = await this.synchedBlockHashes.getAsync(provenBlockNumber);
       if (typeof provenBlockHash === 'undefined') {
         this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
         throw new Error();
@@ -316,7 +313,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         // TODO (alexg): I think we can prune the block hashes map here
         break;
       case 'chain-proven': {
-        const from = this.getSyncedProvenBlockNum() + 1;
+        const from = (await this.getSyncedProvenBlockNum()) + 1;
         const limit = event.blockNumber - from + 1;
         await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
         break;
@@ -374,8 +371,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
     this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
 
-    const syncedLatestBlock = this.getSyncedLatestBlockNum() + 1;
-    const syncedProvenBlock = this.getSyncedProvenBlockNum() + 1;
+    const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
+    const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
 
     // if there are blocks to be retrieved, go to a synching state
     if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
@@ -404,7 +401,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   public async stop() {
     this.log.debug('Stopping p2p client...');
-    this.stopping = true;
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
     await this.blockStream.stop();
@@ -593,16 +589,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Public function to check the latest block number that the P2P client is synced to.
    * @returns Block number of latest L2 Block we've synced with.
    */
-  public getSyncedLatestBlockNum() {
-    return this.synchedLatestBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedLatestBlockNum(): Promise<number> {
+    return (await this.synchedLatestBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
    * Public function to check the latest proven block number that the P2P client is synced to.
    * @returns Block number of latest proven L2 Block we've synced with.
    */
-  public getSyncedProvenBlockNum() {
-    return this.synchedProvenBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedProvenBlockNum(): Promise<number> {
+    return (await this.synchedProvenBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
@@ -610,15 +606,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Information about p2p client status: state & syncedToBlockNum.
    */
   public async getStatus(): Promise<P2PSyncState> {
-    const blockNumber = this.getSyncedLatestBlockNum();
+    const blockNumber = await this.getSyncedLatestBlockNum();
     const blockHash =
       blockNumber == 0
         ? ''
         : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
-    return Promise.resolve({
+    return {
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
-    } as P2PSyncState);
+    } as P2PSyncState;
   }
 
   /**
@@ -749,8 +745,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async startServiceIfSynched() {
     if (
       this.currentState === P2PClientState.SYNCHING &&
-      this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&
-      this.getSyncedProvenBlockNum() >= this.provenBlockNumberAtStart
+      (await this.getSyncedLatestBlockNum()) >= this.latestBlockNumberAtStart &&
+      (await this.getSyncedProvenBlockNum()) >= this.provenBlockNumberAtStart
     ) {
       this.log.debug(`Synched to blocks at start`);
       this.setCurrentState(P2PClientState.RUNNING);
@@ -769,17 +765,5 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const oldState = this.currentState;
     this.currentState = newState;
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
-  }
-
-  private async publishStoredTxs() {
-    if (!this.isReady()) {
-      return;
-    }
-
-    const txs = await this.txPool.getAllTxs();
-    if (txs.length > 0) {
-      this.log.debug(`Publishing ${txs.length} previously stored txs`);
-      await Promise.all(txs.map(tx => this.p2pService.propagate(tx)));
-    }
   }
 }

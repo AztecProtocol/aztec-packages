@@ -1,5 +1,5 @@
 import { filter, map, sort, take } from '@aztec/foundation/iterable';
-import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 import { type Batch, type Datastore, Key, type KeyQuery, type Pair, type Query } from 'interface-datastore';
 import type { AwaitIterable } from 'interface-store';
@@ -25,31 +25,31 @@ class KeyNotFoundError extends Error {
 
 export class AztecDatastore implements Datastore {
   #memoryDatastore: Map<string, MemoryItem>;
-  #dbDatastore: AztecMap<string, Uint8Array>;
+  #dbDatastore: AztecAsyncMap<string, Uint8Array>;
 
   #batchOps: BatchOp[] = [];
 
   private maxMemoryItems: number;
 
-  constructor(db: AztecKVStore, { maxMemoryItems } = { maxMemoryItems: 50 }) {
+  constructor(db: AztecAsyncKVStore, { maxMemoryItems } = { maxMemoryItems: 50 }) {
     this.#memoryDatastore = new Map();
     this.#dbDatastore = db.openMap('p2p_datastore');
 
     this.maxMemoryItems = maxMemoryItems;
   }
 
-  has(key: Key): boolean {
-    return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.has(key.toString());
+  async has(key: Key): Promise<boolean> {
+    return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.hasAsync(key.toString());
   }
 
-  get(key: Key): Uint8Array {
+  async get(key: Key): Promise<Uint8Array> {
     const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
     if (memoryItem) {
       memoryItem.lastAccessedMs = Date.now();
       return memoryItem.data;
     }
-    const dbItem = this.#dbDatastore.get(keyStr);
+    const dbItem = await this.#dbDatastore.getAsync(keyStr);
 
     if (!dbItem) {
       throw new KeyNotFoundError(`Key not found`);
@@ -73,7 +73,7 @@ export class AztecDatastore implements Datastore {
     for await (const key of source) {
       yield {
         key,
-        value: this.get(key),
+        value: await this.get(key),
       };
     }
   }
@@ -202,7 +202,7 @@ export class AztecDatastore implements Datastore {
       };
     }
 
-    for (const [key, value] of this.#dbDatastore.entries()) {
+    for await (const [key, value] of this.#dbDatastore.entriesAsync()) {
       if (!this.#memoryDatastore.has(key)) {
         yield {
           key: new Key(key),
