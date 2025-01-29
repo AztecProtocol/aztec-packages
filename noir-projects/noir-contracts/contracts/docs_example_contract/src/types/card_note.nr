@@ -3,8 +3,10 @@ use dep::aztec::{
     macros::notes::note,
     note::utils::compute_note_hash_for_nullify,
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 use dep::aztec::prelude::{NoteHeader, NullifiableNote, PrivateContext};

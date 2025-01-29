@@ -5,8 +5,10 @@ use dep::aztec::{
     oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 
