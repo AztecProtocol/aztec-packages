@@ -22,11 +22,8 @@ def modify_benchmark_data(file_paths, prefixes):
                 if last_memory:
                     new_entry = {
                         "name": f"{prefix}UltraHonkVerifierWasmMemory",
-                        "threads": 16,
-                        "iterations": 1,
                         "real_time": last_memory,
-                        "cpu_time": last_memory,
-                        "time_unit": "ns"
+                        "time_unit": "MiB"
                     }
                     combined_results['benchmarks'].append(new_entry)
             else:
