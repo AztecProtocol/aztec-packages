@@ -11,8 +11,6 @@ import { RawBuffer } from '../types/raw_buffer.js';
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
 
-const debug = createDebug('bb.js:wasm');
-
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
   threads?: number;
@@ -51,7 +49,13 @@ export class Barretenberg extends BarretenbergApi {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads);
-    await wasm.init(module, threads, proxy(debug), options.memory?.initial, options.memory?.maximum);
+    await wasm.init(
+      module,
+      threads,
+      proxy(createDebug('bb.js:bb_wasm_async')),
+      options.memory?.initial,
+      options.memory?.maximum,
+    );
     return new Barretenberg(worker, wasm, options);
   }
 
@@ -89,28 +93,26 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
-let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 
 export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
 
-  private static async new() {
+  static async new() {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1);
-    await wasm.init(module, threads);
+    await wasm.init(module, threads, createDebug('bb.js:bb_wasm_sync'));
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton() {
-    if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new();
+  static initSingleton() {
+    if (!barretenbergSyncSingletonPromise) {
+      barretenbergSyncSingletonPromise = BarretenbergSync.new().then(s => (barretenbergSyncSingleton = s));
     }
-
-    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
-    return barretenbergSyncSingleton;
+    return barretenbergSyncSingletonPromise;
   }
 
   static getSingleton() {
@@ -124,3 +126,35 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return this.wasm;
   }
 }
+
+let barrentenbergLazySingleton: BarretenbergLazy;
+
+export class BarretenbergLazy extends BarretenbergApi {
+  private constructor(wasm: BarretenbergWasmMain) {
+    super(wasm);
+  }
+
+  private static async new() {
+    const wasm = new BarretenbergWasmMain();
+    const { module, threads } = await fetchModuleAndThreads(1);
+    await wasm.init(module, threads);
+    return new BarretenbergLazy(wasm);
+  }
+
+  static async getSingleton() {
+    if (!barrentenbergLazySingleton) {
+      barrentenbergLazySingleton = await BarretenbergLazy.new();
+    }
+    return barrentenbergLazySingleton;
+  }
+
+  getWasm() {
+    return this.wasm;
+  }
+}
+
+// If we're in ESM environment, use top level await. CJS users need to call it manually.
+// Need to ignore for cjs build.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+await BarretenbergSync.initSingleton(); // POSTPROCESS ESM ONLY

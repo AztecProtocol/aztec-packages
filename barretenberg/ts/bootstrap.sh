@@ -11,7 +11,8 @@ function build {
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
-    denoise "yarn formatting && yarn build"
+    yarn clean
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
@@ -34,24 +35,19 @@ function test_cmds {
   done
 }
 
-# # WORKTODO(adam) remove once publish-aztec-packages is refactored
-# publish-npm:
-#     FROM +deps
-#     ARG VERSION
-#     ARG DIST_TAG
-#     ARG DRY_RUN=0
-#     RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > /usr/src/barretenberg/ts/.npmrc
-#     WORKDIR /usr/src/barretenberg/ts
-#     RUN jq --arg v $VERSION '.version = $v' package.json > _tmp.json && mv  _tmp.json package.json
-#     RUN if [ "$DRY_RUN" = "1" ]; then \
-#         npm publish --tag $DIST_TAG --access public --dry-run; \
-#     else \
-#         npm publish --tag $DIST_TAG --access public; \
-#     fi
-
 function test {
   echo_header "bb.js test"
   test_cmds | parallelise
+}
+
+function release {
+  echo_header "bb.js release"
+  local dist_tag=${DIST_TAG:-latest}
+  if [ "${DRY_RUN:-0}" -eq 1 ]; then
+    npm publish --tag $dist_tag --access public --dry-run
+  else
+    npm publish --tag $dist_tag --access public
+  fi
 }
 
 case "$cmd" in
@@ -71,11 +67,11 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
-  "format")
-    yarn formatting:fix
-    ;;
   "hash")
     echo "$hash"
+    ;;
+  "release")
+    release
     ;;
   *)
     echo "Unknown command: $cmd"
