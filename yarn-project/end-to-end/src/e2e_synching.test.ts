@@ -548,7 +548,7 @@ describe('e2e_synching', () => {
           const assumeProvenThrough = pendingBlockNumber - 2n;
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
@@ -634,7 +634,7 @@ describe('e2e_synching', () => {
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
@@ -694,7 +694,7 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
