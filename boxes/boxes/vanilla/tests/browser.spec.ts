@@ -19,8 +19,7 @@ test('Deploying, setting, and getting a number', async ({ page }) => {
 
   // Deploy contract
   const deployDialogPromise = handleDialog('Contract deployed at');
-  const deployButton = page.getByRole('button', { name: 'Deploy' });
-  await deployButton.click();
+  await page.getByRole('button', { name: 'Deploy' }).click();
   await deployDialogPromise;
   await expect(page.locator('#number')).toHaveValue('0');
   console.log('Contract deployed');
