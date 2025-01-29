@@ -448,22 +448,6 @@ impl DataType {
         self.body = TypeBody::Struct(fields);
     }
 
-    pub(crate) fn init_variants(&mut self) {
-        match &mut self.body {
-            TypeBody::None => {
-                self.body = TypeBody::Enum(vec![]);
-            }
-            _ => panic!("Called init_variants but body was None"),
-        }
-    }
-
-    pub(crate) fn push_variant(&mut self, variant: EnumVariant) {
-        match &mut self.body {
-            TypeBody::Enum(variants) => variants.push(variant),
-            _ => panic!("Called push_variant on {self} but body wasn't an enum"),
-        }
-    }
-
     pub fn is_struct(&self) -> bool {
         matches!(&self.body, TypeBody::Struct(_))
     }

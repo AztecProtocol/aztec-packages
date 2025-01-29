@@ -12,9 +12,8 @@ use crate::{
     graph::CrateId,
     hir::{
         def_collector::dc_crate::{
-            filter_literal_globals, CollectedItems, CompilationError, ImplMap, UnresolvedEnum,
-            UnresolvedFunctions, UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl,
-            UnresolvedTypeAlias,
+            filter_literal_globals, CollectedItems, CompilationError, ImplMap, UnresolvedFunctions,
+            UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl, UnresolvedTypeAlias,
         },
         def_collector::errors::DefCollectorErrorKind,
         def_map::{DefMaps, ModuleData},
@@ -35,7 +34,7 @@ use crate::{
         ReferenceId, TraitId, TraitImplId, TypeAliasId, TypeId,
     },
     token::SecondaryAttribute,
-    EnumVariant, Shared, Type, TypeVariable,
+    Shared, Type, TypeVariable,
 };
 use crate::{
     ast::{ItemVisibility, UnresolvedType},
@@ -47,7 +46,6 @@ use crate::{
 };
 
 mod comptime;
-mod enums;
 mod expressions;
 mod lints;
 mod path_resolution;
@@ -327,7 +325,6 @@ impl<'context> Elaborator<'context> {
 
         // Must resolve types before we resolve globals.
         self.collect_struct_definitions(&items.structs);
-        self.collect_enum_definitions(&items.enums);
 
         self.define_function_metas(&mut items.functions, &mut items.impls, &mut items.trait_impls);
 
@@ -1818,50 +1815,6 @@ impl<'context> Elaborator<'context> {
 
             fields
         })
-    }
-
-    fn collect_enum_definitions(&mut self, enums: &BTreeMap<TypeId, UnresolvedEnum>) {
-        for (type_id, typ) in enums {
-            self.file = typ.file_id;
-            self.local_module = typ.module_id;
-            self.generics.clear();
-
-            let datatype = self.interner.get_type(*type_id);
-            let generics = datatype.borrow().generic_types();
-            self.add_existing_generics(&typ.enum_def.generics, &datatype.borrow().generics);
-
-            let self_type = Type::DataType(datatype.clone(), generics);
-            let self_type_id = self.interner.push_quoted_type(self_type.clone());
-            let unresolved = UnresolvedType {
-                typ: UnresolvedTypeData::Resolved(self_type_id),
-                span: typ.enum_def.span,
-            };
-
-            datatype.borrow_mut().init_variants();
-            let module_id = ModuleId { krate: self.crate_id, local_id: typ.module_id };
-
-            for (i, variant) in typ.enum_def.variants.iter().enumerate() {
-                let types = vecmap(&variant.item.parameters, |typ| self.resolve_type(typ.clone()));
-                let name = variant.item.name.clone();
-                datatype.borrow_mut().push_variant(EnumVariant::new(name, types.clone()));
-
-                // Define a function for each variant to construct it
-                self.define_enum_variant_function(
-                    &typ.enum_def,
-                    *type_id,
-                    &variant.item,
-                    types,
-                    i,
-                    &datatype,
-                    &self_type,
-                    unresolved.clone(),
-                );
-
-                let reference_id = ReferenceId::EnumVariant(*type_id, i);
-                let location = Location::new(variant.item.name.span(), self.file);
-                self.interner.add_definition_location(reference_id, location, Some(module_id));
-            }
-        }
     }
 
     fn elaborate_global(&mut self, global: UnresolvedGlobal) {

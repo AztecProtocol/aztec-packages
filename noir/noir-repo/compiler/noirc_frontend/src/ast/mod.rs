@@ -5,7 +5,6 @@
 //! Noir's Ast is produced by the parser and taken as input to name resolution,
 //! where it is converted into the Hir (defined in the hir_def module).
 mod docs;
-mod enumeration;
 mod expression;
 mod function;
 mod statement;
@@ -25,7 +24,6 @@ use proptest_derive::Arbitrary;
 
 use acvm::FieldElement;
 pub use docs::*;
-pub use enumeration::*;
 use noirc_errors::Span;
 use serde::{Deserialize, Serialize};
 pub use statement::*;

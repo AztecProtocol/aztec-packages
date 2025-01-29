@@ -14,7 +14,7 @@ use crate::{Generics, Type};
 use crate::hir::resolution::import::{resolve_import, ImportDirective};
 use crate::hir::Context;
 
-use crate::ast::{Expression, NoirEnumeration};
+use crate::ast::Expression;
 use crate::node_interner::{
     FuncId, GlobalId, ModuleAttributes, NodeInterner, ReferenceId, TraitId, TraitImplId,
     TypeAliasId, TypeId,
@@ -62,12 +62,6 @@ pub struct UnresolvedStruct {
     pub file_id: FileId,
     pub module_id: LocalModuleId,
     pub struct_def: NoirStruct,
-}
-
-pub struct UnresolvedEnum {
-    pub file_id: FileId,
-    pub module_id: LocalModuleId,
-    pub enum_def: NoirEnumeration,
 }
 
 #[derive(Clone)]
@@ -148,7 +142,6 @@ pub struct DefCollector {
 pub struct CollectedItems {
     pub functions: Vec<UnresolvedFunctions>,
     pub(crate) structs: BTreeMap<TypeId, UnresolvedStruct>,
-    pub(crate) enums: BTreeMap<TypeId, UnresolvedEnum>,
     pub(crate) type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
     pub(crate) traits: BTreeMap<TraitId, UnresolvedTrait>,
     pub globals: Vec<UnresolvedGlobal>,
@@ -262,7 +255,6 @@ impl DefCollector {
             items: CollectedItems {
                 functions: vec![],
                 structs: BTreeMap::new(),
-                enums: BTreeMap::new(),
                 type_aliases: BTreeMap::new(),
                 traits: BTreeMap::new(),
                 impls: HashMap::default(),

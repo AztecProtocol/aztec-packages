@@ -12,9 +12,8 @@ use rustc_hash::FxHashMap as HashMap;
 
 use crate::ast::{
     Documented, Expression, FunctionDefinition, Ident, ItemVisibility, LetStatement,
-    ModuleDeclaration, NoirEnumeration, NoirFunction, NoirStruct, NoirTrait, NoirTraitImpl,
-    NoirTypeAlias, Pattern, TraitImplItemKind, TraitItem, TypeImpl, UnresolvedType,
-    UnresolvedTypeData,
+    ModuleDeclaration, NoirFunction, NoirStruct, NoirTrait, NoirTraitImpl, NoirTypeAlias, Pattern,
+    TraitImplItemKind, TraitItem, TypeImpl, UnresolvedType, UnresolvedTypeData,
 };
 use crate::hir::resolution::errors::ResolverError;
 use crate::node_interner::{ModuleAttributes, NodeInterner, ReferenceId, TypeId};
@@ -28,12 +27,10 @@ use crate::{
 };
 use crate::{Generics, Kind, ResolvedGeneric, Type, TypeVariable};
 
-use super::dc_crate::ModuleAttribute;
-use super::dc_crate::{CollectedItems, UnresolvedEnum};
 use super::{
     dc_crate::{
-        CompilationError, DefCollector, UnresolvedFunctions, UnresolvedGlobal, UnresolvedTraitImpl,
-        UnresolvedTypeAlias,
+        CollectedItems, CompilationError, DefCollector, ModuleAttribute, UnresolvedFunctions,
+        UnresolvedGlobal, UnresolvedTraitImpl, UnresolvedTypeAlias,
     },
     errors::{DefCollectorErrorKind, DuplicateType},
 };
@@ -1090,101 +1087,6 @@ pub fn collect_struct(
     Some((id, unresolved))
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn collect_enum(
-    interner: &mut NodeInterner,
-    def_map: &mut CrateDefMap,
-    usage_tracker: &mut UsageTracker,
-    enum_def: Documented<NoirEnumeration>,
-    file_id: FileId,
-    module_id: LocalModuleId,
-    krate: CrateId,
-    definition_errors: &mut Vec<(CompilationError, FileId)>,
-) -> Option<(TypeId, UnresolvedEnum)> {
-    let doc_comments = enum_def.doc_comments;
-    let enum_def = enum_def.item;
-
-    check_duplicate_variant_names(&enum_def, file_id, definition_errors);
-
-    let name = enum_def.name.clone();
-
-    let unresolved = UnresolvedEnum { file_id, module_id, enum_def };
-
-    let resolved_generics = Context::resolve_generics(
-        interner,
-        &unresolved.enum_def.generics,
-        definition_errors,
-        file_id,
-    );
-
-    // Create the corresponding module for the enum namespace
-    let location = Location::new(name.span(), file_id);
-    let id = match push_child_module(
-        interner,
-        def_map,
-        module_id,
-        &name,
-        ItemVisibility::Public,
-        location,
-        Vec::new(),
-        Vec::new(),
-        false, // add to parent scope
-        false, // is contract
-        true,  // is type
-    ) {
-        Ok(module_id) => {
-            let name = unresolved.enum_def.name.clone();
-            let span = unresolved.enum_def.span;
-            let attributes = unresolved.enum_def.attributes.clone();
-            let local_id = module_id.local_id;
-            interner.new_type(name, span, attributes, resolved_generics, krate, local_id, file_id)
-        }
-        Err(error) => {
-            definition_errors.push((error.into(), file_id));
-            return None;
-        }
-    };
-
-    interner.set_doc_comments(ReferenceId::Type(id), doc_comments);
-
-    for (index, variant) in unresolved.enum_def.variants.iter().enumerate() {
-        if !variant.doc_comments.is_empty() {
-            let id = ReferenceId::EnumVariant(id, index);
-            interner.set_doc_comments(id, variant.doc_comments.clone());
-        }
-    }
-
-    // Add the enum to scope so its path can be looked up later
-    let visibility = unresolved.enum_def.visibility;
-    let result = def_map.modules[module_id.0].declare_type(name.clone(), visibility, id);
-
-    let parent_module_id = ModuleId { krate, local_id: module_id };
-
-    if !unresolved.enum_def.is_abi() {
-        usage_tracker.add_unused_item(
-            parent_module_id,
-            name.clone(),
-            UnusedItem::Enum(id),
-            visibility,
-        );
-    }
-
-    if let Err((first_def, second_def)) = result {
-        let error = DefCollectorErrorKind::Duplicate {
-            typ: DuplicateType::TypeDefinition,
-            first_def,
-            second_def,
-        };
-        definition_errors.push((error.into(), file_id));
-    }
-
-    if interner.is_in_lsp_mode() {
-        interner.register_type(id, name.to_string(), location, visibility, parent_module_id);
-    }
-
-    Some((id, unresolved))
-}
-
 pub fn collect_impl(
     interner: &mut NodeInterner,
     items: &mut CollectedItems,
@@ -1429,29 +1331,6 @@ fn check_duplicate_field_names(
             typ: DuplicateType::StructField,
             first_def: previous_field_name.clone(),
             second_def: field_name.clone(),
-        };
-        definition_errors.push((error.into(), file));
-    }
-}
-
-fn check_duplicate_variant_names(
-    enum_def: &NoirEnumeration,
-    file: FileId,
-    definition_errors: &mut Vec<(CompilationError, FileId)>,
-) {
-    let mut seen_variant_names = std::collections::HashSet::new();
-    for variant in &enum_def.variants {
-        let variant_name = &variant.item.name;
-
-        if seen_variant_names.insert(variant_name) {
-            continue;
-        }
-
-        let previous_variant_name = *seen_variant_names.get(variant_name).unwrap();
-        let error = DefCollectorErrorKind::Duplicate {
-            typ: DuplicateType::EnumVariant,
-            first_def: previous_variant_name.clone(),
-            second_def: variant_name.clone(),
         };
         definition_errors.push((error.into(), file));
     }
