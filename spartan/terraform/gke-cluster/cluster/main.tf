@@ -10,7 +10,6 @@ resource "google_container_cluster" "primary" {
 
   # Kubernetes version
   min_master_version = var.node_version
-  node_version       = var.node_version
   release_channel {
     channel = "STABLE"
   }
