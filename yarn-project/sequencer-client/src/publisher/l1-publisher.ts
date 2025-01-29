@@ -581,18 +581,18 @@ export class L1Publisher {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
-      blockHash: block.hash().toString(),
+      blockHash: (await block.hash()).toString(),
     };
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: block.header.hash().toBuffer(),
+      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,

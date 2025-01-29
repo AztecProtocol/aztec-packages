@@ -15,6 +15,7 @@
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
+    "./crypto/sync": "./dest/crypto/sync/index.js",
     "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",

@@ -78,7 +78,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 
     quote {
         pub struct $module_name {
-            target_contract: dep::aztec::protocol_types::address::AztecAddress
+            pub target_contract: dep::aztec::protocol_types::address::AztecAddress
         }
 
         impl $module_name {
@@ -133,17 +133,17 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
             if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
                 quote {
                     $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                        // As an extra safety check we make sure that the serialized_note_content bounded vec has the
+                        // As an extra safety check we make sure that the packed_note_content bounded vec has the
                         // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
                         // silently trims the end if the log were to be longer.
                         let expected_len = $serialized_note_length;
-                        let actual_len = serialized_note_content.len();
+                        let actual_len = packed_note_content.len();
                         assert(
                             actual_len == expected_len,
                             f"Expected note content of length {expected_len} but got {actual_len} for note type ID {note_type_id}"
                         );
 
-                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, contract_address, nonce, storage_slot, compute_nullifier, serialized_note_content.storage())
+                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, contract_address, nonce, storage_slot, compute_nullifier, packed_note_content.storage())
                     }
                 },
             );
@@ -167,7 +167,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
             storage_slot: Field,
             note_type_id: Field,
             compute_nullifier: bool,
-            serialized_note_content: BoundedVec<Field, aztec::note::discovery::MAX_NOTE_SERIALIZED_LEN>,
+            packed_note_content: BoundedVec<Field, aztec::note::discovery::MAX_NOTE_SERIALIZED_LEN>,
         ) -> pub [Field; 4] {
             $body
         }
@@ -179,7 +179,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     // boolean and returning four fields. The contract library method `_compute_note_hash...` is affected by this.
     // Ideally we'd eventually remove these things.
 
-    let max_note_length = NOTES.entries().fold(
+    let max_note_packed_length = NOTES.entries().fold(
         0,
         |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
             std::cmp::max(len, acc)
@@ -193,9 +193,9 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             storage_slot: Field,
             note_type_id: Field,
             compute_nullifier: bool,
-            serialized_note: [Field; $max_note_length],
+            packed_note_content: [Field; $max_note_packed_length],
         ) -> pub [Field; 4] {
-            _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, compute_nullifier, BoundedVec::from_array(serialized_note))
+            _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, compute_nullifier, BoundedVec::from_array(packed_note_content))
         }
     }
 }
@@ -211,14 +211,14 @@ comptime fn generate_process_log() -> Quoted {
 
     // A typical implementation of the lambda looks something like this:
     // ```
-    // |serialized_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, note_type_id: Field| {
+    // |packed_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, note_type_id: Field| {
     //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-    //         assert(serialized_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+    //         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
     //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-    //             MyNoteType::deserialize_content,
+    //             MyNoteType::unpack_content,
     //             note_header,
     //             true,
-    //             serialized_note_content.storage(),
+    //             packed_note_content.storage(),
     //         )
     //     } else {
     //         panic(f"Unknown note type id {note_type_id}")
@@ -257,8 +257,8 @@ comptime fn generate_process_log() -> Quoted {
                 unique_note_hashes_in_tx,
                 first_nullifier_in_tx,
                 recipient,
-                |serialized_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
-                    let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, serialized_note_content);
+                |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+                    let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
 
                     Option::some(
                         aztec::note::discovery::NoteHashAndNullifier {

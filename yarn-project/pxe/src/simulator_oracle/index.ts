@@ -41,6 +41,7 @@ import {
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
+import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -396,7 +397,7 @@ export class SimulatorOracle implements DBOracle {
     let [numConsecutiveEmptyLogs, currentIndex] = [0, oldIndex];
     do {
       // We compute the tags for the current window of indexes
-      const currentTags = [...new Array(WINDOW_SIZE)].map((_, i) => {
+      const currentTags = await timesParallel(WINDOW_SIZE, i => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
         return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
@@ -492,8 +493,8 @@ export class SimulatorOracle implements DBOracle {
 
       while (secretsAndWindows.length > 0) {
         const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
-        const tagsForTheWholeWindow = secretsForTheWholeWindow.map(secret =>
-          secret.computeSiloedTag(recipient, contractAddress),
+        const tagsForTheWholeWindow = await Promise.all(
+          secretsForTheWholeWindow.map(secret => secret.computeSiloedTag(recipient, contractAddress)),
         );
 
         // We store the new largest indexes we find in the iteration in the following map to later on construct
@@ -610,7 +611,7 @@ export class SimulatorOracle implements DBOracle {
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
-    const addressSecret = await computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
@@ -786,8 +787,8 @@ export class SimulatorOracle implements DBOracle {
 
     // Siloed and unique hashes are computed by us instead of relying on values sent by the contract to make sure
     // we're not e.g. storing notes that belong to some other contract, which would constitute a security breach.
-    const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(contractAddress, noteHash));
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree. Note that while this is technically a historical query, we perform it at the latest
@@ -841,7 +842,7 @@ export class SimulatorOracle implements DBOracle {
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: FunctionSelector.fromNameAndParameters(artifact),
+      selector: await FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [

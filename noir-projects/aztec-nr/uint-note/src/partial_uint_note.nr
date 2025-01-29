@@ -64,11 +64,11 @@ impl PartialUintNote {
 global PARTIAL_UINT_NOTE_SER_LENGTH: u32 = 3;
 
 impl NoteInterface<PARTIAL_UINT_NOTE_SER_LENGTH> for PartialUintNote {
-    fn serialize_content(self) -> [Field; PARTIAL_UINT_NOTE_SER_LENGTH] {
+    fn pack_content(self) -> [Field; PARTIAL_UINT_NOTE_SER_LENGTH] {
         [self.hiding_point.value.x, self.owner.to_field(), self.randomness]
     }
 
-    fn deserialize_content(_fields: [Field; PARTIAL_UINT_NOTE_SER_LENGTH]) -> Self {
+    fn unpack_content(_fields: [Field; PARTIAL_UINT_NOTE_SER_LENGTH]) -> Self {
         static_assert(false, "unsupported");
         panic(f"unsupported")
     }

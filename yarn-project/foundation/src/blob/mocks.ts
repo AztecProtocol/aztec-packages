@@ -21,10 +21,10 @@ function encodeFirstField(length: number): Fr {
   );
 }
 
-export function makeEncodedBlob(length: number): Blob {
+export function makeEncodedBlob(length: number): Promise<Blob> {
   return Blob.fromFields([encodeFirstField(length + 1), ...Array.from({ length: length }, () => Fr.random())]);
 }
 
-export function makeEncodedBlobFields(fields: Fr[]): Blob {
+export function makeEncodedBlobFields(fields: Fr[]): Promise<Blob> {
   return Blob.fromFields([encodeFirstField(fields.length + 1), ...fields]);
 }

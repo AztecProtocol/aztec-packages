@@ -26,8 +26,8 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   const secret = Fr.random();
   let secretHash: Fr;
 
-  beforeAll(() => {
-    secretHash = computeSecretHash(secret);
+  beforeAll(async () => {
+    secretHash = await computeSecretHash(secret);
   });
 
   it('on behalf of self', async () => {
@@ -54,7 +54,11 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
     // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
-    await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
+    const validateActionInteraction = await wallets[0].setPublicAuthWit(
+      { caller: wallets[1].getAddress(), action },
+      true,
+    );
+    await validateActionInteraction.send().wait();
 
     const receipt = await action.send().wait();
 
@@ -101,7 +105,11 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
-      await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: wallets[1].getAddress(), action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
@@ -114,7 +122,11 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.withWallet(wallets[2]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
-      await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: wallets[1].getAddress(), action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       await expect(action.prove()).rejects.toThrow(/unauthorized/);
     });

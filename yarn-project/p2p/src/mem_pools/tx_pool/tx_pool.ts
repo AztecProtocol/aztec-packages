@@ -59,7 +59,7 @@ export interface TxPool {
    * Gets the hashes of pending transactions currently in the tx pool sorted by priority (see getPendingTxPriority).
    * @returns An array of pending transaction hashes found in the tx pool.
    */
-  getPendingTxHashes(): TxHash[];
+  getPendingTxHashes(): Promise<TxHash[]>;
 
   /**
    * Gets the hashes of mined transactions currently in the tx pool.

@@ -109,7 +109,7 @@ describe('L1Publisher', () => {
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = l2Block.header.hash().toBuffer();
+    blockHash = (await l2Block.header.hash()).toBuffer();
     body = l2Block.body.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
@@ -206,7 +206,7 @@ describe('L1Publisher', () => {
 
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
 
     // Check the blobs were forwarded to the blob sink service
     const sendToBlobSinkSpy = jest.spyOn(publisher as any, 'sendBlobsToBlobSink');

@@ -1,13 +1,13 @@
 use crate::entrypoint::function_call::FunctionCall;
-use dep::aztec::prelude::PrivateContext;
-use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__FEE_PAYLOAD,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize},
+use dep::aztec::{
+    prelude::PrivateContext,
+    protocol_types::{
+        constants::GENERATOR_INDEX__FEE_PAYLOAD,
+        hash::poseidon2_hash_with_separator,
+        traits::{Hash, Serialize},
+    },
 };
-
-// 2 * 5 (FUNCTION_CALL_SIZE) + 2
-global FEE_PAYLOAD_SIZE: u32 = 12;
+use std::meta::derive;
 
 // 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32
 global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
@@ -15,25 +15,13 @@ global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
 global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
+#[derive(Serialize)]
 pub struct FeePayload {
     function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
     nonce: Field,
     is_fee_payer: bool,
 }
 // docs:end:fee-payload-struct
-
-impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
-    // Serializes the entrypoint struct
-    fn serialize(self) -> [Field; FEE_PAYLOAD_SIZE] {
-        let mut fields: BoundedVec<Field, FEE_PAYLOAD_SIZE> = BoundedVec::new();
-        for i in 0..MAX_FEE_FUNCTION_CALLS {
-            fields.extend_from_array(self.function_calls[i].serialize());
-        }
-        fields.push(self.nonce);
-        fields.push(self.is_fee_payer as Field);
-        fields.storage()
-    }
-}
 
 impl Hash for FeePayload {
     fn hash(self) -> Field {

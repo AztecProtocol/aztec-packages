@@ -268,7 +268,9 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
     let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| generate_serialize_to_fields(name, typ, &[]).0.len())
+        .map(|(name, typ): (Quoted, Type)| {
+            generate_serialize_to_fields(name, typ, &[], false).0.len()
+        })
         .fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.

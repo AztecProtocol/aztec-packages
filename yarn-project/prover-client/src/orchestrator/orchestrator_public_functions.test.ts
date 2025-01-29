@@ -31,12 +31,12 @@ describe('prover/orchestrator/public-functions', () => {
     ] as const)(
       'builds an L2 block with %i non-revertible and %i revertible calls',
       async (numberOfNonRevertiblePublicCallRequests: number, numberOfRevertiblePublicCallRequests: number) => {
-        const tx = mockTx(1000 * testCount++, {
+        const tx = await mockTx(1000 * testCount++, {
           numberOfNonRevertiblePublicCallRequests,
           numberOfRevertiblePublicCallRequests,
         });
         tx.data.constants.historicalHeader = context.getBlockHeader(0);
-        tx.data.constants.vkTreeRoot = getVKTreeRoot();
+        tx.data.constants.vkTreeRoot = await getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
         const [processed, _] = await context.processPublicFunctions([tx], 1);

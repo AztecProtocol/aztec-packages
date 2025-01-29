@@ -17,18 +17,18 @@ describe('private_function_membership_proof', () => {
   let vkHash: Fr;
   let selector: FunctionSelector;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     artifact = getBenchmarkContractArtifact();
-    contractClass = getContractClassFromArtifact(artifact);
+    contractClass = await getContractClassFromArtifact(artifact);
     privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
-    vkHash = computeVerificationKeyHash(privateFunction);
-    selector = FunctionSelector.fromNameAndParameters(privateFunction);
+    vkHash = await computeVerificationKeyHash(privateFunction);
+    selector = await FunctionSelector.fromNameAndParameters(privateFunction);
   });
 
-  it('computes and verifies a proof', () => {
-    const proof = createPrivateFunctionMembershipProof(selector, artifact);
+  it('computes and verifies a proof', async () => {
+    const proof = await createPrivateFunctionMembershipProof(selector, artifact);
     const fn = { ...privateFunction, ...proof, selector, vkHash };
-    expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).toBeTruthy();
+    await expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).resolves.toBeTruthy();
   });
 
   test.each([
@@ -37,12 +37,12 @@ describe('private_function_membership_proof', () => {
     'functionMetadataHash',
     'unconstrainedFunctionsArtifactTreeRoot',
     'privateFunctionTreeSiblingPath',
-  ] as const)('fails proof if %s is mangled', field => {
-    const proof = createPrivateFunctionMembershipProof(selector, artifact);
+  ] as const)('fails proof if %s is mangled', async field => {
+    const proof = await createPrivateFunctionMembershipProof(selector, artifact);
     const original = proof[field];
     const mangled = Array.isArray(original) ? [Fr.random(), ...original.slice(1)] : Fr.random();
     const wrong = { ...proof, [field]: mangled };
     const fn = { ...privateFunction, ...wrong, selector, vkHash };
-    expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).toBeFalsy();
+    await expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).resolves.toBeFalsy();
   });
 });

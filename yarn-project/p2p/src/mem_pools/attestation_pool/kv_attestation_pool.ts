@@ -44,7 +44,7 @@ export class KvAttestationPool implements AttestationPool {
     for (const attestation of attestations) {
       const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
       const proposalId = attestation.archive.toString();
-      const address = attestation.getSender().toString();
+      const address = (await attestation.getSender()).toString();
 
       // Index the proposalId in the slot map
       await this.attestations.set(slotNumber, proposalId);
@@ -135,7 +135,7 @@ export class KvAttestationPool implements AttestationPool {
       const proposalMap = this.getProposalMap(slotNumber, proposalId);
 
       if (proposalMap) {
-        const address = attestation.getSender().toString();
+        const address = (await attestation.getSender()).toString();
         deletionPromises.push(proposalMap.delete(address));
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }

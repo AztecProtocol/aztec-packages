@@ -231,7 +231,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public override async checkNullifierExists(innerNullifier: Fr) {
-    const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
+    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const index = await this.db.getNullifierIndex(nullifier);
     return index !== undefined;
   }

@@ -223,7 +223,7 @@ export class AztecCheatCodes {
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
+  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Promise<Fr> {
     const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
     return deriveStorageSlotInMap(mapSlot, keyFr);
   }

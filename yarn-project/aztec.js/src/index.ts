@@ -154,7 +154,6 @@ export { EthCheatCodes, deployL1Contract, deployL1Contracts, type DeployL1Contra
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
 export * from './api/fee.js';
-export * from './api/init.js';
 // Granular export, even if not in the api folder
 export * from './contract/index.js';
 export * from './api/addresses.js';
