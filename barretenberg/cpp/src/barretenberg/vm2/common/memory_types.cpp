@@ -20,6 +20,7 @@ uint8_t integral_tag_length(MemoryTag tag)
         throw std::runtime_error("FF is not an integral tag");
     }
 
+    assert(false && "This should not happen");
     return 0; // Should never happen. To please the compiler.
 }
 

@@ -20,6 +20,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bitwise = bb::avm2::bitwise<FF>;
+using testing::SizeIs;
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
@@ -55,7 +56,10 @@ TEST(BitwiseConstrainingTest, AndWithTracegen)
         },
         trace);
 
-    check_relation<bitwise>(trace.as_rows());
+    auto rows = trace.as_rows();
+    EXPECT_THAT(rows, SizeIs(33)); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
+
+    check_relation<bitwise>(rows);
 }
 
 // Testing a positive OR operation for each integral type (U1, U8, ... U128)
@@ -83,7 +87,9 @@ TEST(BitwiseConstrainingTest, OrWithTracegen)
         },
         trace);
 
-    check_relation<bitwise>(trace.as_rows());
+    auto rows = trace.as_rows();
+    EXPECT_THAT(rows, SizeIs(33)); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
+    check_relation<bitwise>(rows);
 }
 
 // Testing a positive XOR operation for each integral type (U1, U8, ... U128)
@@ -113,7 +119,9 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
         },
         trace);
 
-    check_relation<bitwise>(trace.as_rows());
+    auto rows = trace.as_rows();
+    EXPECT_THAT(rows, SizeIs(33)); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
+    check_relation<bitwise>(rows);
 }
 
 TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
@@ -132,13 +140,14 @@ TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
         },
         trace);
 
-    EXPECT_EQ(trace.get_num_rows(), 13); // 13 = 3 * 1 + 1 * 2 + 2 * 4 (2U1 + 1U8 + 1U16 + 2U32)
-    check_relation<bitwise>(trace.as_rows());
+    auto rows = trace.as_rows();
+    EXPECT_THAT(rows, SizeIs(14)); // 14 = 1 + 3 * 1 + 1 * 2 + 2 * 4 (extra_shift_row + 2U1 + 1U8 + 1U16 + 2U32)
+    check_relation<bitwise>(rows);
 }
 
 TEST(BitwiseConstrainingTest, NegativeWrongInit)
 {
-    TestTraceContainer::RowTraceContainer trace = {
+    TestTraceContainer test_container = TestTraceContainer::from_rows({
         {
             .bitwise_acc_ia = 25,
             .bitwise_acc_ib = 25,
@@ -148,11 +157,12 @@ TEST(BitwiseConstrainingTest, NegativeWrongInit)
             .bitwise_ic_byte = 28,
             .bitwise_last = 1,
         },
-    };
+    });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_A), "BITW_INIT_A");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_B), "BITW_INIT_B");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_INIT_C), "BITW_INIT_C");
+    auto rows = test_container.as_rows();
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(rows, bitwise::SR_BITW_INIT_A), "BITW_INIT_A");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(rows, bitwise::SR_BITW_INIT_B), "BITW_INIT_B");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(rows, bitwise::SR_BITW_INIT_C), "BITW_INIT_C");
 }
 
 TEST(BitwiseConstrainingTest, NegativeTruncateCtr)

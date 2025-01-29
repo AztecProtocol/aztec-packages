@@ -35,10 +35,24 @@ TEST(AvmTraceGenBitwiseTest, U1And)
         },
         trace);
 
-    EXPECT_EQ(trace.as_rows().size(), 1);
+    EXPECT_EQ(trace.as_rows().size(), 2);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
+                ElementsAre(AllOf(ROW_FIELD_EQ(R, bitwise_op_id, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ia, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ib, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ic, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ia_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ib_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ic_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_tag, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr_inv, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr_min_one_inv, 0),
+                                  ROW_FIELD_EQ(R, bitwise_last, 1),
+                                  ROW_FIELD_EQ(R, bitwise_sel, 0),
+                                  ROW_FIELD_EQ(R, bitwise_start, 0)),
+                            AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 1),
                                   ROW_FIELD_EQ(R, bitwise_acc_ic, 0),
@@ -71,10 +85,24 @@ TEST(AvmTraceGenBitwiseTest, U32And)
         },
         trace);
 
-    EXPECT_EQ(trace.as_rows().size(), 4);
+    EXPECT_EQ(trace.as_rows().size(), 5);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
+                ElementsAre(AllOf(ROW_FIELD_EQ(R, bitwise_op_id, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ia, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ib, 0),
+                                  ROW_FIELD_EQ(R, bitwise_acc_ic, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ia_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ib_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ic_byte, 0),
+                                  ROW_FIELD_EQ(R, bitwise_tag, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr_inv, 0),
+                                  ROW_FIELD_EQ(R, bitwise_ctr_min_one_inv, 0),
+                                  ROW_FIELD_EQ(R, bitwise_last, 1),
+                                  ROW_FIELD_EQ(R, bitwise_sel, 0),
+                                  ROW_FIELD_EQ(R, bitwise_start, 0)),
+                            AllOf(ROW_FIELD_EQ(R, bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                                   ROW_FIELD_EQ(R, bitwise_acc_ia, 0x52488425),
                                   ROW_FIELD_EQ(R, bitwise_acc_ib, 0xC684486C),
                                   ROW_FIELD_EQ(R, bitwise_acc_ic, 0x42000024),

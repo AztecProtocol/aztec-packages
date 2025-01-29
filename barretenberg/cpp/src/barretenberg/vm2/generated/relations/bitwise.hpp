@@ -17,7 +17,7 @@ template <typename FF_> class bitwiseImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         const auto& new_term = in;
-        return (new_term.bitwise_sel).is_zero();
+        return ((new_term.bitwise_sel + new_term.bitwise_last)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

@@ -52,6 +52,8 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
         case BitwiseOperation::XOR:
             return a ^ b;
         }
+
+        assert(false && "This should not happen");
         return 0; // Should never happen. To please the compiler.
     };
 

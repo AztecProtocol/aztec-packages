@@ -7,8 +7,10 @@
 
 namespace bb::avm2::simulation {
 
-void Bitwise::and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
+uint128_t Bitwise::and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
 {
+    const uint128_t c = a & b;
+
     events.emit({
         .operation = BitwiseOperation::AND,
         .tag = tag,
@@ -16,10 +18,14 @@ void Bitwise::and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
         .b = b,
         .res = c,
     });
+
+    return c;
 }
 
-void Bitwise::or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
+uint128_t Bitwise::or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
 {
+    const uint128_t c = a | b;
+
     events.emit({
         .operation = BitwiseOperation::OR,
         .tag = tag,
@@ -27,10 +33,14 @@ void Bitwise::or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
         .b = b,
         .res = c,
     });
+
+    return c;
 }
 
-void Bitwise::xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
+uint128_t Bitwise::xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
 {
+    const uint128_t c = a ^ b;
+
     events.emit({
         .operation = BitwiseOperation::XOR,
         .tag = tag,
@@ -38,6 +48,8 @@ void Bitwise::xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c)
         .b = b,
         .res = c,
     });
+
+    return c;
 }
 
 } // namespace bb::avm2::simulation

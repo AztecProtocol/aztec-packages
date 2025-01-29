@@ -17,7 +17,7 @@ sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel = 0;
+sel + last = 0; // They are both boolean so it corresponds to sel == 0 AND last == 0.
 
 pol commit start; // Identifies when we want to capture the output to the main trace.
                   // No need to constrain start to be a boolean, we only need it to select
@@ -101,7 +101,11 @@ sel {op_id, ia_byte, ib_byte, ic_byte}
 in
 precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
 
+// TODOs: See two following paragraphs
+
+// ################################################
 // Alternative implementation as potential speed-up
+// ################################################
 //
 // In vm1, we had an approach which requires one extra row per bitwise operation but 
 // had 2 less columns and #[BITW_CTR_DECREMENT] would have degree 0 and the degree 4 relation
@@ -113,3 +117,19 @@ precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a,
 // remains valid as the last row will be empty with our witness generator.
 //
 // It might be worth to measure the difference among both approaches.
+
+
+// ################################################
+// Recycling of bitwise operations of prefixes
+// ################################################
+//
+// Observation: If two inputs are prefixes of other inputs which are already present in the
+//              trace, then we could retrieve the result as a truncated trace of the larger.
+//
+// For instance, re-using example at the top, we consider the U16 and computation over
+// a = 0x5248 
+// b = 0xC684
+// c = 0x4200
+// Then, we should activate the start selector where ctr == 2, and the following rows
+// represent a valid trace for this computation.
+// It is not clear if this would lead to some speed-up in practice.

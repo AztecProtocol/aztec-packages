@@ -10,12 +10,13 @@
 
 namespace bb::avm2::simulation {
 
+// TODO(fcarreiro): think if it makes sense to have memory types like in TS with implicit tag
 class BitwiseInterface {
   public:
     virtual ~BitwiseInterface() = default;
-    virtual void and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
-    virtual void or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
-    virtual void xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) = 0;
+    virtual uint128_t and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
+    virtual uint128_t or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
+    virtual uint128_t xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
 };
 
 class Bitwise : public BitwiseInterface {
@@ -25,12 +26,13 @@ class Bitwise : public BitwiseInterface {
     {}
 
     // Operands are expected to be direct.
-    void and_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
-    void or_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
-    void xor_op(MemoryTag tag, uint128_t a, uint128_t b, uint128_t c) override;
+    uint128_t and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
+    uint128_t or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
+    uint128_t xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
 
   private:
-    // TODO: Use deduplicating events
+    // TODO: Use deduplicating events + consider (see bottom paragraph of bitwise.pil) a further deduplocation
+    // when some inputs are prefixes of another ones (with a bigger tag).
     EventEmitterInterface<BitwiseEvent>& events;
 };
 

@@ -11,14 +11,15 @@
 
 namespace bb::avm2::tracegen {
 
-using namespace bb::avm2;
-
 void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simulation::BitwiseEvent>::Container& events,
                                   TraceContainer& trace)
 {
     using C = Column;
 
-    uint32_t row = 0;
+    // We activate last selector in the extra pre-pended row (to support shift)
+    trace.set(C::bitwise_last, 0, 1);
+
+    uint32_t row = 1;
     for (const auto& event : events) {
         const auto start_ctr = integral_tag_length(event.tag);
 
