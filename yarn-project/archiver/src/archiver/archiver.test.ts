@@ -181,7 +181,7 @@ describe('Archiver', () => {
         (b.header.globalVariables.timestamp = new Fr(now + DefaultL1ContractsConfig.ethereumSlotDuration * (i + 1))),
     );
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    const blobHashes = blocks.map(makeVersionedBlobHash);
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHash));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
 
@@ -279,7 +279,7 @@ describe('Archiver', () => {
     const numL2BlocksInTest = 2;
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    const blobHashes = blocks.map(makeVersionedBlobHash);
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHash));
 
     // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
     publicClient.getBlockNumber.mockResolvedValue(102n);
@@ -324,7 +324,7 @@ describe('Archiver', () => {
     const numL2BlocksInTest = 2;
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    const blobHashes = blocks.map(makeVersionedBlobHash);
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHash));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n);
     mockRollup.read.status
@@ -362,7 +362,7 @@ describe('Archiver', () => {
     const numL2BlocksInTest = 2;
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    const blobHashes = blocks.map(makeVersionedBlobHash);
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHash));
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
 
@@ -432,7 +432,7 @@ describe('Archiver', () => {
     const l2Block = blocks[0];
     l2Block.header.globalVariables.slotNumber = new Fr(notLastL2SlotInEpoch);
     blocks = [l2Block];
-    const blobHashes = [makeVersionedBlobHash(l2Block)];
+    const blobHashes = [await makeVersionedBlobHash(l2Block)];
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
@@ -466,7 +466,7 @@ describe('Archiver', () => {
     const l2Block = blocks[0];
     l2Block.header.globalVariables.slotNumber = new Fr(lastL2SlotInEpoch);
     blocks = [l2Block];
-    const blobHashes = [makeVersionedBlobHash(l2Block)];
+    const blobHashes = [await makeVersionedBlobHash(l2Block)];
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
@@ -589,8 +589,10 @@ async function makeRollupTx(l2Block: L2Block) {
  * @param l2Block - The L2 block.
  * @returns A versioned blob hash.
  */
-function makeVersionedBlobHash(l2Block: L2Block): `0x${string}` {
-  return `0x${Blob.fromFields(l2Block.body.toBlobFields()).getEthVersionedBlobHash().toString('hex')}` as `0x${string}`;
+async function makeVersionedBlobHash(l2Block: L2Block): Promise<`0x${string}`> {
+  return `0x${(await Blob.fromFields(l2Block.body.toBlobFields()))
+    .getEthVersionedBlobHash()
+    .toString('hex')}` as `0x${string}`;
 }
 
 /**
