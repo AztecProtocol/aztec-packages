@@ -199,7 +199,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     struct ClaimBatch {
         RefVector<Commitment> commitments;
         RefVector<Fr> evaluations;
-        Fr batch_scalar = 0;
+        Fr batch_scalar = 0; // WORKTODO: maybe this is not part of this struct
     };
 
     struct ClaimBatcher {
@@ -378,15 +378,14 @@ template <typename Curve> class ShpleminiVerifier_ {
             scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
         }
 
+        ClaimBatcher claim_batcher{ .unshifted =
+                                        ClaimBatch{ unshifted_commitments, unshifted_evaluations, unshifted_scalar },
+                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations, shifted_scalar } };
+
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        batch_multivariate_opening_claims(unshifted_commitments,
-                                          shifted_commitments,
-                                          unshifted_evaluations,
-                                          shifted_evaluations,
+        batch_multivariate_opening_claims(claim_batcher,
                                           multivariate_batching_challenge,
-                                          unshifted_scalar,
-                                          shifted_scalar,
                                           commitments,
                                           scalars,
                                           batched_evaluation,
@@ -508,13 +507,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
     static void batch_multivariate_opening_claims(
-        RefVector<Commitment> unshifted_commitments,
-        RefVector<Commitment> shifted_commitments,
-        RefVector<Fr> unshifted_evaluations,
-        RefVector<Fr> shifted_evaluations,
+        ClaimBatcher& claim_batcher,
         const Fr& multivariate_batching_challenge,
-        const Fr& unshifted_scalar,
-        const Fr& shifted_scalar,
         std::vector<Commitment>& commitments,
         std::vector<Fr>& scalars,
         Fr& batched_evaluation,
@@ -529,10 +523,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
             current_batching_challenge *= multivariate_batching_challenge;
         }
-
-        ClaimBatcher claim_batcher{ .unshifted =
-                                        ClaimBatch{ unshifted_commitments, unshifted_evaluations, unshifted_scalar },
-                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations, shifted_scalar } };
 
         claim_batcher.aggregate_claims_and_compute_batched_evaluation(
             commitments, scalars, batched_evaluation, multivariate_batching_challenge, current_batching_challenge);
