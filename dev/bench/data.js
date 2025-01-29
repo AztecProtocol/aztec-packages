@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738167801007,
+  "lastUpdate": 1738190500962,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3092212d61cb1359d10b1741b48627518e5437d7",
-          "message": "chore(avm): re-enable bb-prover tests in CI, change some to check-circuit-only, enable multi-enqueued call tests (#11180)",
-          "timestamp": "2025-01-13T15:28:29-05:00",
-          "tree_id": "731ea42185078f8e68227e4ba4af8f7c613c1422",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3092212d61cb1359d10b1741b48627518e5437d7"
-        },
-        "date": 1736801654614,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19656.18509799998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16866.072859 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21624.869467999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18756.767578 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4477.594582999984,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4131.163767999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72038.890747,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72038891000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13551.805078000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13551806000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3076701508,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3076701508 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143002881,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143002881 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 141495750,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141495750 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a273136d1a4686ff37dc3b75c9518f0b28b7d457",
+          "message": "feat(avm): get_row optimization - 25x faster logderiv inv (#11605)\n\nProving times (VM1) on 16 cores, 850+ columns, dozens of lookups, bulk_test.\n\n```\n** Before **\nprove/all_ms: 92606\nprove/execute_log_derivative_inverse_round_ms: 21544\n\n** After **\nprove/all_ms: 73404\nprove/execute_log_derivative_inverse_round_ms: 839\n```\n\nNo change in sumcheck time.\n\nFor reviewing, you can focus on the templates. An explanation follows (with history).\n\n---\n\nThis PR is about the `get_row()` method on the prover polynomials of a given flavor. This method is used by the [logderivative library](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L36) to compute logderivative inverses.\n\nOriginally, `get_row()` was supposed to be debug only but it ended up used in the library above. To be fair, the reason is as follows: the `accumulate` function of relations (including lookups and perms), takes in a row (or something that looks like it!). However, by the time that you have to compute inverses, you don't have your row-based trace anymore, you only have the prover polynomials which are column-based. So, you need to extract a row from columns.\n\nThe following sections explore a way to make things run faster, without completely breaking the `get_row()` expectations from the caller. That is, that it behaves like a row (you can do `.column` and it will return the field for it).\n\n# Phase 1: `AllEntities<FF>`\n\nSo far so good. Normal [BB flavors](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/mega_flavor.hpp#L366) make `get_row()` return `AllEntities<FF>` which is literally a row with as many fields copied as columns you have. Note that the copy is done even for the columns that may not get used later in the accumulation of a relation, or in the computation of inverses.\n\nThis might be ok if you have 10 columns and a handful of lookups, but in our case we have dozens of lookups and 850+ columns (we estimate 3500 by completion of the AVM).\n\n# Phase 2: something like `AllEntities<const FF&>`\n\nAs a quick fix you might think you can copy references instead and use `AllEntities<const FF&>`. Well you can't, at least not the way you would use `AllEntities<FF>`. Since the class would have members that are references, you need to define a constructor that initializes them all, maybe from a `RefArray` of sorts. The problem is because the class `AllEntities` is defined as inheriting from other classes, instead of being \"flat\".\n\nThis, for us, added an immense amount of codegen. See `AllConstRefValues` [here](https://github.com/AztecProtocol/aztec-packages/blob/2f05dc02fe7b147c7cd6fc235134279dbf332c08/barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.cpp).\n\nThis improvement was introduced in [this PR](https://github.com/AztecProtocol/aztec-packages/pull/7419) and it gave a **20x** speed improvement over `AllEntities<FF>`.\n\nThe code itself was then improved in [this PR](https://github.com/AztecProtocol/aztec-packages/pull/11504) by using a flat class and some fold expressions.\n\n# Phase 3: Getters\n\nIdeally what we'd want is for `get_row()` to return something like this:\n```\n    template <typename Polynomials> class PolynomialEntitiesAtFixedRow {\n      public:\n        PolynomialEntitiesAtFixedRow(const size_t row_idx, const Polynomials& pp)\n            : row_idx(row_idx)\n            , pp(pp)\n        {}\n        // what here?\n\n      private:\n        const size_t row_idx;\n        const Polynomials& pp;\n    };\n```\nsuch that if you do `row.column` it would secretly do `pp.column[row_idx]` instead. Unfortunately, you cannot override the `.` operator, and certainly not like this.\n\nInstead, we compromise. I added a macro to generate getters `_column()` for every column, which do exactly that. Then I changed the lookups and permutation codegen to use that (i.e., `in._column()` instead of `in.column`). Note that we _only_ use these getters in lookups and perm, not in the main relations.\n\nHowever, we are not done. The perms and lookups code that we changed is also called by `accumulate` when doing sumcheck, and `AllEntities` does not provide those getters so it will not compile. Well, we add them, and we are done.\n\nThis results in a **25x** time improvement in calculating logderiv inverses, amounting to a total of **500x** better than baseline.\n\n# Conclusion\n\nSome thing in BB are not thought for a VM :) I wonder if theres any such improvement lurking in sumcheck? :)",
+          "timestamp": "2025-01-29T22:23:46Z",
+          "tree_id": "c1f5bb5cc16f99dd4531c8b7a47e37ba11ffa0ce",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a273136d1a4686ff37dc3b75c9518f0b28b7d457"
+        },
+        "date": 1738190493017,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19375.847022000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16673.871869 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21430.08404699998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18694.235358 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4533.939900999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4217.232513 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80812.134265,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80812135000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13527.038707000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13527040000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3677696919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3677696919 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166983290,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166983290 ns\nthreads: 1"
           }
         ]
       }
