@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingInner} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -28,7 +28,7 @@ contract SlashPayload is IPayload {
     for (uint256 i = 0; i < attesters.length; i++) {
       actions[i] = IPayload.Action({
         target: address(VALIDATOR_SELECTION),
-        data: abi.encodeWithSelector(IStaking.slash.selector, attesters[i], AMOUNT)
+        data: abi.encodeWithSelector(IStakingInner.slash.selector, attesters[i], AMOUNT)
       });
     }
 

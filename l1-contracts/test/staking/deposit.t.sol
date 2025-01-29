@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {IStaking, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingInner, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract DepositTest is StakingBase {
   uint256 internal depositAmount;
@@ -147,7 +147,7 @@ contract DepositTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.Deposit(ATTESTER, PROPOSER, WITHDRAWER, depositAmount);
+    emit IStakingInner.Deposit(ATTESTER, PROPOSER, WITHDRAWER, depositAmount);
 
     staking.deposit({
       _attester: ATTESTER,
