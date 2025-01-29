@@ -442,7 +442,7 @@ impl<'context> Elaborator<'context> {
                     self.crate_id,
                     &mut self.errors,
                 ) {
-                    generated_items.structs.insert(type_id, the_struct);
+                    generated_items.types.insert(type_id, the_struct);
                 }
             }
             ItemKind::Impl(r#impl) => {

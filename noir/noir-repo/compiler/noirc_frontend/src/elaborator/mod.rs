@@ -324,7 +324,7 @@ impl<'context> Elaborator<'context> {
         }
 
         // Must resolve types before we resolve globals.
-        self.collect_struct_definitions(&items.structs);
+        self.collect_struct_definitions(&items.types);
 
         self.define_function_metas(&mut items.functions, &mut items.impls, &mut items.trait_impls);
 
@@ -354,7 +354,7 @@ impl<'context> Elaborator<'context> {
         // since the generated items are checked beforehand as well.
         self.run_attributes(
             &items.traits,
-            &items.structs,
+            &items.types,
             &items.functions,
             &items.module_attributes,
         );

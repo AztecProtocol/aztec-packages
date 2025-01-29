@@ -141,7 +141,7 @@ pub struct DefCollector {
 #[derive(Default)]
 pub struct CollectedItems {
     pub functions: Vec<UnresolvedFunctions>,
-    pub(crate) structs: BTreeMap<TypeId, UnresolvedStruct>,
+    pub(crate) types: BTreeMap<TypeId, UnresolvedStruct>,
     pub(crate) type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
     pub(crate) traits: BTreeMap<TraitId, UnresolvedTrait>,
     pub globals: Vec<UnresolvedGlobal>,
@@ -153,7 +153,7 @@ pub struct CollectedItems {
 impl CollectedItems {
     pub fn is_empty(&self) -> bool {
         self.functions.is_empty()
-            && self.structs.is_empty()
+            && self.types.is_empty()
             && self.type_aliases.is_empty()
             && self.traits.is_empty()
             && self.globals.is_empty()
@@ -254,7 +254,7 @@ impl DefCollector {
             imports: vec![],
             items: CollectedItems {
                 functions: vec![],
-                structs: BTreeMap::new(),
+                types: BTreeMap::new(),
                 type_aliases: BTreeMap::new(),
                 traits: BTreeMap::new(),
                 impls: HashMap::default(),

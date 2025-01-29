@@ -315,7 +315,7 @@ impl<'a> ModCollector<'a> {
                 krate,
                 &mut definition_errors,
             ) {
-                self.def_collector.items.structs.insert(id, the_struct);
+                self.def_collector.items.types.insert(id, the_struct);
             }
         }
         definition_errors
