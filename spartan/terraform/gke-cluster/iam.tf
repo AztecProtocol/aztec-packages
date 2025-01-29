@@ -11,7 +11,9 @@ resource "google_project_iam_member" "gke_sa_roles" {
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/monitoring.viewer",
-    "roles/artifactregistry.reader"
+    "roles/artifactregistry.reader",
+    "roles/cloudtrace.agent",
+    "roles/storage.objectUser"
   ])
   project = var.project
   role    = each.key

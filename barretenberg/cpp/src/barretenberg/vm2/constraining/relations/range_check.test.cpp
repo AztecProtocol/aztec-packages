@@ -20,7 +20,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using range_check = bb::avm2::range_check<FF>;
 
-TEST(AvmConstrainingTest, RangeCheckPositiveEmptyRow)
+TEST(RangeCheckConstrainingTest, EmptyRow)
 {
     TestTraceContainer trace({
         { { C::precomputed_clk, 1 } },
@@ -29,7 +29,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveEmptyRow)
     check_relation<range_check>(trace.as_rows());
 }
 
-TEST(AvmConstrainingTest, RangeCheckPositiveIsLteMutuallyExclusive)
+TEST(RangeCheckConstrainingTest, IsLteMutuallyExclusive)
 {
     TestTraceContainer trace({
         { { C::range_check_sel, 1 }, { C::range_check_is_lte_u32, 1 } },
@@ -38,7 +38,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveIsLteMutuallyExclusive)
     check_relation<range_check>(trace.as_rows(), range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE);
 }
 
-TEST(AvmConstrainingTest, RangeCheckNegativeIsLteMutuallyExclusive)
+TEST(RangeCheckConstrainingTest, NegativeIsLteMutuallyExclusive)
 {
     TestTraceContainer trace({
         // Negative test, only one is_lte flag should be high
@@ -49,7 +49,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeIsLteMutuallyExclusive)
                               "IS_LTE_MUTUALLY_EXCLUSIVE");
 }
 
-TEST(AvmConstrainingTest, RangeCheckPositiveCheckRecomposition)
+TEST(RangeCheckConstrainingTest, CheckRecomposition)
 {
     uint128_t value = 0x3FFFFFFFD;
     uint256_t value_u256 = uint256_t::from_uint128(value);
@@ -70,7 +70,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveCheckRecomposition)
     check_relation<range_check>(trace.as_rows(), range_check::SR_CHECK_RECOMPOSITION);
 }
 
-TEST(AvmConstrainingTest, RangeCheckNegativeCheckRecomposition)
+TEST(RangeCheckConstrainingTest, NegativeCheckRecomposition)
 {
     uint128_t value = 0x3FFFFFFFD;
     // Add 1 to the value to create a "bad" value that doesn't match recomposition
@@ -93,7 +93,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeCheckRecomposition)
                               "CHECK_RECOMPOSITION");
 }
 
-TEST(AvmConstrainingTest, RangeCheckPositiveFull)
+TEST(RangeCheckConstrainingTest, Full)
 {
     uint8_t num_bits = 34;
     uint8_t non_dynamic_bits = 32;
@@ -129,7 +129,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveFull)
     check_relation<range_check>(trace.as_rows());
 }
 
-TEST(AvmConstrainingTest, RangeCheckNegativeMissingLookup)
+TEST(RangeCheckConstrainingTest, NegativeMissingLookup)
 {
     uint8_t num_bits = 34;
     uint8_t non_dynamic_bits = 32;
@@ -165,7 +165,7 @@ TEST(AvmConstrainingTest, RangeCheckNegativeMissingLookup)
     EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows()), "Relation range_check");
 }
 
-TEST(AvmConstrainingTest, RangeCheckPositiveWithTracegen)
+TEST(RangeCheckConstrainingTest, WithTracegen)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
@@ -190,7 +190,7 @@ TEST(AvmConstrainingTest, RangeCheckPositiveWithTracegen)
     check_relation<range_check>(trace.as_rows());
 }
 
-TEST(AvmConstrainingTest, RangeCheckNegativeWithTracegen)
+TEST(RangeCheckConstrainingTest, NegativeWithTracegen)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
