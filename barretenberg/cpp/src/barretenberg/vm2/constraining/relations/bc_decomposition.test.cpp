@@ -20,7 +20,6 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_decomposition = bb::avm2::bc_decomposition<FF>;
-using testing::SizeIs;
 
 std::vector<uint8_t> random_bytes(size_t n)
 {
@@ -38,66 +37,48 @@ TEST(BytecodeDecompositionConstrainingTest, EmptyRow)
         { { C::precomputed_first_row, 1 } },
     });
 
-    check_relation<bc_decomposition>(trace.as_rows());
+    check_relation<bc_decomposition>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
+    TestTraceContainer trace;
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
 
-    auto rows = trace.as_rows();
-    EXPECT_THAT(rows, SizeIs(1 + 40));
-
-    check_relation<bc_decomposition>(rows);
+    EXPECT_EQ(trace.get_num_rows(), 1 + 40);
+    check_relation<bc_decomposition>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
     // Bytecode is shorter than the sliding window.
+    TestTraceContainer trace;
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
 
-    auto rows = trace.as_rows();
-    EXPECT_THAT(rows, SizeIs(1 + 5));
-
-    check_relation<bc_decomposition>(rows);
+    EXPECT_EQ(trace.get_num_rows(), 1 + 5);
+    check_relation<bc_decomposition>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
+    TestTraceContainer trace;
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
           { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) } },
         trace);
 
-    auto rows = trace.as_rows();
-    EXPECT_THAT(rows, SizeIs(1 + 40 + 55));
-
-    check_relation<bc_decomposition>(rows);
+    EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 55);
+    check_relation<bc_decomposition>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
+    TestTraceContainer trace;
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
@@ -107,10 +88,8 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
           { .bytecode_id = 5, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(2)) } },
         trace);
 
-    auto rows = trace.as_rows();
-    EXPECT_THAT(rows, SizeIs(1 + 40 + 5 + 10 + 55 + 2));
-
-    check_relation<bc_decomposition>(rows);
+    EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 5 + 10 + 55 + 2);
+    check_relation<bc_decomposition>(trace);
 }
 
 } // namespace
