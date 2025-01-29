@@ -197,7 +197,6 @@ jobs:
           artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
             ci3/cache_upload_flag "$artifact"
           fi
@@ -222,7 +221,6 @@ jobs:
           artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
             ci3/cache_upload_flag "$artifact"
           fi
@@ -267,7 +265,6 @@ jobs:
             artifact="e2e-prover-full-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
               FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh e2e_prover_full
               ci3/cache_upload_flag "$artifact"
             fi
@@ -314,7 +311,6 @@ jobs:
           run: |
             until docker info &>/dev/null; do sleep 1; done
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
 
@@ -364,7 +360,6 @@ jobs:
             artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-              docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
               ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
               ci3/cache_upload_flag "$artifact"
             fi
