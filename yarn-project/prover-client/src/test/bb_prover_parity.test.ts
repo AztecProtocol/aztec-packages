@@ -47,8 +47,8 @@ describe('prover/bb_prover/parity', () => {
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       Fr.random,
     );
-    const baseParityInputs = await makeTupleAsync(NUM_BASE_PARITY_PER_ROOT_PARITY, async i =>
-      BaseParityInputs.fromSlice(l1ToL2Messages, i, await getVKTreeRoot()),
+    const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
+      BaseParityInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot()),
     );
 
     // Generate the base parity proofs
@@ -111,7 +111,7 @@ describe('prover/bb_prover/parity', () => {
       validProof,
       validVk,
       baseParityVkPath,
-      new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), await getVKTreeRoot()),
+      new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), getVKTreeRoot()),
     );
 
     const defectiveVerificationKey = new RootParityInput(

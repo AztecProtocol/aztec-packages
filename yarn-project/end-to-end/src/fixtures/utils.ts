@@ -119,7 +119,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
+    vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,

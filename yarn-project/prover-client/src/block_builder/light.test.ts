@@ -96,7 +96,7 @@ describe('LightBlockBuilder', () => {
   beforeAll(async () => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
-    vkTreeRoot = await getVKTreeRoot();
+    vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
     db = await NativeWorldStateService.tmp();
@@ -366,7 +366,7 @@ describe('LightBlockBuilder', () => {
       const constants = ConstantRollupData.from({
         lastArchive: startArchiveSnapshot,
         globalVariables,
-        vkTreeRoot: await getVKTreeRoot(),
+        vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
       });
       const inputs = EmptyBlockRootRollupInputs.from({

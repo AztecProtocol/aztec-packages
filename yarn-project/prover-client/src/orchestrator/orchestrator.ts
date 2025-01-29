@@ -36,7 +36,7 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { padArrayEnd, timesParallel } from '@aztec/foundation/collection';
+import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -458,8 +458,8 @@ export class ProvingOrchestrator implements EpochProver {
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       'Too many L1 to L2 messages',
     );
-    const baseParityInputs = await timesParallel(NUM_BASE_PARITY_PER_ROOT_PARITY, async i =>
-      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, await getVKTreeRoot()),
+    const baseParityInputs = times(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
+      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
     );
 
     const l1ToL2MessageSubtreeSiblingPath = assertLength(

@@ -160,15 +160,13 @@ export class TestContext {
 
   public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
   public makeProcessedTx(seed?: number): Promise<ProcessedTx>;
-  public async makeProcessedTx(
-    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
-  ): Promise<ProcessedTx> {
+  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
     const header = this.getBlockHeader(blockNum - 1);
     return makeBloatedProcessedTx({
       header,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       globalVariables: this.globalVariables,
       ...opts,

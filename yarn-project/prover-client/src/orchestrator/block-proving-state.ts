@@ -190,7 +190,7 @@ export class BlockProvingState {
       const constants = ConstantRollupData.from({
         lastArchive: this.lastArchiveSnapshot,
         globalVariables: this.globalVariables,
-        vkTreeRoot: await getVKTreeRoot(),
+        vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
       });
 
@@ -244,7 +244,7 @@ export class BlockProvingState {
     const constants = ConstantRollupData.from({
       lastArchive: newArchive,
       globalVariables: this.globalVariables,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
     });
 
