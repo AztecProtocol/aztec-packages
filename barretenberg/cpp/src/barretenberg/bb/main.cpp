@@ -473,40 +473,6 @@ void contract(const std::string& output_path, const std::string& vk_path)
 }
 
 /**
- * @brief Writes a Honk Solidity verifier contract for an ACIR circuit to a file
- *
- * Communication:
- * - stdout: The Solidity verifier contract is written to stdout as a string
- * - Filesystem: The Solidity verifier contract is written to the path specified by output_path
- *
- * Note: The fact that the contract was computed is for an ACIR circuit is not of importance
- * because this method uses the verification key to compute the Solidity verifier contract
- *
- * @param output_path Path to write the contract to
- * @param vk_path Path to the file containing the serialized verification key
- */
-void contract_honk(const std::string& output_path, const std::string& vk_path)
-{
-    using VerificationKey = UltraKeccakFlavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-
-    auto g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory({}, g2_data);
-    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-
-    std::string contract = get_honk_solidity_verifier(std::move(vk));
-
-    if (output_path == "-") {
-        write_string_to_stdout(contract);
-        vinfo("contract written to stdout");
-    } else {
-        write_file(output_path, { contract.begin(), contract.end() });
-        vinfo("contract written to: ", output_path);
-    }
-}
-
-/**
  * @brief Converts a proof from a byte array into a list of field elements
  *
  * Why is this needed?
@@ -755,92 +721,6 @@ bool avm2_verify(const std::filesystem::path& proof_path,
     return res;
 }
 #endif
-
-/**
- * @brief Verifies a proof for an ACIR circuit
- *
- * Note: The fact that the proof was computed originally by parsing an ACIR circuit is not of importance
- * because this method uses the verification key to verify the proof.
- *
- * Communication:
- * - proc_exit: A boolean value is returned indicating whether the proof is valid.
- *   an exit code of 0 will be returned for success and 1 for failure.
- *
- * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the file containing the serialized verification key
- * @return true If the proof is valid
- * @return false If the proof is invalid
- */
-template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, const std::string& vk_path)
-{
-    using VerificationKey = Flavor::VerificationKey;
-    using Verifier = UltraVerifier_<Flavor>;
-
-    auto g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory({}, g2_data);
-    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
-    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key = nullptr;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    }
-    Verifier verifier{ vk, ipa_verification_key };
-
-    bool verified;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // Break up the tube proof into the honk portion and the ipa portion
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
-        // The extra calculation is for the IPA proof length.
-        debug("proof size: ", proof.size());
-        debug("num public inputs: ", num_public_inputs);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
-        // split out the ipa proof
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        auto tube_honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(proof, ipa_proof);
-    } else {
-        verified = verifier.verify_proof(proof);
-    }
-    vinfo("verified: ", verified);
-    return verified;
-}
-
-/**
- * @brief Writes a Honk verification key for an ACIR circuit to a file
- *
- * Communication:
- * - stdout: The verification key is written to stdout as a byte array
- * - Filesystem: The verification key is written to the path specified by output_path
- *
- * @param bytecode_path Path to the file containing the serialized circuit
- * @param output_path Path to write the verification key to
- */
-template <IsUltraFlavor Flavor>
-void write_vk_honk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
-{
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    // Construct a verification key from a partial form of the proving key which only has precomputed entities
-    Prover prover = compute_valid_prover<Flavor>(bytecode_path, "", recursive);
-    VerificationKey vk(prover.proving_key->proving_key);
-
-    auto serialized_vk = to_buffer(vk);
-    if (output_path == "-") {
-        write_bytes_to_stdout(serialized_vk);
-        vinfo("vk written to stdout");
-    } else {
-        write_file(output_path, serialized_vk);
-        vinfo("vk written to: ", output_path);
-    }
-}
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
@@ -1159,7 +1039,8 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
-            return verify_honk<UltraRollupFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
+            UltraHonkAPI api;
+            return api.verify({ .ipa_accumulation = "true" }, tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
             gate_count<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_mega_honk") {
@@ -1221,17 +1102,6 @@ int main(int argc, char* argv[])
         } else if (command == "avm_verify") {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
 #endif
-        } else if (command == "write_vk_ultra_keccak_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path, recursive);
-        } else if (command == "write_vk_ultra_rollup_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<UltraRollupFlavor>(bytecode_path, output_path, recursive);
-        } else if (command == "verify_mega_honk") {
-            return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "write_vk_mega_honk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<MegaFlavor>(bytecode_path, output_path, recursive);
         } else if (command == "write_vk_for_ivc") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_for_ivc(bytecode_path, output_path);
@@ -1247,9 +1117,6 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields_honk<UltraRollupFlavor>(vk_path, output_path);
-        } else if (command == "vk_as_fields_mega_honk") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

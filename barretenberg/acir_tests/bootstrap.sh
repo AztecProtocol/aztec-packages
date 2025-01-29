@@ -110,13 +110,11 @@ function test_cmds {
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
   echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
-  # echo a single arbitrary test not involving recursion through bb.js for MegaHonk
-  echo BIN=$bbjs_bin SYS=mega_honk FLOW=prove_and_verify $run_test 6_array
   # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
   echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb:
-  # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
+  # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo FLOW=prove_then_verify_tube $run_test 6_array
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
   echo FLOW=all_cmds $run_test 1_mul
