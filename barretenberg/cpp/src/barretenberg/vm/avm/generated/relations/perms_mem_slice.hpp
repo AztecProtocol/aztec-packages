@@ -24,43 +24,43 @@ class perm_slice_mem_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.slice_sel_mem_active == 1 || in.mem_sel_op_slice == 1);
+        return (in._slice_sel_mem_active() == 1 || in._mem_sel_op_slice() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_slice_mem_inv,
-                                     in.slice_sel_mem_active,
-                                     in.slice_sel_mem_active,
-                                     in.mem_sel_op_slice,
-                                     in.slice_clk,
-                                     in.slice_space_id,
-                                     in.slice_addr,
-                                     in.slice_val,
-                                     in.slice_sel_cd_cpy,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_slice_mem_inv(),
+                                     in._slice_sel_mem_active(),
+                                     in._slice_sel_mem_active(),
+                                     in._mem_sel_op_slice(),
+                                     in._slice_clk(),
+                                     in._slice_space_id(),
+                                     in._slice_addr(),
+                                     in._slice_val(),
+                                     in._slice_sel_cd_cpy(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_slice_mem_inv,
-                                     in.slice_sel_mem_active,
-                                     in.slice_sel_mem_active,
-                                     in.mem_sel_op_slice,
-                                     in.slice_clk,
-                                     in.slice_space_id,
-                                     in.slice_addr,
-                                     in.slice_val,
-                                     in.slice_sel_cd_cpy,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_slice_mem_inv(),
+                                     in._slice_sel_mem_active(),
+                                     in._slice_sel_mem_active(),
+                                     in._mem_sel_op_slice(),
+                                     in._slice_clk(),
+                                     in._slice_space_id(),
+                                     in._slice_addr(),
+                                     in._slice_val(),
+                                     in._slice_sel_cd_cpy(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
