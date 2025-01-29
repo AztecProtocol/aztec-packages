@@ -9,7 +9,7 @@ resource "google_container_cluster" "primary" {
   deletion_protection      = true
 
   # Kubernetes version
-  min_master_version = "latest"
+  node_version = "1.30.5-gke.1713000"
 
   # Network configuration
   network    = "default"
