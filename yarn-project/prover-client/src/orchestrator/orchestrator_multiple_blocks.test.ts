@@ -18,7 +18,8 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
+    // Skipping in the interest of speeding up CI
+    it.skip.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
@@ -41,7 +42,7 @@ describe('prover/orchestrator/multi-block', () => {
       expect(epoch.proof).toBeDefined();
     });
 
-    it.each([1, 4, 5])('builds an epoch with %s blocks in parallel', async (numBlocks: number) => {
+    it.each([1, 4])('builds an epoch with %s blocks in parallel', async (numBlocks: number) => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));

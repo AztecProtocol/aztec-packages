@@ -5,7 +5,7 @@ import { type ContractClass } from './interfaces/contract_class.js';
 
 describe('ContractClass', () => {
   describe('getContractClassId', () => {
-    it('calculates the contract class id', () => {
+    it('calculates the contract class id', async () => {
       const contractClass: ContractClass = {
         version: 1,
         artifactHash: Fr.fromHexString('0x1234'),
@@ -23,8 +23,9 @@ describe('ContractClass', () => {
           },
         ],
       };
+      const contractClassId = await computeContractClassId(contractClass);
 
-      expect(computeContractClassId(contractClass).toString()).toMatchInlineSnapshot(
+      expect(contractClassId.toString()).toMatchInlineSnapshot(
         `"0x2c3a8b2ad29dd4000cb827e973737bcf57fc072aeaf93ceeef4b4b9eb086cf67"`,
       );
     });

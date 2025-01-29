@@ -10,6 +10,3 @@ variable "zone" {
   default = "us-west1-a"
 }
 
-variable "cluster_name" {
-  default = "aztec-gke"
-}
