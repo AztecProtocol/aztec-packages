@@ -423,7 +423,7 @@ pub comptime fn generate_serialize_to_fields(
 }
 
 /// From a quote that gets tokenized to a multiple tokens we collapse it to a single token by replacing all `.` with `_`.
-/// E.g. "self.values[0]" -> "self_values_0"
+/// E.g. "self.values[0]" -> "self_values_0_"
 comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     let tokens = q.tokens();
 
