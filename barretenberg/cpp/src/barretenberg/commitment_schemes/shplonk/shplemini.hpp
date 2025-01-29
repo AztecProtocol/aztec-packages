@@ -252,10 +252,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
         const Fr N,
-        RefVector<Commitment> unshifted_commitments,
-        RefVector<Commitment> shifted_commitments,
-        RefVector<Fr> unshifted_evaluations,
-        RefVector<Fr> shifted_evaluations,
+        ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
@@ -271,9 +268,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
-        ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ unshifted_commitments, unshifted_evaluations },
-                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations } };
-
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
