@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -17,6 +18,7 @@ template <typename Curve> struct InstanceWitnessGenerator {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
+    using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
 
     std::shared_ptr<CommitmentKey> ck;
     std::vector<Polynomial> unshifted_polynomials = {};
@@ -26,6 +28,7 @@ template <typename Curve> struct InstanceWitnessGenerator {
     std::vector<Commitment> to_be_shifted_commitments;
     std::vector<Fr> unshifted_evals = {};
     std::vector<Fr> shifted_evals;
+    PolynomialBatcher polynomial_batcher;
 
     // Containers for mock Sumcheck data
     std::vector<bb::Polynomial<Fr>> round_univariates;
@@ -40,6 +43,7 @@ template <typename Curve> struct InstanceWitnessGenerator {
         : ck(commitment_key) // Initialize the commitment key
         , unshifted_polynomials(num_polynomials)
         , to_be_shifted_polynomials(num_shiftable)
+        , polynomial_batcher(n)
 
     {
         construct_instance_and_witnesses(n, mle_opening_point);
@@ -78,11 +82,15 @@ template <typename Curve> struct InstanceWitnessGenerator {
                 idx++;
             }
         }
+
+        polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
     }
 
     // Generate zero polynomials to test edge cases in PCS
     InstanceWitnessGenerator(const size_t n, const size_t num_zero_polynomials)
         : unshifted_polynomials(num_zero_polynomials)
+        , polynomial_batcher(n)
     {
         for (size_t idx = 0; idx < num_zero_polynomials; idx++) {
             unshifted_polynomials[idx] = Polynomial(n);
