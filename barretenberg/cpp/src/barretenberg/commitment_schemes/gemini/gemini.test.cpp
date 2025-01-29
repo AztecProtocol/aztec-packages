@@ -8,6 +8,7 @@ using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -36,12 +37,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(this->n,
-                                                 RefVector(instance_witness.unshifted_polynomials),
-                                                 RefVector(instance_witness.to_be_shifted_polynomials),
-                                                 multilinear_evaluation_point,
-                                                 ck,
-                                                 prover_transcript);
+        auto prover_output = GeminiProver::prove(
+            this->n, instance_witness.polynomial_batcher, multilinear_evaluation_point, ck, prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
         this->verify_batch_opening_pair(prover_output);
@@ -82,8 +79,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(this->n,
-                                                 RefVector(instance_witness.unshifted_polynomials),
-                                                 RefVector(instance_witness.to_be_shifted_polynomials),
+                                                 instance_witness.polynomial_batcher,
                                                  multilinear_evaluation_point,
                                                  ck,
                                                  prover_transcript,

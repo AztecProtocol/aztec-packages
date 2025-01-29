@@ -114,12 +114,8 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefVector(instance_witness.unshifted_polynomials),
-                                                     RefVector(instance_witness.to_be_shifted_polynomials),
-                                                     mle_opening_point,
-                                                     ck,
-                                                     prover_transcript);
+    auto prover_opening_claims =
+        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -172,12 +168,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefVector(instance_witness.unshifted_polynomials),
-                                                     RefVector(instance_witness.to_be_shifted_polynomials),
-                                                     mle_opening_point,
-                                                     ck,
-                                                     prover_transcript);
+    auto prover_opening_claims =
+        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -227,8 +219,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     const auto prover_opening_claims = GeminiProver::prove(n,
-                                                           RefVector(instance_witness.unshifted_polynomials),
-                                                           RefVector(instance_witness.to_be_shifted_polynomials),
+                                                           instance_witness.polynomial_batcher,
                                                            mle_opening_point,
                                                            ck,
                                                            prover_transcript,
@@ -287,12 +278,8 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims = GeminiProver::prove(n,
-                                                           RefVector(instance_witness.unshifted_polynomials),
-                                                           RefVector(instance_witness.to_be_shifted_polynomials),
-                                                           mle_opening_point,
-                                                           ck,
-                                                           prover_transcript);
+    const auto prover_opening_claims =
+        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
