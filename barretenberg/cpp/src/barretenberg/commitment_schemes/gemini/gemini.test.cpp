@@ -7,6 +7,7 @@ using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -15,22 +16,24 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           RefVector<Fr> multilinear_evaluations_unshifted,
                                           RefVector<Fr> multilinear_evaluations_shifted,
-                                          RefSpan<Polynomial<Fr>> multilinear_polynomials,
-                                          RefSpan<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
+                                          RefVector<Polynomial<Fr>> multilinear_polynomials,
+                                          RefVector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
                                           RefVector<Commitment> multilinear_commitments,
                                           RefVector<Commitment> multilinear_commitments_to_be_shifted)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
+        size_t circuit_size = 1 << multilinear_evaluation_point.size();
+
+        PolynomialBatcher polynomial_batcher(circuit_size);
+        polynomial_batcher.set_unshifted(multilinear_polynomials);
+        polynomial_batcher.set_to_be_shifted_by_one(multilinear_polynomials_to_be_shifted);
+
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(1 << multilinear_evaluation_point.size(),
-                                                 multilinear_polynomials,
-                                                 multilinear_polynomials_to_be_shifted,
-                                                 multilinear_evaluation_point,
-                                                 this->commitment_key,
-                                                 prover_transcript);
+        auto prover_output = GeminiProver::prove(
+            circuit_size, polynomial_batcher, multilinear_evaluation_point, this->commitment_key, prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
         this->verify_batch_opening_pair(prover_output);
@@ -59,8 +62,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         std::vector<Fr>& multilinear_evaluation_point,
         RefVector<Fr> multilinear_evaluations_unshifted,
         RefVector<Fr> multilinear_evaluations_shifted,
-        RefSpan<Polynomial<Fr>> multilinear_polynomials,
-        RefSpan<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
+        RefVector<Polynomial<Fr>> multilinear_polynomials,
+        RefVector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
         RefVector<Commitment> multilinear_commitments,
         RefVector<Commitment> multilinear_commitments_to_be_shifted,
         RefSpan<Polynomial<Fr>> concatenated_polynomials = {},
@@ -71,12 +74,17 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
+        size_t circuit_size = 1 << multilinear_evaluation_point.size();
+
+        PolynomialBatcher polynomial_batcher(circuit_size);
+        polynomial_batcher.set_unshifted(multilinear_polynomials);
+        polynomial_batcher.set_to_be_shifted_by_one(multilinear_polynomials_to_be_shifted);
+
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(1 << multilinear_evaluation_point.size(),
-                                                 multilinear_polynomials,
-                                                 multilinear_polynomials_to_be_shifted,
+        auto prover_output = GeminiProver::prove(circuit_size,
+                                                 polynomial_batcher,
                                                  multilinear_evaluation_point,
                                                  this->commitment_key,
                                                  prover_transcript,

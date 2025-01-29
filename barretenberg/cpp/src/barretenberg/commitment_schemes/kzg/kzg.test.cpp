@@ -93,6 +93,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -117,11 +118,15 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Run the full prover PCS protocol:
 
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2 });
+
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(
-        n, RefArray{ poly1, poly2 }, RefArray{ poly2 }, mle_opening_point, this->ck(), prover_transcript);
+    auto prover_opening_claims =
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -167,6 +172,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -198,15 +204,15 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
 
     // Run the full prover PCS protocol:
 
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly1, poly3 });
+
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2, poly3, poly4 },
-                                                     RefArray{ poly1, poly3 },
-                                                     mle_opening_point,
-                                                     this->ck(),
-                                                     prover_transcript);
+    auto prover_opening_claims =
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -247,6 +253,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -282,12 +289,15 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 
     // Run the full prover PCS protocol:
 
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly1, poly3 });
+
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2, poly3, poly4 },
-                                                     RefArray{ poly1, poly3 },
+                                                     polynomial_batcher,
                                                      mle_opening_point,
                                                      this->ck(),
                                                      prover_transcript,
@@ -342,6 +352,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgShiftsRemoval)
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -373,15 +384,15 @@ TYPED_TEST(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // Run the full prover PCS protocol:
 
+    PolynomialBatcher polynomial_batcher(n);
+    polynomial_batcher.set_unshifted({ poly1, poly2, poly3, poly4 });
+    polynomial_batcher.set_to_be_shifted_by_one({ poly2, poly3 });
+
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2, poly3, poly4 },
-                                                     RefArray{ poly2, poly3 },
-                                                     mle_opening_point,
-                                                     this->ck(),
-                                                     prover_transcript);
+    auto prover_opening_claims =
+        GeminiProver::prove(n, polynomial_batcher, mle_opening_point, this->ck(), prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
