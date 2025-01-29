@@ -109,6 +109,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                 proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_region_data.get_ranges());
         } else {
             if constexpr (Flavor::HasZK) {
+                // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+                // their shifts. Only used in MegaZKFlavor and UltraZKFlavor
                 for (size_t idx = 1; idx < 4; idx++) {
                     proving_key->proving_key.polynomials.w_l.at(circuit_size - idx) = FF::random_element();
                     proving_key->proving_key.polynomials.w_r.at(circuit_size - idx) = FF::random_element();
@@ -133,7 +135,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     if constexpr (IsMegaFlavor<Flavor>) {
         const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
 
-        // Commit to Goblin ECC op wires
+        // Commit to Goblin ECC op wires. Currently, they are not masked in MegaZKFlavor
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
                                                              proving_key->proving_key.polynomials.get_ecc_op_wires(),
                                                              commitment_labels.get_ecc_op_wires())) {
@@ -153,6 +155,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
             {
                 PROFILE_THIS_NAME("COMMIT::databus");
                 if constexpr (Flavor::HasZK) {
+                    // Mask witness commitments, their evaluation at the sumcheck challenge point and the
+                    // evaluations of their shifts. Only used in MegaZKFlavor
                     for (size_t idx = 1; idx < 4; idx++) {
                         polynomial.at(circuit_size - idx) = FF::random_element();
                     };
@@ -185,7 +189,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     {
         PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
         if constexpr (Flavor::HasZK) {
-
+            // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+            // their shifts. Only used in MegaZKFlavor and UltraZKFlavor
             for (size_t idx = 1; idx < 4; idx++) {
                 proving_key->proving_key.polynomials.lookup_read_counts.at(circuit_size - idx) = FF::random_element();
                 proving_key->proving_key.polynomials.lookup_read_tags.at(circuit_size - idx) = FF::random_element();
@@ -204,6 +209,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
         } else {
             if constexpr (Flavor::HasZK) {
                 for (size_t idx = 1; idx < 4; idx++) {
+                    // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+                    // their shifts. Only used in MegaZKFlavor and UltraZKFlavor
                     proving_key->proving_key.polynomials.w_4.at(circuit_size - idx) = FF::random_element();
                 }
             }
@@ -230,12 +237,21 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     proving_key->relation_parameters.beta = beta;
     proving_key->relation_parameters.gamma = gamma;
 
+    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+
     // Compute the inverses used in log-derivative lookup relations
     WitnessComputation<Flavor>::compute_logderivative_inverses(proving_key->proving_key,
                                                                proving_key->relation_parameters);
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
+        if constexpr (Flavor::HasZK) {
+            // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+            // their shifts. Only used in MegaZKFlavor and UltraZKFlavor
+            for (size_t idx = 1; idx < 4; idx++) {
+                proving_key->proving_key.polynomials.lookup_inverses.at(circuit_size - idx) = FF::random_element();
+            };
+        }
         witness_commitments.lookup_inverses = proving_key->proving_key.commitment_key->commit_sparse(
             proving_key->proving_key.polynomials.lookup_inverses);
     }
@@ -249,11 +265,21 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       proving_key->proving_key.polynomials.get_databus_inverses(),
                       commitment_labels.get_databus_inverses())) {
             {
+                if constexpr (Flavor::HasZK) {
+                    info("zk?");
+                    // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+                    // their shifts. Only used in MegaZKFlavor
+                    for (size_t idx = 1; idx < 4; idx++) {
+                        info(polynomial.at(circuit_size - idx));
+                        polynomial.at(circuit_size - idx) = FF::random_element();
+                    };
+                }
                 PROFILE_THIS_NAME("COMMIT::databus_inverses");
                 commitment = proving_key->proving_key.commitment_key->commit_sparse(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
+        // info("databus inv", proving_key->proving_key.polynomials.return_data_inverses.at(circuit_size - 1));
     }
 }
 
@@ -265,6 +291,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
+
+    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
 
     WitnessComputation<Flavor>::compute_grand_product_polynomial(
         proving_key->proving_key, proving_key->relation_parameters, proving_key->final_active_wire_idx + 1);
@@ -278,6 +306,13 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
                     proving_key->proving_key.active_region_data.get_ranges(),
                     proving_key->final_active_wire_idx + 1);
         } else {
+            if constexpr (Flavor::HasZK) {
+                // Mask witness commitments, their evaluation at the sumcheck challenge point and the evaluations of
+                // their shifts. Only used in MegaZKFlavor and UltraZKFlavor
+                for (size_t idx = 1; idx < 4; idx++) {
+                    proving_key->proving_key.polynomials.z_perm.at(circuit_size - idx) = FF::random_element();
+                };
+            }
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
         }
