@@ -5,13 +5,16 @@ use dep::aztec::{
     oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 
 // docs:start:UintNote
 #[partial_note(quote {value})]
+#[derive(Serialize)]
 pub struct UintNote {
     // The amount of tokens in the note
     value: U128,

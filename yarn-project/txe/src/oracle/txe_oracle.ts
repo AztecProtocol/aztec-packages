@@ -838,10 +838,11 @@ export class TXE implements TypedOracle {
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
     const tx = await createTxForPublicCalls(
+      firstNullifier,
       /*setupExecutionRequests=*/ [],
       /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
-      firstNullifier,
       /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
+      /*feePayer=*/ AztecAddress.zero(),
       gasUsedByPrivate,
     );
 
