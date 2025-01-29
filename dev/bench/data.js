@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738110846319,
+  "lastUpdate": 1738147965317,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d41e9abc8c2428be224400ec43f4844adfd954c3",
-          "message": "chore: move witness computation into class plus some other cleanup (#11140)\n\nMinor cleanup/refactor of Flavor logic (particularly MegaFlavor). Mostly\ndeleting unused methods and moving that did not strictly belong in the\nFlavor to new classes `WitnessComputation` and `MegaMemoryEstimator`",
-          "timestamp": "2025-01-13T10:50:54-07:00",
-          "tree_id": "dd0282685a034e833deb01e1aba778772121189f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d41e9abc8c2428be224400ec43f4844adfd954c3"
-        },
-        "date": 1736792140646,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19496.567465,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16854.790723000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21619.380548000037,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18885.752178 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4430.973205999976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4043.220895 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 81710.988247,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 81710989000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13546.073715,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13546073000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3712746309,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3712746309 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 157769756,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 157769756 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 139695649,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139695649 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4892c640d025b95fdd78cef42dfda2da585efa4",
+          "message": "chore: pcs tests refactor (#11188)\n\nCleaned up Gemini, IPA, and KZG tests\r\n\r\n---------\r\n\r\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2025-01-29T11:36:50+01:00",
+          "tree_id": "5f5e1a7e444701e5925e38897143ceaf5fda3f41",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c4892c640d025b95fdd78cef42dfda2da585efa4"
+        },
+        "date": 1738147957610,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18910.503681000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16128.930509 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21594.576552000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19168.723835999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4124.88873000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3808.852927 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 82837.827529,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 82837828000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14637.740617000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14637741000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3011092403,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3011092403 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132688871,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132688871 ns\nthreads: 1"
           }
         ]
       }
