@@ -193,7 +193,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         this.emit(PeerEvent.DISCOVERED, enr);
       } catch (err: any) {
         if (err.name === 'ComponentsVersionsError') {
-          this.logger.info(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
+          this.logger.debug(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
             compressedVersion,
             expected: this.versions,
           });

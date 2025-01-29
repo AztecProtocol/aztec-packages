@@ -1,4 +1,5 @@
 import { emptyChainConfig } from '@aztec/circuit-types/config';
+import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -36,6 +37,7 @@ describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
+
   const baseConfig: BootnodeConfig = {
     udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
     udpListenAddress: `0.0.0.0:${basePort + 100}`,
@@ -45,6 +47,10 @@ describe('Discv5Service', () => {
     dataStoreMapSizeKB: 0,
     ...emptyChainConfig,
   };
+
+  beforeAll(() => {
+    addLogNameHandler(name => (name === 'p2p:discv5_service' ? `${name}:${basePort}` : name));
+  });
 
   beforeEach(async () => {
     const telemetryClient = getTelemetryClient();
@@ -194,7 +200,6 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
-      l1ChainId: 31337,
       ...overrides,
     };
     return new DiscV5Service(peerId, config);
