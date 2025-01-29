@@ -91,9 +91,6 @@ impl<'a> NodeFinder<'a> {
             AttributeTarget::Struct => {
                 self.suggest_one_argument_attributes(prefix, &["abi"]);
             }
-            AttributeTarget::Enum => {
-                self.suggest_one_argument_attributes(prefix, &["abi"]);
-            }
             AttributeTarget::Function => {
                 let no_arguments_attributes = &[
                     "contract_library_method",

@@ -30,7 +30,6 @@ use super::{
 pub enum AttributeTarget {
     Module,
     Struct,
-    Enum,
     Trait,
     Function,
     Let,

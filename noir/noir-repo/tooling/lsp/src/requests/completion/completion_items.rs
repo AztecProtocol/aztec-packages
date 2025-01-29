@@ -63,7 +63,6 @@ impl<'a> NodeFinder<'a> {
                 match target {
                     AttributeTarget::Module => Some(Type::Quoted(QuotedType::Module)),
                     AttributeTarget::Struct => Some(Type::Quoted(QuotedType::StructDefinition)),
-                    AttributeTarget::Enum => Some(Type::Quoted(QuotedType::EnumDefinition)),
                     AttributeTarget::Trait => Some(Type::Quoted(QuotedType::TraitDefinition)),
                     AttributeTarget::Function => Some(Type::Quoted(QuotedType::FunctionDefinition)),
                     AttributeTarget::Let => {
