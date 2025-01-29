@@ -2,7 +2,9 @@
 
 #include "barretenberg/bb/acir_format_getters.hpp"
 #include "barretenberg/bb/api.hpp"
+#include "barretenberg/bb/init_srs.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -11,17 +13,27 @@
 
 namespace bb {
 
+std::string to_json(const std::vector<bb::fr>& data)
+{
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
+std::string honk_vk_to_json(const std::vector<bb::fr>& data)
+{
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
 /**
  * @brief Create a Honk a prover from program bytecode and an optional witness
  *
  * @tparam Flavor
- * @param bytecodePath
- * @param witnessPath
+ * @param bytecode_path
+ * @param witness_path
  * @return UltraProver_<Flavor>
  */
 template <typename Flavor>
-UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
-                                          const std::string& witnessPath,
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
+                                          const std::string& witness_path,
                                           const bool recursive)
 {
     using Builder = Flavor::CircuitBuilder;
@@ -34,9 +46,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
-    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
-    if (!witnessPath.empty()) {
-        program.witness = get_witness(witnessPath);
+    acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
+    if (!witness_path.empty()) {
+        program.witness = get_witness(witness_path);
     }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
@@ -45,7 +57,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     auto prover = Prover{ builder };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
 
-    return std::move(prover);
+    return prover;
 }
 
 class VectorCircuitSource : public CircuitSource<UltraFlavor> {
@@ -109,6 +121,8 @@ class UltraHonkAPI : public API {
 
         std::vector<AcirProgram> stack;
 
+        // WORKTODO: handle single circuit case here
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
         if (input_type == "compiletime_stack") {
             auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/1);
@@ -127,15 +141,6 @@ class UltraHonkAPI : public API {
                                                                const std::filesystem::path& bytecode_path,
                                                                const std::filesystem::path& witness_path)
     {
-        info("entered prove function");
-        if (!flags.output_type || *flags.output_type != "fields_msgpack") {
-            throw_or_abort("No output_type or output_type not supported");
-        }
-
-        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
-            throw_or_abort("No input_type or input_type not supported");
-        }
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
@@ -232,7 +237,8 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        const auto write_data = [&output_dir](const auto& prover_output) {
+        const bool output_all = *flags.output_type == "bytes_and_fields";
+        const auto write_data = [&output_dir, &output_all](const auto& prover_output) {
             info("writing proof...");
             vinfo("output dir is ", output_dir);
             if (output_dir == "-") {
@@ -243,6 +249,17 @@ class UltraHonkAPI : public API {
                 // WORKTODO: remove
                 info("writing vk to ", output_dir / "vk");
                 write_file(output_dir / "vk", to_buffer(prover_output.key));
+
+                if (output_all) {
+                    info("writing proof as fields to ", output_dir / "proof_as_fields");
+                    const std::string proof_json = to_json(prover_output.proof);
+                    write_file(output_dir / "proof_as_fields", { proof_json.begin(), proof_json.end() });
+
+                    // WORKTODO: remove
+                    info("writing vk as fields to ", output_dir / "vk_as_fields");
+                    const std::string vk_json = to_json(prover_output.key.to_field_elements());
+                    write_file(output_dir / "vk_as_fields", { vk_json.begin(), vk_json.end() });
+                }
             }
         };
 
@@ -297,10 +314,6 @@ class UltraHonkAPI : public API {
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
-        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
-            throw_or_abort("No input_type or input_type not supported");
-        }
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         static constexpr size_t PROVER_SRS_LOG_SIZE = 20;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE);
@@ -326,21 +339,13 @@ class UltraHonkAPI : public API {
      * - stdout: The verification key is written to stdout as a byte array
      * - Filesystem: The verification key is written to the path specified by outputPath
      *
-     * @param bytecodePath Path to the file containing the serialized circuit
+     * @param bytecode_path Path to the file containing the serialized circuit
      * @param outputPath Path to write the verification key to
      */
     void write_vk(const API::Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        if (!flags.output_type || *flags.output_type != "fields_msgpack") {
-            throw_or_abort("No output_type or output_type not supported");
-        }
-
-        if (!flags.input_type || !(*flags.input_type == "compiletime_stack" || *flags.input_type == "runtime_stack")) {
-            throw_or_abort("No input_type or input_type not supported");
-        }
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
