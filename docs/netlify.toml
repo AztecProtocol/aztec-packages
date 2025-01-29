@@ -19,30 +19,6 @@
     to = "/tutorials/codealong/simple_dapp"
 
 [[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/typescript_glue_code"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/typescript_glue_code"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/withdrawing_to_l1"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/withdrawing_to_l1"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/minting_on_aztec"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/minting_on_aztec"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/depositing_to_aztec"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/depositing_to_aztec"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/setup"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/setup"
-
-[[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
     to = "/tutorials/codealong/contract_tutorials/crowdfunding_contract"
 
@@ -136,16 +112,20 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/guides/getting_started" 
+    to = "/guides/getting_started"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/guides/getting_started" 
+    to = "/guides/getting_started"
 
 [[redirects]]
     from = "/guides/getting_started/quickstart"
-    to = "/guides/getting_started" 
+    to = "/guides/getting_started"
 
 [[redirects]]
 from = "/guides/developer_guides/getting_started/quickstart"
-to = "/guides/developer_guides/getting_started" 
+to = "/guides/developer_guides/getting_started"
+
+[[redirects]]
+    from = "/tutorials/codealong/contract_tutorials/token_bridge/*"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge"
