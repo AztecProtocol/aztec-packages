@@ -26,7 +26,7 @@ TEST(RangeCheckConstrainingTest, EmptyRow)
         { { C::precomputed_clk, 1 } },
     });
 
-    check_relation<range_check>(trace.as_rows());
+    check_relation<range_check>(trace);
 }
 
 TEST(RangeCheckConstrainingTest, IsLteMutuallyExclusive)
@@ -35,7 +35,7 @@ TEST(RangeCheckConstrainingTest, IsLteMutuallyExclusive)
         { { C::range_check_sel, 1 }, { C::range_check_is_lte_u32, 1 } },
     });
 
-    check_relation<range_check>(trace.as_rows(), range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE);
+    check_relation<range_check>(trace, range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE);
 }
 
 TEST(RangeCheckConstrainingTest, NegativeIsLteMutuallyExclusive)
@@ -45,7 +45,7 @@ TEST(RangeCheckConstrainingTest, NegativeIsLteMutuallyExclusive)
         { { C::range_check_sel, 1 }, { C::range_check_is_lte_u32, 1 }, { C::range_check_is_lte_u112, 1 } },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows(), range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace, range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE),
                               "IS_LTE_MUTUALLY_EXCLUSIVE");
 }
 
@@ -67,7 +67,7 @@ TEST(RangeCheckConstrainingTest, CheckRecomposition)
         { C::range_check_u16_r7, dynamic_slice_register },
     } });
 
-    check_relation<range_check>(trace.as_rows(), range_check::SR_CHECK_RECOMPOSITION);
+    check_relation<range_check>(trace, range_check::SR_CHECK_RECOMPOSITION);
 }
 
 TEST(RangeCheckConstrainingTest, NegativeCheckRecomposition)
@@ -89,7 +89,7 @@ TEST(RangeCheckConstrainingTest, NegativeCheckRecomposition)
         { C::range_check_u16_r7, dynamic_slice_register },
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows(), range_check::SR_CHECK_RECOMPOSITION),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace, range_check::SR_CHECK_RECOMPOSITION),
                               "CHECK_RECOMPOSITION");
 }
 
@@ -126,7 +126,7 @@ TEST(RangeCheckConstrainingTest, Full)
         { C::range_check_sel_r1_16_bit_rng_lookup, 1 },
     } });
 
-    check_relation<range_check>(trace.as_rows());
+    check_relation<range_check>(trace);
 }
 
 TEST(RangeCheckConstrainingTest, NegativeMissingLookup)
@@ -162,7 +162,7 @@ TEST(RangeCheckConstrainingTest, NegativeMissingLookup)
         { C::range_check_sel_r1_16_bit_rng_lookup, 0 }, // BAD! SHOULD BE 1
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows()), "Relation range_check");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace), "Relation range_check");
 }
 
 TEST(RangeCheckConstrainingTest, WithTracegen)
@@ -187,7 +187,7 @@ TEST(RangeCheckConstrainingTest, WithTracegen)
         },
         trace);
 
-    check_relation<range_check>(trace.as_rows());
+    check_relation<range_check>(trace);
 }
 
 TEST(RangeCheckConstrainingTest, NegativeWithTracegen)
@@ -210,7 +210,7 @@ TEST(RangeCheckConstrainingTest, NegativeWithTracegen)
         },
         trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace.as_rows()), "Relation range_check");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace), "Relation range_check");
 }
 
 } // namespace
