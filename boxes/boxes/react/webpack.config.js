@@ -72,7 +72,6 @@ export default (_, argv) => ({
   devServer: {
     port: 5173,
     historyApiFallback: true,
-    open: true,
     headers: (req, res) => {
       if(req.originalUrl.endsWith(".gz")) {
         res.setHeader('Content-Encoding', 'gzip');
