@@ -215,7 +215,7 @@ fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(note: Note) -> [u8
 where
     Note: NoteInterface<N>,
 {
-    let serialized_note = note.serialize_content();
+    let packed_note = note.pack_content();
 
     let note_header = note.get_header();
     let storage_slot = note_header.storage_slot;
@@ -231,8 +231,8 @@ where
         plaintext_bytes[32 + i] = note_type_id_bytes[i];
     }
 
-    for i in 0..serialized_note.len() {
-        let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+    for i in 0..packed_note.len() {
+        let bytes: [u8; 32] = packed_note[i].to_be_bytes();
         for j in 0..32 {
             plaintext_bytes[64 + i * 32 + j] = bytes[j];
         }

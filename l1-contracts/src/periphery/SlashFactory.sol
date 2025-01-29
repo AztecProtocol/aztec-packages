@@ -2,17 +2,17 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
 import {SlashPayload} from "./SlashPayload.sol";
 
 contract SlashFactory is ISlashFactory {
-  ILeonidas public immutable LEONIDAS;
+  IValidatorSelection public immutable VALIDATOR_SELECTION;
 
-  constructor(ILeonidas _leonidas) {
-    LEONIDAS = _leonidas;
+  constructor(IValidatorSelection _validatorSelection) {
+    VALIDATOR_SELECTION = _validatorSelection;
   }
 
   function createSlashPayload(Epoch _epoch, uint256 _amount)
@@ -27,7 +27,7 @@ contract SlashFactory is ISlashFactory {
     }
 
     SlashPayload payload =
-      new SlashPayload{salt: bytes32(Epoch.unwrap(_epoch))}(_epoch, LEONIDAS, _amount);
+      new SlashPayload{salt: bytes32(Epoch.unwrap(_epoch))}(_epoch, VALIDATOR_SELECTION, _amount);
 
     emit SlashPayloadCreated(address(payload), _epoch, _amount);
     return IPayload(address(payload));
@@ -60,7 +60,7 @@ contract SlashFactory is ISlashFactory {
               salt,
               keccak256(
                 abi.encodePacked(
-                  type(SlashPayload).creationCode, abi.encode(_epoch, LEONIDAS, _amount)
+                  type(SlashPayload).creationCode, abi.encode(_epoch, VALIDATOR_SELECTION, _amount)
                 )
               )
             )

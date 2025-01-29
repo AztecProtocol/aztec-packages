@@ -9,7 +9,12 @@ resource "google_container_cluster" "primary" {
   deletion_protection      = true
 
   # Kubernetes version
-  min_master_version = "latest"
+  min_master_version = var.node_version
+  node_version       = var.node_version
+  release_channel {
+    channel = "STABLE"
+  }
+
 
   # Network configuration
   network    = "default"
@@ -28,6 +33,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   name     = "${var.cluster_name}-2core-ssd"
   location = var.zone
   cluster  = var.cluster_name
+  version  = var.node_version
 
   # Enable autoscaling
   autoscaling {
@@ -60,7 +66,7 @@ resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
   name     = "${var.cluster_name}-4core-ssd"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
@@ -92,7 +98,7 @@ resource "google_container_node_pool" "aztec_nodes_2core" {
   name     = "${var.cluster_name}-2core"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
@@ -120,7 +126,7 @@ resource "google_container_node_pool" "aztec_nodes_4core" {
   name     = "${var.cluster_name}-4core"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
@@ -154,7 +160,7 @@ resource "google_container_node_pool" "aztec_nodes-8core" {
   name     = "${var.cluster_name}-8core"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
@@ -188,7 +194,7 @@ resource "google_container_node_pool" "spot_nodes_32core" {
   name     = "${var.cluster_name}-32core-spot"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
@@ -231,7 +237,7 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   name     = "${var.cluster_name}-2core-spot"
   location = var.zone
   cluster  = var.cluster_name
-
+  version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
