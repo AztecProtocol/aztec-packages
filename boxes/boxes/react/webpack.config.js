@@ -12,10 +12,10 @@ export default (_, argv) => ({
     main: './src/index.tsx',
   },
   module: {
-      parser: {
-        javascript: { importMeta: false },
-      },
-      rules: [
+    parser: {
+      javascript: { importMeta: false },
+    },
+    rules: [
       {
         test: /\.gz$/,
         type: 'asset/resource',
@@ -41,7 +41,7 @@ export default (_, argv) => ({
     }),
     new HtmlWebpackPlugin({
       template: './index.html',
-      scriptLoading: 'module'
+      scriptLoading: 'module',
     }),
     new webpack.DefinePlugin({
       'process.env': {
@@ -71,12 +71,13 @@ export default (_, argv) => ({
   },
   devServer: {
     port: 5173,
+    open: true,
     historyApiFallback: true,
     headers: (req, res) => {
-      if(req.originalUrl.endsWith(".gz")) {
+      if (req.originalUrl.endsWith('.gz')) {
         res.setHeader('Content-Encoding', 'gzip');
         res.setHeader('Content-Type', 'application/wasm');
       }
-    }
+    },
   },
 });

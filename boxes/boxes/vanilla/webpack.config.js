@@ -37,7 +37,7 @@ export default (_, argv) => ({
     }),
     new HtmlWebpackPlugin({
       template: './src/index.html',
-      scriptLoading: 'module'
+      scriptLoading: 'module',
     }),
     new webpack.DefinePlugin({
       'process.env': {
@@ -67,12 +67,13 @@ export default (_, argv) => ({
   },
   devServer: {
     port: 5173,
+    open: true,
     historyApiFallback: true,
     headers: (req, res) => {
-      if(req.originalUrl.endsWith(".gz")) {
+      if (req.originalUrl.endsWith('.gz')) {
         res.setHeader('Content-Encoding', 'gzip');
         res.setHeader('Content-Type', 'application/wasm');
       }
-    }
+    },
   },
 });

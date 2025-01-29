@@ -7,15 +7,11 @@ test('Deploying, setting, and getting a number', async ({ page }) => {
 
   await page.goto('/');
 
-  console.log('pageLoaded');
-
   const handleDialog = (expectedMessage: string) => {
     return new Promise<void>(resolve => {
       page.once('dialog', async dialog => {
-        console.log('dialog found');
         expect(dialog.message()).toContain(expectedMessage);
         await dialog.accept();
-        console.log('dialog accepted');
         resolve();
       });
     });
@@ -23,8 +19,8 @@ test('Deploying, setting, and getting a number', async ({ page }) => {
 
   // Deploy contract
   const deployDialogPromise = handleDialog('Contract deployed at');
-  await page.getByRole('button', { name: 'Deploy' }).click();
-  console.log('clicked button');
+  const deployButton = page.getByRole('button', { name: 'Deploy' });
+  await deployButton.click();
   await deployDialogPromise;
   await expect(page.locator('#number')).toHaveValue('0');
   console.log('Contract deployed');
