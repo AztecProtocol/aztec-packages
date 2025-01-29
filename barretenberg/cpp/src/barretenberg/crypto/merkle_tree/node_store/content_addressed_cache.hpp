@@ -54,7 +54,7 @@ template <typename LeafValueType> class ContentAddressedCache {
     void commit();
 
     void reset(uint32_t depth);
-    std::pair<bool, index_t> find_low_value(const fr& new_leaf_key,
+    std::pair<bool, index_t> find_low_value(const uint256_t& new_leaf_key,
                                             const uint256_t& retrieved_value,
                                             const index_t& db_index) const;
 
@@ -276,13 +276,15 @@ bool ContentAddressedCache<LeafValueType>::is_equivalent_to(const ContentAddress
 }
 
 template <typename LeafValueType>
-std::pair<bool, index_t> ContentAddressedCache<LeafValueType>::find_low_value(const fr& new_leaf_key,
+std::pair<bool, index_t> ContentAddressedCache<LeafValueType>::find_low_value(const uint256_t& new_leaf_key,
                                                                               const uint256_t& retrieved_value,
                                                                               const index_t& db_index) const
 {
-    auto new_value_as_number = uint256_t(new_leaf_key);
+    if (indices_.empty()) {
+        return std::make_pair(new_leaf_key == retrieved_value, db_index);
+    }
     // At this stage, we have been asked to include uncommitted and the value was not exactly found in the db
-    auto it = indices_.lower_bound(new_value_as_number);
+    auto it = indices_.lower_bound(new_leaf_key);
     if (it == indices_.end()) {
         // there is no element >= the requested value.
         // decrement the iterator to get the value preceeding the requested value
@@ -292,7 +294,7 @@ std::pair<bool, index_t> ContentAddressedCache<LeafValueType>::find_low_value(co
         return std::make_pair(false, it->first > retrieved_value ? it->second : db_index);
     }
 
-    if (it->first == uint256_t(new_value_as_number)) {
+    if (it->first == new_leaf_key) {
         // the value is already present and the iterator points to it
         return std::make_pair(true, it->second);
     }

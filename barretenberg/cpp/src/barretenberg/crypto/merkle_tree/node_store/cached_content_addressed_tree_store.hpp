@@ -345,13 +345,19 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     index_t db_index = committed;
     uint256_t retrieved_value = found_key;
 
-    // Accessing the cache from here under a lock
-    std::unique_lock lock(mtx_);
-    const std::map<uint256_t, index_t>& indices = cache_.get_indices();
-    if (!requestContext.includeUncommitted || retrieved_value == new_value_as_number || indices.empty()) {
-        return std::make_pair(new_value_as_number == retrieved_value, db_index);
+    // If we already found the leaf then return it.
+    bool already_present = retrieved_value == new_value_as_number;
+    if (already_present) {
+        return std::make_pair(true, db_index);
     }
 
+    // If we were asked not to include uncommitted then return what we have
+    if (!requestContext.includeUncommitted) {
+        return std::make_pair(false, db_index);
+    }
+
+    // Accessing the cache from here under a lock
+    std::unique_lock lock(mtx_);
     return cache_.find_low_value(new_leaf_key, retrieved_value, db_index);
 }
 
