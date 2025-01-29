@@ -15,7 +15,7 @@ export class TXEWorldStateDB extends WorldStateDB {
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+    const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
     const lowLeafResult = await this.merkleDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
 
@@ -33,7 +33,7 @@ export class TXEWorldStateDB extends WorldStateDB {
   override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
     await this.merkleDb.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contract, slot), newValue).toBuffer()],
+      [new PublicDataTreeLeaf(await computePublicDataTreeLeafSlot(contract, slot), newValue).toBuffer()],
       0,
     );
     return newValue.toBigInt();

@@ -151,7 +151,7 @@ export class FeesTest {
         if (!bobInstance) {
           throw new Error('Bob instance not found');
         }
-        await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
+        await this.aliceWallet.registerAccount(accountKeys[1][0], await computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);

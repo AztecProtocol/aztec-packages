@@ -21,10 +21,10 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { assertLength } from '@aztec/foundation/serialize';
 
-import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
+import { type SideEffectTrace } from './side_effect_trace.js';
 
 export function generateAvmCircuitPublicInputs(
-  trace: PublicEnqueuedCallSideEffectTrace,
+  trace: SideEffectTrace,
   globalVariables: GlobalVariables,
   startStateReference: StateReference,
   startGasUsed: Gas,

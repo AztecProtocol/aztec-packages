@@ -4,10 +4,10 @@ import { AggregateTxValidator } from './aggregate_tx_validator.js';
 
 describe('AggregateTxValidator', () => {
   it('allows txs that pass all validation', async () => {
-    const txs = [mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)];
+    const txs = await Promise.all([mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)]);
     const agg = new AggregateTxValidator(
-      new TxDenyList([txs[0].getTxHash(), txs[1].getTxHash(), txs[4].getTxHash()], []),
-      new TxDenyList([txs[2].getTxHash(), txs[4].getTxHash()], []),
+      new TxDenyList(await Promise.all([txs[0].getTxHash(), txs[1].getTxHash(), txs[4].getTxHash()]), []),
+      new TxDenyList(await Promise.all([txs[2].getTxHash(), txs[4].getTxHash()]), []),
     );
 
     await expect(agg.validateTx(txs[0])).resolves.toEqual({ result: 'invalid', reason: ['Denied'] });
@@ -18,11 +18,11 @@ describe('AggregateTxValidator', () => {
   });
 
   it('aggregate skipped txs ', async () => {
-    const txs = [mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)];
+    const txs = await Promise.all([mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)]);
     const agg = new AggregateTxValidator(
-      new TxDenyList([txs[0].getTxHash()], []),
-      new TxDenyList([txs[4].getTxHash()], [txs[1].getTxHash(), txs[2].getTxHash()]),
-      new TxDenyList([], [txs[4].getTxHash()]),
+      new TxDenyList([await txs[0].getTxHash()], []),
+      new TxDenyList([await txs[4].getTxHash()], [await txs[1].getTxHash(), await txs[2].getTxHash()]),
+      new TxDenyList([], [await txs[4].getTxHash()]),
     );
 
     await expect(agg.validateTx(txs[0])).resolves.toEqual({ result: 'invalid', reason: ['Denied'] });
@@ -41,14 +41,15 @@ describe('AggregateTxValidator', () => {
       this.skippedList = new Set(skippedTxHashes.map(hash => hash.toString()));
     }
 
-    validateTx(tx: AnyTx): Promise<TxValidationResult> {
-      if (this.skippedList.has(Tx.getHash(tx).toString())) {
-        return Promise.resolve({ result: 'skipped', reason: ['Skipped'] });
+    async validateTx(tx: AnyTx): Promise<TxValidationResult> {
+      const txHash = await Tx.getHash(tx);
+      if (this.skippedList.has(txHash.toString())) {
+        return { result: 'skipped', reason: ['Skipped'] };
       }
-      if (this.denyList.has(Tx.getHash(tx).toString())) {
-        return Promise.resolve({ result: 'invalid', reason: ['Denied'] });
+      if (this.denyList.has(txHash.toString())) {
+        return { result: 'invalid', reason: ['Denied'] };
       }
-      return Promise.resolve({ result: 'valid' });
+      return { result: 'valid' };
     }
   }
 });
