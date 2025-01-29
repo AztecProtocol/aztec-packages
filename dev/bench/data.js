@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738092045119,
+  "lastUpdate": 1738110846319,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6de4013c1204b3478b6d444c0cff5ca9c5c6cd03",
-          "message": "chore(avm): vm2 followup cleanup (#11186)",
-          "timestamp": "2025-01-13T17:25:48Z",
-          "tree_id": "a4773f6dd8d9707bdfe01f80da1bc8a293ce4368",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6de4013c1204b3478b6d444c0cff5ca9c5c6cd03"
-        },
-        "date": 1736790146243,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19902.811792999957,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17113.066226000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21814.849199000037,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19124.121941999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4740.052406000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4363.102758000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72335.739343,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72335740000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14250.499486,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14250501000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3666230146,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3666230146 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152219009,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152219009 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 142732268,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142732268 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "379aafa7d4b644c8380b971e332c41ada62f5821",
+          "message": "feat: Gemini PolynomialBatcher (#11398)\n\nIntroduces new class in Gemini called `PolynomialBatcher` that is\nresponsible for storing references to the polynomials to be batched and\nactually computing the various batched polynomials required in Gemini.\nThis serves two purposes: (1) it separates the polynomial batching logic\nfrom the \"gemini\" logic (i.e. constructing univariate claims from a\nmultilinear poly via gemini-style \"folding\"), and (2) it facilitates the\ninput of different types of polynomial sets into Gemini. This latter\npoint is needed for the new merge protocol which will add yet another\ntype of polynomial into the mix: `to_be_k_shifted_polynomials`, which\nthe ever-expanding gemini interface with defaulted inputs would not\neasily support.\n\nNote: Currently the `PolynomialBatcher` only handles the `unshifted` and\n`to_be_shifted` polynomials. It would be natural to include the\nconcatenation polynomials as well. I held off for now due to expected\nchanges to the way concatenations are handled.\n\nNote 2: Upcoming follow ons will introduce a similar mechanism for the\nanalogous verifier logic.",
+          "timestamp": "2025-01-28T17:08:04-07:00",
+          "tree_id": "ee56c82531f93b9ffd51f72957243111372e5d50",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/379aafa7d4b644c8380b971e332c41ada62f5821"
+        },
+        "date": 1738110838207,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19190.048366999974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16197.798401 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21753.492612000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19014.329713 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4194.74541400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3881.621233 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85649.60846300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85649608000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14788.95052,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14788951000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3775501068,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3775501068 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139695649,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139695649 ns\nthreads: 1"
           }
         ]
       }
