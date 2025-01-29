@@ -3113,7 +3113,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, nullifiers_can_be_inserted_afte
 
         advance_state(forkTree, size_to_insert);
 
-        current_size -= size_to_insert;
+        current_size += size_to_insert;
         check_size(forkTree, current_size);
     }
 }
