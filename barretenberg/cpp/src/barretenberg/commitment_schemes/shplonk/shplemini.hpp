@@ -206,15 +206,19 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::optional<ClaimBatch> unshifted;
         std::optional<ClaimBatch> shifted;
 
+        Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->batch_scalar : Fr{ 0 }; }
+
         void compute_scalars_for_each_batch(const std::vector<Fr>& inverse_vanishing_evals,
                                             const Fr& shplonk_batching_challenge,
                                             const Fr& gemini_evaluation_challenge)
         {
             if (unshifted) {
+                // (1/(z−r) + ν/(z+r))
                 unshifted->batch_scalar =
                     inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
             }
             if (shifted) {
+                // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
                 shifted->batch_scalar =
                     gemini_evaluation_challenge.invert() *
                     (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
@@ -267,6 +271,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         RefSpan<Fr> concatenated_evaluations = {})
 
     {
+        ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ unshifted_commitments, unshifted_evaluations },
+                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations } };
+
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -340,16 +347,10 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
-        // reconstructing thec commitment of Q_z
+        // reconstructing the commitment of Q_z
 
-        // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
-        const Fr unshifted_scalar =
-            inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
-
-        //  j-th shifted commitment is multiplied by −ρᵏ⁺ʲ⁻¹ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
-        const Fr shifted_scalar =
-            gemini_evaluation_challenge.invert() *
-            (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
+        claim_batcher.compute_scalars_for_each_batch(
+            inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
 
         std::vector<Fr> concatenation_scalars;
         if (!concatenation_group_commitments.empty()) {
@@ -375,12 +376,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         if (has_zk) {
             commitments.emplace_back(hiding_polynomial_commitment);
-            scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
+            scalars.emplace_back(-claim_batcher.get_unshifted_batch_scalar()); // corresponds to ρ⁰
         }
-
-        ClaimBatcher claim_batcher{ .unshifted =
-                                        ClaimBatch{ unshifted_commitments, unshifted_evaluations, unshifted_scalar },
-                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations, shifted_scalar } };
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
