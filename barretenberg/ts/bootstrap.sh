@@ -11,8 +11,7 @@ function build {
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
-    yarn clean
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
+    denoise "yarn build"
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
@@ -40,16 +39,6 @@ function test {
   test_cmds | parallelise
 }
 
-function release {
-  echo_header "bb.js release"
-  local dist_tag=${DIST_TAG:-latest}
-  if [ "${DRY_RUN:-0}" -eq 1 ]; then
-    npm publish --tag $dist_tag --access public --dry-run
-  else
-    npm publish --tag $dist_tag --access public
-  fi
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -69,9 +58,6 @@ case "$cmd" in
     ;;
   "hash")
     echo "$hash"
-    ;;
-  "release")
-    release
     ;;
   *)
     echo "Unknown command: $cmd"
