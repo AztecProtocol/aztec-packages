@@ -75,8 +75,7 @@ export async function getContractClassPrivateFunctionFromArtifact(
  */
 export async function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
-    // throw new Error(`Private function ${f.name} must have a verification key`);
-    return Fr.ZERO;
+    throw new Error(`Private function ${f.name} must have a verification key`);
   }
   return hashVK(await vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
 }

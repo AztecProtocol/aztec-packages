@@ -5,9 +5,6 @@
 
 namespace bb::srs {
 
-// TODO(Adam): These are called even with wasm-in-the-browser, which seems wrong.
-// We end up aborting due to the wasi call to resolve the environment variables.
-// We still need to be aboe to do this from wasmtime.
 // The call comes from GoblinProver ctor and call to perform_op_queue_interactions_for_mock_first_circuit.
 // Delete the ifdef block in fn above once resolved.
 inline std::string get_ignition_crs_path()
