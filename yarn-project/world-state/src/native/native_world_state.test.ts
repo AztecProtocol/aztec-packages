@@ -891,6 +891,56 @@ describe('NativeWorldState', () => {
       await fork.close();
     });
 
+    it('can checkpoint from committed', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.createCheckpoint();
+
+      await advanceState(fork);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, false);
+
+      await fork.close();
+    });
+
+    it('can checkpoint from reverted', async () => {
+      const fork = await ws.fork();
+      await fork.createCheckpoint();
+
+      const siblingPathsBefore = await getSiblingPaths(fork);
+
+      const siblingPathsAfter = await advanceState(fork);
+
+      await compareState(fork, siblingPathsBefore, false);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, true);
+
+      await fork.createCheckpoint();
+
+      await advanceState(fork);
+
+      await fork.commitCheckpoint();
+
+      await compareState(fork, siblingPathsAfter, false);
+
+      await fork.close();
+    });
+
     it('can revert all deeper commits', async () => {
       const fork = await ws.fork();
 
@@ -927,7 +977,7 @@ describe('NativeWorldState', () => {
     it('can checkpoint many levels', async () => {
       const fork = await ws.fork();
 
-      const stackDepth = 5;
+      const stackDepth = 20;
 
       const siblingsAtEachLevel = [];
 
