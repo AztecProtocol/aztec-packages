@@ -277,6 +277,9 @@ void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool
     Signal signal;
     auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& response) -> void {
         EXPECT_EQ(response.success, expectedSuccess);
+        if (!response.success) {
+            std::cout << response.message << std::endl;
+        }
         signal.signal_level();
     };
 
@@ -3057,5 +3060,60 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_chec
         // It should be back at index 4
         EXPECT_EQ(predecessor.is_already_present, false);
         EXPECT_EQ(predecessor.index, 2);
+    }
+}
+
+void advance_state(TreeType& fork, uint32_t size)
+{
+    std::vector<fr> values = create_values(size);
+    std::vector<NullifierLeafValue> leaves;
+    for (uint32_t j = 0; j < size; j++) {
+        leaves.emplace_back(values[j]);
+    }
+    add_values(fork, leaves);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, nullifiers_can_be_inserted_after_revert)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 10;
+    std::string name = "Nullifier Tree";
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
+
+    {
+        std::unique_ptr<Store> forkStore = std::make_unique<Store>(name, depth, db);
+        auto forkTree = TreeType(std::move(forkStore), workers, current_size);
+
+        check_size(tree, current_size);
+
+        uint32_t size_to_insert = 8;
+        uint32_t num_insertions = 5;
+
+        for (uint32_t i = 0; i < num_insertions - 1; i++) {
+            advance_state(forkTree, size_to_insert);
+            current_size += size_to_insert;
+            check_size(forkTree, current_size);
+            checkpoint_tree(forkTree);
+        }
+
+        advance_state(forkTree, size_to_insert);
+        current_size += size_to_insert;
+        check_size(forkTree, current_size);
+        revert_checkpoint_tree(forkTree);
+
+        current_size -= size_to_insert;
+        check_size(forkTree, current_size);
+
+        commit_checkpoint_tree(forkTree);
+
+        check_size(forkTree, current_size);
+
+        advance_state(forkTree, size_to_insert);
+
+        current_size -= size_to_insert;
+        check_size(forkTree, current_size);
     }
 }

@@ -91,6 +91,8 @@ template <typename LeafValueType> class ContentAddressedCache {
         // Captures the cache's leaf pre-images at the time of checkpoint. Again, if the leaf does not exist in the
         // cache, the optional will == nullopt
         std::unordered_map<index_t, std::optional<IndexedLeafValueType>> leaf_pre_image_by_index_;
+        // Captures the addition of new leaf keys into the indices_ cache
+        std::vector<uint256_t> new_leaf_keys_;
 
         Journal(TreeMeta meta)
             : meta_(std::move(meta))
@@ -137,7 +139,8 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::rev
     // We need to iterate over the nodes and leaves and
     // 1. Remove any that were added since last checkpoint
     // 2. Restore any that were updated since last checkpoint
-    // 3. Restore the meta data
+    // 3. Remove any new leaf keys that were added to the indices store
+    // 4. Restore the meta data
 
     Journal& journal = journals_.back();
 
@@ -157,17 +160,17 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::rev
         // If the option == nullopt then we remove it from the primary cache, it never existed before
         // Also remove from the indices store
         if (!optional_leaf.has_value()) {
-            // We need to remove the leaf from the indices store
-            auto cachedIter = leaf_pre_image_by_index_.find(index);
-            if (cachedIter != leaf_pre_image_by_index_.end()) {
-                indices_.erase(uint256_t(preimage_to_key(cachedIter->second.value)));
-            }
             leaf_pre_image_by_index_.erase(index);
         } else {
             // There was a leaf pre-image, restore it to the primary cache
             // No need to update the indices store as the key has not changed
             leaf_pre_image_by_index_[index] = optional_leaf.value();
         }
+    }
+
+    // Remove any newly added leaf keys
+    for (const auto& key : journal.new_leaf_keys_) {
+        indices_.erase(key);
     }
 
     // We need to restore the meta data
@@ -182,6 +185,7 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::com
     }
 
     // We need to iterate over the nodes and leaves and merge them into the previous checkpoint if there is one
+    // We also need to append any newly added leaf keys to the previous checkpoint
     // If there is no previous checkpoint then we just destroy the journal as the cache will be correct
 
     if (journals_.size() == 1) {
@@ -189,30 +193,35 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::com
         return;
     }
 
-    Journal& currentJournal = journals_.back();
-    Journal& previousJournal = journals_[journals_.size() - 2];
+    Journal& current_journal = journals_.back();
+    Journal& previous_journal = journals_[journals_.size() - 2];
 
-    for (uint32_t i = 0; i < currentJournal.nodes_by_index_.size(); ++i) {
-        for (const auto& [index, optional_node_hash] : currentJournal.nodes_by_index_[i]) {
+    for (uint32_t i = 0; i < current_journal.nodes_by_index_.size(); ++i) {
+        for (const auto& [index, optional_node_hash] : current_journal.nodes_by_index_[i]) {
             // There is an entry in the current journal, if it does not exist in the previous journal then we need to
             // add it If it does exist in the previous journal then that journal already captured a value from the
             // primary cache that existed no later
-            auto previousIter = previousJournal.nodes_by_index_[i].find(index);
-            if (previousIter == previousJournal.nodes_by_index_[i].end()) {
-                previousJournal.nodes_by_index_[i][index] = optional_node_hash;
+            auto previousIter = previous_journal.nodes_by_index_[i].find(index);
+            if (previousIter == previous_journal.nodes_by_index_[i].end()) {
+                previous_journal.nodes_by_index_[i][index] = optional_node_hash;
             }
         }
     }
 
-    for (const auto& [index, optional_leaf] : currentJournal.leaf_pre_image_by_index_) {
+    for (const auto& [index, optional_leaf] : current_journal.leaf_pre_image_by_index_) {
         // There is an entry in the current journal, if it does not exist in the previous journal then we need to add it
         // If it does exist in the previous journal then that journal already captured a value from the
         // primary cache that existed no later
-        auto previousIter = previousJournal.leaf_pre_image_by_index_.find(index);
-        if (previousIter == previousJournal.leaf_pre_image_by_index_.end()) {
-            previousJournal.leaf_pre_image_by_index_[index] = optional_leaf;
+        auto previousIter = previous_journal.leaf_pre_image_by_index_.find(index);
+        if (previousIter == previous_journal.leaf_pre_image_by_index_.end()) {
+            previous_journal.leaf_pre_image_by_index_[index] = optional_leaf;
         }
     }
+
+    // Add our newly appended leaf keys to those of the previous journal
+    previous_journal.new_leaf_keys_.insert(previous_journal.new_leaf_keys_.end(),
+                                           current_journal.new_leaf_keys_.cbegin(),
+                                           current_journal.new_leaf_keys_.cend());
 
     // We don't restore the meta here. We are committing, so the primary cached meta is correct
     journals_.pop_back();
@@ -373,7 +382,13 @@ void ContentAddressedCache<LeafValueType>::put_leaf_by_index(const index_t& inde
 template <typename LeafValueType>
 void ContentAddressedCache<LeafValueType>::update_leaf_key_index(const index_t& index, const fr& leaf_key)
 {
-    indices_.insert({ uint256_t(leaf_key), index });
+    uint256_t key = uint256_t(leaf_key);
+    auto result = indices_.insert({ key, index });
+    if (result.second && !journals_.empty()) {
+        // The insertion took place, if we have a current journal then we need to add to the newly inserted leaf keys
+        Journal& journal = journals_.back();
+        journal.new_leaf_keys_.emplace_back(key);
+    }
 }
 
 template <typename LeafValueType>

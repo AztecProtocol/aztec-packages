@@ -972,8 +972,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                             // std::cout << "Failed to find low leaf" << std::endl;
                             throw std::runtime_error(format("Unable to insert values into tree ",
                                                             meta.name,
-                                                            " failed to find low leaf at index ",
-                                                            low_leaf_index));
+                                                            ", failed to find low leaf at index ",
+                                                            low_leaf_index,
+                                                            ", current size: ",
+                                                            meta.size));
                         }
                         // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
 
@@ -1007,6 +1009,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         low_leaf.nextIndex = index_of_new_leaf;
                         low_leaf.nextValue = value;
                         store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
+                        store_->put_cached_leaf_by_index(index_of_new_leaf, new_leaf);
 
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
                         //           << std::endl;
@@ -1461,7 +1464,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                     if (!low_leaf_hash.has_value()) {
                         throw std::runtime_error(format("Unable to insert values into tree ",
                                                         meta.name,
-                                                        " failed to find low leaf at index ",
+                                                        ", failed to find low leaf at index ",
                                                         low_leaf_index));
                     }
 
