@@ -25,12 +25,13 @@ export function runBlobSinkClientTests(
 
   it('should send and retrieve blobs', async () => {
     const blob = await makeEncodedBlob(3);
+    const blobHash = blob.getEthVersionedBlobHash();
     const blockId = '0x1234';
 
     const success = await client.sendBlobsToBlobSink(blockId, [blob]);
     expect(success).toBe(true);
 
-    const retrievedBlobs = await client.getBlobSidecar(blockId);
+    const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHash]);
     expect(retrievedBlobs).toHaveLength(1);
     expect(retrievedBlobs[0].fieldsHash.toString()).toBe(blob.fieldsHash.toString());
     expect(retrievedBlobs[0].commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
@@ -38,12 +39,13 @@ export function runBlobSinkClientTests(
 
   it('should handle multiple blobs', async () => {
     const blobs = await Promise.all([makeEncodedBlob(2), makeEncodedBlob(2), makeEncodedBlob(2)]);
+    const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
     const blockId = '0x5678';
 
     const success = await client.sendBlobsToBlobSink(blockId, blobs);
     expect(success).toBe(true);
 
-    const retrievedBlobs = await client.getBlobSidecar(blockId);
+    const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
     expect(retrievedBlobs).toHaveLength(3);
 
     for (let i = 0; i < blobs.length; i++) {
@@ -52,7 +54,7 @@ export function runBlobSinkClientTests(
     }
 
     // Can request blobs by index
-    const retrievedBlobsByIndex = await client.getBlobSidecar(blockId, [0, 2]);
+    const retrievedBlobsByIndex = await client.getBlobSidecar(blockId, blobHashes, [0, 2]);
     expect(retrievedBlobsByIndex).toHaveLength(2);
     expect(retrievedBlobsByIndex[0].fieldsHash.toString()).toBe(blobs[0].fieldsHash.toString());
     expect(retrievedBlobsByIndex[1].fieldsHash.toString()).toBe(blobs[2].fieldsHash.toString());
@@ -60,7 +62,7 @@ export function runBlobSinkClientTests(
 
   it('should return empty array for non-existent block', async () => {
     const blockId = '0xnonexistent';
-    const retrievedBlobs = await client.getBlobSidecar(blockId);
+    const retrievedBlobs = await client.getBlobSidecar(blockId, [Buffer.from([0x0])]);
     expect(retrievedBlobs).toEqual([]);
   });
 }

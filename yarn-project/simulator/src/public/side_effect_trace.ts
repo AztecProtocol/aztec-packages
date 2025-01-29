@@ -97,10 +97,10 @@ export class SideEffectArrayLengths {
 }
 
 /**
- * Trace side effects for an entire enqueued call.
+ * Trace side effects for an enqueued public call's execution.
  */
-export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceInterface {
-  public log = createLogger('simulator:public_enqueued_call_side_effect_trace');
+export class SideEffectTrace implements PublicSideEffectTraceInterface {
+  public log = createLogger('simulator:side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;
@@ -136,7 +136,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public fork() {
-    return new PublicEnqueuedCallSideEffectTrace(
+    return new SideEffectTrace(
       this.sideEffectCounter,
       new SideEffectArrayLengths(
         this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
