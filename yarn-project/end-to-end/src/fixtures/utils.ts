@@ -116,7 +116,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
+    vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
@@ -470,7 +470,7 @@ export async function setup(
 
   const telemetry = getTelemetryClient(opts.telemetryConfig);
 
-  const blobSinkClient = createBlobSinkClient(config);
+  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
     publisher,
@@ -506,31 +506,38 @@ export async function setup(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
-    await pxeTeardown();
+    // Teardown failure should log but not fail the actual test suite.
+    // Bit of a hack, but wanting to work around "Anvil failed to stop in time".
+    // Our e2e tests are all run in isolation anywhere, so there's a hard cleanup on container exit.
+    try {
+      await pxeTeardown();
 
-    if (aztecNode instanceof AztecNodeService) {
-      await aztecNode?.stop();
-    }
+      if (aztecNode instanceof AztecNodeService) {
+        await aztecNode?.stop();
+      }
 
-    if (acvmConfig?.cleanup) {
-      // remove the temp directory created for the acvm
-      logger.verbose(`Cleaning up ACVM state`);
-      await acvmConfig.cleanup();
-    }
+      if (acvmConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up ACVM state`);
+        await acvmConfig.cleanup();
+      }
 
-    if (bbConfig?.cleanup) {
-      // remove the temp directory created for the acvm
-      logger.verbose(`Cleaning up BB state`);
-      await bbConfig.cleanup();
-    }
+      if (bbConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up BB state`);
+        await bbConfig.cleanup();
+      }
 
-    await anvil?.stop();
-    await watcher.stop();
-    await blobSink?.stop();
+      await anvil?.stop();
+      await watcher.stop();
+      await blobSink?.stop();
 
-    if (directoryToCleanup) {
-      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      if (directoryToCleanup) {
+        logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+        await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      }
+    } catch (err: any) {
+      logger.error(err.message);
     }
   };
 
@@ -586,14 +593,11 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   const instances = await Promise.all(
     accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
   );
-  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const requests = await Promise.all(
-    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
-  );
-  const batch = new BatchCall(sender, [...requests]);
+  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts
@@ -718,7 +722,7 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
+  const blobSinkClient = createBlobSinkClient();
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {
