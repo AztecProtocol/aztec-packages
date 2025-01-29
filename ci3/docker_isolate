@@ -1,5 +1,9 @@
 #!/bin/bash
 set -eu
+
+# Isolate the network stack etc using docker.
+# Carefully set things so we can use our git repo mounted as-is.
+
 NO_CD=1
 source $(git rev-parse --show-toplevel)/ci3/source
 name=docker-isolate-$(hash_str "$*")
@@ -10,11 +14,12 @@ docker rm -f $name &>/dev/null || true
 docker run --rm \
   ${name_arg:-} \
   ${DOCKER_FLAGS:-} \
-  -v$(git rev-parse --show-toplevel):/app/aztec-packages \
-  --user $(id -u):$(id -g) \
+  -v$(git rev-parse --show-toplevel):/root/aztec-packages \
   -v$HOME/.bb-crs:/root/.bb-crs \
+  -v$HOME/.cache:/root/.cache \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
-  --workdir /app/aztec-packages/$(git rev-parse --show-prefix) \
+  --workdir /root/aztec-packages/$(git rev-parse --show-prefix) \
+  -e GIT_CONFIG_GLOBAL=/root/aztec-packages/build-images/src/home/.gitconfig \
   -e FORCE_COLOR=true \
   aztecprotocol/build:3.0 \
   $@
