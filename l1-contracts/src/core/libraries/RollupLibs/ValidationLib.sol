@@ -122,7 +122,7 @@ library ValidationLib {
 
     require(
       _currentProposer == address(0) || _currentProposer == msg.sender,
-      Errors.Leonidas__InvalidProposer(_currentProposer, msg.sender)
+      Errors.ValidatorSelection__InvalidProposer(_currentProposer, msg.sender)
     );
 
     require(

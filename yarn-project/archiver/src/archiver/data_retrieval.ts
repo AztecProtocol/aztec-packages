@@ -199,7 +199,7 @@ async function getBlockFromRollupTx(
   }
 
   // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
-  const blobCheck = Blob.getBlobs(blockFields);
+  const blobCheck = await Blob.getBlobs(blockFields);
   if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
     // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
     // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.

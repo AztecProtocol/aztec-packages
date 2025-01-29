@@ -102,7 +102,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       deadline,
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
-    await pxe.registerAccount(crowdfundingSecretKey, computePartialAddress(crowdfundingInstance));
+    await pxe.registerAccount(crowdfundingSecretKey, await computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send().deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
@@ -335,9 +335,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow('Assertion failed: Not an operator');
 
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
-    const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
+    const call = await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
-    const entrypointHashedValues = HashedValues.fromValues(call.args);
+    const entrypointHashedValues = await HashedValues.fromValues(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,

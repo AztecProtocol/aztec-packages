@@ -2,7 +2,7 @@ use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     keys::getters::get_public_keys,
     note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{

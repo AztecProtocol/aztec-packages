@@ -180,7 +180,7 @@ describe('Archiver', () => {
       (b, i) =>
         (b.header.globalVariables.timestamp = new Fr(now + DefaultL1ContractsConfig.ethereumSlotDuration * (i + 1))),
     );
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = blocks.map(makeVersionedBlobHash);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
@@ -197,7 +197,8 @@ describe('Archiver', () => {
 
     mockInbox.read.totalMessagesInserted.mockResolvedValueOnce(2n).mockResolvedValueOnce(6n);
 
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     makeMessageSentEvent(98n, 1n, 0n);
     makeMessageSentEvent(99n, 1n, 1n);
@@ -277,7 +278,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = blocks.map(makeVersionedBlobHash);
 
     // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
@@ -297,7 +298,8 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(90n, 3n, badArchive, [badBlobHash]);
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     await archiver.start(false);
 
@@ -321,7 +323,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = blocks.map(makeVersionedBlobHash);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n);
@@ -337,7 +339,8 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString(), [blobHashes[1]]);
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     await archiver.start(false);
 
@@ -358,7 +361,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = blocks.map(makeVersionedBlobHash);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
@@ -387,7 +390,8 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString(), [blobHashes[1]]);
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     await archiver.start(false);
 
@@ -430,12 +434,13 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = [makeVersionedBlobHash(l2Block)];
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     await archiver.start(false);
 
@@ -463,13 +468,14 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = [makeVersionedBlobHash(l2Block)];
 
-    const rollupTxs = blocks.map(makeRollupTx);
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
+    blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
     await archiver.start(false);
 
@@ -559,12 +565,12 @@ describe('Archiver', () => {
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
-function makeRollupTx(l2Block: L2Block) {
+async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
-  const blobInput = Blob.getEthBlobEvaluationInputs(Blob.getBlobs(l2Block.body.toBlobFields()));
+  const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const blockHash = toHex(l2Block.header.hash().toBuffer());
+  const blockHash = toHex((await l2Block.header.hash()).toBuffer());
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',

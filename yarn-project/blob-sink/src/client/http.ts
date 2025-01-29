@@ -110,7 +110,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
+        const blobs = await Promise.all(body.data.map((b: BlobJson) => Blob.fromJson(b)));
         return blobs;
       }
 

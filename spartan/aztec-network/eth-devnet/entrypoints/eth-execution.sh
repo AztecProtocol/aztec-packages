@@ -16,4 +16,5 @@ exec reth node \
     --authrpc.jwtsecret="/genesis/jwt-secret.hex" \
     --chain="/genesis/genesis.json" \
     --datadir="/data" \
+    --log.stdout.format=json \
     -vv

@@ -115,8 +115,10 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.#pendingTxPriorityToHash.values({ reverse: true })).map(x => TxHash.fromString(x));
+  public getPendingTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve(
+      Array.from(this.#pendingTxPriorityToHash.values({ reverse: true })).map(x => TxHash.fromString(x)),
+    );
   }
 
   public getMinedTxHashes(): [TxHash, number][] {
@@ -172,14 +174,17 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<void> {
+    const hashesAndStats = await Promise.all(
+      txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
+    );
     return this.#store.transaction(() => {
       let pendingCount = 0;
-      for (const tx of txs) {
-        const txHash = tx.getTxHash();
+      txs.forEach((tx, i) => {
+        const { txHash, txStats } = hashesAndStats[i];
         this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
           eventName: 'tx-added-to-pool',
-          ...tx.getStats(),
+          ...txStats,
         } satisfies TxAddedToPoolStats);
 
         const key = txHash.toString();
@@ -191,7 +196,7 @@ export class AztecKVTxPool implements TxPool {
           void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
           this.#metrics.recordSize(tx);
         }
-      }
+      });
 
       this.#metrics.recordAddedObjects(pendingCount, 'pending');
     });
@@ -264,13 +269,14 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - The list of transactions to archive.
    * @returns Empty promise.
    */
-  private archiveTxs(txs: Tx[]): Promise<void> {
+  private async archiveTxs(txs: Tx[]): Promise<void> {
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     return this.#archive.transaction(() => {
       // calcualte the head and tail indices of the archived txs by insertion order.
       let headIdx = (this.#archivedTxIndices.entries({ limit: 1, reverse: true }).next().value?.[0] ?? -1) + 1;
       let tailIdx = this.#archivedTxIndices.entries({ limit: 1 }).next().value?.[0] ?? 0;
 
-      for (const tx of txs) {
+      txs.forEach((tx, i) => {
         while (headIdx - tailIdx >= this.#archivedTxLimit) {
           const txHash = this.#archivedTxIndices.get(tailIdx);
           if (txHash) {
@@ -287,11 +293,11 @@ export class AztecKVTxPool implements TxPool {
           tx.enqueuedPublicFunctionCalls,
           tx.publicTeardownFunctionCall,
         );
-        const txHash = tx.getTxHash().toString();
+        const txHash = txHashes[i].toString();
         void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
         void this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;
-      }
+      });
     });
   }
 }

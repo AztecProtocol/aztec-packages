@@ -24,7 +24,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should send and retrieve blobs', async () => {
-    const blob = makeEncodedBlob(3);
+    const blob = await makeEncodedBlob(3);
     const blobHash = blob.getEthVersionedBlobHash();
     const blockId = '0x1234';
 
@@ -38,7 +38,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should handle multiple blobs', async () => {
-    const blobs = [makeEncodedBlob(2), makeEncodedBlob(2), makeEncodedBlob(2)];
+    const blobs = await Promise.all([makeEncodedBlob(2), makeEncodedBlob(2), makeEncodedBlob(2)]);
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
     const blockId = '0x5678';
 

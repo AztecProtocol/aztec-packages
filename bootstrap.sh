@@ -294,7 +294,7 @@ case "$cmd" in
     # Drop through. source_bootstrap on script entry has set flags.
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
