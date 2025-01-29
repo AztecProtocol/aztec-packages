@@ -20,6 +20,7 @@ import {
   type BlockHeader,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
+  type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
@@ -39,6 +40,8 @@ import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_s
 import { type DataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
+
+type StoredContractInstanceUpdate = ContractInstanceUpdateWithAddress & { blockNumber: number; logIndex: number };
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -81,7 +84,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
+  private contractInstanceUpdates: Map<string, StoredContractInstanceUpdate[]> = new Map();
+
   private lastL1BlockNewBlocks: bigint | undefined = undefined;
+
   private lastL1BlockNewMessages: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
@@ -112,7 +118,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return Promise.resolve(this.contractInstances.get(address.toString()));
+    const instance = this.contractInstances.get(address.toString());
+    if (!instance) {
+      return Promise.resolve(undefined);
+    }
+    const updates = this.contractInstanceUpdates.get(address.toString()) || [];
+    if (updates.length > 0) {
+      const lastUpdate = updates[0];
+      const currentBlockNumber = this.getLastBlockNumber();
+      if (currentBlockNumber >= lastUpdate.blockOfChange) {
+        instance.contractClassId = lastUpdate.newContractClassId;
+      } else if (!lastUpdate.prevContractClassId.isZero()) {
+        instance.contractClassId = lastUpdate.prevContractClassId;
+      }
+    }
+    return Promise.resolve(instance);
   }
 
   public getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
@@ -182,6 +202,33 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     for (const contractInstance of data) {
       this.contractInstances.delete(contractInstance.address.toString());
+    }
+    return Promise.resolve(true);
+  }
+
+  public addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean> {
+    for (let logIndex = 0; logIndex < data.length; logIndex++) {
+      const contractInstanceUpdate = data[logIndex];
+      const updates = this.contractInstanceUpdates.get(contractInstanceUpdate.address.toString()) || [];
+      updates.unshift({
+        ...contractInstanceUpdate,
+        blockNumber,
+        logIndex,
+      });
+      this.contractInstanceUpdates.set(contractInstanceUpdate.address.toString(), updates);
+    }
+    return Promise.resolve(true);
+  }
+
+  public deleteContractInstanceUpdates(
+    data: ContractInstanceUpdateWithAddress[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    for (let logIndex = 0; logIndex < data.length; logIndex++) {
+      const contractInstanceUpdate = data[logIndex];
+      let updates = this.contractInstanceUpdates.get(contractInstanceUpdate.address.toString()) || [];
+      updates = updates.filter(update => !(update.blockNumber === blockNumber && update.logIndex === logIndex));
+      this.contractInstanceUpdates.set(contractInstanceUpdate.address.toString(), updates);
     }
     return Promise.resolve(true);
   }
@@ -687,15 +734,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
   }
 
+  getLastBlockNumber(): number {
+    if (this.l2Blocks.length === 0) {
+      return INITIAL_L2_BLOCK_NUM - 1;
+    }
+    return this.l2Blocks[this.l2Blocks.length - 1].data.number;
+  }
+
   /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
   public getSynchedL2BlockNumber(): Promise<number> {
-    if (this.l2Blocks.length === 0) {
-      return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    }
-    return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].data.number);
+    return Promise.resolve(this.getLastBlockNumber());
   }
 
   public getProvenL2BlockNumber(): Promise<number> {
