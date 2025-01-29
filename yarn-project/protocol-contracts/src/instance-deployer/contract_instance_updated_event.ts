@@ -1,9 +1,9 @@
-import { type ContractInstanceUpdateWithAddress, type PrivateLog } from '@aztec/circuits.js';
+import { type ContractInstanceUpdateWithAddress, type PublicLog } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG } from '../protocol_contract_data.js';
+import { DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG, ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractInstanceDeployer. */
 export class ContractInstanceUpdatedEvent {
@@ -14,13 +14,16 @@ export class ContractInstanceUpdatedEvent {
     public readonly blockOfChange: number,
   ) {}
 
-  static isContractInstanceUpdatedEvent(log: PrivateLog) {
-    return log.fields[0].equals(DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG);
+  static isContractInstanceUpdatedEvent(log: PublicLog) {
+    return (
+      log.contractAddress.equals(ProtocolContractAddress.ContractInstanceDeployer) &&
+      log.log[0].equals(DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG)
+    );
   }
 
-  static fromLog(log: PrivateLog) {
-    const bufferWithoutTag = log.toBuffer().subarray(32);
-    const reader = new BufferReader(bufferWithoutTag);
+  static fromLog(log: PublicLog) {
+    const bufferWithoutAddressAndTag = log.toBuffer().subarray(64);
+    const reader = new BufferReader(bufferWithoutAddressAndTag);
     const address = reader.readObject(AztecAddress);
     const prevContractClassId = reader.readObject(Fr);
     const newContractClassId = reader.readObject(Fr);

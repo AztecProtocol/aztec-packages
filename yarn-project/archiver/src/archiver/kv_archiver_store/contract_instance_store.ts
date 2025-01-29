@@ -8,12 +8,14 @@ import {
 } from '@aztec/circuits.js';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
+type ContractInstanceUpdateKey = [string, number] | [string, number, number];
+
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class ContractInstanceStore {
   #contractInstances: AztecMap<string, Buffer>;
-  #contractInstanceUpdates: AztecMap<string, Buffer>;
+  #contractInstanceUpdates: AztecMap<ContractInstanceUpdateKey, Buffer>;
 
   constructor(db: AztecKVStore) {
     this.#contractInstances = db.openMap('archiver_contract_instances');
@@ -31,8 +33,12 @@ export class ContractInstanceStore {
     return this.#contractInstances.delete(contractInstance.address.toString());
   }
 
-  getUpdateKey(contractAddress: AztecAddress, blockNumber: number, logIndex?: number) {
-    return `${contractAddress.toString()}-${blockNumber}-${logIndex || ''}`;
+  getUpdateKey(contractAddress: AztecAddress, blockNumber: number, logIndex?: number): ContractInstanceUpdateKey {
+    if (logIndex === undefined) {
+      return [contractAddress.toString(), blockNumber];
+    } else {
+      return [contractAddress.toString(), blockNumber, logIndex];
+    }
   }
 
   addContractInstanceUpdate(
@@ -59,7 +65,7 @@ export class ContractInstanceStore {
   getCurrentContractInstanceClassId(address: AztecAddress, blockNumber: number, originalClassId: Fr): Fr {
     // We need to find the last update before the given block number
     const queryResult = this.#contractInstanceUpdates
-      .entries({
+      .values({
         reverse: true,
         end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
         limit: 1,
@@ -69,8 +75,7 @@ export class ContractInstanceStore {
       return originalClassId;
     }
 
-    const [key, serializedUpdate] = queryResult.value;
-    console.log({ key });
+    const serializedUpdate = queryResult.value;
     const update = SerializableContractInstanceUpdate.fromBuffer(serializedUpdate);
     if (blockNumber < update.blockOfChange) {
       return update.prevContractClassId.isZero() ? originalClassId : update.prevContractClassId;
@@ -86,5 +91,6 @@ export class ContractInstanceStore {
 
     const instance = SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
     instance.contractClassId = this.getCurrentContractInstanceClassId(address, blockNumber, instance.contractClassId);
+    return instance;
   }
 }

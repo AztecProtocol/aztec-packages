@@ -32,6 +32,7 @@ import {
   type FunctionSelector,
   type PrivateLog,
   type PublicFunction,
+  type PublicLog,
   type UnconstrainedFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
@@ -932,7 +933,7 @@ class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateUpdatedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
+  async #updateUpdatedContractInstances(allLogs: PublicLog[], blockNum: number, operation: Operation) {
     const contractUpdates = allLogs
       .filter(log => ContractInstanceUpdatedEvent.isContractInstanceUpdatedEvent(log))
       .map(log => ContractInstanceUpdatedEvent.fromLog(log))
@@ -1017,11 +1018,12 @@ class ArchiverStoreHelper
           .flatMap(txLog => txLog.unrollLogs());
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
         return (
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
-            this.#updateUpdatedContractInstances(privateLogs, block.data.number, Operation.Store),
+            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Store),
             this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
           ])
         ).every(Boolean);
@@ -1051,12 +1053,13 @@ class ArchiverStoreHelper
 
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
         return (
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete),
-            this.#updateUpdatedContractInstances(privateLogs, block.data.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Delete),
           ])
         ).every(Boolean);
       }),

@@ -31,7 +31,12 @@ describe('e2e_contract_updates', () => {
     // Mine some blocks
     logger.info('Waiting for update to apply');
     for (let i = 0; i < 12; i++) {
-      await contract.methods.set_public_value(1n).send().wait();
+      try {
+        await contract.methods.set_public_value(1n).send().wait();
+      } catch (e) {
+        // Fails when updated since the method doesn't exist anymore
+        break;
+      }
     }
     logger.info('Done waiting');
 

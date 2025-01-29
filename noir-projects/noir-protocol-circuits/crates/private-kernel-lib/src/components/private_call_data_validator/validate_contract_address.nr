@@ -10,7 +10,7 @@ use dep::types::{
         validate_shared_mutable_hints,
     },
     storage::map::derive_storage_slot_in_map,
-    traits::{Deserialize, ToField},
+    traits::{Packable, ToField},
 };
 
 pub fn validate_contract_address(
@@ -57,9 +57,9 @@ pub fn validate_contract_address(
     };
 
     let value_change: ScheduledValueChange<ContractClassId> =
-        Deserialize::deserialize(hints.updated_class_id_value_change);
+        Packable::unpack(hints.updated_class_id_value_change);
     let delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY> =
-        Deserialize::deserialize(hints.updated_class_id_delay_change);
+        Packable::unpack(hints.updated_class_id_delay_change);
 
     // A block horizon for this shared mutable should be set separately when generating/validating kernel output
     validate_shared_mutable_hints(

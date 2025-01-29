@@ -17,7 +17,7 @@ use dep::types::{
         compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
         scheduled_value_change::ScheduledValueChange,
     },
-    traits::{Deserialize, is_empty},
+    traits::{is_empty, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
@@ -380,10 +380,10 @@ impl PrivateKernelCircuitOutputValidator {
             MaxBlockNumber::min(
                 max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
-                    ScheduledValueChange::<ContractClassId>::deserialize(
+                    ScheduledValueChange::<ContractClassId>::unpack(
                         private_call.verification_key_hints.updated_class_id_value_change,
                     ),
-                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::deserialize(
+                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::unpack(
                         private_call.verification_key_hints.updated_class_id_delay_change,
                     ),
                     private_call.public_inputs.historical_header.global_variables.block_number
