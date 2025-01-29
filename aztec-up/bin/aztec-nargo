@@ -29,5 +29,5 @@ docker run ${args:-} \
   -v $HOME:$HOME \
   -e HOME=$HOME \
   --workdir="$PWD" \
-  --entrypoint /usr/src/noir/noir-repo/target/release/nargo \
+  --entrypoint /usr/src/aztec-nargo/compile_then_postprocess.sh \
   aztecprotocol/aztec "$@"
