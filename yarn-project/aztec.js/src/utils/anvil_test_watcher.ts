@@ -48,7 +48,7 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), this.logger, 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
       this.filledRunningPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
@@ -60,7 +60,7 @@ export class AnvilTestWatcher {
     await this.filledRunningPromise?.stop();
   }
 
-  async mineIfSlotFilled() {
+  async warpTimeIfNeeded() {
     try {
       const currentSlot = await this.rollup.read.getCurrentSlot();
       const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
@@ -90,7 +90,6 @@ export class AnvilTestWatcher {
         }
 
         this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
-        return;
       }
     } catch (err) {
       this.logger.error('mineIfSlotFilled failed');
