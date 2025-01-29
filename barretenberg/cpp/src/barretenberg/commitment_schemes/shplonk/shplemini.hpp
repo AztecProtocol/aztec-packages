@@ -196,13 +196,62 @@ template <typename Curve> class ShpleminiVerifier_ {
     using GeminiVerifier = GeminiVerifier_<Curve>;
 
   public:
+    struct ClaimBatch {
+        RefVector<Commitment> commitments;
+        RefVector<Fr> evaluations;
+        Fr batch_scalar = 0;
+    };
+
+    struct ClaimBatcher {
+        std::optional<ClaimBatch> unshifted;
+        std::optional<ClaimBatch> shifted;
+
+        void compute_scalars_for_each_batch(const std::vector<Fr>& inverse_vanishing_evals,
+                                            const Fr& shplonk_batching_challenge,
+                                            const Fr& gemini_evaluation_challenge)
+        {
+            if (unshifted) {
+                unshifted->batch_scalar =
+                    inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
+            }
+            if (shifted) {
+                shifted->batch_scalar =
+                    gemini_evaluation_challenge.invert() *
+                    (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
+            }
+        }
+
+        void aggregate_claims_and_compute_batched_evaluation(std::vector<Commitment>& commitments,
+                                                             std::vector<Fr>& scalars,
+                                                             Fr& batched_evaluation,
+                                                             const Fr& multivariate_batching_challenge,
+                                                             Fr& running_scalar)
+        {
+            auto batch_claims = [&](const ClaimBatch& batch, Fr& current_batching_challenge) {
+                for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
+                    commitments.emplace_back(commitment);
+                    scalars.emplace_back(-batch.batch_scalar * current_batching_challenge);
+                    batched_evaluation += evaluation * current_batching_challenge;
+                    current_batching_challenge *= multivariate_batching_challenge;
+                }
+            };
+
+            if (unshifted) {
+                batch_claims(*unshifted, running_scalar);
+            }
+            if (shifted) {
+                batch_claims(*shifted, running_scalar);
+            }
+        }
+    };
+
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
         const Fr N,
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> shifted_commitments,
-        RefSpan<Fr> unshifted_evaluations,
-        RefSpan<Fr> shifted_evaluations,
+        RefVector<Commitment> unshifted_commitments,
+        RefVector<Commitment> shifted_commitments,
+        RefVector<Fr> unshifted_evaluations,
+        RefVector<Fr> shifted_evaluations,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
@@ -459,10 +508,10 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
     static void batch_multivariate_opening_claims(
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> shifted_commitments,
-        RefSpan<Fr> unshifted_evaluations,
-        RefSpan<Fr> shifted_evaluations,
+        RefVector<Commitment> unshifted_commitments,
+        RefVector<Commitment> shifted_commitments,
+        RefVector<Fr> unshifted_evaluations,
+        RefVector<Fr> shifted_evaluations,
         const Fr& multivariate_batching_challenge,
         const Fr& unshifted_scalar,
         const Fr& shifted_scalar,
@@ -481,30 +530,15 @@ template <typename Curve> class ShpleminiVerifier_ {
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
-        for (auto [unshifted_commitment, unshifted_evaluation] :
-             zip_view(unshifted_commitments, unshifted_evaluations)) {
-            // Move unshifted commitments to the 'commitments' vector
-            commitments.emplace_back(std::move(unshifted_commitment));
-            // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
-            scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
-            // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
-            batched_evaluation += unshifted_evaluation * current_batching_challenge;
-            // Update the batching challenge
-            current_batching_challenge *= multivariate_batching_challenge;
-        }
-        for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
-            // Move shifted commitments to the 'commitments' vector
-            commitments.emplace_back(std::move(shifted_commitment));
-            // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
-            scalars.emplace_back(-shifted_scalar * current_batching_challenge);
-            // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
-            batched_evaluation += shifted_evaluation * current_batching_challenge;
-            // Update the batching challenge ρ
-            current_batching_challenge *= multivariate_batching_challenge;
-        }
+        ClaimBatcher claim_batcher{ .unshifted =
+                                        ClaimBatch{ unshifted_commitments, unshifted_evaluations, unshifted_scalar },
+                                    .shifted = ClaimBatch{ shifted_commitments, shifted_evaluations, shifted_scalar } };
 
-        // If we are performing an opening verification for the translator, add the contributions from the concatenation
-        // commitments and evaluations to the result
+        claim_batcher.aggregate_claims_and_compute_batched_evaluation(
+            commitments, scalars, batched_evaluation, multivariate_batching_challenge, current_batching_challenge);
+
+        // If we are performing an opening verification for the translator, add the contributions from the
+        // concatenation commitments and evaluations to the result
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
