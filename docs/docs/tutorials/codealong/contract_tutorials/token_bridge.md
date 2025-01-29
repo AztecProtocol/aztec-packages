@@ -191,6 +191,8 @@ async function main() {
 main();
 ```
 
+The rest of the code in the tutorial will go inside the `main()` function.
+
 Run the script with `yarn start` and you should see the L1 contract addresses printed out.
 
 ### Deploying the contracts
