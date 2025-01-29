@@ -51,8 +51,8 @@ jobs:
     strategy:
       matrix:
         test:
-          - transfer
-          - reorg
+          - transfer.test.ts
+          - reorg.test.ts
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -66,7 +66,7 @@ jobs:
           run: |
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            FORCE_COLOR=1 CLEANUP_CLUSTER=true ./ci.sh test-kind-network ${{ matrix.test }}.test.ts 16-validators || true
+            FORCE_COLOR=1 INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" 16-validators.yaml
 
   proving-test:
     needs: build
@@ -85,8 +85,8 @@ jobs:
           run: |
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            INSTALL_TIMEOUT=45m FORCE_COLOR=1 CLEANUP_CLUSTER=true \
-              ./ci.sh test-kind-network proving.test.ts 1-validator-with-proving || true
+            INSTALL_TIMEOUT=45m FORCE_COLOR=1 INSTALL_METRICS=false \
+              ./spartan/scripts/test_kind.sh ./src/spartan/proving.test.ts 1-validator-with-proving || true
 
   success-check:
     runs-on: ubuntu-20.04

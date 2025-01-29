@@ -135,14 +135,17 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
-    const privateSelectors = contract.functions
-      .filter(functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE)
-      .map(privateFunctionArtifact =>
-        FunctionSelector.fromNameAndParameters(
-          privateFunctionArtifact.name,
-          privateFunctionArtifact.parameters,
+    const privateFunctions = contract.functions.filter(
+      functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
+    );
+
+    const privateSelectors = await Promise.all(
+      privateFunctions.map(async privateFunctionArtifact =>
+        (
+          await FunctionSelector.fromNameAndParameters(privateFunctionArtifact.name, privateFunctionArtifact.parameters)
         ).toString(),
-      );
+      ),
+    );
 
     if (privateSelectors.length !== new Set(privateSelectors).size) {
       throw new Error('Repeated function selectors of private functions');
@@ -537,7 +540,7 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     const value = await this.#completeAddresses.atAsync(index);
-    return value ? CompleteAddress.fromBuffer(value) : undefined;
+    return value ? await CompleteAddress.fromBuffer(value) : undefined;
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
@@ -545,7 +548,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v));
+    return await Promise.all(
+      (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
+    );
   }
 
   async addSenderAddress(address: AztecAddress): Promise<boolean> {

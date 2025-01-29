@@ -9,7 +9,7 @@ export class WorldStateVersion {
 
   static async readVersion(filename: string) {
     const versionData = await readFile(filename, 'utf-8').catch(() => undefined);
-    return versionData === undefined ? undefined : jsonParseWithSchema(versionData, WorldStateVersion.schema);
+    return versionData === undefined ? undefined : await jsonParseWithSchema(versionData, WorldStateVersion.schema);
   }
 
   public async writeVersionFile(filename: string) {

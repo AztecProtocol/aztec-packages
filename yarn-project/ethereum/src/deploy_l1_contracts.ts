@@ -15,8 +15,6 @@ import {
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
-  LeonidasLibAbi,
-  LeonidasLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -30,6 +28,8 @@ import {
   SlashFactoryBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
+  ValidatorSelectionLibAbi,
+  ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -54,8 +54,8 @@ import {
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
-import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 
@@ -128,9 +128,9 @@ export const l1Artifacts = {
     libraries: {
       linkReferences: RollupLinkReferences,
       libraryCode: {
-        LeonidasLib: {
-          contractAbi: LeonidasLibAbi,
-          contractBytecode: LeonidasLibBytecode as Hex,
+        ValidatorSelectionLib: {
+          contractAbi: ValidatorSelectionLibAbi,
+          contractBytecode: ValidatorSelectionLibBytecode as Hex,
         },
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
@@ -579,50 +579,6 @@ class L1Deployer {
   async waitForDeployments(): Promise<void> {
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
   }
-}
-
-/**
- * Compiles a contract source code using the provided solc compiler.
- * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
- * @param contractName - Contract name within the file (eg HonkVerifier)
- * @param source - Source code to compile
- * @param solc - Solc instance
- * @returns ABI and bytecode of the compiled contract
- */
-export function compileContract(
-  fileName: string,
-  contractName: string,
-  source: string,
-  solc: { compile: (source: string) => string },
-): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [fileName]: {
-        content: source,
-      },
-    },
-    settings: {
-      // we require the optimizer
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      evmVersion: 'cancun',
-      outputSelection: {
-        '*': {
-          '*': ['evm.bytecode.object', 'abi'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-  const abi = output.contracts[fileName][contractName].abi;
-  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
-
-  return { abi, bytecode };
 }
 
 // docs:start:deployL1Contract

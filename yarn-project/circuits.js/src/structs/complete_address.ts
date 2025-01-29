@@ -18,15 +18,23 @@ import { PublicKeys } from '../types/public_keys.js';
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
-  public constructor(
+  private constructor(
     /** Contract address (typically of an account contract) */
     public address: AztecAddress,
     /** User public keys */
     public publicKeys: PublicKeys,
     /** Partial key corresponding to the public key to the address. */
     public partialAddress: PartialAddress,
-  ) {
-    this.validate();
+  ) {}
+
+  static async create(
+    address: AztecAddress,
+    publicKeys: PublicKeys,
+    partialAddress: PartialAddress,
+  ): Promise<CompleteAddress> {
+    const completeAddress = new CompleteAddress(address, publicKeys, partialAddress);
+    await completeAddress.validate();
+    return completeAddress;
   }
 
   /** Size in bytes of an instance */
@@ -40,32 +48,32 @@ export class CompleteAddress {
     return this.toString();
   }
 
-  static random(): CompleteAddress {
-    return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
+  static async random(): Promise<CompleteAddress> {
+    return await this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
   }
 
-  static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
-    const { publicKeys } = deriveKeys(secretKey);
-    const address = computeAddress(publicKeys, partialAddress);
+  static async fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
+    const { publicKeys } = await deriveKeys(secretKey);
+    const address = await computeAddress(publicKeys, partialAddress);
 
     return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
-  getPreaddress() {
-    return computePreaddress(this.publicKeys.hash(), this.partialAddress);
+  async getPreaddress() {
+    return computePreaddress(await this.publicKeys.hash(), this.partialAddress);
   }
 
-  static fromSecretKeyAndInstance(
+  static async fromSecretKeyAndInstance(
     secretKey: Fr,
     instance: Parameters<typeof computePartialAddress>[0],
-  ): CompleteAddress {
-    const partialAddress = computePartialAddress(instance);
+  ): Promise<CompleteAddress> {
+    const partialAddress = await computePartialAddress(instance);
     return CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
   }
 
   /** Throws if the address is not correctly derived from the public key and partial address.*/
-  public validate() {
-    const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
+  public async validate() {
+    const expectedAddress = await computeAddress(this.publicKeys, this.partialAddress);
 
     if (!expectedAddress.equals(this.address)) {
       throw new Error(
@@ -115,12 +123,12 @@ export class CompleteAddress {
    * @param buffer - The input buffer or BufferReader containing the address data.
    * @returns - A new CompleteAddress instance with the extracted address data.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): CompleteAddress {
+  static fromBuffer(buffer: Buffer | BufferReader): Promise<CompleteAddress> {
     const reader = BufferReader.asReader(buffer);
     const address = reader.readObject(AztecAddress);
     const publicKeys = reader.readObject(PublicKeys);
     const partialAddress = reader.readObject(Fr);
-    return new CompleteAddress(address, publicKeys, partialAddress);
+    return CompleteAddress.create(address, publicKeys, partialAddress);
   }
 
   /**
@@ -131,7 +139,7 @@ export class CompleteAddress {
    * @param address - The hex-encoded string representing the complete address.
    * @returns A Point instance.
    */
-  static fromString(address: string): CompleteAddress {
+  static fromString(address: string): Promise<CompleteAddress> {
     return CompleteAddress.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 

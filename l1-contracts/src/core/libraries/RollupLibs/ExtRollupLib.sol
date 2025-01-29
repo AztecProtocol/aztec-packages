@@ -107,7 +107,11 @@ library ExtRollupLib {
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     external
     view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+    returns (
+      bytes32[] memory blobHashes,
+      bytes32 blobsHashesCommitment,
+      bytes32 blobPublicInputsHash
+    )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);
   }

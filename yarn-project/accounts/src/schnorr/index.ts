@@ -21,6 +21,7 @@ export { SchnorrAccountContractArtifact } from './artifact.js';
  * @param secretKey - Secret key used to derive all the keystore keys.
  * @param signingPrivateKey - Grumpkin key used for signing transactions.
  * @param salt - Deployment salt.
+ * @returns An account manager initialized with the account contract and its deployment params
  */
 export function getSchnorrAccount(
   pxe: PXE,

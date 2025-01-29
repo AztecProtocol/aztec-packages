@@ -89,6 +89,16 @@ function check_toolchains {
       exit 1
     fi
   done
+<<<<<<< HEAD
+=======
+  # Check for yarn availability
+  if ! command -v yarn > /dev/null; then
+    encourage_dev_container
+    echo "yarn not found."
+    echo "Installation: corepack enable"
+    exit 1
+  fi
+>>>>>>> origin/master
 }
 
 # Install pre-commit git hooks.
@@ -285,8 +295,44 @@ case "$cmd" in
     test
     ;;
   *)
+<<<<<<< HEAD
     echo "Unknown command: $cmd"
     echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
+=======
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
+    exit 1
+  ;;
+esac
+
+# Install pre-commit git hooks.
+hooks_dir=$(git rev-parse --git-path hooks)
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
+echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
+echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
+chmod +x $hooks_dir/pre-commit
+
+github_group "pull submodules"
+denoise git submodule update --init --recursive
+github_endgroup
+
+check_toolchains
+
+projects=(
+  noir
+  barretenberg
+  l1-contracts
+  avm-transpiler
+  noir-projects
+  yarn-project
+  boxes
+)
+
+# Build projects.
+for project in "${projects[@]}"; do
+  $project/bootstrap.sh $cmd
+done
+>>>>>>> origin/master

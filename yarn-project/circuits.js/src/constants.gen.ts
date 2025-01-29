@@ -348,6 +348,7 @@ export const PROOF_TYPE_PG = 3;
 export const PROOF_TYPE_AVM = 4;
 export const PROOF_TYPE_ROLLUP_HONK = 5;
 export const PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
+export const TWO_POW_64 = 18446744073709551616n;
 export enum GeneratorIndex {
   NOTE_HASH = 1,
   NOTE_HASH_NONCE = 2,
@@ -398,6 +399,7 @@ export enum GeneratorIndex {
   NOTE_NULLIFIER = 53,
   NOTE_HIDING_POINT = 54,
   SYMMETRIC_KEY = 55,
-  PUBLIC_TX_HASH = 56,
-  PRIVATE_TX_HASH = 57,
+  SYMMETRIC_KEY_2 = 56,
+  PUBLIC_TX_HASH = 57,
+  PRIVATE_TX_HASH = 58,
 }

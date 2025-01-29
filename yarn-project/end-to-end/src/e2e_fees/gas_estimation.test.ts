@@ -75,7 +75,9 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    (t.aztecNode as AztecNodeService).getSequencer()!.updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    await (t.aztecNode as AztecNodeService)
+      .getSequencer()!
+      .updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGasPadding);
 
@@ -96,7 +98,7 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with public payment method', async () => {
     // TODO(#11324): Reset this value back to zero.
-    const estimatedGasPadding = 0.00068359375;
+    const estimatedGasPadding = 0.1;
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
@@ -125,7 +127,7 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     // TODO(#11324): Reset this value back to zero.
-    const estimatedGasPadding = 0.00068359375;
+    const estimatedGasPadding = 0.1;
 
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);

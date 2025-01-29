@@ -49,7 +49,7 @@ export const createPXEServiceAndSubmitTransactions = async (
   const pxeService = await createPXEService(node, rpcConfig, true);
 
   const secretKey = Fr.random();
-  const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
+  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
   await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
   const txs = await submitTxsTo(logger, pxeService, numTxs);

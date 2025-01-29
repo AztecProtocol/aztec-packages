@@ -9,8 +9,11 @@ import { getDeployerContract } from './protocol_contracts.js';
  * @param wallet - The wallet to use for the deployment.
  * @param instance - The instance to deploy.
  */
-export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAddress): ContractFunctionInteraction {
-  const deployerContract = getDeployerContract(wallet);
+export async function deployInstance(
+  wallet: Wallet,
+  instance: ContractInstanceWithAddress,
+): Promise<ContractFunctionInteraction> {
+  const deployerContract = await getDeployerContract(wallet);
   const { salt, contractClassId, publicKeys, deployer } = instance;
   const isUniversalDeploy = deployer.isZero();
   if (!isUniversalDeploy && !wallet.getAddress().equals(deployer)) {

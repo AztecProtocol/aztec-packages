@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Escrow {
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private}, storage::storage},
     };
     use dep::aztec::prelude::{AztecAddress, PrivateImmutable};

@@ -69,7 +69,7 @@ export class Sequencer {
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
+  private allowedInSetup: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
@@ -98,7 +98,6 @@ export class Sequencer {
     telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
-    this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
 
     // Register the block builder with the validator client for re-execution
@@ -116,7 +115,7 @@ export class Sequencer {
    * Updates sequencer config.
    * @param config - New parameters.
    */
-  public updateConfig(config: SequencerConfig) {
+  public async updateConfig(config: SequencerConfig) {
     this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
@@ -142,6 +141,8 @@ export class Sequencer {
     }
     if (config.allowedInSetup) {
       this.allowedInSetup = config.allowedInSetup;
+    } else {
+      this.allowedInSetup = await getDefaultAllowedSetupFunctions();
     }
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
@@ -177,12 +178,12 @@ export class Sequencer {
   /**
    * Starts the sequencer and moves to IDLE state.
    */
-  public start() {
+  public async start() {
+    await this.updateConfig(this.config);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
-    return Promise.resolve();
   }
 
   /**
@@ -261,7 +262,7 @@ export class Sequencer {
     void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt(), VoteType.SLASHING);
 
     // Check the pool has enough txs to build a block
-    const pendingTxCount = this.p2pClient.getPendingTxCount();
+    const pendingTxCount = await this.p2pClient.getPendingTxCount();
     if (pendingTxCount < this.minTxsPerBlock && !this.isFlushing) {
       this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBlock}.`, {
         slot,
@@ -300,6 +301,9 @@ export class Sequencer {
       await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader);
     } catch (err) {
       this.log.error(`Error assembling block`, err, { blockNumber: newBlockNumber, slot });
+
+      // If the block failed to build, we might still want to claim the proving rights
+      await this.claimEpochProofRightIfAvailable(slot);
     }
     this.setState(SequencerState.IDLE, 0n);
   }
@@ -371,13 +375,12 @@ export class Sequencer {
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
   protected async buildBlock(
-    pendingTxs: Iterable<Tx>,
+    pendingTxs: Iterable<Tx> | AsyncIterableIterator<Tx>,
     newGlobalVariables: GlobalVariables,
     opts: { validateOnly?: boolean } = {},
   ) {
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
     const slot = newGlobalVariables.slotNumber.toBigInt();
-
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
     const msgCount = l1ToL2Messages.length;
@@ -447,8 +450,9 @@ export class Sequencer {
 
       if (!opts.validateOnly && failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
-        this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+        const failedTxHashes = await Tx.getHashes(failedTxData);
+        this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
+        await this.p2pClient.deleteTxs(failedTxHashes);
       }
 
       if (
@@ -513,7 +517,10 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndAttemptToPublish(pendingTxs: Iterable<Tx>, proposalHeader: BlockHeader): Promise<void> {
+  private async buildBlockAndAttemptToPublish(
+    pendingTxs: AsyncIterableIterator<Tx>,
+    proposalHeader: BlockHeader,
+  ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
@@ -545,7 +552,7 @@ export class Sequencer {
         ...block.getStats(),
       };
 
-      const blockHash = block.hash();
+      const blockHash = await block.hash();
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
       this.log.info(`Built block ${block.number} for slot ${slot} with ${numTxs} txs`, {
         blockHash,
@@ -627,8 +634,8 @@ export class Sequencer {
     this.log.debug('Creating block proposal for validators');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
     if (!proposal) {
-      this.log.warn(`Failed to create block proposal, skipping collecting attestations`);
-      return undefined;
+      const msg = `Failed to create block proposal`;
+      throw new Error(msg);
     }
 
     this.log.debug('Broadcasting block proposal to validators');

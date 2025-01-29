@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext,
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote},
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
@@ -38,8 +38,23 @@ impl TestNote {
     }
 }
 
+// Note: We are not deriving Eq here because generally we don't want to include the header in the comparison.
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
 impl Eq for TestNote {
     fn eq(self, other: Self) -> bool {
         self.value == other.value
+    }
+}
+
+// Note: We are not deriving Packable here because that would pack the whole struct including the note header
+// (so the resulting field array size would be 5).
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
+impl Packable<1> for TestNote {
+    fn pack(self) -> [Field; 1] {
+        [self.value]
+    }
+
+    fn unpack(fields: [Field; 1]) -> Self {
+        TestNote { value: fields[0], header: NoteHeader::empty() }
     }
 }

@@ -5,7 +5,7 @@
 # run nargo and then postprocess any created artifacts.
 #
 # Usage: compile_then_postprocess.sh [nargo args]
-set -eu
+set -euo pipefail
 
 pushd $(dirname $0) &>/dev/null
 NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}

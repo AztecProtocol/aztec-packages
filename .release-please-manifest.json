@@ -1,3 +1,11 @@
 {
+<<<<<<< HEAD
   ".": "0.71.0"
+=======
+  ".": "0.72.1",
+  "yarn-project/cli": "0.35.1",
+  "yarn-project/aztec": "0.72.1",
+  "barretenberg": "0.72.1",
+  "barretenberg/ts": "0.72.1"
+>>>>>>> origin/master
 }
