@@ -4,11 +4,9 @@ import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { timeStamp } from 'console';
-
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField } from '../serialize.js';
+import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -463,8 +461,4 @@ export class Oracle {
       frToNumber(fromACVMField(numEntries)),
     );
   }
-}
-
-function toACVMFieldSingleOrArray(value: Fr | Fr[]) {
-  return Array.isArray(value) ? value.map(toACVMField) : toACVMField(value);
 }

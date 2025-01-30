@@ -16,10 +16,10 @@ use dep::aztec::{
 #[partial_note(quote {value})]
 #[derive(Serialize)]
 pub struct UintNote {
-    // The amount of tokens in the note
     owner: AztecAddress,
     // Randomness of the note to hide its contents
     randomness: Field,
+    // The amount of tokens in the note
     value: U128,
 }
 // docs:end:UintNote

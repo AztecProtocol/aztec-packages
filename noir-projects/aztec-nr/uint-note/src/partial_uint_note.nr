@@ -1,5 +1,5 @@
 use dep::aztec::{
-    generators::{G_slot, Ga1, Ga2, Ga3, Ga4},
+    generators::{G_slot, Ga2, Ga3},
     note::note_interface::NoteInterface,
     oracle::random::random,
     prelude::NoteHeader,
@@ -8,26 +8,6 @@ use dep::aztec::{
 use std::static_assert;
 
 use crate::uint_note::UintNote;
-
-pub struct PartialUintNoteHidingPoint {
-    pub value: Point,
-}
-
-impl PartialUintNoteHidingPoint {
-    fn new(value: Point) -> Self {
-        Self { value }
-    }
-
-    fn complete(self, amount: U128) -> Field {
-        let note_point = self.value
-            + std::embedded_curve_ops::multi_scalar_mul(
-                [G_slot],
-                [std::hash::from_field_unsafe(amount.pack()[0])],
-            );
-
-        note_point.x
-    }
-}
 
 pub struct PartialUintNote {
     pub owner: AztecAddress,
@@ -88,5 +68,25 @@ impl NoteInterface<PARTIAL_UINT_NOTE_SER_LENGTH> for PartialUintNote {
     fn compute_note_hash(self) -> Field {
         static_assert(false, "unsupported");
         panic(f"unsupported")
+    }
+}
+
+pub struct PartialUintNoteHidingPoint {
+    pub value: Point,
+}
+
+impl PartialUintNoteHidingPoint {
+    fn new(value: Point) -> Self {
+        Self { value }
+    }
+
+    fn complete(self, amount: U128) -> Field {
+        let note_point = self.value
+            + std::embedded_curve_ops::multi_scalar_mul(
+                [G_slot],
+                [std::hash::from_field_unsafe(amount.pack()[0])],
+            );
+
+        note_point.x
     }
 }

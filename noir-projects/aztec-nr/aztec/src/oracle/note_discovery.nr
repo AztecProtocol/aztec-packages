@@ -3,15 +3,7 @@ use dep::protocol_types::{address::AztecAddress, log_with_tx_data::LogWithTxData
 
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
-pub fn sync_notes() {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
-    /// call.
-    unsafe {
-        sync_notes_oracle_wrapper();
-    }
-}
-
-unconstrained fn sync_notes_oracle_wrapper() {
+pub unconstrained fn sync_notes() {
     sync_notes_oracle();
 }
 

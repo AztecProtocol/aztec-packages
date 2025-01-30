@@ -719,6 +719,7 @@ export class SimulatorOracle implements DBOracle {
     if (logsForTag.length == 0) {
       return null;
     } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
       throw new Error(
         `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
       );

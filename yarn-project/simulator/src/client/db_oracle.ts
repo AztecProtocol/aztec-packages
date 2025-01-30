@@ -258,6 +258,12 @@ export interface DBOracle extends CommitmentsDB {
     recipient: AztecAddress,
   ): Promise<void>;
 
+  /**
+   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
+   * Returns null if no such log exists, and throws if more than one exists.
+   *
+   * @param tag - The log tag to search for.
+   */
   getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
 
   /**

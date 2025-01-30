@@ -114,12 +114,23 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
+/// Generates a contract library method called `_compute_note_hash_and_optionally_a_nullifier` which is used for note
+/// discovery (to create the `aztec::note::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let notes = NOTES.entries();
 
-    let body = if notes.len() == 0 {
+    // We'll produce the entire body of the function in one go and then insert it into the function.
+    let body: Quoted = if notes.len() == 0 {
+        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
+        // simply throws immediately.
         quote { panic(f"This contract does not use private notes") }
     } else {
+        // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
+        // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
+        // know it we call `aztec::note::utils::compute_note_hash_and_optionally_a_nullifier` (which is the one that
+        // actually does the work) with the correct `unpack_content()` function.
+
         let mut if_note_type_id_match_statements_list = &[];
         for i in 0..notes.len() {
             let (typ, (_, serialized_note_length, _, _)) = notes[i];
@@ -133,7 +144,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
             if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
                 quote {
                     $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                        // As an extra safety check we make sure that the packed_note_content bounded vec has the
+                        // As an extra safety check we make sure that the `packed_note_content` BoundedVec has the
                         // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
                         // silently trims the end if the log were to be longer.
                         let expected_len = $serialized_note_length;
@@ -175,9 +186,14 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
 }
 
 comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
-    // For historical reasons we keep this function taking an array of a length of up to the longest note, receiving a
-    // boolean and returning four fields. The contract library method `_compute_note_hash...` is affected by this.
-    // Ideally we'd eventually remove these things.
+    // For historical reasons we keep this function taking an array of a length of up to the longest note (instead of a
+    // BoundedVec), receiving a boolean (even though we could compute the nullifier always) and returning four fields
+    // (even though the caller should likely perform note hash siloing on their own and not trust this). The contract
+    // library method `_compute_note_hash...` is affected by this.
+    // TODO(#11638): In the future we might remove these things as we rely less and less on this function, and then
+    // change the `_compute_note_hash...` contract library method to be of type
+    // `aztec::note::discovery::ComputeNoteHashAndNullifier`, simplifying other macros by removing the need to create
+    // intermediate lambdas that adapt their interfaces.
 
     let max_note_packed_length = NOTES.entries().fold(
         0,
@@ -201,44 +217,18 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 }
 
 comptime fn generate_process_log() -> Quoted {
-    // This mandatory function processes a log emitted by the contract. This is currently used to recover note contents
-    // and deliver the note to PXE.
+    // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
+    // and perform note discovery of either private notes or partial notes.
     // The bulk of the work of this function is done by aztec::note::discovery::do_process_log, so all we need to do
-    // is call that function. However, one of its parameters is a lambda function that computes note hash and nullifier
-    // given note contents and metadata (e.g. note type id), since this behavior is contract-specific (as it
-    // depends on the note types implemented by each contract).
-    // The job of this macro is therefore to implement this lambda function and then call `do_process_log` with it.
+    // is call that function. We use the contract library method injected by
+    // `generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier` in order to create the required
+    // `aztec::note::discovery::ComputeNoteHashAndNullifier` function.
 
-    // A typical implementation of the lambda looks something like this:
-    // ```
-    // |packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>, note_header: NoteHeader, note_type_id: Field| {
-    //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-    //         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
-    //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-    //             MyNoteType::unpack_content,
-    //             note_header,
-    //             true,
-    //             packed_note_content.storage(),
-    //         )
-    //     } else {
-    //         panic(f"Unknown note type id {note_type_id}")
-    //     };
-    //
-    //     Option::some(dep::aztec::note::discovery::NoteHashesAndNullifier {
-    //         note_hash: hashes[0],
-    //         unique_note_hash: hashes[1],
-    //         inner_nullifier: hashes[3],
-    //     })
-    // }
-    // ```
-    //
-    // We create this implementation by iterating over the different note types, creating an `if` or `else if` clause
-    // for each of them and calling `compute_note_hash_and_optionally_a_nullifier` with the note's deserialization
-    // function, and finally produce the required `NoteHashesAndNullifier` object.
-
+    // We'll produce the entire body of the function in one go and then insert it into the function.
     let notes = NOTES.entries();
-
     let body = if notes.len() == 0 {
+        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
+        // simply throws immediately.
         quote { panic(f"This contract does not use private notes") }
     } else {
         quote {

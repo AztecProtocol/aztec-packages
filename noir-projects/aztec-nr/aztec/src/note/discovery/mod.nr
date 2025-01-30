@@ -17,8 +17,10 @@ global NOTE_PRIVATE_LOG_RESERVED_FIELDS: u32 = 2;
 pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_PRIVATE_LOG_RESERVED_FIELDS;
 
 pub struct NoteHashAndNullifier {
-    pub note_hash: Field, // The result of NoteInterface::compute_note_hash
-    pub inner_nullifier: Field, // The result of NullifiableNote::compute_nullifier_without_context
+    /// The result of NoteInterface::compute_note_hash
+    pub note_hash: Field,
+    /// The result of NullifiableNote::compute_nullifier_without_context
+    pub inner_nullifier: Field,
 }
 
 /// A function which takes a note's packed content, address of the emitting contract, nonce, storage slot and note type

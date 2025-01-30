@@ -8,7 +8,7 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-describe('partial_stuff', () => {
+describe('partial notes', () => {
   jest.setTimeout(TIMEOUT);
 
   let teardown: () => Promise<void>;
@@ -20,7 +20,6 @@ describe('partial_stuff', () => {
 
   let token0: TokenContract;
 
-  // We need a large token amount so that the swap fee (0.3%) is observable.
   const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
