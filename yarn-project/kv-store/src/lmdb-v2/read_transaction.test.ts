@@ -19,8 +19,8 @@ describe('ReadTransaction', () => {
 
   beforeEach(() => {
     channel = stub<LMDBMessageChannel>({
-      sendMessage: stub(),
-    });
+      sendMessage: () => {},
+    } as any);
     tx = new ReadTransaction(channel);
   });
 

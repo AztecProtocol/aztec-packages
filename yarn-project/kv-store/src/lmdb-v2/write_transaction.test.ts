@@ -6,14 +6,14 @@ import { type SinonStubbedInstance, stub } from 'sinon';
 import { type Batch, CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 import { WriteTransaction } from './write_transaction.js';
 
-describe('NativeWriteTransaction', () => {
+describe('WriteTransaction', () => {
   let channel: SinonStubbedInstance<LMDBMessageChannel>;
   let tx: WriteTransaction;
 
   beforeEach(() => {
     channel = stub<LMDBMessageChannel>({
-      sendMessage: stub(),
-    });
+      sendMessage: () => {},
+    } as any);
     tx = new WriteTransaction(channel);
 
     channel.sendMessage.resolves({ ok: true });
