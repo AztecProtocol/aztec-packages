@@ -21,4 +21,9 @@ COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/bin/bb
 # Copy in script that calls both binaries
 COPY ./aztec-nargo/compile_then_postprocess.sh /usr/src/aztec-nargo/compile_then_postprocess.sh
 
+# Profiler
+COPY --from=built-noir /usr/src/noir/noir-repo/target/release/noir-profiler /usr/bin/noir-profiler
+COPY ./noir-projects/noir-contracts/scripts/flamegraph.sh /usr/bin/flamegraph.sh
+COPY ./noir-projects/noir-contracts/scripts/extractFunctionAsNoirArtifact.js /usr/bin/extractFunctionAsNoirArtifact.js
+
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/aztec-nargo/compile_then_postprocess.sh"]

@@ -13,16 +13,19 @@ trap cleanup_and_exit SIGINT
 
 # If first  arg is -h or --help, print usage
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
-    echo "Usage: $0 <contract> <function>"
-    echo "e.g.: $0 Token transfer"
     echo "Generates a flamegraph for the given contract and function"
+    echo "Usage: $0 <contract_artifact | contract_name> <function>"
+    echo "e.g.: $0 ./target/voting_contract_Voting.json vote"
+    echo "e.g.: $0 Token transfer"
     exit 0
 fi
 
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PROFILER="$SCRIPT_DIR/../../../noir/noir-repo/target/release/noir-profiler"
+PROFILER=${PROFILER_PATH:-"$SCRIPT_DIR/../../../noir/noir-repo/target/release/noir-profiler"}
+BACKEND_PATH=${BACKEND_PATH:-"$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"}
+
 
 if [ ! -f $PROFILER ]; then
     echo "Profiler not found, building profiler"
@@ -31,7 +34,7 @@ if [ ! -f $PROFILER ]; then
     cd "$SCRIPT_DIR"
 fi
 
-# first console arg is contract name in camel case (e.g. TokenBridge)
+# first console arg is contract name in camel case or path to contract artifact
 CONTRACT=$1
 
 # second console arg is the contract function
@@ -49,25 +52,35 @@ function sed_wrapper() {
   fi
 }
 
-# convert contract name to following format: token_bridge_contract-TokenBridge.json
-ARTIFACT=$(echo "$CONTRACT" | sed_wrapper -r 's/^([A-Z])/\L\1/; s/([a-z0-9])([A-Z])/\1_\L\2/g')
-ARTIFACT=$(echo "$ARTIFACT" | tr '[:upper:]' '[:lower:]')
-ARTIFACT_NAME="${ARTIFACT}_contract-${CONTRACT}"
+if [[ "$CONTRACT" == *.json ]]; then
+    if [ ! -f "$CONTRACT" ]; then
+        echo "Error: Contract artifact not found at $CONTRACT"
+        exit 1
+    fi
+    ARTIFACT_PATH=$CONTRACT
+    FUNCTION_ARTIFACT="${ARTIFACT_PATH%%.json}-${FUNCTION}.json"
+else
+    # convert contract name to following format: token_bridge_contract-TokenBridge.json
+    ARTIFACT=$(echo "$CONTRACT" | sed_wrapper -r 's/^([A-Z])/\L\1/; s/([a-z0-9])([A-Z])/\1_\L\2/g')
+    ARTIFACT=$(echo "$ARTIFACT" | tr '[:upper:]' '[:lower:]')
+    ARTIFACT_NAME="${ARTIFACT}_contract-${CONTRACT}"
+    ARTIFACT_PATH="$SCRIPT_DIR/../target/${ARTIFACT_NAME}.json"
+    FUNCTION_ARTIFACT="$SCRIPT_DIR/../target/${ARTIFACT_NAME}-${FUNCTION}.json"
+fi
 
 # Extract artifact for the specific function
-node "$SCRIPT_DIR/extractFunctionAsNoirArtifact.js" "$SCRIPT_DIR/../target/${ARTIFACT_NAME}.json" $FUNCTION
-
-FUNCTION_ARTIFACT="${ARTIFACT_NAME}-${FUNCTION}.json"
+node "$SCRIPT_DIR/extractFunctionAsNoirArtifact.js" "$ARTIFACT_PATH" $FUNCTION
 
 # We create dest directory and use it as an output for the generated main.svg file
 mkdir -p "$SCRIPT_DIR/../dest"
 
 # At last, generate the flamegraph
-$PROFILER gates --artifact-path "$SCRIPT_DIR/../target/$FUNCTION_ARTIFACT" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --backend-gates-command "gates_for_ivc" --output "$SCRIPT_DIR/../dest"
+$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH"  --backend-gates-command "gates_for_ivc" --output "$SCRIPT_DIR/../dest"
 
 # serve the file over http
 echo "Serving flamegraph at http://0.0.0.0:8000/main::gates.svg"
-python3 -m http.server --directory "$SCRIPT_DIR/../dest" 8000
+
+npx -y http-server --silent -p 8000 "$SCRIPT_DIR/../dest"
 
 # Clean up before exiting
 cleanup_and_exit
