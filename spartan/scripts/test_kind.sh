@@ -82,13 +82,14 @@ if [ "$fresh_install" != "no-deploy" ]; then
   ./deploy_kind.sh $namespace $values_file
 fi
 
-# Find 3 free ports between 9000 and 10000
-free_ports=$(find_ports 3)
+# Find 4 free ports between 9000 and 10000
+free_ports=$(find_ports 4)
 
 # Extract the free ports from the list
 pxe_port=$(echo $free_ports | awk '{print $1}')
 anvil_port=$(echo $free_ports | awk '{print $2}')
 metrics_port=$(echo $free_ports | awk '{print $3}')
+node_port=$(echo $free_ports | awk '{print $4}')
 
 if [ "$install_metrics" = "true" ]; then
   grafana_password=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
@@ -118,6 +119,8 @@ if [ "$use_docker" = "true" ]; then
     -e CONTAINER_PXE_PORT=8081 \
     -e HOST_ETHEREUM_PORT=$anvil_port \
     -e CONTAINER_ETHEREUM_PORT=8545 \
+    -e HOST_NODE_PORT=$node_port \
+    -e CONTAINER_NODE_PORT=8080 \
     -e HOST_METRICS_PORT=$metrics_port \
     -e CONTAINER_METRICS_PORT=80 \
     -e GRAFANA_PASSWORD=$grafana_password \
@@ -140,6 +143,8 @@ else
   export CONTAINER_PXE_PORT="8081"
   export HOST_ETHEREUM_PORT="$anvil_port"
   export CONTAINER_ETHEREUM_PORT="8545"
+  export HOST_NODE_PORT="$node_port"
+  export CONTAINER_NODE_PORT="8080"
   export HOST_METRICS_PORT="$metrics_port"
   export CONTAINER_METRICS_PORT="80"
   export GRAFANA_PASSWORD="$grafana_password"

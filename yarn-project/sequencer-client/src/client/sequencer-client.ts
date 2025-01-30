@@ -4,8 +4,10 @@ import { type AztecAddress, type ContractDataSource } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,
+  GovernanceProposerContract,
   L1TxUtilsWithBlobs,
   RollupContract,
+  SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
   isAnvilTestChain,
@@ -86,6 +88,13 @@ export class SequencerClient {
       config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
         ? new ForwarderContract(publicClient, config.customForwarderContractAddress.toString())
         : await ForwarderContract.create(walletClient.account.address, walletClient, publicClient, log);
+
+    const governanceProposerContract = new GovernanceProposerContract(
+      publicClient,
+      config.l1Contracts.governanceProposerAddress.toString(),
+    );
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(publicClient, slashingProposerAddress.toString());
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
@@ -110,6 +119,8 @@ export class SequencerClient {
         rollupContract,
         epochCache,
         forwarderContract,
+        governanceProposerContract,
+        slashingProposerContract,
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 

@@ -50,7 +50,13 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtilsWithBlobs, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  GovernanceProposerContract,
+  L1TxUtilsWithBlobs,
+  RollupContract,
+  SlashingProposerContract,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -406,6 +412,15 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
     );
+    const governanceProposerContract = new GovernanceProposerContract(
+      deployL1ContractsValues.publicClient,
+      config.l1Contracts.governanceProposerAddress.toString(),
+    );
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(
+      deployL1ContractsValues.publicClient,
+      slashingProposerAddress.toString(),
+    );
     const forwarderContract = await createForwarderContract(config, sequencerPK);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
@@ -428,6 +443,8 @@ describe('e2e_synching', () => {
         l1TxUtils,
         rollupContract,
         forwarderContract,
+        governanceProposerContract,
+        slashingProposerContract,
         epochCache,
       },
     );

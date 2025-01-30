@@ -171,6 +171,10 @@ export class RollupContract {
     return this.rollup.read.getTips();
   }
 
+  getTimestampForSlot(slot: bigint) {
+    return this.rollup.read.getTimestampForSlot([slot]);
+  }
+
   async getEpochNumber(blockNumber?: bigint) {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);

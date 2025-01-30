@@ -17,9 +17,11 @@ import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  GovernanceProposerContract,
   type L1ContractAddresses,
   L1TxUtilsWithBlobs,
   RollupContract,
+  SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
@@ -190,6 +192,15 @@ describe('L1Publisher integration', () => {
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerPublicClient, sequencerWalletClient, logger, config);
     const rollupContract = new RollupContract(sequencerPublicClient, l1ContractAddresses.rollupAddress.toString());
     const forwarderContract = await createForwarderContract(config, sequencerPK);
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(
+      sequencerPublicClient,
+      slashingProposerAddress.toString(),
+    );
+    const governanceProposerContract = new GovernanceProposerContract(
+      sequencerPublicClient,
+      l1ContractAddresses.governanceProposerAddress.toString(),
+    );
     const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });
@@ -211,6 +222,8 @@ describe('L1Publisher integration', () => {
         rollupContract,
         forwarderContract,
         epochCache,
+        governanceProposerContract,
+        slashingProposerContract,
       },
     );
 

@@ -138,7 +138,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return new FormattedViemError(error.message);
+    return error;
   }
 
   // Original formatting logic for non-custom errors
