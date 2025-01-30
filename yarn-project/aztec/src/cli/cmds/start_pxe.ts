@@ -12,6 +12,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import {
   AztecAddress,
   type CliPXEOptions,
+  type PXEService,
   type PXEServiceConfig,
   allPxeConfigMappings,
   createPXEService,
@@ -20,6 +21,9 @@ import { makeTracedFetch } from '@aztec/telemetry-client';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
+import { getVersions } from '../versioning.js';
+
+export type { PXEServiceConfig, CliPXEOptions };
 
 const contractAddressesUrl = 'http://static.aztec.network';
 
@@ -28,9 +32,8 @@ export async function startPXE(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
-  await addPXE(options, signalHandlers, services, userLog, {});
-  return services;
+): Promise<{ pxe: PXEService; config: PXEServiceConfig & CliPXEOptions }> {
+  return await addPXE(options, signalHandlers, services, userLog, {});
 }
 
 function isValidNetwork(value: any): value is Network {
@@ -51,7 +54,7 @@ export async function addPXE(
   services: NamespacedApiHandlers,
   userLog: LogFn,
   deps: { node?: AztecNode } = {},
-) {
+): Promise<{ pxe: PXEService; config: PXEServiceConfig & CliPXEOptions }> {
   const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
 
   let nodeUrl;
@@ -77,7 +80,7 @@ export async function addPXE(
     process.exit(1);
   }
 
-  const node = deps.node ?? createAztecNodeClient(nodeUrl!, makeTracedFetch([1, 2, 3], true));
+  const node = deps.node ?? createAztecNodeClient(nodeUrl!, getVersions(pxeConfig), makeTracedFetch([1, 2, 3], true));
   const pxe = await createPXEService(node, pxeConfig as PXEServiceConfig);
 
   // register basic contracts
@@ -120,5 +123,5 @@ export async function addPXE(
   // Add PXE to services list
   services.pxe = [pxe, PXESchema];
 
-  return pxe;
+  return { pxe, config: pxeConfig };
 }

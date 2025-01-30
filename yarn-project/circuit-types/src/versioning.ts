@@ -20,14 +20,15 @@ export type ComponentsVersions = {
   l2CircuitsVkTreeRoot: string;
 };
 
+/** Returns components versions from chain config. */
 export function getComponentsVersionsFromConfig(
   config: ChainConfig,
   l2ProtocolContractsTreeRoot: string | Fr,
   l2CircuitsVkTreeRoot: string | Fr,
-) {
+): ComponentsVersions {
   return {
     l1ChainId: config.l1ChainId,
-    l1RollupAddress: config.l1Contracts.rollupAddress,
+    l1RollupAddress: config.l1Contracts?.rollupAddress, // This should not be undefined, but sometimes the config lies to us and it is...
     l2ChainVersion: config.version,
     l2ProtocolContractsTreeRoot: l2ProtocolContractsTreeRoot.toString(),
     l2CircuitsVkTreeRoot: l2CircuitsVkTreeRoot.toString(),
@@ -36,6 +37,13 @@ export function getComponentsVersionsFromConfig(
 
 /** Returns a compressed string representation of the version (around 32 chars). Used in p2p ENRs. */
 export function compressComponentVersions(versions: ComponentsVersions): string {
+  if (
+    versions.l1RollupAddress === undefined ||
+    versions.l2ProtocolContractsTreeRoot === undefined ||
+    versions.l2CircuitsVkTreeRoot === undefined
+  ) {
+    throw new Error(`Component versions are not set: ${versions}`);
+  }
   return [
     '00',
     versions.l1ChainId,
