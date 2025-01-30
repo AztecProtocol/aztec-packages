@@ -284,7 +284,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             auto aggregate_claim_data_and_update_batched_evaluation = [&](const ClaimBatch& batch,
                                                                           Fr& current_batching_challenge) {
                 for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
-                    commitments.emplace_back(commitment);
+                    commitments.emplace_back(std::move(commitment));
                     scalars.emplace_back(-batch.batch_scalar * current_batching_challenge);
                     batched_evaluation += evaluation * current_batching_challenge;
                     current_batching_challenge *= multivariate_batching_challenge;
