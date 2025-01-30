@@ -1,4 +1,7 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}};
+use crate::{
+    constants::ETH_ADDRESS_LENGTH,
+    traits::{Deserialize, Empty, Packable, Serialize, ToField},
+};
 
 pub struct EthAddress {
     inner: Field,
@@ -31,6 +34,16 @@ impl Serialize<ETH_ADDRESS_LENGTH> for EthAddress {
 impl Deserialize<ETH_ADDRESS_LENGTH> for EthAddress {
     fn deserialize(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
         EthAddress::from_field(fields[0])
+    }
+}
+
+impl Packable<ETH_ADDRESS_LENGTH> for EthAddress {
+    fn pack(self) -> [Field; ETH_ADDRESS_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
+        Self::deserialize(fields)
     }
 }
 

@@ -139,7 +139,7 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000;
+pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -544,9 +544,10 @@ pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 56;
 
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 57;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 58;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -758,7 +759,7 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
-pub global TWO_POW_64: Field = 2.pow_32(64);
+pub global TWO_POW_64: Field = 18446744073709551616;
 
 mod test {
     use crate::constants::{

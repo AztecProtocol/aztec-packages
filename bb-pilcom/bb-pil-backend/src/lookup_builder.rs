@@ -8,6 +8,7 @@ use powdr_number::FieldElement;
 
 use handlebars::Handlebars;
 use serde_json::{json, Value as Json};
+use std::path::Path;
 
 use crate::utils::sanitize_name;
 
@@ -20,6 +21,8 @@ use crate::utils::sanitize_name;
 pub struct Lookup {
     /// The name of the lookup
     pub name: String,
+    /// The file name of the lookup
+    pub file_name: String,
     /// The inverse column name
     pub inverse: String,
     /// The name of the counts polynomial that stores the number of times a lookup is read
@@ -69,8 +72,20 @@ impl LookupBuilder for BBFiles {
                         "Inverse column name must be provided within lookup attribute - #[<here>]",
                     )
                     .to_lowercase();
+                let file_name = format!(
+                    "lookups_{}.hpp",
+                    lookup
+                        .source
+                        .file_name
+                        .as_ref()
+                        .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
+                        .map(|stem| stem.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                        .replace(".pil", "")
+                );
                 Lookup {
                     name: name.clone(),
+                    file_name: file_name,
                     inverse: format!("{}_inv", &name),
                     counts_poly: format!("{}_counts", &name),
                     left: get_lookup_side(&lookup.left),
@@ -78,6 +93,8 @@ impl LookupBuilder for BBFiles {
                 }
             })
             .collect_vec();
+
+        let lookups_per_file = lookups.iter().into_group_map_by(|lookup| &lookup.file_name);
 
         let mut handlebars = Handlebars::new();
 
@@ -88,12 +105,18 @@ impl LookupBuilder for BBFiles {
             )
             .unwrap();
 
-        for lookup in lookups.iter() {
-            let data = create_lookup_settings_data(lookup, vm_name);
-            let lookup_settings = handlebars.render("lookup.hpp", &data).unwrap();
+        for (file_name, lookups) in lookups_per_file {
+            let datas = lookups
+                .iter()
+                .map(|lookup| create_lookup_settings_data(lookup))
+                .collect_vec();
+            let data_wrapper = json!({
+                "root_name": vm_name,
+                "lookups": datas,
+            });
+            let lookup_settings = handlebars.render("lookup.hpp", &data_wrapper).unwrap();
 
-            let file_name = format!("{}.hpp", lookup.name);
-            self.write_file(Some(&self.relations), &file_name, &lookup_settings);
+            self.write_file(Some(&self.relations), file_name, &lookup_settings);
         }
 
         lookups
@@ -115,7 +138,7 @@ pub fn get_counts_from_lookups(lookups: &[Lookup]) -> Vec<String> {
         .collect()
 }
 
-fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
+fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     let columns_per_set = lookup.left.cols.len();
 
     // NOTE: https://github.com/AztecProtocol/aztec-packages/issues/3879
@@ -151,7 +174,6 @@ fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
     let write_term_types = "{0}".to_owned();
 
     json!({
-        "root_name": vm_name,
         "lookup_name": lookup.name,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,

@@ -40,7 +40,7 @@ import { TxEffect } from './tx_effect.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
-export const mockPrivateCallExecutionResult = (
+export const mockPrivateCallExecutionResult = async (
   seed = 1,
   numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -56,7 +56,11 @@ export const mockPrivateCallExecutionResult = (
   if (isForPublic) {
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      const r = publicCallRequests[i];
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+      i++;
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -84,11 +88,11 @@ export const mockPrivateCallExecutionResult = (
   );
 };
 
-export const mockPrivateExecutionResult = (seed = 1) => {
-  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), Fr.zero());
+export const mockPrivateExecutionResult = async (seed = 1) => {
+  return new PrivateExecutionResult(await mockPrivateCallExecutionResult(seed), Fr.zero());
 };
 
-export const mockTx = (
+export const mockTx = async (
   seed = 1,
   {
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -125,7 +129,10 @@ export const mockTx = (
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      const r = publicCallRequests[i];
+      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+    }
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
@@ -162,13 +169,13 @@ export const mockTx = (
 export const mockTxForRollup = (seed = 1) =>
   mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
-export const mockSimulatedTx = (seed = 1) => {
-  const privateExecutionResult = mockPrivateExecutionResult(seed);
-  const tx = mockTx(seed);
+export const mockSimulatedTx = async (seed = 1) => {
+  const privateExecutionResult = await mockPrivateExecutionResult(seed);
+  const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
     makeCombinedConstantData(),
-    TxEffect.random(),
+    await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {
       totalGas: makeGas(),
@@ -209,39 +216,54 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (
+export const randomContractInstanceWithAddress = async (
   opts: { contractClassId?: Fr } = {},
   address?: AztecAddress,
-): ContractInstanceWithAddress => {
-  const instance = SerializableContractInstance.random(opts);
-  return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
+): Promise<ContractInstanceWithAddress> => {
+  const instance = await SerializableContractInstance.random(opts);
+  return instance.withAddress(address ?? (await computeContractAddressFromInstance(instance)));
 };
 
-export const randomDeployedContract = () => {
+export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
-  return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
+  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+  return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
 };
 
-export const randomExtendedNote = ({
+export const randomExtendedNote = async ({
   note = Note.random(),
-  owner = AztecAddress.random(),
-  contractAddress = AztecAddress.random(),
+  owner = undefined,
+  contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+  return new ExtendedNote(
+    note,
+    owner ?? (await AztecAddress.random()),
+    contractAddress ?? (await AztecAddress.random()),
+    storageSlot,
+    noteTypeId,
+    txHash,
+  );
 };
 
-export const randomUniqueNote = ({
+export const randomUniqueNote = async ({
   note = Note.random(),
-  owner = AztecAddress.random(),
-  contractAddress = AztecAddress.random(),
+  owner = undefined,
+  contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = NoteSelector.random(),
   nonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
-  return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+  return new UniqueNote(
+    note,
+    owner ?? (await AztecAddress.random()),
+    contractAddress ?? (await AztecAddress.random()),
+    storageSlot,
+    noteTypeId,
+    txHash,
+    nonce,
+  );
 };

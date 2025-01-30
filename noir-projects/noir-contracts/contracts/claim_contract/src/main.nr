@@ -8,7 +8,7 @@ contract Claim {
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
     #[storage]
@@ -27,13 +27,14 @@ contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: ValueNote, recipient: AztecAddress) {
+    fn claim(proof_note: UintNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
         );
+        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         let header = context.get_block_header();

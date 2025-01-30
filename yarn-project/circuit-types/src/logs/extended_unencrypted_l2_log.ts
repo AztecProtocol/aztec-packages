@@ -20,8 +20,8 @@ export class ExtendedUnencryptedL2Log {
     public readonly log: UnencryptedL2Log,
   ) {}
 
-  static random() {
-    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
+  static async random() {
+    return new ExtendedUnencryptedL2Log(LogId.random(), await UnencryptedL2Log.random());
   }
 
   static get schema() {

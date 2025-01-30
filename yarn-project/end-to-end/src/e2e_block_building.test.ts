@@ -126,7 +126,8 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const isContractDeployed = async (address: AztecAddress) =>
+        !!(await pxe.getContractMetadata(address)).contractInstance;
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
@@ -253,9 +254,10 @@ describe('e2e_block_building', () => {
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
+      const deployerInstance = await deployer.getInstance();
       const callInteraction = new ContractFunctionInteraction(
         owner,
-        deployer.getInstance().address,
+        deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minter.getCompleteAddress(), true],
       );
@@ -407,8 +409,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -420,11 +422,13 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
-        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
-        // In this test we care only about the privately delivered values
-        return notePayload?.privateNoteValues[0];
-      });
+      const noteValues = await Promise.all(
+        tx.data.getNonEmptyPrivateLogs().map(async log => {
+          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
+          // In this test we care only about the privately delivered values
+          return notePayload?.privateNoteValues[0];
+        }),
+      );
       expect(noteValues[0]).toEqual(new Fr(10));
       expect(noteValues[1]).toEqual(new Fr(11));
       expect(noteValues[2]).toEqual(new Fr(12));
@@ -433,8 +437,8 @@ describe('e2e_block_building', () => {
     it('calls a method with nested encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
-      const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const keys = await deriveKeys(privateKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -452,15 +456,15 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
       expect(event0.event.items).toEqual(values);
 
-      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
       expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = poseidon2Hash([testContract.address, values[0]]);
+      const expectedFirstField = await poseidon2Hash([testContract.address, values[0]]);
       expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
     }, 60_000);
   });
@@ -490,7 +494,7 @@ describe('e2e_block_building', () => {
       }));
       await sleep(1000);
 
-      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
     });
 
@@ -504,6 +508,7 @@ describe('e2e_block_building', () => {
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
+        ethereumSlotDuration: 6,
       }));
 
       logger.info('Deploying token contract');

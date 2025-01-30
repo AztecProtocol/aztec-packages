@@ -3,6 +3,10 @@ name: Aztec Network Deployment
 on:
   workflow_call:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
@@ -50,6 +54,10 @@ on:
         required: true
   workflow_dispatch:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
@@ -103,10 +111,10 @@ jobs:
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
-      CLUSTER_NAME: aztec-gke
+      CLUSTER_NAME: ${{ inputs.cluster }}
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
-      GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+      GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
 
     steps:
       - name: Checkout code
@@ -146,6 +154,15 @@ jobs:
           echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
           echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
+      - name: Generate eth devnet config
+        id: generate-eth-devnet-config
+        run: |
+          REPO=$(git rev-parse --show-toplevel)
+
+          export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
+
+          $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -156,7 +173,7 @@ jobs:
         run: |
           terraform init \
             -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
-            -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate" \
+            -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate"
 
       - name: Terraform Destroy
         working-directory: ./spartan/terraform/deploy-release
@@ -171,9 +188,9 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
-              -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
+              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
               -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
             -lock=${{ inputs.respect_tf_lock }}
           else
@@ -182,8 +199,8 @@ jobs:
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
-              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}"
-            -lock=${{ inputs.respect_tf_lock }}
+              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+              -lock=${{ inputs.respect_tf_lock }}
           fi
 
       - name: Terraform Plan
@@ -197,9 +214,9 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
-              -var="VALIDATOR_KEYS=${{ secrets.VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
+              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
+              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
+              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
               -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}

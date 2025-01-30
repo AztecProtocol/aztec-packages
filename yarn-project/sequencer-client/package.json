@@ -33,6 +33,7 @@
     "@aztec/blob-sink": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
@@ -52,7 +53,7 @@
     "lodash.chunk": "^4.2.0",
     "lodash.pick": "^4.4.0",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

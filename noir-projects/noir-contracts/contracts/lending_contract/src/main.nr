@@ -34,8 +34,8 @@ contract Lending {
         collateral_asset: PublicMutable<AztecAddress, Context>,
         stable_coin: PublicMutable<AztecAddress, Context>,
         assets: Map<Field, PublicMutable<Asset, Context>, Context>,
-        collateral: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
-        static_debt: Map<AztecAddress, PublicMutable<Field, Context>, Context>, // abusing keys very heavily
+        collateral: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        static_debt: Map<AztecAddress, PublicMutable<U128, Context>, Context>, // abusing keys very heavily
     }
 
     // Constructs the contract.
@@ -46,18 +46,18 @@ contract Lending {
     #[public]
     fn init(
         oracle: AztecAddress,
-        loan_to_value: Field,
+        loan_to_value: U128,
         collateral_asset: AztecAddress,
         stable_coin: AztecAddress,
     ) {
         let asset_loc = storage.assets.at(0);
         let asset: Asset = asset_loc.read();
 
-        let loan_to_value = U128::from_integer(loan_to_value);
+        let loan_to_value = loan_to_value;
 
         assert(loan_to_value <= U128::from_integer(10000));
         assert(asset.last_updated_ts == 0);
-        assert(asset.interest_accumulator == U128::from_integer(0));
+        assert(asset.interest_accumulator == U128::zero());
 
         let last_updated_ts = context.timestamp();
 
@@ -103,7 +103,7 @@ contract Lending {
     #[private]
     fn deposit_private(
         from: AztecAddress,
-        amount: Field,
+        amount: U128,
         nonce: Field,
         secret: Field,
         on_behalf_of: Field,
@@ -123,7 +123,7 @@ contract Lending {
 
     #[public]
     fn deposit_public(
-        amount: Field,
+        amount: U128,
         nonce: Field,
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
@@ -140,7 +140,7 @@ contract Lending {
 
     #[public]
     #[internal]
-    fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
+    fn _deposit(owner: AztecAddress, amount: U128, collateral_asset: AztecAddress) {
         let _asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
 
         let coll_asset = storage.collateral_asset.read();
@@ -152,7 +152,7 @@ contract Lending {
     }
 
     #[private]
-    fn withdraw_private(secret: Field, to: AztecAddress, amount: Field) {
+    fn withdraw_private(secret: Field, to: AztecAddress, amount: U128) {
         let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
         Lending::at(context.this_address())
             ._withdraw(AztecAddress::from_field(on_behalf_of), to, amount)
@@ -160,7 +160,7 @@ contract Lending {
     }
 
     #[public]
-    fn withdraw_public(to: AztecAddress, amount: Field) {
+    fn withdraw_public(to: AztecAddress, amount: U128) {
         let _ = Lending::at(context.this_address())
             ._withdraw(context.msg_sender(), to, amount)
             .call(&mut context);
@@ -168,30 +168,25 @@ contract Lending {
 
     #[public]
     #[internal]
-    fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
+    fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: U128) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 
         let coll_loc = storage.collateral.at(owner);
-        let collateral: Field = coll_loc.read();
+        let collateral = coll_loc.read();
 
         let debt_loc = storage.static_debt.at(owner);
-        let static_debt: Field = debt_loc.read();
+        let static_debt = debt_loc.read();
 
         // debt_covered will revert if decrease would leave insufficient collateral to cover debt.
         // or trying to remove more collateral than available
-        let debt_covered = covered_by_collateral(
-            price,
-            asset.loan_to_value,
-            U128::from_integer(collateral),
-            U128::from_integer(0),
-            U128::from_integer(amount),
-        );
+        let debt_covered =
+            covered_by_collateral(price, asset.loan_to_value, collateral, U128::zero(), amount);
         let debt_returns = debt_updates(
             asset.interest_accumulator,
-            U128::from_integer(static_debt),
-            U128::from_integer(0),
-            U128::from_integer(0),
+            static_debt,
+            U128::zero(),
+            U128::zero(),
         );
 
         assert(debt_returns.debt_value < debt_covered);
@@ -206,7 +201,7 @@ contract Lending {
     }
 
     #[private]
-    fn borrow_private(secret: Field, to: AztecAddress, amount: Field) {
+    fn borrow_private(secret: Field, to: AztecAddress, amount: U128) {
         let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
         let _ = Lending::at(context.this_address())
             ._borrow(AztecAddress::from_field(on_behalf_of), to, amount)
@@ -214,7 +209,7 @@ contract Lending {
     }
 
     #[public]
-    fn borrow_public(to: AztecAddress, amount: Field) {
+    fn borrow_public(to: AztecAddress, amount: U128) {
         let _ = Lending::at(context.this_address())._borrow(context.msg_sender(), to, amount).call(
             &mut context,
         );
@@ -222,31 +217,31 @@ contract Lending {
 
     #[public]
     #[internal]
-    fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
+    fn _borrow(owner: AztecAddress, to: AztecAddress, amount: U128) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 
         // Fetch collateral and static_debt, compute health of current position
-        let collateral = U128::from_integer(storage.collateral.at(owner).read());
-        let static_debt = U128::from_integer(storage.static_debt.at(owner).read());
+        let collateral = storage.collateral.at(owner).read();
+        let static_debt = storage.static_debt.at(owner).read();
 
         let debt_covered = covered_by_collateral(
             price,
             asset.loan_to_value,
             collateral,
-            U128::from_integer(0),
-            U128::from_integer(0),
+            U128::zero(),
+            U128::zero(),
         );
         let debt_returns = debt_updates(
             asset.interest_accumulator,
             static_debt,
-            U128::from_integer(amount),
-            U128::from_integer(0),
+            amount,
+            U128::zero(),
         );
 
         assert(debt_returns.debt_value < debt_covered);
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt.to_integer());
+        storage.static_debt.at(owner).write(debt_returns.static_debt);
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
@@ -256,7 +251,7 @@ contract Lending {
     #[private]
     fn repay_private(
         from: AztecAddress,
-        amount: Field,
+        amount: U128,
         nonce: Field,
         secret: Field,
         on_behalf_of: Field,
@@ -273,7 +268,7 @@ contract Lending {
     }
 
     #[public]
-    fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
+    fn repay_public(amount: U128, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         let _ = Token::at(stable_coin).burn_public(context.msg_sender(), amount, nonce).call(
             &mut context,
         );
@@ -284,21 +279,21 @@ contract Lending {
 
     #[public]
     #[internal]
-    fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
+    fn _repay(owner: AztecAddress, amount: U128, stable_coin: AztecAddress) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
 
         // To ensure that private is using the correct token.
         assert(stable_coin.eq(storage.stable_coin.read()));
 
-        let static_debt = U128::from_integer(storage.static_debt.at(owner).read());
+        let static_debt = storage.static_debt.at(owner).read();
         let debt_returns = debt_updates(
             asset.interest_accumulator,
             static_debt,
-            U128::from_integer(0),
-            U128::from_integer(amount),
+            U128::zero(),
+            amount,
         );
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt.to_integer());
+        storage.static_debt.at(owner).write(debt_returns.static_debt);
     }
 
     #[public]
@@ -313,8 +308,7 @@ contract Lending {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset: Asset = storage.assets.at(0).read();
-        let debt =
-            debt_value(U128::from_integer(static_debt), asset.interest_accumulator).to_integer();
+        let debt = debt_value(static_debt, asset.interest_accumulator);
         Position { collateral, static_debt, debt }
     }
 

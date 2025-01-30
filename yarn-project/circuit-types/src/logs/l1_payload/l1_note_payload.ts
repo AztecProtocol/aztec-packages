@@ -59,8 +59,8 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
+  static async decryptAsIncoming(log: PrivateLog, sk: Fq): Promise<L1NotePayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -72,13 +72,13 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsIncomingFromPublic(log: PublicLog, sk: Fq): L1NotePayload | undefined {
-    const { privateValues, publicValues, ciphertextLength } = parseLogFromPublic(log);
+  static async decryptAsIncomingFromPublic(log: PublicLog, sk: Fq): Promise<L1NotePayload | undefined> {
+    const { privateValues, publicValues } = parseLogFromPublic(log);
     if (!privateValues) {
       return undefined;
     }
 
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(privateValues, sk, ciphertextLength);
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(privateValues, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -104,14 +104,20 @@ export class L1NotePayload {
    * @param contract - The address of a contract the note was emitted from.
    * @returns A random L1NotePayload object.
    */
-  static random(contract = AztecAddress.random()) {
+  static async random(contract?: AztecAddress) {
     const numPrivateNoteValues = randomInt(2) + 1;
     const privateNoteValues = Array.from({ length: numPrivateNoteValues }, () => Fr.random());
 
     const numPublicNoteValues = randomInt(2) + 1;
     const publicNoteValues = Array.from({ length: numPublicNoteValues }, () => Fr.random());
 
-    return new L1NotePayload(contract, Fr.random(), NoteSelector.random(), privateNoteValues, publicNoteValues);
+    return new L1NotePayload(
+      contract ?? (await AztecAddress.random()),
+      Fr.random(),
+      NoteSelector.random(),
+      privateNoteValues,
+      publicNoteValues,
+    );
   }
 
   public equals(other: L1NotePayload) {
@@ -154,19 +160,20 @@ export class L1NotePayload {
  */
 function parseLogFromPublic(log: PublicLog) {
   // Extract lengths from the log
+  // See aztec_nr/aztec/src/macros/note/mod.nr to see how the "finalization_log" is encoded.
   // Each length is stored in 2 bytes with a 0 separator byte between them:
-  // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
-  const lengths = log.log[0].toBuffer().subarray(-8);
+  // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1] ]
+  // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+  const lengths = log.log[0].toBuffer().subarray(-5);
   const publicValuesLength = lengths.readUint16BE();
   const privateValuesLength = lengths.readUint16BE(3);
-  const ciphertextLength = lengths.readUint16BE(6);
 
   // Now we get the fields corresponding to the values generated from private.
   // Note: +1 for the length values in position 0
-  const privateValues = log.log.slice(1, privateValuesLength + 1);
+  const privateValues = log.log.slice(1, 1 + privateValuesLength);
 
   // At last we load the public values
-  const publicValues = log.log.slice(privateValuesLength + 1, privateValuesLength + 1 + publicValuesLength);
+  const publicValues = log.log.slice(1 + privateValuesLength, 1 + privateValuesLength + publicValuesLength);
 
-  return { publicValues, privateValues, ciphertextLength };
+  return { publicValues, privateValues };
 }

@@ -8,12 +8,15 @@ import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSal
  * Returns the canonical deployment given its name and artifact.
  * To be used internally within the protocol-contracts package.
  */
-export function makeProtocolContract(name: ProtocolContractName, artifact: ContractArtifact): ProtocolContract {
+export async function makeProtocolContract(
+  name: ProtocolContractName,
+  artifact: ContractArtifact,
+): Promise<ProtocolContract> {
   const address = ProtocolContractAddress[name];
   const salt = ProtocolContractSalt[name];
   // TODO(@spalladino): This computes the contract class from the artifact twice.
-  const contractClass = getContractClassFromArtifact(artifact);
-  const instance = getContractInstanceFromDeployParams(artifact, { salt });
+  const contractClass = await getContractClassFromArtifact(artifact);
+  const instance = await getContractInstanceFromDeployParams(artifact, { salt });
   return {
     instance: { ...instance, address },
     contractClass,

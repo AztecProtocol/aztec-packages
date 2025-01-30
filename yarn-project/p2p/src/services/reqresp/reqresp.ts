@@ -95,7 +95,13 @@ export class ReqResp {
 
     // Register all protocol handlers
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
-      await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
+      await this.libp2p.handle(
+        subProtocol,
+        (data: IncomingStreamData) =>
+          void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+            this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+          ),
+      );
     }
     this.rateLimiter.start();
   }
@@ -104,15 +110,15 @@ export class ReqResp {
    * Stop the reqresp service
    */
   async stop() {
-    // Unregister all handlers
-    for (const protocol of Object.keys(this.subProtocolHandlers)) {
-      await this.libp2p.unhandle(protocol);
-    }
+    // Unregister handlers in parallel
+    const unregisterPromises = Object.keys(this.subProtocolHandlers).map(protocol => this.libp2p.unhandle(protocol));
+    await Promise.all(unregisterPromises);
 
-    // Close all active connections
+    // Close connection sampler
     await this.connectionSampler.stop();
     this.logger.debug('ReqResp: Connection sampler stopped');
 
+    // Close streams in parallel
     const closeStreamPromises = this.libp2p.getConnections().map(connection => connection.close());
     await Promise.all(closeStreamPromises);
     this.logger.debug('ReqResp: All active streams closed');
@@ -169,16 +175,17 @@ export class ReqResp {
         return undefined;
       }
 
-      const attemptedPeers: Map<PeerId, boolean> = new Map();
+      const attemptedPeers: Map<string, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
+        this.logger.trace(`Attempting to send request to peer: ${peer?.toString()}`);
         if (!peer) {
           this.logger.debug('No peers available to send requests to');
           return undefined;
         }
 
-        attemptedPeers.set(peer, true);
+        attemptedPeers.set(peer.toString(), true);
 
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);

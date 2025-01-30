@@ -322,7 +322,9 @@ void AvmTraceBuilder::pay_fee()
     // TS equivalent:
     // computeFeePayerBalanceStorageSlot(fee_payer);
     std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
-    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    // TODO: do constrained slot derivations!
+    // const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    const auto balance_slot = Poseidon2::hash(slot_hash_inputs);
 
     // ** Read the balance before fee payment **
     // TS equivalent:
@@ -342,7 +344,8 @@ void AvmTraceBuilder::pay_fee()
     FF current_balance = read_hint.leaf_preimage.value;
 
     const auto updated_balance = current_balance - tx_fee;
-    if (current_balance < tx_fee) {
+    // Comparison on Field gives inverted results, so we cast to uint128, which should be enough for fees.
+    if (static_cast<uint128_t>(current_balance) < static_cast<uint128_t>(tx_fee)) {
         info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }
@@ -5019,9 +5022,12 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
     // uint32_t radix = static_cast<uint32_t>(read_radix.val);
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
-    bool radix_out_of_bounds = radix > 256;
-    if (is_ok(error) && radix_out_of_bounds) {
-        error = AvmError::RADIX_OUT_OF_BOUNDS;
+    const bool radix_out_of_range = radix < 2 || radix > 256;
+    const bool zero_limb_input_non_zero = num_limbs == 0 && input != FF(0);
+    const bool bit_mode_radix_not_two = output_bits > 0 && radix != 2;
+
+    if (is_ok(error) && (radix_out_of_range || zero_limb_input_non_zero || bit_mode_radix_not_two)) {
+        error = AvmError::INVALID_TORADIXBE_INPUTS;
     }
 
     // In case of an error, we do not perform the computation.

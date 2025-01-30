@@ -6,71 +6,47 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
   Point,
   PrivateLog,
-  type PublicKey,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { decrypt, encrypt } from './encryption_util.js';
+import {
+  aes128Decrypt,
+  aes128Encrypt,
+  deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256,
+} from './encryption_util.js';
+import { deriveEcdhSharedSecret, deriveEcdhSharedSecretUsingAztecAddress } from './shared_secret_derivation.js';
 
-// Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
+// Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/note.nr.
+// Note: we will soon be 'abstracting' log processing: apps will process their own logs, instead of the PXE processing all apps' logs. Therefore, this file will imminently change considerably.
 
-const ENCRYPTED_PAYLOAD_SIZE_IN_BYTES = (PRIVATE_LOG_SIZE_IN_FIELDS - 1) * 31;
+const TAG_SIZE_IN_FIELDS = 1;
+const EPK_SIZE_IN_FIELDS = 1;
 
-// The incoming header is 48 bytes
+const USABLE_PRIVATE_LOG_SIZE_IN_FIELDS = PRIVATE_LOG_SIZE_IN_FIELDS - TAG_SIZE_IN_FIELDS - EPK_SIZE_IN_FIELDS;
+const USABLE_PRIVATE_LOG_SIZE_IN_BYTES = ((USABLE_PRIVATE_LOG_SIZE_IN_FIELDS * 31) / 16) * 16;
+
+// The incoming header ciphertext is 48 bytes
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
-const HEADER_SIZE = 48;
+const HEADER_CIPHERTEXT_SIZE_IN_BYTES = 48;
+const USABLE_PLAINTEXT_SIZE_IN_BYTES = USABLE_PRIVATE_LOG_SIZE_IN_BYTES - HEADER_CIPHERTEXT_SIZE_IN_BYTES;
 
-// Padding added to the overhead to make the size of the incoming body ciphertext a multiple of 16.
-const OVERHEAD_PADDING = 15;
+const CONTRACT_ADDRESS_SIZE_IN_BYTES = 32;
 
-const OVERHEAD_SIZE = 32 /* eph_pk */ + HEADER_SIZE /* incoming_header */ + OVERHEAD_PADDING; /* padding */
+const SIZE_OF_ENCODING_OF_CIPHERTEXT_SIZE_IN_BYTES = 2;
 
-const PLAINTEXT_LENGTH_SIZE = 2;
-
-const MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES =
-  ENCRYPTED_PAYLOAD_SIZE_IN_BYTES - OVERHEAD_SIZE - PLAINTEXT_LENGTH_SIZE - 1; /* aes padding */
-
-function encryptedBytesToFields(encrypted: Buffer): Fr[] {
+function beBytes31ToFields(bytes: Buffer): Fr[] {
   const fields = [];
-  const numFields = Math.ceil(encrypted.length / 31);
+  const numFields = Math.ceil(bytes.length / 31);
   for (let i = 0; i < numFields; i++) {
-    fields.push(new Fr(encrypted.subarray(i * 31, (i + 1) * 31)));
+    fields.push(new Fr(bytes.subarray(i * 31, (i + 1) * 31)));
   }
   return fields;
 }
 
-function fieldsToEncryptedBytes(fields: Fr[]) {
+function fieldsToBEBytes31(fields: Fr[]) {
   return Buffer.concat(fields.map(f => f.toBuffer().subarray(1)));
-}
-
-function trimCiphertext(buf: Buffer, ciphertextLength: number) {
-  // bytes_to_fields in nr pads fields smaller than 31 bytes, meaning fieldsToEncryptedBytes can give incorrect ciphertext
-  // e.g. input
-  //  Fr<0x003b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f>,
-  //  Fr<0x00000000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e>
-  // becomes: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f00000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
-  // but should be: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1fa3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
-  // This fn trims the correct number of zeroes.
-  const zeroesToTrim = buf.length - ciphertextLength;
-  const finalFieldBytes = buf.subarray(-31).subarray(zeroesToTrim);
-  const ciphertextBytes = Buffer.concat([buf.subarray(0, -31), finalFieldBytes]);
-  return ciphertextBytes;
-}
-
-class Overhead {
-  constructor(public ephPk: Point, public incomingHeader: Buffer) {}
-
-  static fromBuffer(reader: BufferReader) {
-    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
-    const incomingHeader = reader.readBytes(HEADER_SIZE);
-
-    // Advance the index to skip the padding.
-    reader.readBytes(OVERHEAD_PADDING);
-
-    return new Overhead(ephPk, incomingHeader);
-  }
 }
 
 /**
@@ -92,47 +68,57 @@ export class EncryptedLogPayload {
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
-  public generatePayload(
+  // NB: Only appears to be used in tests
+  // See noir-projects/aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/note.nr
+  public async generatePayload(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
     rand: (len: number) => Buffer = randomBytes,
-  ): PrivateLog {
-    const addressPoint = recipient.toAddressPoint();
+  ): Promise<PrivateLog> {
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
+    const [ephPkX, ephPkSignBool] = ephPk.toXAndSign();
+    const ephPkSignU8 = Buffer.from([Number(ephPkSignBool)]);
 
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
+    const ciphertextSharedSecret = await deriveEcdhSharedSecretUsingAztecAddress(ephSk, recipient); // not to be confused with the tagging shared secret
 
-    if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
-      throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
+    const [symKey, iv] = deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(ciphertextSharedSecret);
+
+    if (this.incomingBodyPlaintext.length > USABLE_PLAINTEXT_SIZE_IN_BYTES) {
+      throw new Error(`Incoming body plaintext cannot be more than ${USABLE_PLAINTEXT_SIZE_IN_BYTES} bytes.`);
     }
 
-    const overhead = serializeToBuffer(
-      ephPk.toCompressedBuffer(),
-      incomingHeaderCiphertext,
-      Buffer.alloc(OVERHEAD_PADDING),
-    );
-    if (overhead.length !== OVERHEAD_SIZE) {
-      throw new Error(`Invalid ciphertext overhead size. Expected ${OVERHEAD_SIZE}. Got ${overhead.length}.`);
+    const finalPlaintext = this.incomingBodyPlaintext;
+
+    const ciphertextBytes = await aes128Encrypt(finalPlaintext, iv, symKey);
+
+    const headerPlaintext = serializeToBuffer(this.contractAddress.toBuffer(), numToUInt16BE(ciphertextBytes.length));
+
+    // TODO: it is unsafe to re-use the same iv and symKey. We'll need to do something cleverer.
+    const headerCiphertextBytes = await aes128Encrypt(headerPlaintext, iv, symKey);
+
+    if (headerCiphertextBytes.length !== HEADER_CIPHERTEXT_SIZE_IN_BYTES) {
+      throw new Error(`Invalid header ciphertext size: ${headerCiphertextBytes.length}`);
     }
 
-    if (this.incomingBodyPlaintext.length > MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES) {
-      throw new Error(`Incoming body plaintext cannot be more than ${MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES} bytes.`);
+    const properLogBytesLength = 1 /* ephPkSignU8 */ + HEADER_CIPHERTEXT_SIZE_IN_BYTES + ciphertextBytes.length;
+
+    const logBytesPaddingToMult31 = rand(31 * Math.ceil(properLogBytesLength / 31) - properLogBytesLength);
+
+    const logBytes = serializeToBuffer(ephPkSignU8, headerCiphertextBytes, ciphertextBytes, logBytesPaddingToMult31);
+
+    if (logBytes.length % 31 !== 0) {
+      throw new Error(`logBytes.length should be divisible by 31, got: ${logBytes.length}`);
     }
 
-    const numPaddedBytes = MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES - this.incomingBodyPlaintext.length;
-    const paddedIncomingBodyPlaintextWithLength = Buffer.concat([
-      numToUInt16BE(this.incomingBodyPlaintext.length),
-      this.incomingBodyPlaintext,
-      rand(numPaddedBytes),
-    ]);
-    const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
+    const fieldsPadding = Array.from({ length: USABLE_PRIVATE_LOG_SIZE_IN_FIELDS - logBytes.length / 31 }, () =>
+      Fr.fromBuffer(rand(32)),
+    ); // we use the randomBytes function instead of `Fr.random()`, so that we can use deterministic randomness in tests, through the rand() function.
 
-    const encryptedPayload = serializeToBuffer(overhead, incomingBodyCiphertext);
-
-    const logFields = [this.tag, ...encryptedBytesToFields(encryptedPayload)] as Tuple<
+    const logFields = [this.tag, ephPkX, ...beBytes31ToFields(logBytes), ...fieldsPadding] as Tuple<
       Fr,
       typeof PRIVATE_LOG_SIZE_IN_FIELDS
     >;
+
     if (logFields.length !== PRIVATE_LOG_SIZE_IN_FIELDS) {
       throw new Error(
         `Expected private log payload to have ${PRIVATE_LOG_SIZE_IN_FIELDS} fields. Got ${logFields.length}.`,
@@ -152,25 +138,48 @@ export class EncryptedLogPayload {
    * @param ciphertextLength - Optionally supply the ciphertext length (see trimCiphertext())
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(
+  public static async decryptAsIncoming(
     payload: Fr[],
     addressSecret: GrumpkinScalar,
-    ciphertextLength?: number,
-  ): EncryptedLogPayload | undefined {
+  ): Promise<EncryptedLogPayload | undefined> {
     try {
-      const tag = payload[0];
-      const reader = BufferReader.asReader(fieldsToEncryptedBytes(payload.slice(1)));
+      const logFields = payload;
 
-      const overhead = Overhead.fromBuffer(reader);
-      const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
+      const tag = logFields[0];
+      const ephPkX = logFields[1];
 
-      let ciphertext = reader.readToEnd();
-      if (ciphertextLength && ciphertext.length !== ciphertextLength) {
-        ciphertext = trimCiphertext(ciphertext, ciphertextLength);
+      const reader = BufferReader.asReader(fieldsToBEBytes31(logFields.slice(TAG_SIZE_IN_FIELDS + EPK_SIZE_IN_FIELDS)));
+
+      const ephPkSigBuf = reader.readBytes(1);
+      const ephPkSignBool = !!ephPkSigBuf[0];
+      const ephPk = await Point.fromXAndSign(ephPkX, ephPkSignBool);
+
+      const headerCiphertextBytes = reader.readBytes(HEADER_CIPHERTEXT_SIZE_IN_BYTES);
+
+      let contractAddress = AztecAddress.ZERO;
+      if (!addressSecret) {
+        throw new Error('Cannot decrypt without an address secret.');
       }
-      const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
-      return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);
+      const ciphertextSharedSecret = await deriveEcdhSharedSecret(addressSecret, ephPk);
+
+      const [symKey, iv] = deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(ciphertextSharedSecret);
+
+      const headerPlaintextBytes = await aes128Decrypt(headerCiphertextBytes, iv, symKey);
+
+      const headerReader = BufferReader.asReader(headerPlaintextBytes);
+
+      const contractAddressBuf = headerReader.readBytes(CONTRACT_ADDRESS_SIZE_IN_BYTES);
+      contractAddress = AztecAddress.fromBuffer(contractAddressBuf);
+
+      const ciphertextBytesLengthBuf = headerReader.readBytes(SIZE_OF_ENCODING_OF_CIPHERTEXT_SIZE_IN_BYTES);
+      const ciphertextBytesLength = (ciphertextBytesLengthBuf[0] << 8) + ciphertextBytesLengthBuf[1];
+
+      const ciphertextBytes = reader.readBytes(ciphertextBytesLength);
+
+      const plaintextBytes = await aes128Decrypt(ciphertextBytes, iv, symKey);
+
+      return new EncryptedLogPayload(tag, contractAddress, plaintextBytes);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (!this.isAcceptableError(e)) {
@@ -194,24 +203,5 @@ export class EncryptedLogPayload {
 
   public toBuffer() {
     return serializeToBuffer(this.tag, this.contractAddress.toBuffer(), this.incomingBodyPlaintext);
-  }
-
-  static #decryptOverhead(overhead: Overhead, { addressSecret }: { addressSecret: GrumpkinScalar }) {
-    let contractAddress = AztecAddress.ZERO;
-
-    if (addressSecret) {
-      const incomingHeader = decrypt(overhead.incomingHeader, addressSecret, overhead.ephPk);
-      contractAddress = AztecAddress.fromBuffer(incomingHeader);
-    }
-
-    return {
-      contractAddress,
-    };
-  }
-
-  static #decryptIncomingBody(ciphertext: Buffer, secret: GrumpkinScalar, publicKey: PublicKey) {
-    const decrypted = decrypt(ciphertext, secret, publicKey);
-    const length = decrypted.readUint16BE(0);
-    return decrypted.subarray(2, 2 + length);
   }
 }

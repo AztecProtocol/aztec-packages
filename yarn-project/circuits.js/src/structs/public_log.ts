@@ -50,8 +50,8 @@ export class PublicLog {
     return new PublicLog(reader.readObject(AztecAddress), reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr));
   }
 
-  static random() {
-    return new PublicLog(AztecAddress.random(), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr.random));
+  static async random() {
+    return new PublicLog(await AztecAddress.random(), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr.random));
   }
 
   equals(other: this) {

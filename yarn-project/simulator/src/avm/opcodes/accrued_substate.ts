@@ -70,7 +70,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.address, noteHash);
+    await context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
   }
@@ -201,7 +201,7 @@ export class L1ToL2MessageExists extends Instruction {
 }
 
 export class EmitUnencryptedLog extends Instruction {
-  // TODO(MW): rename unencrypted -> public
+  // TODO(#11124): rename unencrypted -> public
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.

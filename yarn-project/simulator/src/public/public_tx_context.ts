@@ -22,7 +22,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
-  PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
   TreeSnapshots,
@@ -35,8 +34,8 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from './public_db_sources.js';
+import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
@@ -77,7 +76,7 @@ export class PublicTxContext {
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
-    public trace: PublicEnqueuedCallSideEffectTrace, // FIXME(dbanks12): should be private
+    public trace: SideEffectTrace, // FIXME(dbanks12): should be private
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
@@ -99,17 +98,15 @@ export class PublicTxContext {
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*publicLogs*/ 0,
     );
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
-      /*startSideEffectCounter=*/ 0,
-      previousAccumulatedDataArrayLengths,
-    );
+
+    const trace = new SideEffectTrace(/*startSideEffectCounter=*/ 0, previousAccumulatedDataArrayLengths);
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = await AvmPersistableStateManager.create(
       worldStateDB,
-      enqueuedCallTrace,
+      trace,
       doMerkleOperations,
       firstNullifier,
     );
@@ -120,7 +117,7 @@ export class PublicTxContext {
     const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
 
     return new PublicTxContext(
-      tx.getTxHash(),
+      await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
       await db.getStateReference(),
@@ -136,7 +133,7 @@ export class PublicTxContext {
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
-      enqueuedCallTrace,
+      trace,
     );
   }
 
@@ -319,13 +316,14 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
+  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
 
-    const noteHashTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const noteHashTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+
     // Pad the note hash and nullifier trees
     const paddedNoteHashTreeSize =
       this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
@@ -374,16 +372,15 @@ export class PublicTxContext {
   /**
    * Generate the proving request for the AVM circuit.
    */
-  generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
+  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
     const hints = this.trace.getAvmCircuitHints();
     return {
       type: ProvingRequestType.PUBLIC_VM,
       inputs: new AvmCircuitInputs(
         'public_dispatch',
         [],
-        PublicCircuitPublicInputs.empty(),
         hints,
-        this.generateAvmCircuitPublicInputs(endStateReference),
+        await this.generateAvmCircuitPublicInputs(endStateReference),
       ),
     };
   }

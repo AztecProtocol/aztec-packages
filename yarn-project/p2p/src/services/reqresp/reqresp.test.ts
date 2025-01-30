@@ -40,7 +40,7 @@ describe('ReqResp', () => {
 
   afterEach(async () => {
     if (nodes) {
-      await stopNodes(nodes as ReqRespNode[]);
+      await stopNodes(nodes);
     }
   });
 
@@ -74,12 +74,14 @@ describe('ReqResp', () => {
     await connectToPeers(nodes);
     await sleep(500);
 
-    void ponger.stop();
+    const stopPonger = ponger.stop();
 
     // It should return undefined if it cannot dial the peer
     const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     expect(res).toBeUndefined();
+
+    await stopPonger;
   });
 
   it('should request from a later peer if other peers are offline', async () => {
@@ -91,8 +93,8 @@ describe('ReqResp', () => {
     await sleep(500);
 
     // Stop the second middle two nodes
-    void nodes[1].req.stop();
-    void nodes[2].req.stop();
+    const stopNode1 = nodes[1].req.stop();
+    const stopNode2 = nodes[2].req.stop();
 
     // send from the first node
     let res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
@@ -100,13 +102,15 @@ describe('ReqResp', () => {
     if (!res) {
       // The peer chosen is randomly selected, and the node above wont respond, so if
       // we wait and try again, there will only be one node to chose from
-      logger.debug('No response from node, retrying');
+      logger.debug('\n\n\n\n\nNo response from node, retrying\n\n\n\n\n');
       await sleep(500);
       res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
     }
 
     // It will randomly try to connect, then hit the correct node
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
+
+    await Promise.all([stopNode1, stopNode2]);
   });
 
   it('should hit a rate limit if too many requests are made in quick succession', async () => {
@@ -133,8 +137,8 @@ describe('ReqResp', () => {
 
   describe('Tx req protocol', () => {
     it('Can request a Tx from TxHash', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
@@ -154,13 +158,13 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       // Set tx hash since expect will compare private properties
-      res.getTxHash();
+      await res.getTxHash();
       expect(res).toEqual(tx);
     });
 
     it('Handle returning empty buffers', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
@@ -182,8 +186,8 @@ describe('ReqResp', () => {
     });
 
     it('Does not crash if tx hash returns undefined', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Return nothing
@@ -271,8 +275,8 @@ describe('ReqResp', () => {
     });
 
     it('should penalize peer if transaction validation fails', async () => {
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       // Mock that the node will respond with the tx
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
@@ -347,7 +351,7 @@ describe('ReqResp', () => {
     it('should handle block requests', async () => {
       const blockNumber = 1;
       const blockNumberFr = Fr.ONE;
-      const block = L2Block.random(blockNumber);
+      const block = await L2Block.random(blockNumber);
 
       const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
       l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {

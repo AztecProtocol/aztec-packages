@@ -63,8 +63,8 @@ export class Tx extends Gossipable {
   }
 
   // Gossipable method
-  override p2pMessageIdentifier(): Buffer32 {
-    return new Buffer32(this.getTxHash().toBuffer());
+  override async p2pMessageIdentifier(): Promise<Buffer32> {
+    return new Buffer32((await this.getTxHash()).toBuffer());
   }
 
   hasPublicCalls() {
@@ -159,19 +159,19 @@ export class Tx extends Gossipable {
    * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.
    */
-  public getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
-    return logsSource.getPublicLogs({ txHash: this.getTxHash() });
+  public async getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
+    return logsSource.getPublicLogs({ txHash: await this.getTxHash() });
   }
 
   /**
    * Computes (if necessary) & return transaction hash.
    * @returns The hash of the public inputs of the private kernel tail circuit.
    */
-  getTxHash(forceRecompute = false): TxHash {
+  async getTxHash(forceRecompute = false): Promise<TxHash> {
     if (!this.txHash || forceRecompute) {
       const hash = this.data.forPublic
-        ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
-        : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+        ? await this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
+        : await this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
       this.txHash = new TxHash(hash);
     }
     return this.txHash!;
@@ -188,9 +188,9 @@ export class Tx extends Gossipable {
   }
 
   /** Returns stats about this tx. */
-  getStats(): TxStats {
+  async getStats(): Promise<TxStats> {
     return {
-      txHash: this.getTxHash().toString(),
+      txHash: (await this.getTxHash()).toString(),
 
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,
@@ -244,8 +244,8 @@ export class Tx extends Gossipable {
    * @param tx - Tx-like object.
    * @returns - The hash.
    */
-  static getHash(tx: Tx | HasHash): TxHash {
-    return hasHash(tx) ? tx.hash : tx.getTxHash();
+  static async getHash(tx: Tx | HasHash): Promise<TxHash> {
+    return hasHash(tx) ? tx.hash : await tx.getTxHash();
   }
 
   /**
@@ -253,8 +253,8 @@ export class Tx extends Gossipable {
    * @param txs - The txs to get the hashes from.
    * @returns The corresponding array of hashes.
    */
-  static getHashes(txs: (Tx | HasHash)[]): TxHash[] {
-    return txs.map(Tx.getHash);
+  static async getHashes(txs: (Tx | HasHash)[]): Promise<TxHash[]> {
+    return await Promise.all(txs.map(Tx.getHash));
   }
 
   /**
@@ -284,13 +284,13 @@ export class Tx extends Gossipable {
     return clonedTx;
   }
 
-  static random() {
+  static async random() {
     return new Tx(
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
       ClientIvcProof.empty(),
-      ContractClassTxL2Logs.random(1, 1),
-      [PublicExecutionRequest.random()],
-      PublicExecutionRequest.random(),
+      await ContractClassTxL2Logs.random(1, 1),
+      [await PublicExecutionRequest.random()],
+      await PublicExecutionRequest.random(),
     );
   }
 
