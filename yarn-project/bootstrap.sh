@@ -30,10 +30,10 @@ function build {
 
   case "${1:-}" in
     "fast")
-      yarn build:fast
+      denoise "yarn build:fast"
       ;;
     "full")
-      yarn build
+      denoise "yarn build"
       ;;
     *)
       if ! yarn build:fast; then
