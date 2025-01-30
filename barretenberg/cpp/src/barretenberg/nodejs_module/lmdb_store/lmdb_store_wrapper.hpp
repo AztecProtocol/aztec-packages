@@ -55,7 +55,7 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     BoolResponse close();
 
-    static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(lmdblib::LMDBCursor::SharedPtr cursor,
+    static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
                                                                         bool reverse,
                                                                         uint64_t page_size);
 };

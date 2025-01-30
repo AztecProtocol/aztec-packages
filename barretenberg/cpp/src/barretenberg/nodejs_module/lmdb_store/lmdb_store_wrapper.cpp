@@ -183,7 +183,7 @@ StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req
         return { std::nullopt, {} };
     }
 
-    auto [done, first_page] = _advance_cursor(cursor, reverse, page_size);
+    auto [done, first_page] = _advance_cursor(*cursor, reverse, page_size);
     // cursor finished after reading a single page or client only wanted the first page
     if (done || one_page) {
         return { std::nullopt, first_page };
@@ -217,7 +217,7 @@ AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorReques
     }
 
     uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
-    auto [done, entries] = _advance_cursor(data.cursor, data.reverse, page_size);
+    auto [done, entries] = _advance_cursor(*data.cursor, data.reverse, page_size);
     return { entries, done };
 }
 
@@ -252,10 +252,11 @@ BoolResponse LMDBStoreWrapper::close()
     return { true };
 }
 
-std::pair<bool, bb::lmdblib::KeyDupValuesVector> LMDBStoreWrapper::_advance_cursor(
-    lmdblib::LMDBCursor::SharedPtr cursor, bool reverse, uint64_t page_size)
+std::pair<bool, bb::lmdblib::KeyDupValuesVector> LMDBStoreWrapper::_advance_cursor(const lmdblib::LMDBCursor& cursor,
+                                                                                   bool reverse,
+                                                                                   uint64_t page_size)
 {
     lmdblib::KeyDupValuesVector entries;
-    bool done = reverse ? cursor->read_prev(page_size, entries) : cursor->read_next(page_size, entries);
+    bool done = reverse ? cursor.read_prev(page_size, entries) : cursor.read_next(page_size, entries);
     return std::make_pair(done, entries);
 }
