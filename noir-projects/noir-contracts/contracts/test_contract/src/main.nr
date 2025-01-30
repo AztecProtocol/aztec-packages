@@ -44,7 +44,6 @@ contract Test {
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
     use dep::value_note::value_note::ValueNote;
-    // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
     use std::meta::derive;
 
     use crate::test_note::TestNote;
@@ -62,30 +61,13 @@ contract Test {
         value4: Field,
     }
 
+    #[derive(Packable)]
     struct ExampleStruct {
         value0: Field,
         value1: Field,
         value2: Field,
         value3: Field,
         value4: Field,
-    }
-
-    // TODO(#10321): ideally we'd use `derive` here, but cannot since that causes for the storage macros to not find the
-    // derived impl.
-    impl Packable<5> for ExampleStruct {
-        fn pack(self) -> [Field; 5] {
-            [self.value0, self.value1, self.value2, self.value3, self.value4]
-        }
-
-        fn unpack(value: [Field; 5]) -> Self {
-            Self {
-                value0: value[0],
-                value1: value[1],
-                value2: value[2],
-                value3: value[3],
-                value4: value[4],
-            }
-        }
     }
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
