@@ -15,9 +15,12 @@ import type * as chains from 'viem/chains';
  * block within the slot. And if so, it will time travel into the next slot.
  */
 export class AnvilTestWatcher {
+  private isSandbox: boolean = false;
+
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
 
   private filledRunningPromise?: RunningPromise;
+  private mineIfOutdatedPromise?: RunningPromise;
 
   private logger: Logger = createLogger(`aztecjs:utils:watcher`);
 
@@ -36,6 +39,10 @@ export class AnvilTestWatcher {
     this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }
 
+  setIsSandbox(isSandbox: boolean) {
+    this.isSandbox = isSandbox;
+  }
+
   async start() {
     if (this.filledRunningPromise) {
       throw new Error('Watcher already watching for filled slot');
@@ -50,6 +57,8 @@ export class AnvilTestWatcher {
     if (isAutoMining) {
       this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
       this.filledRunningPromise.start();
+      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 1000);
+      this.mineIfOutdatedPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
       this.logger.info(`Watcher not started because not auto mining`);
@@ -58,6 +67,27 @@ export class AnvilTestWatcher {
 
   async stop() {
     await this.filledRunningPromise?.stop();
+    await this.mineIfOutdatedPromise?.stop();
+  }
+
+  async mineIfOutdated() {
+    // this doesn't apply to the sandbox, because we don't have a date provider in the sandbox
+    if (!this.dateProvider) {
+      return;
+    }
+
+    const l1Time = (await this.cheatcodes.timestamp()) * 1000;
+    const wallTime = this.dateProvider.now();
+
+    // If the wall time is more than 24 seconds away from L1 time,
+    // mine a block and sync the clocks
+    if (Math.abs(wallTime - l1Time) > 24 * 1000) {
+      this.logger.warn(`Wall time is more than 24 seconds away from L1 time, mining a block and syncing clocks`);
+      await this.cheatcodes.evmMine();
+      const newL1Time = await this.cheatcodes.timestamp();
+      this.logger.info(`New L1 time: ${newL1Time}`);
+      this.dateProvider.setTime(newL1Time * 1000);
+    }
   }
 
   async warpTimeIfNeeded() {
@@ -77,6 +107,11 @@ export class AnvilTestWatcher {
         }
 
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        return;
+      }
+
+      // If we are not in sandbox, we don't need to warp time
+      if (!this.isSandbox) {
         return;
       }
 

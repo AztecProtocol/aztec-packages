@@ -24,39 +24,39 @@ class perm_merkle_poseidon2_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.merkle_tree_sel_merkle_tree == 1 || in.poseidon2_full_sel_merkle_tree == 1);
+        return (in._merkle_tree_sel_merkle_tree() == 1 || in._poseidon2_full_sel_merkle_tree() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_merkle_poseidon2_inv,
-                                     in.merkle_tree_sel_merkle_tree,
-                                     in.merkle_tree_sel_merkle_tree,
-                                     in.poseidon2_full_sel_merkle_tree,
-                                     in.merkle_tree_clk,
-                                     in.merkle_tree_left_hash,
-                                     in.merkle_tree_right_hash,
-                                     in.merkle_tree_output_hash,
-                                     in.poseidon2_full_clk,
-                                     in.poseidon2_full_input_0,
-                                     in.poseidon2_full_input_1,
-                                     in.poseidon2_full_output);
+        return std::forward_as_tuple(in._perm_merkle_poseidon2_inv(),
+                                     in._merkle_tree_sel_merkle_tree(),
+                                     in._merkle_tree_sel_merkle_tree(),
+                                     in._poseidon2_full_sel_merkle_tree(),
+                                     in._merkle_tree_clk(),
+                                     in._merkle_tree_left_hash(),
+                                     in._merkle_tree_right_hash(),
+                                     in._merkle_tree_output_hash(),
+                                     in._poseidon2_full_clk(),
+                                     in._poseidon2_full_input_0(),
+                                     in._poseidon2_full_input_1(),
+                                     in._poseidon2_full_output());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_merkle_poseidon2_inv,
-                                     in.merkle_tree_sel_merkle_tree,
-                                     in.merkle_tree_sel_merkle_tree,
-                                     in.poseidon2_full_sel_merkle_tree,
-                                     in.merkle_tree_clk,
-                                     in.merkle_tree_left_hash,
-                                     in.merkle_tree_right_hash,
-                                     in.merkle_tree_output_hash,
-                                     in.poseidon2_full_clk,
-                                     in.poseidon2_full_input_0,
-                                     in.poseidon2_full_input_1,
-                                     in.poseidon2_full_output);
+        return std::forward_as_tuple(in._perm_merkle_poseidon2_inv(),
+                                     in._merkle_tree_sel_merkle_tree(),
+                                     in._merkle_tree_sel_merkle_tree(),
+                                     in._poseidon2_full_sel_merkle_tree(),
+                                     in._merkle_tree_clk(),
+                                     in._merkle_tree_left_hash(),
+                                     in._merkle_tree_right_hash(),
+                                     in._merkle_tree_output_hash(),
+                                     in._poseidon2_full_clk(),
+                                     in._poseidon2_full_input_0(),
+                                     in._poseidon2_full_input_1(),
+                                     in._poseidon2_full_output());
     }
 };
 
