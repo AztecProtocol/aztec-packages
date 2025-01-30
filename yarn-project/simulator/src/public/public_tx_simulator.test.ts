@@ -163,7 +163,7 @@ describe('public_tx_simulator', () => {
   };
 
   const checkNullifierRoot = async (txResult: PublicTxResult) => {
-    const siloedNullifiers = txResult.avmProvingRequest.inputs.output.accumulatedData.nullifiers;
+    const siloedNullifiers = txResult.avmProvingRequest.inputs.publicInputs.accumulatedData.nullifiers;
     // Loop helpful for debugging so you can see root progression
     //for (const nullifier of siloedNullifiers) {
     //  await db.batchInsert(
@@ -180,7 +180,7 @@ describe('public_tx_simulator', () => {
       NULLIFIER_SUBTREE_HEIGHT,
     );
     const expectedRoot = (await db.getStateReference()).partial.nullifierTree.root;
-    const gotRoot = txResult.avmProvingRequest.inputs.output.endTreeSnapshots.nullifierTree.root;
+    const gotRoot = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
   };
 
@@ -299,7 +299,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondSetup = availableGasForFirstSetup.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstSetup, availableGasForSecondSetup]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -335,7 +335,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstAppLogic, availableGasForSecondAppLogic]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -369,7 +369,7 @@ describe('public_tx_simulator', () => {
 
     expectAvailableGasForCalls([teardownGasLimits]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -418,7 +418,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -470,7 +470,7 @@ describe('public_tx_simulator', () => {
 
     expect(simulateInternal).toHaveBeenCalledTimes(3);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
@@ -567,7 +567,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -649,7 +649,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -733,7 +733,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -811,7 +811,7 @@ describe('public_tx_simulator', () => {
       publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);

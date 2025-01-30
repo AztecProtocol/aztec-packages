@@ -40,7 +40,7 @@ L1_CONSENSUS_HOST_URL=
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
-display_help() {
+function display_help {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
@@ -161,16 +161,16 @@ cd $(git rev-parse --show-toplevel)
 
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
-        $TEST_SCRIPT \
-        \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        $ETHEREUM_SCRIPT \
-        \"./validators.sh $NUM_VALIDATORS\" \
-        $PROVER_SCRIPT \
-        ./pxe.sh \
-        ./transaction-bot.sh \
-        $BLOB_SINK_SCRIPT"
+  $TEST_SCRIPT \
+  \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
+  ./deploy-l2-contracts.sh \
+  ./boot-node.sh \
+  $ETHEREUM_SCRIPT \
+  \"./validators.sh $NUM_VALIDATORS\" \
+  $PROVER_SCRIPT \
+  ./pxe.sh \
+  ./transaction-bot.sh \
+  $BLOB_SINK_SCRIPT"
 
 # Execute the command
 eval $BASE_CMD

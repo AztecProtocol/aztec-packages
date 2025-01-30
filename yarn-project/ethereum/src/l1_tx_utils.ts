@@ -168,7 +168,7 @@ export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtil
 
 export interface L1TxRequest {
   to: Address | null;
-  data: Hex;
+  data?: Hex;
   value?: bigint;
 }
 
@@ -185,12 +185,12 @@ export interface GasPrice {
 }
 
 export class L1TxUtils {
-  private readonly config: L1TxUtilsConfig;
+  protected readonly config: L1TxUtilsConfig;
 
   constructor(
-    private readonly publicClient: PublicClient,
-    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: Logger,
+    protected readonly publicClient: PublicClient,
+    protected readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
+    protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
@@ -273,6 +273,7 @@ export class L1TxUtils {
     params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
     _blobInputs?: L1BlobInputs,
+    isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
@@ -413,22 +414,24 @@ export class L1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    // Fire cancellation without awaiting to avoid blocking the main thread
-    this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
-      .then(cancelTxHash => {
-        this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
-      })
-      .catch(err => {
-        const viemError = formatViemError(err);
-        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
-          metaMessages: viemError.metaMessages,
+    if (!isCancelTx) {
+      // Fire cancellation without awaiting to avoid blocking the main thread
+      this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
+        .then(cancelTxHash => {
+          this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+        })
+        .catch(err => {
+          const viemError = formatViemError(err);
+          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+            metaMessages: viemError.metaMessages,
+          });
         });
-      });
 
-    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
-      txHash: currentTxHash,
-      ...tx,
-    });
+      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+        txHash: currentTxHash,
+        ...tx,
+      });
+    }
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
@@ -451,7 +454,7 @@ export class L1TxUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(
+  public async getGasPrice(
     _gasConfig?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
@@ -666,7 +669,10 @@ export class L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  private async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (isBlobTx) {
+      throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
+    }
     const account = this.walletClient.account;
 
     // Get gas price with higher priority fee for cancellation
@@ -685,33 +691,28 @@ export class L1TxUtils {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
+    const request = {
+      to: account.address,
+      value: 0n,
+    };
 
     // Send 0-value tx to self with higher gas price
-    if (!isBlobTx) {
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        to: account.address,
-        value: 0n,
-        nonce,
-        gas: 21_000n, // Standard ETH transfer gas
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
-      return cancelTxHash;
-    } else {
-      const blobData = new Uint8Array(131072).fill(0);
-      const kzg = Blob.getViemKzgInstance();
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        to: account.address,
-        value: 0n,
-        nonce,
-        gas: 21_000n,
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
-        blobs: [blobData],
-        kzg,
-      });
-      return cancelTxHash;
-    }
+    const cancelTxHash = await this.walletClient.sendTransaction({
+      ...request,
+      nonce,
+      gas: 21_000n, // Standard ETH transfer gas
+      maxFeePerGas: cancelGasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+    });
+    const receipt = await this.monitorTransaction(
+      request,
+      cancelTxHash,
+      { gasLimit: 21_000n },
+      undefined,
+      undefined,
+      true,
+    );
+
+    return receipt.transactionHash;
   }
 }

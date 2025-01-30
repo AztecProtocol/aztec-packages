@@ -34,6 +34,12 @@
       "path": "../kv-store"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../types"
     }
   ],
