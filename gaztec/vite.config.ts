@@ -47,7 +47,7 @@ export default defineConfig({
       targets: [
         {
           src: "../barretenberg/ts/dest/browser/*.wasm.gz",
-          dest: "/",
+          dest: "./",
         },
       ],
     }),
