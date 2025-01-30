@@ -27,7 +27,7 @@ tests:
     test_path: 'e2e_fees/account_init.test.ts'
   # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9488): reenable
   # e2e_fees_dapp_subscription:
-  #   test_path: "e2e_fees/dapp_subscription.test.ts"
+  #   test_path: 'e2e_fees/dapp_subscription.test.ts'
   e2e_fees_failures:
     test_path: 'e2e_fees/failures.test.ts'
   e2e_fees_fee_juice_payments:
@@ -72,6 +72,8 @@ tests:
   e2e_state_vars: {}
   e2e_static_calls: {}
   e2e_synching: {}
+  e2e_token_bridge_tutorial_test:
+    use_compose: true
   e2e_token_contract:
     with_alerts: true
   e2e_p2p_gossip:
