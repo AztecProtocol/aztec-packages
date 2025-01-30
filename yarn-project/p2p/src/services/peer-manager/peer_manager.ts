@@ -62,7 +62,8 @@ export class PeerManager {
 
     // Handle Discovered peers
     this.discoveredPeerHandler = (enr: ENR) =>
-      void this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+      this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Display peer counts every 60 seconds
@@ -414,6 +415,7 @@ export class PeerManager {
    * Removing all event listeners.
    */
   public async stop() {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Send goodbyes to all peers
