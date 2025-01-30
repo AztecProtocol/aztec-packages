@@ -25,9 +25,39 @@ function build {
   cache_upload docs-$hash.tar.gz build
 }
 
+# If we're a CI run and have a PR, do a preview release.
+function release_preview {
+  pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
+
+  if [ "$CI" -eq 1 ] && [ -n "$pr_number" ]; then
+    echo_header "docs release preview"
+
+    # Deploy and capture exit code and output.
+    if ! deploy_output=$(yarn netlify deploy --dir . --site aztec-docs-dev 2>&1); then
+        echo "Netlify deploy failed with error:"
+        echo "$deploy_output"
+        exit 1
+    fi
+
+    # Extract preview URL.
+    docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
+    if [ -z "$docs_preview_url" ]; then
+        echo "Failed to extract preview URL from Netlify output."
+    else
+      echo "Docs preview URL: ${docs_preview_url}"
+    fi
+  fi
+}
+
+function release {
+  echo_header "docs release"
+  yarn netlify deploy --dir . --site aztec-docs-dev --prod
+}
+
 case "$cmd" in
   ""|"full")
     build
+    release_preview
     ;;
   "hash")
     echo "$hash"

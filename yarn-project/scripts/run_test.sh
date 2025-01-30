@@ -24,7 +24,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     --workdir /root/aztec-packages/yarn-project/$dir \
     -e FORCE_COLOR=true \
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
-    aztecprotocol/build:3.0 \
+    $ISOLATION_IMAGE \
       node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"

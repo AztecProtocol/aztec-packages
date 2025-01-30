@@ -25,10 +25,17 @@ if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
 fi
 
 # Switch to a KIND cluster (will also pull in necessary dependencies)
+<<<<<<< HEAD
 flock logs/kind-boot.lock ../bootstrap.sh kind
 
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
+=======
+../bootstrap.sh kind
+
+# Load the Docker image into kind
+kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
+>>>>>>> origin/cl/ci3.3
 
 function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
@@ -79,4 +86,8 @@ if [ -n "$chaos_values" ]; then
   ../bootstrap.sh network-shaping "$chaos_values"
 else
   echo "Skipping network chaos configuration (CHAOS_VALUES not set)"
+<<<<<<< HEAD
 fi
+=======
+fi
+>>>>>>> origin/cl/ci3.3

@@ -163,11 +163,26 @@ function build {
     aztec-up
   )
 
-  # Build projects.
   for project in "${projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
   echo "Bootstrap complete."
+}
+
+function release {
+  projects=(
+    barretenberg/cpp
+    barretenberg/ts
+    # Should publish at least one of our boxes to it's own repo.
+    #boxes
+    aztec-up
+    docs
+    release-image
+  )
+
+  for project in "${projects[@]}"; do
+    $project/bootstrap.sh release
+  done
 }
 
 case "$cmd" in
@@ -206,10 +221,14 @@ case "$cmd" in
   "ci")
     build
     test
+    release
+    ;;
+  "release")
+    release
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|check|fast|full|test-cmds|test|ci|release>"
     exit 1
   ;;
 esac

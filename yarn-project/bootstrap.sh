@@ -72,8 +72,6 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment. WORKTODO(adam)
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
-  # WORKTODO(adam) I reenabled bb-prover and prover-client as we have tested these in the past.
-  # WORKTODO(adam) if we don't want these has to be conscious decision
   for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
@@ -107,6 +105,9 @@ case "$cmd" in
     ;;
   "hash")
     echo $hash
+    ;;
+  "release")
+    release
     ;;
   *)
     echo "Unknown command: $cmd"

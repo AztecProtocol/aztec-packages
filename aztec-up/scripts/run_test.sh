@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-trap 'docker kill $1 &>/dev/null' EXIT
-
+trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM
+docker rm -f $1 &>/dev/null || true
 docker run --rm \
   -d \
   --privileged \

@@ -1,4 +1,4 @@
-use crate::meta::{derive_deserialize, derive_serialize};
+use crate::meta::{derive_deserialize, derive_packable, derive_serialize};
 use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
@@ -241,6 +241,7 @@ impl<let N: u32> Deserialize<N> for str<N> {
 ///
 /// # Type Parameters
 /// * `N` - The length of the Field array, known at compile time.
+#[derive_via(derive_packable)]
 pub trait Packable<let N: u32> {
     /// Packs the current value into a compact array of `Field` elements.
     fn pack(self) -> [Field; N];

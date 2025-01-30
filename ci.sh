@@ -126,10 +126,7 @@ case "$cmd" in
     output=$(redis_cli GET $run_id)
     if [ -z "$output" ] || [ "$output" == "In progress..." ]; then
       # If we're in progress, tail live logs from launched instance.
-      while ! tail_live_instance; do
-        echo "Waiting on instance with name: $instance_name"
-        sleep 10
-      done
+      exec $0 ilog
     else
       echo "$output" | $PAGER
     fi

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source $(git rev-parse --show-toplevel)/ci3/source
+set -eu
 
 : '
 This script sets up and runs a native testnet for the Aztec network.
@@ -41,24 +41,24 @@ OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
 function display_help {
-  echo "Usage: $0 [options]"
-  echo
-  echo "Options:"
-  echo "  -h     Display this help message"
-  echo "  -t     Specify the test file (default: $TEST_SCRIPT)"
-  echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
-  echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
-  echo "  -v     Set logging level to verbose"
-  echo "  -vv    Set logging level to debug"
-  echo "  -i     Run interleaved (default: $INTERLEAVED)"
-  echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
-  echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
-  echo "  -b     Disable the blob sink (default: false)"
-  echo "  -e     Specify the ethereum host url (default: $ETHEREUM_HOST)"
-  echo "  -cl    Specify the l1 consensus host url (default: $L1_CONSENSUS_HOST_URL)"
-  echo
-  echo "Example:"
-  echo "  $0 -t ./test-4epochs.sh -val 5 -v"
+    echo "Usage: $0 [options]"
+    echo
+    echo "Options:"
+    echo "  -h     Display this help message"
+    echo "  -t     Specify the test file (default: $TEST_SCRIPT)"
+    echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
+    echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
+    echo "  -v     Set logging level to verbose"
+    echo "  -vv    Set logging level to debug"
+    echo "  -i     Run interleaved (default: $INTERLEAVED)"
+    echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
+    echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
+    echo "  -b     Disable the blob sink (default: false)"
+    echo "  -e     Specify the ethereum host url (default: $ETHEREUM_HOST)"
+    echo "  -cl    Specify the l1 consensus host url (default: $L1_CONSENSUS_HOST_URL)"
+    echo
+    echo "Example:"
+    echo "  $0 -t ./test-4epochs.sh -val 5 -v"
 }
 
 # Parse command line arguments

@@ -26,6 +26,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
+        add_compile_options(-Wno-missing-field-initializers)
     endif()
 endif()
 
@@ -192,21 +193,60 @@ if(WASM)
     # -O3 level optimizations. We force down to -O2 for current workaround.
     # TODO: Time has passed, check if this is still needed.
     # UPDATE: Uninstall binaryen and any need downstream.
-    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+    # set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
     # When building this wasm "executable", we include the wasi module but exclude the env module.
     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
     # to implement the functions in env.
     add_executable(
-        barretenberg.wasm
+        barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
     )
 
     target_link_options(
-        barretenberg.wasm
+        barretenberg-debug.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic
+    )
+
+    # Strip debug info to create the release version.
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMAND ${CMAKE_STRIP} ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm -o ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
+        COMMENT "Stripping debug info to create release version."
+    )
+
+    add_custom_target(
+        barretenberg.wasm ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+    )
+
+    # Create a gzipped version of barretenberg-debug.wasm
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
+        COMMENT "Creating gzipped version of barretenberg-debug.wasm"
+    )
+
+    add_custom_target(
+        barretenberg-debug.wasm.gz ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+    )
+
+    # Create a gzipped version of barretenberg.wasm
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMENT "Creating gzipped version of barretenberg.wasm"
+    )
+
+    add_custom_target(
+        barretenberg.wasm.gz ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
     if(CHECK_CIRCUIT_STACKTRACES)

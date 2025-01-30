@@ -1,16 +1,36 @@
 # Usage: source $(git rev-parse --show-toplevel)/ci3/source
 # This is a basis for shell scripts that use the ci3 framework.
+# This can be sourced multiple by scripts calling scripts, so it makes sense to only do certain sets through first pass.
 
 # Enter our script directory, allowing usage of scripts from any directory.
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
 
 # We export so we can use from exported functions.
-export root="$(git rev-parse --show-toplevel)"
+export root=${root:-$(git rev-parse --show-toplevel)}
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
 # We always want color.
 export FORCE_COLOR=true
+
+# Set REF_NAME to be the branch name if on a branch, or the tag name if on a tag.
+# If REF_NAME starts with "release/", just keep what comes after.
+# Example outputs:
+# - master (branch is master)
+# - cl/ci_branch (a feature branch)
+# - v1.2.3 (a tagged version)
+# - wise-weasle (a tagged release e.g. release/wise-weasle)
+# We use this for e.g:
+# - Creating a unqiue instance name when launching spots.
+# - Identifying GitHub releases to upload assets to.
+# - Tagging released images.
+# - Identifying a PR associated with a branch.
+# This is obviously overloaded in terms of how its value is generated, and how it's used.
+# So far this has been fine, so requiring more distinct variables has been unnecessary.
+if [ -z "$REF_NAME" ]; then
+  export REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match)
+  export REF_NAME="${REF_NAME#release/}"
+fi
 
 source $ci3/source_options
 source $ci3/source_stdlib

@@ -148,13 +148,9 @@ function build {
   # We allow errors so we can output the joblog.
   set +e
   set -u
+  rm -rf target
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
-
-  # We want to start the build from scratch as stale artifact issues have plagued us in the past.
-  # However, this may have been an accidental build, and this is quite heavy, so we have a backup pattern.
-  echo "Stashing previous target folder as target.bkup"
-  mkdir -p target target.bkup && cp -r target target.bkup && rm -rf target && mkdir -p $key_dir
 
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
@@ -202,7 +198,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-keys")
-    rm -rf target/keys
+    rm -rf $key_dir
     ;;
   "ci")
     build
