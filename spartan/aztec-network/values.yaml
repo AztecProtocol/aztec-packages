@@ -132,6 +132,7 @@ validator:
   viemPollingInterval: 1000
   storageSize: "1Gi"
   dataDir: "/data"
+  l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""
 
@@ -227,23 +228,20 @@ ethereum:
   # 10 times the default of 131072
   maxTxInputSizeBytes: "1310720"
   args: ""
+  externalHost: ""
   execution:
-    externalHost: ""
     service:
       port: 8545
       targetPort: 8545
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"
         cpu: "1"
     storageSize: "80Gi"
   beacon:
-    externalHost: ""
     service:
       port: 5052
       targetPort: 5052
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"

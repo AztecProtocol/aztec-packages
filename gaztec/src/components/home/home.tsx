@@ -1,16 +1,8 @@
 import { css } from "@emotion/react";
 import { ContractComponent } from "../contract/contract";
 import { SidebarComponent } from "../sidebar/sidebar";
-import { createContext, useState } from "react";
-import {
-  type PXE,
-  type AccountWalletWithSecretKey,
-  Contract,
-  AztecNode,
-  AztecAddress,
-} from "@aztec/aztec.js";
-import { type WalletDB } from "../../utils/storage";
-import { ContractFunctionInteractionTx } from "../../utils/txs";
+import { useState } from "react";
+import { AztecContext } from "../../aztecEnv";
 
 const layout = css({
   display: "flex",
@@ -18,47 +10,7 @@ const layout = css({
   height: "100%",
 });
 
-export const AztecContext = createContext<{
-  pxe: PXE | null;
-  nodeURL: string;
-  node: AztecNode;
-  wallet: AccountWalletWithSecretKey | null;
-  isPXEInitialized: boolean;
-  walletDB: WalletDB | null;
-  currentContractAddress: AztecAddress;
-  currentContract: Contract;
-  currentTx: ContractFunctionInteractionTx;
-  setWalletDB: (walletDB: WalletDB) => void;
-  setPXEInitialized: (isPXEInitialized: boolean) => void;
-  setWallet: (wallet: AccountWalletWithSecretKey) => void;
-  setAztecNode: (node: AztecNode) => void;
-  setPXE: (pxe: PXE) => void;
-  setNodeURL: (nodeURL: string) => void;
-  setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
-  setCurrentContract: (currentContract: Contract) => void;
-  setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
-}>({
-  pxe: null,
-  nodeURL: "",
-  node: null,
-  wallet: null,
-  isPXEInitialized: false,
-  walletDB: null,
-  currentContract: null,
-  currentContractAddress: null,
-  currentTx: null,
-  setWalletDB: (walletDB: WalletDB) => {},
-  setPXEInitialized: (isPXEInitialized: boolean) => {},
-  setWallet: (wallet: AccountWalletWithSecretKey) => {},
-  setNodeURL: (nodeURL: string) => {},
-  setPXE: (pxe: PXE) => {},
-  setAztecNode: (node: AztecNode) => {},
-  setCurrentTx: (currentTx: ContractFunctionInteractionTx) => {},
-  setCurrentContract: (currentContract: Contract) => {},
-  setCurrentContractAddress: (currentContractAddress: AztecAddress) => {},
-});
-
-export function Home() {
+export default function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [nodeURL, setNodeURL] = useState("");

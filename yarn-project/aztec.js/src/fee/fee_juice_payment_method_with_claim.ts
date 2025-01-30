@@ -22,9 +22,10 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * Creates a function call to pay the fee in Fee Juice.
    * @returns A function call
    */
-  override getFunctionCalls(): Promise<FunctionCall[]> {
-    const selector = FunctionSelector.fromNameAndParameters(
-      getCanonicalFeeJuice().artifact.functions.find(f => f.name === 'claim')!,
+  override async getFunctionCalls(): Promise<FunctionCall[]> {
+    const canonicalFeeJuice = await getCanonicalFeeJuice();
+    const selector = await FunctionSelector.fromNameAndParameters(
+      canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
 
     return Promise.resolve([

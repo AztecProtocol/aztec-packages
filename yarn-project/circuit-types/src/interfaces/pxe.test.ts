@@ -2,7 +2,6 @@ import {
   AztecAddress,
   ClientIvcProof,
   CompleteAddress,
-  type ContractClassWithId,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
@@ -16,7 +15,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -48,7 +47,14 @@ import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
+import {
+  type ContractClassMetadata,
+  type ContractMetadata,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  PXESchema,
+} from './pxe.js';
 
 jest.setTimeout(12_000);
 
@@ -275,35 +281,28 @@ describe('PXESchema', () => {
     expect(result).toEqual(await handler.getPXEInfo());
   });
 
-  it('getContractInstance', async () => {
-    const result = await context.client.getContractInstance(address);
-    expect(result).toEqual(instance);
+  it('getContractMetadata', async () => {
+    const { contractInstance, isContractInitialized, isContractPubliclyDeployed } =
+      await context.client.getContractMetadata(address);
+    expect(contractInstance).toEqual(instance);
+    expect(isContractInitialized).toEqual(true);
+    expect(isContractPubliclyDeployed).toEqual(true);
   });
 
-  it('getContractClass', async () => {
-    const result = await context.client.getContractClass(Fr.random());
-    const expected = omit(getContractClassFromArtifact(artifact), 'privateFunctionsRoot', 'publicBytecodeCommitment');
-    expect(result).toEqual(expected);
-  });
-
-  it('getContractArtifact', async () => {
-    const result = await context.client.getContractArtifact(Fr.random());
-    deepStrictEqual(result, artifact);
-  });
-
-  it('isContractClassPubliclyRegistered', async () => {
-    const result = await context.client.isContractClassPubliclyRegistered(Fr.random());
-    expect(result).toBe(true);
-  });
-
-  it('isContractPubliclyDeployed', async () => {
-    const result = await context.client.isContractPubliclyDeployed(address);
-    expect(result).toBe(true);
-  });
-
-  it('isContractInitialized', async () => {
-    const result = await context.client.isContractInitialized(address);
-    expect(result).toBe(true);
+  it('getContractClassMetadata', async () => {
+    const {
+      contractClass,
+      isContractClassPubliclyRegistered,
+      artifact: contractArtifact,
+    } = await context.client.getContractClassMetadata(Fr.random(), true);
+    const expected = omit(
+      await getContractClassFromArtifact(artifact),
+      'privateFunctionsRoot',
+      'publicBytecodeCommitment',
+    );
+    expect(contractClass).toEqual(expected);
+    expect(isContractClassPubliclyRegistered).toEqual(true);
+    deepStrictEqual(contractArtifact, artifact);
   });
 
   it('getPrivateEvents', async () => {
@@ -354,8 +353,8 @@ class MockPXE implements PXE {
     expect(partialAddress).toBeInstanceOf(Fr);
     return Promise.resolve(CompleteAddress.random());
   }
-  getRegisteredAccounts(): Promise<CompleteAddress[]> {
-    return Promise.resolve([CompleteAddress.random()]);
+  async getRegisteredAccounts(): Promise<CompleteAddress[]> {
+    return [await CompleteAddress.random()];
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
@@ -516,30 +515,22 @@ class MockPXE implements PXE {
       pxeVersion: '1.0',
     });
   }
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    expect(address).toEqual(this.address);
-    return Promise.resolve(this.instance);
-  }
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  async getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
-    return Promise.resolve(contractClass);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
+    return Promise.resolve({
+      contractClass,
+      isContractClassPubliclyRegistered: true,
+      artifact: includeArtifact ? this.artifact : undefined,
+    });
   }
-  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    expect(id).toBeInstanceOf(Fr);
-    return Promise.resolve(this.artifact);
-  }
-  isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
-    expect(id).toBeInstanceOf(Fr);
-    return Promise.resolve(true);
-  }
-  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata> {
     expect(address).toEqual(this.address);
-    return Promise.resolve(true);
-  }
-  isContractInitialized(address: AztecAddress): Promise<boolean> {
-    expect(address).toEqual(this.address);
-    return Promise.resolve(true);
+    return Promise.resolve({
+      contractInstance: this.instance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
   }
   getPrivateEvents<T>(
     _eventMetadata: EventMetadataDefinition,

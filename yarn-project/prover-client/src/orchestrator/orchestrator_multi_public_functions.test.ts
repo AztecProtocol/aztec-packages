@@ -1,5 +1,5 @@
 import { mockTx } from '@aztec/circuit-types';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -28,7 +28,7 @@ describe('prover/orchestrator/public-functions', () => {
         numberOfNonRevertiblePublicCallRequests: number,
         numberOfRevertiblePublicCallRequests: number,
       ) => {
-        const txs = times(numTransactions, (i: number) =>
+        const txs = await timesParallel(numTransactions, (i: number) =>
           mockTx(100000 * testCount++ + 1000 * i, {
             numberOfNonRevertiblePublicCallRequests,
             numberOfRevertiblePublicCallRequests,
@@ -36,7 +36,7 @@ describe('prover/orchestrator/public-functions', () => {
         );
         for (const tx of txs) {
           tx.data.constants.historicalHeader = context.getBlockHeader(0);
-          tx.data.constants.vkTreeRoot = getVKTreeRoot();
+          tx.data.constants.vkTreeRoot = await getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
         }
 

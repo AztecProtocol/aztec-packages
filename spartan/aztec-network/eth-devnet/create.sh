@@ -21,7 +21,7 @@ fi
 
 # Function to create execution genesis
 # Updates genesis timestamp to current time, helps with triggering Consensus layer
-create_execution_genesis() {
+function create_execution_genesis {
   local execution_genesis_path="$1"
   local execution_genesis_output="$2"
   echo "Creating execution genesis..."
@@ -62,7 +62,7 @@ create_execution_genesis() {
   echo "Execution genesis created at $execution_genesis_output"
 }
 
-prefund_accounts() {
+function prefund_accounts {
   local genesis_json="$1"
   local mnemonic="$2"
   local number_of_keys="$3"
@@ -91,7 +91,7 @@ prefund_accounts() {
 # Function to create beacon genesis
 # Uses the eth2-testnet-generator to generate beacon genesis state (genesis.ssz file)
 # The selected eth1 block
-create_beacon_genesis() {
+function create_beacon_genesis {
   local execution_genesis_path="$1"
   local beacon_mnemonics_path="./config/mnemonics.yaml"
   local beacon_config_path="./config/config.yaml"
@@ -103,38 +103,45 @@ create_beacon_genesis() {
   echo "  Execution genesis path: $execution_genesis_path"
 
   # update the templates block time if it is provided
-  cp "$DIR_PATH/$beacon_config_path" "$DIR_PATH/out/config.yaml"
+  cp "$DIR_PATH/$beacon_config_path" "$DIR_PATH/tmp/config.yaml"
   if [[ -n "${BLOCK_TIME:-}" ]]; then
-    yq eval ".SECONDS_PER_SLOT = ${BLOCK_TIME}" -i "$DIR_PATH/out/config.yaml"
-    yq eval ".SECONDS_PER_ETH1_BLOCK = ${BLOCK_TIME}" -i "$DIR_PATH/out/config.yaml"
+    yq eval ".SECONDS_PER_SLOT = ${BLOCK_TIME}" -i "$DIR_PATH/tmp/config.yaml"
+    yq eval ".SECONDS_PER_ETH1_BLOCK = ${BLOCK_TIME}" -i "$DIR_PATH/tmp/config.yaml"
   fi
 
   # Update the chain id if it is provided
   if [[ -n "${CHAIN_ID:-}" ]]; then
-    yq eval ".DEPOSIT_CHAIN_ID = ${CHAIN_ID}" -i "$DIR_PATH/out/config.yaml"
-    yq eval ".DEPOSIT_NETWORK_ID = ${CHAIN_ID}" -i "$DIR_PATH/out/config.yaml"
+    yq eval ".DEPOSIT_CHAIN_ID = ${CHAIN_ID}" -i "$DIR_PATH/tmp/config.yaml"
+    yq eval ".DEPOSIT_NETWORK_ID = ${CHAIN_ID}" -i "$DIR_PATH/tmp/config.yaml"
   fi
 
+  # Copy mnemonics file to tmp and update it with provided mnemonic
+  cp "$DIR_PATH/config/mnemonics.yaml" "$DIR_PATH/tmp/mnemonics.yaml"
+  yq eval '.0.mnemonic = "'"$MNEMONIC"'"' -i "$DIR_PATH/tmp/mnemonics.yaml"
+
   # Run the protolamba's eth2 testnet genesis container
-  echo "$DIR_PATH/config:/app/config"
-  echo "$DIR_PATH/out:/app/out"
 
   docker run --rm \
     -v "$DIR_PATH/config:/app/config" \
+    -v "$DIR_PATH/tmp:/app/tmp" \
     -v "$DIR_PATH/out:/app/out" \
     maddiaa/eth2-testnet-genesis deneb \
-      --config="./out/config.yaml" \
+      --config="./tmp/config.yaml" \
+      --eth1-config="./tmp/genesis.json" \
       --preset-phase0=minimal \
       --preset-altair=minimal \
       --preset-bellatrix=minimal \
       --preset-capella=minimal \
       --preset-deneb=minimal \
-      --eth1-config="./out/genesis.json" \
       --state-output="${beacon_genesis_path}/genesis.ssz" \
       --tranches-dir="$beacon_genesis_path" \
-      --mnemonics="$beacon_mnemonics_path" \
+      --mnemonics="./tmp/mnemonics.yaml" \
       --eth1-withdrawal-address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
       --eth1-match-genesis-time
+
+
+  cp "$DIR_PATH/tmp/genesis.json" "$DIR_PATH/out/genesis.json"
+  cp "$DIR_PATH/tmp/config.yaml" "$DIR_PATH/out/config.yaml"
 
   if [[ $? -ne 0 ]]; then
     echo "Error: eth2-testnet-genesis failed."
@@ -144,13 +151,13 @@ create_beacon_genesis() {
   echo "Beacon genesis created at $beacon_genesis_path"
 }
 
-create_deposit_contract_block() {
+function create_deposit_contract_block {
   echo 0 > "$DIR_PATH/out/deposit_contract_block.txt"
   echo "Deposit contract block created at $DIR_PATH/out/deposit_contract_block.txt"
 }
 
 ## The ssz file must be written in base64 in order for a config map to accept it
-write_ssz_file_base64() {
+function write_ssz_file_base64 {
   local ssz_file="$DIR_PATH/out/genesis.ssz"
   local output_file="$DIR_PATH/out/genesis-ssz"
   base64 -w 0 "$ssz_file" > "$output_file"
@@ -162,12 +169,12 @@ beacon_config_path="$DIR_PATH/config/config.yaml"
 genesis_json_path="$DIR_PATH/config/genesis.json"
 
 mkdir -p "$DIR_PATH/out"
+mkdir -p "$DIR_PATH/tmp"
 
-create_execution_genesis "$DIR_PATH/config/genesis.json" "$DIR_PATH/out/genesis.json"
-create_beacon_genesis "$DIR_PATH/out/genesis.json"
+create_execution_genesis "$DIR_PATH/config/genesis.json" "$DIR_PATH/tmp/genesis.json"
+create_beacon_genesis "$DIR_PATH/tmp/genesis.json"
 create_deposit_contract_block
 write_ssz_file_base64
 
-cp "$beacon_config_path" "$DIR_PATH/out/config.yaml"
 cp "$DIR_PATH/config/jwt-secret.hex" "$DIR_PATH/out/jwt-secret.hex"
 echo "Genesis files copied to ./out"

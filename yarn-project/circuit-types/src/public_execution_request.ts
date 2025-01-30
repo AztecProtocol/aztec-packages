@@ -65,23 +65,23 @@ export class PublicExecutionRequest {
     return this.callContext.isEmpty() && this.args.length === 0;
   }
 
-  isForCallRequest(callRequest: PublicCallRequest) {
+  async isForCallRequest(callRequest: PublicCallRequest) {
     return (
       this.callContext.msgSender.equals(callRequest.msgSender) &&
       this.callContext.contractAddress.equals(callRequest.contractAddress) &&
       this.callContext.functionSelector.equals(callRequest.functionSelector) &&
       this.callContext.isStaticCall == callRequest.isStaticCall &&
-      computeVarArgsHash(this.args).equals(callRequest.argsHash)
+      (await computeVarArgsHash(this.args)).equals(callRequest.argsHash)
     );
   }
 
-  toCallRequest(): PublicCallRequest {
+  async toCallRequest(): Promise<PublicCallRequest> {
     return new PublicCallRequest(
       this.callContext.msgSender,
       this.callContext.contractAddress,
       this.callContext.functionSelector,
       this.callContext.isStaticCall,
-      computeVarArgsHash(this.args),
+      await computeVarArgsHash(this.args),
     );
   }
 

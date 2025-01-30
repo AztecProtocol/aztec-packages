@@ -82,33 +82,33 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     const nonce = Fr.random();
     const maxFee = new U128(gasSettings.getFeeLimit().toBigInt());
 
-    return Promise.resolve([
-      this.wallet
-        .setPublicAuthWit(
-          {
-            caller: this.paymentContract,
-            action: {
-              name: 'transfer_in_public',
-              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
-              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
-              type: FunctionType.PUBLIC,
-              isStatic: false,
-              to: await this.getAsset(),
-              returnTypes: [],
-            },
-          },
-          true,
-        )
-        .request(),
+    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+      {
+        caller: this.paymentContract,
+        action: {
+          name: 'transfer_in_public',
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
+          type: FunctionType.PUBLIC,
+          isStatic: false,
+          to: await this.getAsset(),
+          returnTypes: [],
+        },
+      },
+      true,
+    );
+
+    return [
+      await setPublicAuthWitInteraction.request(),
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [...maxFee.toFields(), nonce],
         returnTypes: [],
       },
-    ]);
+    ];
   }
 }

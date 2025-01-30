@@ -28,6 +28,7 @@ import {
   deriveKeys,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionType } from '@aztec/foundation/abi';
+import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -35,7 +36,6 @@ import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@azt
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
@@ -115,8 +115,8 @@ async function computeSiloedTagForIndex(
   index: number,
 ) {
   const secretPoint = await computeTaggingSecretPoint(sender.completeAddress, sender.ivsk, recipient);
-  const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-  const tag = poseidon2Hash([appSecret, recipient, index]);
+  const appSecret = await poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
+  const tag = await poseidon2Hash([appSecret, recipient, index]);
   return poseidon2Hash([contractAddress, tag]);
 }
 
@@ -202,9 +202,9 @@ describe('Simulator oracle', () => {
       // Add a random note from every address in the address book for a random recipient with index tagIndex
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
-        const keys = deriveKeys(Fr.random());
+        const keys = await deriveKeys(Fr.random());
         const partialAddress = Fr.random();
-        const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
+        const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
         const blockNumber = 3;
         const randomNote = new MockNoteRequest(
@@ -227,11 +227,11 @@ describe('Simulator oracle', () => {
 
     beforeEach(async () => {
       // Set up the address book
-      senders = times(NUM_SENDERS).map((_, index) => {
-        const keys = deriveKeys(new Fr(index));
+      senders = await timesParallel(NUM_SENDERS, async index => {
+        const keys = await deriveKeys(new Fr(index));
         const partialAddress = Fr.random();
-        const address = computeAddress(keys.publicKeys, partialAddress);
-        const completeAddress = new CompleteAddress(address, keys.publicKeys, partialAddress);
+        const address = await computeAddress(keys.publicKeys, partialAddress);
+        const completeAddress = await CompleteAddress.create(address, keys.publicKeys, partialAddress);
         return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey, secretKey: new Fr(index) };
       });
       for (const sender of senders) {
@@ -609,7 +609,7 @@ describe('Simulator oracle', () => {
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
             const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, await request.encrypt());
             const note = request.snippetOfNoteDao.note;
-            const noteHash = pedersenHash(note.items);
+            const noteHash = await pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;
             taggedLogs.push(taggedLog);
           }
@@ -636,7 +636,7 @@ describe('Simulator oracle', () => {
           2,
           3,
           0,
-          CompleteAddress.random().address,
+          await AztecAddress.random(),
         ),
         new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
         new MockNoteRequest(
@@ -644,7 +644,7 @@ describe('Simulator oracle', () => {
           9,
           3,
           2,
-          CompleteAddress.random().address,
+          await AztecAddress.random(),
         ),
         new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
@@ -661,8 +661,8 @@ describe('Simulator oracle', () => {
     it('should not store notes that do not belong to us', async () => {
       // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
       const requests = [
-        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 1, 1, CompleteAddress.random().address),
-        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 3, 0, CompleteAddress.random().address),
+        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 1, 1, await AztecAddress.random()),
+        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 3, 0, await AztecAddress.random()),
       ];
 
       const taggedLogs = await mockTaggedLogs(requests);
@@ -685,8 +685,8 @@ describe('Simulator oracle', () => {
       let requestedNullifier;
       aztecNode.findNullifiersIndexesWithBlock.mockImplementationOnce(async (_blockNumber, nullifiers) => {
         const block = await L2Block.random(2);
-        requestedNullifier = wrapInBlock(nullifiers[0], block);
-        return [wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
+        requestedNullifier = await wrapInBlock(nullifiers[0], block);
+        return [await wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
       });
 
       await simulatorOracle.removeNullifiedNotes(contractAddress);

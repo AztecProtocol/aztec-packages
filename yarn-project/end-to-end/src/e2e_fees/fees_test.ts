@@ -145,13 +145,13 @@ export class FeesTest {
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
-
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
-        const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
+        const canonicalFeeJuice = await getCanonicalFeeJuice();
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
+        const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
         if (!bobInstance) {
           throw new Error('Bob instance not found');
         }
-        await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
+        await this.aliceWallet.registerAccount(accountKeys[1][0], await computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);
@@ -223,7 +223,7 @@ export class FeesTest {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)

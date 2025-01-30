@@ -51,7 +51,7 @@ export async function deploy(
 
   const deploy = deployer.deploy(...args);
   const deployOpts: Parameters<DeployMethod['send']>[0] = {
-    ...feeOpts.toSendOpts(wallet),
+    ...(await feeOpts.toSendOpts(wallet)),
     contractAddressSalt: salt,
     universalDeploy,
     skipClassRegistration,
@@ -90,7 +90,7 @@ export async function deploy(
     }
   } else {
     const { address, partialAddress } = deploy;
-    const instance = deploy.getInstance();
+    const instance = await deploy.getInstance();
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',

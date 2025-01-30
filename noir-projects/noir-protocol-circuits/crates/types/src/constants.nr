@@ -544,9 +544,10 @@ pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 56;
 
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 57;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 58;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -758,7 +759,7 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
-pub global TWO_POW_64: Field = 2.pow_32(64);
+pub global TWO_POW_64: Field = 18446744073709551616;
 
 mod test {
     use crate::constants::{

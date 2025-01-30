@@ -113,7 +113,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       const action = asset
         .withWallet(wallets[2])
         .methods.transfer_to_public(accounts[0].address, accounts[1].address, amount, nonce);
-      const expectedMessageHash = computeAuthWitMessageHash(
+      const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: accounts[2].address, action },
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );

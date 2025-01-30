@@ -26,18 +26,18 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
 
-    const payload = EntrypointPayload.fromFunctionCalls(calls);
+    const payload = await EntrypointPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
-    const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
+    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
-    const innerHash = computeInnerAuthWitHash([
+    const innerHash = await computeInnerAuthWitHash([
       Fr.MAX_FIELD_VALUE,
       functionSelector.toField(),
       entrypointHashedArgs.hash,
     ]);
-    const outerHash = computeAuthWitMessageHash(
+    const outerHash = await computeAuthWitMessageHash(
       { consumer: this.dappEntrypointAddress, innerHash },
       { chainId: new Fr(this.chainId), version: new Fr(this.version) },
     );
