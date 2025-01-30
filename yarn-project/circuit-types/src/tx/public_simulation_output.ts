@@ -75,9 +75,9 @@ export class PublicSimulationOutput {
       );
   }
 
-  static random() {
+  static async random() {
     return new PublicSimulationOutput(
-      SimulationError.random(),
+      await SimulationError.random(),
       CombinedConstantData.empty(),
       TxEffect.empty(),
       times(2, NestedProcessReturnValues.random),

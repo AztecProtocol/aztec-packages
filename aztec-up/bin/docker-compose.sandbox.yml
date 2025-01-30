@@ -1,6 +1,6 @@
 services:
   ethereum:
-    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
+    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc
     entrypoint: >
       sh -c '
       if [ -n "$$FORK_BLOCK_NUMBER" ] && [ -n "$$FORK_URL" ]; then
@@ -20,7 +20,7 @@ services:
     ports:
       - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
     environment:
-      LOG_LEVEL: # Loaded from the user shell if explicitly set
+      LOG_LEVEL: '${LOG_LEVEL:-info; verbose: simulator:avm:debug_log}'
       HOST_WORKDIR: "${PWD}" # Loaded from the user shell to show log files absolute path in host
       ETHEREUM_HOST: ${ETHEREUM_HOST:-http://ethereum}:${ANVIL_PORT:-8545}
       L1_CHAIN_ID: 31337

@@ -1,5 +1,6 @@
 // Tests arithmetic operations on fields
 fn main() {
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         let x = 4;

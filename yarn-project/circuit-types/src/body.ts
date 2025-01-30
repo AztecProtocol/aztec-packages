@@ -1,11 +1,12 @@
 import { type Fr } from '@aztec/circuits.js';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClass2BlockL2Logs, UnencryptedL2BlockL2Logs } from './logs/index.js';
+import { ContractClass2BlockL2Logs } from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {
@@ -59,11 +60,7 @@ export class Body {
    * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
    * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
-  static fromBlobFields(
-    fields: Fr[],
-    unencryptedLogs?: UnencryptedL2BlockL2Logs,
-    contractClassLogs?: ContractClass2BlockL2Logs,
-  ) {
+  static fromBlobFields(fields: Fr[], contractClassLogs?: ContractClass2BlockL2Logs) {
     const txEffectsFields: Fr[][] = [];
     let checkedFields = 0;
     while (checkedFields !== fields.length) {
@@ -76,21 +73,14 @@ export class Body {
     }
     const txEffects = txEffectsFields
       .filter(effect => effect.length)
-      .map((effect, i) => TxEffect.fromBlobFields(effect, unencryptedLogs?.txLogs[i], contractClassLogs?.txLogs[i]));
+      .map((effect, i) => TxEffect.fromBlobFields(effect, contractClassLogs?.txLogs[i]));
     return new this(txEffects);
   }
 
   [inspect.custom]() {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
-  emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
 }`;
-  }
-
-  get unencryptedLogs(): UnencryptedL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
-
-    return new UnencryptedL2BlockL2Logs(logs);
   }
 
   get contractClassLogs(): ContractClass2BlockL2Logs {
@@ -99,23 +89,9 @@ export class Body {
     return new ContractClass2BlockL2Logs(logs);
   }
 
-  /**
-   * Computes the number of transactions in the block including padding transactions.
-   */
-  get numberOfTxsIncludingPadded() {
-    const numTxEffects = this.txEffects.length;
-
-    // 2 is the minimum number of tx effects
-    if (numTxEffects <= 2) {
-      return 2;
-    }
-
-    return numTxEffects;
-  }
-
-  static random(txsPerBlock = 4, numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1) {
-    const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPublicCallsPerTx, numUnencryptedLogsPerCall),
+  static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {
+    const txEffects = await timesParallel(txsPerBlock, () =>
+      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall),
     );
 
     return new Body(txEffects);

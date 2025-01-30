@@ -6,7 +6,7 @@ use dep::aztec::{
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
+        hash::poseidon2_hash_with_separator, traits::Packable,
     },
 };
 
@@ -51,10 +51,10 @@ impl NullifiableNote for NFTNote {
 
 impl NFTNote {
     pub fn new(token_id: Field, owner: AztecAddress) -> Self {
-        // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
-        // malicious sender could use non-random values to make the note less private. But they already know the full
-        // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
-        // therefore assume that the sender will cooperate in the random value generation.
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
         NFTNote { token_id, owner, randomness, header: NoteHeader::empty() }
     }

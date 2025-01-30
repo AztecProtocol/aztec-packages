@@ -112,7 +112,7 @@ class ClientIVCTests : public ::testing::Test {
 /**
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verfication occurs.
+ * verification occurs.
  *
  */
 TEST_F(ClientIVCTests, Basic)

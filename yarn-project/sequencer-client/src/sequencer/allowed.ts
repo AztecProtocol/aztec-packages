@@ -6,7 +6,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 let defaultAllowedSetupFunctions: AllowedElement[] | undefined = undefined;
 
-export function getDefaultAllowedSetupFunctions(): AllowedElement[] {
+export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[]> {
   if (defaultAllowedSetupFunctions === undefined) {
     defaultAllowedSetupFunctions = [
       // needed for authwit support
@@ -17,16 +17,16 @@ export function getDefaultAllowedSetupFunctions(): AllowedElement[] {
       {
         address: ProtocolContractAddress.FeeJuice,
         // We can't restrict the selector because public functions get routed via dispatch.
-        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
       },
       // needed for private transfers via FPC
       {
-        classId: getContractClassFromArtifact(TokenContractArtifact).id,
+        classId: (await getContractClassFromArtifact(TokenContractArtifact)).id,
         // We can't restrict the selector because public functions get routed via dispatch.
-        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
       },
       {
-        classId: getContractClassFromArtifact(FPCContract.artifact).id,
+        classId: (await getContractClassFromArtifact(FPCContract.artifact)).id,
         // We can't restrict the selector because public functions get routed via dispatch.
         // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
       },

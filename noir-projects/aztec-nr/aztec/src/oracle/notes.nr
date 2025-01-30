@@ -10,16 +10,17 @@ use dep::protocol_types::{
 pub fn notify_created_note<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         notify_created_note_oracle_wrapper(
             storage_slot,
             note_type_id,
-            serialized_note,
+            packed_note_content,
             note_hash,
             counter,
         )
@@ -30,21 +31,28 @@ pub fn notify_created_note<let N: u32>(
 /// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
+}
+
+/// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
+pub fn notify_created_nullifier(nullifier: Field) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
     let _ = notify_created_note_oracle(
         storage_slot,
         note_type_id,
-        serialized_note,
+        packed_note_content,
         note_hash,
         counter,
     );
@@ -54,7 +62,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
-    _serialized_note: [Field; N],
+    _packed_note_content: [Field; N],
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
@@ -73,6 +81,13 @@ unconstrained fn notify_nullified_note_oracle(
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
+
+unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
+    let _ = notify_created_nullifier_oracle(nullifier);
+}
+
+#[oracle(notifyCreatedNullifier)]
+unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) -> Field {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
@@ -185,7 +200,7 @@ where
             let note_hash_counter = fields[read_offset + 1] as u32;
             let note_content = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::deserialize_content(note_content);
+            let mut note = Note::unpack_content(note_content);
             note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
 
             placeholder_opt_notes[i] = Option::some(note);
@@ -234,7 +249,8 @@ unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
 /// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
 /// that are not found by the recipient.
 pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
     }
@@ -256,7 +272,8 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
 pub fn sync_notes() {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         sync_notes_oracle_wrapper();
     }

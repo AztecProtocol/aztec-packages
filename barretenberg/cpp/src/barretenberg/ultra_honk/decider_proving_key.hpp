@@ -7,6 +7,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
@@ -77,8 +78,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
 
         info("Finalized circuit size: ",
              circuit.num_gates,
-             "\nLog dyadic circuit size: ",
-             numeric::get_msb(dyadic_circuit_size));
+             ". Log dyadic circuit size: ",
+             numeric::get_msb(dyadic_circuit_size),
+             ".");
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);

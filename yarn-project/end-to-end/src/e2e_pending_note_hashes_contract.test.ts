@@ -93,8 +93,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -118,8 +118,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note_extra_emit.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note_extra_emit.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -142,8 +142,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -167,8 +167,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -192,8 +192,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note_static_randomness.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note_static_randomness.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -227,8 +227,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -264,8 +264,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.dummy.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.dummy.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -294,8 +294,8 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await deployedContract.methods.sync_notes().simulate();
 
-    const incomingNotes = await wallet.getIncomingNotes({ txHash: txReceipt.txHash });
+    const notes = await wallet.getNotes({ txHash: txReceipt.txHash });
 
-    expect(incomingNotes.length).toBe(1);
+    expect(notes.length).toBe(1);
   });
 });

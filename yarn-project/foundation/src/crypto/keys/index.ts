@@ -2,8 +2,9 @@ import { BarretenbergSync, RawBuffer } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 
-export function vkAsFieldsMegaHonk(input: Buffer): Fr[] {
-  return BarretenbergSync.getSingleton()
-    .acirVkAsFieldsMegaHonk(new RawBuffer(input))
-    .map(bbFr => Fr.fromBuffer(Buffer.from(bbFr.toBuffer()))); // TODO(#4189): remove this conversion
+export async function vkAsFieldsMegaHonk(input: Buffer): Promise<Fr[]> {
+  const api = await BarretenbergSync.initSingleton();
+  const result = api.acirVkAsFieldsMegaHonk(new RawBuffer(input));
+
+  return result.map(bbFr => Fr.fromBuffer(Buffer.from(bbFr.toBuffer()))); // TODO(#4189): remove this conversion
 }

@@ -45,7 +45,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  *
  * @param circuit The circuit to which the constraints are appended
  * @param proof A stdlib proof to be recursively verified (either oink or PG)
- * @param vkey The stdlib verfication key associated with the proof
+ * @param vkey The stdlib verification key associated with the proof
  * @param type The type of the proof (equivalently, the type of the verifier)
  */
 void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(

@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    traits::{Deserialize, FromField, Serialize, ToField},
+    traits::{FromField, Packable, ToField},
     utils::arrays::array_concat,
 };
 
@@ -38,8 +38,12 @@ global HASH_SEPARATOR: u32 = 2;
 // can actually use it here
 impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
-{}
+    T: Packable<N>,
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -202,6 +206,7 @@ where
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
+        /// Safety: The hints are checked to be a preimage of a hash obtained from constrained context.
         let (value_change_hint, delay_change_hint) = unsafe {
             get_public_storage_hints(address, self.storage_slot, historical_block_number)
         };
@@ -220,12 +225,12 @@ where
             // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
             assert_eq(
                 value_change_hint,
-                ScheduledValueChange::deserialize(zeroed()),
+                ScheduledValueChange::unpack(zeroed()),
                 "Non-zero value change for zero hash",
             );
             assert_eq(
                 delay_change_hint,
-                ScheduledDelayChange::deserialize(zeroed()),
+                ScheduledDelayChange::unpack(zeroed()),
                 "Non-zero delay change for zero hash",
             );
         };
@@ -237,8 +242,7 @@ where
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     ) -> Field {
-        let concatenated: [Field; 4] =
-            array_concat(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] = array_concat(value_change.pack(), delay_change.pack());
         poseidon2_hash(concatenated)
     }
 }

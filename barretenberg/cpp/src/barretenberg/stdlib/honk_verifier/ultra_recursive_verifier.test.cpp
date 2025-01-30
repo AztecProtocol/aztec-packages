@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "ultra_verification_keys_comparator.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -77,29 +78,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
         builder.add_pairing_point_accumulator(agg_obj_indices);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            using NativeCurve = curve::Grumpkin;
-            using Curve = stdlib::grumpkin<InnerBuilder>;
-            auto ipa_transcript = std::make_shared<NativeTranscript>();
-            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
-            size_t n = 4;
-            auto poly = Polynomial<fq>(n);
-            for (size_t i = 0; i < n; i++) {
-                poly.at(i) = fq::random_element();
-            }
-            fq x = fq::random_element();
-            fq eval = poly.evaluate(x);
-            auto commitment = ipa_commitment_key->commit(poly);
-            const OpeningPair<NativeCurve> opening_pair = { x, eval };
-            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
-
-            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
-            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
-            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
-            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+            auto [stdlib_opening_claim, ipa_proof] =
+                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
             builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
-            builder.ipa_proof = ipa_transcript->export_proof();
+            builder.ipa_proof = ipa_proof;
         }
         return builder;
     };
@@ -155,7 +138,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
     /**
      * @brief  Ensures that the recursive verifier circuit for two inner circuits of different size is the same as the
-     * proofs are currently constant. This is done by taking each trace block in part and checking all it's selector
+     * proofs are currently constant. This is done by taking each trace block in part and checking all its selector
      * values.
      *
      */
@@ -178,7 +161,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            HonkProof honk_proof;
 
             typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(
                 inner_proof,
@@ -195,44 +177,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             return { outer_circuit.blocks, outer_verification_key };
         };
 
-        bool broke(false);
-        auto check_eq = [&broke](auto& p1, auto& p2) {
-            EXPECT_TRUE(p1.size() == p2.size());
-            for (size_t idx = 0; idx < p1.size(); idx++) {
-                if (p1[idx] != p2[idx]) {
-                    broke = true;
-                    break;
-                }
-            }
-        };
-
         auto [blocks_10, verification_key_10] = get_blocks(10);
         auto [blocks_11, verification_key_11] = get_blocks(11);
 
-        size_t block_idx = 0;
-        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
-            info("block index: ", block_idx);
-            EXPECT_TRUE(b_10.selectors.size() == 13);
-            EXPECT_TRUE(b_11.selectors.size() == 13);
-            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-                check_eq(p_10, p_11);
-            }
-            block_idx++;
-        }
-
-        typename OuterFlavor::CommitmentLabels labels;
-        for (auto [vk_10, vk_11, label] :
-             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
-            if (vk_10 != vk_11) {
-                broke = true;
-                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-            }
-        }
-
-        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
-        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
-
-        EXPECT_FALSE(broke);
+        compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_10, blocks_11 },
+                                                                { verification_key_10, verification_key_11 });
     }
 
     /**
@@ -378,7 +327,8 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 {
     if constexpr (IsAnyOf<TypeParam,
                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
+                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                          MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
         GTEST_SKIP() << "Not built for this parameter";

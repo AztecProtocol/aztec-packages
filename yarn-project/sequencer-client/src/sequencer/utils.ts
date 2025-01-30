@@ -19,9 +19,9 @@ export enum SequencerState {
    */
   PROPOSER_CHECK = 'PROPOSER_CHECK',
   /**
-   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
+   * Initializing the block proposal. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
    */
-  WAITING_FOR_TXS = 'WAITING_FOR_TXS',
+  INITIALIZING_PROPOSAL = 'INITIALIZING_PROPOSAL',
   /**
    * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
@@ -49,12 +49,15 @@ export function sequencerStateToNumber(state: SequencerState): number {
  *
  * @todo: perform this logic within the memory attestation store instead?
  */
-export function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
+export async function orderAttestations(
+  attestations: BlockAttestation[],
+  orderAddresses: EthAddress[],
+): Promise<Signature[]> {
   // Create a map of sender addresses to BlockAttestations
   const attestationMap = new Map<string, BlockAttestation>();
 
   for (const attestation of attestations) {
-    const sender = attestation.getSender();
+    const sender = await attestation.getSender();
     if (sender) {
       attestationMap.set(sender.toString(), attestation);
     }

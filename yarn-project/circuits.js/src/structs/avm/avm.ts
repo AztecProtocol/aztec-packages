@@ -1,14 +1,16 @@
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { strict as assert } from 'assert';
+import { Encoder, addExtension } from 'msgpackr';
+
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
 import { PublicKeys } from '../../types/public_keys.js';
-import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
@@ -844,9 +846,8 @@ export class AvmCircuitInputs {
   constructor(
     public readonly functionName: string, // only informational
     public readonly calldata: Fr[],
-    public readonly publicInputs: PublicCircuitPublicInputs,
     public readonly avmHints: AvmExecutionHints,
-    public output: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
+    public publicInputs: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
   ) {}
 
   /**
@@ -860,9 +861,8 @@ export class AvmCircuitInputs {
       functionNameBuffer,
       this.calldata.length,
       this.calldata,
-      this.publicInputs.toBuffer(),
       this.avmHints.toBuffer(),
-      this.output,
+      this.publicInputs,
     );
   }
 
@@ -875,13 +875,7 @@ export class AvmCircuitInputs {
   }
 
   static empty(): AvmCircuitInputs {
-    return new AvmCircuitInputs(
-      '',
-      [],
-      PublicCircuitPublicInputs.empty(),
-      AvmExecutionHints.empty(),
-      AvmCircuitPublicInputs.empty(),
-    );
+    return new AvmCircuitInputs('', [], AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
   /**
@@ -899,7 +893,7 @@ export class AvmCircuitInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmCircuitInputs>) {
-    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints, fields.output] as const;
+    return [fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs] as const;
   }
 
   /**
@@ -912,7 +906,6 @@ export class AvmCircuitInputs {
     return new AvmCircuitInputs(
       /*functionName=*/ reader.readBuffer().toString(),
       /*calldata=*/ reader.readVector(Fr),
-      PublicCircuitPublicInputs.fromBuffer(reader),
       AvmExecutionHints.fromBuffer(reader),
       AvmCircuitPublicInputs.fromBuffer(reader),
     );
@@ -936,4 +929,102 @@ export class AvmCircuitInputs {
   static get schema() {
     return bufferSchemaFor(AvmCircuitInputs);
   }
+
+  /** Serializes in format for the Avm2 */
+  serializeForAvm2(): Buffer {
+    // logger(`original: ${inspect(input)}`);
+    // logger.verbose(`original: ${inspect(this.avmHints.enqueuedCalls.items)}`);
+    // Convert the inputs to something that works with vm2 and messagepack.
+    // const inputSubset = {
+    //   ffs: [new Fr(0x123456789), new Fr(0x987654321)],
+    //   affine: new Point(new Fr(0x123456789), new Fr(0x987654321), false),
+    //   fq: new Fq(0x123456789),
+    //   addr: AztecAddress.fromBigInt(0x123456789n),
+    //   contract_instance_hints: this.avmHints.contractInstances,
+    // };
+    const hints = {
+      contractInstances: [] as any[],
+      contractClasses: [] as any[],
+      initialTreeRoots: {
+        publicDataTree: this.publicInputs.startTreeSnapshots.publicDataTree.root,
+        nullifierTree: this.publicInputs.startTreeSnapshots.nullifierTree.root,
+        noteHashTree: this.publicInputs.startTreeSnapshots.noteHashTree.root,
+        l1ToL2MessageTree: this.publicInputs.startTreeSnapshots.l1ToL2MessageTree.root,
+      },
+    };
+    const inputs = {
+      hints: hints,
+      enqueuedCalls: [] as any[],
+      // Placeholder for now.
+      publicInputs: {
+        dummy: [] as any[],
+      },
+    };
+    // For now we only transform bytecode requests. If we ever have any other
+    // contract instance hint, this will clash!
+    // See https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1733485524309389.
+    for (const bytecodeHint of this.avmHints.contractBytecodeHints.values()) {
+      hints.contractInstances.push(bytecodeHint.contractInstanceHint);
+      hints.contractClasses.push({
+        artifactHash: bytecodeHint.contractClassHint.artifactHash,
+        privateFunctionsRoot: bytecodeHint.contractClassHint.privateFunctionsRoot,
+        publicBytecodeCommitment: bytecodeHint.contractClassHint.publicBytecodeCommitment,
+        packedBytecode: bytecodeHint.bytecode,
+      });
+    }
+    // TODO: for now I only convert app logic requests?
+    for (const enqueuedCall of this.avmHints.enqueuedCalls.items) {
+      inputs.enqueuedCalls.push({
+        contractAddress: enqueuedCall.contractAddress,
+        sender: new Fr(0), // FIXME
+        args: enqueuedCall.calldata.items,
+        isStatic: false, // FIXME
+      });
+    }
+
+    const inputsBuffer = serializeWithMessagePack(inputs);
+
+    return inputsBuffer;
+  }
+}
+
+export function serializeWithMessagePack(obj: any): Buffer {
+  setUpMessagePackExtensions();
+  const encoder = new Encoder({
+    // always encode JS objects as MessagePack maps
+    // this makes it compatible with other MessagePack decoders
+    useRecords: false,
+    int64AsType: 'bigint',
+  });
+  return encoder.encode(obj);
+}
+
+function setUpMessagePackExtensions() {
+  // C++ Fr and Fq classes work well with the buffer serialization.
+  addExtension({
+    Class: Fr,
+    write: (fr: Fr) => fr.toBuffer(),
+  });
+  addExtension({
+    Class: Fq,
+    write: (fq: Fq) => fq.toBuffer(),
+  });
+  // AztecAddress is a class that has a field in TS, but just a field in C++.
+  addExtension({
+    Class: AztecAddress,
+    write: (addr: AztecAddress) => addr.toField(),
+  });
+  // If we find a vector, we just use the underlying list.
+  addExtension({
+    Class: Vector,
+    write: v => v.items,
+  });
+  // Affine points are a mess, we do our best.
+  addExtension({
+    Class: Point,
+    write: (p: Point) => {
+      assert(!p.inf, 'Cannot serialize infinity');
+      return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
+    },
+  });
 }

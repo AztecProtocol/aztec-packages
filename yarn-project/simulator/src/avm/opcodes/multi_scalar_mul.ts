@@ -3,7 +3,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
+import { MSMPointNotOnCurveError, MSMPointsLengthError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -44,7 +44,7 @@ export class MultiScalarMul extends Instruction {
     // Get the size of the unrolled (x, y , inf) points vector
     const pointsReadLength = memory.get(pointsLengthOffset).toNumber();
     if (pointsReadLength % 3 !== 0) {
-      throw new InstructionExecutionError(`Points vector offset should be a multiple of 3, was ${pointsReadLength}`);
+      throw new MSMPointsLengthError(pointsReadLength);
     }
 
     // Get the unrolled (x, y, inf) representing the points
@@ -76,7 +76,7 @@ export class MultiScalarMul extends Instruction {
       const isInf = pointsVector[3 * i + 2].toNumber() === 1;
       const p: Point = new Point(pointsVector[3 * i].toFr(), pointsVector[3 * i + 1].toFr(), isInf);
       if (!p.isOnGrumpkin()) {
-        throw new InstructionExecutionError(`Point ${p.toString()} is not on the curve.`);
+        throw new MSMPointNotOnCurveError(p);
       }
       grumpkinPoints.push(p);
     }
@@ -95,20 +95,22 @@ export class MultiScalarMul extends Instruction {
     const [firstBaseScalarPair, ...rest]: Array<[Point, Fq]> = grumpkinPoints.map((p, idx) => [p, scalarFqVector[idx]]);
     // Fold the points and scalars into a single point
     // We have to ensure get the first point, since the identity element (point at infinity) isn't quite working in ts
-    const outputPoint = rest.reduce((acc, curr) => {
+    let acc = await grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]);
+    for (const curr of rest) {
       if (curr[1] === Fq.ZERO) {
         // If we multiply by 0, the result will the point at infinity - so we ignore it
-        return acc;
+        continue;
       } else if (curr[0].inf) {
         // If we multiply the point at infinity by a scalar, it's still the point at infinity
-        return acc;
+        continue;
       } else if (acc.inf) {
         // If we accumulator is the point at infinity, we can just return the current point
-        return curr[0];
+        acc = curr[0];
       } else {
-        return grumpkin.add(acc, grumpkin.mul(curr[0], curr[1]));
+        acc = await grumpkin.add(acc, await grumpkin.mul(curr[0], curr[1]));
       }
-    }, grumpkin.mul(firstBaseScalarPair[0], firstBaseScalarPair[1]));
+    }
+    const outputPoint = acc;
 
     // Important to use setSlice() and not set() in the two following statements as
     // this checks that the offsets lie within memory range.

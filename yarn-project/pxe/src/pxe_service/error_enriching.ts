@@ -4,7 +4,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
-import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/errors';
+import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
@@ -32,12 +32,12 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
       const contract = await db.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
-        fnNames.forEach(fnName => {
+        for (const fnName of fnNames) {
           const functionArtifact = contract.functions.find(f => fnName === f.name);
           if (functionArtifact) {
             err.enrichWithFunctionName(
               parsedContractAddress,
-              FunctionSelector.fromNameAndParameters(functionArtifact),
+              await FunctionSelector.fromNameAndParameters(functionArtifact),
               functionArtifact.name,
             );
           } else {
@@ -45,7 +45,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
               `Could not find function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
             );
           }
-        });
+        }
       } else {
         logger.warn(
           `Could not find contract in database for address: ${parsedContractAddress} when enriching error callstack`,

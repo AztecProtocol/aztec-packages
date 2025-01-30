@@ -22,6 +22,7 @@ namespace bb::crypto::merkle_tree {
 class LMDBTreeWriteTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBTreeWriteTransaction>;
+    using SharedPtr = std::shared_ptr<LMDBTreeWriteTransaction>;
 
     LMDBTreeWriteTransaction(LMDBEnvironment::SharedPtr env);
     LMDBTreeWriteTransaction(const LMDBTreeWriteTransaction& other) = delete;

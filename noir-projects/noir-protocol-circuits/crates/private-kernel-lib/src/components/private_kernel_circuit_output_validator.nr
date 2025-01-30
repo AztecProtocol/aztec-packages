@@ -1,4 +1,4 @@
-use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
+use crate::components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
@@ -35,6 +35,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        first_nullifier_hint: Field,
     ) {
         self.validate_initial_values(
             tx_request,
@@ -42,9 +43,12 @@ impl PrivateKernelCircuitOutputValidator {
             vk_tree_root,
             protocol_contract_tree_root,
             is_private_only,
+            first_nullifier_hint,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
-        offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
+        if first_nullifier_hint == 0 {
+            offsets.nullifiers = 1; // The protocol nullifier is not propagated from the private call.
+        }
         self.validate_propagated_from_private_call(
             private_call,
             private_call_array_lengths,
@@ -80,6 +84,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        first_nullifier_hint: Field,
     ) {
         // Constants.
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
@@ -96,13 +101,16 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
-        // First nullifier.
-        let first_nullifier = create_first_nullifier(tx_request);
-        assert_eq(
-            self.output.end.nullifiers[0],
-            first_nullifier,
-            "first nullifier must be the tx request nullifier",
-        );
+        let protocol_nullifier = create_protocol_nullifier(tx_request);
+        // No need to check claimed_first_nullifier if the hint is nonzero, since it's just a prover hint that will be verified in tail.
+        // Also, a first_nullifier_hint of 0 with a manipulated claimed_first_nullifier will result in an always failing check in tail.
+        if first_nullifier_hint == 0 {
+            assert_eq(
+                self.output.end.nullifiers[0],
+                protocol_nullifier,
+                "protocol nullifier must be the tx request nullifier",
+            );
+        }
 
         // Others.
         assert_eq(
@@ -201,6 +209,11 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.is_private_only,
             previous_kernel.is_private_only,
             "mismatch is_private_only",
+        );
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            previous_kernel.claimed_first_nullifier,
+            "mismatch claimed_first_nullifier",
         );
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 

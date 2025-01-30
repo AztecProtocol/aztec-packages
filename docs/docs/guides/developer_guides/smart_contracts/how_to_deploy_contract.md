@@ -4,9 +4,9 @@ sidebar_position: 4
 tags: [contracts, sandbox]
 ---
 
-# Deploying contracts
-
 Once you have [compiled](./how_to_compile_contract.md) your contracts you can proceed to deploying them using aztec.js which is a Typescript client to interact with the sandbox.
+
+You can use this method to deploy your contracts to the sandbox or to a remote network.
 
 ## Prerequisites
 

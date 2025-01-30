@@ -5,13 +5,14 @@ import {
   type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
-  type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -54,6 +55,7 @@ import {
   EventSelector,
   FunctionSelector,
   FunctionType,
+  decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -64,18 +66,17 @@ import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { KernelProver } from '../kernel_prover/kernel_prover.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
+import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -89,6 +90,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
+  private proverEnabled: boolean;
 
   constructor(
     private keyStore: KeyStore,
@@ -96,14 +98,16 @@ export class PXEService implements PXE {
     private db: PxeDatabase,
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
+    private simulationProvider: SimulationProvider,
     config: PXEServiceConfig,
     logSuffix?: string,
   ) {
     this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
+    this.proverEnabled = !!config.proverEnabled;
   }
 
   /**
@@ -142,13 +146,33 @@ export class PXEService implements PXE {
     return this.db.getContractInstance(address);
   }
 
-  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  public async getContractClassMetadata(
+    id: Fr,
+    includeArtifact: boolean = false,
+  ): Promise<{
+    contractClass: ContractClassWithId | undefined;
+    isContractClassPubliclyRegistered: boolean;
+    artifact: ContractArtifact | undefined;
+  }> {
     const artifact = await this.db.getContractArtifact(id);
-    return artifact && getContractClassFromArtifact(artifact);
+
+    return {
+      contractClass: artifact && (await getContractClassFromArtifact(artifact)),
+      isContractClassPubliclyRegistered: await this.#isContractClassPubliclyRegistered(id),
+      artifact: includeArtifact ? artifact : undefined,
+    };
   }
 
-  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    return this.db.getContractArtifact(id);
+  public async getContractMetadata(address: AztecAddress): Promise<{
+    contractInstance: ContractInstanceWithAddress | undefined;
+    isContractInitialized: boolean;
+    isContractPubliclyDeployed: boolean;
+  }> {
+    return {
+      contractInstance: await this.db.getContractInstance(address),
+      isContractInitialized: await this.#isContractInitialized(address),
+      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+    };
   }
 
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
@@ -213,7 +237,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -224,27 +248,24 @@ export class PXEService implements PXE {
 
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
-      const contractClass = getContractClassFromArtifact(artifact);
-      const contractClassId = computeContractClassId(contractClass);
+      const contractClass = await getContractClassFromArtifact(artifact);
+      const contractClassId = await computeContractClassId(contractClass);
       if (!contractClassId.equals(instance.contractClassId)) {
         throw new Error(
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
-      if (!computeContractAddressFromInstance(instance).equals(instance.address)) {
+      const computedAddress = await computeContractAddressFromInstance(instance);
+      if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
       await this.db.addContractArtifact(contractClassId, artifact);
 
-      const functionNames: Record<string, string> = {};
-      for (const fn of artifact.functions) {
-        if (fn.functionType === FunctionType.PUBLIC) {
-          functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
-        }
-      }
-
-      await this.node.registerContractFunctionNames(instance.address, functionNames);
+      const publicFunctionSignatures = artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PUBLIC)
+        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
 
       // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
@@ -273,19 +294,21 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getIncomingNotes(filter);
+  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    const noteDaos = await this.db.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
-          completeAddress.address.toAddressPoint().equals(dao.addressPoint),
-        );
-        if (completeAddresses === undefined) {
+        const completeAddresses = await this.db.getCompleteAddresses();
+        const completeAddressIndex = (
+          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
+        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddress = completeAddresses[completeAddressIndex];
+        if (completeAddress === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
-        owner = completeAddresses.address;
+        owner = completeAddress.address;
       }
       return new UniqueNote(
         dao.note,
@@ -306,6 +329,10 @@ export class PXEService implements PXE {
     secret: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
     return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
+  }
+
+  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
   }
 
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
@@ -334,7 +361,7 @@ export class PXEService implements PXE {
         throw new Error('Note does not exist.');
       }
 
-      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
+      const siloedNullifier = await siloNullifier(note.contractAddress, innerNullifier!);
       const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
         siloedNullifier,
       ]);
@@ -343,19 +370,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           siloedNullifier,
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
-          owner.address.toAddressPoint(),
+          await owner.address.toAddressPoint(),
+          note.noteTypeId,
         ),
         scope,
       );
@@ -388,19 +415,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNullifiedNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           Fr.ZERO, // We are not able to derive
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
-          note.owner.toAddressPoint(),
+          await note.owner.toAddressPoint(),
+          note.noteTypeId,
         ),
       );
     }
@@ -427,7 +454,7 @@ export class PXEService implements PXE {
         break;
       }
 
-      const nonce = computeNoteHashNonce(firstNullifier, i);
+      const nonce = await computeNoteHashNonce(firstNullifier, i);
       const { uniqueNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
@@ -456,20 +483,16 @@ export class PXEService implements PXE {
     return await this.node.getCurrentBaseFees();
   }
 
-  async #simulateKernels(
-    txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelTailCircuitPublicInputs> {
-    const result = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
-    return result.publicInputs;
-  }
-
   public async proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
     try {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: false,
+        profile: false,
+        dryRun: false,
+      });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
       throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
@@ -504,17 +527,11 @@ export class PXEService implements PXE {
       await this.synchronizer.sync();
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      let publicInputs: PrivateKernelTailCircuitPublicInputs;
-      let profileResult;
-      if (profile) {
-        ({ publicInputs, profileResult } = await this.#profileKernelProver(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-        ));
-      } else {
-        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
-      }
+      const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: !profile,
+        profile,
+        dryRun: true,
+      });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -529,8 +546,9 @@ export class PXEService implements PXE {
         }
       }
 
-      this.log.info(`Simulation completed for ${simulatedTx.tryGetTxHash()} in ${timer.ms()}ms`, {
-        txHash: simulatedTx.tryGetTxHash(),
+      const txHash = await simulatedTx.getTxHash();
+      this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+        txHash,
         ...txInfo,
         ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
         ...(publicOutput
@@ -561,7 +579,7 @@ export class PXEService implements PXE {
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -615,12 +633,12 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.node.getUnencryptedLogs(filter);
+  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.node.getPublicLogs(filter);
   }
 
   /**
@@ -628,7 +646,7 @@ export class PXEService implements PXE {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.node.getContractClassLogs(filter);
   }
 
@@ -648,7 +666,7 @@ export class PXEService implements PXE {
     return {
       name: functionDao.name,
       args: encodeArguments(functionDao, args),
-      selector: FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
+      selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
       isStatic: functionDao.isStatic,
@@ -694,7 +712,7 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();
@@ -798,20 +816,6 @@ export class PXEService implements PXE {
     }
   }
 
-  async #profileKernelProver(
-    txExecutionRequest: TxExecutionRequest,
-    proofCreator: PrivateKernelProver,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-
-    // Dry run the prover with profiler enabled
-    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
-    return result;
-  }
-
   /**
    * Generate a kernel proof, and create a private kernel output.
    * The function takes in a transaction execution request, and the result of private execution
@@ -826,29 +830,35 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    { simulate, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
-    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const block =
+      privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-    this.log.debug(`Executing kernel prover...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
+      simulate,
+      profile,
+      dryRun,
+    });
   }
 
-  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+  async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
   }
 
-  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
   }
 
-  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
-    const initNullifier = siloNullifier(address, address.toField());
+  async #isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = await siloNullifier(address, address.toField());
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
-  public async getEncryptedEvents<T>(
+  public async getPrivateEvents<T>(
     eventMetadataDef: EventMetadataDefinition,
     from: number,
     limit: number,
@@ -877,27 +887,31 @@ export class PXEService implements PXE {
             throw new Error('No registered account');
           }
 
-          const preaddress = registeredAccount.getPreaddress();
+          const preaddress = await registeredAccount.getPreaddress();
 
-          secretKey = computeAddressSecret(preaddress, secretKey);
+          secretKey = await computeAddressSecret(preaddress, secretKey);
         }
 
         return secretKey;
       }),
     );
 
-    const visibleEvents = privateLogs.flatMap(log => {
-      for (const sk of vsks) {
-        // TODO: Verify that the first field of the log is the tag siloed with contract address.
-        // Or use tags to query logs, like we do with notes.
-        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk);
-        if (decryptedEvent !== undefined) {
-          return [decryptedEvent];
-        }
-      }
+    const visibleEvents = (
+      await Promise.all(
+        privateLogs.map(async log => {
+          for (const sk of vsks) {
+            // TODO: Verify that the first field of the log is the tag siloed with contract address.
+            // Or use tags to query logs, like we do with notes.
+            const decryptedEvent = await L1EventPayload.decryptAsIncoming(log, sk);
+            if (decryptedEvent !== undefined) {
+              return [decryptedEvent];
+            }
+          }
 
-      return [];
-    });
+          return [];
+        }),
+      )
+    ).flat();
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {
@@ -907,11 +921,6 @@ export class PXEService implements PXE {
         if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-        if (visibleEvent.event.items.length !== eventMetadata.fieldNames.length) {
-          throw new Error(
-            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-          );
-        }
 
         return eventMetadata.decode(visibleEvent);
       })
@@ -920,34 +929,32 @@ export class PXEService implements PXE {
     return decodedEvents;
   }
 
-  async getUnencryptedEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+  async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     const eventMetadata = new EventMetadata<T>(eventMetadataDef);
-    const { logs: unencryptedLogs } = await this.node.getUnencryptedLogs({
+    const { logs } = await this.node.getPublicLogs({
       fromBlock: from,
       toBlock: from + limit,
     });
 
-    const decodedEvents = unencryptedLogs
-      .map(unencryptedLog => {
-        const unencryptedLogBuf = unencryptedLog.log.data;
+    const decodedEvents = logs
+      .map(log => {
+        // +1 for the event selector
+        const expectedLength = eventMetadata.fieldNames.length + 1;
+        const logFields = log.log.log.slice(0, expectedLength);
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-        if (
-          !EventSelector.fromBuffer(unencryptedLogBuf.subarray(unencryptedLogBuf.byteLength - 4)).equals(
-            eventMetadata.eventSelector,
-          )
-        ) {
+        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-
-        if (unencryptedLogBuf.byteLength !== eventMetadata.fieldNames.length * 32 + 32) {
+        // If any of the remaining fields, are non-zero, the payload does match expected:
+        if (log.log.log.slice(expectedLength + 1).find(f => !f.isZero())) {
           throw new Error(
             'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.decode(unencryptedLog.log);
+        return eventMetadata.decode(log.log);
       })
-      .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
+      .filter(log => log !== undefined) as T[];
 
     return decodedEvents;
   }

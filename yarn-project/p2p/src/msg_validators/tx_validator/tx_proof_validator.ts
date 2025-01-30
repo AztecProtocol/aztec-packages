@@ -1,4 +1,9 @@
-import { type ClientProtocolCircuitVerifier, Tx, type TxValidator } from '@aztec/circuit-types';
+import {
+  type ClientProtocolCircuitVerifier,
+  Tx,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 export class TxProofValidator implements TxValidator<Tx> {
@@ -6,23 +11,12 @@ export class TxProofValidator implements TxValidator<Tx> {
 
   constructor(private verifier: ClientProtocolCircuitVerifier) {}
 
-  async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
-    const validTxs: Tx[] = [];
-    const invalidTxs: Tx[] = [];
-
-    for (const tx of txs) {
-      if (await this.verifier.verifyProof(tx)) {
-        validTxs.push(tx);
-      } else {
-        this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for invalid proof`);
-        invalidTxs.push(tx);
-      }
+  async validateTx(tx: Tx): Promise<TxValidationResult> {
+    if (!(await this.verifier.verifyProof(tx))) {
+      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for invalid proof`);
+      return { result: 'invalid', reason: ['Invalid proof'] };
     }
-
-    return [validTxs, invalidTxs];
-  }
-
-  validateTx(tx: Tx): Promise<boolean> {
-    return this.verifier.verifyProof(tx);
+    this.#log.trace(`Accepted ${Tx.getHash(tx)} with valid proof`);
+    return { result: 'valid' };
   }
 }

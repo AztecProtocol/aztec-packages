@@ -112,10 +112,12 @@ impl<'f> LoopInvariantContext<'f> {
 
                     // If we are hoisting a MakeArray instruction,
                     // we need to issue an extra inc_rc in case they are mutated afterward.
-                    if matches!(
-                        self.inserter.function.dfg[instruction_id],
-                        Instruction::MakeArray { .. }
-                    ) {
+                    if self.inserter.function.runtime().is_brillig()
+                        && matches!(
+                            self.inserter.function.dfg[instruction_id],
+                            Instruction::MakeArray { .. }
+                        )
+                    {
                         let result =
                             self.inserter.function.dfg.instruction_results(instruction_id)[0];
                         let inc_rc = Instruction::IncrementRc { value: result };
@@ -233,7 +235,7 @@ impl<'f> LoopInvariantContext<'f> {
                 }
             }
             Instruction::Binary(binary) => {
-                if !matches!(binary.operator, BinaryOp::Add | BinaryOp::Mul) {
+                if !matches!(binary.operator, BinaryOp::Add { .. } | BinaryOp::Mul { .. }) {
                     return false;
                 }
 
@@ -304,8 +306,8 @@ mod test {
         }
         ";
 
-        let mut ssa = Ssa::from_str(src).unwrap();
-        let main = ssa.main_mut();
+        let ssa = Ssa::from_str(src).unwrap();
+        let main = ssa.main();
 
         let instructions = main.dfg[main.entry_block()].instructions();
         assert_eq!(instructions.len(), 0); // The final return is not counted
@@ -361,8 +363,8 @@ mod test {
         }
         ";
 
-        let mut ssa = Ssa::from_str(src).unwrap();
-        let main = ssa.main_mut();
+        let ssa = Ssa::from_str(src).unwrap();
+        let main = ssa.main();
 
         let instructions = main.dfg[main.entry_block()].instructions();
         assert_eq!(instructions.len(), 0); // The final return is not counted
@@ -429,8 +431,8 @@ mod test {
         }
         ";
 
-        let mut ssa = Ssa::from_str(src).unwrap();
-        let main = ssa.main_mut();
+        let ssa = Ssa::from_str(src).unwrap();
+        let main = ssa.main();
 
         let instructions = main.dfg[main.entry_block()].instructions();
         assert_eq!(instructions.len(), 0); // The final return is not counted
@@ -488,8 +490,8 @@ mod test {
         }
         ";
 
-        let mut ssa = Ssa::from_str(src).unwrap();
-        let main = ssa.main_mut();
+        let ssa = Ssa::from_str(src).unwrap();
+        let main = ssa.main();
 
         let instructions = main.dfg[main.entry_block()].instructions();
         assert_eq!(instructions.len(), 4); // The final return is not counted

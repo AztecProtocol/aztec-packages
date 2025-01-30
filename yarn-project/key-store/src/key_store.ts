@@ -52,9 +52,9 @@ export class KeyStore {
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
       publicKeys,
-    } = deriveKeys(sk);
+    } = await deriveKeys(sk);
 
-    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
     const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
@@ -70,16 +70,14 @@ export class KeyStore {
 
     // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
-    await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
-    await this.#keys.set(
-      `${account.toString()}-ivpk_m_hash`,
-      publicKeys.masterIncomingViewingPublicKey.hash().toBuffer(),
-    );
-    await this.#keys.set(
-      `${account.toString()}-ovpk_m_hash`,
-      publicKeys.masterOutgoingViewingPublicKey.hash().toBuffer(),
-    );
-    await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
+    const masterNullifierPublicKeyHash = await publicKeys.masterNullifierPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
+    const masterIncomingViewingPublicKeyHash = await publicKeys.masterIncomingViewingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
+    const masterOutgoingViewingPublicKeyHash = await publicKeys.masterOutgoingViewingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-ovpk_m_hash`, masterOutgoingViewingPublicKeyHash.toBuffer());
+    const masterTaggingPublicKeyHash = await publicKeys.masterTaggingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-tpk_m_hash`, masterTaggingPublicKeyHash.toBuffer());
 
     // At last, we return the newly derived account address
     return completeAddress;
@@ -115,8 +113,8 @@ export class KeyStore {
     }
 
     const pkM = Point.fromBuffer(pkMBuffer);
-
-    if (!pkM.hash().equals(pkMHash)) {
+    const computedPkMHash = await pkM.hash();
+    if (!computedPkMHash.equals(pkMHash)) {
       throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
     }
 
@@ -131,12 +129,13 @@ export class KeyStore {
     const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedPkM.equals(pkM)) {
       throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
     }
 
     // At last we silo the secret key and return the key validation request
-    const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
+    const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return new KeyValidationRequest(pkM, skApp);
   }
@@ -261,7 +260,8 @@ export class KeyStore {
     }
 
     const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedpkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedpkM.equals(pkM)) {
       throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 

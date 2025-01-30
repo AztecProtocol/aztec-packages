@@ -5,12 +5,13 @@ contract ContractInstanceDeployer {
     use dep::aztec::macros::{events::event, functions::private};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+        constants::{DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS},
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
         traits::Serialize,
         utils::arrays::array_concat,
     };
+    use dep::contract_class_registerer::ContractClassRegisterer;
     use std::meta::derive;
 
     #[derive(Serialize)]
@@ -55,8 +56,8 @@ contract ContractInstanceDeployer {
     //   kind: 'point'
     // }
 
-    impl Serialize<15> for ContractInstanceDeployed {
-        fn serialize(self) -> [Field; 15] {
+    impl ContractInstanceDeployed {
+        fn serialize_non_standard(self) -> [Field; 15] {
             [
                 self.DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
                 self.address.to_field(),
@@ -85,7 +86,11 @@ contract ContractInstanceDeployer {
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) {
-        // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
+        // contract class must be registered to deploy an instance
+        ContractClassRegisterer::at(REGISTERER_CONTRACT_ADDRESS)
+            .assert_class_id_is_registered(contract_class_id)
+            .call(&mut context);
+
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
@@ -112,7 +117,7 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        let payload = event.serialize();
+        let payload = event.serialize_non_standard();
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);

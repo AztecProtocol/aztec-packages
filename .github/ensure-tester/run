@@ -17,6 +17,12 @@ scripts/run_on_tester "
   }
   export RUN_ID GIT_COMMIT
   export -f clone
+
+  # update fs limits for k8s
+  sudo sysctl -w fs.inotify.max_user_watches=65536
+  sudo sysctl -w fs.inotify.max_user_instances=65536
+  ulimit -n 32768
+
   flock /var/lock/clone.lock bash -c clone
   cd ~/run-$RUN_ID
   # reuse script from ensure-builder, but don't set up chron

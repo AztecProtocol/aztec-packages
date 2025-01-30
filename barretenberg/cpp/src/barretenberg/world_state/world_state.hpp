@@ -49,6 +49,8 @@ template <typename LeafValueType> struct SequentialInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
+const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
+
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
  *
@@ -282,7 +284,7 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,

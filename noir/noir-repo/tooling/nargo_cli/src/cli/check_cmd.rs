@@ -29,14 +29,14 @@ pub(crate) struct CheckCommand {
 
     /// Force overwrite of existing files
     #[clap(long = "overwrite")]
-    allow_overwrite: bool,
-
-    /// Show the program hash.
-    #[clap(long)]
-    show_program_hash: bool,
+    pub(super) allow_overwrite: bool,
 
     #[clap(flatten)]
     compile_options: CompileOptions,
+
+    /// Just show the hash of each paackages, without actually performing the check.
+    #[clap(long)]
+    show_program_hash: bool,
 }
 
 pub(crate) fn run(args: CheckCommand, config: NargoConfig) -> Result<(), CliError> {
@@ -60,7 +60,7 @@ pub(crate) fn run(args: CheckCommand, config: NargoConfig) -> Result<(), CliErro
             let Some(main) = context.get_main_function(&crate_id) else {
                 continue;
             };
-            let program = monomorphize(main, &mut context.def_interner).unwrap();
+            let program = monomorphize(main, &mut context.def_interner, false).unwrap();
             let hash = fxhash::hash64(&program);
             println!("{}: {:x}", package.name, hash);
             continue;

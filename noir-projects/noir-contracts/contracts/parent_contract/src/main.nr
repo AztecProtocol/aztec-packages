@@ -9,7 +9,7 @@ contract Parent {
     #[private]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
         // Call the target private function
-        context.call_private_function(target_contract, target_selector, [0]).unpack_into()
+        context.call_private_function(target_contract, target_selector, [0]).get_preimage()
     }
     // Public function to directly call another public function to the target_contract using the selector and value provided
     #[public]
@@ -146,7 +146,7 @@ contract Parent {
         args: [Field; 2],
     ) -> Field {
         // Call the target private function
-        context.static_call_private_function(target_contract, target_selector, args).unpack_into()
+        context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
     #[private]
     fn private_call(
@@ -155,7 +155,7 @@ contract Parent {
         args: [Field; 2],
     ) -> Field {
         // Call the target private function
-        context.call_private_function(target_contract, target_selector, args).unpack_into()
+        context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
     // Private function to set a static context and verify correct propagation for nested private calls
     #[private]
@@ -174,7 +174,7 @@ contract Parent {
                 private_call_selector,
                 [target_contract.to_field(), target_selector.to_field(), args[0], args[1]],
             )
-            .unpack_into();
+            .get_preimage();
         // Copy the return value from the call to this function's return values
         return_value
     }

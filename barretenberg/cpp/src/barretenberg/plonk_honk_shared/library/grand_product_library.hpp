@@ -3,8 +3,10 @@
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include <typeinfo>
 
 namespace bb {
@@ -47,17 +49,23 @@ namespace bb {
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  *
+ * @note This method makes use of the fact that there are at most as many unique entries in the grand product as active
+ * rows in the execution trace to efficiently compute the grand product when a structured trace is in use. I.e. the
+ * computation peformed herein is proportional to the number of active rows in the trace and the constant values in the
+ * inactive regions are simply populated from known values on the last step.
+ *
  * @tparam Flavor
  * @tparam GrandProdRelation
  * @param full_polynomials
  * @param relation_parameters
  * @param size_override optional size of the domain; otherwise based on dyadic polynomial domain
+ * @param active_region_data optional specification of active region of execution trace
  */
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
                            size_t size_override = 0,
-                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
+                           const ActiveRegionData& active_region_data = ActiveRegionData{})
 {
     PROFILE_THIS_NAME("compute_grand_product");
 
@@ -65,56 +73,44 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
+    const bool has_active_ranges = active_region_data.size() > 0;
+
     // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
-    const size_t block_size = domain_size / num_threads;
-    const size_t final_idx = domain_size - 1;
+    // Returns the ith active index if specified, otherwise acts as the identity map on the input
+    auto get_active_range_poly_idx = [&](size_t i) { return has_active_ranges ? active_region_data.get_idx(i) : i; };
 
-    // Cumpute the index bounds for each thread for reuse in the computations below
-    std::vector<std::pair<size_t, size_t>> idx_bounds;
-    idx_bounds.reserve(num_threads);
-    for (size_t thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
-        idx_bounds.push_back(std::make_pair(start, end));
-    }
+    size_t active_domain_size = has_active_ranges ? active_region_data.size() : domain_size;
+
+    // The size of the iteration domain is one less than the number of active rows since the final value of the
+    // grand product is constructed only in the relation and not explicitly in the polynomial
+    const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    Polynomial numerator{ domain_size, domain_size };
-    Polynomial denominator{ domain_size, domain_size };
-
-    auto check_is_active = [&](size_t idx) {
-        if (active_block_ranges.empty()) {
-            return true;
-        }
-        return std::any_of(active_block_ranges.begin(), active_block_ranges.end(), [idx](const auto& range) {
-            return idx >= range.first && idx < range.second;
-        });
-    };
+    Polynomial numerator{ active_domain_size };
+    Polynomial denominator{ active_domain_size };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
-    FF gamma_fourth = relation_parameters.gamma.pow(4);
-    parallel_for(num_threads, [&](size_t thread_idx) {
+    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
+        const size_t start = active_range_thread_data.start[thread_idx];
+        const size_t end = active_range_thread_data.end[thread_idx];
         typename Flavor::AllValues row;
-        const size_t start = idx_bounds[thread_idx].first;
-        const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
-            if (check_is_active(i)) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
-                row = full_polynomials.get_row(i);
-                numerator.at(i) =
-                    GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
-                denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                    row, relation_parameters);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+            auto row_idx = get_active_range_poly_idx(i);
+            if constexpr (IsUltraFlavor<Flavor>) {
+                row = full_polynomials.get_row_for_permutation_arg(row_idx);
             } else {
-                numerator.at(i) = gamma_fourth;
-                denominator.at(i) = gamma_fourth;
+                row = full_polynomials.get_row(row_idx);
             }
+            numerator.at(i) =
+                GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
+            denominator.at(i) =
+                GrandProdRelation::template compute_grand_product_denominator<Accumulator>(row, relation_parameters);
         }
     });
 
@@ -133,12 +129,12 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // (ii)  Take partial products P = { 1, a0a1, a2a3, a4a5 }
     // (iii) Each thread j computes N[i][j]*P[j]=
     //      {{a0,a0a1},{a0a1a2,a0a1a2a3},{a0a1a2a3a4,a0a1a2a3a4a5},{a0a1a2a3a4a5a6,a0a1a2a3a4a5a6a7}}
-    std::vector<FF> partial_numerators(num_threads);
-    std::vector<FF> partial_denominators(num_threads);
+    std::vector<FF> partial_numerators(active_range_thread_data.num_threads);
+    std::vector<FF> partial_denominators(active_range_thread_data.num_threads);
 
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = idx_bounds[thread_idx].first;
-        const size_t end = idx_bounds[thread_idx].second;
+    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
+        const size_t start = active_range_thread_data.start[thread_idx];
+        const size_t end = active_range_thread_data.end[thread_idx];
         for (size_t i = start; i < end - 1; ++i) {
             numerator.at(i + 1) *= numerator[i];
             denominator.at(i + 1) *= denominator[i];
@@ -150,9 +146,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(partial_numerators);
     DEBUG_LOG_ALL(partial_denominators);
 
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = idx_bounds[thread_idx].first;
-        const size_t end = idx_bounds[thread_idx].second;
+    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
+        const size_t start = active_range_thread_data.start[thread_idx];
+        const size_t end = active_range_thread_data.end[thread_idx];
         if (thread_idx > 0) {
             FF numerator_scaling = 1;
             FF denominator_scaling = 1;
@@ -179,13 +175,43 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
     ASSERT(grand_product_polynomial.start_index() == 1);
 
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = idx_bounds[thread_idx].first;
-        const size_t end = idx_bounds[thread_idx].second;
+    // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
+    if constexpr (IsUltraFlavor<Flavor>) {
+        grand_product_polynomial.at(1) = 1;
+    }
+
+    // Compute grand product values corresponding only to the active regions of the trace
+    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
+        const size_t start = active_range_thread_data.start[thread_idx];
+        const size_t end = active_range_thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
+            const auto poly_idx = get_active_range_poly_idx(i + 1);
+            grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
         }
     });
+
+    // Final step: If active/inactive regions have been specified, the value of the grand product in the inactive
+    // regions have not yet been set. The polynomial takes an already computed constant value across each inactive
+    // region (since no copy constraints are present there) equal to the value of the grand product at the first index
+    // of the subsequent active region.
+    if (has_active_ranges) {
+        MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
+        parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
+            const size_t start = full_domain_thread_data.start[thread_idx];
+            const size_t end = full_domain_thread_data.end[thread_idx];
+            for (size_t i = start; i < end; ++i) {
+                for (size_t j = 0; j < active_region_data.num_ranges() - 1; ++j) {
+                    const size_t previous_range_end = active_region_data.get_range(j).second;
+                    const size_t next_range_start = active_region_data.get_range(j + 1).first;
+                    // Set the value of the polynomial if the index falls in an inactive region
+                    if (i >= previous_range_end && i < next_range_start) {
+                        grand_product_polynomial.at(i) = grand_product_polynomial[next_range_start];
+                        break;
+                    }
+                }
+            }
+        });
+    }
 
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }

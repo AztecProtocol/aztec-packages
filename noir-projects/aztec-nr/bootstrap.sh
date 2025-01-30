@@ -9,7 +9,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
 function test_cmds {
   i=0
-  $NARGO test --list-tests --silence-warnings | while read -r package test; do
+  $NARGO test --list-tests | while read -r package test; do
     # We assume there are 8 txe's running.
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     echo "noir-projects/scripts/run_test.sh aztec-nr $package $test $port"

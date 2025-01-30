@@ -2,7 +2,6 @@ import {
   AztecAddress,
   ClientIvcProof,
   CompleteAddress,
-  type ContractClassWithId,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
@@ -16,7 +15,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -33,16 +32,29 @@ import { resolve } from 'path';
 import { AuthWitness } from '../auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
-import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
+import {
+  ExtendedPublicLog,
+  ExtendedUnencryptedL2Log,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  type LogFilter,
+} from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { type EventMetadataDefinition, type PXE, type PXEInfo, PXESchema } from './pxe.js';
+import {
+  type ContractClassMetadata,
+  type ContractMetadata,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  PXESchema,
+} from './pxe.js';
 
 jest.setTimeout(12_000);
 
@@ -62,13 +74,13 @@ describe('PXESchema', () => {
   });
 
   beforeEach(async () => {
-    address = AztecAddress.random();
+    address = await AztecAddress.random();
     instance = {
       version: 1,
       contractClassId: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address,
     };
@@ -141,23 +153,34 @@ describe('PXESchema', () => {
   });
 
   it('proveTx', async () => {
-    const result = await context.client.proveTx(TxExecutionRequest.random(), PrivateExecutionResult.random());
+    const result = await context.client.proveTx(
+      await TxExecutionRequest.random(),
+      await PrivateExecutionResult.random(),
+    );
     expect(result).toBeInstanceOf(TxProvingResult);
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, true, false, []);
+    const result = await context.client.simulateTx(
+      await TxExecutionRequest.random(),
+      true,
+      address,
+      false,
+      true,
+      false,
+      [],
+    );
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
   it('simulateTx(required)', async () => {
-    const result = await context.client.simulateTx(TxExecutionRequest.random(), true);
+    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
   it('simulateTx(undefined)', async () => {
     const result = await context.client.simulateTx(
-      TxExecutionRequest.random(),
+      await TxExecutionRequest.random(),
       true,
       undefined,
       undefined,
@@ -169,7 +192,7 @@ describe('PXESchema', () => {
   });
 
   it('sendTx', async () => {
-    const result = await context.client.sendTx(Tx.random());
+    const result = await context.client.sendTx(await Tx.random());
     expect(result).toBeInstanceOf(TxHash);
   });
 
@@ -190,8 +213,8 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(Fr);
   });
 
-  it('getIncomingNotes', async () => {
-    const result = await context.client.getIncomingNotes({ contractAddress: address });
+  it('getNotes', async () => {
+    const result = await context.client.getNotes({ contractAddress: address });
     expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
@@ -200,12 +223,17 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
+  it('getL2ToL1MembershipWitness', async () => {
+    const result = await context.client.getL2ToL1MembershipWitness(42, Fr.random());
+    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
+  });
+
   it('addNote', async () => {
-    await context.client.addNote(ExtendedNote.random(), address);
+    await context.client.addNote(await ExtendedNote.random(), address);
   });
 
   it('addNullifiedNote', async () => {
-    await context.client.addNullifiedNote(ExtendedNote.random());
+    await context.client.addNullifiedNote(await ExtendedNote.random());
   });
 
   it('getBlock', async () => {
@@ -223,9 +251,9 @@ describe('PXESchema', () => {
     expect(result).toEqual(10n);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const result = await context.client.getUnencryptedLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  it('getPublicLogs', async () => {
+    const result = await context.client.getPublicLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
@@ -253,49 +281,42 @@ describe('PXESchema', () => {
     expect(result).toEqual(await handler.getPXEInfo());
   });
 
-  it('getContractInstance', async () => {
-    const result = await context.client.getContractInstance(address);
-    expect(result).toEqual(instance);
+  it('getContractMetadata', async () => {
+    const { contractInstance, isContractInitialized, isContractPubliclyDeployed } =
+      await context.client.getContractMetadata(address);
+    expect(contractInstance).toEqual(instance);
+    expect(isContractInitialized).toEqual(true);
+    expect(isContractPubliclyDeployed).toEqual(true);
   });
 
-  it('getContractClass', async () => {
-    const result = await context.client.getContractClass(Fr.random());
-    const expected = omit(getContractClassFromArtifact(artifact), 'privateFunctionsRoot', 'publicBytecodeCommitment');
-    expect(result).toEqual(expected);
+  it('getContractClassMetadata', async () => {
+    const {
+      contractClass,
+      isContractClassPubliclyRegistered,
+      artifact: contractArtifact,
+    } = await context.client.getContractClassMetadata(Fr.random(), true);
+    const expected = omit(
+      await getContractClassFromArtifact(artifact),
+      'privateFunctionsRoot',
+      'publicBytecodeCommitment',
+    );
+    expect(contractClass).toEqual(expected);
+    expect(isContractClassPubliclyRegistered).toEqual(true);
+    deepStrictEqual(contractArtifact, artifact);
   });
 
-  it('getContractArtifact', async () => {
-    const result = await context.client.getContractArtifact(Fr.random());
-    deepStrictEqual(result, artifact);
-  });
-
-  it('isContractClassPubliclyRegistered', async () => {
-    const result = await context.client.isContractClassPubliclyRegistered(Fr.random());
-    expect(result).toBe(true);
-  });
-
-  it('isContractPubliclyDeployed', async () => {
-    const result = await context.client.isContractPubliclyDeployed(address);
-    expect(result).toBe(true);
-  });
-
-  it('isContractInitialized', async () => {
-    const result = await context.client.isContractInitialized(address);
-    expect(result).toBe(true);
-  });
-
-  it('getEncryptedEvents', async () => {
-    const result = await context.client.getEncryptedEvents<EpochProofQuote>(
+  it('getPrivateEvents', async () => {
+    const result = await context.client.getPrivateEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
-      [Point.random()],
+      [await Point.random()],
     );
     expect(result).toEqual([{ value: 1n }]);
   });
 
-  it('getUnencryptedEvents', async () => {
-    const result = await context.client.getUnencryptedEvents<EpochProofQuote>(
+  it('getPublicEvents', async () => {
+    const result = await context.client.getPublicEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -332,8 +353,8 @@ class MockPXE implements PXE {
     expect(partialAddress).toBeInstanceOf(Fr);
     return Promise.resolve(CompleteAddress.random());
   }
-  getRegisteredAccounts(): Promise<CompleteAddress[]> {
-    return Promise.resolve([CompleteAddress.random()]);
+  async getRegisteredAccounts(): Promise<CompleteAddress[]> {
+    return [await CompleteAddress.random()];
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
@@ -372,7 +393,7 @@ class MockPXE implements PXE {
       new TxProvingResult(privateExecutionResult, PrivateKernelTailCircuitPublicInputs.empty(), ClientIvcProof.empty()),
     );
   }
-  simulateTx(
+  async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
     msgSender?: AztecAddress | undefined,
@@ -388,9 +409,7 @@ class MockPXE implements PXE {
     if (scopes) {
       expect(scopes).toEqual([]);
     }
-    return Promise.resolve(
-      new TxSimulationResult(PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty()),
-    );
+    return new TxSimulationResult(await PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty());
   }
   sendTx(tx: Tx): Promise<TxHash> {
     expect(tx).toBeInstanceOf(Tx);
@@ -400,18 +419,19 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ data: TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 });
+    return { data: await TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 };
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
+  async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve([UniqueNote.random()]);
+    const uniqueNote = await UniqueNote.random();
+    return [uniqueNote];
   }
   getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
@@ -422,6 +442,11 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
+  }
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    expect(typeof blockNumber).toEqual('number');
+    expect(l2Tol1Message).toBeInstanceOf(Fr);
+    return Promise.resolve([1n, SiblingPath.random<number>(4)]);
   }
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
@@ -450,13 +475,13 @@ class MockPXE implements PXE {
     expect(scopes).toEqual([this.address]);
     return Promise.resolve(10n);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
@@ -465,8 +490,11 @@ class MockPXE implements PXE {
     return Promise.resolve(1);
   }
   @memoize
-  getNodeInfo(): Promise<NodeInfo> {
-    return Promise.resolve({
+  async getNodeInfo(): Promise<NodeInfo> {
+    const protocolContracts = await Promise.all(
+      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
+    );
+    return {
       nodeVersion: '1.0',
       l1ChainId: 1,
       protocolVersion: 1,
@@ -474,46 +502,37 @@ class MockPXE implements PXE {
       l1ContractAddresses: Object.fromEntries(
         L1ContractsNames.map(name => [name, EthAddress.random()]),
       ) as L1ContractAddresses,
-      protocolContractAddresses: Object.fromEntries(
-        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
-      ) as ProtocolContractAddresses,
-    });
+      protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
+    };
   }
   @memoize
-  getPXEInfo(): Promise<PXEInfo> {
+  async getPXEInfo(): Promise<PXEInfo> {
+    const protocolContracts = await Promise.all(
+      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
+    );
     return Promise.resolve({
-      protocolContractAddresses: Object.fromEntries(
-        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
-      ) as ProtocolContractAddresses,
+      protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
       pxeVersion: '1.0',
     });
   }
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    expect(address).toEqual(this.address);
-    return Promise.resolve(this.instance);
-  }
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  async getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
-    return Promise.resolve(contractClass);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
+    return Promise.resolve({
+      contractClass,
+      isContractClassPubliclyRegistered: true,
+      artifact: includeArtifact ? this.artifact : undefined,
+    });
   }
-  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    expect(id).toBeInstanceOf(Fr);
-    return Promise.resolve(this.artifact);
-  }
-  isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
-    expect(id).toBeInstanceOf(Fr);
-    return Promise.resolve(true);
-  }
-  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata> {
     expect(address).toEqual(this.address);
-    return Promise.resolve(true);
+    return Promise.resolve({
+      contractInstance: this.instance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
   }
-  isContractInitialized(address: AztecAddress): Promise<boolean> {
-    expect(address).toEqual(this.address);
-    return Promise.resolve(true);
-  }
-  getEncryptedEvents<T>(
+  getPrivateEvents<T>(
     _eventMetadata: EventMetadataDefinition,
     from: number,
     limit: number,
@@ -524,7 +543,7 @@ class MockPXE implements PXE {
     expect(vpks[0]).toBeInstanceOf(Point);
     return Promise.resolve([{ value: 1n } as T]);
   }
-  getUnencryptedEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+  getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     expect(from).toBe(1);
     expect(limit).toBe(1);
     return Promise.resolve([{ value: 1n } as T]);
