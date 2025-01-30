@@ -73,6 +73,7 @@ contract FPC {
     /// - the `max_fee`,
     /// - which FPC has been used to make the payment,
     /// - the asset which was used to make the payment.
+    // docs:start:fee_entrypoint_private
     #[private]
     fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
@@ -100,9 +101,11 @@ contract FPC {
         // Set the FPC as the fee payer of the tx.
         context.set_as_fee_payer();
     }
+    // docs:end:fee_entrypoint_private
 
     /// Executed as a public teardown function and is responsible for completing the refund in a private fee payment
     /// flow.
+    // docs:start:complete_refund
     #[public]
     #[internal]
     fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
@@ -120,6 +123,7 @@ contract FPC {
             &mut context,
         );
     }
+    // docs:end:complete_refund
 
     /// Pays for the tx fee with msg_sender's public balance of accepted asset (AA). The maximum fee a user is willing
     /// to pay is defined by `max_fee` and is denominated in AA.
