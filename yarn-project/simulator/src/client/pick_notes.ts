@@ -84,7 +84,7 @@ interface ContainsNote {
   note: Note;
 }
 
-const selectPropertyFromSerializedNote = (noteData: Fr[], selector: PropertySelector): Fr => {
+const selectPropertyFromPackedNoteContent = (noteData: Fr[], selector: PropertySelector): Fr => {
   const noteValueBuffer = noteData[selector.index].toBuffer();
   const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
   return Fr.fromBuffer(noteValue);
@@ -93,7 +93,7 @@ const selectPropertyFromSerializedNote = (noteData: Fr[], selector: PropertySele
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
   noteDatas.filter(noteData =>
     selects.every(({ selector, value, comparator }) => {
-      const noteValueFr = selectPropertyFromSerializedNote(noteData.note.items, selector);
+      const noteValueFr = selectPropertyFromPackedNoteContent(noteData.note.items, selector);
       const comparatorSelector = {
         [Comparator.EQ]: () => noteValueFr.equals(value),
         [Comparator.NEQ]: () => !noteValueFr.equals(value),
@@ -117,8 +117,8 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
     return 0;
   }
 
-  const aValue = selectPropertyFromSerializedNote(a, selector);
-  const bValue = selectPropertyFromSerializedNote(b, selector);
+  const aValue = selectPropertyFromPackedNoteContent(a, selector);
+  const bValue = selectPropertyFromPackedNoteContent(b, selector);
 
   const dir = order === 1 ? [-1, 1] : [1, -1];
   return aValue.toBigInt() === bValue.toBigInt()

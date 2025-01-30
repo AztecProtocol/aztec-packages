@@ -14,7 +14,7 @@ import {
   type GlobalVariables,
   TreeSnapshots,
 } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -158,15 +158,17 @@ export class TestContext {
     }
   }
 
-  public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): ProcessedTx;
-  public makeProcessedTx(seed?: number): ProcessedTx;
-  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): ProcessedTx {
+  public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
+  public makeProcessedTx(seed?: number): Promise<ProcessedTx>;
+  public async makeProcessedTx(
+    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
+  ): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
     const header = this.getBlockHeader(blockNum - 1);
     return makeBloatedProcessedTx({
       header,
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       globalVariables: this.globalVariables,
       ...opts,
@@ -184,7 +186,7 @@ export class TestContext {
     const blockNum = globalVariables.blockNumber.toNumber();
     const db = await this.worldState.fork();
     const msgs = times(numMsgs, i => new Fr(blockNum * 100 + i));
-    const txs = times(numTxs, i =>
+    const txs = await timesParallel(numTxs, i =>
       this.makeProcessedTx({ seed: i + blockNum * 1000, globalVariables, ...makeProcessedTxOpts(i) }),
     );
     await this.setEndTreeRoots(txs);
@@ -230,7 +232,7 @@ export class TestContext {
       await updateExpectedTreesFromTxs(db, [tx]);
       const stateReference = await db.getStateReference();
       if (tx.avmProvingRequest) {
-        tx.avmProvingRequest.inputs.output.endTreeSnapshots = new TreeSnapshots(
+        tx.avmProvingRequest.inputs.publicInputs.endTreeSnapshots = new TreeSnapshots(
           stateReference.l1ToL2MessageTree,
           stateReference.partial.noteHashTree,
           stateReference.partial.nullifierTree,

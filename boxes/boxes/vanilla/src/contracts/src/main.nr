@@ -6,7 +6,7 @@ contract Vanilla {
         protocol_types::public_keys::OvpkM,
         keys::getters::get_public_keys,
         prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{storage::storage, functions::{private, public, initializer}}
     };
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};

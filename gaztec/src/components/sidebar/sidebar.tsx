@@ -3,16 +3,13 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
-import { AztecContext } from "../home/home";
-import { AztecEnv } from "../../config";
+import { AztecEnv, AztecContext } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import {
   AccountWalletWithSecretKey,
-  Contract,
   Fr,
   TxHash,
   createLogger,
-  loadContractArtifact,
   AztecAddress,
 } from "@aztec/aztec.js";
 import { WalletDB } from "../../utils/storage";
@@ -211,6 +208,8 @@ export function SidebarComponent() {
     };
     if (currentContractAddress && walletDB) {
       refreshTransactions();
+    } else {
+      setTransactions([]);
     }
   }, [currentContractAddress, currentTx]);
 

@@ -11,12 +11,12 @@ export function parse<T extends [] | [z.ZodTypeAny, ...z.ZodTypeAny[]]>(args: IA
  * Parses the given arguments against a tuple, allowing empty for optional items.
  * @dev Zod doesn't like tuplues with optional items. See https://github.com/colinhacks/zod/discussions/949.
  */
-export function parseWithOptionals<T extends z.AnyZodTuple>(args: any[], schema: T): T['_output'] {
+export function parseWithOptionals<T extends z.AnyZodTuple>(args: any[], schema: T): Promise<T['_output']> {
   const missingCount = schema.items.length - args.length;
   const optionalCount = schema.items.filter(isOptional).length;
   const toParse =
     missingCount > 0 && missingCount <= optionalCount ? args.concat(times(missingCount, () => undefined)) : args;
-  return schema.parse(toParse);
+  return schema.parseAsync(toParse);
 }
 
 function isOptional(schema: z.ZodTypeAny) {

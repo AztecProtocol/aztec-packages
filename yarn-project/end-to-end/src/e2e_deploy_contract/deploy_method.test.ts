@@ -50,16 +50,18 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
-    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.contractClassId)).toBeTrue();
+    expect(
+      (await pxe.getContractClassMetadata(contract.instance.contractClassId)).isContractClassPubliclyRegistered,
+    ).toBeTrue();
   });
 
   // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
   // because we're manually adding them to the archiver to support provernet.
   it('registers a contract class for a common contract', async () => {
-    const { id: tokenContractClass } = getContractClassFromArtifact(TokenContract.artifact);
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeFalse();
+    const { id: tokenContractClass } = await getContractClassFromArtifact(TokenContract.artifact);
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeFalse();
     await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeTrue();
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
@@ -132,7 +134,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = contract.methods.increment_public_value(owner, 84).request();
+    const init = await contract.methods.increment_public_value(owner, 84).request();
     logger.debug(`Deploying a contract and calling a public function in the same batched call`);
     await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
   }, 300_000);

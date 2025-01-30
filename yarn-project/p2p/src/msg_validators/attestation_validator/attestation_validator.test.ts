@@ -18,7 +18,7 @@ describe('AttestationValidator', () => {
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create an attestation for slot 97
     const header = makeHeader(1, 97, 97);
-    const mockAttestation = makeBlockAttestation({
+    const mockAttestation = await makeBlockAttestation({
       header,
     });
 
@@ -35,7 +35,7 @@ describe('AttestationValidator', () => {
 
   it('returns high tolerance error if attester is not in committee', async () => {
     // The slot is correct, but the attester is not in the committee
-    const mockAttestation = makeBlockAttestation({
+    const mockAttestation = await makeBlockAttestation({
       header: makeHeader(1, 100, 100),
     });
 
@@ -52,7 +52,7 @@ describe('AttestationValidator', () => {
 
   it('returns undefined if attestation is valid (current slot)', async () => {
     // Create an attestation for slot 100
-    const mockAttestation = makeBlockAttestation({
+    const mockAttestation = await makeBlockAttestation({
       header: makeHeader(1, 100, 100),
     });
 
@@ -69,7 +69,7 @@ describe('AttestationValidator', () => {
 
   it('returns undefined if attestation is valid (next slot)', async () => {
     // Setup attestation for next slot
-    const mockAttestation = makeBlockAttestation({
+    const mockAttestation = await makeBlockAttestation({
       header: makeHeader(1, 101, 101),
     });
 

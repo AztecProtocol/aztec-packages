@@ -22,7 +22,8 @@ import {
   FormattedViemError,
   type GasPrice,
   type L1ContractsConfig,
-  L1TxUtils,
+  type L1TxUtils,
+  L1TxUtilsWithBlobs,
   createEthereumChain,
   formatViemError,
 } from '@aztec/ethereum';
@@ -210,7 +211,7 @@ export class L1Publisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
 
     this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
@@ -237,7 +238,7 @@ export class L1Publisher {
       this.governanceProposerAddress = EthAddress.fromString(l1Contracts.governanceProposerAddress.toString());
     }
 
-    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
+    this.l1TxUtils = new L1TxUtilsWithBlobs(this.publicClient, this.walletClient, this.log, config);
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -581,18 +582,18 @@ export class L1Publisher {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
-      blockHash: block.hash().toString(),
+      blockHash: (await block.hash()).toString(),
     };
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: block.header.hash().toBuffer(),
+      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -630,6 +631,11 @@ export class L1Publisher {
 
     // Tx was mined successfully
     if (receipt.status === 'success') {
+      // Send the blobs to the blob sink
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      });
+
       const tx = await this.getTransactionStats(receipt.transactionHash);
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
@@ -643,11 +649,6 @@ export class L1Publisher {
       };
       this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
-      // Send the blobs to the blob sink
-      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
-      });
 
       return true;
     }
@@ -663,7 +664,7 @@ export class L1Publisher {
         address: this.rollupContract.address,
       },
       {
-        blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
+        blobs: proposeTxArgs.blobs.map(b => b.data),
         kzg,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
@@ -985,7 +986,7 @@ export class L1Publisher {
       },
       {},
       {
-        blobs: encodedData.blobs.map(b => b.dataWithZeros),
+        blobs: encodedData.blobs.map(b => b.data),
         kzg,
       },
     );
@@ -1102,7 +1103,7 @@ export class L1Publisher {
           gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
         },
       );
@@ -1182,7 +1183,7 @@ export class L1Publisher {
           gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
         },
       );

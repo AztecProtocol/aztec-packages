@@ -121,7 +121,7 @@ std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relati
             }
             degrees_string += std::to_string(degree) + "°: " + std::to_string(count);
         }
-        relations_degrees.insert({ Relation::NAME, std::move(degrees_string) });
+        relations_degrees.insert({ std::string(Relation::NAME), std::move(degrees_string) });
     });
 
     return relations_degrees;

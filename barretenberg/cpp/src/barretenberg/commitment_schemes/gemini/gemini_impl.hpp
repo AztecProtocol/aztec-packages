@@ -43,8 +43,7 @@ template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr circuit_size,
-    RefSpan<Polynomial> f_polynomials, // unshifted
-    RefSpan<Polynomial> g_polynomials, // to-be-shifted
+    PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
@@ -57,37 +56,24 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     const bool has_concatenations = concatenated_polynomials.size() > 0;
 
-    // Compute batched polynomials
-    Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
-
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (has_zk) {
-        batched_unshifted = Polynomial::random(n);
-        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
+        Polynomial random_polynomial(n);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
         transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     batched_unshifted.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
+                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
+        // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
+        polynomial_batcher.set_random_polynomial(std::move(random_polynomial));
     }
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr rho_challenge{ 1 };
-    if (has_zk) {
-        // ρ⁰ is used to batch the hiding polynomial
-        rho_challenge *= rho;
-    }
+    Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
-    for (size_t i = 0; i < f_polynomials.size(); i++) {
-        batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
-    }
-    for (size_t i = 0; i < g_polynomials.size(); i++) {
-        batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
-    }
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
 
     size_t num_groups = groups_to_be_concatenated.size();
     size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
@@ -102,18 +88,13 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
 
         for (size_t i = 0; i < num_groups; ++i) {
-            batched_concatenated.add_scaled(concatenated_polynomials[i], rho_challenge);
+            batched_concatenated.add_scaled(concatenated_polynomials[i], running_scalar);
             for (size_t j = 0; j < num_chunks_per_group; ++j) {
-                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], rho_challenge);
+                batched_group[j].add_scaled(groups_to_be_concatenated[i][j], running_scalar);
             }
-            rho_challenge *= rho;
+            running_scalar *= rho;
         }
-    }
-
-    // Construct the batched polynomial A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X
-    Polynomial A_0 = batched_unshifted;
-    A_0 += batched_to_be_shifted.shifted();
-    if (has_concatenations) { // If proving for translator, add contribution of the batched concatenation polynomials
+        // If proving for translator, add contribution of the batched concatenation polynomials
         A_0 += batched_concatenated;
     }
 
@@ -141,8 +122,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     }
 
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
-    auto [A_0_pos, A_0_neg] = compute_partially_evaluated_batch_polynomials(
-        log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), r_challenge, batched_group);
+    auto [A_0_pos, A_0_neg] =
+        compute_partially_evaluated_batch_polynomials(log_n, polynomial_batcher, r_challenge, batched_group);
 
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
@@ -237,20 +218,11 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
 template <typename Curve>
 std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::
     compute_partially_evaluated_batch_polynomials(const size_t log_n,
-                                                  Polynomial&& batched_F,
-                                                  Polynomial&& batched_G,
+                                                  PolynomialBatcher& polynomial_batcher,
                                                   const Fr& r_challenge,
                                                   const std::vector<Polynomial>& batched_groups_to_be_concatenated)
 {
-    Polynomial& A_0_pos = batched_F; // A₀₊ = F
-    Polynomial A_0_neg = batched_F;  // A₀₋ = F
-
-    // Compute G/r
-    Fr r_inv = r_challenge.invert();
-    batched_G *= r_inv;
-
-    A_0_pos += batched_G; // A₀₊ = F + G/r
-    A_0_neg -= batched_G; // A₀₋ = F - G/r
+    auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
 
     // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and add
     // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):
@@ -279,7 +251,7 @@ std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curv
         }
     }
 
-    return { std::move(A_0_pos), std::move(A_0_neg) };
+    return { A_0_pos, A_0_neg };
 };
 
 /**
