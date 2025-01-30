@@ -105,13 +105,12 @@ export class SequencerMetrics {
     this.setCurrentBlock(0, 0);
   }
 
-  recordPublishedBlock(buildDurationMs: number, totalMana: number) {
+  recordBuiltBlock(buildDurationMs: number, totalMana: number) {
     this.blockCounter.add(1, {
-      [Attributes.STATUS]: 'published',
+      [Attributes.STATUS]: 'built',
     });
     this.blockBuildDuration.record(Math.ceil(buildDurationMs));
     this.blockBuildManaPerSecond.record(Math.ceil((totalMana * 1000) / buildDurationMs));
-    this.setCurrentBlock(0, 0);
   }
 
   recordFailedBlock() {
