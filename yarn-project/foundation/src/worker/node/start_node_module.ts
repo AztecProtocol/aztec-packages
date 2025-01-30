@@ -24,6 +24,7 @@ export function startNodeModule(module: WasmModule) {
   };
   const transportListener = new NodeListener();
   const transportServer = new TransportServer<DispatchMsg>(transportListener, dispatch);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   module.addLogger((...args: any[]) => transportServer.broadcast({ fn: 'emit', args: ['log', ...args] }));
   transportServer.start();
 }

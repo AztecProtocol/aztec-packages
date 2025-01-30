@@ -377,11 +377,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return this.peerManager.getPeers(includePending);
   }
 
-  private async handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
+  private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
     const { msg } = e.detail;
     this.logger.trace(`Received PUBSUB message.`);
 
-    await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
+    void this.jobQueue
+      .put(() => this.handleNewGossipMessage(msg))
+      .catch(err => this.logger.error(`Error processing gossip message`, err));
   }
 
   /**

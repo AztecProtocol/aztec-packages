@@ -247,7 +247,7 @@ export class ProvingOrchestrator implements EpochProver {
       const tubeInputs = new TubeInputs(tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
-      this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
+      this.doEnqueueTube(txHash, tubeInputs, proof => Promise.resolve(tubeProof.resolve(proof)));
       this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
   }
@@ -448,7 +448,7 @@ export class ProvingOrchestrator implements EpochProver {
     };
 
     // let the callstack unwind before adding the job to the queue
-    setImmediate(safeJob);
+    setImmediate(() => void safeJob());
   }
 
   private async prepareBaseParityInputs(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
@@ -593,7 +593,7 @@ export class ProvingOrchestrator implements EpochProver {
   private doEnqueueTube(
     txHash: string,
     inputs: TubeInputs,
-    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
+    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => Promise<void>,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {
     if (!provingState?.verifyState()) {
