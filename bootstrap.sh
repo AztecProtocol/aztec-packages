@@ -111,9 +111,7 @@ function install_hooks {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    # WORKTODO(adam) grego redoing these boxes,
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects barretenberg l1-contracts noir
-    #set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
