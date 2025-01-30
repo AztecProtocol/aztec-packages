@@ -586,7 +586,7 @@ mod tests {
     fn errors_if_missing_right_bracket_after_slice_type() {
         let src = "
         [Field
-              ^
+             ^
         ";
         let (src, span) = get_source_with_error_span(src);
         let mut parser = Parser::for_str(&src);
