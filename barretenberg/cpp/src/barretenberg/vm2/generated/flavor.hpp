@@ -21,6 +21,7 @@
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_retrieval.hpp"
+#include "relations/bitwise.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/range_check.hpp"
@@ -28,6 +29,7 @@
 
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
+#include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -73,13 +75,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 14;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 364;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 63;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 382;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 68;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 441;
+    static constexpr size_t NUM_ALL_ENTITIES = 466;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -90,6 +92,7 @@ class AvmFlavor {
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_retrieval<FF_>,
+        avm2::bitwise<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::range_check<FF_>,
@@ -101,6 +104,8 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_bitw_byte_lengths_relation<FF_>,
+        lookup_bitw_byte_operations_relation<FF_>,
         lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
@@ -368,8 +373,10 @@ class AvmFlavor {
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
+            this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
