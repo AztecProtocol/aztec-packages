@@ -1,18 +1,14 @@
 import { EthAddress } from '@aztec/circuits.js';
+import { type L1Clients } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 import { IERC20Abi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import {
   type Chain,
-  type Client,
   type GetContractReturnType,
   type HttpTransport,
   type PrivateKeyAccount,
-  type PublicActions,
-  type PublicRpcSchema,
-  type WalletActions,
   type WalletClient,
-  type WalletRpcSchema,
   getContract,
 } from 'viem';
 
@@ -23,16 +19,7 @@ export class TokenContract {
   private token: GetContractReturnType<typeof IERC20Abi, WalletClient<HttpTransport, Chain, PrivateKeyAccount>>;
   private logger = createLogger('prover-node:token-contract');
 
-  constructor(
-    private readonly client: Client<
-      HttpTransport,
-      Chain,
-      PrivateKeyAccount,
-      [...WalletRpcSchema, ...PublicRpcSchema],
-      PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-    >,
-    address: EthAddress,
-  ) {
+  constructor(private readonly client: L1Clients['walletClient'], address: EthAddress) {
     this.token = getContract({ address: address.toString(), abi: IERC20Abi, client });
   }
 

@@ -508,6 +508,7 @@ describe('e2e_block_building', () => {
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
+        ethereumSlotDuration: 6,
       }));
 
       logger.info('Deploying token contract');
