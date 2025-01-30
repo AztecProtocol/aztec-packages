@@ -1,5 +1,6 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type Koa from 'koa';
 
@@ -42,7 +43,7 @@ export function compressComponentVersions(versions: ComponentsVersions): string 
     versions.l2ProtocolContractsTreeRoot === undefined ||
     versions.l2CircuitsVkTreeRoot === undefined
   ) {
-    throw new Error(`Component versions are not set: ${versions}`);
+    throw new Error(`Component versions are not set: ${jsonStringify(versions)}`);
   }
   return [
     '00',

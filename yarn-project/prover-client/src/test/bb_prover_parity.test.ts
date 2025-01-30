@@ -11,7 +11,7 @@ import {
   VerificationKeyAsFields,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -56,12 +56,12 @@ describe('prover/bb_prover/parity', () => {
       baseParityInputs.map(baseInputs => context.prover.getBaseParityProof(baseInputs)),
     );
 
-    const rootInputs = await makeTupleAsync(NUM_BASE_PARITY_PER_ROOT_PARITY, async i => {
+    const rootInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i => {
       const { proof, inputs, verificationKey } = baseParityProofsAndPublicInputs[i];
       return new RootParityInput(
         proof,
         verificationKey.keyAsFields,
-        await getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
+        getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
         inputs,
       );
     });
@@ -93,7 +93,7 @@ describe('prover/bb_prover/parity', () => {
     // In each case either the proof should fail to generate or verify
 
     const validVk = rootParityInputs.children[0].verificationKey;
-    const baseParityVkPath = await getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact);
+    const baseParityVkPath = getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact);
     const validPublicInputs = rootParityInputs.children[0].publicInputs;
     const validProof = rootParityInputs.children[0].proof;
 

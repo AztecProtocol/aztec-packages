@@ -106,6 +106,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,
+  chainConfig: ChainConfig = emptyChainConfig,
 ) {
   peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
@@ -120,6 +121,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     p2pEnabled: true,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
     skipBootstrapNodeEnrVersionCheck: true,
+    ...chainConfig,
   } as P2PConfig & DataStoreConfig;
   const discoveryService = new DiscV5Service(peerId, config, telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
