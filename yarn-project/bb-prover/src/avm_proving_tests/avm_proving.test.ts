@@ -386,7 +386,7 @@ describe('AVM WitGen & Circuit', () => {
     const sender = AztecAddress.fromNumber(42);
     const feePayer = sender;
 
-    const initialFeeJuiceBalance = new Fr(10000);
+    const initialFeeJuiceBalance = new Fr(20000);
     let feeJuice: ProtocolContract;
     let feeJuiceContractClassPublic: ContractClassPublic;
 
