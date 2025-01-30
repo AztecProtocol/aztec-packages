@@ -350,16 +350,7 @@ impl<'a> NodeFinder<'a> {
 
         self.auto_import_trait_if_trait_method(func_id, trait_info, &mut completion_item);
 
-        if let (Some(type_id), Some(variant_index)) =
-            (func_meta.type_id, func_meta.enum_variant_index)
-        {
-            self.completion_item_with_doc_comments(
-                ReferenceId::EnumVariant(type_id, variant_index),
-                completion_item,
-            )
-        } else {
-            self.completion_item_with_doc_comments(ReferenceId::Function(func_id), completion_item)
-        }
+        self.completion_item_with_doc_comments(ReferenceId::Function(func_id), completion_item)
     }
 
     fn auto_import_trait_if_trait_method(

@@ -1963,7 +1963,6 @@ fn module_def_id_from_reference_id(reference_id: ReferenceId) -> Option<ModuleDe
         ReferenceId::Function(func_id) => Some(ModuleDefId::FunctionId(func_id)),
         ReferenceId::Alias(type_alias_id) => Some(ModuleDefId::TypeAliasId(type_alias_id)),
         ReferenceId::StructMember(_, _)
-        | ReferenceId::EnumVariant(_, _)
         | ReferenceId::Global(_)
         | ReferenceId::Local(_)
         | ReferenceId::Reference(_, _) => None,

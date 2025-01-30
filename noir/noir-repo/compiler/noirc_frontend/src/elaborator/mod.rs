@@ -1039,12 +1039,6 @@ impl<'context> Elaborator<'context> {
                     for (_, typ) in fields {
                         self.mark_type_as_used(&typ);
                     }
-                } else if let Some(variants) = datatype.borrow().get_variants(generics) {
-                    for (_, variant_types) in variants {
-                        for typ in variant_types {
-                            self.mark_type_as_used(&typ);
-                        }
-                    }
                 }
             }
             Type::Alias(alias_type, generics) => {

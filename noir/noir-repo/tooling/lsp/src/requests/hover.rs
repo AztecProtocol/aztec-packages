@@ -16,8 +16,7 @@ use noirc_frontend::{
         DefinitionId, DefinitionKind, ExprId, FuncId, GlobalId, NodeInterner, ReferenceId, TraitId,
         TraitImplKind, TypeAliasId, TypeId,
     },
-    DataType, EnumVariant, Generics, Shared, StructField, Type, TypeAlias, TypeBinding,
-    TypeVariable,
+    DataType, Generics, Shared, StructField, Type, TypeAlias, TypeBinding, TypeVariable,
 };
 
 use crate::{
@@ -78,9 +77,7 @@ fn format_reference(reference: ReferenceId, args: &ProcessRequestCallbackArgs) -
         ReferenceId::StructMember(id, field_index) => {
             Some(format_struct_member(id, field_index, args))
         }
-        ReferenceId::EnumVariant(id, variant_index) => {
-            Some(format_enum_variant(id, variant_index, args))
-        }
+
         ReferenceId::Trait(id) => Some(format_trait(id, args)),
         ReferenceId::Global(id) => Some(format_global(id, args)),
         ReferenceId::Function(id) => Some(format_function(id, args)),
@@ -131,8 +128,6 @@ fn format_type(id: TypeId, args: &ProcessRequestCallbackArgs) -> String {
     let typ = typ.borrow();
     if let Some(fields) = typ.get_fields_as_written() {
         format_struct(&typ, fields, args)
-    } else if let Some(variants) = typ.get_variants_as_written() {
-        format_enum(&typ, variants, args)
     } else {
         unreachable!("Type should either be a struct or an enum")
     }
@@ -166,40 +161,6 @@ fn format_struct(
     string
 }
 
-fn format_enum(
-    typ: &DataType,
-    variants: Vec<EnumVariant>,
-    args: &ProcessRequestCallbackArgs,
-) -> String {
-    let mut string = String::new();
-    if format_parent_module(ReferenceId::Type(typ.id), args, &mut string) {
-        string.push('\n');
-    }
-    string.push_str("    ");
-    string.push_str("enum ");
-    string.push_str(&typ.name.0.contents);
-    format_generics(&typ.generics, &mut string);
-    string.push_str(" {\n");
-    for field in variants {
-        string.push_str("        ");
-        string.push_str(&field.name.0.contents);
-
-        if !field.params.is_empty() {
-            let types = field.params.iter().map(ToString::to_string).collect::<Vec<_>>();
-            string.push('(');
-            string.push_str(&types.join(", "));
-            string.push(')');
-        }
-
-        string.push_str(",\n");
-    }
-    string.push_str("    }");
-
-    append_doc_comments(args.interner, ReferenceId::Type(typ.id), &mut string);
-
-    string
-}
-
 fn format_struct_member(
     id: TypeId,
     field_index: usize,
@@ -222,39 +183,6 @@ fn format_struct_member(
     string.push_str(&go_to_type_links(&field.typ, args.interner, args.files));
 
     append_doc_comments(args.interner, ReferenceId::StructMember(id, field_index), &mut string);
-
-    string
-}
-
-fn format_enum_variant(
-    id: TypeId,
-    field_index: usize,
-    args: &ProcessRequestCallbackArgs,
-) -> String {
-    let enum_type = args.interner.get_type(id);
-    let enum_type = enum_type.borrow();
-    let variant = enum_type.variant_at(field_index);
-
-    let mut string = String::new();
-    if format_parent_module(ReferenceId::Type(id), args, &mut string) {
-        string.push_str("::");
-    }
-    string.push_str(&enum_type.name.0.contents);
-    string.push('\n');
-    string.push_str("    ");
-    string.push_str(&variant.name.0.contents);
-    if !variant.params.is_empty() {
-        let types = variant.params.iter().map(ToString::to_string).collect::<Vec<_>>();
-        string.push('(');
-        string.push_str(&types.join(", "));
-        string.push(')');
-    }
-
-    for typ in variant.params.iter() {
-        string.push_str(&go_to_type_links(typ, args.interner, args.files));
-    }
-
-    append_doc_comments(args.interner, ReferenceId::EnumVariant(id, field_index), &mut string);
 
     string
 }
@@ -396,11 +324,7 @@ fn format_function(id: FuncId, args: &ProcessRequestCallbackArgs) -> String {
         _ => None,
     };
 
-    let reference_id = if let Some((type_id, variant_index)) = enum_variant {
-        ReferenceId::EnumVariant(type_id, variant_index)
-    } else {
-        ReferenceId::Function(id)
-    };
+    let reference_id = ReferenceId::Function(id);
 
     let mut string = String::new();
     let formatted_parent_module = format_parent_module(reference_id, args, &mut string);

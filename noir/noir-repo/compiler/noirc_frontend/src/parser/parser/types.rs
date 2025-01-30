@@ -208,9 +208,7 @@ impl<'a> Parser<'a> {
         if self.eat_keyword(Keyword::StructDefinition) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::StructDefinition));
         }
-        if self.eat_keyword(Keyword::EnumDefinition) {
-            return Some(UnresolvedTypeData::Quoted(QuotedType::EnumDefinition));
-        }
+
         if self.eat_keyword(Keyword::TraitConstraint) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::TraitConstraint));
         }
@@ -587,7 +585,7 @@ mod tests {
     #[test]
     fn errors_if_missing_right_bracket_after_slice_type() {
         let src = "
-        [Field 
+        [Field
               ^
         ";
         let (src, span) = get_source_with_error_span(src);

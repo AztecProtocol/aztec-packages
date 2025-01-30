@@ -22,7 +22,6 @@ pub enum DuplicateType {
     TraitAssociatedConst,
     TraitAssociatedFunction,
     StructField,
-    EnumVariant,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -121,7 +120,6 @@ impl fmt::Display for DuplicateType {
             DuplicateType::TraitAssociatedConst => write!(f, "trait associated constant"),
             DuplicateType::TraitAssociatedFunction => write!(f, "trait associated function"),
             DuplicateType::StructField => write!(f, "struct field"),
-            DuplicateType::EnumVariant => write!(f, "enum variant"),
         }
     }
 }

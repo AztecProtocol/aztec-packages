@@ -71,12 +71,6 @@ impl NodeInterner {
                 let file = struct_type.location.file;
                 Location::new(struct_type.field_at(field_index).name.span(), file)
             }
-            ReferenceId::EnumVariant(id, variant_index) => {
-                let typ = self.get_type(id);
-                let typ = typ.borrow();
-                let file = typ.location.file;
-                Location::new(typ.variant_at(variant_index).name.span(), file)
-            }
             ReferenceId::Trait(id) => {
                 let trait_type = self.get_trait(id);
                 Location::new(trait_type.name.span(), trait_type.location.file)

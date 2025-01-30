@@ -594,9 +594,6 @@ impl<'interner> Monomorphizer<'interner> {
             HirExpression::Comptime(_) => {
                 unreachable!("comptime expression remaining in runtime code")
             }
-            HirExpression::EnumConstructor(constructor) => {
-                self.enum_constructor(constructor, expr)?
-            }
         };
 
         Ok(expr)
@@ -774,48 +771,6 @@ impl<'interner> Monomorphizer<'interner> {
         // Finally we can return the created Tuple from the new block
         new_exprs.push(ast::Expression::Tuple(field_idents));
         Ok(ast::Expression::Block(new_exprs))
-    }
-
-    /// For an enum like:
-    /// ```
-    /// enum Foo {
-    ///    A(i32, u32),
-    ///    B(Field),
-    ///    C
-    /// }
-    /// ```
-    /// this will translate the call `Foo::A(1, 2)` into `(0, (1, 2), (0,), ())` where
-    /// the first field `0` is the tag value, the second is `A`, third is `B`, and fourth is `C`.
-    /// Each variant that isn't the desired variant has zeroed values filled in for its data.
-    fn enum_constructor(
-        &mut self,
-        constructor: HirEnumConstructorExpression,
-        id: node_interner::ExprId,
-    ) -> Result<ast::Expression, MonomorphizationError> {
-        let location = self.interner.expr_location(&id);
-        let typ = self.interner.id_type(id);
-        let variants = unwrap_enum_type(&typ, location)?;
-
-        // Fill in each field of the translated enum tuple.
-        // For most fields this will be simply `std::mem::zeroed::<T>()`,
-        // but for the given variant we just pack all the arguments into a tuple for that field.
-        let mut fields = try_vecmap(variants.into_iter().enumerate(), |(i, (_, arg_types))| {
-            let fields = if i == constructor.variant_index {
-                try_vecmap(&constructor.arguments, |arg| self.expr(*arg))
-            } else {
-                try_vecmap(arg_types, |typ| {
-                    let typ = Self::convert_type(&typ, location)?;
-                    Ok(self.zeroed_value_of_type(&typ, location))
-                })
-            }?;
-            Ok(ast::Expression::Tuple(fields))
-        })?;
-
-        let tag_value = FieldElement::from(constructor.variant_index);
-        let tag = ast::Literal::Integer(tag_value, false, ast::Type::Field, location);
-        fields.insert(0, ast::Expression::Literal(tag));
-
-        Ok(ast::Expression::Tuple(fields))
     }
 
     fn block(
@@ -1216,15 +1171,6 @@ impl<'interner> Monomorphizer<'interner> {
                 if let Some(fields) = def.get_fields(args) {
                     let fields =
                         try_vecmap(fields, |(_, field)| Self::convert_type(&field, location))?;
-                    ast::Type::Tuple(fields)
-                } else if let Some(variants) = def.get_variants(args) {
-                    // Enums are represented as (tag, variant1, variant2, .., variantN)
-                    let mut fields = vec![ast::Type::Field];
-                    for (_, variant_fields) in variants {
-                        let variant_fields =
-                            try_vecmap(variant_fields, |typ| Self::convert_type(&typ, location))?;
-                        fields.push(ast::Type::Tuple(variant_fields));
-                    }
                     ast::Type::Tuple(fields)
                 } else {
                     unreachable!("Data type has no body")
@@ -2203,23 +2149,6 @@ fn unwrap_struct_type(
             Ok(def.borrow().get_fields(&args).unwrap())
         }
         other => unreachable!("unwrap_struct_type: expected struct, found {:?}", other),
-    }
-}
-
-fn unwrap_enum_type(
-    typ: &HirType,
-    location: Location,
-) -> Result<Vec<(String, Vec<HirType>)>, MonomorphizationError> {
-    match typ.follow_bindings() {
-        HirType::DataType(def, args) => {
-            // Some of args might not be mentioned in fields, so we need to check that they aren't unbound.
-            for arg in &args {
-                Monomorphizer::check_type(arg, location)?;
-            }
-
-            Ok(def.borrow().get_variants(&args).unwrap())
-        }
-        other => unreachable!("unwrap_enum_type: expected enum, found {:?}", other),
     }
 }
 

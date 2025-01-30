@@ -301,7 +301,6 @@ pub enum ReferenceId {
     Module(ModuleId),
     Type(TypeId),
     StructMember(TypeId, usize),
-    EnumVariant(TypeId, usize),
     Trait(TraitId),
     Global(GlobalId),
     Function(FuncId),

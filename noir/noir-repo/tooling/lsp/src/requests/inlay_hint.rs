@@ -101,13 +101,7 @@ impl<'a> InlayHintCollector<'a> {
                         let field = struct_type.field_at(field_index);
                         self.push_type_hint(lsp_location, &field.typ, false, include_colon);
                     }
-                    ReferenceId::EnumVariant(type_id, variant_index) => {
-                        let typ = self.interner.get_type(type_id);
-                        let shared_type = typ.clone();
-                        let typ = typ.borrow();
-                        let variant_type = typ.variant_function_type(variant_index, shared_type);
-                        self.push_type_hint(lsp_location, &variant_type, false, include_colon);
-                    }
+
                     ReferenceId::Module(_)
                     | ReferenceId::Type(_)
                     | ReferenceId::Trait(_)

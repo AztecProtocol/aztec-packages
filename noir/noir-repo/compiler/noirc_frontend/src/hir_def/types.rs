@@ -315,7 +315,6 @@ pub enum QuotedType {
     Type,
     TypedExpr,
     StructDefinition,
-    EnumDefinition,
     TraitConstraint,
     TraitDefinition,
     TraitImpl,
@@ -461,15 +460,6 @@ impl DataType {
         }
     }
 
-    /// Retrieve the variants of this type with no modifications.
-    /// Panics if this is not an enum type.
-    fn variants_raw(&self) -> Option<&[EnumVariant]> {
-        match &self.body {
-            TypeBody::Enum(variants) => Some(variants),
-            _ => None,
-        }
-    }
-
     /// Return the generics on this type as a vector of types
     pub fn generic_types(&self) -> Vec<Type> {
         vecmap(&self.generics, |generic| {
@@ -523,17 +513,6 @@ impl DataType {
         }))
     }
 
-    /// Retrieve the variants of this type. Returns None if this is not an enum type
-    pub fn get_variants(&self, generic_args: &[Type]) -> Option<Vec<(String, Vec<Type>)>> {
-        let substitutions = self.get_fields_substitutions(generic_args);
-
-        Some(vecmap(self.variants_raw()?, |variant| {
-            let name = variant.name.to_string();
-            let args = vecmap(&variant.params, |param| param.substitute(&substitutions));
-            (name, args)
-        }))
-    }
-
     fn get_fields_substitutions(
         &self,
         generic_args: &[Type],
@@ -561,25 +540,10 @@ impl DataType {
         Some(self.fields_raw()?.to_vec())
     }
 
-    /// Returns the name and raw parameters of each variant of this type.
-    /// This will not substitute any generic arguments so a generic variant like `X`
-    /// in `enum Foo<T> { X(T) }` will return a `("X", Vec<T>)` pair.
-    ///
-    /// Returns None if this is not an enum type.
-    pub fn get_variants_as_written(&self) -> Option<Vec<EnumVariant>> {
-        Some(self.variants_raw()?.to_vec())
-    }
-
     /// Returns the field at the given index. Panics if no field exists at the given index or this
     /// is not a struct type.
     pub fn field_at(&self, index: usize) -> &StructField {
         &self.fields_raw().unwrap()[index]
-    }
-
-    /// Returns the enum variant at the given index. Panics if no field exists at the given index
-    /// or this is not an enum type.
-    pub fn variant_at(&self, index: usize) -> &EnumVariant {
-        &self.variants_raw().unwrap()[index]
     }
 
     /// Returns each of this type's field names. Returns None if this is not a struct type.
@@ -591,35 +555,6 @@ impl DataType {
     /// the same order as self.generics)
     pub fn instantiate(&self, interner: &mut NodeInterner) -> Vec<Type> {
         vecmap(&self.generics, |generic| interner.next_type_variable_with_kind(generic.kind()))
-    }
-
-    /// Returns the function type of the variant at the given index of this enum.
-    /// Requires the `Shared<DataType>` handle of self to create the given function type.
-    /// Panics if this is not an enum.
-    ///
-    /// The function type uses the variant "as written" ie. no generic substitutions.
-    /// Although the returned function is technically generic, Type::Function is returned
-    /// instead of Type::Forall.
-    pub fn variant_function_type(&self, variant_index: usize, this: Shared<DataType>) -> Type {
-        let variant = self.variant_at(variant_index);
-        let args = variant.params.clone();
-        assert_eq!(this.borrow().id, self.id);
-        let generics = self.generic_types();
-        let ret = Box::new(Type::DataType(this, generics));
-        Type::Function(args, ret, Box::new(Type::Unit), false)
-    }
-
-    /// Returns the function type of the variant at the given index of this enum.
-    /// Requires the `Shared<DataType>` handle of self to create the given function type.
-    /// Panics if this is not an enum.
-    pub fn variant_function_type_with_forall(
-        &self,
-        variant_index: usize,
-        this: Shared<DataType>,
-    ) -> Type {
-        let function_type = self.variant_function_type(variant_index, this);
-        let typevars = vecmap(&self.generics, |generic| generic.type_var.clone());
-        Type::Forall(typevars, Box::new(function_type))
     }
 }
 
@@ -1050,7 +985,6 @@ impl std::fmt::Display for QuotedType {
             QuotedType::Type => write!(f, "Type"),
             QuotedType::TypedExpr => write!(f, "TypedExpr"),
             QuotedType::StructDefinition => write!(f, "StructDefinition"),
-            QuotedType::EnumDefinition => write!(f, "EnumDefinition"),
             QuotedType::TraitDefinition => write!(f, "TraitDefinition"),
             QuotedType::TraitConstraint => write!(f, "TraitConstraint"),
             QuotedType::TraitImpl => write!(f, "TraitImpl"),
@@ -1501,14 +1435,6 @@ impl Type {
                 let struct_type = def.borrow();
                 if let Some(fields) = struct_type.get_fields(args) {
                     fields.iter().map(|(_, field_type)| field_type.field_count(location)).sum()
-                } else if let Some(variants) = struct_type.get_variants(args) {
-                    let mut size = 1; // start with the tag size
-                    for (_, args) in variants {
-                        for arg in args {
-                            size += arg.field_count(location);
-                        }
-                    }
-                    size
                 } else {
                     0
                 }
@@ -1553,10 +1479,6 @@ impl Type {
                 let typ = typ.borrow();
                 if let Some(fields) = typ.get_fields(generics) {
                     if fields.iter().any(|(_, field)| field.contains_slice()) {
-                        return true;
-                    }
-                } else if let Some(variants) = typ.get_variants(generics) {
-                    if variants.iter().flat_map(|(_, args)| args).any(|typ| typ.contains_slice()) {
                         return true;
                     }
                 }
