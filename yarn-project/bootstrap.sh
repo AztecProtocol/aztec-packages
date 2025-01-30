@@ -69,7 +69,7 @@ function test_cmds {
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: Uses mocha so will need different treatment. WORKTODO(adam)
+  # kv-store: Uses mocha so will need different treatment.
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
@@ -77,7 +77,7 @@ function test_cmds {
   done
 
   # Uses mocha - so we have to treat it differently...
-  # echo "cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/kv-store && yarn test"
 }
 
 function test {

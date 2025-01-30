@@ -53,6 +53,11 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function release {
+  # TODO: Publish to own repo with current tag REF_NAME
+  true
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx

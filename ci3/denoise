@@ -61,7 +61,9 @@ else
   echo -e -n ". ${green}done${reset} (${SECONDS}s)"
 fi
 
-[ "$CI_REDIS_AVAILABLE" -eq 1 ] && echo -e -n " (${yellow}$key${reset})" || true
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  echo -e -n " (${yellow}http://ci.aztec-labs.com/$key${reset})"
+fi
 echo
 
 exit $status

@@ -29,6 +29,7 @@ function build_native {
     return
   fi
   cargo build --release
+  # TODO: clippy
   cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm
 }
 
