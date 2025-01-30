@@ -1,7 +1,7 @@
 /// State variables must implement this trait in order to placed in the storage struct (i.e. the one marked with the
 /// #[storage] attribute). The `N` value determines how many storage slots will be reserved for the state variable.
 pub trait Storage<let N: u32> {
-    pub fn get_storage_slot(self) -> Field {
+    fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
 }
