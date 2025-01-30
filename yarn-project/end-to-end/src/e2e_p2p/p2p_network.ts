@@ -2,7 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/utils';
-import { L1TxUtils, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -55,7 +55,7 @@ export class P2PNetworkTest {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  private gasUtils: L1TxUtils | undefined = undefined;
+  private gasUtils: L1TxUtilsWithBlobs | undefined = undefined;
 
   constructor(
     testName: string,
@@ -138,8 +138,8 @@ export class P2PNetworkTest {
    * Start a loop to sync the mock system time with the L1 block time
    */
   public startSyncMockSystemTimeInterval() {
-    this.cleanupInterval = setInterval(async () => {
-      await this.syncMockSystemTime();
+    this.cleanupInterval = setInterval(() => {
+      void this.syncMockSystemTime().catch(err => this.logger.error('Error syncing mock system time', err));
     }, l1ContractsConfig.aztecSlotDuration * 1000);
   }
 
@@ -301,7 +301,7 @@ export class P2PNetworkTest {
     this.ctx = await this.snapshotManager.setup();
     this.startSyncMockSystemTimeInterval();
 
-    this.gasUtils = new L1TxUtils(
+    this.gasUtils = new L1TxUtilsWithBlobs(
       this.ctx.deployL1ContractsValues.publicClient,
       this.ctx.deployL1ContractsValues.walletClient,
       this.logger,

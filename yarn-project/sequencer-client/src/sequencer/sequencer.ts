@@ -494,6 +494,7 @@ export class Sequencer {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       // We wait a bit to close the forks since the processor may still be working on a dangling tx
       // which was interrupted due to the processingDeadline being hit.
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(async () => {
         try {
           await publicProcessorFork.close();

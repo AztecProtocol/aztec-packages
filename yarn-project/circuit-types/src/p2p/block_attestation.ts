@@ -57,6 +57,14 @@ export class BlockAttestation extends Gossipable {
     return this.payload.archive;
   }
 
+  get slotNumber(): Fr {
+    return this.payload.header.globalVariables.slotNumber;
+  }
+
+  get blockNumber(): Fr {
+    return this.payload.header.globalVariables.blockNumber;
+  }
+
   /**Get sender
    *
    * Lazily evaluate and cache the sender of the attestation

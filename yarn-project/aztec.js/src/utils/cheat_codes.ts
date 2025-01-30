@@ -1,7 +1,8 @@
 import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { EthCheatCodes, type L1ContractAddresses } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
