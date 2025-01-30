@@ -23,6 +23,7 @@ import {
   type GasPrice,
   type L1ContractsConfig,
   L1TxUtils,
+  L1TxUtilsWithBlobs,
   createEthereumChain,
   formatViemError,
 } from '@aztec/ethereum';
@@ -237,7 +238,7 @@ export class L1Publisher {
       this.governanceProposerAddress = EthAddress.fromString(l1Contracts.governanceProposerAddress.toString());
     }
 
-    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
+    this.l1TxUtils = new L1TxUtilsWithBlobs(this.publicClient, this.walletClient, this.log, config);
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
