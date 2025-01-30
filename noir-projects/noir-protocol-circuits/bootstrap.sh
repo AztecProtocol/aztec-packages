@@ -8,7 +8,7 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 export PLATFORM_TAG=any
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
+export BB=${BB:-../../barretenberg/cpp/build-assert/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
@@ -92,8 +92,7 @@ function compile {
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     # -h 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
-    local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation true --output_data vk -h 2"
   elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
@@ -118,11 +117,11 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
+    local _vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive"
+    local vk_cmd="$_vk_cmd --output_type bytes | xxd -p -c 0"
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
-    local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-    # echo_stderrr $vkf_cmd
+    local vkf_cmd="$_vk_cmd --output_type fields"
     vk_fields=$(dump_fail "$vkf_cmd")
 
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path

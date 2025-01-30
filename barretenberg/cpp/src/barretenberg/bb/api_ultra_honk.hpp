@@ -231,16 +231,22 @@ class UltraHonkAPI : public API {
 
     template <typename ProverOutput>
     void _write_data(const ProverOutput& prover_output,
-                     OutputDataType output_data_type,
-                     OutputContent output_content,
+                     const OutputDataType& output_data_type,
+                     const OutputContent& output_content,
                      const std::filesystem::path& output_dir)
     {
         enum class ObjectToWrite : size_t { PROOF, VK };
         const bool output_to_stdout = output_dir == "-";
 
+        info("output_dir is: ", output_dir);
+        info("output_to_stdout is: ", output_to_stdout);
+        info("output_data_type: ", static_cast<uint32_t>(output_data_type));
+        info("output_content: ", static_cast<uint32_t>(output_content));
+
         const auto write_bytes = [&](const ObjectToWrite& obj) {
             switch (obj) {
             case ObjectToWrite::PROOF: {
+                info("case ObjectToWrite::PROOF: ");
                 const auto buf = to_buffer</*include_size*/ true>(prover_output.proof);
                 if (output_to_stdout) {
                     write_bytes_to_stdout(buf);
@@ -250,6 +256,7 @@ class UltraHonkAPI : public API {
                 break;
             }
             case ObjectToWrite::VK: {
+                info("case ObjectToWrite::VK: ");
                 const auto buf = to_buffer(prover_output.key);
                 if (output_to_stdout) {
                     write_bytes_to_stdout(buf);
@@ -264,9 +271,10 @@ class UltraHonkAPI : public API {
         const auto write_fields = [&](const ObjectToWrite& obj) {
             switch (obj) {
             case ObjectToWrite::PROOF: {
+                info("case ObjectToWrite::PROOF: ");
                 const std::string proof_json = to_json(prover_output.proof);
                 if (output_to_stdout) {
-                    ASSERT("Writing string of fields to stdout is not supported");
+                    write_string_to_stdout(proof_json);
                 } else {
                     info("writing proof as fields to ", output_dir / "proof_as_fields.json");
                     write_file(output_dir / "proof_as_fields.json", { proof_json.begin(), proof_json.end() });
@@ -274,9 +282,10 @@ class UltraHonkAPI : public API {
                 break;
             }
             case ObjectToWrite::VK: {
+                info("case ObjectToWrite::VK: ");
                 const std::string vk_json = to_json(prover_output.key.to_field_elements());
                 if (output_to_stdout) {
-                    ASSERT("Writing string of fields to stdout is not supported");
+                    write_string_to_stdout(vk_json);
                 } else {
                     info("writing vk as fields to ", output_dir / "vk_as_fields.json");
                     write_file(output_dir / "vk_as_fields.json", { vk_json.begin(), vk_json.end() });
@@ -287,17 +296,21 @@ class UltraHonkAPI : public API {
         };
 
         switch (output_content) {
+            info("case OutputContent::PROOF_ONLY: ");
         case OutputContent::PROOF_ONLY: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
+                info("case OutputDataType::BYTES: ");
                 write_bytes(ObjectToWrite::PROOF);
                 break;
             }
             case OutputDataType::FIELDS: {
+                info("case OutputDataType::FIELDS: ");
                 write_fields(ObjectToWrite::PROOF);
                 break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
+                info("case OutputDataType::BYTES_AND_FIELDS: ");
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
                 break;
@@ -305,17 +318,21 @@ class UltraHonkAPI : public API {
             }
             break;
         }
+            info("case OutputContent::VK_ONLY: ");
         case OutputContent::VK_ONLY: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
+                info("case OutputDataType::BYTES: ");
                 write_bytes(ObjectToWrite::VK);
                 break;
             }
             case OutputDataType::FIELDS: {
+                info("case OutputDataType::FIELDS: ");
                 write_fields(ObjectToWrite::VK);
                 break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
+                info("case OutputDataType::BYTES_AND_FIELDS: ");
                 write_bytes(ObjectToWrite::VK);
                 write_fields(ObjectToWrite::VK);
                 break;
@@ -323,19 +340,23 @@ class UltraHonkAPI : public API {
             }
             break;
         }
+            info("case OutputContent::PROOF_AND_VK: ");
         case OutputContent::PROOF_AND_VK: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
+                info("case OutputDataType::BYTES: ");
                 write_bytes(ObjectToWrite::PROOF);
                 write_bytes(ObjectToWrite::VK);
                 break;
             }
             case OutputDataType::FIELDS: {
+                info("case OutputDataType::FIELDS: ");
                 write_fields(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::VK);
                 break;
             }
             case OutputDataType::BYTES_AND_FIELDS: {
+                info("case OutputDataType::BYTES_AND_FIELDS: ");
                 write_bytes(ObjectToWrite::PROOF);
                 write_fields(ObjectToWrite::PROOF);
                 write_bytes(ObjectToWrite::VK);
@@ -479,7 +500,12 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        _prove(OutputDataType::BYTES, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
+        if (!flags.output_type.has_value()) {
+            ASSERT("No output type provided");
+        }
+        ASSERT(*flags.output_type == "bytes" || *flags.output_type == "fields");
+        OutputDataType output_type = flags.output_type == "bytes" ? OutputDataType::BYTES : OutputDataType::FIELDS;
+        _prove(output_type, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
     };
 
     /**
