@@ -157,7 +157,8 @@ class UltraHonkAPI : public API {
         return { proof, *ivc.previous_vk };
     }
 
-    ProofAndKey<UltraKeccakFlavor::VerificationKey> _prove_keccak(const API::Flags& flags,
+    ProofAndKey<UltraKeccakFlavor::VerificationKey> _prove_keccak(const bool vk_only,
+                                                                  const API::Flags& flags,
                                                                   const std::filesystem::path& bytecode_path,
                                                                   const std::filesystem::path& witness_path)
     {
@@ -169,15 +170,19 @@ class UltraHonkAPI : public API {
 
         UltraKeccakProver prover =
             compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
-        return { prover.construct_proof(), UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
+
+        return { vk_only ? HonkProof() : prover.construct_proof(),
+                 UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
-    ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const std::filesystem::path& bytecode_path,
+    ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const bool vk_only,
+                                                                  const std::filesystem::path& bytecode_path,
                                                                   const std::filesystem::path& witness_path)
     {
         UltraProver_<UltraRollupFlavor> prover = compute_valid_prover<UltraRollupFlavor>(
             bytecode_path, witness_path, /*initialize_pairing_point_accumulator*/ false);
-        return { prover.construct_proof(), UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key) };
+        return { vk_only ? HonkProof() : prover.construct_proof(),
+                 UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
     template <typename Flavor>
@@ -369,7 +374,8 @@ class UltraHonkAPI : public API {
         }
     }
 
-    void _prove(const OutputDataType output_data_type,
+    void _prove(const bool vk_only,
+                const OutputDataType output_data_type,
                 const OutputContent output_content,
                 const API::Flags& flags,
                 const std::filesystem::path& bytecode_path,
@@ -378,15 +384,18 @@ class UltraHonkAPI : public API {
     {
         if (*flags.ipa_accumulation == "true") {
             vinfo("proving with ipa_accumulation");
-            _write_data(_prove_rollup(bytecode_path, witness_path), output_data_type, output_content, output_dir);
+            _write_data(
+                _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "poseidon2") {
             vinfo("proving with poseidon2");
             _write_data(
                 _prove_poseidon2(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "keccak") {
             vinfo("proving with keccak");
-            _write_data(
-                _prove_keccak(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
+            _write_data(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
+                        output_data_type,
+                        output_content,
+                        output_dir);
         } else {
             vinfo(flags);
             ASSERT("Invalid proving options specified");
@@ -429,7 +438,7 @@ class UltraHonkAPI : public API {
             }
         }();
 
-        _prove(output_data_type, output_content, flags, bytecode_path, witness_path, output_dir);
+        _prove(/*vk_only=*/false, output_data_type, output_content, flags, bytecode_path, witness_path, output_dir);
     };
 
     /**
@@ -505,7 +514,7 @@ class UltraHonkAPI : public API {
         }
         ASSERT(*flags.output_type == "bytes" || *flags.output_type == "fields");
         OutputDataType output_type = flags.output_type == "bytes" ? OutputDataType::BYTES : OutputDataType::FIELDS;
-        _prove(output_type, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
+        _prove(/*vk_only*/ true, output_type, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
     };
 
     /**
