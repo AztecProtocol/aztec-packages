@@ -5,10 +5,24 @@
 #include "barretenberg/common/assert.hpp"
 namespace bb::numeric {
 
-// Karatsuba multiplication algorithm implementation
+/**
+ * @brief Karatsuba multiplication algorithm for 32-bit integers
+ *
+ * This implementation uses Karatsuba algorithm which reduces the number of multiplications
+ * from 4 to 3 for 16-bit splits. The algorithm works by splitting each number into high/low parts:
+ * a = a_hi * 2^16 + a_lo
+ * b = b_hi * 2^16 + b_lo
+ *
+ * Then a*b = (a_hi * 2^16 + a_lo)(b_hi * 2^16 + b_lo)
+ *         = a_hi * b_hi * 2^32 + ((a_hi + a_lo)(b_hi + b_lo) - a_hi*b_hi - a_lo*b_lo) * 2^16 + a_lo * b_lo
+ *
+ * @param a First 32-bit integer
+ * @param b Second 32-bit integer
+ * @return std::pair<uint32_t, uint32_t> {low 32 bits, high 32 bits} of the product
+ */
 constexpr std::pair<uint32_t, uint32_t> karatsuba_mul(const uint32_t a, const uint32_t b) {
-    const uint32_t SPLIT_POINT = 16;
-    const uint32_t LOW_MASK = (1ULL << SPLIT_POINT) - 1;
+    constexpr uint32_t SPLIT_POINT = 16;
+    constexpr uint32_t LOW_MASK = (1ULL << SPLIT_POINT) - 1;
 
     // Split numbers into high and low parts
     const uint32_t a_lo = a & LOW_MASK;
@@ -23,7 +37,23 @@ constexpr std::pair<uint32_t, uint32_t> karatsuba_mul(const uint32_t a, const ui
     const uint32_t z2 = a_hi * b_hi;
 
     // Calculate z1 = (a_lo + a_hi)(b_lo + b_hi) - z0 - z2
-    const uint32_t z1 = (a_lo + a_hi) * (b_lo + b_hi) - z0 - z2;
+    // Use temporary variables to prevent overflow
+    const uint32_t a_sum = a_lo + a_hi;
+    const uint32_t b_sum = b_lo + b_hi;
+
+    // Check for overflow
+    if (a_sum < a_lo || b_sum < b_lo) {
+        // Fall back to standard multiplication if overflow detected
+        const uint32_t hi_lo = a_hi * b_lo;
+        const uint32_t lo_hi = a_lo * b_hi;
+        const uint32_t cross = (z0 >> SPLIT_POINT) + (hi_lo & LOW_MASK) + lo_hi;
+        return {
+            (cross << SPLIT_POINT) | (z0 & LOW_MASK),
+            (hi_lo >> SPLIT_POINT) + (cross >> SPLIT_POINT) + z2
+        };
+    }
+
+    const uint32_t z1 = a_sum * b_sum - z0 - z2;
 
     // Combine results
     const uint32_t low = z0 + ((z1 & LOW_MASK) << SPLIT_POINT);
