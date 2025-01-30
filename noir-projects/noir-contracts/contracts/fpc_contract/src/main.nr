@@ -103,7 +103,7 @@ contract FPC {
     }
     // docs:end:fee_entrypoint_private
 
-    /// Executed as a public teardown function and is responsible for completing the refund in a private fee payment
+    /// Executed as a public teardown function and is responsible for completing the refund in the private fee payment
     /// flow.
     // docs:start:complete_refund
     #[public]
@@ -111,11 +111,11 @@ contract FPC {
     fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
         let tx_fee = U128::from_integer(context.transaction_fee());
 
-        // 1. We check that user funded the fee payer contract with at least the transaction fee.
-        // TODO(#7796): we should try to prevent reverts here
+        // 1. Check that user funded the fee payer contract with at least the transaction fee.
+        // TODO(#10805): we should try to prevent reverts here
         assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
 
-        // 2. We compute the refund amount as the difference between funded amount and the tx fee.
+        // 2. Compute the refund amount as the difference between funded amount and the tx fee.
         // TODO(#10805): Introduce a real exchange rate
         let refund_amount = max_fee - tx_fee;
 
@@ -175,9 +175,9 @@ contract FPC {
         );
     }
 
-    /// Pays the refund to the `refund_recipient`. The refund is the difference between the `max_fee` and
-    /// the actual fee. `accepted_asset` is the asset in which the refund is paid. It's passed as an argument
-    /// to avoid the need for another read from public storage.
+    /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
+    /// between the `max_fee` and the actual fee. `accepted_asset` is the asset in which the refund is paid.
+    /// It's passed as an argument to avoid the need for another read from public storage.
     #[public]
     #[internal]
     fn pay_refund(refund_recipient: AztecAddress, max_fee: U128, accepted_asset: AztecAddress) {
