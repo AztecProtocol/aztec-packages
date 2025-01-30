@@ -26,6 +26,10 @@ resource "google_compute_address" "grafana_ip" {
   name         = "grafana-ip"
   address_type = "EXTERNAL"
   region       = var.region
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_compute_address" "otel_collector_ip" {
@@ -33,6 +37,10 @@ resource "google_compute_address" "otel_collector_ip" {
   name         = "otel-ip"
   address_type = "EXTERNAL"
   region       = var.region
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 provider "kubernetes" {
