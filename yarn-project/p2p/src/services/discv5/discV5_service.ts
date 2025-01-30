@@ -83,6 +83,20 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
+    // Hook onto the onEstablished method to check the peer's version from the ENR,
+    // so we don't add it to our dht if it doesn't have the correct version.
+    // In addition, we'll hook onto onDiscovered to to repeat the same check there,
+    // just in case. Note that not adding the peer to the dht could lead to it
+    // being "readded" constantly, we'll need to keep an eye on whether this
+    // turns out to be a problem or not.
+    const origOnEstablished = this.discv5.onEstablished.bind(this.discv5);
+    this.discv5.onEstablished = (...args: unknown[]) => {
+      const enr = args[1] as ENR;
+      if (this.validateEnr(enr)) {
+        return origOnEstablished(...args);
+      }
+    };
+
     this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
     this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
   }
@@ -183,24 +197,34 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onDiscovered(enr: ENR) {
+    if (this.validateEnr(enr)) {
+      this.emit(PeerEvent.DISCOVERED, enr);
+    }
+  }
+
+  private validateEnr(enr: ENR): boolean {
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
-    if (value) {
-      const compressedVersion = Buffer.from(value).toString();
-      try {
-        // And check it has the correct version
-        checkCompressedComponentVersion(compressedVersion, this.versions);
-        this.emit(PeerEvent.DISCOVERED, enr);
-      } catch (err: any) {
-        if (err.name === 'ComponentsVersionsError') {
-          this.logger.debug(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
-            compressedVersion,
-            expected: this.versions,
-          });
-        } else {
-          this.logger.error(`Error checking peer version: ${err.message}`);
-        }
+    if (!value) {
+      return false;
+    }
+
+    let compressedVersion;
+    try {
+      // And check it has the correct version
+      compressedVersion = Buffer.from(value).toString();
+      checkCompressedComponentVersion(compressedVersion, this.versions);
+      return true;
+    } catch (err: any) {
+      if (err.name === 'ComponentsVersionsError') {
+        this.logger.debug(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
+          compressedVersion,
+          expected: this.versions,
+        });
+      } else {
+        this.logger.error(`Error checking peer version`, err);
       }
     }
+    return false;
   }
 }
