@@ -62,7 +62,8 @@ else
 fi
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  echo -e -n " (${yellow}http://ci.aztec-labs.com/$key${reset})"
+  url=http://ci.aztec-labs.com/$key
+  echo -e -n " (${yellow}${link_open}${url}${link_close}${url}${link_open}${link_close}${reset})"
 fi
 echo
 
