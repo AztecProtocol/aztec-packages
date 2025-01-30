@@ -20,9 +20,12 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
  */
 export interface ProvingDataOracle {
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
-  getContractAddressPreimage(
-    address: AztecAddress,
-  ): Promise<{ saltedInitializationHash: Fr; publicKeys: PublicKeys; contractClassId: Fr }>;
+  getContractAddressPreimage(address: AztecAddress): Promise<{
+    saltedInitializationHash: Fr;
+    publicKeys: PublicKeys;
+    currentContractClassId: Fr;
+    originalContractClassId: Fr;
+  }>;
 
   /** Retrieves the preimage of a contract class id from the contract classes db. */
   getContractClassIdPreimage(

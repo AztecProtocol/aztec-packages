@@ -343,16 +343,15 @@ export class KernelProver {
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
-    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
-      contractAddress,
-    );
+    const { currentContractClassId, publicKeys, saltedInitializationHash } =
+      await this.oracle.getContractAddressPreimage(contractAddress);
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractClassId,
+      currentContractClassId,
       functionSelector,
     );
 
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
-      await this.oracle.getContractClassIdPreimage(contractClassId);
+      await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
