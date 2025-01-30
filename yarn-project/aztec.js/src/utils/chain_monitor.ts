@@ -1,4 +1,4 @@
-import { type RollupContract } from '@aztec/ethereum';
+import { type RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type PublicClient } from 'viem';

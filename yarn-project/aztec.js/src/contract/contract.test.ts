@@ -14,7 +14,7 @@ import {
   GasFees,
   type NodeInfo,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
