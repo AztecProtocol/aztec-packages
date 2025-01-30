@@ -579,15 +579,19 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
       const address = account.getAddress();
       return {
         address,
-        deployed: await sender.isContractPubliclyDeployed(address),
+        deployed: (await sender.getContractMetadata(address)).isContractPubliclyDeployed,
       };
     }),
   );
-  const instances = await Promise.all(
-    accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
-  );
+  const instances = (
+    await Promise.all(
+      accountsAndAddresses
+        .filter(({ deployed }) => !deployed)
+        .map(({ address }) => sender.getContractMetadata(address)),
+    )
+  ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
+  if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
   const requests = await Promise.all(
