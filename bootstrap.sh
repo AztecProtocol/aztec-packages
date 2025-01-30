@@ -187,7 +187,7 @@ case "$cmd" in
     ;;
   "test-boxes")
     github_group "test-boxes"
-    bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && cd yarn-project/aztec.js && yarn build:web && cd ../../ && npx playwright@1.50 install --with-deps && ./boxes/bootstrap.sh test";
+    bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && cp barretenberg/ts/dest/browser/*.gz yarn-project/aztec.js/dest/ && npx playwright@1.50 install --with-deps && ./boxes/bootstrap.sh test";
     exit
   ;;
   "image-aztec")
