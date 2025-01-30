@@ -35,6 +35,7 @@ prometheus:
       enabled: true
 
 loki:
+  enabled: false
   loki:
     enabled: false
     schemaConfig:
