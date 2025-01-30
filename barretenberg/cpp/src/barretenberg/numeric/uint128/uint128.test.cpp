@@ -370,4 +370,72 @@ TEST(uint128, karatsuba_multiplication_performance)
               << static_cast<double>(duration.count()) / NUM_ITERATIONS
               << " microseconds\n";
 }
+
+TEST(uint128, karatsuba_vs_standard_multiplication)
+{
+    const int NUM_ITERATIONS = 1000;
+    std::vector<std::pair<uint32_t, uint32_t>> test_cases;
+
+    // Generate test cases
+    for(int i = 0; i < NUM_ITERATIONS; ++i) {
+        test_cases.push_back({
+            static_cast<uint32_t>(engine.get_random_uint64()),
+            static_cast<uint32_t>(engine.get_random_uint64())
+        });
+    }
+
+    // Test both implementations
+    std::vector<std::pair<uint32_t, uint32_t>> karatsuba_results;
+    std::vector<std::pair<uint32_t, uint32_t>> standard_results;
+
+    // Time Karatsuba implementation
+    auto start = std::chrono::high_resolution_clock::now();
+    for(const auto& test : test_cases) {
+        karatsuba_results.push_back(karatsuba_mul(test.first, test.second));
+    }
+    auto karatsuba_time = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now() - start
+    ).count();
+
+    // Time standard implementation
+    start = std::chrono::high_resolution_clock::now();
+    for(const auto& test : test_cases) {
+        const uint32_t a = test.first;
+        const uint32_t b = test.second;
+        const uint32_t a_lo = a & 0xffffULL;
+        const uint32_t a_hi = a >> 16ULL;
+        const uint32_t b_lo = b & 0xffffULL;
+        const uint32_t b_hi = b >> 16ULL;
+
+        const uint32_t lo_lo = a_lo * b_lo;
+        const uint32_t hi_lo = a_hi * b_lo;
+        const uint32_t lo_hi = a_lo * b_hi;
+        const uint32_t hi_hi = a_hi * b_hi;
+
+        const uint32_t cross = (lo_lo >> 16) + (hi_lo & 0xffffULL) + lo_hi;
+        standard_results.push_back({
+            (cross << 16ULL) | (lo_lo & 0xffffULL),
+            (hi_lo >> 16ULL) + (cross >> 16ULL) + hi_hi
+        });
+    }
+    auto standard_time = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now() - start
+    ).count();
+
+    // Verify results match
+    for(size_t i = 0; i < test_cases.size(); ++i) {
+        EXPECT_EQ(karatsuba_results[i].first, standard_results[i].first)
+            << "Mismatch in low bits for test case " << i;
+        EXPECT_EQ(karatsuba_results[i].second, standard_results[i].second)
+            << "Mismatch in high bits for test case " << i;
+    }
+
+    // Print performance comparison
+    std::cout << "\nPerformance comparison over " << NUM_ITERATIONS << " multiplications:\n"
+              << "Karatsuba implementation: " << karatsuba_time << " microseconds\n"
+              << "Standard implementation: " << standard_time << " microseconds\n"
+              << "Performance improvement: "
+              << (standard_time - karatsuba_time) * 100.0 / standard_time
+              << "%\n";
+}
 #endif
