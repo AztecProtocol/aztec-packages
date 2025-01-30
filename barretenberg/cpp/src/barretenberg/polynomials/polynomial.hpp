@@ -163,6 +163,12 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     *
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
+
+    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
      * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
      * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
