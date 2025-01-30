@@ -122,10 +122,12 @@ else
     PROVER_BROKER_ADDR="http://${SERVICE_NAME}-prover-broker.${NAMESPACE}:${PROVER_BROKER_PORT}"
 fi
 
+OTEL_COLLECTOR_IP=35.247.99.212
+
 # Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
 if [ "${TELEMETRY:-false}" = "true" ] && [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ] && [ "${USE_GCLOUD_OBSERVABILITY:-false}" = "false" ]; then
     OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
-    OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
+    OTEL_COLLECTOR_ENDPOINT="http://${OTEL_COLLECTOR_IP}:$OTEL_COLLECTOR_PORT"
 fi
 
 # Write addresses to file for sourcing

@@ -101,8 +101,8 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "telemetry.useGcloudObservability"
-    value = "true"
+    name  = "telemetry.otelCollectorEndpoint"
+    value = "http://35.247.99.212:4318"
   }
 
   # Setting timeout and wait conditions
