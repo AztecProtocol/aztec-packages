@@ -1,17 +1,17 @@
-# name: CI3
+name: CI3
 
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches:
-#       - master
-#   pull_request:
-#     types:
-#       - opened
-#       - synchronize
-#       - reopened
-#       - ready_for_review
-#       - labeled
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - labeled
 
 concurrency:
   # On master the group id is the unique run_id so we get parallel runs.
