@@ -6,9 +6,9 @@ export NON_INTERACTIVE=1
 INSTALL_URI=${INSTALL_URI:-https://install.aztec.network}
 
 if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then
-  INSTALL_URL="$INSTALL_URI/$VERSION/aztec-install"
+  install_url="$INSTALL_URI/$VERSION/aztec-install"
 else
-  INSTALL_URL="$INSTALL_URI/aztec-install"
+  install_url="$INSTALL_URI/aztec-install"
 fi
 
-bash <(curl -s $INSTALL_URL)
+bash <(curl -s $install_url)

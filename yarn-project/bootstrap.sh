@@ -106,6 +106,9 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
+  "release")
+    release
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
