@@ -2,7 +2,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Updated {
-    use aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use aztec::macros::{functions::{private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
