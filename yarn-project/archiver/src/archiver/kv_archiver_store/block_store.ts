@@ -157,7 +157,7 @@ export class BlockStore {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = (await header.hash()).toString();
-    const blockBodyBuffer = await this.#blockBodies.get(blockHash);
+    const blockBodyBuffer = await this.#blockBodies.getAsync(blockHash);
     if (blockBodyBuffer === undefined) {
       throw new Error(
         `Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`,
