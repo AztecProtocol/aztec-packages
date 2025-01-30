@@ -82,6 +82,9 @@ contract FPC {
         let user = context.msg_sender();
         let token = Token::at(accepted_asset);
 
+        // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
+        // fee juice/mana/gas limit. Currently the fee juice/AA exchange rate is fixed 1:1.
+
         // Pull the max fee from the user's balance of the accepted asset to the public balance of this contract.
         token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
 
@@ -112,7 +115,7 @@ contract FPC {
         let tx_fee = U128::from_integer(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
-        // TODO(#10805): we should try to prevent reverts here
+        // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
         assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
 
         // 2. Compute the refund amount as the difference between funded amount and the tx fee.
