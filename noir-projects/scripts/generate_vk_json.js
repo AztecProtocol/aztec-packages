@@ -143,6 +143,8 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
+  // WORKTODO vk_as_fields
+
   if (circuitType == CircuitType.ClientIVCCircuit) {
     write_vk_flow = "write_vk_for_ivc";
     vk_as_fields_flow = "vk_as_fields_mega_honk";

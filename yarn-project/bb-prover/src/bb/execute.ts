@@ -221,6 +221,8 @@ export async function computeVerificationKey(
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
+
+    // WORKTODO vk_as_fields
     result = await executeBB(
       pathToBB,
       `vk_as_fields_${flavor}`,

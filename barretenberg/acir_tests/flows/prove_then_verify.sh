@@ -39,9 +39,9 @@ case ${SYS:-} in
     $BIN prove --output_content proof_and_vk $FLAGS $BFLAG
     $BIN verify $FLAGS
     # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
-    # $BIN verify $FLAGS \
-    #     -k <($BIN write_vk -o - $FLAGS $BFLAG) \
-    #     -p <($BIN prove -o - $FLAGS $BFLAG)
+    $BIN verify $FLAGS \
+        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
+        -p <($BIN prove --output_content proof_and_vk -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api

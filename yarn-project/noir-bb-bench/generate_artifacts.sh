@@ -20,6 +20,7 @@ function compile {
   local filename="$name.json"
   mv $circuit_path/target/$filename artifacts/
 
+  # WORKTODO vk_as_fields
   local json_path="./artifacts/$filename"
   local write_vk_cmd="write_vk --scheme -h 1"
   local vk_as_fields_cmd="vk_as_fields_ultra_honk"
