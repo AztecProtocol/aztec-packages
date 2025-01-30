@@ -13,15 +13,16 @@ import {bytesToG1ProofPoint, bytesToFr, logFr, logG} from "./utils.sol";
 
 import "forge-std/console.sol";
 
-// ZKTranscript library to generate fiat shamir challenges
+// ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
 struct ZKTranscript {
     // Oink
     Honk.RelationParameters relationParameters;
     Fr[NUMBER_OF_ALPHAS] alphas;
     Fr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
+    // Sumcheck
     Fr libraChallenge;
     Fr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
-    // Gemini
+    // Shplemini
     Fr rho;
     Fr geminiR;
     Fr shplonkNu;
@@ -223,15 +224,16 @@ library ZKTranscriptLib {
         pure
         returns (Fr rho, Fr nextPreviousChallenge)
     {
-        uint256[NUMBER_OF_ENTITIES + 1 + 2 + 3 * 4] memory rhoChallengeElements;
+        uint256[NUMBER_OF_ENTITIES + 15] memory rhoChallengeElements;
         rhoChallengeElements[0] = Fr.unwrap(prevChallenge);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
-        for (uint256 i = 1; i <= NUMBER_OF_ENTITIES; i++) {
+        uint256 i;
+        for (i = 1; i <= NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i] = Fr.unwrap(proof.sumcheckEvaluations[i - 1]);
         }
-        rhoChallengeElements[NUMBER_OF_ENTITIES + 1] = Fr.unwrap(proof.libraEvaluation);
+        rhoChallengeElements[i] = Fr.unwrap(proof.libraEvaluation);
 
-        uint256 i = NUMBER_OF_ENTITIES + 2;
+        i += 1;
         rhoChallengeElements[i] = proof.libraCommitments[1].x_0;
         rhoChallengeElements[i + 1] = proof.libraCommitments[1].x_1;
         rhoChallengeElements[i + 2] = proof.libraCommitments[1].y_0;
@@ -317,7 +319,6 @@ library ZKTranscriptLib {
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the ZKTranscript Lib
-    // TODO: make pure
     function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));

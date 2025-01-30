@@ -372,7 +372,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
             mem.constantTermAccumulator =
                 mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu; // this is prepared
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
 
             commitments[boundary + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
@@ -398,7 +398,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
-        // Investigate why I missed this
+
         mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
         for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
@@ -411,13 +411,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         scalars[boundary + 2] = mem.batchingScalars[3];
 
         for (uint256 i = 0; i < LIBRA_COMMITMENTS; i++) {
-            commitments[boundary + i] = convertProofPoint(proof.libraCommitments[i]);
+            commitments[boundary++] = convertProofPoint(proof.libraCommitments[i]);
         }
 
-        boundary += LIBRA_COMMITMENTS;
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
-        scalars[boundary] = mem.constantTermAccumulator;
-        boundary += 1;
+        scalars[boundary++] = mem.constantTermAccumulator;
 
         bool consistencyVerified =
             checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation);

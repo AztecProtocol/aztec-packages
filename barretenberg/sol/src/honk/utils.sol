@@ -21,17 +21,6 @@ function bytes32ToString(bytes32 value) pure returns (string memory) {
     return string(str);
 }
 
-function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
-    // TODO: convert both to hex before printing to line up with cpp
-    string memory x_0 = bytes32ToString(bytes32(point.x_0));
-    string memory x_1 = bytes32ToString(bytes32(point.x_1));
-    string memory y_0 = bytes32ToString(bytes32(point.y_0));
-    string memory y_1 = bytes32ToString(bytes32(point.y_1));
-
-    string memory message = string(abi.encodePacked(name, " x: ", x_0, x_1, " y: ", y_0, y_1));
-    console2.log(message);
-}
-
 function logG(string memory name, Honk.G1ProofPoint memory p) pure {
     Honk.G1Point memory point = convertProofPoint(p);
 

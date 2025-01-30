@@ -87,7 +87,7 @@ int main(int argc, char** argv)
         inputs[count++] = uint256_t(padded);
     }
 
-    // WORKTODO: find a better way to do this
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1227)
     if (flavor == "honk") {
         if (circuit_type == "blake") {
             generate_proof<BlakeCircuit, UltraKeccakFlavor>(inputs);
