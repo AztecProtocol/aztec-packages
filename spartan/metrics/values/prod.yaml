@@ -1,4 +1,6 @@
 opentelemetry-collector:
+  image:
+    repository: "otel/opentelemetry-collector-k8s"
   ports:
     jaeger-compact:
       enabled: false
