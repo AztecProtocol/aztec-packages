@@ -101,7 +101,7 @@ proverAgent:
 
 bot:
   replicas: 4
-  followChain: "PENDING"
+  followChain: "NONE"
   enabled: true
   txIntervalSeconds: 0
   privateTransfersPerTx: 1
