@@ -712,7 +712,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
 
-        info("shplonk challenge power: ", shplonk_challenge_power);
         // add Libra commitments to the vector of commitments
         for (size_t idx = 0; idx < libra_commitments.size(); idx++) {
             commitments.push_back(libra_commitments[idx]);
