@@ -202,6 +202,17 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batch_scalar = 0; // WORKTODO: maybe this is not part of this struct
     };
 
+    /**
+     * @brief Manages the commitments and evaluations of unshifted and shifted polynomials to be batched in Shplemini
+     * @details Stores references to the commitments/evaluations of unshifted and shifted polynomials to be batched
+     * opened via Shplemini. Aggregates the commitments/scalars from from each batch into the corresponding containers
+     * for Shplemini. Computes the batched evaluation. Contains logic for computing the per-batch scalars used to batch
+     * each set of claims (see details below).
+     * @note This class performs the actual batching of the evaluations but not of the commitments, which are simply
+     * aggregated into larger containers. This is because Shplemini is optimized to perform a single batch mul that
+     * includes all commitments from each stage of the PCS. See description of ShpleminiVerifier for more details.
+     *
+     */
     struct ClaimBatcher {
         std::optional<ClaimBatch> unshifted; // commitments and evaluations of unshifted polynomials
         std::optional<ClaimBatch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
