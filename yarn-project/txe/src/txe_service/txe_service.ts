@@ -1,10 +1,9 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
+import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
-  BlockHeader,
   Fr,
   FunctionSelector,
-  PublicDataTreeLeaf,
+  PublicDataWrite,
   PublicKeys,
   computePartialAddress,
   getContractInstanceFromDeployParams,
@@ -20,8 +19,7 @@ import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -42,18 +40,20 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
     const executionCache = new HashedValuesCache();
+    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const baseFork = await nativeWorldStateService.fork();
+
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
+    const txe = await TXE.create(logger, executionCache, keyStore, txeDatabase, nativeWorldStateService, baseFork);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -69,21 +69,10 @@ export class TXEService {
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
-    const trees = (this.typedOracle as TXE).getTrees();
-
-    await (this.typedOracle as TXE).commitState();
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
-      const header = BlockHeader.empty();
-      const l2Block = L2Block.empty();
-      header.state = await trees.getStateReference(true);
-      header.globalVariables.blockNumber = new Fr(blockNumber);
-      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
-      l2Block.header = header;
-      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
-      await trees.handleL2BlockAndMessages(l2Block, []);
+      await (this.typedOracle as TXE).commitState();
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
     return toForeignCallResult([]);
@@ -95,8 +84,8 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  deriveKeys(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+  async deriveKeys(secret: ForeignCallSingle) {
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
@@ -116,7 +105,7 @@ export class TXEService {
       `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
     );
 
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -145,22 +134,20 @@ export class TXEService {
     startStorageSlot: ForeignCallSingle,
     values: ForeignCallArray,
   ) {
-    const trees = (this.typedOracle as TXE).getTrees();
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = addressFromSingle(contractAddress);
-    const db = await trees.getLatest();
 
-    const publicDataWrites = valuesFr.map((value, i) => {
-      const storageSlot = startStorageSlotFr.add(new Fr(i));
-      this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
-    });
-    await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => write.toBuffer()),
-      0,
+    const publicDataWrites = await Promise.all(
+      valuesFr.map(async (value, i) => {
+        const storageSlot = startStorageSlotFr.add(new Fr(i));
+        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
+        return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      }),
     );
+
+    await (this.typedOracle as TXE).addPublicDataWrites(publicDataWrites);
+
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
@@ -177,10 +164,10 @@ export class TXEService {
   }
 
   async addAccount(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
     const artifact = SchnorrAccountContractArtifact;
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -194,7 +181,7 @@ export class TXEService {
     await (this.typedOracle as TXE).addContractArtifact(artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
-    const completeAddress = await keyStore.addAccount(fromSingle(secret), computePartialAddress(instance));
+    const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -269,11 +256,6 @@ export class TXEService {
   async getBlockNumber() {
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  async storeArrayInExecutionCache(args: ForeignCallArray) {
-    const hash = await this.typedOracle.storeArrayInExecutionCache(fromArray(args));
-    return toForeignCallResult([toSingle(hash)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
@@ -534,16 +516,6 @@ export class TXEService {
     return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
   }
 
-  async addNullifiers(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNullifiers(addressFromSingle(contractAddress), fromArray(nullifiers));
-    return toForeignCallResult([]);
-  }
-
-  async addNoteHashes(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNoteHashes(addressFromSingle(contractAddress), fromArray(noteHashes));
-    return toForeignCallResult([]);
-  }
-
   async getBlockHeader(blockNumber: ForeignCallSingle) {
     const header = await this.typedOracle.getBlockHeader(fromSingle(blockNumber).toNumber());
     if (!header) {
@@ -588,35 +560,47 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async store(contract: ForeignCallSingle, key: ForeignCallSingle, values: ForeignCallArray) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const processedValues = fromArray(values);
-    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  async dbStore(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, values: ForeignCallArray) {
+    await this.typedOracle.dbStore(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+      fromArray(values),
+    );
     return toForeignCallResult([]);
   }
 
-  /**
-   * Load data from pxe db.
-   * @param contract - The contract address.
-   * @param key - The key to load.
-   * @param tSize - The size of the serialized object to return.
-   * @returns The data found flag and the serialized object concatenated in one array.
-   */
-  async load(contract: ForeignCallSingle, key: ForeignCallSingle, tSize: ForeignCallSingle) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const values = await this.typedOracle.load(processedContract, processedKey);
+  async dbLoad(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
+    const values = await this.typedOracle.dbLoad(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      const processedTSize = fromSingle(tSize).toNumber();
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(fromSingle(tSize).toNumber()).fill(new Fr(0)))]);
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
+  }
+
+  async dbDelete(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
+    await this.typedOracle.dbDelete(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+    return toForeignCallResult([]);
+  }
+
+  async dbCopy(
+    contractAddress: ForeignCallSingle,
+    srcSlot: ForeignCallSingle,
+    dstSlot: ForeignCallSingle,
+    numEntries: ForeignCallSingle,
+  ) {
+    await this.typedOracle.dbCopy(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(srcSlot),
+      fromSingle(dstSlot),
+      fromSingle(numEntries).toNumber(),
+    );
+
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes

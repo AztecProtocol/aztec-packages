@@ -12,7 +12,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
-  type BlockHeader,
   type ContractDataSource,
   Fr,
   Gas,
@@ -27,7 +26,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
@@ -41,7 +47,7 @@ export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
-    private telemetryClient: TelemetryClient,
+    private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
   /**
@@ -53,26 +59,22 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
     enforceFeePayment: boolean,
   ): PublicProcessor {
-    const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
-
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
       merkleTree,
       worldStateDB,
-      this.telemetryClient,
       globalVariables,
       /*doMerkleOperations=*/ true,
       enforceFeePayment,
+      this.telemetryClient,
     );
 
     return new PublicProcessor(
       merkleTree,
       globalVariables,
-      historicalHeader,
       worldStateDB,
       publicTxSimulator,
       this.dateProvider,
@@ -83,18 +85,18 @@ export class PublicProcessorFactory {
   protected createPublicTxSimulator(
     db: MerkleTreeWriteOperations,
     worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     enforceFeePayment: boolean,
+    telemetryClient: TelemetryClient,
   ) {
     return new PublicTxSimulator(
       db,
       worldStateDB,
-      telemetryClient,
       globalVariables,
       doMerkleOperations,
       enforceFeePayment,
+      telemetryClient,
     );
   }
 }
@@ -115,11 +117,10 @@ export class PublicProcessor implements Traceable {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
-    telemetryClient: TelemetryClient,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
     private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
@@ -136,7 +137,7 @@ export class PublicProcessor implements Traceable {
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
-    txs: Iterable<Tx>,
+    txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
     limits: {
       maxTransactions?: number;
       maxBlockSize?: number;
@@ -160,7 +161,7 @@ export class PublicProcessor implements Traceable {
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
 
-    for (const origTx of txs) {
+    for await (const origTx of txs) {
       // Only process up to the max tx limit
       if (maxTransactions !== undefined && result.length >= maxTransactions) {
         this.log.debug(`Stopping tx processing due to reaching the max tx limit.`);
@@ -174,7 +175,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if it'd exceed max block size
-      const txHash = origTx.getTxHash().toString();
+      const txHash = (await origTx.getTxHash()).toString();
       const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
       if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
         this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
@@ -204,19 +205,20 @@ export class PublicProcessor implements Traceable {
       // We validate the tx before processing it, to avoid unnecessary work.
       if (preprocessValidator) {
         const result = await preprocessValidator.validateTx(tx);
+        const txHash = await tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Rejecting tx ${tx.getTxHash().toString()} due to pre-process validation fail: ${reason}`);
+          this.log.warn(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else if (result.result === 'skipped') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Skipping tx ${tx.getTxHash().toString()} due to pre-process validation: ${reason}`);
+          this.log.warn(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else {
-          this.log.trace(`Tx ${tx.getTxHash().toString()} is valid before processing.`);
+          this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
         }
       }
 
@@ -249,7 +251,7 @@ export class PublicProcessor implements Traceable {
             failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
             continue;
           } else {
-            this.log.trace(`Tx ${tx.getTxHash().toString()} is valid post processing.`);
+            this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
           }
         }
 
@@ -279,7 +281,7 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} succesful txs and ${failed.length} txs in ${duration}ms`, {
+    this.log.info(`Processed ${result.length} successful txs and ${failed.length} txs in ${duration}s`, {
       duration,
       rate,
       totalPublicGas,
@@ -290,7 +292,7 @@ export class PublicProcessor implements Traceable {
     return [result, failed, returns];
   }
 
-  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
+  @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
   private async processTx(tx: Tx, deadline?: Date): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
@@ -308,7 +310,7 @@ export class PublicProcessor implements Traceable {
         nullifierCount: processedTx.txEffect.nullifiers.length,
         noteHashCount: processedTx.txEffect.noteHashes.length,
         contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
-        unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
+        publicLogCount: processedTx.txEffect.publicLogs.length,
         privateLogCount: processedTx.txEffect.privateLogs.length,
         l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
         durationMs: time,
@@ -371,16 +373,17 @@ export class PublicProcessor implements Traceable {
       return await processFn();
     }
 
+    const txHash = await tx.getTxHash();
     const timeout = +deadline - this.dateProvider.now();
-    this.log.debug(`Processing tx ${tx.getTxHash().toString()} within ${timeout}ms`, {
-      deadline: deadline.toISOString(),
-      now: new Date(this.dateProvider.now()).toISOString(),
-      txHash: tx.getTxHash().toString(),
-    });
-
-    if (timeout < 0) {
+    if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
     }
+
+    this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
+      deadline: deadline.toISOString(),
+      now: new Date(this.dateProvider.now()).toISOString(),
+      txHash,
+    });
 
     return await executeTimeout(
       () => processFn(),
@@ -401,8 +404,8 @@ export class PublicProcessor implements Traceable {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-    const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
+    const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
@@ -420,8 +423,8 @@ export class PublicProcessor implements Traceable {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
-  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', async (tx: Tx) => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
     const gasFees = this.globalVariables.gasFees;
@@ -429,7 +432,7 @@ export class PublicProcessor implements Traceable {
 
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
-    const processedTx = makeProcessedTxFromPrivateOnlyTx(
+    const processedTx = await makeProcessedTxFromPrivateOnlyTx(
       tx,
       transactionFee,
       feePaymentPublicDataWrite,
@@ -445,8 +448,8 @@ export class PublicProcessor implements Traceable {
     return [processedTx, undefined];
   }
 
-  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', async tx => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
@@ -478,7 +481,13 @@ export class PublicProcessor implements Traceable {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
+    const processedTx = await makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      avmProvingRequest,
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

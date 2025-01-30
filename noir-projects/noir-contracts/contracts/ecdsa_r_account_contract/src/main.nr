@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract EcdsaRAccount {
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
     };
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
@@ -57,6 +57,8 @@ contract EcdsaRAccount {
         let public_key = storage.public_key.get_note();
 
         // Load auth witness
+        /// Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        /// Hence it's safe.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
@@ -66,7 +68,7 @@ contract EcdsaRAccount {
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let outer_hash_bytes: [u8; 32] = outer_hash.to_be_bytes();
-        let hashed_message: [u8; 32] = std::hash::sha256(outer_hash_bytes);
+        let hashed_message: [u8; 32] = sha256::digest(outer_hash_bytes);
         std::ecdsa_secp256r1::verify_signature(
             public_key.x,
             public_key.y,

@@ -55,8 +55,8 @@ export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 cd acir_tests
 
 # Convert them to array
-# There are no issues witht the tests below but as they check proper handling of dependencies or circuits that are part of a workspace
-# running these require extra gluecode so they are skipped for the purpose of this script
+# There are no issues with the tests below but as they check proper handling of dependencies or circuits that are part of a workspace
+# running these require extra glue code so they are skipped for the purpose of this script
 SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used

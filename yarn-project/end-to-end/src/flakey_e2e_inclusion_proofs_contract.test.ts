@@ -272,9 +272,13 @@ describe('e2e_inclusion_proofs_contract', () => {
     it('proves public deployment of a contract', async () => {
       // Publicly deploy another contract (so we don't test on the same contract)
       const initArgs = [wallets[0].getAddress(), 42n];
-      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
-      await (await registerContractClass(wallets[0], StatefulTestContractArtifact)).send().wait();
-      const receipt = await deployInstance(wallets[0], instance).send().wait();
+      const instance = await getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
+        constructorArgs: initArgs,
+      });
+      const registerMethod = await registerContractClass(wallets[0], StatefulTestContractArtifact);
+      await registerMethod.send().wait();
+      const deployMethod = await deployInstance(wallets[0], instance);
+      const receipt = await deployMethod.send().wait();
 
       await assertInclusion(instance.address, receipt.blockNumber!, { testDeploy: true, testInit: false });
     });

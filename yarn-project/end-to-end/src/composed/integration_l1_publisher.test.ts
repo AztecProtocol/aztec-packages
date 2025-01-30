@@ -19,6 +19,7 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
+import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -27,7 +28,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -36,7 +36,7 @@ import {
 } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import * as fs from 'fs';
+import { writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Account,
@@ -171,23 +171,20 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
-    publisher = new L1Publisher(
-      {
-        l1RpcUrl: config.l1RpcUrl,
-        requiredConfirmations: 1,
-        l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
-        l1PublishRetryIntervalMS: 100,
-        l1ChainId: 31337,
-        viemPollingIntervalMS: 100,
-        ethereumSlotDuration: config.ethereumSlotDuration,
-        blobSinkUrl: BLOB_SINK_URL,
-      },
-      { telemetry: new NoopTelemetryClient() },
-    );
+    publisher = new L1Publisher({
+      l1RpcUrl: config.l1RpcUrl,
+      requiredConfirmations: 1,
+      l1Contracts: l1ContractAddresses,
+      publisherPrivateKey: sequencerPK,
+      l1PublishRetryIntervalMS: 100,
+      l1ChainId: 31337,
+      viemPollingIntervalMS: 100,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      blobSinkUrl: BLOB_SINK_URL,
+    });
 
     coinbase = config.coinbase || EthAddress.random();
-    feeRecipient = config.feeRecipient || AztecAddress.random();
+    feeRecipient = config.feeRecipient || (await AztecAddress.random());
 
     const fork = await worldStateSynchronizer.fork();
 
@@ -206,12 +203,12 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.stop();
   });
 
-  const makeProcessedTx = (seed = 0x1): ProcessedTx =>
+  const makeProcessedTx = async (seed = 0x1): Promise<ProcessedTx> =>
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
       version: fr(config.version),
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,
@@ -228,14 +225,14 @@ describe('L1Publisher integration', () => {
    * Creates a json object that can be used to test the solidity contract.
    * The json object must be put into
    */
-  const writeJson = (
+  const writeJson = async (
     fileName: string,
     block: L2Block,
     l1ToL2Content: Fr[],
     blobs: Blob[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
-  ): void => {
+  ): Promise<void> => {
     if (!AZTEC_GENERATE_TEST_DATA) {
       return;
     }
@@ -257,7 +254,7 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
+        blockHash: `0x${(await block.hash()).toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
           contentCommitment: {
@@ -317,13 +314,13 @@ describe('L1Publisher integration', () => {
     };
 
     const output = JSON.stringify(jsonObject, null, 2);
-    fs.writeFileSync(path, output, 'utf8');
+    await writeFile(path, output, 'utf8');
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork();
-    const tempBuilder = new LightweightBlockBuilder(tempFork, new NoopTelemetryClient());
+    const tempBuilder = new LightweightBlockBuilder(tempFork);
     await tempBuilder.startNewBlock(globalVariables, l1ToL2Messages);
     await tempBuilder.addTxs(txs);
     const block = await tempBuilder.setBlockCompleted();
@@ -369,9 +366,9 @@ describe('L1Publisher integration', () => {
 
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
-        const txs = Array(numTxs)
-          .fill(0)
-          .map((_, txIndex) => makeProcessedTx(totalNullifiersPerBlock * i + MAX_NULLIFIERS_PER_TX * (txIndex + 1)));
+        const txs = await timesParallel(numTxs, txIndex =>
+          makeProcessedTx(totalNullifiersPerBlock * i + MAX_NULLIFIERS_PER_TX * (txIndex + 1)),
+        );
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
@@ -402,12 +399,12 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blobs = Blob.getBlobs(block.body.toBlobFields());
+        const blobs = await Blob.getBlobs(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
         );
 
-        writeJson(
+        await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
           block,
           l1ToL2Content,
@@ -445,7 +442,7 @@ describe('L1Publisher integration', () => {
             {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              blockHash: `0x${block.header.hash().toBuffer().toString('hex')}`,
+              blockHash: `0x${(await block.header.hash()).toBuffer().toString('hex')}`,
               oracleInput: {
                 provingCostModifier: 0n,
                 feeAssetPriceModifier: 0n,
@@ -507,7 +504,7 @@ describe('L1Publisher integration', () => {
       // a Rollup__InvalidInHash that is not caught by validateHeader before.
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
 
-      const txs = [makeProcessedTx(0x1000), makeProcessedTx(0x2000)];
+      const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
       const ts = (await publicClient.getBlock()).timestamp;
       const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
       const timestamp = await rollup.read.getTimestampForSlot([slot]);
@@ -538,6 +535,7 @@ describe('L1Publisher integration', () => {
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
         expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
+        expect.anything(),
       );
 
       // Test second call

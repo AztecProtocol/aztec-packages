@@ -6,3 +6,4 @@ export * from './event_selector.js';
 export * from './function_selector.js';
 export * from './note_selector.js';
 export * from './utils.js';
+export * from './u128.js';

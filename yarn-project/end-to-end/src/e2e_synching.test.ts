@@ -57,12 +57,12 @@ import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
 import { getContract } from 'viem';
 
+import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { addAccounts } from './fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
@@ -147,13 +147,13 @@ class TestVariant {
   async deployWallets(numberOfAccounts: number) {
     // Create accounts such that we can send from many to not have colliding nullifiers
     const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(this.pxe, ak[0], ak[1], 1));
 
     return await Promise.all(
-      accountManagers.map(async (a, i) => {
-        const partialAddress = a.getCompleteAddress().partialAddress;
+      accountKeys.map(async (ak, i) => {
+        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
+        const partialAddress = (await account.getCompleteAddress()).partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await a.getWallet();
+        const wallet = await account.getWallet();
         this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
         return wallet;
       }),
@@ -193,11 +193,11 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
         const tx = deployMethod.send({
-          contractAddressSalt: accountManager.salt,
+          contractAddressSalt: new Fr(accountManager.salt),
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
@@ -231,10 +231,10 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          this.spam.methods.spam(this.seed, 16, false).request(),
-          this.spam.methods.spam(this.seed + 16n, 16, false).request(),
-          this.spam.methods.spam(this.seed + 32n, 16, false).request(),
-          this.spam.methods.spam(this.seed + 48n, 15, true).request(),
+          await this.spam.methods.spam(this.seed, 16, false).request(),
+          await this.spam.methods.spam(this.seed + 16n, 16, false).request(),
+          await this.spam.methods.spam(this.seed + 32n, 16, false).request(),
+          await this.spam.methods.spam(this.seed + 48n, 15, true).request(),
         ]);
 
         this.seed += 100n;
@@ -332,7 +332,7 @@ describe('e2e_synching', () => {
 
       // Now we create all of our interesting blocks.
       // Alter the block requirements for the sequencer such that we ensure blocks sizes as desired.
-      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
       await variant.setup();
@@ -383,7 +383,9 @@ describe('e2e_synching', () => {
     await (sequencer as any).stop();
     await watcher?.stop();
 
-    const blobSinkClient = createBlobSinkClient(`http://localhost:${blobSink?.port ?? 5052}`);
+    const blobSinkClient = createBlobSinkClient({
+      blobSinkUrl: `http://localhost:${blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
+    });
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
     const publisher = new L1Publisher(
@@ -398,7 +400,7 @@ describe('e2e_synching', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
-      { telemetry: new NoopTelemetryClient(), blobSinkClient },
+      { blobSinkClient },
     );
 
     const blocks = variant.loadBlocks();
@@ -501,13 +503,15 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
-          const archiver = await createArchiver(opts.config!, blobSinkClient, new NoopTelemetryClient(), {
+          const blobSinkClient = createBlobSinkClient({
+            blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
+          });
+          const archiver = await createArchiver(opts.config!, blobSinkClient, {
             blockUntilSync: true,
           });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
@@ -526,15 +530,15 @@ describe('e2e_synching', () => {
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
-          contracts.forEach(async c => {
+          for (const c of contracts) {
             expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
             expect(await archiver.getContract(c.address)).not.toBeUndefined;
-          });
+          }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
 
           await rollup.write.prune();
@@ -558,9 +562,9 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
-          expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).toEqual([]);
+          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
+            [],
+          );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
@@ -627,7 +631,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
@@ -686,7 +690,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 

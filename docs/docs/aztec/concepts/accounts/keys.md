@@ -82,11 +82,11 @@ By [Shared Mutable](../shared_state#sharedmutable/index.md) we mean privately re
 
 To make public state accessible privately, there should be a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
-#### Reusing some of the in-protocol keys​
+#### Reusing some of the in-protocol keys
 
 It is possible to use some of the key pairs defined in protocol (e.g. incoming viewing keys) as the signing key. Since this key is part of the address preimage, it can be validated against the account contract address rather than having to store it. However, this approach is not recommended since it reduces the security of the user's account.
 
-#### Using a separate keystore​
+#### Using a separate keystore
 
 Since there are no restrictions on the actions that an account contract may execute for authenticating a transaction (as long as these are all private function executions), the signing public keys can be stored in a separate keystore contract that is checked on every call. In this case, each user could keep a single contract that acts as a keystore, and have multiple account contracts that check against that keystore for authorization. This will incur a higher proving time for each transaction, but has no additional cost in terms of fees.
 

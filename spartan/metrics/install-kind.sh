@@ -4,6 +4,8 @@ set -eu
 SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 cd "$SCRIPT_DIR"
 
+echo "Installing metrics (KIND)"
+
 # check if metrics is already installed
 if helm ls --namespace metrics | grep -q metrics; then
   echo "metrics is already installed"

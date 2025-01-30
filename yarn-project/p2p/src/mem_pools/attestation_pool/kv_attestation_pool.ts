@@ -2,7 +2,7 @@ import { BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMapWithSize, type AztecMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
@@ -15,7 +15,7 @@ export class KvAttestationPool implements AttestationPool {
 
   constructor(
     private store: AztecKVStore,
-    telemetry: TelemetryClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('aztec:attestation_pool'),
   ) {
     this.attestations = store.openMultiMap('attestations');
@@ -42,18 +42,20 @@ export class KvAttestationPool implements AttestationPool {
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
       const proposalId = attestation.archive.toString();
-      const address = attestation.getSender().toString();
+      const address = (await attestation.getSender()).toString();
 
       // Index the proposalId in the slot map
-      await this.attestations.set(slotNumber, proposalId);
+      await this.attestations.set(slotNumber.toString(), proposalId);
 
       // Store the actual attestation in the proposal map
-      const proposalMap = this.getProposalMap(slotNumber, proposalId);
+      const proposalMap = this.getProposalMap(slotNumber.toString(), proposalId);
       await proposalMap.set(address, attestation.toBuffer());
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+      this.log.verbose(`Added attestation for slot ${slotNumber.toNumber()} from ${address}`, {
+        slotNumber: slotNumber.toNumber(),
+      });
     }
 
     this.metrics.recordAddedObjects(attestations.length);
@@ -135,7 +137,7 @@ export class KvAttestationPool implements AttestationPool {
       const proposalMap = this.getProposalMap(slotNumber, proposalId);
 
       if (proposalMap) {
-        const address = attestation.getSender().toString();
+        const address = (await attestation.getSender()).toString();
         deletionPromises.push(proposalMap.delete(address));
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }

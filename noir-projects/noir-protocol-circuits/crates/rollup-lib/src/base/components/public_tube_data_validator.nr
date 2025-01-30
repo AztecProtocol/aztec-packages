@@ -1,5 +1,8 @@
 use super::validate_tube_data::validate_max_fees_per_gas;
-use dep::types::abis::{constant_rollup_data::ConstantRollupData, tube::PublicTubeData};
+use dep::types::{
+    abis::{constant_rollup_data::ConstantRollupData, tube::PublicTubeData},
+    proof::traits::Verifiable,
+};
 
 pub struct PublicTubeDataValidator {
     pub data: PublicTubeData,

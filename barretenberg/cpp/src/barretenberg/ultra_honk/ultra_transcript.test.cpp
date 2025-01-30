@@ -109,13 +109,10 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        if constexpr (Flavor::HasZK) {
-            manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-        }
-
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
 
         if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
             manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);

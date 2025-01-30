@@ -17,7 +17,7 @@ class MockBytecodeManager : public BytecodeManagerInterface {
     ~MockBytecodeManager() override;
 
     MOCK_METHOD(Instruction, read_instruction, (uint32_t pc), (const, override));
-    MOCK_METHOD(ContractClassId, get_class_id, (), (const, override));
+    MOCK_METHOD(BytecodeId, get_bytecode_id, (), (const, override));
 };
 
 } // namespace bb::avm2::simulation

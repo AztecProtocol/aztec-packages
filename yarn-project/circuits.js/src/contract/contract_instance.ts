@@ -68,14 +68,14 @@ export class SerializableContractInstance {
     });
   }
 
-  static random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
+  static async random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
     return new SerializableContractInstance({
       version: VERSION,
       salt: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       contractClassId: Fr.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       ...opts,
     });
   }
@@ -98,7 +98,7 @@ export class SerializableContractInstance {
  * @param opts - Options for the deployment.
  * @returns - The contract instance
  */
-export function getContractInstanceFromDeployParams(
+export async function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
     constructorArtifact?: FunctionArtifact | string;
@@ -108,20 +108,20 @@ export function getContractInstanceFromDeployParams(
     publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
-): ContractInstanceWithAddress {
+): Promise<ContractInstanceWithAddress> {
   const args = opts.constructorArgs ?? [];
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
-  const contractClass = getContractClassFromArtifact(artifact);
-  const contractClassId = computeContractClassId(contractClass);
+  const contractClass = await getContractClassFromArtifact(artifact);
+  const contractClassId = await computeContractClassId(contractClass);
   const initializationHash =
     constructorArtifact && opts?.skipArgsDecoding
-      ? computeInitializationHashFromEncodedArgs(
-          FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
+      ? await computeInitializationHashFromEncodedArgs(
+          await FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
           args,
         )
-      : computeInitializationHash(constructorArtifact, args);
+      : await computeInitializationHash(constructorArtifact, args);
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
@@ -133,7 +133,7 @@ export function getContractInstanceFromDeployParams(
     version: 1,
   };
 
-  return { ...instance, address: computeContractAddressFromInstance(instance) };
+  return { ...instance, address: await computeContractAddressFromInstance(instance) };
 }
 
 function getConstructorArtifact(

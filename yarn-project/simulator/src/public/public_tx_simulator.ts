@@ -7,14 +7,13 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
@@ -53,10 +52,10 @@ export class PublicTxSimulator {
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private enforceFeePayment: boolean = true,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -71,7 +70,7 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
@@ -120,8 +119,7 @@ export class PublicTxSimulator {
 
     const endStateReference = await this.db.getStateReference();
 
-    const avmProvingRequest = context.generateProvingRequest(endStateReference);
-    const avmCircuitPublicInputs = avmProvingRequest.inputs.output!;
+    const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
     const revertCode = context.getFinalRevertCode();
     if (!revertCode.isOK()) {
@@ -131,13 +129,8 @@ export class PublicTxSimulator {
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx);
       // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(
-        tx.data.forPublic!.nonRevertibleAccumulatedData,
-        avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes,
-      );
+      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
-    // FIXME(dbanks12): should not be changing immutable tx
-    tx.unencryptedLogs.addFunctionLogs([new UnencryptedFunctionL2Logs(context.trace.getUnencryptedLogs())]);
 
     return {
       avmProvingRequest,
@@ -391,7 +384,7 @@ export class PublicTxSimulator {
     }
     for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
-        stateManager.writeUniqueNoteHash(noteHash);
+        await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
   }
@@ -416,7 +409,7 @@ export class PublicTxSimulator {
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
         // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
-        stateManager.writeSiloedNoteHash(noteHash);
+        await stateManager.writeSiloedNoteHash(noteHash);
       }
     }
   }
@@ -430,7 +423,7 @@ export class PublicTxSimulator {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(context.feePayer);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();

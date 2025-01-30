@@ -107,7 +107,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
-    FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
@@ -116,7 +115,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
-        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
@@ -135,7 +133,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

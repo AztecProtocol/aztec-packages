@@ -19,9 +19,9 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
    * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
    * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
    */
-  startTubeCircuits(txs: Tx[]): void;
+  startTubeCircuits(txs: Tx[]): Promise<void>;
 
-  /** Pads the block with empty txs if it hasn't reached the declared number of txs. */
+  /** Returns the block. */
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */

@@ -27,7 +27,7 @@ export class TimeoutTask<T> {
    * @throws An error with a message indicating the function was interrupted due to exceeding the specified timeout.
    */
   public async exec() {
-    const interruptTimeout = !this.timeout ? 0 : setTimeout(this.interrupt, this.timeout);
+    const interruptTimeout = setTimeout(this.interrupt, this.timeout);
     try {
       const start = Date.now();
       const result = await Promise.race<T>([this.fn(), this.interruptPromise]);

@@ -193,7 +193,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
-      blockHeaderHash: header.hash().toBuffer(),
+      blockHeaderHash: (await header.hash()).toBuffer(),
       blockStateRef: blockStateReference(header.state),
     });
   }

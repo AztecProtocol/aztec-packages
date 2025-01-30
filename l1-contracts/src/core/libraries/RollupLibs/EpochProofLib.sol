@@ -200,9 +200,8 @@ library EpochProofLib {
       );
 
       bytes32 expectedPreviousBlockHash = _rollupStore.blocks[previousBlockNumber].blockHash;
-      // TODO: Remove 0 check once we inject the proper genesis block hash
       require(
-        expectedPreviousBlockHash == 0 || expectedPreviousBlockHash == _args[2],
+        expectedPreviousBlockHash == _args[2],
         Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
       );
 

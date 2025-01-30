@@ -10,8 +10,8 @@ function fieldArrToStr(arr: Fr[]) {
 }
 
 describe('buildBlobHints', () => {
-  it('correctly builds hints for empty blob fields', () => {
-    const { blobFields, blobCommitments, blobsHash, blobs } = buildBlobHints([]);
+  it('correctly builds hints for empty blob fields', async () => {
+    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([]);
 
     expect(blobFields).toEqual([]);
 
@@ -32,22 +32,22 @@ describe('buildBlobHints', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blob_commitment',
+      'expected_empty_effect_blob_commitment',
       blobCommitmentStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blobs_hash',
+      'expected_empty_effect_blobs_hash',
       blobsHashStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_empty_effect_challenge_z',
       zStr,
     );
   });
 
-  it('correctly builds hints for non-empty blob fields', () => {
+  it('correctly builds hints for non-empty blob fields', async () => {
     const txEffect0 = TxEffect.empty();
     txEffect0.txHash = new TxHash(new Fr(42));
     txEffect0.nullifiers[0] = new Fr(0x123);
@@ -55,7 +55,7 @@ describe('buildBlobHints', () => {
     txEffect1.txHash = new TxHash(new Fr(43));
     txEffect1.noteHashes[0] = new Fr(0x6789);
     txEffect1.nullifiers[0] = new Fr(0x45);
-    const { blobFields, blobCommitments, blobsHash, blobs } = buildBlobHints([txEffect0, txEffect1]);
+    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([txEffect0, txEffect1]);
 
     const blobFields0Str = fieldArrToStr(blobFields.slice(0, 5));
     const blobFields1Str = fieldArrToStr(blobFields.slice(5));
@@ -100,7 +100,7 @@ describe('buildBlobHints', () => {
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_challenge_z',
       zStr,
     );
   });

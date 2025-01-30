@@ -1,6 +1,6 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
-import { mean, stdDev, times } from '@aztec/foundation/collection';
+import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
@@ -122,19 +122,19 @@ export function getFolderSize(path: string): number {
 /**
  * Returns a call to the benchmark contract. Each call has a private execution (account entrypoint),
  * a nested private call (create_note), a public call (increment_balance), and a nested public
- * call (broadcast). These include emitting one private note and one unencrypted log, two storage
+ * call (broadcast). These include emitting one private note and one public log, two storage
  * reads and one write.
  * @param index - Index of the call within a block.
  * @param context - End to end context.
  * @param contract - Benchmarking contract.
  * @returns A BatchCall instance.
  */
-export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
+export async function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
   const sender = owner;
   return new BatchCall(context.wallet, [
-    contract.methods.create_note(owner, sender, index + 1).request(),
-    contract.methods.increment_balance(owner, index + 1).request(),
+    await contract.methods.create_note(owner, sender, index + 1).request(),
+    await contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }
 
@@ -151,7 +151,7 @@ export async function sendTxs(
   context: EndToEndContext,
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
-  const calls = times(txCount, index => makeCall(index, context, contract));
+  const calls = await timesParallel(txCount, index => makeCall(index, context, contract));
   context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   context.logger.info(`Sending ${txCount} txs`);

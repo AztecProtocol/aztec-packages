@@ -72,11 +72,11 @@ export class AcirSimulator {
     const callContext = new CallContext(
       msgSender,
       contractAddress,
-      FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
+      await FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
       entryPointArtifact.isStatic,
     );
 
-    const txRequestHash = request.toTxRequest().hash();
+    const txRequestHash = await request.toTxRequest().hash();
     const noteCache = new ExecutionNoteCache(txRequestHash);
 
     const context = new ClientExecutionContext(
@@ -192,7 +192,7 @@ export class AcirSimulator {
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: FunctionSelector.empty(),
+      selector: await FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [

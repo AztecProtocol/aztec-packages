@@ -98,15 +98,6 @@ function check_toolchains {
     echo "Installation: corepack enable"
     exit 1
   fi
-  # Check for yarn version
-  local yarn_min_version="4.5.2"
-  local yarn_installed_version=$(yarn --version)
-  if [[ "$(printf '%s\n' "$yarn_min_version" "$yarn_installed_version" | sort -V | head -n1)" != "$yarn_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum yarn version $yarn_min_version not found (got $yarn_installed_version)."
-    echo "Installation: yarn set version $yarn_min_version; yarn install"
-    exit 1
-  fi
 }
 
 function test_all {
@@ -202,12 +193,17 @@ case "$cmd" in
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
     check_arch=false
+    version="0.1.0"
 
     # Check for --check-arch flag in args
     for arg in "$@"; do
       if [ "$arg" = "--check-arch" ]; then
         check_arch=true
         break
+      fi
+      if [ "$arg" = "--version" ]; then
+        version=$2
+        shift 2
       fi
     done
 
@@ -224,6 +220,8 @@ case "$cmd" in
         else
           echo "Image $image already exists and has been downloaded with correct architecture." && exit
         fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
       else
         echo "Image $image already exists and has been downloaded." && exit
       fi
@@ -237,7 +235,8 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
+
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
@@ -295,7 +294,7 @@ case "$cmd" in
     # Drop through. source_bootstrap on script entry has set flags.
   ;;
   *)
-    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|test-kind-network|image-aztec|image-e2e|image-faucet>"
+    echo "usage: $0 <clean|full|fast|test|check|test-e2e|test-cache|test-boxes|image-aztec|image-e2e|image-faucet>"
     exit 1
   ;;
 esac
@@ -304,6 +303,8 @@ esac
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
+echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"
