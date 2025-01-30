@@ -53,7 +53,7 @@ contract TokenPortal {
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
     returns (bytes32, uint256)
-    // docs:end:deposit_public
+  // docs:end:deposit_public
   {
     // Preamble
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
@@ -87,7 +87,7 @@ contract TokenPortal {
   function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageConsumption)
     external
     returns (bytes32, uint256)
-    // docs:end:deposit_private
+  // docs:end:deposit_private
   {
     // Preamble
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
