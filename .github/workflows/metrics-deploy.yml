@@ -3,6 +3,10 @@ name: Aztec Metrics Stack Deployment
 on:
   workflow_call:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. metrics
         required: true
@@ -38,6 +42,10 @@ on:
         required: true
   workflow_dispatch:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. metrics
         required: true
@@ -76,10 +84,10 @@ jobs:
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
       CHART_PATH: ./spartan/metrics
-      CLUSTER_NAME: aztec-gke
+      CLUSTER_NAME: ${{ inputs.cluster }}
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
-      GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+      GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
 
     steps:
