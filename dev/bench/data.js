@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738231654698,
+  "lastUpdate": 1738262784032,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2f05dc02fe7b147c7cd6fc235134279dbf332c08",
-          "message": "fix(avm): AVM circuit fixes related calldata, returndata and call_ptr (#11207)\n\nThe AVM circuit code did not correctly compute col_offset (defined in\r\nmem_slice.pil) in the context of multiple enqueued calls. In this case,\r\nthe calldata of these top-level calls are concatenated and therefore\r\ncol_offset needs to take into account the previous concatenated\r\ncalldata. We needed also to relax the constraint #[COL_OFFSET_INCREMENT]\r\nwhich needs to be \"reset\" at call boundaries.\r\n\r\nSimilar fix applies for returndata.\r\n\r\nIn addition, we identified some missing call_ptr member in trace row of\r\nseveral opcodes.",
-          "timestamp": "2025-01-15T12:00:38+01:00",
-          "tree_id": "b36e5fbd90d5dcadb4709b7f428354c704715518",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2f05dc02fe7b147c7cd6fc235134279dbf332c08"
-        },
-        "date": 1736939832774,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18981.46464500002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15964.644898 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21595.547462000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19208.274018 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4068.078853999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3752.102518 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 80074.753179,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 80074753000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14569.986035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14569986000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3252506078,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3252506078 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139567856,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139567856 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 142308557,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142308557 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a7f8d9670902dfa4856b8514ce5eb4ad031a44fc",
+          "message": "feat: Sync from noir (#11294)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: let `add_definition_location` take a Location\n(https://github.com/noir-lang/noir/pull/7185)\nfix(LSP): correct signature for assert and assert_eq\n(https://github.com/noir-lang/noir/pull/7184)\nchore(experimental): Prevent enum panics by returning Options where\npossible instead of panicking\n(https://github.com/noir-lang/noir/pull/7180)\nfeat(experimental): Construct enum variants in expressions\n(https://github.com/noir-lang/noir/pull/7174)\nfeat: add `noir-inspector` (https://github.com/noir-lang/noir/pull/7136)\nfix: ensure canonical bits decomposition\n(https://github.com/noir-lang/noir/pull/7168)\nfix: Keep `inc_rc` for array inputs during preprocessing\n(https://github.com/noir-lang/noir/pull/7163)\nfix(docs): Update broken links to EC lib\n(https://github.com/noir-lang/noir/pull/7141)\nfeat: inline simple functions\n(https://github.com/noir-lang/noir/pull/7160)\nfeat(ssa): Expand feature set of the Brillig constraint check\n(https://github.com/noir-lang/noir/pull/7060)\nfix(ssa): Resolve value before fetching from DFG in a couple cases\n(https://github.com/noir-lang/noir/pull/7169)\nfix: `Function::is_no_predicates` always returned false for brillig f…\n(https://github.com/noir-lang/noir/pull/7167)\nchore(refactor): Remove globals field on Ssa object and use only the\nshared globals graph (https://github.com/noir-lang/noir/pull/7156)\nchore: let `Function::inlined` take a `should_inline_call` function\n(https://github.com/noir-lang/noir/pull/7149)\nchore: add compile-time assertions on generic arguments of stdlib\nfunctions (https://github.com/noir-lang/noir/pull/6981)\nfix: LSP hover over function with `&mut self`\n(https://github.com/noir-lang/noir/pull/7155)\nfeat(brillig): Set global memory size at program compile time\n(https://github.com/noir-lang/noir/pull/7151)\nfeat: LSP autocomplete module declaration\n(https://github.com/noir-lang/noir/pull/7154)\nfeat(ssa): Reuse constants from the globals graph when making constants\nin a function DFG (https://github.com/noir-lang/noir/pull/7153)\nfeat: LSP chain inlay hints\n(https://github.com/noir-lang/noir/pull/7152)\nchore: turn on overflow checks in CI rust tests\n(https://github.com/noir-lang/noir/pull/7145)\nfix(ssa): Use post order when mapping instructions in loop invariant\npass (https://github.com/noir-lang/noir/pull/7140)\nfix: preserve types when reading from calldata arrays\n(https://github.com/noir-lang/noir/pull/7144)\nfeat: Resolve enums & prepare type system\n(https://github.com/noir-lang/noir/pull/7115)\nfeat: `loop` must have at least one `break`\n(https://github.com/noir-lang/noir/pull/7126)\nfeat: parse globals in SSA parser\n(https://github.com/noir-lang/noir/pull/7112)\nfix: allow calling trait impl method from struct if multiple impls exist\n(https://github.com/noir-lang/noir/pull/7124)\nfix: avoid creating unnecessary memory blocks\n(https://github.com/noir-lang/noir/pull/7114)\nchore: relax threshold for reporting regressions\n(https://github.com/noir-lang/noir/pull/7130)\nfix: proper cleanup when breaking from comptime loop on error\n(https://github.com/noir-lang/noir/pull/7125)\nfix: Prevent overlapping associated types impls\n(https://github.com/noir-lang/noir/pull/7047)\nfeat: unconstrained optimizations for BoundedVec\n(https://github.com/noir-lang/noir/pull/7119)\nchore: mark libs good (https://github.com/noir-lang/noir/pull/7123)\nchore: remove comments for time/memory benchmarks\n(https://github.com/noir-lang/noir/pull/7121)\nfix: don't always use an exclusive lock in `nargo check`\n(https://github.com/noir-lang/noir/pull/7120)\nfeat(ssa): Pass to preprocess functions\n(https://github.com/noir-lang/noir/pull/7072)\nchore: Formatting issues / minor errors in the docs\n(https://github.com/noir-lang/noir/pull/7105)\nfix: defunctionalize pass on the caller runtime to apply\n(https://github.com/noir-lang/noir/pull/7100)\nfeat: Parser and formatter support for `enum`s\n(https://github.com/noir-lang/noir/pull/7110)\nfeat(brillig): SSA globals code gen\n(https://github.com/noir-lang/noir/pull/7021)\nfeat: `loop` keyword in runtime and comptime code\n(https://github.com/noir-lang/noir/pull/7096)\nchore: Add benchmarking dashboard\n(https://github.com/noir-lang/noir/pull/7068)\nfeat(experimental): try to infer lambda argument types inside calls\n(https://github.com/noir-lang/noir/pull/7088)\nfeat(ssa): Add flag to DIE pass to be able to keep `store` instructions\n(https://github.com/noir-lang/noir/pull/7106)\nchore: Cookbook Onboard integration\n(https://github.com/noir-lang/noir/pull/7044)\nchore: lock to ubuntu 22.04\n(https://github.com/noir-lang/noir/pull/7098)\nfix: Remove unused brillig functions\n(https://github.com/noir-lang/noir/pull/7102)\nchore(ssa): Use correct prefix when printing array values in global\nspace (https://github.com/noir-lang/noir/pull/7095)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <tom@tomfren.ch>\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>\nCo-authored-by: aakoshh <akosh@aztecprotocol.com>\nCo-authored-by: Akosh Farkash <aakoshh@gmail.com>\nCo-authored-by: Maxim Vezenov <mvezenov@gmail.com>",
+          "timestamp": "2025-01-30T18:29:12Z",
+          "tree_id": "e750701a85a77c6b5e645839e530d34a53cc8f8d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a7f8d9670902dfa4856b8514ce5eb4ad031a44fc"
+        },
+        "date": 1738262776778,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18867.056407000036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15908.919193999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21449.421082000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18915.817924 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4130.753983000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3810.8767060000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 74211.93864099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 74211939000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14639.107864000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14639108000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3069633563,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3069633563 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139000526,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139000526 ns\nthreads: 1"
           }
         ]
       }
