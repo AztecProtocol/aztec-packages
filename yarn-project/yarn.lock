@@ -814,7 +814,7 @@ __metadata:
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
-    "@playwright/test": "npm:^1.50.0"
+    "@playwright/test": "npm:^1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
     "@types/pako": "npm:^2.0.3"
@@ -828,7 +828,7 @@ __metadata:
     levelup: "npm:^5.1.1"
     memdown: "npm:^6.1.1"
     pako: "npm:^2.1.0"
-    playwright: "npm:^1.50.0"
+    playwright: "npm:^1.49.0"
     puppeteer: "npm:^22.4.1"
     resolve-typescript-plugin: "npm:^2.0.1"
     serve: "npm:^14.2.1"
@@ -4416,7 +4416,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@playwright/test@npm:^1.50.0":
+"@playwright/test@npm:^1.49.0":
   version: 1.50.0
   resolution: "@playwright/test@npm:1.50.0"
   dependencies:
@@ -17245,7 +17245,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright@npm:1.50.0, playwright@npm:^1.22.2, playwright@npm:^1.50.0":
+"playwright@npm:1.50.0, playwright@npm:^1.22.2, playwright@npm:^1.49.0":
   version: 1.50.0
   resolution: "playwright@npm:1.50.0"
   dependencies:
