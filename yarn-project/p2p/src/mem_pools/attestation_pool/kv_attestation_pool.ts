@@ -40,13 +40,8 @@ export class KvAttestationPool implements AttestationPool {
     return `${slotStr}-${proposalIdStr}`;
   }
 
-  private getAttestationKey(
-    slot: number | bigint | Fr | string,
-    proposalId: Fr | string,
-    address: EthAddress | string,
-  ): string {
-    const addressStr = typeof address === 'string' ? address : address.toString();
-    return `${this.getProposalKey(slot, proposalId)}-${addressStr}`;
+  private getAttestationKey(slot: number | bigint | Fr | string, proposalId: Fr | string, address: string): string {
+    return `${this.getProposalKey(slot, proposalId)}-${address}`;
   }
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
@@ -54,7 +49,7 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.globalVariables.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender();
+        const address = (await attestation.getSender()).toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
@@ -149,7 +144,7 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.globalVariables.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender();
+        const address = (await attestation.getSender()).toString();
 
         await this.attestations.delete(this.getAttestationKey(slotNumber, proposalId, address));
         await this.attestationsForProposal.deleteValue(

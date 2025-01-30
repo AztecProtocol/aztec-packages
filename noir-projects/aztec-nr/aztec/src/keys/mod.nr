@@ -1,3 +1,4 @@
 pub mod constants;
+pub mod ephemeral;
 pub mod getters;
-pub mod secret_derivation;
+pub mod ecdh_shared_secret;

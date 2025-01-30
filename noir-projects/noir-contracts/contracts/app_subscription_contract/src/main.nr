@@ -9,7 +9,7 @@ contract AppSubscription {
 
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::constants::MAX_FIELD_VALUE,

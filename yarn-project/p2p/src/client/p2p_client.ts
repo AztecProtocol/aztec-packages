@@ -150,7 +150,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
   /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterable<Tx>;
+  iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
@@ -410,19 +410,19 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info('P2P client stopped.');
   }
 
-  @trackSpan('p2pClient.broadcastProposal', proposal => ({
+  @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
-    [Attributes.P2P_ID]: proposal.p2pMessageIdentifier().toString(),
+    [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): void {
     this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    return Promise.resolve(this.attestationPool?.getAttestationsForSlot(slot, proposalId) ?? []);
+  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    return (await this.attestationPool?.getAttestationsForSlot(slot, proposalId)) ?? [];
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -476,7 +476,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return pendingTxs.length;
   }
 
-  public async *iteratePendingTxs() {
+  public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
     for (const txHash of await this.txPool.getPendingTxHashes()) {
       const tx = await this.txPool.getTxByHash(txHash);
       if (tx) {
@@ -608,9 +608,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async getStatus(): Promise<P2PSyncState> {
     const blockNumber = await this.getSyncedLatestBlockNum();
     const blockHash =
-      blockNumber == 0
+      blockNumber === 0
         ? ''
-        : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
+        : await this.l2BlockSource
+            .getBlockHeader(blockNumber)
+            .then(header => header?.hash())
+            .then(hash => hash?.toString());
+
     return {
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
@@ -654,7 +658,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     await this.markTxsAsMinedFromBlocks(blocks);
     const lastBlockNum = blocks[blocks.length - 1].number;
-    await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
+    await Promise.all(
+      blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
+    );
     await this.synchedLatestBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     await this.startServiceIfSynched();
@@ -711,7 +717,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
-        txsToDelete.push(tx.getTxHash());
+        txsToDelete.push(await tx.getTxHash());
       }
     }
 

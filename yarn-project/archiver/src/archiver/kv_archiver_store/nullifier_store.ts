@@ -16,23 +16,25 @@ export class NullifierStore {
   }
 
   async addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    const blockHashes = await Promise.all(blocks.map(block => block.hash()));
     await this.db.transactionAsync(async () => {
       await Promise.all(
-        blocks.map(block => {
+        blocks.map((block, i) => {
           const dataStartIndexForBlock =
             block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
             block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
-          return block.body.txEffects.map((txEffects, txIndex) => {
-            const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
-            return txEffects.nullifiers.map((nullifier, nullifierIndex) =>
-              Promise.all([
-                ,
-                this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number),
-                this.#nullifiersToBlockHash.set(nullifier.toString(), block.hash().toString()),
-                this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex),
-              ]),
-            );
-          });
+          return Promise.all(
+            block.body.txEffects.map((txEffects, txIndex) => {
+              const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+              return Promise.all(
+                txEffects.nullifiers.map((nullifier, nullifierIndex) => {
+                  void this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number);
+                  void this.#nullifiersToBlockHash.set(nullifier.toString(), blockHashes[i].toString());
+                  void this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex);
+                }),
+              );
+            }),
+          );
         }),
       );
     });

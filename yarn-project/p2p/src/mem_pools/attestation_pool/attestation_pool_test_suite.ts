@@ -29,7 +29,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   const createAttestationsForSlot = (slotNumber: number) => {
     const archive = Fr.random();
-    return signers.map(signer => mockAttestation(signer, slotNumber, archive));
+    return Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
   };
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised
@@ -44,7 +44,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
+    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
 
     await ap.addAttestations(attestations);
 
@@ -75,7 +75,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     const attestations: BlockAttestation[] = [];
     const signer = signers[0];
     for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
-      attestations.push(mockAttestation(signer, slotNumber, archive, txs));
+      attestations.push(await mockAttestation(signer, slotNumber, archive, txs));
     }
 
     await ap.addAttestations(attestations);
@@ -84,12 +84,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(retreivedAttestations.length).toBe(1);
     expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
     expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
-    expect(retreivedAttestations[0].getSender().toString()).toEqual(signer.address.toString());
+    expect((await retreivedAttestations[0].getSender()).toString()).toEqual(signer.address.toString());
   });
 
   it('Should store attestations by differing slot', async () => {
     const slotNumbers = [1, 2, 3, 4];
-    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i]));
+    const attestations = await Promise.all(signers.map((signer, i) => mockAttestation(signer, slotNumbers[i])));
 
     await ap.addAttestations(attestations);
 
@@ -107,7 +107,9 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('Should store attestations by differing slot and archive', async () => {
     const slotNumbers = [1, 1, 2, 3];
     const archives = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
-    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], archives[i]));
+    const attestations = await Promise.all(
+      signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], archives[i])),
+    );
 
     await ap.addAttestations(attestations);
 
@@ -125,7 +127,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('Should delete attestations', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
+    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
     const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
@@ -165,12 +167,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('Should blanket delete attestations per slot and proposal', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
+    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
     const proposalId = attestations[0].archive.toString();
 
     // Add another set of attestations with a different proposalId, yet the same slot
     const archive2 = Fr.random();
-    const attestations2 = signers.map(signer => mockAttestation(signer, slotNumber, archive2));
+    const attestations2 = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive2)));
     const proposalId2 = attestations2[0].archive.toString();
 
     await ap.addAttestations(attestations);
@@ -200,7 +202,9 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('Should delete attestations older than a given slot', async () => {
     const slotNumbers = [1, 2, 3, 69, 72, 74, 88, 420];
-    const attestations = slotNumbers.map(slotNumber => createAttestationsForSlot(slotNumber)).flat();
+    const attestations = (
+      await Promise.all(slotNumbers.map(slotNumber => createAttestationsForSlot(slotNumber)))
+    ).flat();
     const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);

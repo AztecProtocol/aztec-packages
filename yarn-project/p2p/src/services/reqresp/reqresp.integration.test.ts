@@ -167,8 +167,8 @@ describe('Req Resp p2p client integration', () => {
       await sleep(2000);
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const requestedTx = await client1.requestTxByHash(txHash);
       expect(requestedTx).toBeUndefined();
@@ -190,8 +190,8 @@ describe('Req Resp p2p client integration', () => {
       await sleep(6000);
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
       // Mock the tx pool to return the tx we are looking for
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
@@ -219,8 +219,8 @@ describe('Req Resp p2p client integration', () => {
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       // Return the correct tx with an invalid proof -> active attack
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
@@ -251,9 +251,9 @@ describe('Req Resp p2p client integration', () => {
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
-      const tx2 = mockTx(420);
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
+      const tx2 = await mockTx(420);
 
       // Return an invalid tx
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));

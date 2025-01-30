@@ -64,17 +64,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

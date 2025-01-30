@@ -152,7 +152,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
-    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -366,7 +366,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     // to emit the corresponding nullifier, which is now being checked. Note that this method
     // is only called by the PXE to check if a contract is publicly registered.
     if (klazz) {
-      const classNullifier = siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
+      const classNullifier = await siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
       const worldState = await this.#getWorldState('latest');
       const [index] = await worldState.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [classNullifier.toBuffer()]);
       this.log.debug(`Registration nullifier ${classNullifier} for contract class ${id} found at index ${index}`);
@@ -426,7 +426,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async sendTx(tx: Tx) {
     const timer = new Timer();
-    const txHash = tx.getTxHash().toString();
+    const txHash = (await tx.getTxHash()).toString();
 
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {
@@ -440,7 +440,7 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     await this.p2pClient!.sendTx(tx);
     this.metrics.receivedTx(timer.ms(), true);
-    this.log.info(`Received tx ${tx.getTxHash()}`, { txHash });
+    this.log.info(`Received tx ${txHash}`, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -812,7 +812,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
@@ -840,11 +840,11 @@ export class AztecNodeService implements AztecNode, Traceable {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('AztecNodeService.simulatePublicCalls', async (tx: Tx) => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
@@ -901,7 +901,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       blockNumber,
       l1ChainId: this.l1ChainId,
       enforceFees: !!this.config.enforceFees,
-      setupAllowList: this.config.allowedInSetup ?? getDefaultAllowedSetupFunctions(),
+      setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
     });
 
@@ -910,7 +910,7 @@ export class AztecNodeService implements AztecNode, Traceable {
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateSequencerConfig(config);
+    await this.sequencer?.updateSequencerConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
       this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();

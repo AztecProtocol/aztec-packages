@@ -35,7 +35,7 @@ async function main() {
   logger.info(`Found inputs for ${ProvingRequestType[input.type]}`);
   writeProofInputs(input, outDir);
 
-  console.log(jsonParseWithSchema(jsonStringify(input), ProvingJobInputs).inputs);
+  console.log((await jsonParseWithSchema(jsonStringify(input), ProvingJobInputs)).inputs);
 }
 
 // This mimics the behavior of bb-prover/src/bb/execute.ts

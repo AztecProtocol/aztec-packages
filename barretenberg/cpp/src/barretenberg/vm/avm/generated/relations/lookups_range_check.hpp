@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -72,7 +73,7 @@ class lookup_rng_chk_pow_2_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_pow_2_relation : public GenericLookupRelation<lookup_rng_chk_pow_2_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_POW_2";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_POW_2";
 };
 template <typename FF_> using lookup_rng_chk_pow_2 = GenericLookup<lookup_rng_chk_pow_2_lookup_settings, FF_>;
 
@@ -135,7 +136,7 @@ class lookup_rng_chk_diff_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_diff_relation : public GenericLookupRelation<lookup_rng_chk_diff_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_DIFF";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_DIFF";
 };
 template <typename FF_> using lookup_rng_chk_diff = GenericLookup<lookup_rng_chk_diff_lookup_settings, FF_>;
 
@@ -198,7 +199,7 @@ class lookup_rng_chk_0_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_0_relation : public GenericLookupRelation<lookup_rng_chk_0_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_0";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_0";
 };
 template <typename FF_> using lookup_rng_chk_0 = GenericLookup<lookup_rng_chk_0_lookup_settings, FF_>;
 
@@ -261,7 +262,7 @@ class lookup_rng_chk_1_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_1_relation : public GenericLookupRelation<lookup_rng_chk_1_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_1";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_1";
 };
 template <typename FF_> using lookup_rng_chk_1 = GenericLookup<lookup_rng_chk_1_lookup_settings, FF_>;
 
@@ -324,7 +325,7 @@ class lookup_rng_chk_2_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_2_relation : public GenericLookupRelation<lookup_rng_chk_2_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_2";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_2";
 };
 template <typename FF_> using lookup_rng_chk_2 = GenericLookup<lookup_rng_chk_2_lookup_settings, FF_>;
 
@@ -387,7 +388,7 @@ class lookup_rng_chk_3_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_3_relation : public GenericLookupRelation<lookup_rng_chk_3_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_3";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_3";
 };
 template <typename FF_> using lookup_rng_chk_3 = GenericLookup<lookup_rng_chk_3_lookup_settings, FF_>;
 
@@ -450,7 +451,7 @@ class lookup_rng_chk_4_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_4_relation : public GenericLookupRelation<lookup_rng_chk_4_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_4";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_4";
 };
 template <typename FF_> using lookup_rng_chk_4 = GenericLookup<lookup_rng_chk_4_lookup_settings, FF_>;
 
@@ -513,7 +514,7 @@ class lookup_rng_chk_5_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_5_relation : public GenericLookupRelation<lookup_rng_chk_5_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_5";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_5";
 };
 template <typename FF_> using lookup_rng_chk_5 = GenericLookup<lookup_rng_chk_5_lookup_settings, FF_>;
 
@@ -576,7 +577,7 @@ class lookup_rng_chk_6_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_6_relation : public GenericLookupRelation<lookup_rng_chk_6_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_6";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_6";
 };
 template <typename FF_> using lookup_rng_chk_6 = GenericLookup<lookup_rng_chk_6_lookup_settings, FF_>;
 
@@ -639,7 +640,7 @@ class lookup_rng_chk_7_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_7_relation : public GenericLookupRelation<lookup_rng_chk_7_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RNG_CHK_7";
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_7";
 };
 template <typename FF_> using lookup_rng_chk_7 = GenericLookup<lookup_rng_chk_7_lookup_settings, FF_>;
 

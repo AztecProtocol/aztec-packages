@@ -16,7 +16,7 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { AztecContext } from "../../home/home";
+import { AztecContext } from "../../../aztecEnv";
 import { GITHUB_TAG_PREFIX } from "../../../utils/constants";
 
 const creationForm = css({
