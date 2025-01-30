@@ -65,6 +65,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-eth-execution
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: eth-execution
 spec:
   {{- if .Values.network.public }}
   type: LoadBalancer

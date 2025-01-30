@@ -14,7 +14,7 @@ import {
   GasFees,
   type NodeInfo,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -150,7 +150,11 @@ describe('Contract Class', () => {
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractInstance.mockResolvedValue(contractInstance);
+    wallet.getContractMetadata.mockResolvedValue({
+      contractInstance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);

@@ -15,6 +15,7 @@ class PrecomputedTraceBuilder final {
     void process_power_of_2(TraceContainer& trace);
     void process_unary(TraceContainer& trace);
     void process_sha256_round_constants(TraceContainer& trace);
+    void process_integral_tag_length(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

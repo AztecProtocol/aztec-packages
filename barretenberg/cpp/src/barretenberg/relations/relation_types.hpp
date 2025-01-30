@@ -188,7 +188,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                                  NUM_KEYS - 1>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
-    // The containter constructor for sumcheck univariates corresponding to each subrelation in ZK Flavor's relations
+    // The container constructor for sumcheck univariates corresponding to each subrelation in ZK Flavor's relations
     using ZKSumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, compute_zk_partial_subrelation_lengths<RelationImpl>()>;
 
