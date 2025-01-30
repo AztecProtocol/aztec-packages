@@ -199,18 +199,20 @@ template <typename Curve> class ShpleminiVerifier_ {
     struct ClaimBatch {
         RefVector<Commitment> commitments;
         RefVector<Fr> evaluations;
-        Fr batch_scalar = 0; // WORKTODO: maybe this is not part of this struct
+        // scalar used for batching the claims, excluding the power of batching challenge \rho
+        Fr batch_scalar = 0;
     };
 
     /**
-     * @brief Manages the commitments and evaluations of unshifted and shifted polynomials to be batched in Shplemini
+     * @brief Logic to support batching opening claims for unshifted and shifted polynomials in Shplemini
      * @details Stores references to the commitments/evaluations of unshifted and shifted polynomials to be batched
-     * opened via Shplemini. Aggregates the commitments/scalars from from each batch into the corresponding containers
-     * for Shplemini. Computes the batched evaluation. Contains logic for computing the per-batch scalars used to batch
-     * each set of claims (see details below).
-     * @note This class performs the actual batching of the evaluations but not of the commitments, which are simply
-     * aggregated into larger containers. This is because Shplemini is optimized to perform a single batch mul that
-     * includes all commitments from each stage of the PCS. See description of ShpleminiVerifier for more details.
+     * opened via Shplemini. Aggregates the commitments and batching scalars for each batch into the corresponding
+     * containers for Shplemini. Computes the batched evaluation. Contains logic for computing the per-batch scalars
+     * used to batch each set of claims (see details below).
+     * @note This class performs the actual batching of the evaluations but not of the commitments. The latter are
+     * simply appended to a larger container, along with the scalars used to batch them. This is because Shplemini
+     * is optimized to perform a single batch mul that includes all commitments from each stage of the PCS. See
+     * description of ShpleminiVerifier for more details.
      *
      */
     struct ClaimBatcher {
@@ -238,45 +240,47 @@ template <typename Curve> class ShpleminiVerifier_ {
          * \right)
          * \f]
          *
-         * @param inverse_vanishing_evals {1/(z-r), 1/(z+r)}
+         * @param inverse_vanishing_eval_pos 1/(z-r)
+         * @param inverse_vanishing_eval_neg 1/(z+r)
          * @param shplonk_batching_challenge ν
          * @param gemini_evaluation_challenge r
          */
-        void compute_scalars_for_each_batch(const std::vector<Fr>& inverse_vanishing_evals,
+        void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
+                                            const Fr& inverse_vanishing_eval_neg,
                                             const Fr& shplonk_batching_challenge,
                                             const Fr& gemini_evaluation_challenge)
         {
             if (unshifted) {
                 // (1/(z−r) + ν/(z+r))
                 unshifted->batch_scalar =
-                    inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
+                    inverse_vanishing_eval_pos + shplonk_batching_challenge * inverse_vanishing_eval_neg;
             }
             if (shifted) {
                 // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
                 shifted->batch_scalar =
                     gemini_evaluation_challenge.invert() *
-                    (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
+                    (inverse_vanishing_eval_pos - shplonk_batching_challenge * inverse_vanishing_eval_neg);
             }
         }
 
         /**
-         * @brief Append the commitments and evaluations from each claim batch to the global vectors of commitments ans
-         * scalars; update the global batched evaluation and the running batching challenge in place
+         * @brief Append the commitments and scalars from each batch of claims to the Shplemini batch mul input vectors;
+         * update the batched evaluation and the running batching challenge in place.
          *
-         * @param commitments global vector of commitments to be batched in Shplemini
-         * @param scalars global vector of scalars to be multiplied by the commitments
+         * @param commitments commitment inputs to the single Shplemini batch mul
+         * @param scalars scalar inputs to the single Shplemini batch mul
          * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
          * @param multivariate_batching_challenge challenge \rho used to batch the claims
          * @param running_scalar current power of \rho used in the batching scalar
          */
-        void aggregate_claims_and_compute_batched_evaluation(std::vector<Commitment>& commitments,
-                                                             std::vector<Fr>& scalars,
-                                                             Fr& batched_evaluation,
-                                                             const Fr& multivariate_batching_challenge,
-                                                             Fr& running_scalar)
+        void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
+                                                            std::vector<Fr>& scalars,
+                                                            Fr& batched_evaluation,
+                                                            const Fr& multivariate_batching_challenge,
+                                                            Fr& running_scalar)
         {
-            // Append the commitments/scalars from a given batch to the global vectors of commitments and scalars;
-            // update the global batched evaluation and the running batching challenge in place
+            // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
+            // evaluation and the running batching challenge in place
             auto aggregate_claim_data_and_update_batched_evaluation = [&](const ClaimBatch& batch,
                                                                           Fr& current_batching_challenge) {
                 for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
@@ -390,9 +394,10 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
-
-        claim_batcher.compute_scalars_for_each_batch(
-            inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
+        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0],
+                                                     inverse_vanishing_evals[1],
+                                                     shplonk_batching_challenge,
+                                                     gemini_evaluation_challenge);
 
         std::vector<Fr> concatenation_scalars;
         if (!concatenation_group_commitments.empty()) {
@@ -563,7 +568,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
-        claim_batcher.aggregate_claims_and_compute_batched_evaluation(
+        claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
             commitments, scalars, batched_evaluation, multivariate_batching_challenge, current_batching_challenge);
 
         // If we are performing an opening verification for the translator, add the contributions from the

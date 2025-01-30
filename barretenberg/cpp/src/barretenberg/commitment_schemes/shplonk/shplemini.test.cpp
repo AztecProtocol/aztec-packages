@@ -146,9 +146,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr inverted_vanishing_eval_neg = (shplonk_eval_challenge + gemini_eval_challenge).invert();
 
     pcs_instance_witness.claim_batcher.compute_scalars_for_each_batch(
-        { inverted_vanishing_eval_pos, inverted_vanishing_eval_neg },
-        shplonk_batching_challenge,
-        gemini_eval_challenge);
+        inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
     ShpleminiVerifier::batch_multivariate_opening_claims(
         pcs_instance_witness.claim_batcher, rho, commitments, scalars, verifier_batched_evaluation);
