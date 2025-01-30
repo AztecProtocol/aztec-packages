@@ -2,7 +2,7 @@ import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, T
 import { AppendOnlyTreeSnapshot, type AztecAddress, BlockHeader, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, type Range } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 
 import { type L1Published, type L1PublishedData } from '../structs/published.js';
 

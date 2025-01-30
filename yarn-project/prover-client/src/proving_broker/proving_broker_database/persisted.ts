@@ -5,7 +5,6 @@ import {
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
 } from '@aztec/circuit-types';
-import { toArray } from '@aztec/foundation/iterable';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -81,8 +80,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     );
   }
 
-  private estimateSize() {
-    const sizes = Array.from(this.epochs.values()).map(x => x.estimateSize());
+  private async estimateSize() {
+    const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),

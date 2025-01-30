@@ -1,5 +1,3 @@
-import { type MsgpackChannel } from '@aztec/native';
-
 export enum Database {
   DATA = 'data',
   INDEX = 'index',

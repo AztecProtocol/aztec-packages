@@ -1,4 +1,4 @@
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageChannel, LMDBMessageType } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 
 export class ReadTransaction {
   protected open = true;
@@ -66,7 +66,8 @@ export class ReadTransaction {
       db,
     });
 
-    let { cursor, entries } = response;
+    const cursor = response.cursor;
+    let entries = response.entries;
     let done = typeof cursor !== 'number';
     let count = 0;
 

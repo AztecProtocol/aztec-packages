@@ -518,10 +518,7 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndAttemptToPublish(
-    pendingTxs: AsyncIterableIterator<Tx>,
-    proposalHeader: BlockHeader,
-  ): Promise<void> {
+  private async buildBlockAndAttemptToPublish(pendingTxs: Tx[], proposalHeader: BlockHeader): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
