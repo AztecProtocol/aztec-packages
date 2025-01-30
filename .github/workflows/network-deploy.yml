@@ -150,12 +150,14 @@ jobs:
 
       - name: Grab the boot node deployment mnemonic
         id: get-mnemonic
+        if: ${{ inputs.sepolia_deployment != 'true' }}
         run: |
           echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
           echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
       - name: Generate eth devnet config
         id: generate-eth-devnet-config
+        if: ${{ inputs.sepolia_deployment != 'true' }}
         run: |
           REPO=$(git rev-parse --show-toplevel)
 
