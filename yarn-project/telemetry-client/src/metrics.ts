@@ -145,3 +145,8 @@ export const NODEJS_EVENT_LOOP_DELAY_P99 = 'nodejs.eventloop.delay.p99';
 
 export const NODEJS_EVENT_LOOP_UTILIZATION = 'nodejs.eventloop.utilization';
 export const NODEJS_EVENT_LOOP_TIME = 'nodejs.eventloop.time';
+
+export const L1_PUBLISHER_BLOB_COUNT = 'l1_publisher_blob_count';
+export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'l1_publisher_blob_inclusion_blocks';
+export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'l1_publisher_blob_tx_success';
+export const L1_PUBLISHER_BLOB_TX_FAILURE = 'l1_publisher_blob_tx_failure';
