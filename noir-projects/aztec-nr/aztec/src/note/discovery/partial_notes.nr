@@ -1,9 +1,8 @@
 use crate::{
     note::discovery::{
-        MAX_NOTE_SERIALIZED_LEN,
-        MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN,
+        ComputeNoteHashAndNullifier,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
-        NoteHashAndNullifier,
+        private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
     },
     oracle::note_discovery::{deliver_note, get_log_by_tag},
     pxe_db::DBArray,
@@ -12,66 +11,42 @@ use crate::{
 
 use dep::protocol_types::{
     address::AztecAddress,
+    constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
     debug_log::debug_log_format,
-    traits::{Deserialize, FromField, Serialize, ToField},
+    traits::{Deserialize, Serialize, ToField},
 };
 
-pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT: Field = 5;
+/// The slot in the PXE DB where we store a `DBArray` of `DeliveredPendingPartialNote`.
+// TODO(#11630): come up with some sort of slot allocation scheme.
+pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT: Field = 77;
 
+/// Public logs contain an extra field at the beginning with the address of the contract that emitted them, and partial
+/// notes emit their completion tag in the log, resulting in the first two fields in the public log not being part of
+/// the packed public content.
+// TODO(#10273): improve how contract log siloing is handled
+pub global NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG: u32 = 2;
+
+/// The maximum length of the packed representation of public fields in a partial note. This is limited by public log
+/// size and extra fields in the log (e.g. the tag).
+pub global MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH: u32 =
+    PUBLIC_LOG_DATA_SIZE_IN_FIELDS - NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG;
+
+/// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
+/// log that will complete it and lead to a note being discovered and delivered.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) note_completion_log_tag: Field,
     pub(crate) storage_slot: Field,
     pub(crate) note_type_id: Field,
-    pub(crate) serialized_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN>,
+    pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
     pub(crate) recipient: AztecAddress,
 }
 
-// TODO: use `derive(Serialize)`, but we need for generics in struct fields to be handled properly before that happens.
-// Currently blocked by Noir's StructDefinition::fields.
-impl Serialize<MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN + 4> for DeliveredPendingPartialNote {
-    fn serialize(self) -> [Field; MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN + 4] {
-        [
-            self.note_completion_log_tag,
-            self.storage_slot,
-            self.note_type_id,
-            self.serialized_private_note_content.storage()[0],
-            self.serialized_private_note_content.storage()[1],
-            self.serialized_private_note_content.storage()[2],
-            self.serialized_private_note_content.storage()[3],
-            self.serialized_private_note_content.storage()[4],
-            self.serialized_private_note_content.storage()[5],
-            self.serialized_private_note_content.storage()[6],
-            self.serialized_private_note_content.storage()[7],
-            self.serialized_private_note_content.storage()[8],
-            self.serialized_private_note_content.storage()[9],
-            self.serialized_private_note_content.storage()[10],
-            self.serialized_private_note_content.storage()[12],
-            self.serialized_private_note_content.storage()[13],
-            self.serialized_private_note_content.storage()[14],
-            self.serialized_private_note_content.len() as Field,
-            self.recipient.to_field(),
-        ]
-    }
-}
-
-impl Deserialize<MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN + 4> for DeliveredPendingPartialNote {
-    fn deserialize(values: [Field; MAX_PARTIAL_NOTE_PRIVATE_SERIALIZED_LEN + 4]) -> Self {
-        Self {
-            note_completion_log_tag: values[0],
-            storage_slot: values[1],
-            note_type_id: values[2],
-            serialized_private_note_content: BoundedVec::from_parts(
-                array::subarray(values, 3),
-                values[17] as u32,
-            ),
-            recipient: AztecAddress::from_field(values[18]),
-        }
-    }
-}
-
+/// Searches for public logs that would result in the completion of pending partial notes, ultimately resulting in the
+/// notes being delivered to PXE if completed.
 pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     let pending_partial_notes = DBArray::at(
         contract_address,
@@ -91,15 +66,35 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
 
             let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
             if maybe_log.is_none() {
-                debug_log_format("Found no logs for partial note #{}", [(*i) as Field]);
+                debug_log_format(
+                    "Found nocompletion logs for partial note #{}",
+                    [(*i) as Field],
+                );
                 *i += 1 as u32;
+                // Note that we're not removing the pending partial note from the PXE DB, so we will continue searching
+                // for this tagged log when performing note discovery in the future until we either find it or the entry
+                // is somehow removed from the PXE DB.
             } else {
-                debug_log_format("Log found for partial note #{}!", [(*i) as Field]);
+                debug_log_format("Completion log found for partial note #{}", [(*i) as Field]);
                 let log = maybe_log.unwrap();
 
-                let complete_serialized_note_content = array::append(
-                    pending_partial_note.serialized_private_note_content,
-                    log.log_content,
+                // Public logs have an extra field at the beginning with the contract address, which we use to verify
+                // that we're getting the logs from the expected contract.
+                // TODO(#10273): improve how contract log siloing is handled
+                assert_eq(
+                    log.log_content.get(0),
+                    contract_address.to_field(),
+                    "Got a public log emitted by a different contract",
+                );
+
+                // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
+                // private and public packed fields (i.e. the contents of the log sans the extra fields) to get the
+                // complete packed content.
+                let packed_public_note_content: BoundedVec<_, MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH> =
+                    array::subbvec(log.log_content, NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG);
+                let complete_packed_note_content = array::append(
+                    pending_partial_note.packed_private_note_content,
+                    packed_public_note_content,
                 );
 
                 let discovered_notes = attempt_note_nonce_discovery(
@@ -109,7 +104,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                     contract_address,
                     pending_partial_note.storage_slot,
                     pending_partial_note.note_type_id,
-                    complete_serialized_note_content,
+                    complete_packed_note_content,
                 );
 
                 debug_log_format(
@@ -120,13 +115,14 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 array::for_each_in_bounded_vec(
                     discovered_notes,
                     |discovered_note: DiscoveredNoteInfo, _| {
-                        // TODO:(#10728): handle notes that fail delivery
+                        // TODO:(#10728): decide handle notes that fail delivery. This could be due to e.g. a temporary
+                        // node connectivity issue - is simply throwing good enough here?
                         assert(
                             deliver_note(
                                 contract_address,
                                 pending_partial_note.storage_slot,
                                 discovered_note.nonce,
-                                complete_serialized_note_content,
+                                complete_packed_note_content,
                                 discovered_note.note_hash,
                                 discovered_note.inner_nullifier,
                                 log.tx_hash,
@@ -137,14 +133,18 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                     },
                 );
 
-                // we assume that there is only a single log per tag, so if the log didnt work then we cry
+                // Because we there is only a single log for a given tag, once we've processed the tagged log then we
+                // simply delete the pending work entry, regardless of whether it was actually completed or not.
+                // TODO(#11627): only remove the pending entry if we actually process a log that results in the note
+                // being completed.
                 pending_partial_notes.remove(*i);
             }
-            // todo: handle the log never showing up?
         },
     );
 }
 
+/// Custom version of a while loop, calls `body` repeatedly until `condition` returns false. To be removed once Noir
+/// supports looping in unconstrained code.
 fn whyle<Env, Env2>(condition: fn[Env]() -> bool, body: fn[Env2]() -> ()) {
     if condition() {
         body();

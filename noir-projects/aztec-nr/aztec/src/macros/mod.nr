@@ -167,7 +167,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
             storage_slot: Field,
             note_type_id: Field,
             compute_nullifier: bool,
-            packed_note_content: BoundedVec<Field, aztec::note::discovery::MAX_NOTE_SERIALIZED_LEN>,
+            packed_note_content: BoundedVec<Field, aztec::note::discovery::MAX_NOTE_PACKED_LEN>,
         ) -> pub [Field; 4] {
             $body
         }
@@ -211,7 +211,7 @@ comptime fn generate_process_log() -> Quoted {
 
     // A typical implementation of the lambda looks something like this:
     // ```
-    // |packed_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, note_type_id: Field| {
+    // |packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>, note_header: NoteHeader, note_type_id: Field| {
     //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
     //         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
     //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(

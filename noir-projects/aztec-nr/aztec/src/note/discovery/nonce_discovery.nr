@@ -1,4 +1,4 @@
-use crate::{note::discovery::{MAX_NOTE_SERIALIZED_LEN, NoteHashAndNullifier}, utils::array};
+use crate::{note::discovery::{MAX_NOTE_PACKED_LEN, NoteHashAndNullifier}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -8,20 +8,29 @@ use dep::protocol_types::{
     traits::ToField,
 };
 
+/// A struct with the discovered information of a complete note, required for delivery to PXE. Note that this is *not*
+/// the complete note information, since it does not include content, storage slot, etc.
 pub struct DiscoveredNoteInfo {
     pub nonce: Field,
     pub note_hash: Field,
     pub inner_nullifier: Field,
 }
 
+/// Searches for note nonces that will result in a note that was emitted in a transaction. While rare, it is possible
+/// for multiple notes to have the exact same packed content and storage slot but different nonces, resulting in
+/// different unique note hashes. Because of this this function returns a *vector* of discovered notes, though in most
+/// cases it will contain a single element.
+///
+/// Due to how nonces are computed, this function requires knowledge of the transaction in which the note was created,
+/// more specifically the list of all unique note hashes in it plus the value of its first nullifier.
 pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
+    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>,
+    packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
     let discovered_notes = &mut BoundedVec::new();
 
@@ -30,15 +39,20 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
         [unique_note_hashes_in_tx.len() as Field, contract_address.to_field(), storage_slot],
     );
 
-    // We need to find the note's nonce, which is the one that results in one of the unique note hashes from tx_hash
+    // We need to find nonces (typically just one) that result in a note hash that, once siloed into a unique note hash,
+    // is one of the note hashes created by the transaction.
     array::for_each_in_bounded_vec(
         unique_note_hashes_in_tx,
         |expected_unique_note_hash, i| {
+            // Nonces are computed by hashing the first nullifier in the transaction with the index of the note in the
+            // new note hashes array. We therefore know for each note in every transaction what its nonce is.
             let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
+            // Given nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
+            // the note hash at the array index we're currently processing.
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
-                serialized_note_content,
+                packed_note_content,
                 contract_address,
                 candidate_nonce,
                 storage_slot,
