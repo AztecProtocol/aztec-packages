@@ -15,6 +15,24 @@ terraform {
   }
 }
 
+# Configure the Google Cloud provider
+provider "google" {
+  project = var.project
+  region  = var.region
+}
+
+resource "google_compute_global_address" "grafana_ip" {
+  provider     = google
+  name         = "grafana-ip"
+  address_type = "EXTERNAL"
+}
+
+resource "google_compute_global_address" "otel_collector_ip" {
+  provider     = google
+  name         = "otel-ip"
+  address_type = "EXTERNAL"
+}
+
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
@@ -47,12 +65,17 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "grafana.service.loadBalancerIP"
-    value = var.GRAFANA_DASHBOARD_IP
+    value = google_compute_global_address.grafana_ip.address
   }
 
   set {
     name  = "grafana.adminPassword"
     value = var.GRAFANA_DASHBOARD_PASSWORD
+  }
+
+  set {
+    name  = "opentelemetry-collector.service.loadBalancerIP"
+    value = google_compute_global_address.otel_collector_ip.address
   }
 
 

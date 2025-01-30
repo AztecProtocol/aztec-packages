@@ -1,7 +1,7 @@
 variable "GKE_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
-  default     = "gke_testnet-440309_us-east4-a_spartan-gke"
+  default     = "gke_testnet-440309_us-west1-a_aztec-gke-private"
 }
 
 variable "RELEASE_NAME" {
@@ -20,8 +20,12 @@ variable "GRAFANA_DASHBOARD_PASSWORD" {
   sensitive   = true
 }
 
-variable "GRAFANA_DASHBOARD_IP" {
-  description = "Grafana dashboard IP"
-  type        = string
-  default     = "34.74.176.245"
+variable "project" {
+  default = "testnet-440309"
+  type    = string
+}
+
+variable "region" {
+  default = "us-west1"
+  type    = string
 }
