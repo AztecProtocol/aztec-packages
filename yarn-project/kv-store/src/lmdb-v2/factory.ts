@@ -21,7 +21,7 @@ export async function createStore(
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
     const subDir = join(dataDirectory, name);
-    await mkdir(subDir);
+    await mkdir(subDir, { recursive: true });
 
     if (l1Contracts) {
       const { rollupAddress } = l1Contracts;
@@ -37,7 +37,7 @@ export async function createStore(
           });
 
           await rm(subDir, { recursive: true, force: true });
-          await mkdir(subDir);
+          await mkdir(subDir, { recursive: true });
         }
 
         await writeFile(join(subDir, ROLLUP_ADDRESS_FILE), rollupAddress.toString());
