@@ -1,19 +1,25 @@
-import { Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { rm } from 'fs/promises';
 
-import { AztecAsyncArray } from '../interfaces/array.js';
-import { Key } from '../interfaces/common.js';
-import { AztecAsyncCounter } from '../interfaces/counter.js';
-import { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
-import { AztecAsyncSet } from '../interfaces/set.js';
-import { AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter } from '../interfaces/counter.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { LMDBMap, LMDBMultiMap } from './map.js';
-import { Database, LMDBMessageChannel, LMDBMessageType, LMDBRequestBody, LMDBResponseBody } from './message.js';
+import {
+  Database,
+  type LMDBMessageChannel,
+  LMDBMessageType,
+  type LMDBRequestBody,
+  type LMDBResponseBody,
+} from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
@@ -137,10 +143,6 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     await this.cleanup?.();
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    return { numItems: 0, actualSize: 0, mappingSize: 0 };
-  }
-
   async close() {
     await this.writerQueue.cancel();
     await this.sendMessage(LMDBMessageType.CLOSE, undefined);
@@ -165,5 +167,14 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       this.availableCursors.release();
     }
     return response;
+  }
+
+  public async estimateSize(): Promise<StoreSize> {
+    const resp = await this.sendMessage(LMDBMessageType.STATS, undefined);
+    return {
+      mappingSize: resp.dbMapSizeBytes,
+      actualSize: resp.stats.reduce((s, db) => db.totalUsedSize + s, 0),
+      numItems: resp.stats.reduce((s, db) => db.numDataItems + s, 0),
+    };
   }
 }

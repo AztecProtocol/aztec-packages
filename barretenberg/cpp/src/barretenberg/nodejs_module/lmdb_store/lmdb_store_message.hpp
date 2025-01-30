@@ -23,6 +23,8 @@ enum LMDBStoreMessageType {
 
     BATCH,
 
+    STATS,
+
     CLOSE,
 };
 
@@ -108,6 +110,12 @@ struct BoolResponse {
 struct BatchResponse {
     uint64_t durationNs;
     MSGPACK_FIELDS(durationNs);
+};
+
+struct StatsResponse {
+    std::vector<lmdblib::DBStats> stats;
+    uint64_t dbMapSizeBytes;
+    MSGPACK_FIELDS(stats, dbMapSizeBytes);
 };
 
 } // namespace bb::nodejs::lmdb_store

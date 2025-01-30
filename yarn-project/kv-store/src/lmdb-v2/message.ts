@@ -18,6 +18,8 @@ export enum LMDBMessageType {
 
   BATCH,
 
+  STATS,
+
   CLOSE,
 }
 
@@ -84,6 +86,8 @@ export type LMDBRequestBody = {
 
   [LMDBMessageType.BATCH]: BatchRequest;
 
+  [LMDBMessageType.STATS]: void;
+
   [LMDBMessageType.CLOSE]: void;
 };
 
@@ -113,6 +117,15 @@ interface BoolResponse {
   ok: true;
 }
 
+interface StatsResponse {
+  stats: Array<{
+    name: string;
+    numDataItems: number;
+    totalUsedSize: number;
+  }>;
+  dbMapSizeBytes: number;
+}
+
 export type LMDBResponseBody = {
   [LMDBMessageType.OPEN_DATABASE]: BoolResponse;
 
@@ -124,6 +137,8 @@ export type LMDBResponseBody = {
   [LMDBMessageType.CLOSE_CURSOR]: BoolResponse;
 
   [LMDBMessageType.BATCH]: BatchResponse;
+
+  [LMDBMessageType.STATS]: StatsResponse;
 
   [LMDBMessageType.CLOSE]: BoolResponse;
 };

@@ -22,7 +22,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -341,7 +341,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     });
   }
 
-  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  public estimateSize(): Promise<StoreSize> {
     return this.db.estimateSize();
   }
 }

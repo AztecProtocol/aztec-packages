@@ -51,6 +51,8 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     BatchResponse batch(const BatchRequest& req);
 
+    StatsResponse get_stats();
+
     BoolResponse close();
 
     static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(lmdblib::LMDBCursor::SharedPtr cursor,

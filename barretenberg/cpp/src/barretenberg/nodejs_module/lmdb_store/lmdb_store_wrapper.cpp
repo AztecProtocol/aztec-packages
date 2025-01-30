@@ -67,6 +67,8 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
 
     _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
 
+    _msg_processor.register_handler(LMDBStoreMessageType::STATS, this, &LMDBStoreWrapper::get_stats);
+
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close);
 }
 
@@ -235,6 +237,13 @@ BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
     std::chrono::duration<uint64_t, std::nano> duration_ns = end - start;
 
     return { duration_ns.count() };
+}
+
+StatsResponse LMDBStoreWrapper::get_stats()
+{
+    std::vector<lmdblib::DBStats> stats;
+    auto map_size = _store->get_stats(stats);
+    return { stats, map_size };
 }
 
 BoolResponse LMDBStoreWrapper::close()
