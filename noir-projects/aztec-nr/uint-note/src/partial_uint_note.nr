@@ -1,5 +1,5 @@
 use dep::aztec::{
-    generators::{G_slot, Ga1, Ga2, Ga3},
+    generators::{G_slot, Ga1, Ga2, Ga3, Ga4},
     note::note_interface::NoteInterface,
     oracle::random::random,
     prelude::NoteHeader,
@@ -21,7 +21,7 @@ impl PartialUintNoteHidingPoint {
     fn complete(self, amount: U128) -> Field {
         let note_point = self.value
             + std::embedded_curve_ops::multi_scalar_mul(
-                [Ga3],
+                [G_slot],
                 [std::hash::from_field_unsafe(amount.pack()[0])],
             );
 
@@ -48,10 +48,10 @@ impl PartialUintNote {
 
         let hiding_point = PartialUintNoteHidingPoint::new(
             std::embedded_curve_ops::multi_scalar_mul(
-                [Ga1, Ga2, G_slot],
+                [Ga2, Ga3, G_slot],
                 [
-                    std::hash::from_field_unsafe(owner.to_field()),
-                    std::hash::from_field_unsafe(randomness),
+                    std::hash::from_field_unsafe(owner.pack()[0]),
+                    std::hash::from_field_unsafe(randomness.pack()[0]),
                     std::hash::from_field_unsafe(storage_slot),
                 ],
             ),

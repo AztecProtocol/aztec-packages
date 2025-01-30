@@ -899,6 +899,8 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         indexed_nullable_fields,
     );
 
+    println(note_interface_impl);
+
     quote {
         $note_properties
         $setup_payload_impl

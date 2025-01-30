@@ -33,7 +33,7 @@ contract Token {
         prelude::{
             AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{debug_log::debug_log_format, point::Point, traits::Serialize},
+        protocol_types::{point::Point, traits::Serialize},
     };
 
     use dep::uint_note::{
@@ -457,10 +457,6 @@ contract Token {
         // information. We can therefore assume that the sender will cooperate in the random value generation.
 
         let partial = PartialUintNote::new(to, to_note_slot);
-        debug_log_format(
-            "Producing partial note: tag {0} storage slot {1} note type id {2}",
-            [partial.hiding_point.value.x, to_note_slot, UintNote::get_note_type_id() as Field],
-        );
         let encrypted_log = compute_log(*context, partial, to, from);
         context.emit_private_log(encrypted_log);
 

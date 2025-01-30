@@ -6,6 +6,7 @@ use crate::{
 
 use dep::protocol_types::{
     address::AztecAddress,
+    debug_log::debug_log_format,
     hash::{
         compute_siloed_note_hash,
         compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
@@ -133,6 +134,11 @@ where
 {
     let mut note = unpack_content(array::subarray(packed_note_content, 0));
     note.set_header(NoteHeader::new(contract_address, nonce, storage_slot));
+
+    debug_log_format(
+        "addr {0} nonce {1} storage_slot {2}",
+        [contract_address.to_field(), nonce, storage_slot],
+    );
 
     let note_hash = note.compute_note_hash();
     let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);

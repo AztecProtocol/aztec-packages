@@ -732,12 +732,14 @@ export class SimulatorOracle implements DBOracle {
     }
 
     const reader = BufferReader.asReader(log.logData);
-    return new LogWithTxData(
-      reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr),
-      log.txHash.hash,
-      txEffect.data.noteHashes,
-      txEffect.data.nullifiers[0],
-    );
+    const logArray = reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr);
+
+    this.log.debug(`Log content ${logArray}, length: ${logArray.length}`);
+
+    const modifiedLog = logArray.slice(2, 3);
+    this.log.debug(`Modified ${modifiedLog}`);
+
+    return new LogWithTxData(modifiedLog, log.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {

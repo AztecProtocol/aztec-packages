@@ -137,6 +137,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                     },
                 );
 
+                // we assume that there is only a single log per tag, so if the log didnt work then we cry
                 pending_partial_notes.remove(*i);
             }
             // todo: handle the log never showing up?
