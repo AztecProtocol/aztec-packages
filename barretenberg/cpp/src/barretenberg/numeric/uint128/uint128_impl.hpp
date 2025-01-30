@@ -5,21 +5,37 @@
 #include "barretenberg/common/assert.hpp"
 namespace bb::numeric {
 
+// Karatsuba multiplication algorithm implementation
+constexpr std::pair<uint32_t, uint32_t> karatsuba_mul(const uint32_t a, const uint32_t b) {
+    const uint32_t SPLIT_POINT = 16;
+    const uint32_t LOW_MASK = (1ULL << SPLIT_POINT) - 1;
+
+    // Split numbers into high and low parts
+    const uint32_t a_lo = a & LOW_MASK;
+    const uint32_t a_hi = a >> SPLIT_POINT;
+    const uint32_t b_lo = b & LOW_MASK;
+    const uint32_t b_hi = b >> SPLIT_POINT;
+
+    // Calculate z0 = a_lo * b_lo
+    const uint32_t z0 = a_lo * b_lo;
+
+    // Calculate z2 = a_hi * b_hi
+    const uint32_t z2 = a_hi * b_hi;
+
+    // Calculate z1 = (a_lo + a_hi)(b_lo + b_hi) - z0 - z2
+    const uint32_t z1 = (a_lo + a_hi) * (b_lo + b_hi) - z0 - z2;
+
+    // Combine results
+    const uint32_t low = z0 + ((z1 & LOW_MASK) << SPLIT_POINT);
+    const uint32_t high = z2 + (z1 >> SPLIT_POINT);
+
+    return { low, high };
+}
+
 constexpr std::pair<uint32_t, uint32_t> uint128_t::mul_wide(const uint32_t a, const uint32_t b)
 {
-    const uint32_t a_lo = a & 0xffffULL;
-    const uint32_t a_hi = a >> 16ULL;
-    const uint32_t b_lo = b & 0xffffULL;
-    const uint32_t b_hi = b >> 16ULL;
-
-    const uint32_t lo_lo = a_lo * b_lo;
-    const uint32_t hi_lo = a_hi * b_lo;
-    const uint32_t lo_hi = a_lo * b_hi;
-    const uint32_t hi_hi = a_hi * b_hi;
-
-    const uint32_t cross = (lo_lo >> 16) + (hi_lo & 0xffffULL) + lo_hi;
-
-    return { (cross << 16ULL) | (lo_lo & 0xffffULL), (hi_lo >> 16ULL) + (cross >> 16ULL) + hi_hi };
+    // Use Karatsuba multiplication for better performance
+    return karatsuba_mul(a, b);
 }
 
 // compute a + b + carry, returning the carry
