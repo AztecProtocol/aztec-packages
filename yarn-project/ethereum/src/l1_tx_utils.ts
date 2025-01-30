@@ -1,5 +1,5 @@
-import { Blob } from '@aztec/foundation/blob';
-import { times } from '@aztec/foundation/collection';
+import { toHex } from '@aztec/foundation/bigint-buffer';
+import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
@@ -11,10 +11,13 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
 import {
+  type Abi,
   type Account,
   type Address,
+  type BaseError,
   type BlockOverrides,
   type Chain,
+  type ContractFunctionExecutionError,
   type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
@@ -25,6 +28,8 @@ import {
   type TransactionReceipt,
   type WalletClient,
   formatGwei,
+  getContractError,
+  hexToBytes,
 } from 'viem';
 
 import { formatViemError } from './utils.js';
@@ -172,6 +177,8 @@ export interface L1TxRequest {
   value?: bigint;
 }
 
+export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
+
 export interface L1BlobInputs {
   blobs: Uint8Array[];
   kzg: any;
@@ -184,19 +191,51 @@ export interface GasPrice {
   maxFeePerBlobGas?: bigint;
 }
 
+export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
+  /** Hash of the transaction. */
+  transactionHash: string;
+  /** Size in bytes of the tx calldata */
+  calldataSize: number;
+  /** Gas required to pay for the calldata inclusion (depends on size and number of zeros)  */
+  calldataGas: number;
+};
+
 export class L1TxUtils {
-  private readonly config: L1TxUtilsConfig;
+  protected readonly config: L1TxUtilsConfig;
+  private interrupted = false;
 
   constructor(
-    private readonly publicClient: PublicClient,
-    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: Logger,
+    public publicClient: PublicClient,
+    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
+  }
+
+  public interrupt() {
+    this.interrupted = true;
+  }
+
+  public restart() {
+    this.interrupted = false;
+  }
+
+  public getSenderAddress() {
+    return this.walletClient.account.address;
+  }
+
+  public getBlock() {
+    return this.publicClient.getBlock();
+  }
+
+  public getBlockNumber() {
+    return this.publicClient.getBlockNumber();
   }
 
   /**
@@ -207,7 +246,7 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
+    _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
@@ -315,6 +354,7 @@ export class L1TxUtils {
     const isTimedOut = () =>
       (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
       (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      this.interrupted ||
       false;
 
     while (!txTimedOut) {
@@ -443,7 +483,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
+    gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
@@ -454,7 +494,7 @@ export class L1TxUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(
+  public async getGasPrice(
     _gasConfig?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
@@ -571,7 +611,7 @@ export class L1TxUtils {
    * Estimates gas and adds buffer
    */
   public async estimateGas(
-    account: Account,
+    account: Account | Hex,
     request: L1TxRequest,
     _gasConfig?: L1TxUtilsConfig,
     _blobInputs?: L1BlobInputs,
@@ -599,6 +639,89 @@ export class L1TxUtils {
     const withBuffer = this.bumpGasLimit(initialEstimate, gasConfig);
 
     return withBuffer;
+  }
+
+  async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
+    const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
+    if (!tx) {
+      return undefined;
+    }
+    const calldata = hexToBytes(tx.input);
+    return {
+      sender: tx.from.toString(),
+      transactionHash: tx.hash,
+      calldataSize: calldata.length,
+      calldataGas: getCalldataGasUsage(calldata),
+    };
+  }
+
+  public async tryGetErrorFromRevertedTx(
+    data: Hex,
+    args: {
+      args: any[];
+      functionName: string;
+      abi: Abi;
+      address: Hex;
+    },
+    blobInputs?: L1BlobInputs & { maxFeePerBlobGas: bigint },
+  ) {
+    try {
+      // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
+      // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
+      const checkBlobSlot = 9n;
+      await this.publicClient.simulateContract({
+        ...args,
+        account: this.walletClient.account,
+        stateOverride: [
+          {
+            address: args.address,
+            stateDiff: [
+              {
+                slot: toHex(checkBlobSlot, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+      });
+      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
+      // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
+      // See: https://github.com/wevm/viem/issues/2075
+      // This throws a EstimateGasExecutionError with the custom error information:
+      const request = blobInputs
+        ? {
+            account: this.walletClient.account,
+            to: args.address,
+            data,
+            blobs: blobInputs.blobs,
+            kzg: blobInputs.kzg,
+            maxFeePerBlobGas: blobInputs.maxFeePerBlobGas,
+          }
+        : {
+            account: this.walletClient.account,
+            to: args.address,
+            data,
+          };
+      await this.walletClient.prepareTransactionRequest(request);
+      return undefined;
+    } catch (simulationErr: any) {
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.
+      const contractErr =
+        simulationErr.name === 'ContractFunctionExecutionError'
+          ? simulationErr
+          : getContractError(simulationErr as BaseError, {
+              args: [],
+              abi: args.abi,
+              functionName: args.functionName,
+              address: args.address,
+              sender: this.walletClient.account.address,
+            });
+      if (contractErr.name === 'ContractFunctionExecutionError') {
+        const execErr = contractErr as ContractFunctionExecutionError;
+        return tryGetCustomErrorNameContractFunction(execErr);
+      }
+      this.logger?.error(`Error getting error from simulation`, simulationErr);
+    }
   }
 
   public async simulateGasUsed(
@@ -633,6 +756,7 @@ export class L1TxUtils {
           },
         ],
       });
+
       this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
         result,
       });
@@ -669,7 +793,10 @@ export class L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  private async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (isBlobTx) {
+      throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
+    }
     const account = this.walletClient.account;
 
     // Get gas price with higher priority fee for cancellation
@@ -694,50 +821,35 @@ export class L1TxUtils {
     };
 
     // Send 0-value tx to self with higher gas price
-    if (!isBlobTx) {
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        ...request,
-        nonce,
-        gas: 21_000n, // Standard ETH transfer gas
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
-      const receipt = await this.monitorTransaction(
-        request,
-        cancelTxHash,
-        { gasLimit: 21_000n },
-        undefined,
-        undefined,
-        true,
-      );
+    const cancelTxHash = await this.walletClient.sendTransaction({
+      ...request,
+      nonce,
+      gas: 21_000n, // Standard ETH transfer gas
+      maxFeePerGas: cancelGasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+    });
+    const receipt = await this.monitorTransaction(
+      request,
+      cancelTxHash,
+      { gasLimit: 21_000n },
+      undefined,
+      undefined,
+      true,
+    );
 
-      return receipt.transactionHash;
-    } else {
-      const blobData = new Uint8Array(131072).fill(0);
-      const kzg = Blob.getViemKzgInstance();
-      const blobInputs = {
-        blobs: [blobData],
-        kzg,
-        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
-      };
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        ...request,
-        ...blobInputs,
-        nonce,
-        gas: 21_000n,
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
-      const receipt = await this.monitorTransaction(
-        request,
-        cancelTxHash,
-        { gasLimit: 21_000n },
-        undefined,
-        blobInputs,
-        true,
-      );
-
-      return receipt.transactionHash;
-    }
+    return receipt.transactionHash;
   }
+}
+
+export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {
+  return compactArray([err.shortMessage, ...(err.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(' ');
+}
+
+/*
+ * Returns cost of calldata usage in Ethereum.
+ * @param data - Calldata.
+ * @returns 4 for each zero byte, 16 for each nonzero.
+ */
+export function getCalldataGasUsage(data: Uint8Array) {
+  return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
 }

@@ -7,7 +7,7 @@ import {
   type SiblingPath,
   computeSecretHash,
 } from '@aztec/aztec.js';
-import { extractEvent } from '@aztec/ethereum';
+import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 

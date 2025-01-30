@@ -31,12 +31,12 @@ pub(crate) struct CheckCommand {
     #[clap(long = "overwrite")]
     pub(super) allow_overwrite: bool,
 
-    /// Show the program hash.
-    #[clap(long)]
-    show_program_hash: bool,
-
     #[clap(flatten)]
     compile_options: CompileOptions,
+
+    /// Just show the hash of each paackages, without actually performing the check.
+    #[clap(long)]
+    show_program_hash: bool,
 }
 
 pub(crate) fn run(args: CheckCommand, config: NargoConfig) -> Result<(), CliError> {

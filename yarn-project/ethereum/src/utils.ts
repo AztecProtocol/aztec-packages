@@ -233,3 +233,18 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   return new FormattedViemError(formattedRes.replace(/\\n/g, '\n'), error?.metaMessages);
 }
+
+export function tryGetCustomErrorName(err: any) {
+  try {
+    // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
+    if (err.name === 'ViemError' || err.name === 'ContractFunctionExecutionError') {
+      const baseError = err as BaseError;
+      const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
+      if (revertError) {
+        return (revertError as ContractFunctionRevertedError).data?.errorName;
+      }
+    }
+  } catch (_e) {
+    return undefined;
+  }
+}
