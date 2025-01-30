@@ -118,10 +118,10 @@ interface BoolResponse {
 interface StatsResponse {
   stats: Array<{
     name: string;
-    numDataItems: number;
-    totalUsedSize: number;
+    numDataItems: bigint | number;
+    totalUsedSize: bigint | number;
   }>;
-  dbMapSizeBytes: number;
+  dbMapSizeBytes: bigint | number;
 }
 
 export type LMDBResponseBody = {

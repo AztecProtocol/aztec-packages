@@ -18,10 +18,12 @@ export class LmdbMetrics {
     this.dbMapSize = meter.createObservableGauge(DB_MAP_SIZE, {
       description: 'LMDB Map Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
     this.dbUsedSize = meter.createObservableGauge(DB_USED_SIZE, {
       description: 'LMDB Used Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
     this.dbNumItems = meter.createObservableGauge(DB_NUM_ITEMS, {
       description: 'LMDB Num Items',

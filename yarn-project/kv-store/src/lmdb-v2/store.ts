@@ -176,9 +176,9 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   public async estimateSize(): Promise<StoreSize> {
     const resp = await this.sendMessage(LMDBMessageType.STATS, undefined);
     return {
-      mappingSize: resp.dbMapSizeBytes,
-      actualSize: resp.stats.reduce((s, db) => db.totalUsedSize + s, 0),
-      numItems: resp.stats.reduce((s, db) => db.numDataItems + s, 0),
+      mappingSize: Number(resp.dbMapSizeBytes),
+      actualSize: resp.stats.reduce((s, db) => Number(db.totalUsedSize) + s, 0),
+      numItems: resp.stats.reduce((s, db) => Number(db.numDataItems) + s, 0),
     };
   }
 }
