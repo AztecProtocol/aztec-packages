@@ -83,10 +83,47 @@ contract FPC {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
-        Token::at(config.accepted_asset).setup_refund(context.msg_sender(), max_fee, nonce).call(
+        let user = context.msg_sender();
+        let token = Token::at(config.accepted_asset);
+
+        token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
+        let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
+
+        context.set_as_fee_payer();
+
+        let max_fee_serialized = max_fee.serialize();
+        context.set_public_teardown_function(
+            context.this_address(),
+            comptime {
+                FunctionSelector::from_signature("complete_refund((Field),Field,(Field,Field))")
+            },
+            [
+                config.accepted_asset.to_field(),
+                refund_slot,
+                max_fee_serialized[0],
+                max_fee_serialized[1],
+            ],
+        );
+    }
+
+    /// Executed as a public teardown function and is responsible for completing the refund in a private fee payment
+    /// flow.
+    #[public]
+    #[internal]
+    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
+        let tx_fee = U128::from_integer(context.transaction_fee());
+
+        // 1. We check that user funded the fee payer contract with at least the transaction fee.
+        // TODO(#7796): we should try to prevent reverts here
+        assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
+
+        // 2. We compute the refund amount as the difference between funded amount and the tx fee.
+        // TODO(#10805): Introduce a real exchange rate
+        let refund_amount = max_fee - tx_fee;
+
+        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, refund_slot).call(
             &mut context,
         );
-        context.set_as_fee_payer();
     }
 
     /// Pays for the tx fee with msg_sender's public balance of accepted asset (AA). The maximum fee a user is willing
