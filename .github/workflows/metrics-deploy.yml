@@ -146,7 +146,7 @@ jobs:
         # Destroy fails if the resources are already destroyed, so we continue on error
         continue-on-error: true
         run: |
-          terraform destroy -auto-approve -target="helm_release.aztec-gke-cluster" \
+          terraform destroy -auto-approve -target=helm_release.aztec-gke-cluster \
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
