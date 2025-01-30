@@ -23,7 +23,7 @@ export async function defaultFetch(
   useApiEndpoints: boolean,
   extraHeaders: Record<string, string> = {},
   noRetry = false,
-) {
+): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   try {

@@ -33,9 +33,13 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
 
   const isOK = resp.status >= 200 && resp.status < 300;
   if (isOK) {
-    return resp.data;
+    const headers = {
+      get: (header: string) =>
+        typeof resp.headers.get === 'function' ? resp.headers.get(header)?.toString() : undefined,
+    };
+    return { response: resp.data, headers };
   } else {
-    const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${resp.data.error.message}`;
+    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${rpcMethod}: ${resp.data.error.message}`;
     if (resp.status >= 400 && resp.status < 500) {
       throw new NoRetryError(errorMessage);
     } else {

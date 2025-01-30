@@ -9,7 +9,10 @@ export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
   fetch?: typeof defaultFetch;
   log?: Logger;
-  onResponse?: (res: { response: any; headers: Headers }) => Promise<void>;
+  onResponse?: (res: {
+    response: any;
+    headers: { get: (header: string) => string | null | undefined };
+  }) => Promise<void>;
 };
 
 /**

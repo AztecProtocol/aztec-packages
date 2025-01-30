@@ -128,12 +128,12 @@ export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
 
 /** Returns a json rpc client handler that rejects responses with mismatching versions. */
 export function getVersioningResponseHandler(versions: Partial<ComponentsVersions>) {
-  return ({ headers }: { headers: Headers }) => {
+  return ({ headers }: { headers: { get: (header: string) => string | null | undefined } }) => {
     for (const key in versions) {
       const value = versions[key as keyof ComponentsVersions];
       if (value !== undefined) {
         const headerValue = headers.get(`x-aztec-${key}`);
-        if (headerValue !== null && headerValue !== value.toString()) {
+        if (headerValue !== undefined && headerValue !== null && headerValue !== value.toString()) {
           throw new ComponentsVersionsError(key, value.toString(), headerValue);
         }
       }
