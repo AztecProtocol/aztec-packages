@@ -34,15 +34,15 @@ class lookup_bitw_byte_lengths_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.bitwise_start == 1 || in.precomputed_sel_integral_tag == 1);
+        return (in._bitwise_start() == 1 || in._precomputed_sel_integral_tag() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.bitwise_start);
-        const auto is_table_entry = View(in.precomputed_sel_integral_tag);
+        const auto is_operation = View(in._bitwise_start());
+        const auto is_table_entry = View(in._precomputed_sel_integral_tag());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -58,14 +58,14 @@ class lookup_bitw_byte_lengths_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_bitw_byte_lengths_inv,
-                                     in.lookup_bitw_byte_lengths_counts,
-                                     in.bitwise_start,
-                                     in.precomputed_sel_integral_tag,
-                                     in.bitwise_tag,
-                                     in.bitwise_ctr,
-                                     in.precomputed_clk,
-                                     in.precomputed_integral_tag_length);
+        return std::forward_as_tuple(in._lookup_bitw_byte_lengths_inv(),
+                                     in._lookup_bitw_byte_lengths_counts(),
+                                     in._bitwise_start(),
+                                     in._precomputed_sel_integral_tag(),
+                                     in._bitwise_tag(),
+                                     in._bitwise_ctr(),
+                                     in._precomputed_clk(),
+                                     in._precomputed_integral_tag_length());
     }
 };
 
@@ -104,15 +104,15 @@ class lookup_bitw_byte_operations_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.bitwise_sel == 1 || in.precomputed_sel_bitwise == 1);
+        return (in._bitwise_sel() == 1 || in._precomputed_sel_bitwise() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.bitwise_sel);
-        const auto is_table_entry = View(in.precomputed_sel_bitwise);
+        const auto is_operation = View(in._bitwise_sel());
+        const auto is_table_entry = View(in._precomputed_sel_bitwise());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -128,18 +128,18 @@ class lookup_bitw_byte_operations_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_bitw_byte_operations_inv,
-                                     in.lookup_bitw_byte_operations_counts,
-                                     in.bitwise_sel,
-                                     in.precomputed_sel_bitwise,
-                                     in.bitwise_op_id,
-                                     in.bitwise_ia_byte,
-                                     in.bitwise_ib_byte,
-                                     in.bitwise_ic_byte,
-                                     in.precomputed_bitwise_op_id,
-                                     in.precomputed_bitwise_input_a,
-                                     in.precomputed_bitwise_input_b,
-                                     in.precomputed_bitwise_output);
+        return std::forward_as_tuple(in._lookup_bitw_byte_operations_inv(),
+                                     in._lookup_bitw_byte_operations_counts(),
+                                     in._bitwise_sel(),
+                                     in._precomputed_sel_bitwise(),
+                                     in._bitwise_op_id(),
+                                     in._bitwise_ia_byte(),
+                                     in._bitwise_ib_byte(),
+                                     in._bitwise_ic_byte(),
+                                     in._precomputed_bitwise_op_id(),
+                                     in._precomputed_bitwise_input_a(),
+                                     in._precomputed_bitwise_input_b(),
+                                     in._precomputed_bitwise_output());
     }
 };
 
