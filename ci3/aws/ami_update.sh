@@ -56,8 +56,8 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scrip
 
 # Pull devbox onto host, and build into docker-in-docker volume.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged --rm -v bootstrap_ci_local_docker:/var/lib/docker $DEVBOX_IMAGE bash -c \"
-    docker pull $ISOLATION_IMAGE
+  docker run --privileged --rm -v bootstrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c \"
+    docker pull aztecprotocol/build:3.0
   \"
 "
 

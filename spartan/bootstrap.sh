@@ -49,8 +49,8 @@ function gke {
 }
 
 function test_cmds {
-  # echo "$hash DOCKER_FLAGS="-e INSTALL_METRICS=false" spartan/scripts/run_test.sh kind ./src/spartan/smoke.test.ts ci-smoke.yaml"
-  # echo "$hash DOCKER_FLAGS="-e INSTALL_METRICS=false" spartan/scripts/run_test.sh kind ./src/spartan/4epochs.test.ts ci.yaml"
+  echo "$hash DOCKER_FLAGS="-e INSTALL_METRICS=false" spartan/scripts/run_test.sh kind ./src/spartan/smoke.test.ts ci-smoke.yaml"
+  echo "$hash DOCKER_FLAGS=\"-e INSTALL_METRICS=false\" spartan/scripts/run_test.sh kind ./src/spartan/4epochs.test.ts ci.yaml"
   echo "$hash spartan/scripts/run_test.sh local -t ./test-transfer.sh -val 3"
 }
 

@@ -123,7 +123,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e MASTER=${MASTER:-0} \
     --pids-limit=32768 \
-    $DEVBOX_IMAGE bash -c '$container_script'
+    aztecprotocol/devbox:3.0 bash -c '$container_script'
 "
 code=$?
 echo "SSH exited with code: $code"

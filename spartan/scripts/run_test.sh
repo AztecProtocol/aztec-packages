@@ -10,7 +10,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 cmd=$1
 shift
 if [ "$cmd" = kind ]; then
-  docker_isolate ls $@ #./test_kind.sh "$@"
+  ./test_kind.sh "$@"
 elif [ "$cmd" = local ]; then
   docker_isolate ../../scripts/run_native_testnet.sh -i $@
 fi
