@@ -119,7 +119,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@playwright/test": "npm:^1.49.0"
+    "@playwright/test": "npm:1.49.0"
     "@types/node": "npm:^20.11.17"
     assert: "npm:^2.1.0"
     copy-webpack-plugin: "npm:^12.0.2"
@@ -1630,17 +1630,6 @@ __metadata:
   bin:
     playwright: cli.js
   checksum: 10c0/2890d52ee45bd83b5501f17a77c77f12ba934d257fda4b288405c6d91f94b83c4fcbdff3c0be89c2aaeea3d13576b72ec9a70be667ff844b342044afd72a246e
-  languageName: node
-  linkType: hard
-
-"@playwright/test@npm:^1.49.0":
-  version: 1.50.0
-  resolution: "@playwright/test@npm:1.50.0"
-  dependencies:
-    playwright: "npm:1.50.0"
-  bin:
-    playwright: cli.js
-  checksum: 10c0/70b46eab2a5c8b4accc1c8a29a0ea371b7b8f56b0d38509e5c06354ebc60dc262837e92cea727076aea5e1c32f31e215c02fbde977519a7e38488cfc48f0ba5c
   languageName: node
   linkType: hard
 
@@ -3637,7 +3626,7 @@ __metadata:
     "@inquirer/confirm": "npm:^3.0.0"
     "@inquirer/input": "npm:^2.0.0"
     "@inquirer/select": "npm:^2.0.0"
-    "@playwright/test": "npm:^1.49.0"
+    "@playwright/test": "npm:1.49.0"
     axios: "npm:^1.6.7"
     commander: "npm:^12.1.0"
     ora: "npm:^8.0.1"
@@ -9815,15 +9804,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.50.0":
-  version: 1.50.0
-  resolution: "playwright-core@npm:1.50.0"
-  bin:
-    playwright-core: cli.js
-  checksum: 10c0/b0cc7fadcb2db68a7b8d730b26c7a7d17baad454a0697c781e08074a619e57779a90be9b57c4c741ff4895390bdfd093d8393a746e8bf68ae57ac452f4c1cdb2
-  languageName: node
-  linkType: hard
-
 "playwright@npm:1.49.0":
   version: 1.49.0
   resolution: "playwright@npm:1.49.0"
@@ -9836,21 +9816,6 @@ __metadata:
   bin:
     playwright: cli.js
   checksum: 10c0/e94d662747cd147d0573570fec90dadc013c1097595714036fc8934a075c5a82ab04a49111b03b1f762ea86429bdb7c94460901896901e20970b30ce817cc93f
-  languageName: node
-  linkType: hard
-
-"playwright@npm:1.50.0":
-  version: 1.50.0
-  resolution: "playwright@npm:1.50.0"
-  dependencies:
-    fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.50.0"
-  dependenciesMeta:
-    fsevents:
-      optional: true
-  bin:
-    playwright: cli.js
-  checksum: 10c0/0076a536433819b7122066a07c5fcfa56d40d09cbbec0a39061bbfa832c8a1f626df5e4fe206fbeba56b3a61f0e2b26d4ad3c2b402852d6f147a266fd18e4ddf
   languageName: node
   linkType: hard
 
