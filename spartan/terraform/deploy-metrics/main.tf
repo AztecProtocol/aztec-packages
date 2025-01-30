@@ -67,7 +67,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "grafana.service.loadBalancerIP"
-    value = google_compute_global_address.grafana_ip.address
+    value = google_compute_address.grafana_ip.address
   }
 
   set {
@@ -77,7 +77,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
-    value = google_compute_global_address.otel_collector_ip.address
+    value = google_compute_address.otel_collector_ip.address
   }
 
 
