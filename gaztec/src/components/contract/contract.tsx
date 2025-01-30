@@ -429,6 +429,7 @@ export function ContractComponent() {
                 />
                 <IconButton
                   onClick={(e) => {
+                    setCurrentContractAddress(null);
                     setCurrentContract(null);
                     setContractArtifact(null);
                   }}
