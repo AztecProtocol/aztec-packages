@@ -36,15 +36,15 @@ class lookup_bytecode_to_read_unary_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.bc_decomposition_sel == 1 || in.precomputed_sel_unary == 1);
+        return (in._bc_decomposition_sel() == 1 || in._precomputed_sel_unary() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.bc_decomposition_sel);
-        const auto is_table_entry = View(in.precomputed_sel_unary);
+        const auto is_operation = View(in._bc_decomposition_sel());
+        const auto is_table_entry = View(in._precomputed_sel_unary());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -60,14 +60,14 @@ class lookup_bytecode_to_read_unary_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_bytecode_to_read_unary_inv,
-                                     in.lookup_bytecode_to_read_unary_counts,
-                                     in.bc_decomposition_sel,
-                                     in.precomputed_sel_unary,
-                                     in.bc_decomposition_bytes_to_read,
-                                     in.bc_decomposition_bytes_to_read_unary,
-                                     in.precomputed_clk,
-                                     in.precomputed_as_unary);
+        return std::forward_as_tuple(in._lookup_bytecode_to_read_unary_inv(),
+                                     in._lookup_bytecode_to_read_unary_counts(),
+                                     in._bc_decomposition_sel(),
+                                     in._precomputed_sel_unary(),
+                                     in._bc_decomposition_bytes_to_read(),
+                                     in._bc_decomposition_bytes_to_read_unary(),
+                                     in._precomputed_clk(),
+                                     in._precomputed_as_unary());
     }
 };
 

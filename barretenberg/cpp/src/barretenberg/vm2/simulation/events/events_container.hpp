@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -16,6 +17,7 @@ namespace bb::avm2::simulation {
 struct EventsContainer {
     EventEmitterInterface<ExecutionEvent>::Container execution;
     EventEmitterInterface<AluEvent>::Container alu;
+    EventEmitterInterface<BitwiseEvent>::Container bitwise;
     EventEmitterInterface<MemoryEvent>::Container memory;
     EventEmitterInterface<AddressingEvent>::Container addressing;
     EventEmitterInterface<BytecodeRetrievalEvent>::Container bytecode_retrieval;

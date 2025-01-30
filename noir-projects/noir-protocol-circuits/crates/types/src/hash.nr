@@ -22,7 +22,7 @@ use crate::{
 use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = std::hash::sha256(bytes_to_hash);
+    let sha256_hashed = sha256::digest(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -525,7 +525,7 @@ fn smoke_sha256_to_field() {
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
-    let result_bytes = std::hash::sha256(full_buffer);
+    let result_bytes = sha256::digest(full_buffer);
     let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
     assert(truncated_field == result);
     let mod_res = result + (result_bytes[31] as Field);

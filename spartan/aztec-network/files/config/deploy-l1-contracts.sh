@@ -7,7 +7,7 @@ CHAIN_ID=$2
 # Run the deploy-l1-contracts command and capture the output
 output=""
 MAX_RETRIES=5
-RETRY_DELAY=60
+RETRY_DELAY=15
 
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
