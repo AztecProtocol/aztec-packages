@@ -12,12 +12,12 @@ opentelemetry-collector:
     exporters:
       # debug:
       #   verbosity: detailed
-      otlphttp/logs:
-        endpoint: http://loki-write.metrics:3100/otlp
-      otlp/tempo:
-        endpoint: http://metrics-tempo.metrics:4317
-        tls:
-          insecure: true
+      # otlphttp/logs:
+      #   endpoint: http://loki-write.metrics:3100/otlp
+      # otlp/tempo:
+      #   endpoint: http://metrics-tempo.metrics:4317
+      #   tls:
+      #     insecure: true
       prometheus:
         endpoint: ${env:MY_POD_IP}:8889
         metric_expiration: 5m
@@ -93,12 +93,12 @@ grafana:
     datasources.yaml:
       apiVersion: 1
       datasources:
-        - name: Loki
-          type: loki
-          url: http://loki-read.metrics:3100
-        - name: Tempo
-          type: tempo
-          url: http://metrics-tempo.metrics:3100
+        # - name: Loki
+        #   type: loki
+        #   url: http://loki-read.metrics:3100
+        # - name: Tempo
+        #   type: tempo
+        #   url: http://metrics-tempo.metrics:3100
         - name: Prometheus
           type: prometheus
           uid: spartan-metrics-prometheus
