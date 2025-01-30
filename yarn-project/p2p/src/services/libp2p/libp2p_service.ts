@@ -142,11 +142,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
     this.epochProofQuoteValidator = new EpochProofQuoteValidator(epochCache);
 
-    this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
-      this.logger.verbose(
-        `[WARNING] handler not yet registered: Block received callback not set. Received block ${block.p2pMessageIdentifier()} from peer.`,
+    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
+      this.logger.warn(
+        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
+        { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
       );
-      return Promise.resolve(undefined);
+      return undefined;
     };
   }
 
@@ -376,11 +377,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return this.peerManager.getPeers(includePending);
   }
 
-  private async handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
+  private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
     const { msg } = e.detail;
     this.logger.trace(`Received PUBSUB message.`);
 
-    await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
+    void this.jobQueue
+      .put(() => this.handleNewGossipMessage(msg))
+      .catch(err => this.logger.error(`Error processing gossip message`, err));
   }
 
   /**
@@ -472,7 +475,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
     if (message.topic == EpochProofQuote.p2pTopic) {
       const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
-      this.processEpochProofQuoteFromPeer(epochProofQuote);
+      await this.processEpochProofQuoteFromPeer(epochProofQuote);
     }
 
     return;
@@ -483,14 +486,22 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    *
    * @param attestation - The attestation to process.
    */
-  @trackSpan('Libp2pService.processAttestationFromPeer', attestation => ({
+  @trackSpan('Libp2pService.processAttestationFromPeer', async attestation => ({
     [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
-    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+    [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
-    this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
+    this.logger.debug(
+      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer.`,
+      {
+        p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
+        slot: attestation.slotNumber.toNumber(),
+        archive: attestation.archive.toString(),
+        block: attestation.blockNumber.toNumber(),
+      },
+    );
     await this.mempools.attestationPool!.addAttestations([attestation]);
   }
 
@@ -501,21 +512,37 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param block - The block to process.
    */
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
-  @trackSpan('Libp2pService.processBlockFromPeer', block => ({
-    [Attributes.BLOCK_NUMBER]: block.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toNumber(),
+  @trackSpan('Libp2pService.processBlockFromPeer', async block => ({
+    [Attributes.BLOCK_NUMBER]: block.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
-    [Attributes.P2P_ID]: block.p2pMessageIdentifier().toString(),
+    [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
-    this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
+    this.logger.verbose(
+      `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
+      {
+        p2pMessageIdentifier: await block.p2pMessageIdentifier(),
+        slot: block.slotNumber.toNumber(),
+        archive: block.archive.toString(),
+        block: block.blockNumber.toNumber(),
+      },
+    );
     const attestation = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {
-      this.logger.verbose(`Broadcasting attestation ${attestation.p2pMessageIdentifier()}`);
-      this.broadcastAttestation(attestation);
+      this.logger.verbose(
+        `Broadcasting attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()}`,
+        {
+          p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
+          slot: attestation.slotNumber.toNumber(),
+          archive: attestation.archive.toString(),
+          block: attestation.blockNumber.toNumber(),
+        },
+      );
+      await this.broadcastAttestation(attestation);
     }
   }
 
@@ -523,18 +550,24 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * Broadcast an attestation to all peers.
    * @param attestation - The attestation to broadcast.
    */
-  @trackSpan('Libp2pService.broadcastAttestation', attestation => ({
+  @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
     [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
-    [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
+    [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
-  private broadcastAttestation(attestation: BlockAttestation): void {
-    this.propagate(attestation);
+  private async broadcastAttestation(attestation: BlockAttestation) {
+    await this.propagate(attestation);
   }
 
-  private processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote): void {
-    this.logger.verbose(`Received epoch proof quote ${epochProofQuote.p2pMessageIdentifier()} from external peer.`);
+  private async processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote) {
+    const epoch = epochProofQuote.payload.epochToProve;
+    const prover = epochProofQuote.payload.prover.toString();
+    const p2pMessageIdentifier = await epochProofQuote.p2pMessageIdentifier();
+    this.logger.verbose(
+      `Received epoch proof quote ${p2pMessageIdentifier} by prover ${prover} for epoch ${epoch} from external peer.`,
+      { quote: epochProofQuote.toInspect(), p2pMessageIdentifier },
+    );
     this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
@@ -542,8 +575,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * Propagates provided message to peers.
    * @param message - The message to propagate.
    */
-  public propagate<T extends Gossipable>(message: T): void {
-    this.logger.trace(`[${message.p2pMessageIdentifier()}] queued`);
+  public async propagate<T extends Gossipable>(message: T) {
+    const p2pMessageIdentifier = await message.p2pMessageIdentifier();
+    this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
     void this.jobQueue.put(async () => {
       await this.sendToPeers(message);
     });
@@ -578,7 +612,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const validProof = await proofValidator.validateTx(responseTx);
 
     // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(responseTx.getTxHash())) {
+    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
       // Returning the wrong data is a low tolerance error
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
@@ -606,7 +640,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const tx = Tx.fromBuffer(Buffer.from(msg.data));
     const isValid = await this.validatePropagatedTx(tx, propagationSource);
     this.logger.trace(`validatePropagatedTx: ${isValid}`, {
-      [Attributes.TX_HASH]: tx.getTxHash().toString(),
+      [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
     });
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
@@ -669,8 +703,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
@@ -866,11 +900,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   private async sendToPeers<T extends Gossipable>(message: T) {
     const parent = message.constructor as typeof Gossipable;
 
-    const identifier = message.p2pMessageIdentifier().toString();
-    this.logger.trace(`Sending message ${identifier}`);
+    const identifier = await message.p2pMessageIdentifier().then(i => i.toString());
+    this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`);
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, { p2pMessageIdentifier: identifier });
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

@@ -135,14 +135,17 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
-    const privateSelectors = contract.functions
-      .filter(functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE)
-      .map(privateFunctionArtifact =>
-        FunctionSelector.fromNameAndParameters(
-          privateFunctionArtifact.name,
-          privateFunctionArtifact.parameters,
+    const privateFunctions = contract.functions.filter(
+      functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
+    );
+
+    const privateSelectors = await Promise.all(
+      privateFunctions.map(async privateFunctionArtifact =>
+        (
+          await FunctionSelector.fromNameAndParameters(privateFunctionArtifact.name, privateFunctionArtifact.parameters)
         ).toString(),
-      );
+      ),
+    );
 
     if (privateSelectors.length !== new Set(privateSelectors).size) {
       throw new Error('Repeated function selectors of private functions');
@@ -311,7 +314,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     for (const scope of new Set(filter.scopes)) {
       const formattedScopeString = scope.toString();
-      if (!this.#scopes.hasAsync(formattedScopeString)) {
+      if (!(await this.#scopes.hasAsync(formattedScopeString))) {
         throw new Error('Trying to get incoming notes of an scope that is not in the PXE database');
       }
 
@@ -537,7 +540,7 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     const value = await this.#completeAddresses.atAsync(index);
-    return value ? CompleteAddress.fromBuffer(value) : undefined;
+    return value ? await CompleteAddress.fromBuffer(value) : undefined;
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
@@ -565,7 +568,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async removeSenderAddress(address: AztecAddress): Promise<boolean> {
-    if (!this.#addressBook.hasAsync(address.toString())) {
+    if (!(await this.#addressBook.hasAsync(address.toString()))) {
       return false;
     }
 

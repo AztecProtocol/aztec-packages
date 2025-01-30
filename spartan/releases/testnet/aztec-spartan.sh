@@ -93,13 +93,20 @@ check_docker() {
         return 0
     else
         echo -e "${RED}Docker or Docker Compose not found${NC}"
-        read -p "Would you like to install Docker? [Y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-            install_docker
-            return $?
+        # If macOS
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            echo -e "${YELLOW}macOS detected. Please install Docker Desktop for Mac:${NC}"
+            echo "https://www.docker.com/products/docker-desktop"
+            return 1
+        else
+            read -p "Would you like to install Docker? [Y/n] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                install_docker
+                return $?
+            fi
+            return 1
         fi
-        return 1
     fi
 }
 
@@ -406,4 +413,3 @@ case "$1" in
         exit 1
         ;;
 esac
-

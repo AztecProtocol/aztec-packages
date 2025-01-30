@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
@@ -18,8 +18,8 @@ export class Schnorr {
    * @returns A grumpkin public key.
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<PublicKey> {
-    const api = await BarretenbergLazy.getSingleton();
-    const [result] = await api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
+    const api = await BarretenbergSync.initSingleton();
+    const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
 
@@ -30,9 +30,9 @@ export class Schnorr {
    * @returns A Schnorr signature of the form (s, e).
    */
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [s, e] = await api
+    const [s, e] = api
       .getWasm()
       .callWasmExport('schnorr_construct_signature', [messageArray, privateKey.toBuffer()], [32, 32]);
     return new SchnorrSignature(Buffer.from([...s, ...e]));
@@ -46,9 +46,9 @@ export class Schnorr {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: PublicKey, sig: SchnorrSignature) {
-    const api = await BarretenbergLazy.getSingleton();
+    const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = await api
+    const [result] = api
       .getWasm()
       .callWasmExport('schnorr_verify_signature', [messageArray, pubKey.toBuffer(), sig.s, sig.e], [1]);
     return result[0] === 1;

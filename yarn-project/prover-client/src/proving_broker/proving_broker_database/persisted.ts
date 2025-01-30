@@ -5,6 +5,7 @@ import {
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
 } from '@aztec/circuit-types';
+import { toArray } from '@aztec/foundation/iterable';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecMap } from '@aztec/kv-store';
@@ -34,11 +35,11 @@ class SingleEpochDatabase {
     await this.jobs.set(job.id, jsonStringify(job));
   }
 
-  *allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
+  async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
     for (const jobStr of this.jobs.values()) {
-      const job = jsonParseWithSchema(jobStr, ProvingJob);
+      const job = await jsonParseWithSchema(jobStr, ProvingJob);
       const resultStr = this.jobResults.get(job.id);
-      const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+      const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
   }
@@ -151,8 +152,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     await epochDb.addProvingJob(job);
   }
 
-  *allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    const iterators = Array.from(this.epochs.values()).map(x => x.allProvingJobs());
+  async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
+    const iterators = (await toArray(this.epochs.values())).map(x => x.allProvingJobs());
     for (const it of iterators) {
       yield* it;
     }

@@ -35,14 +35,14 @@ async function main() {
   logger.info(`Found inputs for ${ProvingRequestType[input.type]}`);
   writeProofInputs(input, outDir);
 
-  console.log(jsonParseWithSchema(jsonStringify(input), ProvingJobInputs).inputs);
+  console.log((await jsonParseWithSchema(jsonStringify(input), ProvingJobInputs)).inputs);
 }
 
 // This mimics the behavior of bb-prover/src/bb/execute.ts
 function writeProofInputs(input: ProvingJobInputs, outDir: string) {
   switch (input.type) {
     case ProvingRequestType.PUBLIC_VM: {
-      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.output.toBuffer());
+      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.publicInputs.toBuffer());
       logger.info(`Wrote AVM public inputs to ${AVM_PUBLIC_INPUTS_FILENAME}`);
       writeFileSync(`${outDir}/${AVM_HINTS_FILENAME}`, input.inputs.avmHints.toBuffer());
       logger.info(`Wrote AVM hints to ${AVM_HINTS_FILENAME}`);

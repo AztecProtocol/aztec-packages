@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob, type BlobJson } from '@aztec/foundation/blob';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /** Serialized an array of blobs with their indexes to be stored at a given block id */
@@ -38,14 +38,7 @@ export class BlobWithIndex {
   }
 
   // Follows the structure the beacon node api expects
-  public toJSON(): { blob: string; index: number; kzg_commitment: string; kzg_proof: string } {
-    return {
-      blob: this.blob.toBuffer().toString('hex'),
-      index: this.index,
-      // eslint-disable-next-line camelcase
-      kzg_commitment: this.blob.commitment.toString('hex'),
-      // eslint-disable-next-line camelcase
-      kzg_proof: this.blob.proof.toString('hex'),
-    };
+  public toJSON(): BlobJson {
+    return this.blob.toJson(this.index);
   }
 }

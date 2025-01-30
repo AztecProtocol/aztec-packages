@@ -14,7 +14,7 @@ function toACVMField(field: Fr): string {
   return `0x${field.toBuffer().toString('hex')}`;
 }
 
-export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
+export async function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
 
@@ -42,10 +42,10 @@ export function foreignCallHandler(name: string, args: ForeignCallInput[]): Prom
     // const blobsAsFr: Fr[] = args[0].map((field: string) => fromACVMField(field)).filter(field => !field.isZero());
     // ...but we now have private logs which have a fixed number of fields and may have 0 values.
     // TODO(Miranda): trim 0 fields from private logs
-    const blobs = Blob.getBlobs(blobsAsFr);
+    const blobs = await Blob.getBlobs(blobsAsFr);
     const blobPublicInputs = BlockBlobPublicInputs.fromBlobs(blobs);
     // Checks on injected values:
-    const hash = spongeBlob.squeeze();
+    const hash = await spongeBlob.squeeze();
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments.slice(2 * i, 2 * i + 2);
       const calculated = blob.commitmentToFields();

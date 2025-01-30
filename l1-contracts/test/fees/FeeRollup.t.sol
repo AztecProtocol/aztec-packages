@@ -26,7 +26,7 @@ import {
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";

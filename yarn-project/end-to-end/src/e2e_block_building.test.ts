@@ -126,7 +126,8 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const isContractDeployed = async (address: AztecAddress) =>
+        !!(await pxe.getContractMetadata(address)).contractInstance;
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
@@ -463,7 +464,7 @@ describe('e2e_block_building', () => {
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = poseidon2Hash([testContract.address, values[0]]);
+      const expectedFirstField = await poseidon2Hash([testContract.address, values[0]]);
       expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
     }, 60_000);
   });
@@ -507,6 +508,7 @@ describe('e2e_block_building', () => {
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
+        ethereumSlotDuration: 6,
       }));
 
       logger.info('Deploying token contract');

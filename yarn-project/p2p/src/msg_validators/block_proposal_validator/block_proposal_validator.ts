@@ -19,7 +19,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
     }
 
     // Check that the block proposal is from the current or next proposer
-    const proposer = block.getSender();
+    const proposer = await block.getSender();
     if (!proposer.equals(currentProposer) && !proposer.equals(nextProposer)) {
       return PeerErrorSeverity.HighToleranceError;
     }

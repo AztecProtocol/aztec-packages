@@ -64,7 +64,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
-    const calls = [this.request()];
+    const calls = [await this.request()];
     const fee = await this.getFeeOptions({ calls, ...opts });
     const { nonce, cancellable } = opts;
     return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable });
@@ -76,13 +76,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * block for constructing batch requests.
    * @returns An execution request wrapped in promise.
    */
-  public request(): FunctionCall {
+  public async request(): Promise<FunctionCall> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     return {
       name: this.functionDao.name,
       args,
-      selector: FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+      selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
       type: this.functionDao.functionType,
       to: this.contractAddress,
       isStatic: this.functionDao.isStatic,
