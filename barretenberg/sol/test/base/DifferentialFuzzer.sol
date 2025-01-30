@@ -11,7 +11,8 @@ contract DifferentialFuzzer is TestBase {
         Invalid,
         Standard,
         Ultra,
-        Honk
+        Honk,
+        HonkZK
     }
     enum CircuitType {
         Invalid,
@@ -23,7 +24,7 @@ contract DifferentialFuzzer is TestBase {
 
     constructor() {}
 
-    /// @notice the fuzzing flavour
+    /// @notice the fuzzing flavor
     Flavor public flavor;
 
     /// @notice the circuit type
@@ -32,13 +33,13 @@ contract DifferentialFuzzer is TestBase {
     /// @notice the proofs public inputs
     uint256[] public inputs;
 
-    function with_flavour(Flavor _flavour) public returns (DifferentialFuzzer) {
-        flavor = _flavour;
+    function with_flavor(Flavor _flavor) public returns (DifferentialFuzzer) {
+        flavor = _flavor;
         return this;
     }
 
-    function with_circuit_type(CircuitType _flavour) public returns (DifferentialFuzzer) {
-        circuitType = _flavour;
+    function with_circuit_type(CircuitType _flavor) public returns (DifferentialFuzzer) {
+        circuitType = _flavor;
         return this;
     }
 
@@ -54,8 +55,10 @@ contract DifferentialFuzzer is TestBase {
             return "ultra";
         } else if (flavor == Flavor.Honk) {
             return "honk";
+        } else if (flavor == Flavor.HonkZK) {
+            return "honk_zk";
         } else {
-            revert("Invalid flavour");
+            revert("Invalid flavor");
         }
     }
 
@@ -69,7 +72,7 @@ contract DifferentialFuzzer is TestBase {
         } else if (circuitType == CircuitType.Ecdsa) {
             return "ecdsa";
         } else {
-            revert("Invalid circuit flavour");
+            revert("Invalid circuit flavor");
         }
     }
 

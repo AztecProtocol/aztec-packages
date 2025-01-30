@@ -452,14 +452,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @return True if the consistency check passes, false otherwise.
      */
     static bool check_evaluations_consistency(const std::array<FF, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
-                                              const FF& gemini_evaluation_challenge,        // r
-                                              const std::vector<FF>& multilinear_challenge, // u
+                                              const FF& gemini_evaluation_challenge,
+                                              const std::vector<FF>& multilinear_challenge,
                                               const FF& inner_product_eval_claim)
     {
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
-
+        info("vanishing poly eval: ", vanishing_poly_eval);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
         bool gemini_challenge_in_small_subgroup = false;
@@ -474,7 +474,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         }
         // Construct the challenge polynomial from the sumcheck challenge, the verifier has to evaluate it on its own
         const std::vector<FF> challenge_polynomial_lagrange = compute_challenge_polynomial(multilinear_challenge);
-
+        info("challenge poly lagrange size: ", challenge_polynomial_lagrange.size());
         // Compute the evaluations of the challenge polynomial, Lagrange first, and Lagrange last for the fixed small
         // subgroup
         auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
@@ -523,10 +523,10 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Populate the vector with the powers of the challenges
         size_t round_idx = 0;
         for (auto challenge : multivariate_challenge) {
-            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * round_idx;
+            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * round_idx; // Compute the current index into the vector
             challenge_polynomial_lagrange[current_idx] = FF(1);
             for (size_t idx = current_idx + 1; idx < current_idx + LIBRA_UNIVARIATES_LENGTH; idx++) {
-                // Recursively compute the powers of the challenge
+                // Recursively compute the powers of the challenge up to the length of libra univariates
                 challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
             }
             round_idx++;
@@ -543,7 +543,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * interpolation domain is given by \f$ (1, g, g^2, \ldots, g^{|H| -1 } )\f$
      *
      * @param coeffs Coefficients of the polynomial to be evaluated, in our case it is the challenge polynomial
-     * @param z Evaluation point, we are using the Gemini evaluation challenge
+     * @param r Evaluation point, we are using the Gemini evaluation challenge
      * @param inverse_root_of_unity Inverse of the generator of the subgroup H
      * @return std::array<FF, 3>
      */
@@ -552,13 +552,12 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
                                                                      const FF& vanishing_poly_eval)
     {
         FF one = FF{ 1 };
-        FF numerator = vanishing_poly_eval * FF(SUBGROUP_SIZE).invert(); // (r^n - 1) / n
-
         FF power_of_root = Curve::subgroup_generator_inverse; // g^{-1}
+                                                              //
+        // Construct the denominators of the Lagrange polynomials evaluated at r
         std::array<FF, SUBGROUP_SIZE> denominators;
         denominators[0] = r - one;
-
-        // Compute the denominators of the Lagrange polynomials evaluated at r
+        info("denominators[0] ", denominators[0]);
         for (size_t i = 1; i < SUBGROUP_SIZE; ++i) {
             denominators[i] = power_of_root * r - one; // r * g^{-i} - 1
             power_of_root *= Curve::subgroup_generator_inverse;
@@ -572,12 +571,17 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             FF::batch_invert(&denominators[0], SUBGROUP_SIZE);
         }
 
-        // Return the evaluation of the polynomial given by its evaluations over H, Lagrange first evaluated at r,
+        // Construct the evaluation of the polynomial using its evaluations over H, Lagrange first evaluated at r,
         // Lagrange last evaluated at r
+        FF numerator = vanishing_poly_eval * FF(SUBGROUP_SIZE).invert(); // (r^n - 1) / n
+        info(numerator);
         std::array<FF, 3> result{ std::inner_product(coeffs.begin(), coeffs.end(), denominators.begin(), FF(0)),
                                   denominators[0],
                                   denominators[SUBGROUP_SIZE - 1] };
-        std::transform(result.begin(), result.end(), result.begin(), [&](FF& r) { return r * numerator; });
+        std::transform(result.begin(), result.end(), result.begin(), [&](FF& denominator) {
+            info(denominator * numerator);
+            return denominator * numerator;
+        });
         return result;
     }
 };

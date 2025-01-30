@@ -15,14 +15,15 @@
 using namespace bb;
 using numeric::uint256_t; // is this really
 
-template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
+// Get rid of the inner typename
+template <template <typename> typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
 {
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
-    UltraCircuitBuilder builder = Circuit::generate(inputs);
+    UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(inputs);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);
@@ -40,8 +41,6 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
         std::cout << p;
     }
 }
-
-void generate_zk_proof(uint256_t inputs[]) {}
 
 std::string pad_left(std::string input, size_t length)
 {
@@ -88,19 +87,32 @@ int main(int argc, char** argv)
         inputs[count++] = uint256_t(padded);
     }
 
-    if (flavor != "honk") {
-        info("Only honk flavor allowed");
-        return 1;
-    }
+    // WORKTODO: find a better way to do this
+    if (flavor == "honk") {
+        if (circuit_type == "blake") {
+            generate_proof<BlakeCircuit, UltraKeccakFlavor>(inputs);
+        } else if (circuit_type == "add2") {
+            generate_proof<Add2Circuit, UltraKeccakFlavor>(inputs);
+        } else if (circuit_type == "ecdsa") {
+            generate_proof<EcdsaCircuit, UltraKeccakFlavor>(inputs);
+        } else {
+            info("Invalid circuit type: " + circuit_type);
+            return 1;
+        }
 
-    if (circuit_type == "blake") {
-        generate_proof<BlakeCircuit, UltraKeccakFlavor>(inputs);
-    } else if (circuit_type == "add2") {
-        generate_proof<Add2Circuit, UltraKeccakFlavor>(inputs);
-    } else if (circuit_type == "ecdsa") {
-        generate_proof<EcdsaCircuit, UltraKeccakFlavor>(inputs);
+    } else if (flavor == "honk_zk") {
+        if (circuit_type == "blake") {
+            generate_proof<BlakeCircuit, UltraKeccakZKFlavor>(inputs);
+        } else if (circuit_type == "add2") {
+            generate_proof<Add2Circuit, UltraKeccakZKFlavor>(inputs);
+        } else if (circuit_type == "ecdsa") {
+            generate_proof<EcdsaCircuit, UltraKeccakZKFlavor>(inputs);
+        } else {
+            info("Invalid circuit type: " + circuit_type);
+            return 1;
+        }
     } else {
-        info("Invalid circuit flavour: " + circuit_type);
+        info("Only honk flavor allowed");
         return 1;
     }
 }

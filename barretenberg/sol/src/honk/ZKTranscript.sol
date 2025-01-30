@@ -9,7 +9,9 @@ import {
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 
-import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
+import {bytesToG1ProofPoint, bytesToFr, logFr, logG} from "./utils.sol";
+
+import "forge-std/console.sol";
 
 // ZKTranscript library to generate fiat shamir challenges
 struct ZKTranscript {
@@ -30,9 +32,10 @@ struct ZKTranscript {
 
 library ZKTranscriptLib {
     // WORKTODO: generateTranscript will go in each contract variation
+    // WORKTODO: make pure
     function generateTranscript(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        pure
+        view
         returns (ZKTranscript memory t)
     {
         Fr previousChallenge;
@@ -43,7 +46,7 @@ library ZKTranscriptLib {
 
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
         (t.libraChallenge, previousChallenge) = generateLibraChallenge(previousChallenge, proof);
-
+        console.log("past libra challenges");
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
 
         (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
@@ -53,7 +56,7 @@ library ZKTranscriptLib {
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
-
+        console.log("finished generating challenges");
         return t;
     }
 
@@ -195,13 +198,12 @@ library ZKTranscriptLib {
         challengeData[4] = proof.libraCommitments[0].y_1;
         challengeData[5] = Fr.unwrap(proof.libraSum);
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(challengeData)));
-        Fr unused;
-        (libraChallenge, unused) = splitChallenge(nextPreviousChallenge);
+        (libraChallenge,) = splitChallenge(nextPreviousChallenge);
     }
 
     function generateSumcheckChallenges(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        pure
+        view
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -217,19 +219,21 @@ library ZKTranscriptLib {
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
         }
         nextPreviousChallenge = prevChallenge;
+        console.log("sumcheck challenges generated");
     }
 
     // We add Libra claimed eval + 3 comm + 1 more eval
+    // TODO: make pure
     function generateRhoChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        pure
+        view
         returns (Fr rho, Fr nextPreviousChallenge)
     {
         uint256[NUMBER_OF_ENTITIES + 1 + 2 + 3 * 4] memory rhoChallengeElements;
         rhoChallengeElements[0] = Fr.unwrap(prevChallenge);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
         for (uint256 i = 1; i <= NUMBER_OF_ENTITIES; i++) {
-            rhoChallengeElements[i + 1] = Fr.unwrap(proof.sumcheckEvaluations[i]);
+            rhoChallengeElements[i] = Fr.unwrap(proof.sumcheckEvaluations[i - 1]);
         }
         rhoChallengeElements[NUMBER_OF_ENTITIES + 1] = Fr.unwrap(proof.libraEvaluation);
 
@@ -243,7 +247,6 @@ library ZKTranscriptLib {
         rhoChallengeElements[i + 1] = proof.libraCommitments[2].x_1;
         rhoChallengeElements[i + 2] = proof.libraCommitments[2].y_0;
         rhoChallengeElements[i + 3] = proof.libraCommitments[2].y_1;
-
         i += 4;
         rhoChallengeElements[i] = proof.geminiMaskingPoly.x_0;
         rhoChallengeElements[i + 1] = proof.geminiMaskingPoly.x_1;
@@ -254,13 +257,13 @@ library ZKTranscriptLib {
         rhoChallengeElements[i] = Fr.unwrap(proof.geminiMaskingEval);
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
-        Fr unused;
-        (rho, unused) = splitChallenge(nextPreviousChallenge);
+        (rho,) = splitChallenge(nextPreviousChallenge);
+        console.log("past generating the rho challenge");
     }
 
     function generateGeminiRChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        pure
+        view
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
@@ -276,18 +279,19 @@ library ZKTranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
         Fr unused;
         (geminiR, unused) = splitChallenge(nextPreviousChallenge);
+        console.log("finished generating R challenge");
     }
 
     function generateShplonkNuChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        pure
+        view
         returns (Fr shplonkNu, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N) + 1 + 4] memory shplonkNuChallengeElements;
         shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-            shplonkNuChallengeElements[i] = Fr.unwrap(proof.geminiAEvaluations[i]);
+            shplonkNuChallengeElements[i] = Fr.unwrap(proof.geminiAEvaluations[i - 1]);
         }
 
         uint256 libraIdx = 0;
@@ -297,13 +301,13 @@ library ZKTranscriptLib {
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
-        Fr unused;
-        (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
+        (shplonkNu,) = splitChallenge(nextPreviousChallenge);
+        console.log("finished generating nu challenge");
     }
 
     function generateShplonkZChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        pure
+        view
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
         uint256[5] memory shplonkZChallengeElements;
@@ -315,15 +319,16 @@ library ZKTranscriptLib {
         shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
-        Fr unused;
-        (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
+        (shplonkZ,) = splitChallenge(nextPreviousChallenge);
+        console.log("finished generating shplonk z challenge");
     }
 
     // TODO: mod q proof points
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the ZKTranscript Lib
-    function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
+    // TODO: make pure
+    function loadProof(bytes calldata proof) internal view returns (Honk.ZKProof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
@@ -341,12 +346,12 @@ library ZKTranscriptLib {
         p.w4 = bytesToG1ProofPoint(proof[0x2e0:0x360]);
         p.lookupInverses = bytesToG1ProofPoint(proof[0x360:0x3e0]);
         p.zPerm = bytesToG1ProofPoint(proof[0x3e0:0x460]);
-        p.libraCommitments[0] = bytesToG1ProofPoint(proof[0x460:0x4D0]);
+        p.libraCommitments[0] = bytesToG1ProofPoint(proof[0x460:0x4e0]);
         // TEMP the boundary of what has already been read
-        uint256 boundary = 0x4D0;
+        uint256 boundary = 0x4e0;
 
         p.libraSum = bytesToFr(proof[boundary:boundary + 0x20]);
-
+        boundary += 0x20;
         // Sumcheck univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
@@ -355,14 +360,14 @@ library ZKTranscriptLib {
             }
         }
 
-        p.libraEvaluation = bytesToFr(proof[boundary:boundary + 0x20]);
-        boundary += 0x20;
-
         // Sumcheck evaluations
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + 0x20]);
             boundary += 0x20;
         }
+
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + 0x20]);
+        boundary += 0x20;
 
         p.libraCommitments[1] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
         boundary = boundary + 0x80;
@@ -372,6 +377,8 @@ library ZKTranscriptLib {
         boundary = boundary + 0x80;
         p.geminiMaskingEval = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
+
+        console.log("starting to load gemini stuff");
 
         // Gemini
         // Read gemini fold univariates
@@ -396,5 +403,89 @@ library ZKTranscriptLib {
         boundary = boundary + 0x80;
         // KZG
         p.kzgQuotient = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        console.log("finished loading the proof");
+    }
+
+    function logZKProof(Honk.ZKProof memory proof) public view {
+        console.log("circuitSize", proof.circuitSize);
+        console.log("publicInputsSize", proof.publicInputsSize);
+        console.log("publicInputsOffset", proof.publicInputsOffset);
+
+        logG("w1", proof.w1);
+        logG("w2", proof.w2);
+        logG("w3", proof.w3);
+        logG("w4", proof.w4);
+        logG("lookupReadCounts", proof.lookupReadCounts);
+        logG("lookupReadTags", proof.lookupReadTags);
+        logG("lookupInverses", proof.lookupInverses);
+        logG("zPerm", proof.zPerm);
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                logFr("sumcheck univariate", proof.sumcheckUnivariates[i][j]);
+            }
+        }
+
+        for (uint256 i = 0; i < 3; i++) {
+            logG("libra commitment", proof.libraCommitments[i]);
+        }
+
+        logFr("libraSum", proof.libraSum);
+        logFr("libraEvaluation", proof.libraEvaluation);
+        logFr("geminiMaskingEval", proof.geminiMaskingEval);
+
+        logG("geminiMaskingPoly", proof.geminiMaskingPoly);
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
+            logG("geminiFoldComms", proof.geminiFoldComms[i]);
+        }
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            logFr("geminiAEvaluations", i, proof.geminiAEvaluations[i]);
+        }
+
+        for (uint256 i = 0; i < 4; i++) {
+            logFr("libraPolyEvals", i, proof.libraPolyEvals[i]);
+        }
+
+        logG("shplonkQ", proof.shplonkQ);
+        logG("kzgQuotient", proof.kzgQuotient);
+    }
+
+    function logTranscript(ZKTranscript memory transcript) public pure {
+        // Log Oink-related fields
+        logFr("relationParameters.eta", transcript.relationParameters.eta);
+        logFr("relationParameters.etaTwo", transcript.relationParameters.etaTwo);
+        logFr("relationParameters.etaThree", transcript.relationParameters.etaThree);
+        logFr("relationParameters.beta", transcript.relationParameters.beta);
+        logFr("relationParameters.gamma", transcript.relationParameters.gamma);
+        logFr("relationParameters.publicInputsDelta", transcript.relationParameters.publicInputsDelta);
+
+        // Log alphas array
+        for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
+            logFr("alpha", i, transcript.alphas[i]);
+        }
+
+        // Log gateChallenges array
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            logFr("gate challenge", i, transcript.gateChallenges[i]);
+        }
+
+        // Log libraChallenge
+        logFr("libraChallenge", transcript.libraChallenge);
+
+        // Log sumCheckUChallenges array
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            logFr("sumCheckUChallenge", i, transcript.sumCheckUChallenges[i]);
+        }
+
+        // Log Gemini-related fields
+        logFr("rho", transcript.rho);
+        logFr("geminiR", transcript.geminiR);
+        logFr("shplonkNu", transcript.shplonkNu);
+        logFr("shplonkZ", transcript.shplonkZ);
+
+        // Log Derived field
+        logFr("publicInputsDelta", transcript.publicInputsDelta);
     }
 }

@@ -21,13 +21,15 @@ import {
     MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib
 } from "./Fr.sol";
 
+import "forge-std/console.sol";
+
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
-import {CommitmentSchemeLib as PCS, ShpleminiIntermediates} from "./CommitmentScheme.sol";
+import {CommitmentSchemeLib as PCS} from "./CommitmentScheme.sol";
 
-abstract contract BaseHonkVerifier is IVerifier {
+abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
 
     uint256 immutable N;
@@ -44,33 +46,42 @@ abstract contract BaseHonkVerifier is IVerifier {
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
+    error ConsistencyCheckFailed();
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
+        ZKTranscriptLib.logZKProof(p);
 
         if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
         }
 
+        console.log("finished generating proof");
+
         // Generate the fiat shamir challenges for the whole protocol
         ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
-
+        ZKTranscriptLib.logTranscript(t);
+        console.log("finished generating transcript");
         // Derive public input delta
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
             publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
         );
 
+        console.log("before sumcheck");
+
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
+        console.log("after sumcheck and it passed");
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
+        console.log("after shplemini and it passed");
 
-        return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
+        return sumcheckVerified; // && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
     function computePublicInputDelta(bytes32[] memory publicInputs, Fr beta, Fr gamma, uint256 offset)
@@ -124,7 +135,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         Fr correctingFactor = computeCorrectingFactor(tp.sumCheckUChallenges);
         grandHonkRelationSum = grandHonkRelationSum * correctingFactor + proof.libraEvaluation * tp.libraChallenge;
-
         verified = (grandHonkRelationSum == roundTargetSum);
     }
 
@@ -209,7 +219,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     function computeCorrectingFactor(Fr[CONST_PROOF_SIZE_LOG_N] memory roundChallenges) internal view returns (Fr) {
         Fr one = Fr.wrap(1);
         Fr evaluation = one;
-        for (uint256 i; i < logN; i++) {
+        for (uint256 i = 2; i < logN; i++) {
             evaluation = evaluation * roundChallenges[i];
         }
         return one - evaluation;
@@ -224,21 +234,21 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (bool verified)
     {
-        ShpleminiIntermediates memory mem; // stack
+        PCS.ShpleminiIntermediates memory mem; // stack
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = PCS.computeSquares(tp.geminiR);
-
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory commitments;
 
-        Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
+        mem.inverse_vanishing_denominators =
             PCS.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, logN);
 
-        mem.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
-        mem.shiftedScalar =
-            tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkNu * inverse_vanishing_evals[1]));
+        mem.unshiftedScalar =
+            mem.inverse_vanishing_denominators[0] + (tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
+        mem.shiftedScalar = tp.geminiR.invert()
+            * (mem.inverse_vanishing_denominators[0] - (tp.shplonkNu * mem.inverse_vanishing_denominators[1]));
 
         scalars[0] = Fr.wrap(1);
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -279,7 +289,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
-        for (uint256 i = NUMBER_UNSHIFTED; i <= NUMBER_OF_ENTITIES; ++i) {
+        for (uint256 i = NUMBER_UNSHIFTED; i < NUMBER_OF_ENTITIES; ++i) {
             scalars[i + 2] = mem.shiftedScalar.neg() * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
@@ -356,22 +366,26 @@ abstract contract BaseHonkVerifier is IVerifier {
          */
         mem.constantTermAccumulator = Fr.wrap(0);
         mem.batchingChallenge = tp.shplonkNu.sqr();
+        uint256 boundary = NUMBER_OF_ENTITIES + 2;
 
-        for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (logN - 1);
 
             Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
-                scalingFactor = mem.batchingChallenge * inverse_vanishing_evals[i + 2];
-                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
+                scalingFactor = mem.batchingChallenge * mem.inverse_vanishing_denominators[i + 2];
+                scalars[boundary + i] = scalingFactor.neg();
             }
 
             mem.constantTermAccumulator =
                 mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu; // this is prepared
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[boundary + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
+
+        boundary += CONST_PROOF_SIZE_LOG_N - 1;
+        console.log("after fold commitment");
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
@@ -383,21 +397,22 @@ abstract contract BaseHonkVerifier is IVerifier {
             logN
         );
 
-        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
-        mem.constantTermAccumulator =
-            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
+        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
+        mem.constantTermAccumulator = mem.constantTermAccumulator
+            + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
 
         // Finalise the batch opening claim
-        uint256 boundary = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1;
         mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
         mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
+        // Investigate why I missed this
+        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
         for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
             mem.batchingScalars[i] = scalingFactor.neg();
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
-            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i];
         }
         scalars[boundary] = mem.batchingScalars[0];
         scalars[boundary + 1] = mem.batchingScalars[1] + mem.batchingScalars[2];
@@ -411,10 +426,13 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
         scalars[boundary] = mem.constantTermAccumulator;
         boundary += 1;
+        console.log("here");
 
         bool consistencyVerified =
             checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation);
-
+        if (!consistencyVerified) {
+            revert ConsistencyCheckFailed();
+        }
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
         commitments[boundary] = quotient_commitment;
@@ -433,6 +451,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr lagrangeLast;
         Fr rootPower;
         Fr[SUBGROUP_SIZE] denominators; // this has to disappear
+        Fr diff;
     }
 
     function checkEvalsConsistency(
@@ -449,7 +468,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         for (uint256 round = 0; round < CONST_PROOF_SIZE_LOG_N; round++) {
             uint256 currIdx = 1 + LIBRA_UNIVARIATES_LENGTH * round;
             mem.challengePolyLagrange[currIdx] = one;
-            for (uint256 idx = currIdx; idx < currIdx + LIBRA_UNIVARIATES_LENGTH; idx++) {
+            for (uint256 idx = currIdx + 1; idx < currIdx + LIBRA_UNIVARIATES_LENGTH; idx++) {
                 mem.challengePolyLagrange[idx] = mem.challengePolyLagrange[idx - 1] * uChallenges[round];
             }
         }
@@ -457,7 +476,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
         mem.rootPower = SUBGROUP_GENERATOR_INVERSE;
         mem.denominators[0] = geminiR - one;
-        mem.challengePolyEval = Fr.wrap(0);
+        mem.denominators[0] = mem.denominators[0].invert();
+        mem.challengePolyEval = mem.challengePolyLagrange[0] * mem.denominators[0];
         for (uint256 idx = 1; idx < SUBGROUP_SIZE; idx++) {
             mem.denominators[idx] = mem.rootPower * geminiR - one;
             mem.denominators[idx] = mem.denominators[idx].invert();
@@ -468,13 +488,14 @@ abstract contract BaseHonkVerifier is IVerifier {
         mem.lagrangeFirst = mem.denominators[0] * numerator;
         mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;
 
-        Fr diff = mem.lagrangeFirst * libraPolyEvals[2];
-        diff = diff
+        mem.diff = mem.lagrangeFirst * libraPolyEvals[2];
+
+        mem.diff = mem.diff
             + (geminiR - SUBGROUP_GENERATOR_INVERSE)
                 * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
-        diff = diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
+        mem.diff = mem.diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
 
-        return (diff == Fr.wrap(0));
+        return (mem.diff == Fr.wrap(0));
     }
 
     // This implementation is the same as above with different constants

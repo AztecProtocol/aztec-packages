@@ -14,9 +14,8 @@
 
 namespace bb {
 
-class EcdsaCircuit {
+template <typename Builder> class EcdsaCircuit {
   public:
-    using Builder = UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     using public_witness_ct = stdlib::public_witness_t<Builder>;

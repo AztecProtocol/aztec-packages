@@ -10,8 +10,8 @@ INPUTS="$( sed 's/\\n//g' <<<"$INPUTS" )"
 
 SRS_PATH="../cpp/srs_db/ignition"
 
-# If the plonk flavour is honk, then run the honk generator
-if [ "$FLAVOR" == "ultra_keccak" ]; then
+# If the plonk flavor is honk, then run the honk generator
+if [ "$FLAVOR" == "honk" ] || [ "$FLAVOR" == "honk_zk" ] ; then
     BIN="../cpp/build/bin/honk_solidity_proof_gen"
 fi
 

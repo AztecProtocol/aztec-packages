@@ -16,7 +16,7 @@ contract Add2HonkTest is TestBaseHonk {
         super.setUp();
 
         verifier = IVerifier(address(new Add2HonkVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Add2);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Add2);
 
         PUBLIC_INPUT_COUNT = 3;
 

@@ -32,6 +32,9 @@ library CommitmentSchemeLib {
         Fr batchingChallenge;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
+        Fr[4] denominators;
+        Fr[4] batchingScalars;
+        Fr[CONST_PROOF_SIZE_LOG_N + 1] inverse_vanishing_denominators;
     }
 
     function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {

@@ -2,9 +2,8 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
-class Add2Circuit {
+template <typename Builder> class Add2Circuit {
   public:
-    using Builder = bb::UltraCircuitBuilder;
     using public_witness_ct = bb::stdlib::public_witness_t<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
 
