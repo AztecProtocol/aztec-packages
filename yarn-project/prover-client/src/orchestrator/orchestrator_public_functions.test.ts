@@ -23,11 +23,11 @@ describe('prover/orchestrator/public-functions', () => {
 
     it.each([
       [0, 4],
-      //[1, 0],
-      //[2, 0],
-      //[1, 5],
-      //[2, 4],
-      //[8, 1],
+      [1, 0],
+      [2, 0],
+      [1, 5],
+      [2, 4],
+      [8, 1],
     ] as const)(
       'builds an L2 block with %i non-revertible and %i revertible calls',
       async (numberOfNonRevertiblePublicCallRequests: number, numberOfRevertiblePublicCallRequests: number) => {

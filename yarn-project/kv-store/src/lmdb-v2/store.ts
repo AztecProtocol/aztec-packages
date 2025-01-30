@@ -156,17 +156,21 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       await this.availableCursors.acquire();
     }
 
-    const { response } = await this.channel.sendMessage(msgType, body);
-
-    if (
-      msgType === LMDBMessageType.CLOSE_CURSOR ||
-      // it's possible for a START_CURSOR command to not return a cursor (e.g. db is empty)
-      (msgType === LMDBMessageType.START_CURSOR &&
-        typeof (response as LMDBResponseBody[LMDBMessageType.START_CURSOR]).cursor !== 'number')
-    ) {
-      this.availableCursors.release();
+    let response: LMDBResponseBody[T] | undefined = undefined;
+    try {
+      ({ response } = await this.channel.sendMessage(msgType, body));
+      return response;
+    } finally {
+      if (
+        (msgType === LMDBMessageType.START_CURSOR && response === undefined) ||
+        msgType === LMDBMessageType.CLOSE_CURSOR ||
+        // it's possible for a START_CURSOR command to not return a cursor (e.g. db is empty)
+        (msgType === LMDBMessageType.START_CURSOR &&
+          typeof (response as LMDBResponseBody[LMDBMessageType.START_CURSOR]).cursor !== 'number')
+      ) {
+        this.availableCursors.release();
+      }
     }
-    return response;
   }
 
   public async estimateSize(): Promise<StoreSize> {
