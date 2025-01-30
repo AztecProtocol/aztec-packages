@@ -234,6 +234,7 @@ class UltraHonkAPI : public API {
     enum class OutputDataType : size_t { BYTES, FIELDS, BYTES_AND_FIELDS };
     enum class OutputContent : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
 
+    // WORKTODO: move this out of here
     template <typename ProverOutput>
     void _write_data(const ProverOutput& prover_output,
                      const OutputDataType& output_data_type,

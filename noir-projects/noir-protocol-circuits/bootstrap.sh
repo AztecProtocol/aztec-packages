@@ -97,12 +97,10 @@ function compile {
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
     # and does not need to inject a default agg obj, so no -h flag
-    local write_vk_cmd="write_vk_ultra_keccak_honk"
-    local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
+    local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak --output_data vk -h 2"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme $proto -h 1"
-    local vk_as_fields_cmd="vk_as_fields_ultra_honk"
+    local write_vk_cmd="write_vk --scheme ultra_honk --output_data vk -h 2"
   fi
   echo "$proto$"
 
@@ -122,6 +120,7 @@ function compile {
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="$_vk_cmd --output_type fields"
+    echo_stderr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
 
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
