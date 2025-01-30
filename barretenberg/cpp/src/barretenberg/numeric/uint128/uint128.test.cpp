@@ -1,6 +1,7 @@
 #include "uint128.hpp"
 #include "../random/engine.hpp"
 #include <gtest/gtest.h>
+#include <chrono>
 #ifdef __i386__
 
 using namespace bb;
@@ -316,5 +317,57 @@ TEST(uint128, ToFromBuffer)
     auto buf = to_buffer(a);
     auto b = from_buffer<uint128_t>(buf);
     EXPECT_EQ(a, b);
+}
+
+TEST(uint128, karatsuba_multiplication_correctness)
+{
+    // Test basic multiplication
+    uint128_t a(123456789);
+    uint128_t b(987654321);
+    uint128_t expected = uint128_t(123456789) * uint128_t(987654321);
+    uint128_t result = a * b;
+    EXPECT_EQ(result, expected);
+
+    // Test edge cases
+    uint128_t max_32bit(0xFFFFFFFF);
+    uint128_t result_max = max_32bit * max_32bit;
+    EXPECT_EQ(result_max, uint128_t(0xFFFFFFFE00000001));
+
+    // Test with powers of 2
+    uint128_t pow2_16(1ULL << 16);
+    uint128_t pow2_15(1ULL << 15);
+    uint128_t result_pow2 = pow2_16 * pow2_15;
+    EXPECT_EQ(result_pow2, uint128_t(1ULL << 31));
+}
+
+TEST(uint128, karatsuba_multiplication_performance)
+{
+    const int NUM_ITERATIONS = 1000000;
+
+    uint128_t a(0xDEADBEEF);
+    uint128_t b(0xCAFEBABE);
+    uint128_t result;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    for(int i = 0; i < NUM_ITERATIONS; ++i) {
+        result = a * b;
+        a += uint128_t(1);
+        b += uint128_t(2);
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    // Prevent compiler from optimizing away the loop
+    EXPECT_NE(result, uint128_t(0));
+
+    // Print performance metrics
+    std::cout << "Karatsuba multiplication performance test:\n";
+    std::cout << "Time for " << NUM_ITERATIONS << " multiplications: "
+              << duration.count() << " microseconds\n";
+    std::cout << "Average time per multiplication: "
+              << static_cast<double>(duration.count()) / NUM_ITERATIONS
+              << " microseconds\n";
 }
 #endif
