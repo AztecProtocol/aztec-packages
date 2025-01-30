@@ -27,6 +27,13 @@ polynomials,
         1   // left-shiftable polynomial sub-relation
     };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        return (in.z_perm - in.z_perm_shift).is_zero();
+    }
+
     // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
     static constexpr size_t ZK_RELATION_LENGTH = 43;
 

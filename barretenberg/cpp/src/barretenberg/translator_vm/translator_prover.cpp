@@ -46,10 +46,17 @@ void TranslatorProver::execute_preamble_round()
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     // Commit to all wire polynomials and ordered range constraint polynomials
-    auto wire_polys = key->proving_key->polynomials.get_wires_and_ordered_range_constraints();
-    auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
-    for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], key->proving_key->commitment_key->commit(wire_polys[idx]));
+
+    for (const auto& [wire, label] :
+         zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
+        PolynomialSpan<FF> wire_span = wire;
+        transcript->send_to_verifier(
+            label, key->proving_key->commitment_key->commit(wire_span.subspan(0, Flavor::MINI_CIRCUIT_SIZE)));
+    }
+
+    for (const auto& [ordered_range_constraint, label] : zip_view(
+             key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
+        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(ordered_range_constraint));
     }
 }
 
