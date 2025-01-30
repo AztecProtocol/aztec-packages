@@ -39,7 +39,7 @@ export class AztecDatastore implements Datastore {
   }
 
   async has(key: Key): Promise<boolean> {
-    return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.hasAsync(key.toString());
+    return this.#memoryDatastore.has(key.toString()) || (await this.#dbDatastore.hasAsync(key.toString()));
   }
 
   async get(key: Key): Promise<Uint8Array> {

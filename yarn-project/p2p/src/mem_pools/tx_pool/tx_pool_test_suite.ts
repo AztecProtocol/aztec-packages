@@ -31,8 +31,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     await pool.deleteTxs([await tx1.getTxHash()]);
 
-    expect(pool.getTxByHash(await tx1.getTxHash())).resolves.toBeFalsy();
-    expect(pool.getTxStatus(await tx1.getTxHash())).resolves.toBeUndefined();
+    await expect(pool.getTxByHash(await tx1.getTxHash())).resolves.toBeFalsy();
+    await expect(pool.getTxStatus(await tx1.getTxHash())).resolves.toBeUndefined();
   });
 
   it('Marks txs as mined', async () => {
