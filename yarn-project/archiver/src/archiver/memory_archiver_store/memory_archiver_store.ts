@@ -302,8 +302,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      void this.#storeTaggedLogsFromPrivate(block);
-      void this.#storeTaggedLogsFromPublic(block);
+      this.#storeTaggedLogsFromPrivate(block);
+      this.#storeTaggedLogsFromPublic(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
       this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);

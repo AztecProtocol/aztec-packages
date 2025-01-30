@@ -27,10 +27,10 @@ export class NullifierStore {
             block.body.txEffects.map((txEffects, txIndex) => {
               const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
               return Promise.all(
-                txEffects.nullifiers.map((nullifier, nullifierIndex) => {
-                  void this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number);
-                  void this.#nullifiersToBlockHash.set(nullifier.toString(), blockHashes[i].toString());
-                  void this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex);
+                txEffects.nullifiers.map(async (nullifier, nullifierIndex) => {
+                  await this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number);
+                  await this.#nullifiersToBlockHash.set(nullifier.toString(), blockHashes[i].toString());
+                  await this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex);
                 }),
               );
             }),
