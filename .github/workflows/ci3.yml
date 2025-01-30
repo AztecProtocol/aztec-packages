@@ -31,21 +31,23 @@ jobs:
             master_only: true
     if: >
       (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow') &&
-      (matrix.master_only != true || github.ref == 'refs/heads/master')
+      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
     steps:
       - name: Checkout
+        if: github.ref != 'refs/heads/master' || matrix.master_only == true
         uses: actions/checkout@v3
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup
+        if: github.ref != 'refs/heads/master' || matrix.master_only == true
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
       - name: Run
+        if: github.ref != 'refs/heads/master' || matrix.master_only == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
