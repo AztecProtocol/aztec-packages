@@ -189,7 +189,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getContractClass(Fr.random());
     expect(result).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
@@ -199,7 +199,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getContractFunctionName', async () => {
-    const selector = FunctionSelector.fromNameAndParameters(
+    const selector = await FunctionSelector.fromNameAndParameters(
       artifact.functions[0].name,
       artifact.functions[0].parameters,
     );
@@ -208,9 +208,9 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getBytecodeCommitment', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getBytecodeCommitment(Fr.random());
-    expect(result).toEqual(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    expect(result).toEqual(await computePublicBytecodeCommitment(contractClass.packedBytecode));
   });
 
   it('getContractClassIds', async () => {
@@ -247,7 +247,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('addContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({
       ...omit(contractClass, 'publicBytecodeCommitment'),
       unconstrainedFunctions: [],
@@ -346,24 +346,26 @@ class MockArchiver implements ArchiverApi {
     expect(selector).toBeInstanceOf(FunctionSelector);
     return Promise.resolve({ selector, bytecode: Buffer.alloc(10, 10) });
   }
-  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   }
-  getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    const contractClass = await getContractClassFromArtifact(this.artifact);
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     expect(selector).toBeInstanceOf(FunctionSelector);
-    return Promise.resolve(
-      this.artifact.functions.find(f =>
-        FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
-      )?.name,
+    const functionsAndSelectors = await Promise.all(
+      this.artifact.functions.map(async f => ({
+        name: f.name,
+        selector: await FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }),
+      })),
     );
+    return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return {

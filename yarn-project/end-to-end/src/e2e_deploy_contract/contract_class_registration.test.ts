@@ -52,7 +52,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
     registrationTxReceipt = await registerContractClass(wallet, artifact, false).then(c => c.send().wait());
-    contractClass = getContractClassFromArtifact(artifact);
+    contractClass = await getContractClassFromArtifact(artifact);
 
     // TODO(#10007) Remove this call. Node should get the bytecode from the event broadcast.
     expect(await aztecNode.getContractClass(contractClass.id)).toBeUndefined();
@@ -76,7 +76,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
     // TODO(#10007) Remove this test as well.
     it('starts archiver with pre-registered common contracts', async () => {
-      const classId = computeContractClassId(getContractClassFromArtifact(TokenContractArtifact));
+      const classId = await computeContractClassId(await getContractClassFromArtifact(TokenContractArtifact));
       // The node checks the registration nullifier
       expect(await aztecNode.getContractClass(classId)).toBeUndefined();
       // But the archiver does not
@@ -107,7 +107,10 @@ describe('e2e_deploy_contract contract class registration', () => {
         // If that's the case you should update this test to use a private function which fits into the bytecode size limit.
         throw new Error('No constructor found in the StatefulTestContract artifact. Does it still exist?');
       }
-      const selector = FunctionSelector.fromNameAndParameters(constructorArtifact.name, constructorArtifact.parameters);
+      const selector = await FunctionSelector.fromNameAndParameters(
+        constructorArtifact.name,
+        constructorArtifact.parameters,
+      );
 
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
@@ -122,7 +125,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
     it('broadcasts an unconstrained function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
-      const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
+      const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
       const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();

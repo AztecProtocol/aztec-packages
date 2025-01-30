@@ -3,9 +3,9 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { HashedValues } from './hashed_values.js';
 
 describe('HashedValues', () => {
-  it('serializes and deserializes', () => {
-    const values = HashedValues.random();
+  it('serializes and deserializes', async () => {
+    const values = await HashedValues.random();
     const json = jsonStringify(values);
-    expect(HashedValues.schema.parse(JSON.parse(json))).toEqual(values);
+    await expect(HashedValues.schema.parseAsync(JSON.parse(json))).resolves.toEqual(values);
   });
 });

@@ -127,13 +127,13 @@ export interface PublicFunctionCallResult {
   functionName: string;
 }
 
-export function resultToPublicCallRequest(result: PublicFunctionCallResult) {
+export async function resultToPublicCallRequest(result: PublicFunctionCallResult) {
   const request = result.executionRequest;
   const item = new PublicCallStackItemCompressed(
     request.callContext.contractAddress,
     request.callContext,
-    computeVarArgsHash(request.args),
-    computeVarArgsHash(result.returnValues),
+    await computeVarArgsHash(request.args),
+    await computeVarArgsHash(result.returnValues),
     // TODO(@just-mitch): need better mapping from simulator to revert code.
     result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
     Gas.from(result.startGasLeft),

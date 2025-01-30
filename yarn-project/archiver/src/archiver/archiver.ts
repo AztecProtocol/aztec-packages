@@ -69,6 +69,7 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -118,7 +119,7 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
-    private readonly _blobSinkClient: BlobSinkClientInterface,
+    private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
@@ -201,7 +202,12 @@ export class Archiver implements ArchiveSource, Traceable {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
+      // Ignored errors will not log to the console
+      // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
+      NoBlobBodiesFoundError,
+    ]);
+
     this.runningPromise.start();
   }
 
@@ -471,9 +477,12 @@ export class Archiver implements ArchiveSource, Traceable {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
 
       this.log.trace(`Retrieving L2 blocks from L1 block ${searchStartBlock} to ${searchEndBlock}`);
+
+      // TODO(md): Retreive from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
         this.rollup,
         this.publicClient,
+        this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
         this.log,
@@ -795,7 +804,7 @@ export class Archiver implements ArchiveSource, Traceable {
   async addContractClass(contractClass: ContractClassPublic): Promise<void> {
     await this.store.addContractClasses(
       [contractClass],
-      [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+      [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
       0,
     );
     return;
@@ -830,10 +839,13 @@ export class Archiver implements ArchiveSource, Traceable {
       );
     }
 
+    const latestBlockHeaderHash = await latestBlockHeader?.hash();
+    const provenBlockHeaderHash = await provenBlockHeader?.hash();
+    const finalizedBlockHeaderHash = await provenBlockHeader?.hash();
     return {
-      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
-      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
-      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash?.toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash?.toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: finalizedBlockHeaderHash?.toString() } as L2BlockId,
     };
   }
 }
@@ -882,19 +894,19 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
-    const contractClasses = allLogs
+    const contractClassRegisteredEvents = allLogs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-      .map(log => ContractClassRegisteredEvent.fromLog(log))
-      .map(e => e.toContractClassPublic());
+      .map(log => ContractClassRegisteredEvent.fromLog(log));
+
+    const contractClasses = await Promise.all(contractClassRegisteredEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
         // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
-        return await this.store.addContractClasses(
-          contractClasses,
-          contractClasses.map(x => computePublicBytecodeCommitment(x.packedBytecode)),
-          blockNum,
+        const commitments = await Promise.all(
+          contractClasses.map(c => computePublicBytecodeCommitment(c.packedBytecode)),
         );
+        return await this.store.addContractClasses(contractClasses, commitments, blockNum);
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
@@ -962,10 +974,18 @@ class ArchiverStoreHelper
       const unconstrainedFns = allFns.filter(
         (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
       );
-      const validPrivateFns = privateFns.filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
-      const validUnconstrainedFns = unconstrainedFns.filter(fn =>
-        isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+
+      const privateFunctionsWithValidity = await Promise.all(
+        privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
       );
+      const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
+      const unconstrainedFunctionsWithValidity = await Promise.all(
+        unconstrainedFns.map(async fn => ({
+          fn,
+          valid: await isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+        })),
+      );
+      const validUnconstrainedFns = unconstrainedFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
       if (validFnCount !== allFns.length) {
         this.#log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);

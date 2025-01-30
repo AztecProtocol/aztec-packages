@@ -34,7 +34,7 @@ export class Poseidon2 extends Instruction {
     const inputState = memory.getSlice(inputOffset, Poseidon2.stateSize);
     memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
 
-    const outputState = poseidon2Permutation(inputState);
+    const outputState = await poseidon2Permutation(inputState);
     memory.setSlice(
       outputOffset,
       outputState.map(word => new Field(word)),

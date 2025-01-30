@@ -42,18 +42,20 @@ export class KvAttestationPool implements AttestationPool {
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
       const proposalId = attestation.archive.toString();
-      const address = attestation.getSender().toString();
+      const address = (await attestation.getSender()).toString();
 
       // Index the proposalId in the slot map
-      await this.attestations.set(slotNumber, proposalId);
+      await this.attestations.set(slotNumber.toString(), proposalId);
 
       // Store the actual attestation in the proposal map
-      const proposalMap = this.getProposalMap(slotNumber, proposalId);
+      const proposalMap = this.getProposalMap(slotNumber.toString(), proposalId);
       await proposalMap.set(address, attestation.toBuffer());
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+      this.log.verbose(`Added attestation for slot ${slotNumber.toNumber()} from ${address}`, {
+        slotNumber: slotNumber.toNumber(),
+      });
     }
 
     this.metrics.recordAddedObjects(attestations.length);
@@ -135,7 +137,7 @@ export class KvAttestationPool implements AttestationPool {
       const proposalMap = this.getProposalMap(slotNumber, proposalId);
 
       if (proposalMap) {
-        const address = attestation.getSender().toString();
+        const address = (await attestation.getSender()).toString();
         deletionPromises.push(proposalMap.delete(address));
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }

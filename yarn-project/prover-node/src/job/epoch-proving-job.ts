@@ -91,19 +91,19 @@ export class EpochProvingJob implements Traceable {
 
     try {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
-      this.prover.startTubeCircuits(this.txs);
+      await this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         this.checkState();
 
         const globalVariables = block.header.globalVariables;
-        const txs = this.getTxs(block);
+        const txs = await this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const previousHeader = (await this.getBlockHeader(block.number - 1))!;
 
         this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
-          blockHash: block.hash().toString(),
+          blockHash: (await block.hash()).toString(),
           lastArchive: block.header.lastArchive.root,
           noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
           nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
@@ -124,7 +124,7 @@ export class EpochProvingJob implements Traceable {
         await db.close();
         this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
           blockNumber: block.number,
-          blockHash: block.hash().toString(),
+          blockHash: (await block.hash()).toString(),
           uuid: this.uuid,
         });
 
@@ -144,7 +144,10 @@ export class EpochProvingJob implements Traceable {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.log.info(`Submitted proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`, {
+        epochNumber,
+        uuid: this.uuid,
+      });
       this.state = 'completed';
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
@@ -210,9 +213,12 @@ export class EpochProvingJob implements Traceable {
     return this.l2BlockSource.getBlockHeader(blockNumber);
   }
 
-  private getTxs(block: L2Block): Tx[] {
+  private async getTxs(block: L2Block): Promise<Tx[]> {
     const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
-    return this.txs.filter(tx => txHashes.includes(tx.getTxHash().toBigInt()));
+    const txsAndHashes = await Promise.all(this.txs.map(async tx => ({ tx, hash: await tx.getTxHash() })));
+    return txsAndHashes
+      .filter(txAndHash => txHashes.includes(txAndHash.hash.toBigInt()))
+      .map(txAndHash => txAndHash.tx);
   }
 
   private getL1ToL2Messages(block: L2Block) {

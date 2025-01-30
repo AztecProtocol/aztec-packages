@@ -70,7 +70,7 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
@@ -119,7 +119,7 @@ export class PublicTxSimulator {
 
     const endStateReference = await this.db.getStateReference();
 
-    const avmProvingRequest = context.generateProvingRequest(endStateReference);
+    const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
     const revertCode = context.getFinalRevertCode();
     if (!revertCode.isOK()) {
@@ -382,7 +382,7 @@ export class PublicTxSimulator {
     }
     for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
-        stateManager.writeUniqueNoteHash(noteHash);
+        await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
   }
@@ -407,7 +407,7 @@ export class PublicTxSimulator {
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
         // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
-        stateManager.writeSiloedNoteHash(noteHash);
+        await stateManager.writeSiloedNoteHash(noteHash);
       }
     }
   }
@@ -421,7 +421,7 @@ export class PublicTxSimulator {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(context.feePayer);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();

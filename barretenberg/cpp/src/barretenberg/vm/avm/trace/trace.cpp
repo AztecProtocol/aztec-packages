@@ -322,7 +322,9 @@ void AvmTraceBuilder::pay_fee()
     // TS equivalent:
     // computeFeePayerBalanceStorageSlot(fee_payer);
     std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
-    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    // TODO: do constrained slot derivations!
+    // const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    const auto balance_slot = Poseidon2::hash(slot_hash_inputs);
 
     // ** Read the balance before fee payment **
     // TS equivalent:

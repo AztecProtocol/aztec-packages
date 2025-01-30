@@ -1,0 +1,2 @@
+// Bytecode hashing.
+include "bc_decomposition.pil";

@@ -89,26 +89,28 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
+let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
-let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 
 export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
 
-  static async new() {
+  private static async new() {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1);
     await wasm.init(module, threads);
     return new BarretenbergSync(wasm);
   }
 
-  static initSingleton() {
-    if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new().then(s => (barretenbergSyncSingleton = s));
+  static async initSingleton() {
+    if (!barrentenbergSyncSingletonPromise) {
+      barrentenbergSyncSingletonPromise = BarretenbergSync.new();
     }
-    return barretenbergSyncSingletonPromise;
+
+    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    return barretenbergSyncSingleton;
   }
 
   static getSingleton() {
@@ -122,35 +124,3 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return this.wasm;
   }
 }
-
-let barrentenbergLazySingleton: BarretenbergLazy;
-
-export class BarretenbergLazy extends BarretenbergApi {
-  private constructor(wasm: BarretenbergWasmMain) {
-    super(wasm);
-  }
-
-  private static async new() {
-    const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1);
-    await wasm.init(module, threads);
-    return new BarretenbergLazy(wasm);
-  }
-
-  static async getSingleton() {
-    if (!barrentenbergLazySingleton) {
-      barrentenbergLazySingleton = await BarretenbergLazy.new();
-    }
-    return barrentenbergLazySingleton;
-  }
-
-  getWasm() {
-    return this.wasm;
-  }
-}
-
-// If we're in ESM environment, use top level await. CJS users need to call it manually.
-// Need to ignore for cjs build.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-await BarretenbergSync.initSingleton(); // POSTPROCESS ESM ONLY

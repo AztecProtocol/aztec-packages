@@ -4,9 +4,12 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./eth-cheatcodes": "./dest/eth_cheat_codes.js",
     "./test": "./dest/test/index.js",
     "./contracts": "./dest/contracts/index.js",
-    "./l1-contract-addresses": "./dest/l1_contract_addresses.js"
+    "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
+    "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
+    "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -34,7 +37,7 @@
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15",
+    "viem": "2.22.8",
     "zod": "^3.23.8"
   },
   "devDependencies": {

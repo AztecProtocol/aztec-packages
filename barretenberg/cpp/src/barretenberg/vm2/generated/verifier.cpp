@@ -44,7 +44,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using CommitmentLabels = Flavor::CommitmentLabels;
     using Shplemini = ShpleminiVerifier_<Curve>;
 
     RelationParameters<FF> relation_parameters;
@@ -52,7 +51,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     if (circuit_size != key->circuit_size) {
@@ -61,7 +59,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Get commitments to VM wires
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -70,7 +68,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.gamma = gamm;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 

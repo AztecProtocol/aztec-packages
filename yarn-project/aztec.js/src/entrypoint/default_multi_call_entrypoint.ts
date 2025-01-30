@@ -14,16 +14,16 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
     const { fee, calls, authWitnesses = [], hashedArguments = [] } = executions;
-    const payload = EntrypointPayload.fromAppExecution(calls);
+    const payload = await EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = HashedValues.fromValues(encodeArguments(abi, [payload]));
+    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
 
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
-      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointHashedArgs],
       authWitnesses,
