@@ -1,7 +1,6 @@
-import { type Fr, type Logger, type PXE, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { type Fr, type Logger, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
-import { computeContractClassId } from '@aztec/circuits.js';
-import { UpdatableContract, UpdatableContractArtifact } from '@aztec/noir-contracts.js/Updatable';
+import { UpdatableContract } from '@aztec/noir-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-contracts.js/Updated';
 
 import { setup } from './fixtures/utils.js';
@@ -19,7 +18,7 @@ describe('e2e_contract_updates', () => {
     const registerMethod = await registerContractClass(wallet, UpdatedContractArtifact);
     await registerMethod.send().wait();
 
-    updatedContractClassId = getContractClassFromArtifact(UpdatedContractArtifact).id;
+    updatedContractClassId = (await getContractClassFromArtifact(UpdatedContractArtifact)).id;
   });
 
   afterAll(() => teardown());

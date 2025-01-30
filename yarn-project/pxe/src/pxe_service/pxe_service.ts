@@ -229,7 +229,7 @@ export class PXEService implements PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = computeContractClassId(contractClass);
+      const contractClassId = contractClass.id;
       if (!contractClassId.equals(instance.currentContractClassId)) {
         throw new Error(
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
@@ -270,7 +270,7 @@ export class PXEService implements PXE {
     if (!currentInstance) {
       throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
     }
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
 
     await this.db.addContractArtifact(contractClass.id, artifact);
 

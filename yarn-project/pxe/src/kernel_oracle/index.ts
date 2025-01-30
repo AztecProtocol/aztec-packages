@@ -92,12 +92,12 @@ export class KernelOracle implements ProvingDataOracle {
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
     const deployerAddress = new AztecAddress(new Fr(DEPLOYER_CONTRACT_ADDRESS));
 
-    const sharedMutableSlot = deriveStorageSlotInMap(new Fr(1), contractAddress);
-    const valueChangeSlot = poseidon2HashWithSeparator([sharedMutableSlot], 0);
-    const delayChangeSlot = poseidon2HashWithSeparator([sharedMutableSlot], 1);
-    const hashSlot = poseidon2HashWithSeparator([sharedMutableSlot], 2);
+    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(1), contractAddress);
+    const valueChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 0);
+    const delayChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 1);
+    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 2);
 
-    const hashLeafSlot = computePublicDataTreeLeafSlot(deployerAddress, hashSlot);
+    const hashLeafSlot = await computePublicDataTreeLeafSlot(deployerAddress, hashSlot);
     const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
 
     if (!updatedClassIdWitness) {

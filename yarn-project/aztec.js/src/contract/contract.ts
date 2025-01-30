@@ -26,7 +26,7 @@ export class Contract extends ContractBase {
     if (instance === undefined) {
       throw new Error(`Contract instance at ${address.toString()} has not been registered in the wallet's PXE`);
     }
-    const thisContractClass = getContractClassFromArtifact(artifact);
+    const thisContractClass = await getContractClassFromArtifact(artifact);
     if (!thisContractClass.id.equals(instance.currentContractClassId)) {
       // wallet holds an outdated version of this contract
       await wallet.updateContract(address, artifact);

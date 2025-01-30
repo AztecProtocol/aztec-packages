@@ -59,7 +59,7 @@ describe('AVM WitGen & Circuit', () => {
           argsU8,
           /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
           /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-          /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+          /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
           /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
         ];
 
@@ -340,7 +340,7 @@ describe('AVM WitGen & Circuit', () => {
 
         // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
         const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-          instances[0].contractClassId,
+          instances[0].currentContractClassId,
           /*seed=*/ 1000,
         );
         instanceAddresses.push(instanceSameClassAsFirstContract.address);
@@ -471,7 +471,7 @@ describe('AVM v2', () => {
       argsU8,
       /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
       /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-      /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ];
 
