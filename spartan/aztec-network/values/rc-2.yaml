@@ -18,6 +18,8 @@ ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
   externalHost:
+  beacon:
+    externalHost:
 
 validator:
   l1FixedPriorityFeePerGas: 2
