@@ -164,17 +164,17 @@ describe('Public Side Effect Trace', () => {
     const instance = await SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
     const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
+    const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const exists = true;
-    trace.traceGetContractInstance(address, exists, instance, lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
+    trace.traceGetContractInstance(address, exists, instance, nullifierMembership);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
       {
         address,
         exists,
         ...instanceWithoutVersion,
-        membershipHint,
+        nullifierMembership,
       },
     ]);
   });
@@ -188,23 +188,19 @@ describe('Public Side Effect Trace', () => {
     };
     const { version: _, ...instanceWithoutVersion } = instance;
     const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
+    const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const exists = true;
-    trace.traceGetBytecode(
-      address,
-      exists,
-      bytecode,
-      instance,
-      contractClass,
-      lowLeafPreimage,
-      lowLeafIndex,
-      lowLeafSiblingPath,
-    );
+    trace.traceGetBytecode(address, exists, bytecode, instance, contractClass, nullifierMembership);
 
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     expect(Array.from(trace.getAvmCircuitHints().contractBytecodeHints.values())).toEqual([
       {
         bytecode,
-        contractInstanceHint: { address, exists, ...instanceWithoutVersion, membershipHint: { ...membershipHint } },
+        contractInstanceHint: {
+          address,
+          exists,
+          ...instanceWithoutVersion,
+          membershipHint: { ...nullifierMembership },
+        },
         contractClassHint: contractClass,
       },
     ]);
@@ -407,6 +403,7 @@ describe('Public Side Effect Trace', () => {
       let testCounter = startCounter;
       const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
       const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
+      const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, Fr.ZERO, []);
       nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       testCounter++;
       await nestedTrace.tracePublicStorageWrite(
@@ -437,9 +434,9 @@ describe('Public Side Effect Trace', () => {
       testCounter++;
       nestedTrace.tracePublicLog(address, log);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, lowLeafPreimage, Fr.ZERO, []);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, nullifierMembership);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance, lowLeafPreimage, Fr.ZERO, []);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance, nullifierMembership);
       testCounter++;
 
       trace.merge(nestedTrace, reverted);

@@ -22,6 +22,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -89,14 +90,15 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
-    const deployerAddress = new AztecAddress(new Fr(DEPLOYER_CONTRACT_ADDRESS));
-
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(1), contractAddress);
     const valueChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 0);
     const delayChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 1);
     const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 2);
 
-    const hashLeafSlot = await computePublicDataTreeLeafSlot(deployerAddress, hashSlot);
+    const hashLeafSlot = await computePublicDataTreeLeafSlot(
+      ProtocolContractAddress.ContractInstanceDeployer,
+      hashSlot,
+    );
     const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
@@ -106,10 +108,18 @@ export class KernelOracle implements ProvingDataOracle {
     const valueChange = makeTuple<Fr, 3>(3, () => Fr.ZERO);
     for (let i = 0; i < 3; i++) {
       const valueChangeItemSlot = valueChangeSlot.add(new Fr(i));
-      valueChange[i] = await this.node.getPublicStorageAt(deployerAddress, valueChangeItemSlot, this.blockNumber);
+      valueChange[i] = await this.node.getPublicStorageAt(
+        ProtocolContractAddress.ContractInstanceDeployer,
+        valueChangeItemSlot,
+        this.blockNumber,
+      );
     }
 
-    const delayChange = await this.node.getPublicStorageAt(deployerAddress, delayChangeSlot, this.blockNumber);
+    const delayChange = await this.node.getPublicStorageAt(
+      ProtocolContractAddress.ContractInstanceDeployer,
+      delayChangeSlot,
+      this.blockNumber,
+    );
 
     return new UpdatedClassIdHints(
       new MembershipWitness(

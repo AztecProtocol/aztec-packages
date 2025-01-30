@@ -2296,7 +2296,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
         .contract_class_id = 66,
         .initialisation_hash = 99,
         .public_keys = public_keys_hints,
-        .membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .initialization_membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
     };
     auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 

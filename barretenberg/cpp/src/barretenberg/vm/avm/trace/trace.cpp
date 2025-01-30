@@ -171,7 +171,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_
     // TODO: still need to make sure that the contract address does correspond to this class id
     const AvmContractBytecode bytecode_hint =
         *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_class_id](const auto& contract) {
-            return contract.contract_instance.contract_class_id == contract_class_id;
+            return contract.contract_instance.current_contract_class_id == contract_class_id;
         });
     return bytecode_hint.bytecode;
 }
@@ -182,7 +182,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
 
     ASSERT(execution_hints.contract_instance_hints.contains(contract_address));
     const ContractInstanceHint instance_hint = execution_hints.contract_instance_hints.at(contract_address);
-    const FF contract_class_id = instance_hint.contract_class_id;
+    const FF contract_class_id = instance_hint.current_contract_class_id;
 
     bool exists = true;
     if (check_membership && !is_canonical(contract_address)) {
@@ -195,7 +195,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
             DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
         // nullifier read hint for the contract address
-        NullifierReadTreeHint nullifier_read_hint = instance_hint.membership_hint;
+        NullifierReadTreeHint nullifier_read_hint = instance_hint.initialization_membership_hint;
 
         // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
         // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
@@ -223,7 +223,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
                      MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
                 throw std::runtime_error("Limit reached for contract calls to unique class id.");
             }
-            contract_class_id_cache.insert(instance_hint.contract_class_id);
+            contract_class_id_cache.insert(instance_hint.current_contract_class_id);
             return get_bytecode_from_hints(contract_class_id);
         } else {
             // This was a non-membership proof!
@@ -3511,7 +3511,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
             exists = true;
         } else {
             // nullifier read hint for the contract address
-            NullifierReadTreeHint nullifier_read_hint = instance.membership_hint;
+            NullifierReadTreeHint nullifier_read_hint = instance.initialization_membership_hint;
 
             // If the hinted preimage matches the contract address nullifier, the membership check will prove its
             // existence, otherwise the membership check will prove that a low-leaf exists that skips the contract
@@ -3546,7 +3546,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
                 member_value = instance.deployer_addr;
                 break;
             case ContractInstanceMember::CLASS_ID:
-                member_value = instance.contract_class_id;
+                member_value = instance.current_contract_class_id;
                 break;
             case ContractInstanceMember::INIT_HASH:
                 member_value = instance.initialisation_hash;

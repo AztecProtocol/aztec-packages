@@ -1,5 +1,7 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
+  AvmNullifierReadTreeHint,
+  AvmPublicDataReadTreeHint,
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
@@ -7,7 +9,7 @@ import {
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   NullifierLeafPreimage,
   type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
+  PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
   SerializableContractInstance,
@@ -16,12 +18,15 @@ import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
+  deriveStorageSlotInMap,
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { strict as assert } from 'assert';
 
@@ -194,6 +199,26 @@ export class AvmPersistableStateManager {
    * @returns the latest value written to slot, or 0 if never written to before
    */
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
+    const { value, leafPreimage, leafIndex, leafPath } = await this.getPublicDataMembership(contractAddress, slot);
+
+    if (this.doMerkleOperations) {
+      this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, leafIndex, leafPath);
+    } else {
+      this.trace.tracePublicStorageRead(contractAddress, slot, value);
+    }
+
+    return Promise.resolve(value);
+  }
+
+  async getPublicDataMembership(
+    contractAddress: AztecAddress,
+    slot: Fr,
+  ): Promise<{
+    value: Fr;
+    leafPreimage: PublicDataTreeLeafPreimage;
+    leafIndex: Fr;
+    leafPath: Fr[];
+  }> {
     const { value, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
@@ -231,14 +256,20 @@ export class AvmPersistableStateManager {
           'Public data tree low leaf should skip the target leaf slot when the target leaf does not exist or is the max value.',
         );
       }
-      // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
-      // prove that this is a low leaf that skips leafSlot, and then prove membership of the leaf.
-      this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
+      return {
+        value,
+        leafPreimage,
+        leafIndex: new Fr(leafIndex),
+        leafPath,
+      };
     } else {
-      this.trace.tracePublicStorageRead(contractAddress, slot, value);
+      return {
+        value,
+        leafPreimage: PublicDataTreeLeafPreimage.empty(),
+        leafIndex: Fr.ZERO,
+        leafPath: [],
+      };
     }
-
-    return Promise.resolve(value);
   }
 
   /**
@@ -546,24 +577,31 @@ export class AvmPersistableStateManager {
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
 
-    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
-      exists,
-      NullifierLeafPreimage.empty(),
-      Fr.ZERO,
-      new Array<Fr>(),
-    ];
+    let nullifierMembership = AvmNullifierReadTreeHint.empty();
+    let updateMembership = AvmPublicDataReadTreeHint.empty();
+    let updatePreimage: Fr[] = [];
     if (!contractAddressIsCanonical(contractAddress)) {
       const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );
-      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
-        /*siloedNullifier=*/ contractAddressNullifier,
+      const [
+        nullifierExistsInTree,
+        nullifierLeafOrLowLeafPreimage,
+        nullifierLeafOrLowLeafIndex,
+        nullifierLeafOrLowLeafPath,
+      ] = await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
+      nullifierMembership = new AvmNullifierReadTreeHint(
+        nullifierLeafOrLowLeafPreimage,
+        nullifierLeafOrLowLeafIndex,
+        nullifierLeafOrLowLeafPath,
       );
       assert(
-        exists == existsInTree,
+        exists == nullifierExistsInTree,
         'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
       );
+
+      ({ updateMembership, updatePreimage } = await this.getContractUpdateHints(contractAddress));
     }
 
     if (exists) {
@@ -576,9 +614,9 @@ export class AvmPersistableStateManager {
           contractAddress,
           exists,
           instance,
-          leafOrLowLeafPreimage,
-          leafOrLowLeafIndex,
-          leafOrLowLeafPath,
+          nullifierMembership,
+          updateMembership,
+          updatePreimage,
         );
       } else {
         this.trace.traceGetContractInstance(contractAddress, exists, instance);
@@ -592,9 +630,9 @@ export class AvmPersistableStateManager {
           contractAddress,
           exists,
           /*instance=*/ undefined,
-          leafOrLowLeafPreimage,
-          leafOrLowLeafIndex,
-          leafOrLowLeafPath,
+          nullifierMembership,
+          updateMembership,
+          updatePreimage,
         );
       } else {
         this.trace.traceGetContractInstance(contractAddress, exists);
@@ -611,24 +649,32 @@ export class AvmPersistableStateManager {
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
 
-    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
-      exists,
-      NullifierLeafPreimage.empty(),
-      Fr.ZERO,
-      new Array<Fr>(),
-    ];
+    let nullifierMembership = AvmNullifierReadTreeHint.empty();
+    let updateMembership = AvmPublicDataReadTreeHint.empty();
+    let updatePreimage: Fr[] = [];
+
     if (!contractAddressIsCanonical(contractAddress)) {
       const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );
-      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
-        /*siloedNullifier=*/ contractAddressNullifier,
-      );
+      const [
+        nullifierExistsInTree,
+        nullifierLeafOrLowLeafPreimage,
+        nullifierLeafOrLowLeafIndex,
+        nullifierLeafOrLowLeafPath,
+      ] = await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
       assert(
-        exists == existsInTree,
+        exists == nullifierExistsInTree,
         'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
       );
+      nullifierMembership = new AvmNullifierReadTreeHint(
+        nullifierLeafOrLowLeafPreimage,
+        nullifierLeafOrLowLeafIndex,
+        nullifierLeafOrLowLeafPath,
+      );
+
+      ({ updateMembership, updatePreimage } = await this.getContractUpdateHints(contractAddress));
     }
 
     if (exists) {
@@ -659,9 +705,9 @@ export class AvmPersistableStateManager {
           contractClass.packedBytecode,
           instance,
           contractClassPreimage,
-          leafOrLowLeafPreimage,
-          leafOrLowLeafIndex,
-          leafOrLowLeafPath,
+          nullifierMembership,
+          updateMembership,
+          updatePreimage,
         );
       } else {
         this.trace.traceGetBytecode(
@@ -685,15 +731,57 @@ export class AvmPersistableStateManager {
           /*instance=*/ undefined,
           /*contractClass=*/ undefined,
           /*bytecode=*/ undefined,
-          leafOrLowLeafPreimage,
-          leafOrLowLeafIndex,
-          leafOrLowLeafPath,
+          nullifierMembership,
+          updateMembership,
+          updatePreimage,
         );
       } else {
         this.trace.traceGetBytecode(contractAddress, exists); // bytecode, instance, class undefined
       }
       return undefined;
     }
+  }
+
+  async getContractUpdateHints(contractAddress: AztecAddress) {
+    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(1), contractAddress);
+    const valueChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 0);
+    const delayChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 1);
+    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 2);
+
+    const {
+      value: hash,
+      leafPreimage,
+      leafIndex,
+      leafPath,
+    } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, hashSlot);
+    const updateMembership = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, leafPath);
+
+    const updatePreimage = [];
+    for (let i = 0; i < 3; i++) {
+      const valueChangeItemSlot = valueChangeSlot.add(new Fr(i));
+      updatePreimage.push(
+        (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, valueChangeItemSlot)).value,
+      );
+    }
+
+    updatePreimage.push(
+      (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, delayChangeSlot)).value,
+    );
+
+    if (!hash.isZero()) {
+      const hashed = await poseidon2Hash(updatePreimage);
+      if (!hashed.equals(hash)) {
+        throw new Error(`Update hint hash mismatch: ${hash} != ${hashed}`);
+      }
+      this.log.trace(`Non empty update hint found for contract ${contractAddress}`);
+    } else {
+      this.log.trace(`No update hint found for contract ${contractAddress}`);
+    }
+
+    return {
+      updateMembership,
+      updatePreimage,
+    };
   }
 
   public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {

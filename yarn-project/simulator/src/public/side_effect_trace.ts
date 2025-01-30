@@ -373,11 +373,10 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
-    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    lowLeafIndex: Fr = Fr.zero(),
-    lowLeafPath: Fr[] = emptyNullifierPath(),
+    nullifierMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[] = [],
   ) {
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         contractAddress,
@@ -385,9 +384,12 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
         instance.salt,
         instance.deployer,
         instance.currentContractClassId,
+        instance.originalContractClassId,
         instance.initializationHash,
         instance.publicKeys,
-        membershipHint,
+        nullifierMembershipHint,
+        updateMembershipHint,
+        updatePreimage,
       ),
     );
     this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
@@ -407,9 +409,9 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
-    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    lowLeafIndex: Fr = Fr.zero(),
-    lowLeafPath: Fr[] = emptyNullifierPath(),
+    nullifierMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[] = [],
   ) {
     // FIXME: The way we are hinting contract bytecodes is fundamentally broken.
     // We are mapping contract class ID to a bytecode hint
@@ -419,16 +421,18 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // But without that instance hinted, the circuit can't prove that the called contract address
     // actually corresponds to any class ID.
 
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
       exists,
       contractInstance.salt,
       contractInstance.deployer,
       contractInstance.currentContractClassId,
+      contractInstance.originalContractClassId,
       contractInstance.initializationHash,
       contractInstance.publicKeys,
-      membershipHint,
+      nullifierMembershipHint,
+      updateMembershipHint,
+      updatePreimage,
     );
 
     // Always hint the contract instance separately from the bytecode hint.
