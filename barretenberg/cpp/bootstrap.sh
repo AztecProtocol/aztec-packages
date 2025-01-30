@@ -58,6 +58,21 @@ function build_wasm {
   fi
 }
 
+# Build GCC - but only syntax check.
+# Note we do miss some deeper GCC checks this way, but they were as noisy
+# as they were useful historically, and we have sanitizers.
+function build_gcc_syntax_check_only {
+  set -eu
+  if cache_download barretenberg-gcc-$hash.tar.gz; then
+    return
+  fi
+  cmake --preset gcc -DSYNTAX_ONLY=1
+  cmake --build --preset gcc
+  # Note: There's no real artifact here, we fake one for consistency.
+  echo success > build-gcc/syntax-check-success.flag
+  cache_upload barretenberg-gcc-$hash.tar.gz build-gcc/syntax-check-success.flag
+}
+
 # Build multi-threaded wasm. Requires shared memory.
 function build_wasm_threads {
   set -eu
@@ -87,12 +102,12 @@ function build_release {
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 }
 
-export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads download_old_crs
+export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
 
 function build {
   echo_header "bb cpp build"
   parallel --line-buffered --tag denoise {} ::: \
-    build_native build_world_state_napi build_wasm build_wasm_threads build_darwin download_old_crs
+    build_native build_world_state_napi build_wasm build_wasm_threads build_darwin build_gcc_syntax_check_only download_old_crs
   build_release
 }
 

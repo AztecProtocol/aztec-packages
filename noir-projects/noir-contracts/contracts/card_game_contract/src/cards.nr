@@ -2,7 +2,7 @@ use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     keys::getters::get_public_keys,
     note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
@@ -13,7 +13,9 @@ use dep::aztec::{
     state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
+use std::meta::derive;
 
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -32,12 +34,6 @@ impl FromField for Card {
 impl ToField for Card {
     fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field) * 65536
-    }
-}
-
-impl Serialize<2> for Card {
-    fn serialize(self) -> [Field; 2] {
-        [self.strength as Field, self.points as Field]
     }
 }
 

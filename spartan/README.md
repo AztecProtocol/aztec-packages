@@ -100,10 +100,3 @@ Selecting individual pods provides options to open a console session as well as 
 
 ![k8Lens Pod Access](./img/k8lens_3.png)
 
-## Auxiliary Services
-
-Outside of Aztec network deployments, the Spartan cluster has a few additional services installed to support cluster operations.
-
-### Prometheus and Grafana
-
-_(coming soon...)_

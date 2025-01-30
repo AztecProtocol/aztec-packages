@@ -48,7 +48,7 @@ export class TXEService {
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }
@@ -79,10 +79,11 @@ export class TXEService {
       const l2Block = L2Block.empty();
       header.state = await trees.getStateReference(true);
       header.globalVariables.blockNumber = new Fr(blockNumber);
-      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [await header.hash()]);
       l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
       l2Block.header = header;
-      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
+      const headerHash = await header.hash();
+      this.logger.debug(`Block ${blockNumber} created, header hash ${headerHash.toString()}`);
       await trees.handleL2BlockAndMessages(l2Block, []);
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
@@ -95,8 +96,8 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  deriveKeys(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+  async deriveKeys(secret: ForeignCallSingle) {
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
@@ -116,7 +117,7 @@ export class TXEService {
       `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
     );
 
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: decodedArgs,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -151,11 +152,13 @@ export class TXEService {
     const contractAddressFr = addressFromSingle(contractAddress);
     const db = await trees.getLatest();
 
-    const publicDataWrites = valuesFr.map((value, i) => {
-      const storageSlot = startStorageSlotFr.add(new Fr(i));
-      this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
-    });
+    const publicDataWrites = await Promise.all(
+      valuesFr.map(async (value, i) => {
+        const storageSlot = startStorageSlotFr.add(new Fr(i));
+        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
+        return new PublicDataTreeLeaf(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      }),
+    );
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       publicDataWrites.map(write => write.toBuffer()),
@@ -177,10 +180,10 @@ export class TXEService {
   }
 
   async addAccount(secret: ForeignCallSingle) {
-    const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
     const artifact = SchnorrAccountContractArtifact;
-    const instance = getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
       salt: Fr.ONE,
@@ -194,7 +197,7 @@ export class TXEService {
     await (this.typedOracle as TXE).addContractArtifact(artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
-    const completeAddress = await keyStore.addAccount(fromSingle(secret), computePartialAddress(instance));
+    const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);

@@ -18,7 +18,7 @@ function build {
     denoise "cargo build --release"
     denoise "cargo fmt --check"
     denoise "cargo clippy"
-    cache_upload $artifact target/release
+    cache_upload $artifact target/release/avm-transpiler
   fi
 }
 
@@ -30,6 +30,7 @@ case "$cmd" in
     build
     ;;
   "test")
+    echo "No tests."
     ;;
   "hash")
     echo $hash

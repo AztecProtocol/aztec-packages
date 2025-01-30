@@ -62,6 +62,14 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
+  "deploy-prod")
+    ./deploy_prod.sh
+    ;;
+  "deploy-preview")
+    PR_NUMBER=$1
+    AZTEC_BOT_COMMENTER_GITHUB_TOKEN="$2"
+    ./deploy_preview.sh "$PR_NUMBER" "$AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

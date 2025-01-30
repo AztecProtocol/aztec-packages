@@ -25,7 +25,7 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   const fieldsJson = JSON.parse(rawFields);
   const fields = fieldsJson.map(Fr.fromHexString);
   // The hash is not included in the BB response
-  const vkHash = hashVK(fields);
+  const vkHash = await hashVK(fields);
   const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
   return new VerificationKeyData(vkAsFields, rawBinary);
 }

@@ -34,7 +34,7 @@ describe('TxRequest', () => {
     expect(fields.length).toBe(TX_REQUEST_LENGTH);
   });
 
-  it('compute hash', () => {
+  it('compute hash', async () => {
     const gasSettings = new GasSettings(new Gas(2, 2), new Gas(1, 1), new GasFees(4, 4), new GasFees(3, 3));
     const txRequest = TxRequest.from({
       origin: AztecAddress.fromBigInt(1n),
@@ -43,15 +43,15 @@ describe('TxRequest', () => {
       txContext: new TxContext(Fr.ZERO, Fr.ZERO, gasSettings),
     });
 
-    const hash = txRequest.hash().toString();
+    const hash = await txRequest.hash();
 
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_request.nr',
       'test_data_tx_request_hash',
-      hash,
+      hash.toString(),
     );
   });
 });

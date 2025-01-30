@@ -96,7 +96,9 @@ export async function buildNullifierReadRequestHintsFromResetStates<PENDING exte
   for (let i = 0; i < resetStates.states.length; i++) {
     if (resetStates.states[i] === ReadRequestState.SETTLED) {
       const readRequest = nullifierReadRequests[i];
-      const siloedValue = siloed ? readRequest.value : siloNullifier(readRequest.contractAddress, readRequest.value);
+      const siloedValue = siloed
+        ? readRequest.value
+        : await siloNullifier(readRequest.contractAddress, readRequest.value);
       const membershipWitnessWithPreimage = await oracle.getNullifierMembershipWitness(siloedValue);
       builder.addSettledReadRequest(
         i,
@@ -131,7 +133,7 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   );
 }
 
-export function buildSiloedNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
+export async function buildSiloedNullifierReadRequestHints<PENDING extends number, SETTLED extends number>(
   oracle: {
     getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
   },
@@ -142,13 +144,13 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
 ) {
   // Nullifiers outputted from public kernels are already siloed while read requests are not.
   // Siloing the read request values and set the contract addresses to zero to find the matching nullifier contexts.
-  const siloedReadRequests = padArrayEnd(
-    getNonEmptyItems(nullifierReadRequests).map(r =>
-      new ReadRequest(siloNullifier(r.contractAddress, r.value), r.counter).scope(AztecAddress.ZERO),
+  const nonEmptyNullifierReadRequests = getNonEmptyItems(nullifierReadRequests);
+  const readRequests = await Promise.all(
+    nonEmptyNullifierReadRequests.map(async r =>
+      new ReadRequest(await siloNullifier(r.contractAddress, r.value), r.counter).scope(AztecAddress.ZERO),
     ),
-    ScopedReadRequest.empty(),
-    MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   );
+  const siloedReadRequests = padArrayEnd(readRequests, ScopedReadRequest.empty(), MAX_NULLIFIER_READ_REQUESTS_PER_TX);
 
   const scopedNullifiers = nullifiers.map(n =>
     new Nullifier(n.value, n.counter, n.noteHash).scope(AztecAddress.ZERO),

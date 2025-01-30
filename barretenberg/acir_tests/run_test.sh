@@ -10,6 +10,7 @@ FLOW=${FLOW:-prove_and_verify}
 RECURSIVE=${RECURSIVE:-false}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
 RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-8}
+VERBOSE=${VERBOSE:-0}
 
 flow_script=$(realpath ./flows/${FLOW}.sh)
 nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
@@ -53,7 +54,7 @@ set -e
 
 if [ $result -eq 0 ]; then
   echo -e "${green}PASSED${reset} (${duration}s)"
-  if [ "${VERBOSE:-0}" -eq 1 ]; then
+  if [ "$VERBOSE" -eq 1 ]; then
     echo "$output"
   fi
 else

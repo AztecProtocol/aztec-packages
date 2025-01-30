@@ -1,4 +1,5 @@
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
+import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
@@ -72,7 +73,7 @@ class MockRollupContract {
   }
 }
 
-const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('L1Publisher', () => {
@@ -102,13 +103,13 @@ describe('L1Publisher', () => {
 
   beforeEach(async () => {
     mockBlobSinkServer = undefined;
-    blobSinkClient = new HttpBlobSinkClient(BLOB_SINK_URL);
+    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
     l2Block = await L2Block.random(42);
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = l2Block.header.hash().toBuffer();
+    blockHash = (await l2Block.header.hash()).toBuffer();
     body = l2Block.body.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
@@ -154,6 +155,8 @@ describe('L1Publisher', () => {
       gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
+    (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
+    (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -182,7 +185,7 @@ describe('L1Publisher', () => {
 
     app.post('/blob_sidecar', (req, res) => {
       const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
-        Blob.fromBuffer(Buffer.from(b.blob.data)),
+        Blob.fromBuffer(inboundTransform(Buffer.from(b.blob.data))),
       );
 
       expect(blobsBuffers).toEqual(blobs);
@@ -203,7 +206,7 @@ describe('L1Publisher', () => {
 
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
 
     // Check the blobs were forwarded to the blob sink service
     const sendToBlobSinkSpy = jest.spyOn(publisher as any, 'sendBlobsToBlobSink');
@@ -237,8 +240,9 @@ describe('L1Publisher', () => {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
-      { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
-      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg },
+      // val + (val * 20n) / 100n
+      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
+      { blobs: expectedBlobs.map(b => b.data), kzg },
     );
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);

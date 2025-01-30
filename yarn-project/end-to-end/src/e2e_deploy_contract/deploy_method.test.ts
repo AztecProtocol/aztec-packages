@@ -56,7 +56,7 @@ describe('e2e_deploy_contract deploy method', () => {
   // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
   // because we're manually adding them to the archiver to support provernet.
   it('registers a contract class for a common contract', async () => {
-    const { id: tokenContractClass } = getContractClassFromArtifact(TokenContract.artifact);
+    const { id: tokenContractClass } = await getContractClassFromArtifact(TokenContract.artifact);
     expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeFalse();
     await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
     expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeTrue();
@@ -127,11 +127,12 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Creating request/calls to register and deploy contract`);
     const deploy = await deployMethod.request();
     logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
-    const contract = await StatefulTestContract.at(deployMethod.getInstance().address, wallet);
+    const instance = await deployMethod.getInstance();
+    const contract = await StatefulTestContract.at(instance.address, wallet);
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = contract.methods.increment_public_value(owner, 84).request();
+    const init = await contract.methods.increment_public_value(owner, 84).request();
     logger.debug(`Deploying a contract and calling a public function in the same batched call`);
     await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
   }, 300_000);

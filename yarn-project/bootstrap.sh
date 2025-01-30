@@ -69,12 +69,10 @@ function test_cmds {
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: Uses mocha so will need different treatment.
-  # bb-prover: Excluded as per package.json.
-  # bb-client: Excluded as per package.json.
+  # kv-store: Uses mocha so will need different treatment. WORKTODO(adam)
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
-  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node|p2p)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -84,7 +82,8 @@ function test_cmds {
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | parallelise
+  local num_cpus=$(get_num_cpus)
+  test_cmds | parallelise $((num_cpus / 2))
 }
 
 case "$cmd" in

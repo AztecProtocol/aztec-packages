@@ -125,7 +125,11 @@ jobs:
         env:
           VERSION: ${{ needs.configure.outputs.version }}
         run: |
-          ./bootstrap.sh image-aztec --version $VERSION
+          if [ -n "$VERSION" ]; then
+            ./bootstrap.sh image-aztec --version $VERSION
+          else
+            ./bootstrap.sh image-aztec
+          fi
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
 
@@ -146,7 +150,11 @@ jobs:
           VERSION: ${{ needs.configure.outputs.version }}
         run: |
           sudo shutdown -P 80
-          ./bootstrap.sh image-aztec --check-arch --version $VERSION
+          if [ -n "$VERSION" ]; then
+            ./bootstrap.sh image-aztec --check-arch --version $VERSION
+          else
+            ./bootstrap.sh image-aztec --check-arch
+          fi
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
 
@@ -302,23 +310,29 @@ jobs:
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish yarn-project NPM packages
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
+          DIST_TAG: ${{ needs.configure.outputs.dist_tag }}
         run: |
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./yarn-project+publish-npm \
-            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
-            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DIST_TAG=$DIST_TAG \
+            --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish l1-contracts NPM package
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
+          DIST_TAG: ${{ needs.configure.outputs.dist_tag }}
         run: |
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./l1-contracts+publish-npm \
-            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
-            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DIST_TAG=$DIST_TAG \
+            --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
   publish-aztec-up:

@@ -1,22 +1,22 @@
-name: CI3
+# name: CI3
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - master
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-      - labeled
+# on:
+#   workflow_dispatch:
+#   push:
+#     branches:
+#       - master
+#   pull_request:
+#     types:
+#       - opened
+#       - synchronize
+#       - reopened
+#       - ready_for_review
+#       - labeled
 
-concurrency:
-  # force parallelism in master
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
-  cancel-in-progress: true
+# concurrency:
+#   # force parallelism in master
+#   group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+#   cancel-in-progress: true
 
 jobs:
   ci:

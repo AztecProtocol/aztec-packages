@@ -18,7 +18,6 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-test_flag=noir-contracts-test-$(cache_content_hash "^noir-projects/noir-contracts")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}

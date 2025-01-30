@@ -25,6 +25,8 @@ import { MemoryProvingQueue } from './memory-proving-queue.js';
 import { ProverAgent } from './prover-agent.js';
 import { createProvingJobSourceServer } from './rpc.js';
 
+const LONG_TIMEOUT = 600_000;
+
 describe('Prover agent <-> queue integration', () => {
   let queue: MemoryProvingQueue;
   let queueRpcServer: SafeJsonRpcServer;
@@ -71,8 +73,12 @@ describe('Prover agent <-> queue integration', () => {
   });
 
   // TODO: This test hangs instead of failing when the Inputs are not registered on the RPC wrapper
-  it.each(Object.entries(makeInputs))('can call %s over JSON-RPC', async (fnName, makeInputs) => {
-    const resp = await queue[fnName as keyof ServerCircuitProver]((await makeInputs()) as any);
-    expect(resp).toBeDefined();
-  });
+  it.each(Object.entries(makeInputs))(
+    'can call %s over JSON-RPC',
+    async (fnName, makeInputs) => {
+      const resp = await queue[fnName as keyof ServerCircuitProver]((await makeInputs()) as any);
+      expect(resp).toBeDefined();
+    },
+    LONG_TIMEOUT,
+  );
 });

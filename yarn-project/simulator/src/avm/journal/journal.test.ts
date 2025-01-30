@@ -81,20 +81,20 @@ describe('journal', () => {
       expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists);
     });
 
-    it('writeNoteHash works', () => {
+    it('writeNoteHash works', async () => {
       mockNoteHashCount(trace, 1);
-      persistableState.writeNoteHash(address, utxo);
+      await persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      const siloedNotehash = siloNoteHash(address, utxo);
-      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 1);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      const siloedNotehash = await siloNoteHash(address, utxo);
+      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 1);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
       expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
@@ -103,14 +103,14 @@ describe('journal', () => {
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
       expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
@@ -157,14 +157,14 @@ describe('journal', () => {
   describe('Getting bytecode', () => {
     it('Should get bytecode', async () => {
       const bytecode = Buffer.from('0xdeadbeef');
-      const bytecodeCommitment = computePublicBytecodeCommitment(bytecode);
+      const bytecodeCommitment = await computePublicBytecodeCommitment(bytecode);
       const contractInstance = SerializableContractInstance.default();
-      const contractClass = makeContractClassPublic();
+      const contractClass = await makeContractClassPublic();
 
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       mockGetContractClass(worldStateDB, contractClass);
-      mockGetBytecode(worldStateDB, bytecode);
+      await mockGetBytecode(worldStateDB, bytecode);
 
       const expectedContractClassPreimage = {
         artifactHash: contractClass.artifactHash,

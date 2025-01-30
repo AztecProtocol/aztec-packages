@@ -16,7 +16,6 @@ export js_projects="
 export js_include=$(printf " --include %s" $js_projects)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
-# export GIT_COMMIT="$(echo "$hash" | sed 's/-.*//g')"
 export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
@@ -109,7 +108,40 @@ function test_cmds {
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  # This is a test as it runs over our test programs (format is usually considered a build step).
+  echo "$test_hash noir/bootstrap.sh format --check"
 }
+
+function format {
+  # WORKTODO(adam) should this call cargo fmt?
+  # Check format of noir programs in the noir repo.
+  export PATH="$(pwd)/noir-repo/target/release:${PATH}"
+  arg=${1:-}
+  cd noir-repo/test_programs
+  if [ "$arg" = "--check" ]; then
+    # different passing of check than nargo fmt
+    ./format.sh check
+  else
+    ./format.sh
+  fi
+  cd ../noir_stdlib
+  nargo fmt $arg
+}
+
+# TODO(ci3,delete-earthly): evaluate if redundant
+# examples:
+#   FROM ../+bootstrap-noir-bb
+#   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+#   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
+#   RUN ./test.sh
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
+#   RUN ./test.sh
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/recursion
+#   RUN ./test.sh
 
 case "$cmd" in
   "clean")
@@ -133,6 +165,10 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "format")
+    # can take --check as arg
+    format
     ;;
   "hash")
     echo $hash

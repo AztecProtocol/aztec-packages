@@ -5,6 +5,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil } from '@viem/anvil';
 import {
+  type Abi,
   type Account,
   type Chain,
   type HttpTransport,
@@ -374,19 +375,19 @@ describe('GasUtils', () => {
       });
       fail('Should have thrown');
     } catch (err: any) {
-      const formattedError = formatViemError(err);
-
+      const res = err;
+      const { message } = res;
       // Verify the error contains actual newlines, not escaped \n
-      expect(formattedError).not.toContain('\\n');
-      expect(formattedError.split('\n').length).toBeGreaterThan(1);
+      expect(message).not.toContain('\\n');
+      expect(message.split('\n').length).toBeGreaterThan(1);
 
       // Check that we have the key error information
-      expect(formattedError).toContain('fee cap');
+      expect(message).toContain('fee cap');
 
       // Check request body formatting if present
-      if (formattedError.includes('Request body:')) {
-        const bodyStart = formattedError.indexOf('Request body:');
-        const body = formattedError.slice(bodyStart);
+      if (message.includes('Request body:')) {
+        const bodyStart = message.indexOf('Request body:');
+        const body = message.slice(bodyStart);
         expect(body).toContain('eth_sendRawTransaction');
         // Check params are truncated if too long
         if (body.includes('0x')) {
@@ -395,6 +396,70 @@ describe('GasUtils', () => {
       }
     }
   }, 10_000);
+  it('handles custom errors', async () => {
+    // We're deploying this contract:
+    // pragma solidity >=0.8.27;
+
+    // library Errors {
+    //     error Test_Error(uint256 val);
+    // }
+
+    // contract TestContract {
+    //     function triggerError(uint256 num) external pure {
+    //         require(false, Errors.Test_Error(num));
+    //     }
+    // }
+    const abi = [
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: 'val',
+            type: 'uint256',
+          },
+        ],
+        name: 'Test_Error',
+        type: 'error',
+      },
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: 'num',
+            type: 'uint256',
+          },
+        ],
+        name: 'triggerError',
+        outputs: [],
+        stateMutability: 'pure',
+        type: 'function',
+      },
+    ] as Abi;
+    const deployHash = await walletClient.deployContract({
+      abi,
+      bytecode:
+        // contract bytecode
+        '0x6080604052348015600e575f5ffd5b506101508061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c80638291d6871461002d575b5f5ffd5b610047600480360381019061004291906100c7565b610049565b005b5f819061008c576040517fcdae48f50000000000000000000000000000000000000000000000000000000081526004016100839190610101565b60405180910390fd5b5050565b5f5ffd5b5f819050919050565b6100a681610094565b81146100b0575f5ffd5b50565b5f813590506100c18161009d565b92915050565b5f602082840312156100dc576100db610090565b5b5f6100e9848285016100b3565b91505092915050565b6100fb81610094565b82525050565b5f6020820190506101145f8301846100f2565b9291505056fea264697066735822122011972815480b23be1e371aa7c11caa30281e61b164209ae84edcd3fee026278364736f6c634300081b0033',
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+    if (!receipt.contractAddress) {
+      throw new Error('No contract address');
+    }
+    const contractAddress = receipt.contractAddress;
+
+    try {
+      await publicClient.simulateContract({
+        address: contractAddress!,
+        abi,
+        functionName: 'triggerError',
+        args: [33],
+      });
+    } catch (err: any) {
+      const { message } = formatViemError(err, abi);
+      expect(message).toBe('Test_Error(33)');
+    }
+  });
   it('stops trying after timeout', async () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
@@ -412,4 +477,125 @@ describe('GasUtils', () => {
     ).rejects.toThrow(/timed out/);
     expect(Date.now() - now).toBeGreaterThanOrEqual(990);
   }, 60_000);
+
+  it('attempts to cancel timed out transactions', async () => {
+    // Disable auto-mining to control block production
+    await cheatCodes.setIntervalMining(0);
+    await cheatCodes.setAutomine(false);
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Send initial transaction
+    const { txHash } = await gasUtils.sendTransaction(request);
+    const initialTx = await publicClient.getTransaction({ hash: txHash });
+
+    // Try to monitor with a short timeout
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait for cancellation tx to be sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await publicClient.getBlock({ blockTag: 'pending' });
+    const pendingTxHash = pendingBlock.transactions[0];
+    const cancelTx = await publicClient.getTransaction({ hash: pendingTxHash });
+
+    // // Verify cancellation tx
+    expect(cancelTx).toBeDefined();
+    expect(cancelTx!.nonce).toBe(nonce);
+    expect(cancelTx!.to!.toLowerCase()).toBe(walletClient.account.address.toLowerCase());
+    expect(cancelTx!.value).toBe(0n);
+    expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
+    expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+    expect(cancelTx!.gas).toBe(21000n);
+
+    // Mine a block to process the cancellation
+    await cheatCodes.evmMine();
+
+    // Verify the original transaction is no longer present
+    await expect(publicClient.getTransaction({ hash: txHash })).rejects.toThrow();
+  }, 10_000);
+
+  it('attempts to cancel timed out blob transactions with correct parameters', async () => {
+    // Disable auto-mining to control block production
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Create blob data
+    const blobData = new Uint8Array(131072).fill(1);
+    const kzg = Blob.getViemKzgInstance();
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Send initial blob transaction
+    const { txHash } = await gasUtils.sendTransaction(request, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 100n * WEI_CONST, // 100 gwei
+    });
+    const initialTx = await publicClient.getTransaction({ hash: txHash });
+
+    // Try to monitor with a short timeout
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
+      {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: 100n * WEI_CONST,
+      },
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait for cancellation tx to be sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await publicClient.getBlock({ blockTag: 'pending' });
+    const pendingTxHash = pendingBlock.transactions[0];
+    const cancelTx = await publicClient.getTransaction({ hash: pendingTxHash });
+
+    // Verify cancellation tx
+    expect(cancelTx).toBeDefined();
+    expect(cancelTx!.nonce).toBe(nonce);
+    expect(cancelTx!.to!.toLowerCase()).toBe(walletClient.account.address.toLowerCase());
+    expect(cancelTx!.value).toBe(0n);
+    expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
+    expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+    expect(cancelTx!.maxFeePerBlobGas).toBeGreaterThan(initialTx.maxFeePerBlobGas!);
+    expect(cancelTx!.blobVersionedHashes).toBeDefined();
+    expect(cancelTx!.blobVersionedHashes!.length).toBe(1);
+
+    // Mine a block to process the cancellation
+    await cheatCodes.evmMine();
+
+    // Verify the original transaction is no longer present
+    await expect(publicClient.getTransaction({ hash: txHash })).rejects.toThrow();
+  }, 10_000);
 });
