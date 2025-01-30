@@ -6,7 +6,7 @@ import pako from 'pako';
 // able to fallback on "non shared memory" situations.
 export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
   let url = multithreaded ? barretenbergThreadsModule : barretenbergModule;
-  url = wasmPath ? wasmPath + `/${/[^/]+(?=\/$|$)/.exec(url)?.[0]}` : url;
+  url = wasmPath ? `${wasmPath}/${/[^/]+(?=\/$|$)/.exec(url)?.[0]}` : url;
   const res = await fetch(url);
   const maybeCompressedData = await res.arrayBuffer();
   const buffer = new Uint8Array(maybeCompressedData);
