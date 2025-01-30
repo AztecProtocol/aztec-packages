@@ -18,11 +18,6 @@ std::string to_json(const std::vector<bb::fr>& data)
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
-std::string honk_vk_to_json(const std::vector<bb::fr>& data)
-{
-    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-}
-
 /**
  * @brief Create a Honk a prover from program bytecode and an optional witness
  *
@@ -271,7 +266,7 @@ class UltraHonkAPI : public API {
             case ObjectToWrite::PROOF: {
                 const std::string proof_json = to_json(prover_output.proof);
                 if (output_to_stdout) {
-                    throw_or_abort("Writing string of fields to stdout is not supported");
+                    ASSERT("Writing string of fields to stdout is not supported");
                 } else {
                     info("writing proof as fields to ", output_dir / "proof_as_fields.json");
                     write_file(output_dir / "proof_as_fields.json", { proof_json.begin(), proof_json.end() });
@@ -281,7 +276,7 @@ class UltraHonkAPI : public API {
             case ObjectToWrite::VK: {
                 const std::string vk_json = to_json(prover_output.key.to_field_elements());
                 if (output_to_stdout) {
-                    throw_or_abort("Writing string of fields to stdout is not supported");
+                    ASSERT("Writing string of fields to stdout is not supported");
                 } else {
                     info("writing vk as fields to ", output_dir / "vk_as_fields.json");
                     write_file(output_dir / "vk_as_fields.json", { vk_json.begin(), vk_json.end() });
@@ -373,7 +368,7 @@ class UltraHonkAPI : public API {
                 _prove_keccak(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else {
             vinfo(flags);
-            throw_or_abort("Invalid proving options specified");
+            ASSERT("Invalid proving options specified");
         };
     };
 
@@ -384,11 +379,12 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& output_dir) override
     {
         if (!flags.output_type.has_value()) {
-            throw_or_abort("No output type provided");
+            ASSERT("No output type provided");
         }
         if (!flags.output_content.has_value()) {
-            throw_or_abort("No output content provided");
+            ASSERT("No output content provided");
         }
+
         const OutputDataType output_data_type = [&]() {
             if (*flags.output_type == "bytes") {
                 return OutputDataType::BYTES;
@@ -399,13 +395,15 @@ class UltraHonkAPI : public API {
                 return OutputDataType::BYTES_AND_FIELDS;
             }
         }();
+
         const OutputContent output_content = [&]() {
-            if (*flags.output_type == "proof") {
+            if (*flags.output_content == "proof") {
                 return OutputContent::PROOF_ONLY;
-            } else if (*flags.output_type == "vk") {
+            } else if (*flags.output_content == "vk") {
                 return OutputContent::VK_ONLY;
             } else {
-                ASSERT(*flags.output_type == "proof_and_vk");
+                info("*flags.output_content: ", *flags.output_content);
+                ASSERT(*flags.output_content == "proof_and_vk");
                 return OutputContent::PROOF_AND_VK;
             }
         }();
@@ -494,14 +492,14 @@ class UltraHonkAPI : public API {
     void write_arbitrary_valid_proof_and_vk_to_file([[maybe_unused]] const API::Flags& flags,
                                                     [[maybe_unused]] const std::filesystem::path& output_dir) override
     {
-        throw_or_abort("API function not implemented");
+        ASSERT("API function not implemented");
     };
 
     void gates([[maybe_unused]] const API::Flags& flags,
                [[maybe_unused]] const std::filesystem::path& bytecode_path,
                [[maybe_unused]] const std::filesystem::path& witness_path) override
     {
-        throw_or_abort("API function not implemented");
+        ASSERT("API function not implemented");
     };
 
     void contract([[maybe_unused]] const API::Flags& flags,
@@ -535,7 +533,7 @@ class UltraHonkAPI : public API {
                    [[maybe_unused]] const std::filesystem::path& vk_path,
                    [[maybe_unused]] const std::filesystem::path& output_path) override
     {
-        throw_or_abort("API function not implemented");
+        ASSERT("API function not implemented");
     };
 };
 } // namespace bb

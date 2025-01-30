@@ -869,7 +869,7 @@ template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_pat
 
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     std::vector<bb::fr> data = verification_key->to_field_elements();
-    auto json = honk_vk_to_json(data);
+    auto json = to_json(data);
     if (output_path == "-") {
         write_string_to_stdout(json);
         vinfo("vk as fields written to stdout");
