@@ -41,7 +41,6 @@ services:
     working_dir: /root/aztec-packages/boxes
     entrypoint: >
       sh -c '
-        npx -y playwright@1.50 install --with-deps
         yarn workspace @aztec/$$BOX test --project=$$BROWSER
       '
     environment:
