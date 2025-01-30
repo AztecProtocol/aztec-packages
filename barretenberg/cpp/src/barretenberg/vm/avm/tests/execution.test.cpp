@@ -122,9 +122,11 @@ class AvmExecutionTests : public ::testing::Test {
         auto tagging_key = grumpkin::g1::affine_one;
         PublicKeysHint public_keys{ nullifier_key, incoming_viewing_key, outgoing_viewing_key, tagging_key };
         ContractInstanceHint contract_instance = {
-            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id,
+            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id, class_id,
             FF(8) /* initialisation_hash */, public_keys,
             /*membership_hint=*/ { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+            /* update_hint*/ { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+            /* update_preimage */ {},
         };
         FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
         contract_instance.address = address;
@@ -2293,10 +2295,13 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
         .exists = true,
         .salt = 2,
         .deployer_addr = 42,
-        .contract_class_id = 66,
+        .current_contract_class_id = 66,
+        .original_contract_class_id = 66,
         .initialisation_hash = 99,
         .public_keys = public_keys_hints,
         .initialization_membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .update_membership_hint = { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+        .update_preimage = {}
     };
     auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 
@@ -2341,7 +2346,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
     std::vector<FF> const calldata{};
     // alternating member value, exists bool
     std::vector<FF> const expected_returndata = {
-        instance.deployer_addr, 1, instance.contract_class_id, 1, instance.initialisation_hash, 1,
+        instance.deployer_addr, 1, instance.current_contract_class_id, 1, instance.initialisation_hash, 1,
     };
 
     std::vector<FF> returndata{};

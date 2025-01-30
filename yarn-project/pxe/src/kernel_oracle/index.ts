@@ -1,7 +1,6 @@
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
+  type AztecAddress,
   Fr,
   type FunctionSelector,
   type GrumpkinScalar,
