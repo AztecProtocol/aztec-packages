@@ -20,7 +20,7 @@ contract Test {
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::{Deserialize, Hash, Serialize},
+        traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
     };
 
@@ -72,14 +72,12 @@ contract Test {
 
     // TODO(#10321): ideally we'd use `derive` here, but cannot since that causes for the storage macros to not find the
     // derived impl.
-    impl Serialize<5> for ExampleStruct {
-        fn serialize(self) -> [Field; 5] {
+    impl Packable<5> for ExampleStruct {
+        fn pack(self) -> [Field; 5] {
             [self.value0, self.value1, self.value2, self.value3, self.value4]
         }
-    }
 
-    impl Deserialize<5> for ExampleStruct {
-        fn deserialize(value: [Field; 5]) -> Self {
+        fn unpack(value: [Field; 5]) -> Self {
             Self {
                 value0: value[0],
                 value1: value[1],
