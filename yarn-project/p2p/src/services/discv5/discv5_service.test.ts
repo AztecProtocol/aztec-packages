@@ -66,6 +66,7 @@ describe('Discv5Service', () => {
     const peers = node.getAllPeers();
     const bootnode = peers[0];
     expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
+    await node.stop();
   });
 
   it('should discover & add a peer', async () => {

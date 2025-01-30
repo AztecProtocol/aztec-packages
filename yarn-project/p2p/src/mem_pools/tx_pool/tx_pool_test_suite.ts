@@ -21,7 +21,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     const poolTx = await pool.getTxByHash(await tx1.getTxHash());
     expect(await poolTx!.getTxHash()).toEqual(await tx1.getTxHash());
-    expect(pool.getTxStatus(await tx1.getTxHash())).toEqual('pending');
+    await expect(pool.getTxStatus(await tx1.getTxHash())).resolves.toEqual('pending');
     await expect(pool.getPendingTxHashes()).resolves.toEqual([await tx1.getTxHash()]);
   });
 
@@ -31,8 +31,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     await pool.deleteTxs([await tx1.getTxHash()]);
 
-    expect(pool.getTxByHash(await tx1.getTxHash())).toBeFalsy();
-    expect(pool.getTxStatus(await tx1.getTxHash())).toBeUndefined();
+    expect(pool.getTxByHash(await tx1.getTxHash())).resolves.toBeFalsy();
+    expect(pool.getTxStatus(await tx1.getTxHash())).resolves.toBeUndefined();
   });
 
   it('Marks txs as mined', async () => {
@@ -79,8 +79,8 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
     // reorg: both txs should now become available again
     await pool.markMinedAsPending([await tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
-    expect(pool.getMinedTxHashes()).resolves.toEqual([]);
-    expect(pool.getPendingTxHashes()).resolves.toEqual([tx1.getTxHash()]); // tx2 is not in the pool
+    await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
+    await expect(pool.getPendingTxHashes()).resolves.toEqual([await tx1.getTxHash()]); // tx2 is not in the pool
   });
 
   it('Returns all transactions in the pool', async () => {

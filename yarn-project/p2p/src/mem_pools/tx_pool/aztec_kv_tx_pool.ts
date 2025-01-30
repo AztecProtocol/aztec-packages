@@ -281,30 +281,29 @@ export class AztecKVTxPool implements TxPool {
         ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
       let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
 
-      await Promise.all(
-        txs.map(async (tx, i) => {
-          while (headIdx - tailIdx >= this.#archivedTxLimit) {
-            const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
-            if (txHash) {
-              await this.#archivedTxs.delete(txHash);
-              await this.#archivedTxIndices.delete(tailIdx);
-            }
-            tailIdx++;
+      for (let i = 0; i < txs.length; i++) {
+        const tx = txs[i];
+        while (headIdx - tailIdx >= this.#archivedTxLimit) {
+          const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
+          if (txHash) {
+            await this.#archivedTxs.delete(txHash);
+            await this.#archivedTxIndices.delete(tailIdx);
           }
+          tailIdx++;
+        }
 
-          const archivedTx: Tx = new Tx(
-            tx.data,
-            ClientIvcProof.empty(),
-            tx.contractClassLogs,
-            tx.enqueuedPublicFunctionCalls,
-            tx.publicTeardownFunctionCall,
-          );
-          const txHash = txHashes[i].toString();
-          await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
-          await this.#archivedTxIndices.set(headIdx, txHash);
-          headIdx++;
-        }),
-      );
+        const archivedTx: Tx = new Tx(
+          tx.data,
+          ClientIvcProof.empty(),
+          tx.contractClassLogs,
+          tx.enqueuedPublicFunctionCalls,
+          tx.publicTeardownFunctionCall,
+        );
+        const txHash = txHashes[i].toString();
+        await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+        await this.#archivedTxIndices.set(headIdx, txHash);
+        headIdx++;
+      }
     });
   }
 }
