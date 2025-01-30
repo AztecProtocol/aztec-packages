@@ -15,13 +15,14 @@ export default {
     main: './src/index.ts',
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
       {
-        test: /\.gz$/,
+        test: /\.wasm\.gz$/,
         type: 'asset/resource',
+        generator: {
+          filename: '[base]',
+          publicPath: '/',
+        },
       },
       {
         test: /\.tsx?$/,

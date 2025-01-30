@@ -12,9 +12,6 @@ export default (_, argv) => ({
     main: './src/index.ts',
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
       {
         test: /\.gz$/,
@@ -69,11 +66,5 @@ export default (_, argv) => ({
     port: 5173,
     open: true,
     historyApiFallback: true,
-    headers: (req, res) => {
-      if (req.originalUrl.endsWith('.gz')) {
-        res.setHeader('Content-Encoding', 'gzip');
-        res.setHeader('Content-Type', 'application/wasm');
-      }
-    },
   },
 });
