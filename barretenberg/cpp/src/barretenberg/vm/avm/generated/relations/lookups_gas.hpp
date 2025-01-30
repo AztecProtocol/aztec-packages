@@ -41,15 +41,15 @@ class lookup_opcode_gas_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_is_gas_accounted == 1 || in.gas_sel_gas_cost == 1);
+        return (in._main_is_gas_accounted() == 1 || in._gas_sel_gas_cost() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_is_gas_accounted);
-        const auto is_table_entry = View(in.gas_sel_gas_cost);
+        const auto is_operation = View(in._main_is_gas_accounted());
+        const auto is_table_entry = View(in._gas_sel_gas_cost());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -65,20 +65,20 @@ class lookup_opcode_gas_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_opcode_gas_inv,
-                                     in.lookup_opcode_gas_counts,
-                                     in.main_is_gas_accounted,
-                                     in.gas_sel_gas_cost,
-                                     in.main_opcode_val,
-                                     in.main_base_l2_gas_op_cost,
-                                     in.main_base_da_gas_op_cost,
-                                     in.main_dyn_l2_gas_op_cost,
-                                     in.main_dyn_da_gas_op_cost,
-                                     in.main_clk,
-                                     in.gas_base_l2_gas_fixed_table,
-                                     in.gas_base_da_gas_fixed_table,
-                                     in.gas_dyn_l2_gas_fixed_table,
-                                     in.gas_dyn_da_gas_fixed_table);
+        return std::forward_as_tuple(in._lookup_opcode_gas_inv(),
+                                     in._lookup_opcode_gas_counts(),
+                                     in._main_is_gas_accounted(),
+                                     in._gas_sel_gas_cost(),
+                                     in._main_opcode_val(),
+                                     in._main_base_l2_gas_op_cost(),
+                                     in._main_base_da_gas_op_cost(),
+                                     in._main_dyn_l2_gas_op_cost(),
+                                     in._main_dyn_da_gas_op_cost(),
+                                     in._main_clk(),
+                                     in._gas_base_l2_gas_fixed_table(),
+                                     in._gas_base_da_gas_fixed_table(),
+                                     in._gas_dyn_l2_gas_fixed_table(),
+                                     in._gas_dyn_da_gas_fixed_table());
     }
 };
 
@@ -112,15 +112,15 @@ class lookup_l2_gas_rng_chk_0_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_is_gas_accounted == 1 || in.main_sel_rng_16 == 1);
+        return (in._main_is_gas_accounted() == 1 || in._main_sel_rng_16() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_is_gas_accounted);
-        const auto is_table_entry = View(in.main_sel_rng_16);
+        const auto is_operation = View(in._main_is_gas_accounted());
+        const auto is_table_entry = View(in._main_sel_rng_16());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -136,12 +136,12 @@ class lookup_l2_gas_rng_chk_0_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_l2_gas_rng_chk_0_inv,
-                                     in.lookup_l2_gas_rng_chk_0_counts,
-                                     in.main_is_gas_accounted,
-                                     in.main_sel_rng_16,
-                                     in.main_l2_gas_u16_r0,
-                                     in.main_clk);
+        return std::forward_as_tuple(in._lookup_l2_gas_rng_chk_0_inv(),
+                                     in._lookup_l2_gas_rng_chk_0_counts(),
+                                     in._main_is_gas_accounted(),
+                                     in._main_sel_rng_16(),
+                                     in._main_l2_gas_u16_r0(),
+                                     in._main_clk());
     }
 };
 
@@ -175,15 +175,15 @@ class lookup_l2_gas_rng_chk_1_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_is_gas_accounted == 1 || in.main_sel_rng_16 == 1);
+        return (in._main_is_gas_accounted() == 1 || in._main_sel_rng_16() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_is_gas_accounted);
-        const auto is_table_entry = View(in.main_sel_rng_16);
+        const auto is_operation = View(in._main_is_gas_accounted());
+        const auto is_table_entry = View(in._main_sel_rng_16());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -199,12 +199,12 @@ class lookup_l2_gas_rng_chk_1_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_l2_gas_rng_chk_1_inv,
-                                     in.lookup_l2_gas_rng_chk_1_counts,
-                                     in.main_is_gas_accounted,
-                                     in.main_sel_rng_16,
-                                     in.main_l2_gas_u16_r1,
-                                     in.main_clk);
+        return std::forward_as_tuple(in._lookup_l2_gas_rng_chk_1_inv(),
+                                     in._lookup_l2_gas_rng_chk_1_counts(),
+                                     in._main_is_gas_accounted(),
+                                     in._main_sel_rng_16(),
+                                     in._main_l2_gas_u16_r1(),
+                                     in._main_clk());
     }
 };
 
@@ -238,15 +238,15 @@ class lookup_da_gas_rng_chk_0_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_is_gas_accounted == 1 || in.main_sel_rng_16 == 1);
+        return (in._main_is_gas_accounted() == 1 || in._main_sel_rng_16() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_is_gas_accounted);
-        const auto is_table_entry = View(in.main_sel_rng_16);
+        const auto is_operation = View(in._main_is_gas_accounted());
+        const auto is_table_entry = View(in._main_sel_rng_16());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -262,12 +262,12 @@ class lookup_da_gas_rng_chk_0_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_da_gas_rng_chk_0_inv,
-                                     in.lookup_da_gas_rng_chk_0_counts,
-                                     in.main_is_gas_accounted,
-                                     in.main_sel_rng_16,
-                                     in.main_da_gas_u16_r0,
-                                     in.main_clk);
+        return std::forward_as_tuple(in._lookup_da_gas_rng_chk_0_inv(),
+                                     in._lookup_da_gas_rng_chk_0_counts(),
+                                     in._main_is_gas_accounted(),
+                                     in._main_sel_rng_16(),
+                                     in._main_da_gas_u16_r0(),
+                                     in._main_clk());
     }
 };
 
@@ -301,15 +301,15 @@ class lookup_da_gas_rng_chk_1_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_is_gas_accounted == 1 || in.main_sel_rng_16 == 1);
+        return (in._main_is_gas_accounted() == 1 || in._main_sel_rng_16() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_is_gas_accounted);
-        const auto is_table_entry = View(in.main_sel_rng_16);
+        const auto is_operation = View(in._main_is_gas_accounted());
+        const auto is_table_entry = View(in._main_sel_rng_16());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -325,12 +325,12 @@ class lookup_da_gas_rng_chk_1_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_da_gas_rng_chk_1_inv,
-                                     in.lookup_da_gas_rng_chk_1_counts,
-                                     in.main_is_gas_accounted,
-                                     in.main_sel_rng_16,
-                                     in.main_da_gas_u16_r1,
-                                     in.main_clk);
+        return std::forward_as_tuple(in._lookup_da_gas_rng_chk_1_inv(),
+                                     in._lookup_da_gas_rng_chk_1_counts(),
+                                     in._main_is_gas_accounted(),
+                                     in._main_sel_rng_16(),
+                                     in._main_da_gas_u16_r1(),
+                                     in._main_clk());
     }
 };
 

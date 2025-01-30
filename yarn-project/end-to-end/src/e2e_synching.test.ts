@@ -530,10 +530,10 @@ describe('e2e_synching', () => {
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
-          contracts.forEach(async c => {
+          for (const c of contracts) {
             expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
             expect(await archiver.getContract(c.address)).not.toBeUndefined;
-          });
+          }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);

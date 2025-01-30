@@ -181,7 +181,8 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 # Install playwright for browser testing. Ensure accessible for other users.
-RUN npx -y playwright@1.49 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
+# WORKTODO(adam) release this playwright change
+RUN npx -y playwright@1.50 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 

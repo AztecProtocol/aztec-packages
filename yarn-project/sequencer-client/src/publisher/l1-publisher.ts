@@ -22,7 +22,8 @@ import {
   FormattedViemError,
   type GasPrice,
   type L1ContractsConfig,
-  L1TxUtils,
+  type L1TxUtils,
+  L1TxUtilsWithBlobs,
   createEthereumChain,
   formatViemError,
 } from '@aztec/ethereum';
@@ -237,7 +238,7 @@ export class L1Publisher {
       this.governanceProposerAddress = EthAddress.fromString(l1Contracts.governanceProposerAddress.toString());
     }
 
-    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.log, config);
+    this.l1TxUtils = new L1TxUtilsWithBlobs(this.publicClient, this.walletClient, this.log, config);
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -599,6 +600,9 @@ export class L1Publisher {
       txHashes: txHashes ?? [],
     };
 
+    // Get current block number before sending tx
+    const startBlock = await this.publicClient.getBlockNumber();
+
     // Publish body and propose block (if not already published)
     if (this.interrupted) {
       this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
@@ -636,6 +640,11 @@ export class L1Publisher {
       });
 
       const tx = await this.getTransactionStats(receipt.transactionHash);
+
+      // Calculate inclusion blocks
+      const endBlock = receipt.blockNumber;
+      const inclusionBlocks = Number(endBlock - startBlock);
+
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
         gasUsed: receipt.gasUsed,
@@ -645,6 +654,8 @@ export class L1Publisher {
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
+        blobCount: blobs.length,
+        inclusionBlocks,
       };
       this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
