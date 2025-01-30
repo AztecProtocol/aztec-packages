@@ -13,6 +13,7 @@
 
 using namespace bb::numeric;
 using numeric::uint256_t;
+
 template <typename Composer, template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
 {
     auto builder = Circuit<typename Composer::CircuitBuilder>::generate(inputs);

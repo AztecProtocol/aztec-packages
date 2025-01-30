@@ -18,7 +18,5 @@ curl -# -L $BIN_URL -o $BIN_PATH
 chmod +x $BIN_PATH
 export PATH=$FOUNDRY_BIN_DIR:$PATH
 
-echo $FOUNDRY_VERSION
-
 # Use version.
 foundryup --version $FOUNDRY_VERSION
