@@ -22,7 +22,7 @@ import {
   FormattedViemError,
   type GasPrice,
   type L1ContractsConfig,
-  L1TxUtils,
+  type L1TxUtils,
   L1TxUtilsWithBlobs,
   createEthereumChain,
   formatViemError,

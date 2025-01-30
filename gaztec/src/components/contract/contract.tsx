@@ -133,6 +133,7 @@ export function ContractComponent() {
     currentContractAddress,
     currentContract,
     setCurrentContract,
+    setCurrentContractAddress,
     setCurrentTx,
   } = useContext(AztecContext);
 
@@ -160,7 +161,10 @@ export function ContractComponent() {
       });
       setIsLoadingArtifact(false);
     };
-    if (currentContractAddress) {
+    if (
+      currentContractAddress &&
+      currentContract?.address !== currentContractAddress
+    ) {
       loadCurrentContract();
     }
   }, [currentContractAddress]);
@@ -201,6 +205,7 @@ export function ContractComponent() {
       setCurrentContract(
         await Contract.at(contract.address, contractArtifact, wallet)
       );
+      setCurrentContractAddress(contract.address);
     }
     setOpenDeployContractDialog(false);
     setOpenRegisterContractDialog(false);
