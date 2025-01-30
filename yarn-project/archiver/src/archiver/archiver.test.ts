@@ -255,11 +255,11 @@ describe('Archiver', () => {
       expect(publicLogs.length).toEqual(expectedTotalNumPublicLogs);
     }
 
-    blockNumbers.forEach(async x => {
+    for (const x of blockNumbers) {
       const expectedTotalNumContractClassLogs = 4;
       const contractClassLogs = await archiver.getContractClassLogs({ fromBlock: x, toBlock: x + 1 });
       expect(contractClassLogs.logs.length).toEqual(expectedTotalNumContractClassLogs);
-    });
+    }
 
     // Check last proven block number
     const provenBlockNumber = await archiver.getProvenBlockNumber();

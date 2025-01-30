@@ -70,6 +70,7 @@ export function createFaucetHttpServer(faucet: Faucet, apiPrefix = '', logger = 
   app.use(router.routes());
   app.use(router.allowedMethods());
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   return createServer(app.callback());
 }
 
