@@ -491,6 +491,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
+    info(scalar_multiplier);
     // NAF can't handle 0
     if (scalar_multiplier == 0) {
         scalar_multiplier = Fr::modulus;
@@ -515,6 +516,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
+            // info(i, " next entry false");
             bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
@@ -529,8 +531,10 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
                 ctx->create_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
             }
+            // info(bit);
             naf_entries[num_rounds - i - 1] = bit;
         } else {
+            // info(i, " next entry true");
             bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
@@ -546,6 +550,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             }
             naf_entries[num_rounds - i - 1] = bit;
+            // info(bit);
         }
     }
     naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
@@ -570,21 +575,51 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);
             for (size_t i = 0; i < half_round_length; ++i) {
+                info(i);
                 negative_accumulator = negative_accumulator + negative_accumulator + field_t<C>(nafs[i]);
+
+                info(negative_accumulator);
                 positive_accumulator =
                     positive_accumulator + positive_accumulator + field_t<C>(1) - field_t<C>(nafs[i]);
+                info(positive_accumulator);
             }
             return std::make_pair(positive_accumulator, negative_accumulator);
         };
-        const size_t midpoint = num_rounds - Fr::NUM_LIMB_BITS * 2;
+        info(Fr::NUM_LIMB_BITS);
+        const size_t midpoint =
+            (num_rounds > Fr::NUM_LIMB_BITS * 2) ? num_rounds - Fr::NUM_LIMB_BITS * 2 : num_rounds / 2;
+        info(midpoint);
+        info("reconstruct hi");
+
         auto hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
+        info("reconstruct low");
+
         auto lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
 
+        // for (size_t idx = 0; idx < naf_entries.size(); idx++) {
+        //     info("idx ", idx, "  ", naf_entries[idx]);
+        // }
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
-        Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
+        info("hi accum first ", hi_accumulators.first);
+        info("lo accum first ", lo_accumulators.first);
+
+        Fr reconstructed_negative;
+        if (num_rounds > Fr::NUM_LIMB_BITS * 2) {
+            reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
+        } else {
+        }
+
+        info("hi accum second ", hi_accumulators.second);
+        info("lo accum second ", lo_accumulators.second);
+
+        info(reconstructed_negative);
+        info(reconstructed_positive);
+
         Fr accumulator = reconstructed_positive - reconstructed_negative;
+        info(accumulator);
+        info(scalar);
         accumulator.assert_equal(scalar);
     }
     // Propagate tags to naf

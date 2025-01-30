@@ -414,6 +414,40 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_short_scalar_mul()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input(element::random_element());
+            fr scalar(fr(6));
+            // if (uint256_t(scalar).get_bit(0)) {
+            //     scalar -= fr(1); // make sure to add skew
+            // }
+            element_ct P = element_ct::from_witness(&builder, input);
+            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
+
+            // Set input tags
+            x.set_origin_tag(challenge_origin_tag);
+            P.set_origin_tag(submitted_value_origin_tag);
+
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            element_ct c = P.short_scalar_mul(x, 128);
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            affine_element c_expected(element(input) * scalar);
+
+            // Check the result of the multiplication has a tag that's the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            fq c_x_result(c.x.get_value().lo);
+            fq c_y_result(c.y.get_value().lo);
+
+            EXPECT_EQ(c_x_result, c_expected.x);
+            EXPECT_EQ(c_y_result, c_expected.y);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_twin_mul()
     {
         Builder builder;
@@ -1614,6 +1648,16 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
     TestFixture::test_mul();
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_short_scalar_mul();
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
