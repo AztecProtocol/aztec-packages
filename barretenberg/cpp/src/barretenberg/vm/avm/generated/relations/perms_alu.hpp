@@ -24,35 +24,35 @@ class perm_rng_alu_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.range_check_alu_rng_chk == 1 || in.alu_range_check_sel == 1);
+        return (in._range_check_alu_rng_chk() == 1 || in._alu_range_check_sel() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_rng_alu_inv,
-                                     in.range_check_alu_rng_chk,
-                                     in.range_check_alu_rng_chk,
-                                     in.alu_range_check_sel,
-                                     in.range_check_clk,
-                                     in.range_check_value,
-                                     in.range_check_rng_chk_bits,
-                                     in.alu_clk,
-                                     in.alu_range_check_input_value,
-                                     in.alu_range_check_num_bits);
+        return std::forward_as_tuple(in._perm_rng_alu_inv(),
+                                     in._range_check_alu_rng_chk(),
+                                     in._range_check_alu_rng_chk(),
+                                     in._alu_range_check_sel(),
+                                     in._range_check_clk(),
+                                     in._range_check_value(),
+                                     in._range_check_rng_chk_bits(),
+                                     in._alu_clk(),
+                                     in._alu_range_check_input_value(),
+                                     in._alu_range_check_num_bits());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_rng_alu_inv,
-                                     in.range_check_alu_rng_chk,
-                                     in.range_check_alu_rng_chk,
-                                     in.alu_range_check_sel,
-                                     in.range_check_clk,
-                                     in.range_check_value,
-                                     in.range_check_rng_chk_bits,
-                                     in.alu_clk,
-                                     in.alu_range_check_input_value,
-                                     in.alu_range_check_num_bits);
+        return std::forward_as_tuple(in._perm_rng_alu_inv(),
+                                     in._range_check_alu_rng_chk(),
+                                     in._range_check_alu_rng_chk(),
+                                     in._alu_range_check_sel(),
+                                     in._range_check_clk(),
+                                     in._range_check_value(),
+                                     in._range_check_rng_chk_bits(),
+                                     in._alu_clk(),
+                                     in._alu_range_check_input_value(),
+                                     in._alu_range_check_num_bits());
     }
 };
 
@@ -77,51 +77,51 @@ class perm_cmp_alu_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.cmp_sel_cmp == 1 || in.alu_cmp_gadget_sel == 1);
+        return (in._cmp_sel_cmp() == 1 || in._alu_cmp_gadget_sel() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_cmp_alu_inv,
-                                     in.cmp_sel_cmp,
-                                     in.cmp_sel_cmp,
-                                     in.alu_cmp_gadget_sel,
-                                     in.cmp_clk,
-                                     in.cmp_input_a,
-                                     in.cmp_input_b,
-                                     in.cmp_result,
-                                     in.cmp_op_eq,
-                                     in.cmp_op_gt,
-                                     in.cmp_op_non_ff_gt,
-                                     in.alu_clk,
-                                     in.alu_cmp_gadget_input_a,
-                                     in.alu_cmp_gadget_input_b,
-                                     in.alu_cmp_gadget_result,
-                                     in.alu_op_eq,
-                                     in.alu_cmp_gadget_gt,
-                                     in.alu_cmp_gadget_non_ff_gt);
+        return std::forward_as_tuple(in._perm_cmp_alu_inv(),
+                                     in._cmp_sel_cmp(),
+                                     in._cmp_sel_cmp(),
+                                     in._alu_cmp_gadget_sel(),
+                                     in._cmp_clk(),
+                                     in._cmp_input_a(),
+                                     in._cmp_input_b(),
+                                     in._cmp_result(),
+                                     in._cmp_op_eq(),
+                                     in._cmp_op_gt(),
+                                     in._cmp_op_non_ff_gt(),
+                                     in._alu_clk(),
+                                     in._alu_cmp_gadget_input_a(),
+                                     in._alu_cmp_gadget_input_b(),
+                                     in._alu_cmp_gadget_result(),
+                                     in._alu_op_eq(),
+                                     in._alu_cmp_gadget_gt(),
+                                     in._alu_cmp_gadget_non_ff_gt());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_cmp_alu_inv,
-                                     in.cmp_sel_cmp,
-                                     in.cmp_sel_cmp,
-                                     in.alu_cmp_gadget_sel,
-                                     in.cmp_clk,
-                                     in.cmp_input_a,
-                                     in.cmp_input_b,
-                                     in.cmp_result,
-                                     in.cmp_op_eq,
-                                     in.cmp_op_gt,
-                                     in.cmp_op_non_ff_gt,
-                                     in.alu_clk,
-                                     in.alu_cmp_gadget_input_a,
-                                     in.alu_cmp_gadget_input_b,
-                                     in.alu_cmp_gadget_result,
-                                     in.alu_op_eq,
-                                     in.alu_cmp_gadget_gt,
-                                     in.alu_cmp_gadget_non_ff_gt);
+        return std::forward_as_tuple(in._perm_cmp_alu_inv(),
+                                     in._cmp_sel_cmp(),
+                                     in._cmp_sel_cmp(),
+                                     in._alu_cmp_gadget_sel(),
+                                     in._cmp_clk(),
+                                     in._cmp_input_a(),
+                                     in._cmp_input_b(),
+                                     in._cmp_result(),
+                                     in._cmp_op_eq(),
+                                     in._cmp_op_gt(),
+                                     in._cmp_op_non_ff_gt(),
+                                     in._alu_clk(),
+                                     in._alu_cmp_gadget_input_a(),
+                                     in._alu_cmp_gadget_input_b(),
+                                     in._alu_cmp_gadget_result(),
+                                     in._alu_op_eq(),
+                                     in._alu_cmp_gadget_gt(),
+                                     in._alu_cmp_gadget_non_ff_gt());
     }
 };
 

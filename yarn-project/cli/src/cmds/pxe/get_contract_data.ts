@@ -10,13 +10,17 @@ export async function getContractData(
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const instance = await client.getContractInstance(contractAddress);
+  const {
+    contractInstance: instance,
+    isContractInitialized: isInitialized,
+    isContractPubliclyDeployed: isPubliclyDeployed,
+  } = await client.getContractMetadata(contractAddress);
   const contractClass =
-    includeBytecode && instance && (await client.getContractClass(instance?.currentContractClassId));
+    includeBytecode &&
+    instance &&
+    (await client.getContractClassMetadata(instance?.currentContractClassId)).contractClass;
 
   const isPrivatelyDeployed = !!instance;
-  const isPubliclyDeployed = await client.isContractPubliclyDeployed(contractAddress);
-  const isInitialized = await client.isContractInitialized(contractAddress);
   const initStr = isInitialized ? 'initialized' : 'not initialized';
   const addrStr = contractAddress.toString();
 

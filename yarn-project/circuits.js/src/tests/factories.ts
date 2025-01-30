@@ -83,7 +83,6 @@ import {
   PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
-  PublicCircuitPublicInputs,
   PublicDataHint,
   PublicDataRead,
   PublicDataTreeLeaf,
@@ -1516,9 +1515,8 @@ export async function makeAvmCircuitInputs(
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    publicInputs: PublicCircuitPublicInputs.empty(),
     avmHints: await makeAvmExecutionHints(seed + 0x3000),
-    output: makeAvmCircuitPublicInputs(seed + 0x4000),
+    publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   });
 }

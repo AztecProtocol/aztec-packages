@@ -1,4 +1,3 @@
-import { Blob } from '@aztec/foundation/blob';
 import { times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
@@ -185,12 +184,12 @@ export interface GasPrice {
 }
 
 export class L1TxUtils {
-  private readonly config: L1TxUtilsConfig;
+  protected readonly config: L1TxUtilsConfig;
 
   constructor(
-    private readonly publicClient: PublicClient,
-    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: Logger,
+    protected readonly publicClient: PublicClient,
+    protected readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
+    protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
@@ -454,7 +453,7 @@ export class L1TxUtils {
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(
+  public async getGasPrice(
     _gasConfig?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
@@ -669,7 +668,10 @@ export class L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  private async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (isBlobTx) {
+      throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
+    }
     const account = this.walletClient.account;
 
     // Get gas price with higher priority fee for cancellation
@@ -694,50 +696,22 @@ export class L1TxUtils {
     };
 
     // Send 0-value tx to self with higher gas price
-    if (!isBlobTx) {
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        ...request,
-        nonce,
-        gas: 21_000n, // Standard ETH transfer gas
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
-      const receipt = await this.monitorTransaction(
-        request,
-        cancelTxHash,
-        { gasLimit: 21_000n },
-        undefined,
-        undefined,
-        true,
-      );
+    const cancelTxHash = await this.walletClient.sendTransaction({
+      ...request,
+      nonce,
+      gas: 21_000n, // Standard ETH transfer gas
+      maxFeePerGas: cancelGasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+    });
+    const receipt = await this.monitorTransaction(
+      request,
+      cancelTxHash,
+      { gasLimit: 21_000n },
+      undefined,
+      undefined,
+      true,
+    );
 
-      return receipt.transactionHash;
-    } else {
-      const blobData = new Uint8Array(131072).fill(0);
-      const kzg = Blob.getViemKzgInstance();
-      const blobInputs = {
-        blobs: [blobData],
-        kzg,
-        maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
-      };
-      const cancelTxHash = await this.walletClient.sendTransaction({
-        ...request,
-        ...blobInputs,
-        nonce,
-        gas: 21_000n,
-        maxFeePerGas: cancelGasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
-      const receipt = await this.monitorTransaction(
-        request,
-        cancelTxHash,
-        { gasLimit: 21_000n },
-        undefined,
-        blobInputs,
-        true,
-      );
-
-      return receipt.transactionHash;
-    }
+    return receipt.transactionHash;
   }
 }

@@ -208,6 +208,8 @@ export function SidebarComponent() {
     };
     if (currentContractAddress && walletDB) {
       refreshTransactions();
+    } else {
+      setTransactions([]);
     }
   }, [currentContractAddress, currentTx]);
 
