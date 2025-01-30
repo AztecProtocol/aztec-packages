@@ -144,7 +144,10 @@ export class EpochProvingJob implements Traceable {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.log.info(`Submitted proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`, {
+        epochNumber,
+        uuid: this.uuid,
+      });
       this.state = 'completed';
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {

@@ -53,6 +53,10 @@ export class BlockProposal extends Gossipable {
     return this.payload.header.globalVariables.slotNumber;
   }
 
+  get blockNumber(): Fr {
+    return this.payload.header.globalVariables.blockNumber;
+  }
+
   static async createProposalFromSigner(
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
