@@ -46,6 +46,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
+    error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
@@ -53,33 +54,25 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
-        ZKTranscriptLib.logZKProof(p);
 
         if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
         }
 
-        console.log("finished generating proof");
-
         // Generate the fiat shamir challenges for the whole protocol
         ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
-        ZKTranscriptLib.logTranscript(t);
-        console.log("finished generating transcript");
+
         // Derive public input delta
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
             publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
         );
 
-        console.log("before sumcheck");
-
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
-        console.log("after sumcheck and it passed");
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
-        console.log("after shplemini and it passed");
 
         return sumcheckVerified; // && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
@@ -385,7 +378,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         }
 
         boundary += CONST_PROOF_SIZE_LOG_N - 1;
-        console.log("after fold commitment");
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
@@ -426,7 +418,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
         scalars[boundary] = mem.constantTermAccumulator;
         boundary += 1;
-        console.log("here");
 
         bool consistencyVerified =
             checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation);
@@ -461,9 +452,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr libraEval
     ) internal view returns (bool) {
         Fr one = Fr.wrap(1);
-        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one; // will this cause problems?
+        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one;
+        if (vanishingPolyEval == Fr.wrap(0)) {
+            revert GeminiChallengeInSubgroup();
+        }
+
         SmallSubgroupIpaIntermediates memory mem;
-        // TODO: abort if gemini challenge in subgroup
         mem.challengePolyLagrange[0] = one;
         for (uint256 round = 0; round < CONST_PROOF_SIZE_LOG_N; round++) {
             uint256 currIdx = 1 + LIBRA_UNIVARIATES_LENGTH * round;
@@ -473,17 +467,16 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             }
         }
 
-        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
-        mem.rootPower = SUBGROUP_GENERATOR_INVERSE;
-        mem.denominators[0] = geminiR - one;
-        mem.denominators[0] = mem.denominators[0].invert();
-        mem.challengePolyEval = mem.challengePolyLagrange[0] * mem.denominators[0];
-        for (uint256 idx = 1; idx < SUBGROUP_SIZE; idx++) {
+        mem.rootPower = one;
+        mem.challengePolyEval = Fr.wrap(0);
+        for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
             mem.denominators[idx] = mem.rootPower * geminiR - one;
             mem.denominators[idx] = mem.denominators[idx].invert();
-            mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
             mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
+            mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
         }
+
+        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
         mem.challengePolyEval = mem.challengePolyEval * numerator;
         mem.lagrangeFirst = mem.denominators[0] * numerator;
         mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;

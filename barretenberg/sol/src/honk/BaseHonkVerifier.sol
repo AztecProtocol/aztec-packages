@@ -94,7 +94,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             }
         }
 
-        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1219)
         publicInputDelta = FrLib.div(numerator, denominator);
     }
 

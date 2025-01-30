@@ -653,7 +653,6 @@ template <typename Flavor> class SumcheckVerifier {
             // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
             // multivariate over the hypercube
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-            info("libra total sum: ", libra_total_sum);
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
             round.target_total_sum += libra_total_sum * libra_challenge;
         }
@@ -716,11 +715,6 @@ template <typename Flavor> class SumcheckVerifier {
                 correcting_factor =
                     RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
             }
-
-            info(full_honk_purported_value);
-            info(correcting_factor);
-            info(libra_evaluation);
-            info(libra_challenge);
 
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;

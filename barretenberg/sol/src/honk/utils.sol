@@ -43,15 +43,6 @@ function logG(string memory name, Honk.G1ProofPoint memory p) pure {
     console2.log(message);
 }
 
-// function logG(string memory name, Honk.G1Point memory point) pure {
-//     // TODO: convert both to hex before printing to line up with cpp
-//     string memory x = bytes32ToString(bytes32(point.x));
-//     string memory y = bytes32ToString(bytes32(point.y));
-
-//     string memory message = string(abi.encodePacked(name, " x: ", x, " y: ", y));
-//     console2.log(message);
-// }
-
 function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));

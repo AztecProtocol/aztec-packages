@@ -31,11 +31,9 @@ struct ZKTranscript {
 }
 
 library ZKTranscriptLib {
-    // WORKTODO: generateTranscript will go in each contract variation
-    // WORKTODO: make pure
     function generateTranscript(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (ZKTranscript memory t)
     {
         Fr previousChallenge;
@@ -46,7 +44,6 @@ library ZKTranscriptLib {
 
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
         (t.libraChallenge, previousChallenge) = generateLibraChallenge(previousChallenge, proof);
-        console.log("past libra challenges");
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
 
         (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
@@ -56,7 +53,6 @@ library ZKTranscriptLib {
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
-        console.log("finished generating challenges");
         return t;
     }
 
@@ -111,8 +107,8 @@ library ZKTranscriptLib {
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-        Fr unused;
-        (etaThree, unused) = splitChallenge(previousChallenge);
+
+        (etaThree,) = splitChallenge(previousChallenge);
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
@@ -166,8 +162,8 @@ library ZKTranscriptLib {
         }
         if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
-            Fr unused;
-            (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
+
+            (alphas[NUMBER_OF_ALPHAS - 1],) = splitChallenge(nextPreviousChallenge);
         }
     }
 
@@ -178,8 +174,8 @@ library ZKTranscriptLib {
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-            Fr unused;
-            (gateChallenges[i], unused) = splitChallenge(previousChallenge);
+
+            (gateChallenges[i],) = splitChallenge(previousChallenge);
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -203,7 +199,7 @@ library ZKTranscriptLib {
 
     function generateSumcheckChallenges(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -215,18 +211,16 @@ library ZKTranscriptLib {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
-            Fr unused;
-            (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
+
+            (sumcheckChallenges[i],) = splitChallenge(prevChallenge);
         }
         nextPreviousChallenge = prevChallenge;
-        console.log("sumcheck challenges generated");
     }
 
     // We add Libra claimed eval + 3 comm + 1 more eval
-    // TODO: make pure
     function generateRhoChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr rho, Fr nextPreviousChallenge)
     {
         uint256[NUMBER_OF_ENTITIES + 1 + 2 + 3 * 4] memory rhoChallengeElements;
@@ -258,12 +252,11 @@ library ZKTranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
         (rho,) = splitChallenge(nextPreviousChallenge);
-        console.log("past generating the rho challenge");
     }
 
     function generateGeminiRChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
@@ -277,14 +270,13 @@ library ZKTranscriptLib {
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
-        Fr unused;
-        (geminiR, unused) = splitChallenge(nextPreviousChallenge);
-        console.log("finished generating R challenge");
+
+        (geminiR,) = splitChallenge(nextPreviousChallenge);
     }
 
     function generateShplonkNuChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr shplonkNu, Fr nextPreviousChallenge)
     {
         uint256[(CONST_PROOF_SIZE_LOG_N) + 1 + 4] memory shplonkNuChallengeElements;
@@ -302,12 +294,11 @@ library ZKTranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
         (shplonkNu,) = splitChallenge(nextPreviousChallenge);
-        console.log("finished generating nu challenge");
     }
 
     function generateShplonkZChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
         uint256[5] memory shplonkZChallengeElements;
@@ -320,7 +311,6 @@ library ZKTranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         (shplonkZ,) = splitChallenge(nextPreviousChallenge);
-        console.log("finished generating shplonk z challenge");
     }
 
     // TODO: mod q proof points
@@ -328,7 +318,7 @@ library ZKTranscriptLib {
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the ZKTranscript Lib
     // TODO: make pure
-    function loadProof(bytes calldata proof) internal view returns (Honk.ZKProof memory p) {
+    function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
@@ -378,8 +368,6 @@ library ZKTranscriptLib {
         p.geminiMaskingEval = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
 
-        console.log("starting to load gemini stuff");
-
         // Gemini
         // Read gemini fold univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
@@ -403,14 +391,9 @@ library ZKTranscriptLib {
         boundary = boundary + 0x80;
         // KZG
         p.kzgQuotient = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        console.log("finished loading the proof");
     }
 
-    function logZKProof(Honk.ZKProof memory proof) public view {
-        console.log("circuitSize", proof.circuitSize);
-        console.log("publicInputsSize", proof.publicInputsSize);
-        console.log("publicInputsOffset", proof.publicInputsOffset);
-
+    function logZKProof(Honk.ZKProof memory proof) internal pure {
         logG("w1", proof.w1);
         logG("w2", proof.w2);
         logG("w3", proof.w3);
@@ -452,7 +435,7 @@ library ZKTranscriptLib {
         logG("kzgQuotient", proof.kzgQuotient);
     }
 
-    function logTranscript(ZKTranscript memory transcript) public pure {
+    function logTranscript(ZKTranscript memory transcript) internal pure {
         // Log Oink-related fields
         logFr("relationParameters.eta", transcript.relationParameters.eta);
         logFr("relationParameters.etaTwo", transcript.relationParameters.etaTwo);

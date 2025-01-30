@@ -1,5 +1,5 @@
 #pragma once
-#define LOG_CHALLENGES
+// #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
 #include "barretenberg/common/debug_log.hpp"
@@ -12,7 +12,7 @@
 
 namespace bb {
 
-// WORKTODO: univariates should also be loggable
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
 template <typename T, typename... U>
 concept Loggable =
     (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, bb::g1::affine_element> ||
