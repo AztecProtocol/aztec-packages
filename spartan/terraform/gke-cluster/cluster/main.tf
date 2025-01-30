@@ -92,83 +92,21 @@ resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
   }
 }
 
-# Create node pool for simulated aztec nodes (validators, prover nodes, boot nodes)
-resource "google_container_node_pool" "aztec_nodes_2core" {
-  name     = "${var.cluster_name}-2core"
+# Create general pool of 32 core servers
+resource "google_container_node_pool" "aztec_nodes-32core" {
+  name     = "${var.cluster_name}-32core"
   location = var.zone
   cluster  = var.cluster_name
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 256
+    max_node_count = 16
   }
 
   # Node configuration
   node_config {
-    machine_type = "t2d-standard-2"
-
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = {
-      env = "production"
-    }
-    tags = ["aztec-gke-node", "aztec"]
-  }
-}
-
-# Create node pool for aztec nodes (validators, prover nodes, boot nodes)
-resource "google_container_node_pool" "aztec_nodes_4core" {
-  name     = "${var.cluster_name}-4core"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 256
-  }
-
-  # Node configuration
-  node_config {
-    machine_type = "t2d-standard-4"
-
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = {
-      env = "production"
-    }
-    tags = ["aztec-gke-node", "aztec"]
-  }
-
-  # Management configuration
-  management {
-    auto_repair  = true
-    auto_upgrade = true
-  }
-}
-
-# Create 8 core nodes. Usually for proven bots
-resource "google_container_node_pool" "aztec_nodes-8core" {
-  name     = "${var.cluster_name}-8core"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 256
-  }
-
-  # Node configuration
-  node_config {
-    machine_type = "t2d-standard-8"
+    machine_type = "t2d-standard-32"
 
     service_account = var.service_account
     oauth_scopes = [
@@ -203,49 +141,6 @@ resource "google_container_node_pool" "spot_nodes_32core" {
   # Node configuration
   node_config {
     machine_type = "t2d-standard-32"
-    spot         = true
-
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = {
-      env  = "production"
-      pool = "spot"
-    }
-    tags = ["aztec-gke-node", "spot"]
-
-    # Spot instance termination handler
-    taint {
-      key    = "cloud.google.com/gke-spot"
-      value  = "true"
-      effect = "NO_SCHEDULE"
-    }
-  }
-
-  # Management configuration
-  management {
-    auto_repair  = true
-    auto_upgrade = true
-  }
-}
-
-# Create low core count spot instance node pool with autoscaling
-resource "google_container_node_pool" "spot_nodes_2core" {
-  name     = "${var.cluster_name}-2core-spot"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 1500
-  }
-
-  # Node configuration
-  node_config {
-    machine_type = "t2d-standard-2"
     spot         = true
 
     service_account = var.service_account
