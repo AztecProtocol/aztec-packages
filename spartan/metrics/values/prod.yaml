@@ -36,6 +36,7 @@ prometheus:
 
 loki:
   loki:
+    enabled: false
     schemaConfig:
       configs:
         - from: "2024-04-01"
@@ -72,7 +73,7 @@ loki:
     replicas: 6
 
   minio:
-    enabled: true
+    enabled: false
     persistence:
       size: 64Gi
 

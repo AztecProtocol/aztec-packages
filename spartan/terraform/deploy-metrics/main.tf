@@ -21,16 +21,18 @@ provider "google" {
   region  = var.region
 }
 
-resource "google_compute_global_address" "grafana_ip" {
+resource "google_compute_address" "grafana_ip" {
   provider     = google
   name         = "grafana-ip"
   address_type = "EXTERNAL"
+  region       = var.region
 }
 
-resource "google_compute_global_address" "otel_collector_ip" {
+resource "google_compute_address" "otel_collector_ip" {
   provider     = google
   name         = "otel-ip"
   address_type = "EXTERNAL"
+  region       = var.region
 }
 
 provider "kubernetes" {
