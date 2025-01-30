@@ -25,14 +25,14 @@ class {{perm_name}}_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.{{lhs_selector}} == 1 || in.{{rhs_selector}} == 1);
+        return (in._{{lhs_selector}}() == 1 || in._{{rhs_selector}}() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(
         {{#each perm_entities as |ent|}}
-        in.{{ent}}{{#unless @last}},{{/unless}}
+        in._{{ent}}(){{#unless @last}},{{/unless}}
         {{/each}}
         );
     }
@@ -41,7 +41,7 @@ class {{perm_name}}_permutation_settings {
     {
         return std::forward_as_tuple(
         {{#each perm_entities as |ent|}}
-        in.{{ent}}{{#unless @last}},{{/unless}}
+        in._{{ent}}(){{#unless @last}},{{/unless}}
         {{/each}}
         );
     }

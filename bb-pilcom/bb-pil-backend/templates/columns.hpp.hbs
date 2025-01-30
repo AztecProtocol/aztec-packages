@@ -16,6 +16,7 @@ namespace bb::{{snakeCase name}} {
 #define {{shoutySnakeCase name}}_TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
 #define {{shoutySnakeCase name}}_ALL_ENTITIES {{#if (len fixed)}}{{shoutySnakeCase name}}_PRECOMPUTED_ENTITIES{{/if}}{{#if (len witness_without_inverses)}}, {{shoutySnakeCase name}}_WIRE_ENTITIES{{/if}}{{#if (len lookups)}}, {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES{{/if}}{{#if (len shifted)}}, {{shoutySnakeCase name}}_SHIFTED_ENTITIES{{/if}}
 #define {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES {{shoutySnakeCase name}}_PRECOMPUTED_ENTITIES, {{shoutySnakeCase name}}_WIRE_ENTITIES, {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES
+#define {{shoutySnakeCase name}}_WITNESS_ENTITIES {{shoutySnakeCase name}}_WIRE_ENTITIES, {{shoutySnakeCase name}}_DERIVED_WITNESS_ENTITIES
 
 #define {{shoutySnakeCase name}}_TO_BE_SHIFTED_COLUMNS {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}Column::{{item}}{{/each}}
 #define {{shoutySnakeCase name}}_SHIFTED_COLUMNS {{#each shifted as |item|}}{{#if @index}}, {{/if}}ColumnAndShifts::{{item}}{{/each}}

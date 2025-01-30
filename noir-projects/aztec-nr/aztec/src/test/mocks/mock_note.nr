@@ -47,11 +47,11 @@ impl NullifiableNote for MockNote {
 }
 
 impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
-    fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
+    fn pack_content(self) -> [Field; MOCK_NOTE_LENGTH] {
         [self.value]
     }
 
-    fn deserialize_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
+    fn unpack_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
         Self { value: fields[0], header: NoteHeader::empty() }
     }
 
