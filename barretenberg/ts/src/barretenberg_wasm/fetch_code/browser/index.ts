@@ -4,9 +4,9 @@ import pako from 'pako';
 
 // Annoyingly the wasm declares if it's memory is shared or not. So now we need two wasms if we want to be
 // able to fallback on "non shared memory" situations.
-export async function fetchCode(multithreaded: boolean) {
+export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
   let url = multithreaded ? barretenbergThreadsModule : barretenbergModule;
-  url = process.env.BB_WASM_URL ? process.env.BB_WASM_URL + `/${/[^/]+(?=\/$|$)/.exec(url)?.[0]}` : url;
+  url = wasmPath ? wasmPath + `/${/[^/]+(?=\/$|$)/.exec(url)?.[0]}` : url;
   const res = await fetch(url);
   const maybeCompressedData = await res.arrayBuffer();
   const buffer = new Uint8Array(maybeCompressedData);
