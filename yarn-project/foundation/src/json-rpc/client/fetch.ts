@@ -64,7 +64,7 @@ export async function defaultFetch(
     }
   }
 
-  return responseJson;
+  return { response: responseJson, headers: resp.headers };
 }
 
 /**

@@ -34,7 +34,7 @@ export function getComponentsVersionsFromConfig(
   };
 }
 
-/** Returns a compressed string representation of the version (around 32 chars). */
+/** Returns a compressed string representation of the version (around 32 chars). Used in p2p ENRs. */
 export function compressComponentVersions(versions: ComponentsVersions): string {
   return [
     '00',
@@ -120,8 +120,24 @@ export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
     for (const key in versions) {
       const value = versions[key as keyof ComponentsVersions];
       if (value !== undefined) {
-        ctx.headers[`x-aztec-${key}`] = value.toString();
+        ctx.set(`x-aztec-${key}`, value.toString());
       }
     }
+  };
+}
+
+/** Returns a json rpc client handler that rejects responses with mismatching versions. */
+export function getVersioningResponseHandler(versions: Partial<ComponentsVersions>) {
+  return ({ headers }: { headers: Headers }) => {
+    for (const key in versions) {
+      const value = versions[key as keyof ComponentsVersions];
+      if (value !== undefined) {
+        const headerValue = headers.get(`x-aztec-${key}`);
+        if (headerValue !== null && headerValue !== value.toString()) {
+          throw new ComponentsVersionsError(key, value.toString(), headerValue);
+        }
+      }
+    }
+    return Promise.resolve();
   };
 }
