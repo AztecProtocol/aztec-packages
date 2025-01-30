@@ -9,6 +9,8 @@ unconstrained fn mint_success() {
     let token_id = 10000;
     NFT::at(nft_contract_address).mint(owner, token_id).call(&mut env.public());
 
+    env.advance_block_by(1);
+
     utils::assert_owns_public_nft(env, nft_contract_address, owner, token_id);
 }
 

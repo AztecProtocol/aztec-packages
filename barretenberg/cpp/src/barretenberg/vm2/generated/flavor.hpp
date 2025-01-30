@@ -13,6 +13,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/macros.hpp"
 #include "columns.hpp"
 #include "flavor_settings.hpp"
 
@@ -20,6 +21,7 @@
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_retrieval.hpp"
+#include "relations/bitwise.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/range_check.hpp"
@@ -27,6 +29,7 @@
 
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
+#include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -34,6 +37,19 @@
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
+
+// clang-format off
+// These getters are used to speedup logderivative inverses.
+// See https://github.com/AztecProtocol/aztec-packages/pull/11605/ for a full explanation.
+#define DEFAULT_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return ENTITY; } \
+    inline auto& _##ENTITY() const { return ENTITY; }
+#define ROW_PROXY_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return pp.ENTITY[row_idx]; } \
+    inline auto& _##ENTITY() const { return pp.ENTITY[row_idx]; }
+#define DEFINE_GETTERS(GETTER_MACRO, ENTITIES) \
+    FOR_EACH(GETTER_MACRO, ENTITIES)
+// clang-format on
 
 namespace bb::avm2 {
 
@@ -59,13 +75,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 14;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 364;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 63;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 382;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 68;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 441;
+    static constexpr size_t NUM_ALL_ENTITIES = 466;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -76,6 +92,7 @@ class AvmFlavor {
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_retrieval<FF_>,
+        avm2::bitwise<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::range_check<FF_>,
@@ -87,6 +104,8 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_bitw_byte_lengths_relation<FF_>,
+        lookup_bitw_byte_operations_relation<FF_>,
         lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
@@ -131,32 +150,29 @@ class AvmFlavor {
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        using DataType = DataType_;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
-
-        RefVector<DataType> get_selectors() { return get_all(); }
-        RefVector<DataType> get_sigma_polynomials() { return {}; }
-        RefVector<DataType> get_id_polynomials() { return {}; }
-        RefVector<DataType> get_table_polynomials() { return {}; }
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
     };
 
   private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_WIRE_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_DERIVED_WITNESS_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_SHIFTED_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -262,12 +278,26 @@ class AvmFlavor {
         using Base::Base;
     };
 
+    // Only used by VM1 check_circuit. Remove.
     class AllConstRefValues {
       public:
         using BaseDataType = const FF;
         using DataType = BaseDataType&;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_ALL_ENTITIES)
+    };
+
+    template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
+      public:
+        PolynomialEntitiesAtFixedRow(const size_t row_idx, const Polynomials& pp)
+            : row_idx(row_idx)
+            , pp(pp)
+        {}
+        DEFINE_GETTERS(ROW_PROXY_GETTERS, AVM2_ALL_ENTITIES)
+
+      private:
+        const size_t row_idx;
+        const Polynomials& pp;
     };
 
     /**
@@ -286,12 +316,14 @@ class AvmFlavor {
         ProverPolynomials(ProvingKey& proving_key);
 
         size_t get_polynomial_size() const { return execution_input.size(); }
-        AllConstRefValues get_row(size_t row_idx) const
+        // This is only used in VM1 check_circuit. Remove.
+        AllConstRefValues get_standard_row(size_t row_idx) const
         {
             return [row_idx](auto&... entities) -> AllConstRefValues {
                 return { entities[row_idx]... };
             }(AVM2_ALL_ENTITIES);
         }
+        auto get_row(size_t row_idx) const { return PolynomialEntitiesAtFixedRow<ProverPolynomials>(row_idx, *this); }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
@@ -341,8 +373,10 @@ class AvmFlavor {
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
+            this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;

@@ -18,7 +18,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
