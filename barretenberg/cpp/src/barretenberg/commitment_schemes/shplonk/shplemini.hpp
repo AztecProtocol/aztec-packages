@@ -203,11 +203,34 @@ template <typename Curve> class ShpleminiVerifier_ {
     };
 
     struct ClaimBatcher {
-        std::optional<ClaimBatch> unshifted;
-        std::optional<ClaimBatch> shifted;
+        std::optional<ClaimBatch> unshifted; // commitments and evaluations of unshifted polynomials
+        std::optional<ClaimBatch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
 
         Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->batch_scalar : Fr{ 0 }; }
 
+        /**
+         * @brief Compute scalars used to batch each set of claims, excluding contribution from batching challenge \rho
+         * @details Computes scalars s_0 and s_1 given by
+         * \f[
+         * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
+         * - s_1 = \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+         * \f]
+         * where the scalars used to batch the claims are given by
+         * \f[
+         * \left(
+         * - s_0,
+         * \ldots,
+         * - \rho^{i+k-1} \times s_0,
+         * - \rho^{i+k} \times \frac{1}{r} \times s_1,
+         * \ldots,
+         * - \rho^{k+m-1} \times \frac{1}{r} \times s_1
+         * \right)
+         * \f]
+         *
+         * @param inverse_vanishing_evals {1/(z-r), 1/(z+r)}
+         * @param shplonk_batching_challenge ν
+         * @param gemini_evaluation_challenge r
+         */
         void compute_scalars_for_each_batch(const std::vector<Fr>& inverse_vanishing_evals,
                                             const Fr& shplonk_batching_challenge,
                                             const Fr& gemini_evaluation_challenge)
@@ -225,13 +248,26 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
         }
 
+        /**
+         * @brief Append the commitments and evaluations from each claim batch to the global vectors of commitments ans
+         * scalars; update the global batched evaluation and the running batching challenge in place
+         *
+         * @param commitments global vector of commitments to be batched in Shplemini
+         * @param scalars global vector of scalars to be multiplied by the commitments
+         * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
+         * @param multivariate_batching_challenge challenge \rho used to batch the claims
+         * @param running_scalar current power of \rho used in the batching scalar
+         */
         void aggregate_claims_and_compute_batched_evaluation(std::vector<Commitment>& commitments,
                                                              std::vector<Fr>& scalars,
                                                              Fr& batched_evaluation,
                                                              const Fr& multivariate_batching_challenge,
                                                              Fr& running_scalar)
         {
-            auto batch_claims = [&](const ClaimBatch& batch, Fr& current_batching_challenge) {
+            // Append the commitments/scalars from a given batch to the global vectors of commitments and scalars;
+            // update the global batched evaluation and the running batching challenge in place
+            auto aggregate_claim_data_and_update_batched_evaluation = [&](const ClaimBatch& batch,
+                                                                          Fr& current_batching_challenge) {
                 for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
                     commitments.emplace_back(commitment);
                     scalars.emplace_back(-batch.batch_scalar * current_batching_challenge);
@@ -240,11 +276,12 @@ template <typename Curve> class ShpleminiVerifier_ {
                 }
             };
 
+            // Incorporate the claim data from each batch of claims that is present
             if (unshifted) {
-                batch_claims(*unshifted, running_scalar);
+                aggregate_claim_data_and_update_batched_evaluation(*unshifted, running_scalar);
             }
             if (shifted) {
-                batch_claims(*shifted, running_scalar);
+                aggregate_claim_data_and_update_batched_evaluation(*shifted, running_scalar);
             }
         }
     };
