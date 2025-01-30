@@ -12,5 +12,5 @@ shift
 if [ "$cmd" = kind ]; then
   ./test_kind.sh "$@"
 elif [ "$cmd" = local ]; then
-  docker_isolate ../../scripts/run_native_testnet.sh -i $@
+  docker_isolate ../../scripts/run_native_testnet.sh -i "$@"
 fi
