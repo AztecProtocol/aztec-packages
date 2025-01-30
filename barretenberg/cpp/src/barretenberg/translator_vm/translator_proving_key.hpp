@@ -92,8 +92,10 @@ class TranslatorProvingKey {
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
     {
+        // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
+        // to 10 rounds of folding (i.e. 20 circuits)
+        ASSERT(circuit.num_gates < Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
         const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
-        info("translator, minicircuit size ", Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
         // Next power of 2
         mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
     }

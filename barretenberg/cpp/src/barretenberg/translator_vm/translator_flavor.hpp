@@ -22,7 +22,7 @@ namespace bb {
 class TranslatorFlavor {
 
   public:
-    static constexpr size_t mini_circuit_size = 2048;
+    static constexpr size_t mini_circuit_size = 8192;
     using CircuitBuilder = TranslatorCircuitBuilder;
     using Curve = curve::BN254;
     using PCS = KZG<Curve>;

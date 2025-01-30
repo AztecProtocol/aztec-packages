@@ -305,20 +305,10 @@ template <typename Flavor> class SumcheckProver {
                 // Place the evaluations of the round univariate into transcript.
                 transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             } else {
-                // 1. Record the start time
-                auto start_time = std::chrono::high_resolution_clock::now();
                 // Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
                 // needed in the PCS round
                 commit_to_round_univariate(
                     round_idx, round_univariate, eval_domain, transcript, ck, round_univariates, round_evaluations);
-                // 3. Record the end time
-                auto end_time = std::chrono::high_resolution_clock::now();
-
-                // 4. Compute the duration in milliseconds
-                auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-
-                // 5. Print/log the timing
-                info("Time spent on commit to round univariate sumcheck: " + std::to_string(duration_ms) + " ms");
             }
 
             const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
