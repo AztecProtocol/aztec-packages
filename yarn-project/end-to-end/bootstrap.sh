@@ -92,14 +92,14 @@ function test_cmds {
 }
 
 case "$cmd" in
-"clean")
-  git clean -fdx
-  ;;
-"test-cmds")
-  test_cmds
-  ;;
-*)
-  echo "Unknown command: $cmd"
-  exit 1
+  "clean")
+    git clean -fdx
+    ;;
+  "test-cmds")
+    test_cmds
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
   ;;
 esac
