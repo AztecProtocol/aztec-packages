@@ -125,7 +125,7 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  async addLogs(blocks: L2Block[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       const taggedLogsToAdd = blocks
         .flatMap(block => [this.#extractTaggedLogsFromPrivate(block), this.#extractTaggedLogsFromPublic(block)])
@@ -180,7 +180,7 @@ export class LogStore {
     });
   }
 
-  async deleteLogs(blocks: L2Block[]): Promise<boolean> {
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       const tagsToDelete = (
         await Promise.all(

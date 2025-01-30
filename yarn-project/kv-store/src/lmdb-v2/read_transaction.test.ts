@@ -2,9 +2,15 @@ import { toArray } from '@aztec/foundation/iterable';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { expect } from 'chai';
-import { SinonStubbedInstance, stub } from 'sinon';
+import { type SinonStubbedInstance, stub } from 'sinon';
 
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageChannel, LMDBMessageType, LMDBResponseBody } from './message.js';
+import {
+  CURSOR_PAGE_SIZE,
+  Database,
+  type LMDBMessageChannel,
+  LMDBMessageType,
+  type LMDBResponseBody,
+} from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 
 describe('ReadTransaction', () => {
@@ -128,7 +134,9 @@ describe('ReadTransaction', () => {
         expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
         throw new Error();
       }
-    } catch {}
+    } catch {
+      // no op
+    }
 
     expect(
       channel.sendMessage.calledWith(LMDBMessageType.CLOSE_CURSOR, {

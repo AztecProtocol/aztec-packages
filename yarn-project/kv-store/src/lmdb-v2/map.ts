@@ -1,10 +1,10 @@
 import { Encoder } from 'msgpackr';
 
-import { Key, Range } from '../interfaces/common.js';
-import { type AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
-import { ReadTransaction } from './read_transaction.js';
-import { AztecLMDBStoreV2 } from './store.js';
-import { deserializeKey, execInReadTx, execInWriteTx, maxKey, minKey, serializeKey } from './utils.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import { type ReadTransaction } from './read_transaction.js';
+import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
 export class LMDBMap<K extends Key, V> implements AztecAsyncMap<K, V> {
   private prefix: string;
@@ -18,7 +18,7 @@ export class LMDBMap<K extends Key, V> implements AztecAsyncMap<K, V> {
    * @param key - The key to set the value at
    * @param val - The value to set
    */
-  async set(key: K, val: V): Promise<void> {
+  set(key: K, val: V): Promise<void> {
     return execInWriteTx(this.store, tx => tx.set(serializeKey(this.prefix, key), this.encoder.pack(val)));
   }
 
@@ -69,7 +69,7 @@ export class LMDBMap<K extends Key, V> implements AztecAsyncMap<K, V> {
     const endKey = range?.end ? serializeKey(this.prefix, range.end) : reverse ? maxKey(this.prefix) : undefined;
 
     let tx: ReadTransaction | undefined = this.store.getCurrentWriteTx();
-    let shouldClose = !tx;
+    const shouldClose = !tx;
     tx ??= this.store.getReadTx();
 
     try {
@@ -125,7 +125,7 @@ export class LMDBMultiMap<K extends Key, V> implements AztecAsyncMultiMap<K, V> 
    * @param key - The key to set the value at
    * @param val - The value to set
    */
-  async set(key: K, val: V): Promise<void> {
+  set(key: K, val: V): Promise<void> {
     return execInWriteTx(this.store, tx => tx.setIndex(serializeKey(this.prefix, key), this.encoder.pack(val)));
   }
 
@@ -174,7 +174,7 @@ export class LMDBMultiMap<K extends Key, V> implements AztecAsyncMultiMap<K, V> 
     const endKey = range?.end ? serializeKey(this.prefix, range.end) : reverse ? maxKey(this.prefix) : undefined;
 
     let tx: ReadTransaction | undefined = this.store.getCurrentWriteTx();
-    let shouldClose = !tx;
+    const shouldClose = !tx;
     tx ??= this.store.getReadTx();
 
     try {

@@ -1,4 +1,4 @@
-import { Batch, Database, LMDBMessageType } from './message.js';
+import { type Batch, Database, LMDBMessageType } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import {
   dedupeSortedArray,
@@ -67,7 +67,7 @@ export class WriteTransaction extends ReadTransaction {
       return undefined;
     }
 
-    return super.get(key);
+    return await super.get(key);
   }
 
   setIndex(key: Buffer, ...values: Buffer[]): Promise<void> {

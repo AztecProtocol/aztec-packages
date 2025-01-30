@@ -60,15 +60,13 @@ export class NullifierStore {
     blockNumber: number,
     nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]> {
-    const maybeNullifiers = await this.db.transactionAsync(async () => {
-      return Promise.all(
-        nullifiers.map(async nullifier => ({
-          data: await this.#nullifiersToIndex.getAsync(nullifier.toString()),
-          l2BlockNumber: await this.#nullifiersToBlockNumber.getAsync(nullifier.toString()),
-          l2BlockHash: await this.#nullifiersToBlockHash.getAsync(nullifier.toString()),
-        })),
-      );
-    });
+    const maybeNullifiers = await Promise.all(
+      nullifiers.map(async nullifier => ({
+        data: await this.#nullifiersToIndex.getAsync(nullifier.toString()),
+        l2BlockNumber: await this.#nullifiersToBlockNumber.getAsync(nullifier.toString()),
+        l2BlockHash: await this.#nullifiersToBlockHash.getAsync(nullifier.toString()),
+      })),
+    );
     return maybeNullifiers.map(({ data, l2BlockNumber, l2BlockHash }) => {
       if (
         data === undefined ||

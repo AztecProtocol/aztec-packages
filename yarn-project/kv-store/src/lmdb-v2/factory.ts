@@ -1,11 +1,11 @@
 import { EthAddress } from '@aztec/circuits.js';
-import { Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { DataStoreConfig } from '../config.js';
+import { type DataStoreConfig } from '../config.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
 const ROLLUP_ADDRESS_FILE = 'rollup_address';
@@ -16,16 +16,16 @@ export async function createStore(
   config: DataStoreConfig,
   log: Logger = createLogger('kv-store:lmdb-v2:' + name),
 ): Promise<AztecLMDBStoreV2> {
-  let { dataDirectory, l1Contracts } = config;
+  const { dataDirectory, l1Contracts } = config;
 
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
-    dataDirectory = join(dataDirectory, name);
-    await mkdir(dataDirectory);
+    const subDir = join(dataDirectory, name);
+    await mkdir(subDir);
 
     if (l1Contracts) {
       const { rollupAddress } = l1Contracts;
-      const localRollupAddress = await readFile(join(dataDirectory, ROLLUP_ADDRESS_FILE), 'utf-8')
+      const localRollupAddress = await readFile(join(subDir, ROLLUP_ADDRESS_FILE), 'utf-8')
         .then(EthAddress.fromString)
         .catch(() => EthAddress.ZERO);
 
@@ -36,24 +36,18 @@ export async function createStore(
             found: localRollupAddress,
           });
 
-          await rm(dataDirectory, { recursive: true, force: true });
-          await mkdir(dataDirectory);
+          await rm(subDir, { recursive: true, force: true });
+          await mkdir(subDir);
         }
 
-        await writeFile(join(dataDirectory, ROLLUP_ADDRESS_FILE), rollupAddress.toString());
+        await writeFile(join(subDir, ROLLUP_ADDRESS_FILE), rollupAddress.toString());
       }
     }
 
     log.info(
-      `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB (LMDB v2)`,
+      `Creating ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKB} KB (LMDB v2)`,
     );
-    store = await AztecLMDBStoreV2.new(
-      dataDirectory,
-      config.dataStoreMapSizeKB,
-      MAX_READERS,
-      () => Promise.resolve(),
-      log,
-    );
+    store = await AztecLMDBStoreV2.new(subDir, config.dataStoreMapSizeKB, MAX_READERS, () => Promise.resolve(), log);
   } else {
     store = await openTmpStore(name, true, config.dataStoreMapSizeKB, MAX_READERS, log);
   }
