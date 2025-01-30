@@ -1,4 +1,4 @@
-use std::meta::{typ::fresh_type_variable, unquote};
+use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
