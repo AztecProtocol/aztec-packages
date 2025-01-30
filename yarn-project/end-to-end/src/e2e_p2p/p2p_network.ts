@@ -138,8 +138,8 @@ export class P2PNetworkTest {
    * Start a loop to sync the mock system time with the L1 block time
    */
   public startSyncMockSystemTimeInterval() {
-    this.cleanupInterval = setInterval(async () => {
-      await this.syncMockSystemTime();
+    this.cleanupInterval = setInterval(() => {
+      void this.syncMockSystemTime().catch(err => this.logger.error('Error syncing mock system time', err));
     }, l1ContractsConfig.aztecSlotDuration * 1000);
   }
 

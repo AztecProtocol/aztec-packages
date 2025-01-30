@@ -41,7 +41,7 @@ export async function deployAccount(
   let txReceipt;
 
   const sendOpts: DeployAccountOptions = {
-    ...feeOpts.toSendOpts(wallet),
+    ...(await feeOpts.toSendOpts(wallet)),
     skipInitialization: false,
   };
   if (feeOpts.estimateOnly) {
