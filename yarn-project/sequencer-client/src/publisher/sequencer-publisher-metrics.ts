@@ -12,7 +12,7 @@ import { formatEther } from 'viem/utils';
 
 export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
 
-export class L1PublisherMetrics {
+export class SequencerPublisherMetrics {
   private gasPrice: Histogram;
 
   private txCount: UpDownCounter;
@@ -28,7 +28,7 @@ export class L1PublisherMetrics {
   private readonly blobTxSuccessCounter: UpDownCounter;
   private readonly blobTxFailureCounter: UpDownCounter;
 
-  constructor(client: TelemetryClient, name = 'L1Publisher') {
+  constructor(client: TelemetryClient, name = 'SequencerPublisher') {
     const meter = client.getMeter(name);
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
