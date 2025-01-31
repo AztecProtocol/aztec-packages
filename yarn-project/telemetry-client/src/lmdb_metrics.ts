@@ -7,7 +7,7 @@ import {
   ValueType,
 } from './telemetry.js';
 
-export type LmdbStatsCallback = () => { mappingSize: number; numItems: number; actualSize: number };
+export type LmdbStatsCallback = () => Promise<{ mappingSize: number; numItems: number; actualSize: number }>;
 
 export class LmdbMetrics {
   private dbMapSize: ObservableGauge;
@@ -18,10 +18,12 @@ export class LmdbMetrics {
     this.dbMapSize = meter.createObservableGauge(DB_MAP_SIZE, {
       description: 'LMDB Map Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
     this.dbUsedSize = meter.createObservableGauge(DB_USED_SIZE, {
       description: 'LMDB Used Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
     this.dbNumItems = meter.createObservableGauge(DB_NUM_ITEMS, {
       description: 'LMDB Num Items',
@@ -31,11 +33,11 @@ export class LmdbMetrics {
     meter.addBatchObservableCallback(this.recordDBMetrics, [this.dbMapSize, this.dbUsedSize, this.dbNumItems]);
   }
 
-  private recordDBMetrics = (observable: BatchObservableResult) => {
+  private recordDBMetrics = async (observable: BatchObservableResult) => {
     if (!this.getStats) {
       return;
     }
-    const metrics = this.getStats();
+    const metrics = await this.getStats();
     observable.observe(this.dbMapSize, metrics.mappingSize, this.attributes);
     observable.observe(this.dbNumItems, metrics.numItems, this.attributes);
     observable.observe(this.dbUsedSize, metrics.actualSize, this.attributes);
