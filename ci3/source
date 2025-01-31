@@ -14,8 +14,8 @@ export ci3="$root/ci3"
 export DEVBOX_IMAGE=aztecprotocol/devbox:3.0
 export ISOLATION_IMAGE=aztecprotocol/build:3.0
 
+source $ci3/source_refname
 source $ci3/source_options
 source $ci3/source_stdlib
 source $ci3/source_color
 source $ci3/source_redis
-source $ci3/source_refname
