@@ -8,7 +8,6 @@ using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
