@@ -21,8 +21,26 @@ function encodeFirstField(length: number): Fr {
   );
 }
 
+/**
+ * Make an encoded blob with the given length
+ *
+ * This will fail deserialisation in the archiver
+ * @param length
+ * @returns
+ */
 export function makeEncodedBlob(length: number): Promise<Blob> {
   return Blob.fromFields([encodeFirstField(length + 1), ...Array.from({ length: length }, () => Fr.random())]);
+}
+
+/**
+ * Make an unencoded blob with the given length
+ *
+ * This will fail deserialisation in the archiver
+ * @param length
+ * @returns
+ */
+export function makeUnencodedBlob(length: number): Promise<Blob> {
+  return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
 }
 
 export function makeEncodedBlobFields(fields: Fr[]): Promise<Blob> {
