@@ -25,4 +25,4 @@ else
 fi
 export REF_NAME="${REF_NAME#release/}"
 
-[ -z "$COMMIT_HASH" ] && export COMMIT_HASH=$(git rev-parse HEAD)
+[ -z "${COMMIT_HASH:-}" ] && export COMMIT_HASH=$(git rev-parse HEAD)
