@@ -1,4 +1,5 @@
 import {
+  ContractClassTxL2Logs,
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -77,12 +78,16 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   /**
    * Removes new contracts added from transactions
    * @param tx - The tx's contracts to be removed
+   * @param onlyRevertible - Whether to only remove contracts added from revertible contract class logs
    */
-  public async removeNewContracts(tx: Tx): Promise<void> {
+  public async removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const siloedLogs = await Promise.all(tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)));
+    const contractClassLogs = onlyRevertible
+      ? tx.data.forPublic!.revertibleAccumulatedData.contractClassLogs
+      : tx.data.getNonEmptyContractClassLogs();
+    const siloedLogs = await Promise.all(contractClassLogs.map(log => siloContractClassLog(log)));
     siloedLogs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
       .forEach(log => {
@@ -91,8 +96,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       });
 
     // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
-    const contractInstanceEvents = tx.data
-      .getNonEmptyPrivateLogs()
+    const privateLogs = onlyRevertible
+      ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
+      : tx.data.getNonEmptyPrivateLogs();
+    const contractInstanceEvents = privateLogs
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
       .map(ContractInstanceDeployedEvent.fromLog);
     contractInstanceEvents.forEach(e => this.instanceCache.delete(e.address.toString()));
