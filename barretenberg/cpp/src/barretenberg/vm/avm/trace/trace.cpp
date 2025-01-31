@@ -176,6 +176,50 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_
     return bytecode_hint.bytecode;
 }
 
+void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, const ContractInstanceHint& instance)
+{
+    if (is_canonical(instance.address)) {
+        return;
+    }
+    // First validate the update_preimage against the public data tree
+    PublicDataReadTreeHint read_hint = instance.update_membership_hint;
+
+    const FF shared_mutable_slot = Poseidon2::hash({ 1, instance.address });
+    const FF hash_slot = Poseidon2::hash({ shared_mutable_slot, 2 });
+    const FF hash_leaf_slot =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_public_tree_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+    bool exists = read_hint.leaf_preimage.slot == hash_leaf_slot;
+
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    // membership check must always pass
+    ASSERT(is_member);
+
+    if (exists) {
+        const FF reproduced_hash = Poseidon2::hash(instance.update_preimage);
+        ASSERT(reproduced_hash == read_hint.leaf_preimage.value);
+    } else {
+        AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(read_hint.leaf_preimage, hash_leaf_slot);
+        // ensure instance.update_preimage is all zeroes
+        ASSERT(std::all_of(
+            instance.update_preimage.begin(), instance.update_preimage.end(), [](const auto& x) { return x == 0; }));
+    }
+
+    // update_preimage is validated, now validate the contract class id
+    FF expected_current_class_id;
+    const FF prev_value = instance.update_preimage[0];
+    const FF block_of_change = instance.update_preimage[1];
+    const FF next_value = instance.update_preimage[2];
+    // Fourth item is related to update delays which we don't care.
+    if (public_inputs.global_variables.block_number < block_of_change) {
+        // original class id was validated agains the address
+        expected_current_class_id = prev_value == 0 ? instance.original_contract_class_id : prev_value;
+    } else {
+        expected_current_class_id = next_value;
+    }
+    ASSERT(expected_current_class_id == instance.current_contract_class_id);
+}
+
 std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -231,6 +275,8 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(nullifier_read_hint.low_leaf_preimage,
                                                                              contract_address_nullifier);
         }
+
+        validate_contract_instance_current_class_id(clk, instance_hint);
     }
 
     if (exists) {
@@ -3538,6 +3584,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
                        (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
                         contract_address_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
             }
+            validate_contract_instance_current_class_id(clk, instance);
         }
 
         if (exists) {
