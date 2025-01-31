@@ -105,7 +105,12 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
-    auto mock_claims = MockClaimGenerator(n, 2, 1, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 1,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -154,7 +159,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
-    auto mock_claims = MockClaimGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -195,7 +205,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mock_claims = MockClaimGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
         generate_concatenation_inputs<Curve>(mle_opening_point, /*num_concatenated=*/3, /*concatenation_index=*/2, ck);
@@ -255,7 +270,12 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mock_claims = MockClaimGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

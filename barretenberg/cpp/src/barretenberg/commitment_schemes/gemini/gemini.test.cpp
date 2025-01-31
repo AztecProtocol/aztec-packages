@@ -109,7 +109,8 @@ TYPED_TEST_SUITE(GeminiTest, ParamsTypes);
 TYPED_TEST(GeminiTest, Single)
 {
     auto u = this->random_evaluation_point(this->log_n);
-    auto mock_claims = MockClaimGenerator(this->n, 1, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
@@ -118,7 +119,18 @@ TYPED_TEST(GeminiTest, SingleShift)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto mock_claims = MockClaimGenerator(this->n, 1, 1, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 1, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
+
+    this->execute_gemini_and_verify_claims(u, mock_claims);
+}
+
+TYPED_TEST(GeminiTest, SingleRightShiftByK)
+{
+    auto u = this->random_evaluation_point(this->log_n);
+
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 1, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
@@ -128,7 +140,8 @@ TYPED_TEST(GeminiTest, Double)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto mock_claims = MockClaimGenerator(this->n, 2, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
@@ -138,7 +151,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto mock_claims = MockClaimGenerator(this->n, 2, 1, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 1, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
@@ -147,7 +161,8 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto mock_claims = MockClaimGenerator(this->n, 2, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
         generate_concatenation_inputs<TypeParam>(u, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck);

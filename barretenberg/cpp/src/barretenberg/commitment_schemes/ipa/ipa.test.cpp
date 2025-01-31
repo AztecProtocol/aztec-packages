@@ -248,7 +248,12 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
 
-    auto mock_claims = MockClaimGenerator(small_n, 2, 0, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 0,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -278,7 +283,12 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto mock_claims = MockClaimGenerator(small_n, 2, 0, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 0,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -310,7 +320,12 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto mock_claims = MockClaimGenerator(small_n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

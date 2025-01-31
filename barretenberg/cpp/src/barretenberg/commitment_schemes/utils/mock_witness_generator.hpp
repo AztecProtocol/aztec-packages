@@ -25,6 +25,16 @@ template <typename Curve> struct MockClaimGenerator {
 
     std::shared_ptr<CommitmentKey> ck;
 
+    struct ClaimData {
+        std::vector<Polynomial> polynomials;
+        std::vector<Commitment> comitments;
+        std::vector<Fr> evaluations;
+    };
+
+    ClaimData unshifted;
+    ClaimData to_be_shifted;
+    ClaimData to_be_right_shifted_by_k;
+
     std::vector<Polynomial> unshifted_polynomials = {};
     std::vector<Polynomial> to_be_shifted_polynomials;
     std::vector<Polynomial> to_be_shifted_by_k_polynomials;
@@ -47,6 +57,8 @@ template <typename Curve> struct MockClaimGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
+    static constexpr size_t k_magnitude = 5; // mock shift magnitude for right-shift-by-k
+
     /**
      * @brief Construct claim data for a set of random polynomials with the specified type
      * @note All to-be-shifted polynomials have an unshifted counterpart so the total number of claims is
@@ -61,14 +73,16 @@ template <typename Curve> struct MockClaimGenerator {
     MockClaimGenerator(const size_t poly_size,
                        const size_t num_polynomials,
                        const size_t num_to_be_shifted,
+                       const size_t num_to_be_right_shifted_by_k,
                        const std::vector<Fr>& mle_opening_point,
                        std::shared_ptr<CommitmentKey>& commitment_key)
         : ck(commitment_key) // Initialize the commitment key
         , polynomial_batcher(poly_size)
 
     {
-        ASSERT(num_polynomials >= num_to_be_shifted);
-        const size_t num_not_to_be_shifted = num_polynomials - num_to_be_shifted;
+        const size_t total_num_to_be_shifted = num_to_be_shifted + num_to_be_right_shifted_by_k;
+        ASSERT(num_polynomials >= total_num_to_be_shifted);
+        const size_t num_not_to_be_shifted = num_polynomials - total_num_to_be_shifted;
 
         // Construct claim data for polynomials that are NOT to be shifted
         for (size_t idx = 0; idx < num_not_to_be_shifted; idx++) {
@@ -82,12 +96,27 @@ template <typename Curve> struct MockClaimGenerator {
         for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
             to_be_shifted_commitments.push_back(ck->commit(poly));
-            shifted_evals.push_back(poly.evaluate_mle(mle_opening_point, /*shifted*/ true));
+            shifted_evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
             to_be_shifted_polynomials.push_back(std::move(poly));
         }
 
-        // All to-be-shifted polynomials have an unshifted counterpart; update the unshifted claim data accordingly
+        // Construct claim data for polynomials that are to-be-right-shifted-by-k
+        for (size_t idx = 0; idx < num_to_be_right_shifted_by_k; idx++) {
+            Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+            to_be_shifted_by_k_commitments.push_back(ck->commit(poly));
+            shifted_by_k_evals.push_back(poly.evaluate_mle(mle_opening_point, /*shifted*/ true));
+            to_be_shifted_by_k_polynomials.push_back(std::move(poly));
+        }
+
+        // Add an unshifted counterpart for each to-be-shifted claim
         for (const auto& [poly, comm] : zip_view(to_be_shifted_polynomials, to_be_shifted_commitments)) {
+            unshifted_polynomials.push_back(poly.share());
+            unshifted_commitments.push_back(comm);
+            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
+        }
+
+        // Add an unshifted counterpart for each to-be-shifted-by-k claim
+        for (const auto& [poly, comm] : zip_view(to_be_shifted_by_k_polynomials, to_be_shifted_by_k_commitments)) {
             unshifted_polynomials.push_back(poly.share());
             unshifted_commitments.push_back(comm);
             unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
