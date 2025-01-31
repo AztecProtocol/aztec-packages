@@ -20,7 +20,8 @@ RUN apt update && apt install -y \
       ca-certificates \
       git \
       gnupg \
-      netcat-openbsd && \
+      netcat-openbsd \
+      jq && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt update && apt install -y nodejs=18.19.1-1nodesource1 && \
     rm -rf /var/lib/apt/lists/*
