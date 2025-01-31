@@ -575,51 +575,36 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);
             for (size_t i = 0; i < half_round_length; ++i) {
-                info(i);
                 negative_accumulator = negative_accumulator + negative_accumulator + field_t<C>(nafs[i]);
-
-                info(negative_accumulator);
                 positive_accumulator =
                     positive_accumulator + positive_accumulator + field_t<C>(1) - field_t<C>(nafs[i]);
-                info(positive_accumulator);
             }
             return std::make_pair(positive_accumulator, negative_accumulator);
         };
-        info(Fr::NUM_LIMB_BITS);
         const size_t midpoint =
             (num_rounds > Fr::NUM_LIMB_BITS * 2) ? num_rounds - Fr::NUM_LIMB_BITS * 2 : num_rounds / 2;
-        info(midpoint);
-        info("reconstruct hi");
 
-        auto hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
-        info("reconstruct low");
+        std::pair<field_t<C>, field_t<C>> hi_accumulators;
+        std::pair<field_t<C>, field_t<C>> lo_accumulators;
 
-        auto lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
+        if (num_rounds > Fr::NUM_LIMB_BITS * 2) {
+            hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
+            lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
 
-        // for (size_t idx = 0; idx < naf_entries.size(); idx++) {
-        //     info("idx ", idx, "  ", naf_entries[idx]);
-        // }
+        } else {
+            // If the number of rounds is smaller than Fr::NUM_LIMB_BITS, the high bits of the resulting Fr element are
+            // 0.
+            lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
+            hi_accumulators = std::make_pair(field_t<C>(0), field_t<C>(0));
+        }
+
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
-        info("hi accum first ", hi_accumulators.first);
-        info("lo accum first ", lo_accumulators.first);
 
-        Fr reconstructed_negative;
-        if (num_rounds > Fr::NUM_LIMB_BITS * 2) {
-            reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
-        } else {
-        }
-
-        info("hi accum second ", hi_accumulators.second);
-        info("lo accum second ", lo_accumulators.second);
-
-        info(reconstructed_negative);
-        info(reconstructed_positive);
+        Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
 
         Fr accumulator = reconstructed_positive - reconstructed_negative;
-        info(accumulator);
-        info(scalar);
         accumulator.assert_equal(scalar);
     }
     // Propagate tags to naf

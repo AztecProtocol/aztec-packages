@@ -836,14 +836,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         return accumulator;
     }
 }
+/**
+ * Implements scalar multiplication operator.
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
+{
+    // Use `scalar_mul` method without specifying the length of `scalar`.
+    return scalar_mul(scalar);
+}
 
 /**
- * Implements scalar multiplication.
+ * Implements scalar multiplication that supports short scalars.
  *
  * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
  **/
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t num_bits) const
 {
     /**
      *
@@ -868,43 +877,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      * specifics.
      *
      **/
+    bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
-    constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
-
-    std::vector<bool_ct> naf_entries = compute_naf(scalar);
-
-    const auto offset_generators = compute_offset_generators(num_rounds);
-
-    element accumulator = *this + offset_generators.first;
-
-    for (size_t i = 1; i < num_rounds; ++i) {
-        bool_ct predicate = naf_entries[i];
-        bigfield y_test = y.conditional_negate(predicate);
-        element to_add(x, y_test);
-        accumulator = accumulator.montgomery_ladder(to_add);
-    }
-
-    element skew_output = accumulator - (*this);
-
-    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
-    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-    return element(out_x, out_y) - element(offset_generators.second);
-}
-/**
- * @brief Specialization of the * operator to take advantage of 128 bit challenges. Note that we can not determine the
- * num_rounds dynamically, as it would lead to non-fixed recursive verifier circuits sizes.
- */
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::short_scalar_mul(const Fr& scalar, const size_t num_bits) const
-{
-    const size_t num_rounds = num_bits;
+    const size_t num_rounds = (num_bits == 0) ? Fr::modulus.get_msb() + 1 : num_bits;
 
     std::vector<bool_ct> naf_entries = compute_naf(scalar, num_rounds);
 
     const auto offset_generators = compute_offset_generators(num_rounds);
 
-    element accumulator = *this + offset_generators.first;
+    element accumulator = (*this) + offset_generators.first;
 
     for (size_t i = 1; i < num_rounds; ++i) {
         bool_ct predicate = naf_entries[i];
@@ -917,7 +898,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::short_scalar_mul(const Fr& scalar, 
 
     Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
     Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-    return element(out_x, out_y) - element(offset_generators.second);
+    Fq result_x = Fq::conditional_assign(is_point_at_infinity, x, out_x - offset_generators.second.x);
+    Fq result_y = Fq::conditional_assign(is_point_at_infinity, y, out_y - offset_generators.second.y);
+    element result(result_x, result_y);
+    result.set_point_at_infinity(is_point_at_infinity);
+    return result;
 }
 } // namespace bb::stdlib::element_default

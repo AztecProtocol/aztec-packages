@@ -144,7 +144,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
-    element short_scalar_mul(const Fr& scalar, const size_t num_bits) const;
+    element scalar_mul(const Fr& scalar, const size_t num_bits = 0) const;
 
     element reduce() const
     {
