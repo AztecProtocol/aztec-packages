@@ -17,6 +17,20 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: bot
     spec:
+      {{- if .Values.bot.gke.spotEnabled }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}

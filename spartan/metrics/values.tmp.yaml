@@ -7,6 +7,9 @@ opentelemetry-collector:
   image:
     repository: "otel/opentelemetry-collector-contrib"
 
+  nodeSelector:
+    node-type: infra
+
   ports:
     otlp-http:
       enabled: true
@@ -114,6 +117,18 @@ prometheus:
     global:
       evaluation_interval: 15s
       scrape_interval: 15s
+  alertmanager:
+    nodeSelector:
+        node-type: infra
+  nodeExporter:
+    nodeSelector:
+        node-type: infra
+  server:
+    nodeSelector:
+        node-type: infra
+  pushgateway:
+    nodeSelector:
+        node-type: infra
   serverFiles:
     prometheus.yml:
       scrape_configs:
@@ -131,6 +146,8 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  nodeSelector:
+    node-type: infra
   datasources:
     datasources.yaml:
       apiVersion: 1

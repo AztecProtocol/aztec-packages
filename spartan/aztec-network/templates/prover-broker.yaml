@@ -30,6 +30,7 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet

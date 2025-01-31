@@ -16,6 +16,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
+      nodeSelector:
+        node-type: network
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true

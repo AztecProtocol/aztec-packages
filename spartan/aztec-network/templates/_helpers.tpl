@@ -192,7 +192,7 @@ affinity:
 
 {{- define "aztec-network.gcpLocalSsd" -}}
 nodeSelector:
-  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+  local-ssd: "true"
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}

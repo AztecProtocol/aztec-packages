@@ -29,6 +29,7 @@ spec:
     spec:
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
       dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true

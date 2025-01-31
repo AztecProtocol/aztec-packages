@@ -18,6 +18,8 @@ spec:
         app: faucet
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      nodeSelector:
+        node-type: network
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
