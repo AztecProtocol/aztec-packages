@@ -312,12 +312,6 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 #include_code burn_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `setup_refund`
-
-This private function may be called by a Fee Paying Contract (FPC) in order to allow users to pay transaction fees privately on the network. This function ensures that the user has enough funds in their account to pay the transaction fees for the transaction, sets up partial notes for paying the fees to the `fee_payer` and sending any unspent fees back to the user, and enqueues a call to the internal, public [`complete_refund`](#complete_refund) function to be run as part of the public execution step.
-
-#include_code setup_refund /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
 #### `prepare_private_balance_increase`
 
 TODO: update from `prepare_transfer_to_private`
@@ -341,12 +335,6 @@ This function is called from [`transfer_to_public`](#transfer_to_public). The ac
 This function is called from [`burn`](#burn). The account's private balance is decremented in `burn` and the public `total_supply` is reduced in this function.
 
 #include_code reduce_total_supply /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-#### `complete_refund`
-
-This public function is intended to be called during the public teardown at the end of public transaction execution. The call to this function is staged in [`setup_refund`](#setup_refund). This function ensures that the user has sufficient funds to cover the transaction costs and emits encrypted notes to the fee payer and the remaining, unused transaction fee back to the user.
-
-#include_code complete_refund /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `_finalize_transfer_to_private_unsafe`
 

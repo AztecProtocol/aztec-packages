@@ -35,6 +35,7 @@ contracts=(
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
 )
 

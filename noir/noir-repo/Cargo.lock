@@ -3177,6 +3177,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "noir_inspector"
+version = "1.0.0-beta.1"
+dependencies = [
+ "acir",
+ "clap",
+ "color-eyre",
+ "const_format",
+ "noirc_artifacts",
+ "noirc_artifacts_info",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "noir_lsp"
 version = "1.0.0-beta.1"
 dependencies = [

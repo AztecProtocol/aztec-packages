@@ -12,7 +12,7 @@ use super::map::Id;
 use super::types::Type;
 use super::value::ValueId;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub(crate) enum RuntimeType {
     // A noir function, to be compiled in ACIR and executed by ACVM
     Acir(InlineType),
@@ -143,10 +143,7 @@ impl Function {
     }
 
     pub(crate) fn is_no_predicates(&self) -> bool {
-        match self.runtime() {
-            RuntimeType::Acir(inline_type) => matches!(inline_type, InlineType::NoPredicates),
-            RuntimeType::Brillig(_) => false,
-        }
+        self.runtime().is_no_predicates()
     }
 
     /// Retrieves the entry block of a function.

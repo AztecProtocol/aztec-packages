@@ -126,6 +126,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config);
 
+      this.log.debug(`Fetching blob sidecar from ${url} with options`, options);
+
       const res = await this.fetch(url, options);
 
       if (res.ok) {
