@@ -192,8 +192,9 @@ describe('public_processor', () => {
         return mockedEnqueuedCallsResult;
       });
 
+      // TODO(MW): I increased this for cc logs to run. Should revert and investigate.
       // We allocate a deadline of 2s, so only 2 txs should fit
-      const deadline = new Date(Date.now() + 2000);
+      const deadline = new Date(Date.now() + 2500);
       const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);

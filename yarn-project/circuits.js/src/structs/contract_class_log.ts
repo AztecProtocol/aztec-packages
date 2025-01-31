@@ -44,7 +44,9 @@ export class ContractClassLog {
     const reader = BufferReader.asReader(buffer);
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     // reader.readArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, Fr);
-    const fields = Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, () => Fr.fromBuffer(reader));
+    const fields = Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, () =>
+      reader.remainingBytes() == 0 ? Fr.ZERO : Fr.fromBuffer(reader),
+    );
     return new ContractClassLog(fields);
   }
 
