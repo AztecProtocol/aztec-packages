@@ -89,26 +89,25 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name = "prometheus.serverFiles"
-    value = yamlencode({
-      "prometheus.yml" = {
-        scrape_configs = [
-          {
-            job_name = "otel-collector"
-            static_configs = [{
-              targets = ["http://${google_compute_address.otel_collector_ip.address}:8888"]
-            }]
-          },
-          {
-            job_name = "aztec"
-            static_configs = [{
-              targets = ["http://${google_compute_address.otel_collector_ip.address}:8889"]
-            }]
-          }
-        ]
-      }
-    })
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[0].job_name"
+    value = "otel-collector"
   }
+
+  set {
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[0].static_configs[0].targets[0]"
+    value = "http://${google_compute_address.otel_collector_ip.address}:8888"
+  }
+
+  set {
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[1].job_name"
+    value = "aztec"
+  }
+
+  set {
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[1].static_configs[0].targets[0]"
+    value = "http://${google_compute_address.otel_collector_ip.address}:8889"
+  }
+
 
 
   # Setting timeout and wait conditions
