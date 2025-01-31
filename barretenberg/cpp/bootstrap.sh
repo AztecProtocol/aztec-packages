@@ -95,11 +95,13 @@ function build_release {
   mkdir build-release
   local arch=$(arch)
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
-  tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+  if [ "$REF_NAME" == "master" ]; then
+    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
+  fi
 }
 
 export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
