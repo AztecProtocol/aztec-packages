@@ -88,6 +88,20 @@ resource "helm_release" "aztec-gke-cluster" {
     value = google_compute_address.otel_collector_ip.address
   }
 
+  set {
+    name  = "prometheus.serverFiles"
+    value = <<EOT
+    prometheus.yml:
+      scrape_configs:
+        - job_name: otel-collector
+          static_configs:
+            - targets: ["http://${google_compute_address.otel_collector_ip.address}:8888"]
+        - job_name: aztec
+          static_configs:
+            - targets: ["http://${google_compute_address.otel_collector_ip.address}:8889"]
+EOT
+  }
+
 
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
