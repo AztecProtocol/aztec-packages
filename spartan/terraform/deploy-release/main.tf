@@ -111,7 +111,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "telemetry.otelCollectorEndpoint"
-    value = "http://${data.terraform_remote_state.metrics.outputs.google_compute_address.otel_collector_ip.address}:4318"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
   }
 
   # Setting timeout and wait conditions
