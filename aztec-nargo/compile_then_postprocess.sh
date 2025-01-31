@@ -5,7 +5,7 @@
 # run nargo and then postprocess any created artifacts.
 #
 # Usage: compile_then_postprocess.sh [nargo args]
-set -eu
+set -euo pipefail
 
 NARGO=${NARGO:-nargo}
 TRANSPILER=${TRANSPILER:-avm-transpiler}

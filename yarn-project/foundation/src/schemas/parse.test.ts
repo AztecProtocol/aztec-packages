@@ -5,58 +5,58 @@ import { parseWithOptionals } from './parse.js';
 import { optional } from './utils.js';
 
 describe('parse', () => {
-  it('parses arguments without optionals', () => {
-    expect(parseWithOptionals([1, 2], z.tuple([z.number(), z.number()]))).toEqual([1, 2]);
+  it('parses arguments without optionals', async () => {
+    await expect(parseWithOptionals([1, 2], z.tuple([z.number(), z.number()]))).resolves.toEqual([1, 2]);
   });
 
-  it('handles providing all optional arguments', () => {
+  it('handles providing all optional arguments', async () => {
     const schema = z.tuple([z.number(), z.number().optional(), z.number().optional()]);
-    expect(parseWithOptionals([1, 2, 3], schema)).toEqual([1, 2, 3]);
+    await expect(parseWithOptionals([1, 2, 3], schema)).resolves.toEqual([1, 2, 3]);
   });
 
-  it('handles some missing optional arguments', () => {
+  it('handles some missing optional arguments', async () => {
     const schema = z.tuple([z.number(), z.number().optional(), z.number().optional()]);
-    expect(parseWithOptionals([1, 2], schema)).toEqual([1, 2, undefined]);
+    await expect(parseWithOptionals([1, 2], schema)).resolves.toEqual([1, 2, undefined]);
   });
 
-  it('handles all missing optional arguments', () => {
+  it('handles all missing optional arguments', async () => {
     const schema = z.tuple([z.number(), z.number().optional(), z.number().optional()]);
-    expect(parseWithOptionals([1], schema)).toEqual([1, undefined, undefined]);
+    await expect(parseWithOptionals([1], schema)).resolves.toEqual([1, undefined, undefined]);
   });
 
-  it('handles no arguments if all optional', () => {
+  it('handles no arguments if all optional', async () => {
     const schema = z.tuple([z.number().optional(), z.number().optional(), z.number().optional()]);
-    expect(parseWithOptionals([], schema)).toEqual([undefined, undefined, undefined]);
+    await expect(parseWithOptionals([], schema)).resolves.toEqual([undefined, undefined, undefined]);
   });
 
-  it('fails if a required argument is missing', () => {
+  it('fails if a required argument is missing', async () => {
     const schema = z.tuple([z.number(), z.number(), z.number().optional()]);
-    expect(() => parseWithOptionals([1], schema)).toThrow();
+    await expect(parseWithOptionals([1], schema)).rejects.toThrow();
   });
 
-  it('handles coerced bigint', () => {
+  it('handles coerced bigint', async () => {
     const schema = z.tuple([z.coerce.bigint()]);
-    expect(parseWithOptionals(['1'], schema)).toEqual([1n]);
+    await expect(parseWithOptionals(['1'], schema)).resolves.toEqual([1n]);
   });
 
-  it('handles coerced optional bigint', () => {
+  it('handles coerced optional bigint', async () => {
     const schema = z.tuple([z.coerce.bigint().optional()]);
-    expect(parseWithOptionals(['1'], schema)).toEqual([1n]);
+    await expect(parseWithOptionals(['1'], schema)).resolves.toEqual([1n]);
   });
 
-  it('handles missing coerced optional bigint', () => {
+  it('handles missing coerced optional bigint', async () => {
     const schema = z.tuple([z.coerce.bigint().optional()]);
-    expect(parseWithOptionals([], schema)).toEqual([undefined]);
+    await expect(parseWithOptionals([], schema)).resolves.toEqual([undefined]);
   });
 
-  it('fails on missing coerced required bigint', () => {
+  it('fails on missing coerced required bigint', async () => {
     const schema = z.tuple([z.coerce.bigint()]);
-    expect(() => parseWithOptionals([], schema)).toThrow();
+    await expect(parseWithOptionals([], schema)).rejects.toThrow();
   });
 
-  it('handles explicit undefined values', () => {
+  it('handles explicit undefined values', async () => {
     const schema = z.tuple([z.number(), optional(z.number())]);
     const parsed = JSON.parse(jsonStringify([3, undefined]));
-    expect(parseWithOptionals(parsed, schema)).toEqual([3, undefined]);
+    await expect(parseWithOptionals(parsed, schema)).resolves.toEqual([3, undefined]);
   });
 });

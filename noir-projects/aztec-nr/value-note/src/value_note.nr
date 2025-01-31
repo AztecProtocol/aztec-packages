@@ -8,18 +8,17 @@ use dep::aztec::{
     },
     oracle::random::random,
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 
 pub(crate) global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
-// ValueNote is used as fn parameter in the Claim contract, so it has to implement the Serialize trait.
-// It is important that the order of these annotations is preserved so that derive(Serialize) runs AFTER the note macro, which injects the note header.
 #[note]
-#[derive(Serialize)]
 pub struct ValueNote {
     value: Field,
     owner: AztecAddress,

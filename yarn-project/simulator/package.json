@@ -92,7 +92,7 @@
     "lodash.merge": "^4.6.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",

@@ -37,8 +37,8 @@ export class IndexedTaggingSecret {
    * @param app The app address
    * @returns The siloed tag.
    */
-  computeSiloedTag(recipient: AztecAddress, app: AztecAddress) {
-    const tag = this.computeTag(recipient);
+  async computeSiloedTag(recipient: AztecAddress, app: AztecAddress) {
+    const tag = await this.computeTag(recipient);
     return poseidon2Hash([app, tag]);
   }
 }

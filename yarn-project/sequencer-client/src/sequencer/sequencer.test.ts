@@ -4,7 +4,6 @@ import {
   BlockProposal,
   Body,
   ConsensusPayload,
-  type EpochProofQuote,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -33,8 +32,9 @@ import {
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -46,13 +46,13 @@ import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { type SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
 describe('sequencer', () => {
-  let publisher: MockProxy<L1Publisher>;
+  let publisher: MockProxy<SequencerPublisher>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
@@ -110,9 +110,15 @@ describe('sequencer', () => {
     return await Promise.all(txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, globalVariables)));
   };
 
+  const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {
+    for (const tx of await txs) {
+      yield tx;
+    }
+  };
+
   const mockPendingTxs = (txs: Tx[]) => {
-    p2p.getPendingTxCount.mockReturnValue(txs.length);
-    p2p.iteratePendingTxs.mockReturnValue(txs);
+    p2p.getPendingTxCount.mockReturnValue(Promise.resolve(txs.length));
+    p2p.iteratePendingTxs.mockReturnValue(mockTxIterator(Promise.resolve(txs)));
   };
 
   const makeBlock = async (txs: Tx[]) => {
@@ -125,15 +131,15 @@ describe('sequencer', () => {
     return block;
   };
 
-  const makeTx = (seed?: number) => {
-    const tx = mockTxForRollup(seed);
+  const makeTx = async (seed?: number) => {
+    const tx = await mockTxForRollup(seed);
     tx.data.constants.txContext.chainId = chainId;
     return tx;
   };
 
-  const expectPublisherProposeL2Block = (txHashes: TxHash[], proofQuote?: EpochProofQuote) => {
-    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, proofQuote, {
+  const expectPublisherProposeL2Block = (txHashes: TxHash[]) => {
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, {
       txTimeoutAt: expect.any(Date),
     });
   };
@@ -158,12 +164,15 @@ describe('sequencer', () => {
       gasFees,
     );
 
-    publisher = mock<L1Publisher>();
+    publisher = mock<SequencerPublisher>();
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
+    publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.enqueueProposeL2Block.mockResolvedValue(true);
+    publisher.enqueueCastVote.mockResolvedValue(true);
+    publisher.enqueueClaimEpochProofRight.mockReturnValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
-    publisher.validateBlockForSubmission.mockResolvedValue();
-    publisher.proposeL2Block.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -197,7 +206,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>();
     publicProcessor.process.mockImplementation(async txsIter => {
-      const txs = Array.from(txsIter);
+      const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
       logger.verbose(`Processed ${txs.length} txs`, { txHashes: txs.map(tx => tx.getTxHash()) });
       return [processed, [], []];
@@ -235,7 +244,7 @@ describe('sequencer', () => {
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
     const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
     const slasherClient = mock<SlasherClient>();
-
+    const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
       publisher,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -251,17 +260,16 @@ describe('sequencer', () => {
       contractSource,
       l1Constants,
       new TestDateProvider(),
-      { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
+    await sequencer.updateConfig(config);
   });
 
   it('builds a block out of a single tx', async () => {
-    const tx = makeTx();
-    const txHash = tx.getTxHash();
+    const tx = await makeTx();
+    const txHash = await tx.getTxHash();
 
     block = await makeBlock([tx]);
     mockPendingTxs([tx]);
-
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -274,7 +282,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block for proposal setting limits', async () => {
-    const txs = times(5, i => makeTx(i * 0x10000));
+    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
@@ -290,7 +298,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block for validation ignoring limits', async () => {
-    const txs = times(5, i => makeTx(i * 0x10000));
+    const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     await sequencer.buildBlock(txs, globalVariables, { validateOnly: true });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, { deadline: expect.any(Date) }, expect.anything());
@@ -302,7 +310,7 @@ describe('sequencer', () => {
       Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initialTime + 1),
     );
 
-    const tx = makeTx();
+    const tx = await makeTx();
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
 
@@ -314,18 +322,18 @@ describe('sequencer', () => {
     );
 
     expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
-    expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
   });
 
   it('builds a block when it is their turn', async () => {
-    const tx = makeTx();
-    const txHash = tx.getTxHash();
+    const tx = await makeTx();
+    const txHash = await tx.getTxHash();
 
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
 
     // Not your turn!
-    publisher.canProposeAtNextEthBlock.mockRejectedValue(new Error());
+    publisher.canProposeAtNextEthBlock.mockReturnValue(Promise.resolve(undefined));
     publisher.validateBlockForSubmission.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
@@ -342,7 +350,7 @@ describe('sequencer', () => {
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue();
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -354,10 +362,10 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of several txs rejecting invalid txs', async () => {
-    const txs = [makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)];
+    const txs = await Promise.all([makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)]);
     const validTxs = [txs[0], txs[2]];
     const invalidTx = txs[1];
-    const validTxHashes = validTxs.map(tx => tx.getTxHash());
+    const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
 
     mockPendingTxs(txs);
     block = await makeBlock([txs[0], txs[2]]);
@@ -375,12 +383,12 @@ describe('sequencer', () => {
       initialBlockHeader,
     );
     expectPublisherProposeL2Block(validTxHashes);
-    expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidTx.getTxHash()]);
+    expect(p2p.deleteTxs).toHaveBeenCalledWith([await invalidTx.getTxHash()]);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
-    const txs = times(8, i => makeTx(i * 0x10000));
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -406,13 +414,13 @@ describe('sequencer', () => {
       initialBlockHeader,
     );
 
-    expectPublisherProposeL2Block(neededTxs.map(tx => tx.getTxHash()));
+    expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
   });
 
   it('builds a block that contains zero real transactions once flushed', async () => {
-    const txs = times(8, i => makeTx(i * 0x10000));
+    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -444,9 +452,9 @@ describe('sequencer', () => {
   });
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
-    const txs = times(8, i => makeTx(i * 0x10000));
+    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
+    await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -465,7 +473,7 @@ describe('sequencer', () => {
     const postFlushTxs = txs.slice(0, 3);
     mockPendingTxs(postFlushTxs);
     block = await makeBlock(postFlushTxs);
-    const postFlushTxHashes = postFlushTxs.map(tx => tx.getTxHash());
+    const postFlushTxHashes = await Promise.all(postFlushTxs.map(tx => tx.getTxHash()));
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
@@ -479,16 +487,42 @@ describe('sequencer', () => {
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
-    const tx = makeTx();
+    const tx = await makeTx();
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
 
     await sequencer.doRealWork();
 
-    expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a block if the block proposal failed', async () => {
+    const tx = await makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    validatorClient.createBlockProposal.mockResolvedValue(undefined);
+
+    await sequencer.doRealWork();
+
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+  });
+
+  it('handles when enqueueProposeL2Block throws', async () => {
+    const tx = await makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    publisher.enqueueProposeL2Block.mockRejectedValueOnce(new Error('Failed to enqueue propose L2 block'));
+
+    await sequencer.doRealWork();
+    expectPublisherProposeL2Block([await tx.getTxHash()]);
+
+    // Even though the block publish was not enqueued, we still send any requests
+    expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
   });
 
   describe('proof quotes', () => {
@@ -529,14 +563,11 @@ describe('sequencer', () => {
 
       globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
 
+      publisher.enqueueClaimEpochProofRight.mockReturnValueOnce(true);
       publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(blockNumber)]);
-      publisher.claimEpochProofRight.mockResolvedValueOnce(true);
-      publisher.getEpochForSlotNumber.mockImplementation((slotNumber: bigint) =>
-        Promise.resolve(slotNumber / BigInt(epochDuration)),
-      );
 
-      tx = makeTx();
-      txHash = tx.getTxHash();
+      tx = await makeTx();
+      txHash = await tx.getTxHash();
 
       mockPendingTxs([tx]);
       block = await makeBlock([tx]);
@@ -558,13 +589,14 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expectPublisherProposeL2Block([txHash], proofQuote);
+      expect(publisher.enqueueClaimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expectPublisherProposeL2Block([txHash]);
     });
 
     it('submits a valid proof quote even without a block', async () => {
@@ -577,14 +609,33 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);
-      expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+      expect(publisher.enqueueClaimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+    });
+
+    it('submits a valid proof quote if building a block proposal fails', async () => {
+      const blockNumber = epochDuration + 1;
+      await setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote();
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
+
+      // The previous epoch can be claimed
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      validatorClient.createBlockProposal.mockResolvedValue(undefined);
+
+      await sequencer.doRealWork();
+      expect(publisher.enqueueClaimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
     });
 
     it('does not claim the epoch previous to the first', async () => {
@@ -594,7 +645,7 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote({ epoch: 0n });
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
 
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(undefined));
 
@@ -610,7 +661,7 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote({ validUntilSlot: expiredSlotNumber });
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
@@ -626,9 +677,9 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve([proofQuote]));
 
-      publisher.getClaimableEpoch.mockResolvedValue(undefined);
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(undefined));
 
       await sequencer.doRealWork();
       expectPublisherProposeL2Block([txHash]);
@@ -641,10 +692,10 @@ describe('sequencer', () => {
       const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
-      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.enqueueProposeL2Block.mockResolvedValueOnce(true);
 
       // Quote is reported as invalid
-      publisher.validateProofQuote.mockImplementation(_ => Promise.resolve(undefined));
+      publisher.filterValidQuotes.mockImplementation(() => Promise.reject(new Error('Invalid proof quote')));
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
@@ -672,18 +723,17 @@ describe('sequencer', () => {
       const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInvalid];
 
       p2p.getEpochProofQuotes.mockResolvedValue(allQuotes);
-      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.enqueueProposeL2Block.mockResolvedValueOnce(true);
 
       // Quote is reported as invalid
-      publisher.validateProofQuote.mockImplementation(p =>
-        Promise.resolve(p.payload.basisPointFee === 3 ? undefined : p),
-      );
+      publisher.filterValidQuotes.mockImplementation(() => Promise.resolve(validQuotes));
 
       // The previous epoch can be claimed
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expectPublisherProposeL2Block([txHash], validQuotes[0]);
+      expect(publisher.enqueueClaimEpochProofRight).toHaveBeenCalledWith(validQuotes[0]);
+      expectPublisherProposeL2Block([txHash]);
     });
   });
 });
@@ -703,7 +753,7 @@ class TestSubject extends Sequencer {
   }
 
   public override buildBlock(
-    pendingTxs: Iterable<Tx>,
+    pendingTxs: Iterable<Tx> | AsyncIterableIterator<Tx>,
     newGlobalVariables: GlobalVariables,
     opts?: { validateOnly?: boolean | undefined },
   ): Promise<{

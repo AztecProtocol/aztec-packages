@@ -26,7 +26,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
-import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   Attributes,
@@ -42,6 +41,7 @@ import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-
 import { ProverNodeMetrics } from './metrics.js';
 import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims-monitor.js';
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import { type ProverNodePublisher } from './prover-node-publisher.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
 
@@ -74,7 +74,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
 
   constructor(
     protected readonly prover: EpochProverManager,
-    protected readonly publisher: L1Publisher,
+    protected readonly publisher: ProverNodePublisher,
     protected readonly l2BlockSource: L2BlockSource & Maybe<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,

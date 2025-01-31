@@ -29,12 +29,13 @@ contracts=(
   "GovernanceProposer"
   "Governance"
   "NewGovernanceProposerPayload"
-  "LeonidasLib"
+  "ValidatorSelectionLib"
   "ExtRollupLib"
   "SlashingProposer"
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
 )
 
@@ -44,14 +45,27 @@ combined_errors_abi=$(
     .[0].abi + .[1].abi
     | unique_by({type: .type, name: .name})
   ' \
-  ../../l1-contracts/out/Errors.sol/Errors.json \
-  ../../l1-contracts/out/libraries/Errors.sol/Errors.json
+    ../../l1-contracts/out/Errors.sol/Errors.json \
+    ../../l1-contracts/out/libraries/Errors.sol/Errors.json
 )
 
 # Start from clean.
 rm -rf generated && mkdir generated
 
-echo "// Auto-generated module" > "generated/index.ts"
+echo "// Auto-generated module" >"generated/index.ts"
+
+# Generate ErrorsAbi.ts
+(
+  echo "/**"
+  echo " * Combined Errors ABI."
+  echo " */"
+  echo -n "export const ErrorsAbi = "
+  echo -n "$combined_errors_abi"
+  echo " as const;"
+) >"generated/ErrorsAbi.ts"
+
+# Add Errors export to index.ts
+echo "export * from './ErrorsAbi.js';" >>"generated/index.ts"
 
 for contract_name in "${contracts[@]}"; do
   # Generate <ContractName>Abi.ts
@@ -68,7 +82,7 @@ for contract_name in "${contracts[@]}"; do
     ' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) > "generated/${contract_name}Abi.ts"
+  ) >"generated/${contract_name}Abi.ts"
 
   # Generate <ContractName>Bytecode.ts
   (
@@ -87,11 +101,11 @@ for contract_name in "${contracts[@]}"; do
     jq -j '.bytecode.linkReferences' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) > "generated/${contract_name}Bytecode.ts"
+  ) >"generated/${contract_name}Bytecode.ts"
 
   # Update index.ts exports
-  echo "export * from './${contract_name}Abi.js';" >> "generated/index.ts"
-  echo "export * from './${contract_name}Bytecode.js';" >> "generated/index.ts"
+  echo "export * from './${contract_name}Abi.js';" >>"generated/index.ts"
+  echo "export * from './${contract_name}Bytecode.js';" >>"generated/index.ts"
 done
 
 echo "Successfully generated TS artifacts!"
