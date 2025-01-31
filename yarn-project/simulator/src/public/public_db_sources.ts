@@ -1,5 +1,4 @@
 import {
-  ContractClassTxL2Logs,
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
