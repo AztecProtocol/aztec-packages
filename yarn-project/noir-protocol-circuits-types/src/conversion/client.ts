@@ -628,13 +628,12 @@ export function mapPrivateVerificationKeyHintsToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
     updated_class_id_value_change: mapTuple(
-      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange,
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
       mapFieldToNoir,
     ),
-    updated_class_id_delay_change: mapTuple(
-      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange,
-      mapFieldToNoir,
-    ),
+    updated_class_id_delay_change: [
+      mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
+    ],
   };
 }
 

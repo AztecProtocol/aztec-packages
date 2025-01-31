@@ -12,11 +12,11 @@ import {
   PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
-  SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
-  SHARED_MUTABLE_HASH_SEPARATOR,
-  SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+  ScheduledDelayChange,
+  ScheduledValueChange,
   SerializableContractInstance,
   UPDATED_CLASS_IDS_SLOT,
+  computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import {
   computeNoteHashNonce,
@@ -26,7 +26,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
-import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -748,15 +748,8 @@ export class AvmPersistableStateManager {
 
   async getContractUpdateHints(contractAddress: AztecAddress) {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-    const valueChangeSlot = await poseidon2HashWithSeparator(
-      [sharedMutableSlot],
-      SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
-    );
-    const delayChangeSlot = await poseidon2HashWithSeparator(
-      [sharedMutableSlot],
-      SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
-    );
-    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], SHARED_MUTABLE_HASH_SEPARATOR);
+
+    const hashSlot = await computeSharedMutableHashSlot(sharedMutableSlot);
 
     const {
       value: hash,
@@ -766,17 +759,14 @@ export class AvmPersistableStateManager {
     } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, hashSlot);
     const updateMembership = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, leafPath);
 
-    const updatePreimage = [];
-    for (let i = 0; i < 3; i++) {
-      const valueChangeItemSlot = valueChangeSlot.add(new Fr(i));
-      updatePreimage.push(
-        (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, valueChangeItemSlot)).value,
-      );
-    }
+    const readStorage = async (storageSlot: Fr) =>
+      (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, storageSlot)).value;
 
-    updatePreimage.push(
-      (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, delayChangeSlot)).value,
-    );
+    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, readStorage);
+
+    const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
+
+    const updatePreimage = [...valueChange.toFields(), delayChange.toField()];
 
     if (!hash.isZero()) {
       const hashed = await poseidon2Hash(updatePreimage);
@@ -785,6 +775,9 @@ export class AvmPersistableStateManager {
       }
       this.log.trace(`Non empty update hint found for contract ${contractAddress}`);
     } else {
+      if (updatePreimage.some(f => !f.isZero())) {
+        throw new Error(`Update hint hash is zero, but update preimage is not: ${updatePreimage}`);
+      }
       this.log.trace(`No update hint found for contract ${contractAddress}`);
     }
 

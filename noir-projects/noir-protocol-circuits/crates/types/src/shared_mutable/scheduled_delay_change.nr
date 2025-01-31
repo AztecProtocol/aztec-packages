@@ -129,7 +129,7 @@ impl<let INITIAL_DELAY: u32> Packable<1> for ScheduledDelayChange<INITIAL_DELAY>
     fn pack(self) -> [Field; 1] {
         // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
         // Low limb: [ pre_inner: u32 | post_inner: u32 ]
-        // High limb: [ empty | pre_is_some: u8 |  post_is_some: u8 | block_of_change: u32 ]
+        // High limb: [ empty | pre_is_some: u1 |  post_is_some: u1 | block_of_change: u32 ]
         let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
             + (self.post.unwrap_unchecked() as u64);
 

@@ -6,6 +6,8 @@ import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_DATA_TREE_H
 import { PublicKeys } from '../../types/public_keys.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
+import { ScheduledDelayChange } from '../shared_mutable/scheduled_delay_change.js';
+import { ScheduledValueChange } from '../shared_mutable/scheduled_value_change.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
@@ -151,8 +153,8 @@ export class UpdatedClassIdHints {
   constructor(
     public updatedClassIdWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
     public updatedClassIdLeaf: PublicDataTreeLeafPreimage,
-    public updatedClassIdValueChange: Tuple<Fr, 3>,
-    public updatedClassIdDelayChange: Tuple<Fr, 1>,
+    public updatedClassIdValueChange: ScheduledValueChange,
+    public updatedClassIdDelayChange: ScheduledDelayChange,
   ) {}
 
   static getFields(fields: FieldsOf<UpdatedClassIdHints>) {
@@ -186,8 +188,8 @@ export class UpdatedClassIdHints {
     return new UpdatedClassIdHints(
       reader.readObject(MembershipWitness.deserializer(PUBLIC_DATA_TREE_HEIGHT)),
       reader.readObject(PublicDataTreeLeafPreimage),
-      reader.readArray(3, Fr),
-      reader.readArray(1, Fr),
+      reader.readObject(ScheduledValueChange),
+      reader.readObject(ScheduledDelayChange),
     );
   }
 }
