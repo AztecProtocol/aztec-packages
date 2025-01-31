@@ -418,7 +418,13 @@ class UltraHonkAPI : public API {
         }
 
         _prove(
-            false, flags.output_data_type, flags.output_content_type, flags, bytecode_path, witness_path, output_dir);
+            /*vk_only*/ false,
+            flags.output_data_type,
+            flags.output_content_type,
+            flags,
+            bytecode_path,
+            witness_path,
+            output_dir);
     };
 
     /**
