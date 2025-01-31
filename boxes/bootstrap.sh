@@ -17,7 +17,7 @@ hash=$(cache_content_hash \
 
 function build {
   if ! cache_download boxes-$hash.tar.gz; then
-    denoise 'cd aztec.js && yarn build:web'
+    denoise 'cd ../yarn-project/aztec.js && yarn build:web'
     denoise 'yarn && echo "Building... " && yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist}
   else
