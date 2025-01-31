@@ -150,7 +150,14 @@ export function LogPanel() {
         </SwipeableDrawer>
       </Root>
       <Fab
-        sx={{ position: "absolute", bottom: "5rem", right: "1rem" }}
+        sx={{
+          position: "absolute",
+          bottom: "5rem",
+          right: "1rem",
+          "@media (width <= 800px)": {
+            visibility: "hidden",
+          },
+        }}
         color="secondary"
         onClick={toggleDrawer(true)}
       >
