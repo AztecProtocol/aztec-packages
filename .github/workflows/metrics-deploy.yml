@@ -130,7 +130,7 @@ jobs:
 
       - name: Import Dashboard
         working-directory: ./spartan/metrics
-        run: ./copy-dashboard.json
+        run: ./copy-dashboard.sh
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
