@@ -106,12 +106,12 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     // Compute batched multivariate evaluation
     Fr batched_evaluation = Fr(0);
     size_t idx = 0;
-    for (auto& eval : mock_claims.unshifted_evals) {
+    for (auto& eval : mock_claims.unshifted.evals) {
         batched_evaluation += eval * rhos[idx];
         idx++;
     }
 
-    for (auto& eval : mock_claims.shifted_evals) {
+    for (auto& eval : mock_claims.to_be_shifted.evals) {
         batched_evaluation += eval * rhos[idx];
         idx++;
     }
@@ -119,13 +119,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     // Compute batched commitments manually
     idx = 0;
     GroupElement batched_commitment_unshifted = GroupElement::zero();
-    for (auto& comm : mock_claims.unshifted_commitments) {
+    for (auto& comm : mock_claims.unshifted.commitments) {
         batched_commitment_unshifted += comm * rhos[idx];
         idx++;
     }
 
     GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
-    for (auto& comm : mock_claims.to_be_shifted_commitments) {
+    for (auto& comm : mock_claims.to_be_shifted.commitments) {
         batched_commitment_to_be_shifted += comm * rhos[idx];
         idx++;
     }
@@ -159,7 +159,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
-              mock_claims.unshifted_commitments.size() + mock_claims.to_be_shifted_commitments.size());
+              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }

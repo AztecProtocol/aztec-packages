@@ -26,28 +26,21 @@ template <typename Curve> struct MockClaimGenerator {
     std::shared_ptr<CommitmentKey> ck;
 
     struct ClaimData {
-        std::vector<Polynomial> polynomials;
-        std::vector<Commitment> comitments;
-        std::vector<Fr> evaluations;
+        std::vector<Polynomial> polys;
+        std::vector<Commitment> commitments;
+        std::vector<Fr> evals;
+
+        // Polynomial (Polynomial::*operation)() const; // Polynomial member function ptr
+
+        // ClaimData(Polynomial (Polynomial::*op)() const = &Polynomial::identity)
+        //     : operation(op){};
     };
 
     ClaimData unshifted;
     ClaimData to_be_shifted;
     ClaimData to_be_right_shifted_by_k;
 
-    std::vector<Polynomial> unshifted_polynomials = {};
-    std::vector<Polynomial> to_be_shifted_polynomials;
-    std::vector<Polynomial> to_be_shifted_by_k_polynomials;
-
     std::vector<Fr> const_size_mle_opening_point;
-
-    std::vector<Commitment> unshifted_commitments = {};
-    std::vector<Commitment> to_be_shifted_commitments;
-    std::vector<Commitment> to_be_shifted_by_k_commitments;
-
-    std::vector<Fr> unshifted_evals = {};
-    std::vector<Fr> shifted_evals;
-    std::vector<Fr> shifted_by_k_evals;
 
     PolynomialBatcher polynomial_batcher;
     ClaimBatcher claim_batcher;
@@ -87,58 +80,59 @@ template <typename Curve> struct MockClaimGenerator {
         // Construct claim data for polynomials that are NOT to be shifted
         for (size_t idx = 0; idx < num_not_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size);
-            unshifted_commitments.push_back(ck->commit(poly));
-            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
-            unshifted_polynomials.push_back(std::move(poly));
+            unshifted.commitments.push_back(ck->commit(poly));
+            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.polys.push_back(std::move(poly));
         }
 
         // Construct claim data for polynomials that are to-be-shifted
         for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
-            to_be_shifted_commitments.push_back(ck->commit(poly));
-            shifted_evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
-            to_be_shifted_polynomials.push_back(std::move(poly));
+            to_be_shifted.commitments.push_back(ck->commit(poly));
+            to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+            to_be_shifted.polys.push_back(std::move(poly));
         }
 
         // Construct claim data for polynomials that are to-be-right-shifted-by-k
         for (size_t idx = 0; idx < num_to_be_right_shifted_by_k; idx++) {
-            Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
-            to_be_shifted_by_k_commitments.push_back(ck->commit(poly));
-            shifted_by_k_evals.push_back(poly.evaluate_mle(mle_opening_point, /*shifted*/ true));
-            to_be_shifted_by_k_polynomials.push_back(std::move(poly));
+            Polynomial poly = Polynomial::random(poly_size - k_magnitude, poly_size, 0);
+            to_be_right_shifted_by_k.commitments.push_back(ck->commit(poly));
+            to_be_right_shifted_by_k.evals.push_back(poly.right_shifted(k_magnitude).evaluate_mle(mle_opening_point));
+            to_be_right_shifted_by_k.polys.push_back(std::move(poly));
         }
 
         // Add an unshifted counterpart for each to-be-shifted claim
-        for (const auto& [poly, comm] : zip_view(to_be_shifted_polynomials, to_be_shifted_commitments)) {
-            unshifted_polynomials.push_back(poly.share());
-            unshifted_commitments.push_back(comm);
-            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
+        for (const auto& [poly, comm] : zip_view(to_be_shifted.polys, to_be_shifted.commitments)) {
+            unshifted.polys.push_back(poly.share());
+            unshifted.commitments.push_back(comm);
+            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
         }
 
         // Add an unshifted counterpart for each to-be-shifted-by-k claim
-        for (const auto& [poly, comm] : zip_view(to_be_shifted_by_k_polynomials, to_be_shifted_by_k_commitments)) {
-            unshifted_polynomials.push_back(poly.share());
-            unshifted_commitments.push_back(comm);
-            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
+        for (const auto& [poly, comm] :
+             zip_view(to_be_right_shifted_by_k.polys, to_be_right_shifted_by_k.commitments)) {
+            unshifted.polys.push_back(poly.share());
+            unshifted.commitments.push_back(comm);
+            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
         }
 
-        polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));
-        polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
+        polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted.polys));
 
         claim_batcher =
-            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) },
-                          .shifted = ClaimBatch{ RefVector(to_be_shifted_commitments), RefVector(shifted_evals) } };
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) },
+                          .shifted =
+                              ClaimBatch{ RefVector(to_be_shifted.commitments), RefVector(to_be_shifted.evals) } };
     }
 
     // Generate zero polynomials to test edge cases in PCS
     MockClaimGenerator(const size_t n, const size_t num_zero_polynomials)
-        : unshifted_polynomials(num_zero_polynomials)
-        , polynomial_batcher(n)
+        : polynomial_batcher(n)
     {
         for (size_t idx = 0; idx < num_zero_polynomials; idx++) {
-            unshifted_polynomials[idx] = Polynomial(n);
-            unshifted_commitments.push_back(Commitment::infinity());
-            unshifted_evals.push_back(Fr(0));
+            unshifted.polys.emplace_back(n);
+            unshifted.commitments.push_back(Commitment::infinity());
+            unshifted.evals.push_back(Fr(0));
         }
     }
 
