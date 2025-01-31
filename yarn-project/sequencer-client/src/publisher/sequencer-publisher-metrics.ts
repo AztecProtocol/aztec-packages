@@ -12,7 +12,7 @@ import { formatEther } from 'viem/utils';
 
 export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
 
-export class L1PublisherMetrics {
+export class SequencerPublisherMetrics {
   private gasPrice: Histogram;
 
   private txCount: UpDownCounter;
@@ -23,7 +23,12 @@ export class L1PublisherMetrics {
   private txBlobDataGasUsed: Histogram;
   private txBlobDataGasCost: Histogram;
 
-  constructor(client: TelemetryClient, name = 'L1Publisher') {
+  private readonly blobCountHistogram: Histogram;
+  private readonly blobInclusionBlocksHistogram: Histogram;
+  private readonly blobTxSuccessCounter: UpDownCounter;
+  private readonly blobTxFailureCounter: UpDownCounter;
+
+  constructor(client: TelemetryClient, name = 'SequencerPublisher') {
     const meter = client.getMeter(name);
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
@@ -71,6 +76,26 @@ export class L1PublisherMetrics {
       unit: 'gwei',
       valueType: ValueType.INT,
     });
+
+    this.blobCountHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_COUNT, {
+      description: 'Number of blobs in L1 transactions',
+      unit: 'blobs',
+      valueType: ValueType.INT,
+    });
+
+    this.blobInclusionBlocksHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_INCLUSION_BLOCKS, {
+      description: 'Number of L1 blocks between blob tx submission and inclusion',
+      unit: 'blocks',
+      valueType: ValueType.INT,
+    });
+
+    this.blobTxSuccessCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_SUCCESS, {
+      description: 'Number of successful L1 transactions with blobs',
+    });
+
+    this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE, {
+      description: 'Number of failed L1 transactions with blobs',
+    });
   }
 
   recordFailedTx(txType: L1TxType) {
@@ -78,6 +103,10 @@ export class L1PublisherMetrics {
       [Attributes.L1_TX_TYPE]: txType,
       [Attributes.OK]: false,
     });
+
+    if (txType === 'process') {
+      this.blobTxFailureCounter.add(1);
+    }
   }
 
   recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
@@ -86,6 +115,16 @@ export class L1PublisherMetrics {
 
   recordProcessBlockTx(durationMs: number, stats: L1PublishBlockStats) {
     this.recordTx('process', durationMs, stats);
+
+    if (stats.blobCount && stats.blobCount > 0) {
+      this.blobCountHistogram.record(stats.blobCount);
+
+      if (stats.inclusionBlocks !== undefined) {
+        this.blobInclusionBlocksHistogram.record(stats.inclusionBlocks);
+      }
+
+      this.blobTxSuccessCounter.add(1);
+    }
   }
 
   recordClaimEpochProofRightTx(durationMs: number, stats: L1PublishStats) {
