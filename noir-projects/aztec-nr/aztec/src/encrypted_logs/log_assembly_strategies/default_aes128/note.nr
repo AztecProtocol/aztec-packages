@@ -292,6 +292,11 @@ where
     let contract_address_bytes = contract_address.to_field().to_be_bytes::<32>();
 
     let ciphertext_bytes_length = ciphertext_bytes.len();
+    // We take the u32 length and convert it to two u8's; i.e. two 8-bit big-endian limbs,
+    // So an 8-bit right-shift gives us the big limb (by discarding the little limb).
+    // The little limb is got by casting to a u8 (which discards higher bits).
+    // The capacity of two u8's is plenty: that allows for 2^16 = 65,536 bytes of
+    // ciphertext, which is more than enough space.
     let encoding_of_ciphertext_size_in_bytes =
         [(ciphertext_bytes_length >> 8) as u8, ciphertext_bytes_length as u8];
 

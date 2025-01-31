@@ -119,9 +119,7 @@ where
     // Prepend/append extra bytes
     // *****************************************************************************
 
-    // "Proper" meaning the main meaty stuff that we care about.
-    let proper_plaintext = event_bytes;
-    let final_plaintext = proper_plaintext;
+    let final_plaintext = event_bytes;
 
     // *****************************************************************************
     // Convert the plaintext into whatever format the encryption function expects
@@ -150,6 +148,11 @@ where
     let contract_address_bytes = contract_address.to_field().to_be_bytes::<32>();
 
     let ciphertext_bytes_length = ciphertext_bytes.len();
+    // We take the u32 length and convert it to two u8's; i.e. two 8-bit big-endian limbs,
+    // So an 8-bit right-shift gives us the big limb (by discarding the little limb).
+    // The little limb is got by casting to a u8 (which discards higher bits).
+    // The capacity of two u8's is plenty: that allows for 2^16 = 65,536 bytes of
+    // ciphertext, which is more than enough space.
     let encoding_of_ciphertext_size_in_bytes =
         [(ciphertext_bytes_length >> 8) as u8, ciphertext_bytes_length as u8];
 
@@ -264,13 +267,14 @@ where
     }
 }
 
-// Important note: this function -- although called "unconstrained" -- the
-// function is not labelled as `unconstrained`, because we pass a reference to the
-// context.
 /// This is the same as `encode_and_encrypt_event`, except the encryption and therefore
 /// contents of the events are not constrained, meaning the caller can place arbitrary content
 /// there. Whether this is acceptable for your app will depend on whether the sender
-// is incentivised (somehow) to act honestly and provide the correct event log or not.
+/// is incentivised (somehow) to act honestly and provide the correct event log or not.
+///
+/// Important note: this function -- although called "unconstrained" -- the
+/// function is not labelled as `unconstrained`, because we pass a reference to the
+/// context.
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
