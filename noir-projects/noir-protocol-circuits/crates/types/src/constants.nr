@@ -187,6 +187,12 @@ pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 
+// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
+pub global SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR: u32 = 0;
+pub global SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR: u32 = 1;
+pub global SHARED_MUTABLE_HASH_SEPARATOR: u32 = 2;
+
 // CANONICAL DEFAULT KEYS
 // This below are:
 // "az_null_npk"

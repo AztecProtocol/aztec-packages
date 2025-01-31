@@ -184,8 +184,8 @@ void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, 
     // First validate the update_preimage against the public data tree
     PublicDataReadTreeHint read_hint = instance.update_membership_hint;
 
-    const FF shared_mutable_slot = Poseidon2::hash({ 1, instance.address });
-    const FF hash_slot = Poseidon2::hash({ shared_mutable_slot, 2 });
+    const FF shared_mutable_slot = Poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, instance.address });
+    const FF hash_slot = Poseidon2::hash({ SHARED_MUTABLE_HASH_SEPARATOR, shared_mutable_slot });
     const FF hash_leaf_slot =
         AvmMerkleTreeTraceBuilder::unconstrained_compute_public_tree_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
     bool exists = read_hint.leaf_preimage.slot == hash_leaf_slot;
@@ -208,14 +208,14 @@ void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, 
     // update_preimage is validated, now validate the contract class id
     FF expected_current_class_id;
     const FF prev_value = instance.update_preimage[0];
-    const FF block_of_change = instance.update_preimage[1];
+    const uint32_t block_of_change = static_cast<uint32_t>(instance.update_preimage[1]);
     const FF next_value = instance.update_preimage[2];
     // Fourth item is related to update delays which we don't care.
     if (public_inputs.global_variables.block_number < block_of_change) {
         // original class id was validated agains the address
         expected_current_class_id = prev_value == 0 ? instance.original_contract_class_id : prev_value;
     } else {
-        expected_current_class_id = next_value;
+        expected_current_class_id = next_value == 0 ? instance.original_contract_class_id : next_value;
     }
     ASSERT(expected_current_class_id == instance.current_contract_class_id);
 }
@@ -390,8 +390,7 @@ void AvmTraceBuilder::pay_fee()
     FF current_balance = read_hint.leaf_preimage.value;
 
     const auto updated_balance = current_balance - tx_fee;
-    // Comparison on Field gives inverted results, so we cast to uint128, which should be enough for fees.
-    if (static_cast<uint128_t>(current_balance) < static_cast<uint128_t>(tx_fee)) {
+    if (current_balance < tx_fee) {
         info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }

@@ -1,9 +1,12 @@
 use dep::protocol_types::{
     address::AztecAddress,
+    constants::{
+        SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR, SHARED_MUTABLE_HASH_SEPARATOR,
+        SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+    },
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
     shared_mutable::{
-        DELAY_CHANGE_SEPARATOR, HASH_SEPARATOR, scheduled_delay_change::ScheduledDelayChange,
-        scheduled_value_change::ScheduledValueChange, VALUE_CHANGE_SEPARATOR,
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
     },
     traits::{FromField, Packable, ToField},
     utils::arrays::array_concat,
@@ -66,15 +69,15 @@ where
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_HASH_SEPARATOR)
     }
 }
 

@@ -12,7 +12,11 @@ import {
   PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
+  SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
+  SHARED_MUTABLE_HASH_SEPARATOR,
+  SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
   SerializableContractInstance,
+  UPDATED_CLASS_IDS_SLOT,
 } from '@aztec/circuits.js';
 import {
   computeNoteHashNonce,
@@ -743,10 +747,16 @@ export class AvmPersistableStateManager {
   }
 
   async getContractUpdateHints(contractAddress: AztecAddress) {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(1), contractAddress);
-    const valueChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 0);
-    const delayChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 1);
-    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 2);
+    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
+    const valueChangeSlot = await poseidon2HashWithSeparator(
+      [sharedMutableSlot],
+      SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+    );
+    const delayChangeSlot = await poseidon2HashWithSeparator(
+      [sharedMutableSlot],
+      SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
+    );
+    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], SHARED_MUTABLE_HASH_SEPARATOR);
 
     const {
       value: hash,

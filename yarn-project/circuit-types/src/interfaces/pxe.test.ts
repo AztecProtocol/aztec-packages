@@ -148,6 +148,10 @@ describe('PXESchema', () => {
     await context.client.registerContract({ instance, artifact });
   });
 
+  it('updateContract', async () => {
+    await context.client.updateContract(instance.address, artifact);
+  });
+
   it('getContracts', async () => {
     const result = await context.client.getContracts();
     expect(result).toEqual([address]);

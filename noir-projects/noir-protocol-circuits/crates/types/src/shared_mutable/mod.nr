@@ -1,11 +1,13 @@
 use super::{
     address::aztec_address::AztecAddress,
     block_header::BlockHeader,
-    constants::{GENERATOR_INDEX__PUBLIC_LEAF_INDEX, PUBLIC_DATA_TREE_HEIGHT},
+    constants::{
+        GENERATOR_INDEX__PUBLIC_LEAF_INDEX, PUBLIC_DATA_TREE_HEIGHT, SHARED_MUTABLE_HASH_SEPARATOR,
+    },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
     merkle_tree::{membership::MembershipWitness, root::root_from_sibling_path},
-    traits::{Empty, FromField, Hash, Serialize, ToField},
+    traits::{Empty, FromField, Hash, Packable, ToField},
     utils::arrays::array_concat,
 };
 use scheduled_delay_change::ScheduledDelayChange;
@@ -13,11 +15,6 @@ use scheduled_value_change::ScheduledValueChange;
 
 pub mod scheduled_delay_change;
 pub mod scheduled_value_change;
-
-// Separators separating storage slot of different values within the same state variable
-pub global VALUE_CHANGE_SEPARATOR: u32 = 0;
-pub global DELAY_CHANGE_SEPARATOR: u32 = 1;
-pub global HASH_SEPARATOR: u32 = 2;
 
 pub fn validate_shared_mutable_hints<T, let INITIAL_DELAY: u32>(
     historical_header: BlockHeader,
@@ -33,7 +30,7 @@ where
 {
     let hash = public_storage_historical_read(
         historical_header,
-        poseidon2_hash_with_separator([shared_mutable_storage_slot], HASH_SEPARATOR),
+        poseidon2_hash_with_separator([shared_mutable_storage_slot], SHARED_MUTABLE_HASH_SEPARATOR),
         contract_address,
         witness,
         leaf_preimage,

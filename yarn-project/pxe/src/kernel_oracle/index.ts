@@ -8,6 +8,10 @@ import {
   type NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   type Point,
+  SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
+  SHARED_MUTABLE_HASH_SEPARATOR,
+  SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+  UPDATED_CLASS_IDS_SLOT,
   UpdatedClassIdHints,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -89,10 +93,16 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(1), contractAddress);
-    const valueChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 0);
-    const delayChangeSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 1);
-    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], 2);
+    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
+    const valueChangeSlot = await poseidon2HashWithSeparator(
+      [sharedMutableSlot],
+      SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+    );
+    const delayChangeSlot = await poseidon2HashWithSeparator(
+      [sharedMutableSlot],
+      SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR,
+    );
+    const hashSlot = await poseidon2HashWithSeparator([sharedMutableSlot], SHARED_MUTABLE_HASH_SEPARATOR);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceDeployer,

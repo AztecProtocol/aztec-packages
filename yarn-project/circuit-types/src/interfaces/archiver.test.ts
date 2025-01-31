@@ -237,7 +237,8 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getContract(address);
     expect(result).toEqual({
       address,
-      contractClassId: expect.any(Fr),
+      currentContractClassId: expect.any(Fr),
+      originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),

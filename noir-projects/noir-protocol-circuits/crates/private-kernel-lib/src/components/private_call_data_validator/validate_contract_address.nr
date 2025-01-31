@@ -1,7 +1,10 @@
 use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData,
     address::AztecAddress,
-    constants::{DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS},
+    constants::{
+        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS,
+        UPDATED_CLASS_IDS_SLOT,
+    },
     contract_class_id::ContractClassId,
     hash::private_functions_root_from_siblings,
     merkle_tree::root::root_from_sibling_path,
@@ -10,7 +13,7 @@ use dep::types::{
         validate_shared_mutable_hints,
     },
     storage::map::derive_storage_slot_in_map,
-    traits::{Packable, ToField},
+    traits::{is_empty, Packable, ToField},
 };
 
 pub fn validate_contract_address(
@@ -64,7 +67,7 @@ pub fn validate_contract_address(
     // A block horizon for this shared mutable should be set separately when generating/validating kernel output
     validate_shared_mutable_hints(
         private_call_data.public_inputs.historical_header,
-        derive_storage_slot_in_map(1, contract_address),
+        derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
         DEPLOYER_CONTRACT_ADDRESS,
         value_change,
         delay_change,
@@ -76,11 +79,19 @@ pub fn validate_contract_address(
         private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
     );
 
-    assert(
-        computed_address.eq(contract_address)
-            | computed_protocol_contract_tree_root.eq(protocol_contract_tree_root)
-            | contract_class_id.eq(updated_contract_class_id),
-        "computed contract address does not match expected one",
-    );
+    if is_empty(updated_contract_class_id) {
+        // No update happened, so we should check that the computed address matches the expected one
+        assert(
+            computed_address.eq(contract_address)
+                | computed_protocol_contract_tree_root.eq(protocol_contract_tree_root),
+            "computed contract address does not match expected one",
+        );
+    } else {
+        // Update happened, we must be using the updated class id
+        assert(
+            contract_class_id.eq(updated_contract_class_id),
+            "updated contract not using latest class id",
+        );
+    }
 }
 
