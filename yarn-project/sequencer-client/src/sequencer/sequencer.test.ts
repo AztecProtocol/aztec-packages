@@ -117,8 +117,10 @@ describe('sequencer', () => {
   };
 
   const mockPendingTxs = (txs: Tx[]) => {
-    p2p.getPendingTxCount.mockReturnValue(Promise.resolve(txs.length));
-    p2p.iteratePendingTxs.mockReturnValue(mockTxIterator(Promise.resolve(txs)));
+    p2p.getPendingTxCount.mockResolvedValue(txs.length);
+    // make sure a new iterator is created for every invocation of iteratePendingTxs
+    // otherwise we risk iterating over the same iterator more than once (yielding no more values)
+    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   };
 
   const makeBlock = async (txs: Tx[]) => {
