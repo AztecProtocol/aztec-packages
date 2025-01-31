@@ -482,7 +482,6 @@ mod tests {
         },
         blob_public_inputs::BlobCommitment,
         config::{D, D_INV, F},
-        unconstrained_config::compute_roots_of_unity,
     };
     use super::{__compute_partial_sums, __compute_sum};
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
@@ -725,10 +724,8 @@ mod tests {
         unsafe {
             let fields = fields.map(|f| field_to_bignum(f));
 
-            let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
-
-            let partial_sums = __compute_partial_sums(fields, UNCONSTRAINED_ROOTS);
-            let sum = __compute_sum(fields, UNCONSTRAINED_ROOTS);
+            let partial_sums = __compute_partial_sums(fields, ROOTS);
+            let sum = __compute_sum(fields, ROOTS);
 
             assert_eq(partial_sums[FIELDS_PER_BLOB - 1], sum);
         }
