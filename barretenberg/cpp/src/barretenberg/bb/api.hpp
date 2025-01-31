@@ -52,11 +52,6 @@ class API {
                           const std::filesystem::path& output_path,
                           const std::filesystem::path& vk_path) = 0;
 
-    virtual void to_fields(const Flags& flags,
-                           const std::filesystem::path& proof_path,
-                           const std::filesystem::path& vk_path,
-                           const std::filesystem::path& output_path) = 0;
-
     virtual void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
                                                             const std::filesystem::path& output_dir) = 0;
 };

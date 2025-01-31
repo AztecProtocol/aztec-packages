@@ -3,15 +3,12 @@
 #include "barretenberg/bb/api_ultra_honk.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/common/benchmark.hpp"
-#include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/timer.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
-#include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
@@ -128,57 +125,6 @@ void gate_count_for_ivc(const std::string& bytecode_path)
     size_t length = strlen(jsonData);
     std::vector<uint8_t> data(jsonData, jsonData + length);
     write_bytes_to_stdout(data);
-}
-
-/**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
- * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
- *
- * @param bytecode_path
- * @param witness_path
- */
-void write_vk_for_ivc(const std::string& bytecode_path, const std::string& output_path)
-{
-    using Builder = ClientIVC::ClientCircuit;
-    using Prover = ClientIVC::MegaProver;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using VerificationKey = ClientIVC::MegaVerificationKey;
-    using Program = acir_format::AcirProgram;
-    using ProgramMetadata = acir_format::ProgramMetadata;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
-    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-
-    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
-                                               ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
-    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Add public inputs corresponding to pairing point accumulator
-    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
-    Prover prover{ proving_key };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    VerificationKey vk(prover.proving_key->proving_key);
-
-    // Write the VK to file as a buffer
-    auto serialized_vk = to_buffer(vk);
-    if (output_path == "-") {
-        write_bytes_to_stdout(serialized_vk);
-        vinfo("vk written to stdout");
-    } else {
-        write_file(output_path, serialized_vk);
-        vinfo("vk written to: ", output_path);
-    }
 }
 
 /**
@@ -978,9 +924,6 @@ int main(int argc, char* argv[])
             execute_command(command, flags, api);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
-        } else if (command == "write_vk_for_ivc") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_for_ivc(bytecode_path, output_path);
         } else if (command == "gates_mega_honk") {
             gate_count<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         }

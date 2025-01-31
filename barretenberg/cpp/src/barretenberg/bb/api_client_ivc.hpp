@@ -4,7 +4,9 @@
 #include "barretenberg/bb/api.hpp"
 #include "barretenberg/bb/init_srs.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
 
 namespace bb {
@@ -80,6 +82,73 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
         break;
     }
     return content;
+}
+
+/**
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
+ * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+ *
+ * @param bytecode_path
+ * @param witness_path
+ */
+void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path, const std::string& output_path)
+{
+    using Builder = ClientIVC::ClientCircuit;
+    using Prover = ClientIVC::MegaProver;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using VerificationKey = ClientIVC::MegaVerificationKey;
+    using Program = acir_format::AcirProgram;
+    using ProgramMetadata = acir_format::ProgramMetadata;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
+    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+
+    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
+                                               ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
+    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Add public inputs corresponding to pairing point accumulator
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
+
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+    Prover prover{ proving_key };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    VerificationKey vk(prover.proving_key->proving_key);
+
+    if (output_fields) {
+        std::vector<bb::fr> data = vk.to_field_elements();
+
+        const auto to_json = [](const std::vector<bb::fr>& data) {
+            return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        };
+        auto json = to_json(data);
+        info("vk as fields: ", json);
+        if (output_path == "-") {
+            write_string_to_stdout(json);
+        } else {
+            write_file(output_path, { json.begin(), json.end() });
+            vinfo("vk as fields written to: ", output_path);
+        }
+    } else {
+        // Write the VK to file as a buffer
+        auto serialized_vk = to_buffer(vk);
+        if (output_path == "-") {
+            write_bytes_to_stdout(serialized_vk);
+            vinfo("vk written to stdout");
+        } else {
+            write_file(output_path, serialized_vk);
+            vinfo("vk written to: ", output_path);
+        }
+    }
 }
 
 class ClientIVCAPI : public API {
@@ -292,19 +361,16 @@ class ClientIVCAPI : public API {
         throw_or_abort("API function not implemented");
     };
 
-    void to_fields([[maybe_unused]] const API::Flags& flags,
-                   [[maybe_unused]] const std::filesystem::path& proof_path,
-                   [[maybe_unused]] const std::filesystem::path& vk_path,
-                   [[maybe_unused]] const std::filesystem::path& output_path) override
-    {
-        throw_or_abort("API function not implemented");
-    };
-
     void write_vk([[maybe_unused]] const API::Flags& flags,
                   [[maybe_unused]] const std::filesystem::path& bytecode_path,
                   [[maybe_unused]] const std::filesystem::path& output_path) override
     {
-        throw_or_abort("API function not implemented");
+        enum class OutputDataType : size_t { BYTES, FIELDS, BYTES_AND_FIELDS };
+        enum class OutputContent : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
+
+        ASSERT(*flags.output_type == "bytes" || *flags.output_type == "fields");
+
+        write_vk_for_ivc(*flags.output_type == "fields", bytecode_path, output_path);
     };
 };
 } // namespace bb

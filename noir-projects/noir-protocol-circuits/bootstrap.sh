@@ -87,20 +87,19 @@ function compile {
   echo "$name"
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
-    local write_vk_cmd="write_vk_for_ivc"
-    local vk_as_fields_cmd="vk_as_fields_mega_honk"
+    local write_vk_cmd="write_vk --scheme client_ivc"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     # -h 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation true --output_data vk -h 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation true -h 2"
   elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
     # and does not need to inject a default agg obj, so no -h flag
-    local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak --output_data vk -h 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --output_data vk -h 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk"
   fi
   echo "$proto$"
 

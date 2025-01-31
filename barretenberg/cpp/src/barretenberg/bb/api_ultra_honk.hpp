@@ -563,13 +563,5 @@ class UltraHonkAPI : public API {
             info("contract written to: ", output_path);
         }
     };
-
-    void to_fields([[maybe_unused]] const API::Flags& flags,
-                   [[maybe_unused]] const std::filesystem::path& proof_path,
-                   [[maybe_unused]] const std::filesystem::path& vk_path,
-                   [[maybe_unused]] const std::filesystem::path& output_path) override
-    {
-        ASSERT("API function not implemented");
-    };
 };
 } // namespace bb
