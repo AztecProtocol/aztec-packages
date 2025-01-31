@@ -18,7 +18,9 @@ export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<voi
   };
   process.removeAllListeners('SIGINT');
   process.removeAllListeners('SIGTERM');
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGINT', shutdown);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 };
 

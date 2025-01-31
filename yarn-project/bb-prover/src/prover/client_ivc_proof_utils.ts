@@ -3,6 +3,9 @@ import { ClientIvcProof } from '@aztec/circuits.js';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
+export const CLIENT_IVC_VK_FILE_NAME = 'vk';
+export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
+
 /**
  * TODO(#7371): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs
  * Create a ClientIvcProof from the result of client_ivc_prove_output_all or client_ivc_prove_output_all_msgpack
@@ -11,7 +14,7 @@ import { join } from 'path';
  */
 export async function readFromOutputDirectory(directory: string) {
   const [clientIvcVkBuffer, clientIvcProofBuffer] = await Promise.all(
-    ['vk', 'proof'].map(fileName => fs.readFile(join(directory, fileName))),
+    [CLIENT_IVC_VK_FILE_NAME, CLIENT_IVC_PROOF_FILE_NAME].map(fileName => fs.readFile(join(directory, fileName))),
   );
   return new ClientIvcProof(clientIvcProofBuffer, clientIvcVkBuffer);
 }
@@ -32,8 +35,8 @@ export async function readFromOutputDirectory(directory: string) {
 export async function writeToOutputDirectory(clientIvcProof: ClientIvcProof, directory: string) {
   const { clientIvcProofBuffer, clientIvcVkBuffer } = clientIvcProof;
   const fileData = [
-    ['proof', clientIvcProofBuffer],
-    ['vk', clientIvcVkBuffer],
+    [CLIENT_IVC_PROOF_FILE_NAME, clientIvcProofBuffer],
+    [CLIENT_IVC_VK_FILE_NAME, clientIvcVkBuffer],
   ] as const;
   await Promise.all(fileData.map(([fileName, buffer]) => fs.writeFile(join(directory, fileName), buffer)));
 }

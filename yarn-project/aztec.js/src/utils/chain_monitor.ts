@@ -27,7 +27,7 @@ export class ChainMonitor {
     if (this.handle) {
       throw new Error('Chain monitor already started');
     }
-    this.handle = setInterval(() => this.run(), this.intervalMs);
+    this.handle = setInterval(this.safeRun.bind(this), this.intervalMs);
   }
 
   stop() {
@@ -35,6 +35,12 @@ export class ChainMonitor {
       clearInterval(this.handle!);
       this.handle = undefined;
     }
+  }
+
+  private safeRun() {
+    void this.run().catch(error => {
+      this.logger.error('Error in chain monitor loop', error);
+    });
   }
 
   async run() {

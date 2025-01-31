@@ -50,7 +50,9 @@ export class BlobSinkServer {
   private setupRoutes() {
     // TODO(md): needed?
     this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
   }
 

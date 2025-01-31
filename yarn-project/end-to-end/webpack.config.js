@@ -15,9 +15,6 @@ export default {
     main: './src/web/main.ts',
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
       {
         test: /\.gz$/,

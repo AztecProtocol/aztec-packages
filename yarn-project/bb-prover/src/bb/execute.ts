@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import { type UltraHonkFlavor } from '../honk.js';
+import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -347,8 +348,8 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'vk.bin');
-  const proofPath = join(workingDirectory, 'proof.bin');
+  const vkPath = join(workingDirectory, CLIENT_IVC_VK_FILE_NAME);
+  const proofPath = join(workingDirectory, CLIENT_IVC_PROOF_FILE_NAME);
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -364,7 +365,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!filePresent(vkPath) || !filePresent(proofPath)) {
+    if (!(await filePresent(vkPath)) || !(await filePresent(proofPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
@@ -438,7 +439,7 @@ export async function generateAvmProofV2(
     // Write the inputs to the working directory.
     const avmInputsPath = join(workingDirectory, 'avm_inputs.bin');
     await fs.writeFile(avmInputsPath, inputsBuffer);
-    if (!filePresent(avmInputsPath)) {
+    if (!(await filePresent(avmInputsPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
@@ -521,12 +522,12 @@ export async function generateAvmProof(
     // Write the inputs to the working directory.
 
     await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    if (!filePresent(publicInputsPath)) {
+    if (!(await filePresent(publicInputsPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }
 
     await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    if (!filePresent(avmHintsPath)) {
+    if (!(await filePresent(avmHintsPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
     }
 
@@ -621,7 +622,7 @@ export async function verifyAvmProofV2(
       .catch(_ => false);
   const avmInputsPath = join(workingDirectory, 'avm_public_inputs.bin');
   await fs.writeFile(avmInputsPath, inputsBuffer);
-  if (!filePresent(avmInputsPath)) {
+  if (!(await filePresent(avmInputsPath))) {
     return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
   }
 
