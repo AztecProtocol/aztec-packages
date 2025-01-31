@@ -238,6 +238,13 @@ Required option:
 
 ## Development and Debugging Tools
 
+### flamegraph
+Generates a flamegraph of a private function call.
+
+```
+[SERVE=1] aztec flamegraph <artifact_path> <function_name>
+```
+
 ### codegen
 Validates and generates an Aztec Contract ABI from Noir ABI.
 
