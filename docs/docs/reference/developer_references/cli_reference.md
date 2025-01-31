@@ -239,7 +239,7 @@ Required option:
 ## Development and Debugging Tools
 
 ### flamegraph
-Generates a flamegraph of a private function call.
+Generates a flamegraph of the gate counts of a private function call.
 
 ```
 [SERVE=1] aztec flamegraph <artifact_path> <function_name>
