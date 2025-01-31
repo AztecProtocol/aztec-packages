@@ -27,9 +27,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private db: PxeDatabase,
     private l2TipsStore: L2TipsStore,
     config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
-    logSuffix?: string,
+    loggerOrSuffix?: string | Logger,
   ) {
-    this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
+    this.log =
+      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
+        ? createLogger(loggerOrSuffix ? `pxe:synchronizer:${loggerOrSuffix}` : `pxe:synchronizer`)
+        : loggerOrSuffix;
     this.blockStream = this.createBlockStream(config);
   }
 

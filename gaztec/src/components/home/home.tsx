@@ -3,12 +3,38 @@ import { ContractComponent } from "../contract/contract";
 import { SidebarComponent } from "../sidebar/sidebar";
 import { useState } from "react";
 import { AztecContext } from "../../aztecEnv";
+import NoSleep from "nosleep.js";
+import { LogPanel } from "../logPanel/logPanel";
+import logoURL from "../../assets/Aztec_logo.png";
 
 const layout = css({
   display: "flex",
   flexDirection: "row",
   height: "100%",
 });
+
+const logo = css({
+  width: "100%",
+  margin: "0.5rem",
+});
+
+const collapsedDrawer = css({
+  height: "100%",
+  width: "4rem",
+  backgroundColor: "var(--mui-palette-primary-light)",
+  overflow: "hidden",
+});
+
+const noSleep = new NoSleep();
+
+function enableNoSleep() {
+  noSleep.enable();
+  document.removeEventListener("touchstart", enableNoSleep, false);
+}
+
+// Enable wake lock.
+// (must be wrapped in a user input event handler e.g. a mouse or touch handler)
+document.addEventListener("touchstart", enableNoSleep, false);
 
 export default function Home() {
   const [pxe, setPXE] = useState(null);
@@ -21,6 +47,7 @@ export default function Home() {
   const [currentContract, setCurrentContract] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
+  const [logs, setLogs] = useState([]);
 
   const AztecContextInitialValue = {
     pxe,
@@ -33,6 +60,8 @@ export default function Home() {
     currentTx,
     node,
     currentContractAddress,
+    logs,
+    setLogs,
     setAztecNode,
     setCurrentTx,
     setWalletDB,
@@ -48,8 +77,12 @@ export default function Home() {
   return (
     <div css={layout}>
       <AztecContext.Provider value={AztecContextInitialValue}>
+        <div css={collapsedDrawer}>
+          <img css={logo} src={logoURL} />
+        </div>
         <SidebarComponent />
         <ContractComponent />
+        <LogPanel />
       </AztecContext.Provider>
     </div>
   );

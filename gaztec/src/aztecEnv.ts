@@ -6,6 +6,7 @@ import {
   AccountWalletWithSecretKey,
   AztecAddress,
   Contract,
+  Logger,
 } from "@aztec/aztec.js";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
@@ -27,6 +28,68 @@ process.env = Object.keys(import.meta.env).reduce((acc, key) => {
 
 debug.enable("*");
 
+const logLevel = [
+  "silent",
+  "fatal",
+  "error",
+  "warn",
+  "info",
+  "verbose",
+  "debug",
+  "trace",
+] as const;
+
+type Log = {
+  type: (typeof logLevel)[number];
+  timestamp: number;
+  prefix: string;
+  message: string;
+  data: any;
+};
+
+export class WebLogger {
+  private static instance: WebLogger;
+  private logs: Log[] = [];
+
+  private constructor(private setLogs: (logs: Log[]) => void) {}
+
+  static create(setLogs: (logs: Log[]) => void) {
+    WebLogger.instance = new WebLogger(setLogs);
+  }
+
+  static getInstance() {
+    return WebLogger.instance;
+  }
+
+  createLogger(prefix: string): Logger {
+    return new Proxy(createLogger(prefix), {
+      get: (target, prop, receiver) => {
+        if (logLevel.includes(prop as (typeof logLevel)[number])) {
+          return function () {
+            const args = [prop, prefix, ...arguments] as Parameters<
+              WebLogger["handleLog"]
+            >;
+            WebLogger.getInstance().handleLog(...args);
+            target[prop].apply(this, arguments);
+          };
+        } else {
+          return target[prop];
+        }
+      },
+    });
+  }
+
+  private handleLog(
+    type: (typeof logLevel)[number],
+    prefix: string,
+    message: string,
+    data: any
+  ) {
+    this.logs.unshift({ type, prefix, message, data, timestamp: Date.now() });
+    this.setLogs([...this.logs]);
+  }
+}
+
 export const AztecContext = createContext<{
   pxe: PXE | null;
   nodeURL: string;
@@ -37,6 +100,8 @@ export const AztecContext = createContext<{
   currentContractAddress: AztecAddress;
   currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
+  logs: Log[];
+  setLogs: (logs: Log[]) => void;
   setWalletDB: (walletDB: WalletDB) => void;
   setPXEInitialized: (isPXEInitialized: boolean) => void;
   setWallet: (wallet: AccountWalletWithSecretKey) => void;
@@ -56,6 +121,8 @@ export const AztecContext = createContext<{
   currentContract: null,
   currentContractAddress: null,
   currentTx: null,
+  logs: [],
+  setLogs: (logs: Log[]) => {},
   setWalletDB: (walletDB: WalletDB) => {},
   setPXEInitialized: (isPXEInitialized: boolean) => {},
   setWallet: (wallet: AccountWalletWithSecretKey) => {},
@@ -73,7 +140,12 @@ export class AztecEnv {
     return aztecNode;
   }
 
-  static async initPXE(aztecNode: AztecNode): Promise<PXE> {
+  static async initPXE(
+    aztecNode: AztecNode,
+    setLogs: (logs: Log[]) => void
+  ): Promise<PXE> {
+    WebLogger.create(setLogs);
+
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
     config.proverEnabled = true;
@@ -81,7 +153,8 @@ export class AztecEnv {
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,
-      16
+      16,
+      WebLogger.getInstance().createLogger("bb:wasm:lazy")
     );
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
@@ -92,7 +165,7 @@ export class AztecEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:indexeddb")
+      WebLogger.getInstance().createLogger("pxe:data:indexeddb")
     );
 
     const keyStore = new KeyStore(store);
@@ -107,7 +180,8 @@ export class AztecEnv {
       tips,
       proofCreator,
       simulationProvider,
-      config
+      config,
+      WebLogger.getInstance().createLogger("pxe:service")
     );
     await pxe.init();
     return pxe;
