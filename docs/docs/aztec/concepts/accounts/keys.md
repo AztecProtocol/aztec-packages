@@ -38,7 +38,7 @@ When it comes to notes encryption and decryption:
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
+Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
 
 :::note
 Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed. 
