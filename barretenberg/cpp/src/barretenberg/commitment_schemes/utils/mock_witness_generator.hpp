@@ -13,7 +13,7 @@ namespace bb {
  *
  * @tparam Curve
  */
-template <typename Curve> struct MockWitnessGenerator {
+template <typename Curve> struct MockClaimGenerator {
   public:
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -58,11 +58,11 @@ template <typename Curve> struct MockWitnessGenerator {
      * @param mle_opening_point
      * @param commitment_key
      */
-    MockWitnessGenerator(const size_t poly_size,
-                         const size_t num_polynomials,
-                         const size_t num_to_be_shifted,
-                         const std::vector<Fr>& mle_opening_point,
-                         std::shared_ptr<CommitmentKey>& commitment_key)
+    MockClaimGenerator(const size_t poly_size,
+                       const size_t num_polynomials,
+                       const size_t num_to_be_shifted,
+                       const std::vector<Fr>& mle_opening_point,
+                       std::shared_ptr<CommitmentKey>& commitment_key)
         : ck(commitment_key) // Initialize the commitment key
         , polynomial_batcher(poly_size)
 
@@ -102,7 +102,7 @@ template <typename Curve> struct MockWitnessGenerator {
     }
 
     // Generate zero polynomials to test edge cases in PCS
-    MockWitnessGenerator(const size_t n, const size_t num_zero_polynomials)
+    MockClaimGenerator(const size_t n, const size_t num_zero_polynomials)
         : unshifted_polynomials(num_zero_polynomials)
         , polynomial_batcher(n)
     {
