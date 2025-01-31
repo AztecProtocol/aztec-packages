@@ -66,7 +66,7 @@ export async function createAccount(
   } else {
     const wallet = await account.getWallet();
     const sendOpts: DeployAccountOptions = {
-      ...feeOpts.toSendOpts(wallet),
+      ...(await feeOpts.toSendOpts(wallet)),
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,

@@ -15,14 +15,14 @@ export interface TxPool {
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Checks if an archived transaction exists in the pool and returns it.
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  getArchivedTxByHash(txHash: TxHash): Tx | undefined;
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Marks the set of txs as mined, as opposed to pending.
@@ -47,13 +47,13 @@ export interface TxPool {
    * Gets all transactions currently in the tx pool.
    * @returns An array of transaction objects found in the tx pool.
    */
-  getAllTxs(): Tx[];
+  getAllTxs(): Promise<Tx[]>;
 
   /**
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  getAllTxHashes(): TxHash[];
+  getAllTxHashes(): Promise<TxHash[]>;
 
   /**
    * Gets the hashes of pending transactions currently in the tx pool sorted by priority (see getPendingTxPriority).
@@ -65,12 +65,12 @@ export interface TxPool {
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
    */
-  getMinedTxHashes(): [tx: TxHash, blockNumber: number][];
+  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: number][]>;
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 }

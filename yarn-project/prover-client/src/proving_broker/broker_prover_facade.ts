@@ -55,7 +55,7 @@ type ProvingJob = {
   type: ProvingRequestType;
   inputsUri: ProofUri;
   promise: PromiseWithResolvers<any>;
-  abortFn?: () => Promise<void>;
+  abortFn?: () => void;
   signal?: AbortSignal;
 };
 
@@ -117,9 +117,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     // Create a promise for this job id, regardless of whether it was enqueued at the broker
     // The running promise will monitor for the job to be completed and resolve it either way
     const promise = promiseWithResolvers<ProvingJobResultsMap[T]>();
-    const abortFn = async () => {
+    const abortFn = () => {
       signal?.removeEventListener('abort', abortFn);
-      await this.broker.cancelProvingJob(id);
+      void this.broker.cancelProvingJob(id).catch(err => this.log.warn(`Error cancelling job id=${id}`, err));
     };
     const job: ProvingJob = {
       id,

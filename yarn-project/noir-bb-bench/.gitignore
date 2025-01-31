@@ -1,3 +1,4 @@
 artifacts/
 circuits/**/proofs/*
 circuits/**/Prover.toml
+src/types/index.ts

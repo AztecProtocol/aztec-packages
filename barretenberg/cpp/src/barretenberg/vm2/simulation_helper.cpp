@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -48,6 +49,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 {
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
     typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<AddressingEvent> addressing_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
@@ -86,6 +88,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     return { execution_emitter.dump_events(),
              alu_emitter.dump_events(),
+             bitwise_emitter.dump_events(),
              memory_emitter.dump_events(),
              addressing_emitter.dump_events(),
              bytecode_retrieval_emitter.dump_events(),

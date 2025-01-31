@@ -18,11 +18,16 @@
   "resolutions": {
     "@aztec/accounts": "link:../yarn-project/accounts",
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../yarn-project/bb-prover",
     "@aztec/circuits.js": "link:../yarn-project/circuits.js",
     "@aztec/entrypoints": "link:../yarn-project/entrypoints",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/bb.js": "link:../barretenberg/ts",
     "@aztec/circuit-types": "link:../yarn-project/circuit-types",
+    "@aztec/key-store": "link:../yarn-project/key-store",
+    "@aztec/kv-store": "link:../yarn-project/kv-store",
+    "@aztec/pxe": "link:../yarn-project/pxe",
+    "@aztec/simulator": "link:../yarn-project/simulator",
     "@aztec/ethereum": "link:../yarn-project/ethereum",
     "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
     "@aztec/types": "link:../yarn-project/types"
@@ -41,6 +46,6 @@
     "vitest": "^2.0.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "1.49.0"
   }
 }

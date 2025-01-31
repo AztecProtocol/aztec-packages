@@ -232,7 +232,7 @@ export class TestContext {
       await updateExpectedTreesFromTxs(db, [tx]);
       const stateReference = await db.getStateReference();
       if (tx.avmProvingRequest) {
-        tx.avmProvingRequest.inputs.output.endTreeSnapshots = new TreeSnapshots(
+        tx.avmProvingRequest.inputs.publicInputs.endTreeSnapshots = new TreeSnapshots(
           stateReference.l1ToL2MessageTree,
           stateReference.partial.noteHashTree,
           stateReference.partial.nullifierTree,

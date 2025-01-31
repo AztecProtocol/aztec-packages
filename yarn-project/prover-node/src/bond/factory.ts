@@ -1,19 +1,6 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { type EthAddress } from '@aztec/circuits.js';
+import { type L1Clients } from '@aztec/ethereum';
 import { compact } from '@aztec/foundation/collection';
-import { type RollupAbi } from '@aztec/l1-artifacts';
-
-import {
-  type Chain,
-  type Client,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletClient,
-  type WalletRpcSchema,
-} from 'viem';
 
 import { BondManager } from './bond-manager.js';
 import { type ProverBondManagerConfig, getProverBondManagerConfigFromEnv } from './config.js';
@@ -21,21 +8,14 @@ import { EscrowContract } from './escrow-contract.js';
 import { TokenContract } from './token-contract.js';
 
 export async function createBondManager(
-  rollupContract: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, Chain, PrivateKeyAccount>>,
-  client: Client<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount,
-    [...WalletRpcSchema, ...PublicRpcSchema],
-    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-  >,
+  escrowContractAddress: EthAddress,
+  client: L1Clients['walletClient'],
   overrides: Partial<ProverBondManagerConfig> = {},
 ) {
   const config = { ...getProverBondManagerConfigFromEnv(), ...compact(overrides) };
   const { proverMinimumEscrowAmount: minimumStake, proverTargetEscrowAmount: maybeTargetStake } = config;
   const targetStake = maybeTargetStake ?? minimumStake * 2n;
 
-  const escrowContractAddress = EthAddress.fromString(await rollupContract.read.PROOF_COMMITMENT_ESCROW());
   const escrow = new EscrowContract(client, escrowContractAddress);
 
   const tokenContractAddress = await escrow.getTokenAddress();
