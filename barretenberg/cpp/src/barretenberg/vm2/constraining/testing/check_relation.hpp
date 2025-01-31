@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 
@@ -28,13 +29,14 @@ void check_relation_internal(const Trace& trace, std::span<size_t> subrelations)
     }
 }
 
-template <typename Relation, typename Trace, typename... Ts> void check_relation(const Trace& trace, Ts... subrelation)
+template <typename Relation, typename... Ts>
+void check_relation(const tracegen::TestTraceContainer& trace, Ts... subrelation)
 {
     std::array<size_t, sizeof...(Ts)> subrelations = { subrelation... };
-    check_relation_internal<Relation>(trace, subrelations);
+    check_relation_internal<Relation>(trace.as_rows(), subrelations);
 }
 
-template <typename Relation, typename Trace> void check_relation(const Trace& trace)
+template <typename Relation> void check_relation(const tracegen::TestTraceContainer& trace)
 {
     auto subrelations = std::make_index_sequence<Relation::SUBRELATION_PARTIAL_LENGTHS.size()>();
     [&]<size_t... Is>(std::index_sequence<Is...>) { check_relation<Relation>(trace, Is...); }(subrelations);

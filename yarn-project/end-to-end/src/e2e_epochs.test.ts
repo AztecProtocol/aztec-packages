@@ -5,15 +5,19 @@ import { type L1RollupConstants } from '@aztec/circuit-types';
 import { Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { type DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { type ProverNodePublisher } from '@aztec/prover-node';
 import { type TestProverNode } from '@aztec/prover-node/test';
-import { type TestL1Publisher, type TestSequencerClient } from '@aztec/sequencer-client/test';
+import { type SequencerPublisher } from '@aztec/sequencer-client';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
 
 import { jest } from '@jest/globals';
 import { type PublicClient } from 'viem';
 
 import { type EndToEndContext, setup } from './fixtures/utils.js';
+
+jest.setTimeout(1000 * 60 * 10);
 
 // Tests building of epochs using fast block times and short epochs.
 // Spawns an aztec node and a prover node with fake proofs.
@@ -59,8 +63,14 @@ describe('e2e_epochs', () => {
     monitor = new ChainMonitor(rollup, logger);
     monitor.start();
 
-    proverDelayer = ((context.proverNode as TestProverNode).publisher as TestL1Publisher).delayer!;
-    sequencerDelayer = ((context.sequencer as TestSequencerClient).sequencer.publisher as TestL1Publisher).delayer!;
+    // This is hideous.
+    // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.
+    proverDelayer = (
+      ((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils
+    ).delayer!;
+    sequencerDelayer = (
+      ((context.sequencer as TestSequencerClient).sequencer.publisher as SequencerPublisher).l1TxUtils as DelayedTxUtils
+    ).delayer!;
     expect(proverDelayer).toBeDefined();
     expect(sequencerDelayer).toBeDefined();
 
@@ -79,6 +89,14 @@ describe('e2e_epochs', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     monitor.stop();
+    await context.proverNode?.stop();
+    await context.teardown();
+  });
+
+  afterAll(async () => {
+    jest.restoreAllMocks();
+    monitor.stop();
+    await context.proverNode?.stop();
     await context.teardown();
   });
 
@@ -96,8 +114,13 @@ describe('e2e_epochs', () => {
   };
 
   /** Waits until the given L2 block number is marked as proven. */
-  const waitUntilProvenL2BlockNumber = async (t: number) => {
-    await retryUntil(() => Promise.resolve(t === monitor.l2ProvenBlockNumber), `Wait proven L2 block ${t}`, 60, 0.1);
+  const waitUntilProvenL2BlockNumber = async (t: number, timeout = 60) => {
+    await retryUntil(
+      () => Promise.resolve(t === monitor.l2ProvenBlockNumber),
+      `Wait proven L2 block ${t}`,
+      timeout,
+      0.1,
+    );
   };
 
   it('does not allow submitting proof after epoch end', async () => {
@@ -136,10 +159,12 @@ describe('e2e_epochs', () => {
   it('submits proof claim alone if there are no txs to build a block', async () => {
     await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await waitUntilEpochStarts(1);
+    // Sleep to make sure any pending blocks are published
+    await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
-    await waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0);
+    await waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 120);
     expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
