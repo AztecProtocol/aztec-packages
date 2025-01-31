@@ -10,26 +10,20 @@ import {
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
-import { deployL1Contract } from '@aztec/ethereum';
+import { createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { createPublicClient, createWalletClient, getContract, http } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import { getContract } from 'viem';
 
 // docs:end:imports
 // docs:start:utils
-export const MNEMONIC = 'test test test test test test test test test test test junk';
+const MNEMONIC = 'test test test test test test test test test test test junk';
+const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
-const walletClient = getL1WalletClient(foundry.rpcUrls.default.http[0], 0);
+const { walletClient, publicClient } = createL1Clients(ETHEREUM_HOST, MNEMONIC);
 const ownerEthAddress = walletClient.account.address;
-
-const publicClient = createPublicClient({
-  chain: foundry,
-  transport: http('http://127.0.0.1:8545'),
-});
 
 const setupSandbox = async () => {
   const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -51,16 +45,6 @@ async function deployTokenPortal(): Promise<EthAddress> {
   return await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode, []).then(
     ({ address }) => address,
   );
-}
-
-// from here: https://github.com/AztecProtocol/aztec-packages/blob/ecbd59e58006533c8885a8b2fadbd9507489300c/yarn-project/end-to-end/src/fixtures/utils.ts#L534
-function getL1WalletClient(rpcUrl: string, index: number) {
-  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
-  return createWalletClient({
-    account: hdAccount,
-    chain: foundry,
-    transport: http(rpcUrl),
-  });
 }
 // docs:end:utils
 
