@@ -168,8 +168,8 @@ describe('public_tx_simulator', () => {
     }
   };
 
-  const mockContractClassForTx = (tx: Tx, revertible = true) => {
-    const publicContractClass = makeContractClassPublic(42);
+  const mockContractClassForTx = async (tx: Tx, revertible = true) => {
+    const publicContractClass = await makeContractClassPublic(42);
     const contractClassLogFields = [
       REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
       publicContractClass.id,
@@ -834,13 +834,13 @@ describe('public_tx_simulator', () => {
     [' not', 'revertible'],
     ['', 'non-revertible'],
   ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
     });
 
-    const contractClassId = mockContractClassForTx(tx, kind == 'revertible');
+    const contractClassId = await mockContractClassForTx(tx, kind == 'revertible');
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
