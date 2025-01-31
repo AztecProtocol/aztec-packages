@@ -27,7 +27,7 @@ The incoming viewing public key (`Ivpk`) is used by the sender to encrypt a note
 
 When it comes to notes encryption and decryption:
 - For each note, there is a randomly generated ephemeral key pair (`esk`, `Epk`) where `Epk = esk * G`. 
-- The `AddressPublicKey` (derived from the `Ivsk`) together with `esk` are encrypted as a secret `S`, `S = esk * AddressPublicKey`.
+- The `AddressPublicKey` (derived from the `ivsk`) together with `esk` are encrypted as a secret `S`, `S = esk * AddressPublicKey`.
 - `symmetric_encryption_key = hash(S)`
 - `Ciphertext = aes_encrypt(note, symmetric_encryption_key)`
 - The recipient gets a pair (`Epk`, `Ciphertext`)
