@@ -1,8 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type Logger, type SentTx } from '@aztec/aztec.js';
-import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
+import { type Logger, type SentTx, TxStatus, type Wallet } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
@@ -45,41 +44,34 @@ export const createPXEServiceAndSubmitTransactions = async (
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
+  fundedAccount: InitialAccountData,
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
   const pxeService = await createPXEService(node, rpcConfig, true);
 
-  const secretKey = Fr.random();
-  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
-  await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
+  const account = await getSchnorrAccount(
+    pxeService,
+    fundedAccount.secret,
+    fundedAccount.signingKey,
+    fundedAccount.salt,
+  );
+  await account.register();
+  const wallet = await account.getWallet();
 
-  const txs = await submitTxsTo(logger, pxeService, numTxs);
+  const txs = await submitTxsTo(logger, pxeService, numTxs, wallet);
   return {
     txs,
-    account: completeAddress.address,
     pxeService,
     node,
   };
 };
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
-const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
-  const provenTxs = [];
-  const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
-  for (let i = 0; i < numTxs; i++) {
-    const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-    const deployMethod = await accountManager.getDeployMethod(deployWallet);
-    const tx = await deployMethod.prove({
-      contractAddressSalt: new Fr(accountManager.salt),
-      skipClassRegistration: true,
-      skipPublicDeployment: true,
-      universalDeploy: true,
-    });
-    provenTxs.push(tx);
-  }
+const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number, wallet: Wallet) => {
   const sentTxs = await Promise.all(
-    provenTxs.map(async provenTx => {
-      const tx = provenTx.send();
+    Array.from({ length: numTxs }).map(async () => {
+      const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+      const tx = accountManager.deploy({ deployWallet: wallet });
       const txHash = await tx.getTxHash();
 
       logger.info(`Tx sent with hash ${txHash}`);

@@ -30,6 +30,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
     });
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -69,6 +70,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       shouldCollectMetrics(),
     );
@@ -95,7 +97,12 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Submitting transactions');
 
     for (const nodeIndex of proposerIndexes.slice(0, 2)) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, nodes[nodeIndex], NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(
+        t.logger,
+        nodes[nodeIndex],
+        NUM_TXS_PER_NODE,
+        t.fundedAccount,
+      );
       contexts.push(context);
     }
 

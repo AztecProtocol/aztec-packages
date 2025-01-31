@@ -5,7 +5,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { type AccountContract } from '../account/contract.js';
 import { type Salt, type Wallet } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
-import { type DeployOptions } from '../contract/deploy_method.js';
+import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
+import { Contract } from '../contract/index.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
 import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
@@ -145,20 +146,34 @@ export class AccountManager {
 
     await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
 
-    if (!deployWallet) {
-      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
-      // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go.
-      // If we used getWallet, the deployment would get routed via the account contract entrypoint
-      // and it can't be used unless the contract is initialized.
-      deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
-    }
+    const artifact = this.accountContract.getContractArtifact();
 
     const args = (await this.accountContract.getDeploymentArgs()) ?? [];
+
+    if (deployWallet) {
+      // If deploying using an existing wallet/account, treat it like regular contract deployment.
+      const thisWallet = await this.getWallet();
+      return new DeployMethod(
+        this.getPublicKeys(),
+        deployWallet,
+        artifact,
+        address => Contract.at(address, artifact, thisWallet),
+        args,
+        'constructor',
+      );
+    }
+
+    const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
+    // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go.
+    // If we used getWallet, the deployment would get routed via the account contract entrypoint
+    // and it can't be used unless the contract is initialized.
+    const wallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+
     return new DeployAccountMethod(
       this.accountContract.getAuthWitnessProvider(completeAddress),
       this.getPublicKeys(),
-      deployWallet,
-      this.accountContract.getContractArtifact(),
+      wallet,
+      artifact,
       args,
       'constructor',
       'entrypoint',

@@ -295,7 +295,7 @@ describe('End-to-end tests for devnet', () => {
   async function advanceChainWithEmptyBlocks(pxe: PXE) {
     const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
     if (!deployWallet) {
-      throw new Error('A funded wallet is required to create dummy blocks.');
+      throw new Error('A funded wallet is required to create dummy txs.');
     }
 
     const test = await TestContract.deploy(deployWallet)

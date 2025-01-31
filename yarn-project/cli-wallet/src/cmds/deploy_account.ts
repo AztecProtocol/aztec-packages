@@ -40,11 +40,11 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
-  const sendOpts: DeployAccountOptions = {
-    ...feeOpts.toSendOpts(wallet),
-    skipInitialization: false,
-  };
   if (feeOpts.estimateOnly) {
+    const sendOpts: DeployAccountOptions = {
+      ...feeOpts.toSendOpts(wallet),
+      skipInitialization: false,
+    };
     const gas = await (await account.getDeployMethod()).estimateGas({ ...sendOpts });
     if (json) {
       out.fee = {
@@ -61,6 +61,10 @@ export async function deployAccount(
       printGasEstimates(feeOpts, gas, log);
     }
   } else {
+    const sendOpts: DeployAccountOptions = {
+      ...feeOpts.toDeployAccountOpts(wallet),
+      skipInitialization: false,
+    };
     tx = account.deploy({ ...sendOpts });
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Account contract tx sent with hash ${txHash}`);

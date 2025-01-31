@@ -40,6 +40,7 @@ import {
   GENESIS_ARCHIVE_ROOT,
   GENESIS_BLOCK_HASH,
   Gas,
+  type PublicDataTreeLeaf,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import {
@@ -758,6 +759,7 @@ export async function createAndSyncProverNode(
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
   dataDirectory: string,
+  prefilledPublicData: PublicDataTreeLeaf[] = [],
 ) {
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
@@ -798,11 +800,15 @@ export async function createAndSyncProverNode(
   // Use testing l1 publisher
   const publisher = new TestL1Publisher(proverConfig, { blobSinkClient });
 
-  const proverNode = await createProverNode(proverConfig, {
-    aztecNodeTxProvider: aztecNodeWithoutStop,
-    archiver: archiver as Archiver,
-    publisher,
-  });
+  const proverNode = await createProverNode(
+    proverConfig,
+    {
+      aztecNodeTxProvider: aztecNodeWithoutStop,
+      archiver: archiver as Archiver,
+      publisher,
+    },
+    { prefilledPublicData },
+  );
   await proverNode.start();
   return proverNode;
 }

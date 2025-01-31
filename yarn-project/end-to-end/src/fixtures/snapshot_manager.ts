@@ -341,6 +341,7 @@ async function setupFromFresh(
     initialFundedAccounts.map(a => a.address),
     opts.initialAccountFeeJuice,
   );
+  console.log('>>>> setup from fresh', prefilledPublicData);
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
@@ -413,6 +414,7 @@ async function setupFromFresh(
       aztecNodeConfig,
       aztecNode,
       path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+      prefilledPublicData,
     );
   }
 
@@ -469,6 +471,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
   const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  console.log('>>>> setup from state', prefilledPublicData);
 
   const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
@@ -529,6 +532,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       aztecNodeConfig,
       aztecNode,
       path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+      prefilledPublicData,
     );
   }
 
