@@ -37,6 +37,7 @@ allow_list=(
   "e2e_ordering"
   "e2e_pruned_blocks"
   "e2e_static_calls"
+  "e2e_token_bridge_tutorial_test"
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"
@@ -55,7 +56,7 @@ allow_list=(
 # E.g:
 # e2e_p2p label will match e2e_p2p_gossip, e2e_p2p_rediscovery, e2e_p2p_reqresp etc.
 # e2e_prover label will match e2e_prover_fake_proofs, e2e_prover_coordination etc.
-IFS=',' read -r -a input_labels <<< "$LABELS"
+IFS=',' read -r -a input_labels <<<"$LABELS"
 expanded_allow_list=()
 
 for label in "${input_labels[@]}"; do
