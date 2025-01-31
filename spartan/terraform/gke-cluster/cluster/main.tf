@@ -133,7 +133,7 @@ resource "google_container_node_pool" "aztec_nodes-2core" {
 
 # Create small 8 core node pool for non-network deployments
 resource "google_container_node_pool" "aztec_non_network_nodes" {
-  name     = "${var.cluster_name}-aux-nodes"
+  name     = "${var.cluster_name}-infra-nodes"
   location = var.zone
   cluster  = var.cluster_name
   version  = var.node_version
