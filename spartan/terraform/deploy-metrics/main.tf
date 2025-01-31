@@ -95,7 +95,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[0].static_configs[0].targets[0]"
-    value = "http://${google_compute_address.otel_collector_ip.address}:8888"
+    value = "${google_compute_address.otel_collector_ip.address}:8888"
   }
 
   set {
@@ -105,7 +105,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[1].static_configs[0].targets[0]"
-    value = "http://${google_compute_address.otel_collector_ip.address}:8889"
+    value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
 
 
