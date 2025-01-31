@@ -25,10 +25,10 @@ if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
 fi
 
 # Switch to a KIND cluster (will also pull in necessary dependencies)
-../bootstrap.sh kind
+flock logs/kind-boot.lock ../bootstrap.sh kind
 
 # Load the Docker image into kind
-kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
+flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
 function show_status_until_pxe_ready {
   set +x   # don't spam with our commands

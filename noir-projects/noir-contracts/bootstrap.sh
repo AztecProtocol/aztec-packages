@@ -139,6 +139,8 @@ export -f compile
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
   set +e
+  rm -rf target
+  mkdir -p $tmp_dir
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
   grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
     parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}

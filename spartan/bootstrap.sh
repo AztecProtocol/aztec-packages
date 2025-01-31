@@ -5,6 +5,8 @@ cmd=${1:-}
 
 scripts/install_deps.sh
 
+hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
+
 function network_shaping {
   namespace="$1"
   chaos_values="$2"
@@ -46,6 +48,17 @@ function gke {
   fi
 }
 
+function test_cmds {
+  echo "$hash NAMESPACE=smoke FRESH_INSTALL=true INSTALL_METRICS=false spartan/scripts/run_test.sh kind ./src/spartan/smoke.test.ts ci-smoke.yaml"
+  echo "$hash NAMESPACE=4epochs FRESH_INSTALL=true INSTALL_METRICS=false spartan/scripts/run_test.sh kind ./src/spartan/4epochs.test.ts ci.yaml"
+  echo "$hash spartan/scripts/run_test.sh local -t ./test-transfer.sh -val 3"
+}
+
+function test {
+  echo_header "spartan test"
+  test_cmds | parallelise
+}
+
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
@@ -83,11 +96,13 @@ case "$cmd" in
     network_shaping "$namespace" "$chaos_values"
     ;;
   "hash")
-    hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+    echo $hash
     ;;
-  "test-kind")
-    shift
-    scripts/test_kind.sh $@
+  "test-cmds")
+    test_cmds
+    ;;
+  "test")
+    test
     ;;
   "gke")
     gke
