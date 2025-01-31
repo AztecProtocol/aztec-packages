@@ -54,7 +54,7 @@ variable "PROVER_PUBLISHER_PRIVATE_KEY" {
   default     = ""
 }
 
-variable "ETHEREUM_EXTERNAL_HOST" {
+variable "EXTERNAL_ETHEREUM_HOST" {
   description = "External host to use for the ethereum node"
   type        = string
   default     = ""
