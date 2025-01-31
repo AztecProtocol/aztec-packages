@@ -24,6 +24,8 @@ class IPATest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = ShpleminiVerifier::ClaimBatcher;
+    using ClaimBatch = ShpleminiVerifier::ClaimBatch;
 
     static std::shared_ptr<CK> ck;
     static std::shared_ptr<VK> vk;
@@ -296,15 +298,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(small_n,
-                                                       RefVector(instance_witness.unshifted_commitments),
-                                                       RefVector(instance_witness.to_be_shifted_commitments),
-                                                       RefVector(instance_witness.unshifted_evals),
-                                                       RefVector(instance_witness.shifted_evals),
-                                                       mle_opening_point,
-                                                       vk->get_g1_identity(),
-                                                       verifier_transcript);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+        small_n, instance_witness.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -350,16 +345,12 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(small_n,
-                                                       RefVector(instance_witness.unshifted_commitments),
-                                                       RefVector(instance_witness.to_be_shifted_commitments),
-                                                       RefVector(instance_witness.unshifted_evals),
-                                                       RefVector(instance_witness.shifted_evals),
-                                                       mle_opening_point,
-                                                       vk->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       repeated_commitments);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_n,
+                                                                                    instance_witness.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    repeated_commitments);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);
