@@ -5,8 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "ts-node-esm ./src/index.ts",
-    "postinstall": "playwright install --with-deps"
+    "start": "ts-node-esm ./src/index.ts"
   },
   "dependencies": {
     "chalk": "^5.3.0",
