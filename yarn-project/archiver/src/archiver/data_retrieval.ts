@@ -189,7 +189,6 @@ async function getBlockFromRollupTx(
   try {
     blockFields = blobBodies.flatMap(b => b.toEncodedFields());
   } catch (err: any) {
-    // TODO: Handle all of this better - add a test case
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
     } else {

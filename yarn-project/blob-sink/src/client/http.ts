@@ -28,6 +28,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
     // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
+    // Right now we fetch everything, then filter out the blobs that we don't want
     if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return false;
