@@ -559,7 +559,10 @@ export const addAccounts =
         let skipClassRegistration = true;
         if (index === 0) {
           // for the first account, check if the contract class is already registered, otherwise we should register now
-          if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
+          if (
+            !(await pxe.getContractClassMetadata(account.getInstance().contractClassId))
+              .isContractClassPubliclyRegistered
+          ) {
             skipClassRegistration = false;
           }
         }
@@ -599,10 +602,12 @@ export async function publicDeployAccounts(
   waitUntilProven = false,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
-  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const instances = (
+    await Promise.all(accountAddressesToDeploy.map(account => sender.getContractMetadata(account)))
+  ).map(metadata => metadata.contractInstance);
 
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
+  const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: FunctionCall[] = [];
   if (!alreadyRegistered) {

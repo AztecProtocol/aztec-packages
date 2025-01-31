@@ -50,7 +50,7 @@ void AvmProver::execute_wire_commitments_round()
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
-    auto labels = prover_polynomials.get_wires_labels();
+    const auto& labels = prover_polynomials.get_wires_labels();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
@@ -111,13 +111,14 @@ void AvmProver::execute_relation_check_rounds()
 void AvmProver::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(key->circuit_size,
-                                                                             prover_polynomials.get_unshifted(),
-                                                                             prover_polynomials.get_to_be_shifted(),
-                                                                             sumcheck_output.challenge,
-                                                                             commitment_key,
-                                                                             transcript);
+    PolynomialBatcher polynomial_batcher(key->circuit_size);
+    polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_shifted_by_one(prover_polynomials.get_to_be_shifted());
+
+    const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
+        key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

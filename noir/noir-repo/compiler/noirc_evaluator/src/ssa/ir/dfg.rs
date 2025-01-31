@@ -109,6 +109,7 @@ pub(crate) struct DataFlowGraph {
 /// The GlobalsGraph contains the actual global data.
 /// Global data is expected to only be numeric constants or array constants (which are represented by Instruction::MakeArray).
 /// The global's data will shared across functions and should be accessible inside of a function's DataFlowGraph.
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct GlobalsGraph {
     /// Storage for all of the global values
@@ -116,16 +117,36 @@ pub(crate) struct GlobalsGraph {
     /// All of the instructions in the global value space.
     /// These are expected to all be Instruction::MakeArray
     instructions: DenseMap<Instruction>,
+    #[serde_as(as = "HashMap<DisplayFromStr, _>")]
+    results: HashMap<InstructionId, smallvec::SmallVec<[ValueId; 1]>>,
+    #[serde(skip)]
+    constants: HashMap<(FieldElement, NumericType), ValueId>,
 }
 
 impl GlobalsGraph {
     pub(crate) fn from_dfg(dfg: DataFlowGraph) -> Self {
-        Self { values: dfg.values, instructions: dfg.instructions }
+        Self {
+            values: dfg.values,
+            instructions: dfg.instructions,
+            results: dfg.results,
+            constants: dfg.constants,
+        }
     }
 
     /// Iterate over every Value in this DFG in no particular order, including unused Values
-    pub(crate) fn values_iter(&self) -> impl ExactSizeIterator<Item = (ValueId, &Value)> {
+    pub(crate) fn values_iter(&self) -> impl DoubleEndedIterator<Item = (ValueId, &Value)> {
         self.values.iter()
+    }
+}
+
+impl From<GlobalsGraph> for DataFlowGraph {
+    fn from(value: GlobalsGraph) -> Self {
+        DataFlowGraph {
+            values: value.values,
+            instructions: value.instructions,
+            results: value.results,
+            ..Default::default()
+        }
     }
 }
 
@@ -173,12 +194,12 @@ impl DataFlowGraph {
     /// The pairs are order by id, which is not guaranteed to be meaningful.
     pub(crate) fn basic_blocks_iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = (BasicBlockId, &BasicBlock)> {
+    ) -> impl DoubleEndedIterator<Item = (BasicBlockId, &BasicBlock)> {
         self.blocks.iter()
     }
 
     /// Iterate over every Value in this DFG in no particular order, including unused Values
-    pub(crate) fn values_iter(&self) -> impl ExactSizeIterator<Item = (ValueId, &Value)> {
+    pub(crate) fn values_iter(&self) -> impl DoubleEndedIterator<Item = (ValueId, &Value)> {
         self.values.iter()
     }
 
@@ -233,17 +254,18 @@ impl DataFlowGraph {
 
     pub(crate) fn insert_instruction_and_results_without_simplification(
         &mut self,
-        instruction_data: Instruction,
+        instruction: Instruction,
         block: BasicBlockId,
         ctrl_typevars: Option<Vec<Type>>,
         call_stack: CallStackId,
     ) -> InsertInstructionResult {
-        if !self.is_handled_by_runtime(&instruction_data) {
-            panic!("Attempted to insert instruction not handled by runtime: {instruction_data:?}");
+        if !self.is_handled_by_runtime(&instruction) {
+            // Panicking to raise attention. If we're not supposed to simplify it immediately,
+            // pushing the instruction would just cause a potential panic later on.
+            panic!("Attempted to insert instruction not handled by runtime: {instruction:?}");
         }
-
         let id = self.insert_instruction_without_simplification(
-            instruction_data,
+            instruction,
             block,
             ctrl_typevars,
             call_stack,
@@ -280,7 +302,10 @@ impl DataFlowGraph {
         existing_id: Option<InstructionId>,
     ) -> InsertInstructionResult {
         if !self.is_handled_by_runtime(&instruction) {
-            panic!("Attempted to insert instruction not handled by runtime: {instruction:?}");
+            // BUG: With panicking it fails to build the `token_contract`; see:
+            // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2624379102
+            // panic!("Attempted to insert instruction not handled by runtime: {instruction:?}");
+            return InsertInstructionResult::InstructionRemoved;
         }
 
         match instruction.simplify(self, block, ctrl_typevars.clone(), call_stack) {
@@ -386,6 +411,9 @@ impl DataFlowGraph {
         if let Some(id) = self.constants.get(&(constant, typ)) {
             return *id;
         }
+        if let Some(id) = self.globals.constants.get(&(constant, typ)) {
+            return *id;
+        }
         let id = self.values.insert(Value::NumericConstant { constant, typ });
         self.constants.insert((constant, typ), id);
         id
@@ -484,7 +512,7 @@ impl DataFlowGraph {
     /// Should `value` be a numeric constant then this function will return the exact number of bits required,
     /// otherwise it will return the minimum number of bits based on type information.
     pub(crate) fn get_value_max_num_bits(&self, value: ValueId) -> u32 {
-        match self[value] {
+        match self[self.resolve(value)] {
             Value::Instruction { instruction, .. } => {
                 let value_bit_size = self.type_of_value(value).bit_size();
                 if let Instruction::Cast(original_value, _) = self[instruction] {

@@ -1,7 +1,7 @@
 use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
+use std::meta::derive;
 
-global NOTE_HEADER_LENGTH: u32 = 4;
-
+#[derive(Eq, Serialize)]
 pub struct NoteHeader {
     pub contract_address: AztecAddress,
     pub nonce: Field,
@@ -20,34 +20,8 @@ impl Empty for NoteHeader {
     }
 }
 
-impl Eq for NoteHeader {
-    fn eq(self, other: Self) -> bool {
-        (self.contract_address == other.contract_address)
-            & (self.nonce == other.nonce)
-            & (self.storage_slot == other.storage_slot)
-            & (self.note_hash_counter == other.note_hash_counter)
-    }
-}
-
 impl NoteHeader {
     pub fn new(contract_address: AztecAddress, nonce: Field, storage_slot: Field) -> Self {
         NoteHeader { contract_address, nonce, storage_slot, note_hash_counter: 0 }
-    }
-}
-
-impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
-    /// The following method is used by implementations of the Serialize trait for notes --> the implementation
-    // of the Serialize trait for notes needs to be implemented when the note is passed as an argument to a contract
-    // function --> in that situation the serialize method is called by aztec-nr when computing an arguments hash.
-    fn serialize(self) -> [Field; NOTE_HEADER_LENGTH] {
-        // Note: If you change this function don't forget to update implementations of Serialize trait for notes.
-        // (Serialize trait needs to be implemented for a note when it's passed as an argument to a contract function
-        // --> then it's used when computing args hash.)
-        [
-            self.contract_address.to_field(),
-            self.nonce,
-            self.storage_slot,
-            self.note_hash_counter as Field,
-        ]
     }
 }

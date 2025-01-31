@@ -14,6 +14,7 @@ import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telem
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
+import { validateL1Config } from '../validation.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
@@ -56,6 +57,11 @@ export async function startProverNode(
   if (nodeUrl && !isRollupAddressSet) {
     userLog(`Loading L1 contract addresses from aztec node at ${nodeUrl}`);
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
+  }
+
+  // If we create an archiver here, validate the L1 config
+  if (options.archiver) {
+    await validateL1Config(proverConfig);
   }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));

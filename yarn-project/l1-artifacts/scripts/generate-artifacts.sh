@@ -29,12 +29,13 @@ contracts=(
   "GovernanceProposer"
   "Governance"
   "NewGovernanceProposerPayload"
-  "LeonidasLib"
+  "ValidatorSelectionLib"
   "ExtRollupLib"
   "SlashingProposer"
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
 )
 

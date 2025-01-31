@@ -45,9 +45,9 @@ describe('token transfer test', () => {
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
-    });
+    }
 
     expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
@@ -66,11 +66,11 @@ describe('token transfer test', () => {
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
     }
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
         await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
       );
-    });
+    }
 
     expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
       await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),

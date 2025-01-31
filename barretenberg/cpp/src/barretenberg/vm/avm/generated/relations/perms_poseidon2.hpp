@@ -24,43 +24,43 @@ class perm_pos_mem_read_a_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_read_a == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_read_a() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_a_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_a,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_a,
-                                     in.poseidon2_a_0,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_a_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_a(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_a(),
+                                     in._poseidon2_a_0(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_a_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_a,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_a,
-                                     in.poseidon2_a_0,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_a_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_a(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_a(),
+                                     in._poseidon2_a_0(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -85,43 +85,43 @@ class perm_pos_mem_read_b_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_read_b == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_read_b() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_b_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_b,
-                                     in.poseidon2_a_1,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_b_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_b(),
+                                     in._poseidon2_a_1(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_b_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_b,
-                                     in.poseidon2_a_1,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_b_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_b(),
+                                     in._poseidon2_a_1(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -146,43 +146,43 @@ class perm_pos_mem_read_c_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_read_c == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_read_c() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_c_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_c,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_c,
-                                     in.poseidon2_a_2,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_c_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_c(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_c(),
+                                     in._poseidon2_a_2(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_c_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_c,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_c,
-                                     in.poseidon2_a_2,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_c_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_c(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_c(),
+                                     in._poseidon2_a_2(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -207,43 +207,43 @@ class perm_pos_mem_read_d_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_read_d == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_read_d() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_d_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_d,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_d,
-                                     in.poseidon2_a_3,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_d_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_d(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_d(),
+                                     in._poseidon2_a_3(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_read_d_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_read_d,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_read_d,
-                                     in.poseidon2_a_3,
-                                     in.main_zeroes,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_read_d_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_read_d(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_read_d(),
+                                     in._poseidon2_a_3(),
+                                     in._main_zeroes(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -268,43 +268,43 @@ class perm_pos_mem_write_a_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_write_a == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_write_a() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_a_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_a,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_a,
-                                     in.poseidon2_b_0,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_a_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_a(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_a(),
+                                     in._poseidon2_b_0(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_a_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_a,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_a,
-                                     in.poseidon2_b_0,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_a_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_a(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_a(),
+                                     in._poseidon2_b_0(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -330,43 +330,43 @@ class perm_pos_mem_write_b_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_write_b == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_write_b() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_b_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_b,
-                                     in.poseidon2_b_1,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_b_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_b(),
+                                     in._poseidon2_b_1(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_b_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_b,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_b,
-                                     in.poseidon2_b_1,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_b_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_b(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_b(),
+                                     in._poseidon2_b_1(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -392,43 +392,43 @@ class perm_pos_mem_write_c_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_write_c == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_write_c() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_c_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_c,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_c,
-                                     in.poseidon2_b_2,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_c_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_c(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_c(),
+                                     in._poseidon2_b_2(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_c_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_c,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_c,
-                                     in.poseidon2_b_2,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_c_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_c(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_c(),
+                                     in._poseidon2_b_2(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 
@@ -454,43 +454,43 @@ class perm_pos_mem_write_d_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_sel_poseidon_perm_mem_op == 1 || in.mem_sel_op_poseidon_write_d == 1);
+        return (in._poseidon2_sel_poseidon_perm_mem_op() == 1 || in._mem_sel_op_poseidon_write_d() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_d_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_d,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_d,
-                                     in.poseidon2_b_3,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_d_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_d(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_d(),
+                                     in._poseidon2_b_3(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos_mem_write_d_inv,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.poseidon2_sel_poseidon_perm_mem_op,
-                                     in.mem_sel_op_poseidon_write_d,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_space_id,
-                                     in.poseidon2_mem_addr_write_d,
-                                     in.poseidon2_b_3,
-                                     in.poseidon2_sel_poseidon_perm,
-                                     in.mem_clk,
-                                     in.mem_space_id,
-                                     in.mem_addr,
-                                     in.mem_val,
-                                     in.mem_rw);
+        return std::forward_as_tuple(in._perm_pos_mem_write_d_inv(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._poseidon2_sel_poseidon_perm_mem_op(),
+                                     in._mem_sel_op_poseidon_write_d(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_space_id(),
+                                     in._poseidon2_mem_addr_write_d(),
+                                     in._poseidon2_b_3(),
+                                     in._poseidon2_sel_poseidon_perm(),
+                                     in._mem_clk(),
+                                     in._mem_space_id(),
+                                     in._mem_addr(),
+                                     in._mem_val(),
+                                     in._mem_rw());
     }
 };
 

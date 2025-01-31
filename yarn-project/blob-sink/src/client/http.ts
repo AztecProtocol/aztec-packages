@@ -1,5 +1,6 @@
 import { Blob, type BlobJson } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
@@ -8,10 +9,14 @@ import { type BlobSinkClientInterface } from './interface.js';
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
   private readonly log: Logger;
   private readonly config: BlobSinkConfig;
+  private readonly fetch: typeof fetch;
 
   constructor(config?: BlobSinkConfig) {
     this.config = config ?? getBlobSinkConfigFromEnv();
     this.log = createLogger('aztec:blob-sink-client');
+    this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
+      return await retry(() => fetch(...args), `Fetching ${args[0]}`, makeBackoff([1, 1, 3]), this.log);
+    };
   }
 
   public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
@@ -24,7 +29,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
     try {
-      const res = await fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
+      const res = await this.fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,27 +70,29 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @param indices - The indices of the blobs to get
    * @returns The blobs
    */
-  public async getBlobSidecar(blockHash: string, indices?: number[]): Promise<Blob[]> {
+  public async getBlobSidecar(blockHash: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
+    let blobs: Blob[] = [];
     if (this.config.blobSinkUrl) {
       this.log.debug('Getting blob sidecar from blob sink');
-      const blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
-      if (blobs.length > 0) {
-        this.log.debug(`Got ${blobs.length} blobs from blob sink`);
-        return blobs;
-      }
+      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
+      this.log.debug(`Got ${blobs.length} blobs from blob sink`);
     }
 
-    if (this.config.l1ConsensusHostUrl) {
+    if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
       this.log.debug('Getting slot number from consensus host');
       const slotNumber = await this.getSlotNumber(blockHash);
       if (slotNumber) {
         const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
+        this.log.debug(`Got ${blobs.length} blobs from consensus host`);
         if (blobs.length > 0) {
-          this.log.debug(`Got ${blobs.length} blobs from consensus host`);
           return blobs;
         }
       }
+    }
+
+    if (blobs.length > 0) {
+      return filterRelevantBlobs(blobs, blobHashes);
     }
 
     this.log.verbose('No blob sources available');
@@ -104,7 +111,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         url += `?indices=${indices.join(',')}`;
       }
 
-      const res = await fetch(url);
+      const res = await this.fetch(url);
 
       if (res.ok) {
         const body = await res.json();
@@ -148,7 +155,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     try {
-      const res = await fetch(`${this.config.l1RpcUrl}`, {
+      const res = await this.fetch(`${this.config.l1RpcUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +183,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     // Query beacon chain to get the slot number for that block root
     try {
-      const res = await fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`);
+      const res = await this.fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`);
       if (res.ok) {
         const body = await res.json();
 
@@ -189,4 +196,17 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     return undefined;
   }
+}
+
+/**
+ * Filter blobs based on a list of blob hashes
+ * @param blobs
+ * @param blobHashes
+ * @returns
+ */
+function filterRelevantBlobs(blobs: Blob[], blobHashes: Buffer[]): Blob[] {
+  return blobs.filter(blob => {
+    const blobHash = blob.getEthVersionedBlobHash();
+    return blobHashes.some(hash => hash.equals(blobHash));
+  });
 }

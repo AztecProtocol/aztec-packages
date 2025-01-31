@@ -72,12 +72,13 @@ export class Mutex {
    *
    * @param id - The id of the current lock instance.
    */
-  private async ping(id: number) {
+  private ping(id: number) {
     if (id !== this.id) {
       return;
     }
-
-    await this.db.extendLock(this.name, this.timeout);
-    this.pingTimeout = setTimeout(() => this.ping(id), this.pingInterval);
+    void (async () => {
+      await this.db.extendLock(this.name, this.timeout);
+      this.pingTimeout = setTimeout(() => this.ping(id), this.pingInterval);
+    })();
   }
 }
