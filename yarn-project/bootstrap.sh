@@ -24,7 +24,6 @@ function build {
   tar_file=yarn-project-$hash.tar.gz
 
   if cache_download $tar_file; then
-    yarn install
     return
   fi
 
