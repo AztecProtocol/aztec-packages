@@ -34,11 +34,6 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
     }
     res = number[0] == '-' ? -res : res;
 
-    if (base == 2 && number[0] == '1') {
-        auto max = bb::fr(uint256_t(1) << number.length());
-        res -= max;
-    }
-
     return res;
 }
 
