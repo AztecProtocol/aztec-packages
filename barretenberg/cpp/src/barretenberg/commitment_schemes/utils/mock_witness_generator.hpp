@@ -24,13 +24,21 @@ template <typename Curve> struct MockWitnessGenerator {
     using ClaimBatch = ClaimBatcher::Batch;
 
     std::shared_ptr<CommitmentKey> ck;
+
     std::vector<Polynomial> unshifted_polynomials = {};
     std::vector<Polynomial> to_be_shifted_polynomials;
+    std::vector<Polynomial> to_be_shifted_by_k_polynomials;
+
     std::vector<Fr> const_size_mle_opening_point;
+
     std::vector<Commitment> unshifted_commitments = {};
     std::vector<Commitment> to_be_shifted_commitments;
+    std::vector<Commitment> to_be_shifted_by_k_commitments;
+
     std::vector<Fr> unshifted_evals = {};
     std::vector<Fr> shifted_evals;
+    std::vector<Fr> shifted_by_k_evals;
+
     PolynomialBatcher polynomial_batcher;
     ClaimBatcher claim_batcher;
 
@@ -39,52 +47,50 @@ template <typename Curve> struct MockWitnessGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
-    MockWitnessGenerator(const size_t n,
+    /**
+     * @brief Construct claim data for a set of random polynomials with the specified type
+     * @note All to-be-shifted polynomials have an unshifted counterpart so the total number of claims is
+     * num_polynomials + num_to_be_shifted
+     *
+     * @param poly_size size of mock polynomials
+     * @param num_polynomials total number of unique polynomials
+     * @param num_to_be_shifted number of polynomials to-be-shifted
+     * @param mle_opening_point
+     * @param commitment_key
+     */
+    MockWitnessGenerator(const size_t poly_size,
                          const size_t num_polynomials,
-                         const size_t num_shiftable,
+                         const size_t num_to_be_shifted,
                          const std::vector<Fr>& mle_opening_point,
                          std::shared_ptr<CommitmentKey>& commitment_key)
         : ck(commitment_key) // Initialize the commitment key
-        , unshifted_polynomials(num_polynomials)
-        , to_be_shifted_polynomials(num_shiftable)
-        , polynomial_batcher(n)
+        , polynomial_batcher(poly_size)
 
     {
-        construct_instance_and_witnesses(n, mle_opening_point);
-    }
+        ASSERT(num_polynomials >= num_to_be_shifted);
+        const size_t num_not_to_be_shifted = num_polynomials - num_to_be_shifted;
 
-    void construct_instance_and_witnesses(size_t n, const std::vector<Fr>& mle_opening_point)
-    {
-
-        const size_t num_unshifted = unshifted_polynomials.size() - to_be_shifted_polynomials.size();
-
-        // Constructs polynomials that are not shifted
-        if (!unshifted_polynomials.empty()) {
-            for (size_t idx = 0; idx < num_unshifted; idx++) {
-                unshifted_polynomials[idx] = Polynomial::random(n);
-                unshifted_commitments.push_back(ck->commit(unshifted_polynomials[idx]));
-                unshifted_evals.push_back(unshifted_polynomials[idx].evaluate_mle(mle_opening_point));
-            }
+        // Construct claim data for polynomials that are NOT to be shifted
+        for (size_t idx = 0; idx < num_not_to_be_shifted; idx++) {
+            Polynomial poly = Polynomial::random(poly_size);
+            unshifted_commitments.push_back(ck->commit(poly));
+            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted_polynomials.push_back(std::move(poly));
         }
 
-        // Constructs polynomials that are being shifted
-        for (auto& poly : to_be_shifted_polynomials) {
-            poly = Polynomial::random(n, /*shiftable*/ 1);
-            const Commitment comm = this->ck->commit(poly);
-            to_be_shifted_commitments.push_back(comm);
-            shifted_evals.push_back(poly.evaluate_mle(mle_opening_point, true));
+        // Construct claim data for polynomials that are to-be-shifted
+        for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
+            Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+            to_be_shifted_commitments.push_back(ck->commit(poly));
+            shifted_evals.push_back(poly.evaluate_mle(mle_opening_point, /*shifted*/ true));
+            to_be_shifted_polynomials.push_back(std::move(poly));
         }
 
-        size_t idx = num_unshifted;
-
-        // Add unshifted evaluations of shiftable polynomials
-        if (!unshifted_polynomials.empty()) {
-            for (const auto& [poly, comm] : zip_view(to_be_shifted_polynomials, to_be_shifted_commitments)) {
-                unshifted_polynomials[idx] = poly;
-                unshifted_commitments.push_back(comm);
-                unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
-                idx++;
-            }
+        // All to-be-shifted polynomials have an unshifted counterpart; update the unshifted claim data accordingly
+        for (const auto& [poly, comm] : zip_view(to_be_shifted_polynomials, to_be_shifted_commitments)) {
+            unshifted_polynomials.push_back(poly.share());
+            unshifted_commitments.push_back(comm);
+            unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
         }
 
         polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));

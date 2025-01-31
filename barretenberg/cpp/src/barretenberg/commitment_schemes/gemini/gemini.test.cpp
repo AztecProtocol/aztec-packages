@@ -118,7 +118,7 @@ TYPED_TEST(GeminiTest, SingleShift)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = MockWitnessGenerator(this->n, 0, 1, u, this->ck);
+    auto instance_witness = MockWitnessGenerator(this->n, 1, 1, u, this->ck);
 
     this->execute_gemini_and_verify_claims(u, instance_witness);
 }
