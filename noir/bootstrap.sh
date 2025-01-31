@@ -13,14 +13,7 @@ function build {
     denoise ./scripts/bootstrap_native.sh
     denoise ./scripts/bootstrap_packages.sh
     cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm noir-repo/target/release/noir-profiler packages
-
-  # if noir-profiler is not found in cache, build it (temp fix until profiler is included in the cache)
-  elif [ ! -f noir-repo/target/release/noir-profiler ]; then
-    cd noir-repo/tooling/profiler
-    cargo build --release
-    cd ../../..
   fi
-
   github_endgroup
 }
 
