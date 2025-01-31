@@ -63,7 +63,7 @@ describe('Req Resp p2p client integration', () => {
     epochCache = mock<EpochCache>();
 
     txPool.getAllTxs.mockImplementation(() => {
-      return [] as Tx[];
+      return Promise.resolve([] as Tx[]);
     });
   });
 
@@ -193,7 +193,7 @@ describe('Req Resp p2p client integration', () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
       // Mock the tx pool to return the tx we are looking for
-      txPool.getTxByHash.mockImplementationOnce(() => tx);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
       const requestedTx = await client1.requestTxByHash(txHash);
 
@@ -223,7 +223,7 @@ describe('Req Resp p2p client integration', () => {
       const txHash = await tx.getTxHash();
 
       // Return the correct tx with an invalid proof -> active attack
-      txPool.getTxByHash.mockImplementationOnce(() => tx);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
       const requestedTx = await client1.requestTxByHash(txHash);
       // Even though we got a response, the proof was deemed invalid
@@ -256,7 +256,7 @@ describe('Req Resp p2p client integration', () => {
       const tx2 = await mockTx(420);
 
       // Return an invalid tx
-      txPool.getTxByHash.mockImplementationOnce(() => tx2);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
       const requestedTx = await client1.requestTxByHash(txHash);
       // Even though we got a response, the proof was deemed invalid

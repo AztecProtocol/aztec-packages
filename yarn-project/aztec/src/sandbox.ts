@@ -116,6 +116,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
       l1ContractAddresses.rollupAddress,
       publicClient,
     );
+    watcher.setIsSandbox(true);
     await watcher.start();
   }
 

@@ -1,6 +1,6 @@
 import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
@@ -20,7 +20,7 @@ export class BootstrapNode implements P2PBootstrapApi {
   private peerId?: PeerId;
 
   constructor(
-    private store: AztecKVStore,
+    private store: AztecAsyncKVStore,
     private telemetry: TelemetryClient,
     private logger = createLogger('p2p:bootstrap'),
   ) {}

@@ -1,3 +1,6 @@
+telemetry:
+  enabled: true
+
 validator:
   replicas: 1
   validatorKeys:
@@ -10,3 +13,23 @@ validator:
 bootNode:
   validator:
     disabled: true
+
+ethereum:
+  execution:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+    storageSize: "10Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+    storageSize: "10Gi"
+  validator:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+    storageSize: "10Gi"
