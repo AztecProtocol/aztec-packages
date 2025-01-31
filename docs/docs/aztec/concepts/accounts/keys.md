@@ -9,8 +9,8 @@ In this section, you will learn what keys are used in Aztec, and how the address
 
 Each Aztec account is backed by four key pairs: 
 - Nullifier keys – used to spend notes.
-- Incoming viewing keys – used to encrypt a note for the recipient.
 - Address keys – this is an auxiliary key used for the address derivation; it’s internally utilized by the protocol and does not require any action from developers.
+- Incoming viewing keys – used to encrypt a note for the recipient.
 - Signing keys – an optional key pair used for account authorization. 
 
 The first three pairs are embedded into the protocol while the signing key is abstracted up to the account contract developer.
@@ -20,6 +20,16 @@ The first three pairs are embedded into the protocol while the signing key is ab
 Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`). 
 
 To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app siloed nullifier secret key, the latter is derived using the nullifier master secret key.  To compute the nullifier, the protocol checks that the app siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address. 
+
+### Address keys
+
+Address keys are used for account [address derivation](../accounts/index.md).
+
+Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
+
+:::note
+Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed. 
+:::
 
 ### Incoming viewing keys
 
@@ -33,16 +43,6 @@ When it comes to notes encryption and decryption:
 - The recipient gets a pair (`Epk`, `Ciphertext`)
 - The recipient uses the `address_sk` to decrypt the secret: `S = Epk * address_sk`.
 - The recipient uses the decrypted secret to decrypt the ciphertext.
-
-### Address keys
-
-Address keys are used for account [address derivation](../accounts/index.md).
-
-Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
-
-:::note
-Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed. 
-:::
 
 ### Signing keys
 
