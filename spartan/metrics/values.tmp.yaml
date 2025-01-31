@@ -53,20 +53,20 @@ opentelemetry-collector:
         metrics:
           address: ${env:MY_POD_IP}:8888
       pipelines:
-        logs:
-          receivers:
-            - otlp
-          processors:
-            - batch
-          exporters:
-            - otlphttp/logs
-        traces:
-          receivers:
-            - otlp
-          processors:
-            - batch
-          exporters:
-            - otlp/tempo
+        # logs:
+        #   receivers:
+        #     - otlp
+        #   processors:
+        #     - batch
+        #   exporters:
+        #     - otlphttp/logs
+        # traces:
+        #   receivers:
+        #     - otlp
+        #   processors:
+        #     - batch
+        #   exporters:
+        #     - otlp/tempo
         metrics:
           receivers:
             - otlp
@@ -135,12 +135,12 @@ grafana:
     datasources.yaml:
       apiVersion: 1
       datasources:
-        - name: Loki
-          type: loki
-          url: http://metrics-loki.metrics:3100
-        - name: Tempo
-          type: tempo
-          url: http://metrics-tempo.metrics:3100
+        # - name: Loki
+        #   type: loki
+        #   url: http://metrics-loki.metrics:3100
+        # - name: Tempo
+        #   type: tempo
+        #   url: http://metrics-tempo.metrics:3100
         - name: Prometheus
           type: prometheus
           uid: spartan-metrics-prometheus
