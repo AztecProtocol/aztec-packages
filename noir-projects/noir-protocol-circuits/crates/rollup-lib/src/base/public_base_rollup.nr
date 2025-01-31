@@ -299,7 +299,7 @@ mod tests {
             PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::silo_l2_to_l1_message,
+        hash::{silo_contract_class_log, silo_l2_to_l1_message},
         merkle_tree::{leaf_preimage::LeafPreimage, MembershipWitness},
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
@@ -1095,7 +1095,8 @@ mod tests {
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            let siloed_log = builder.tube_data.contract_class_logs.storage()[i].inner.log;
+            let siloed_log =
+                silo_contract_class_log(builder.tube_data.contract_class_logs.storage()[i]);
             let log_len = find_index_hint_from_end(siloed_log.fields, |f| f == 0);
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
