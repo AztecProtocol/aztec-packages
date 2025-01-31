@@ -69,12 +69,12 @@ async function computeContractLeaf(artifact: NoirCompiledContract) {
   return instance.address;
 }
 
-function computeRoot(names: string[], leaves: Fr[]) {
+async function computeRoot(names: string[], leaves: Fr[]) {
   const data = names.map((name, i) => ({
     address: new AztecAddress(new Fr(contractAddressMapping[name])),
     leaf: leaves[i],
   }));
-  const tree = buildProtocolContractTree(data);
+  const tree = await buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
 
@@ -122,19 +122,19 @@ function generateContractLeaves(names: string[], leaves: Fr[]) {
   `;
 }
 
-function generateRoot(names: string[], leaves: Fr[]) {
-  const root = computeRoot(names, leaves);
+async function generateRoot(names: string[], leaves: Fr[]) {
+  const root = await computeRoot(names, leaves);
   return `
     export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
   `;
 }
 
-function generateLogTags() {
+async function generateLogTags() {
   return `
   export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
   export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
   export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
-  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${poseidon2Hash([
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
@@ -154,9 +154,9 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
 
     ${generateContractLeaves(names, leaves)}
 
-    ${generateRoot(names, leaves)}
+    ${await generateRoot(names, leaves)}
 
-    ${generateLogTags()}
+    ${await generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }

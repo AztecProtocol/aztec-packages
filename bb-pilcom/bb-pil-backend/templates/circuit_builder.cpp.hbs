@@ -142,7 +142,7 @@ bool AvmCircuitBuilder::check_circuit() const {
 
             std::array<bool, result.size()> subrelation_failed = { false };
             for (size_t r = 0; r < num_rows; ++r) {
-                Relation::accumulate(result, polys.get_row(r), {}, 1);
+                Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
                 for (size_t j = 0; j < result.size(); ++j) {
                     if (!subrelation_failed[j] && result[j] != 0) {
                         signal_error(format("Relation ",
@@ -173,7 +173,7 @@ bool AvmCircuitBuilder::check_circuit() const {
                 r = 0;
             }
             for (size_t r = 0; r < num_rows; ++r) {
-                Relation::accumulate(lookup_result, polys.get_row(r), params, 1);
+                Relation::accumulate(lookup_result, polys.get_standard_row(r), params, 1);
             }
             for (auto r : lookup_result) {
                 if (r != 0) {

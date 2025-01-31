@@ -29,9 +29,9 @@ export class EpochProofQuote extends Gossipable {
     return [fields.payload, fields.signature] as const;
   }
 
-  override p2pMessageIdentifier(): Buffer32 {
+  override p2pMessageIdentifier(): Promise<Buffer32> {
     // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
-    return new Buffer32(keccak256(this.signature.toBuffer()));
+    return Promise.resolve(new Buffer32(keccak256(this.signature.toBuffer())));
   }
 
   override toBuffer(): Buffer {

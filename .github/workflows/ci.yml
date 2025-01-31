@@ -380,24 +380,17 @@ jobs:
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            cd yarn-project/end-to-end
 
-            export INSTALL_CHAOS_MESH=false
-            export INSTALL_METRICS=false
-            export NAMESPACE=smoke
-            export FRESH_INSTALL=true
-            export VALUES_FILE=ci-smoke.yaml
-
-            ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+            INSTALL_METRICS=false ./spartan/scripts/test_kind.sh ./src/spartan/smoke.test.ts ci-smoke.yaml
       - name: Copy Network Logs
         if: always()
-        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        run: scripts/copy_from_tester spartan/scripts/logs/test_kind.log test_kind.log || true
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kind-network-smoke.log
-          path: network-test.log
+          path: test_kind.log
 
   kind-network-test:
     needs: [images-e2e, configure]
@@ -408,15 +401,15 @@ jobs:
       matrix:
         config:
           # - test: reorg.test.ts
-          #   values: ci
+          #   values: ci.yaml
           #   runner_type: 16core-tester-x86-high-memory
           #   timeout: 60
           - test: 4epochs.test.ts
-            values: ci
+            values: ci.yaml
             runner_type: 16core-tester-x86
             timeout: 40
           # - test: gating-passive.test.ts
-          #   values: ci
+          #   values: ci.yaml
           #   runner_type: 16core-tester-x86
           #   timeout: 40
     steps:
@@ -437,19 +430,19 @@ jobs:
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+              INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
         if: always()
-        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+        run: scripts/copy_from_tester spartan/scripts/logs/test_kind.log test_kind.log || true
 
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
-          path: network-test.log
+          path: test_kind.log
 
   bb-bench:
     runs-on: ubuntu-latest
@@ -501,26 +494,25 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/11471) reenable
-  # boxes-test:
-  #   needs: [ci-rest, configure]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
-  #     - uses: ./.github/ci-setup-action
+  boxes-test:
+    needs: [ci-rest, configure]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
 
-  #     - name: Build Boxes
-  #       uses: ./.github/ensure-builder
-  #       timeout-minutes: 40
-  #       with:
-  #         username: ${{ needs.configure.outputs.username }}
-  #         runner_type: builder-x86
-  #         run: |
-  #           export CI=1 USE_CACHE=1
-  #           if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
-  #             ./bootstrap.sh test-boxes
-  #           fi
+      - name: Build Boxes
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          username: ${{ needs.configure.outputs.username }}
+          runner_type: builder-x86
+          run: |
+            export CI=1 USE_CACHE=1
+            if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
+              ./bootstrap.sh test-boxes
+            fi
 
   prover-client-test:
     needs: [ci-rest, configure]
@@ -578,7 +570,7 @@ jobs:
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
-        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
+        uses: noir-lang/noir-gates-diff@dbe920a8dcc3370af4be4f702ca9cef29317bec1
         continue-on-error: true
         timeout-minutes: 1
         with:
@@ -616,7 +608,7 @@ jobs:
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
+        uses: noir-lang/noir-gates-diff@dbe920a8dcc3370af4be4f702ca9cef29317bec1
         continue-on-error: true
         timeout-minutes: 1
         with:

@@ -2,14 +2,14 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { EpochCache } from '@aztec/epoch-cache';
-import { createEthereumChain } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { L1Publisher } from '@aztec/sequencer-client';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -20,6 +20,7 @@ import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
+import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { HttpQuoteProvider } from './quote-provider/http.js';
 import { SimpleQuoteProvider } from './quote-provider/simple.js';
@@ -33,9 +34,10 @@ export async function createProverNode(
     log?: Logger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
-    publisher?: L1Publisher;
+    publisher?: ProverNodePublisher;
     blobSinkClient?: BlobSinkClientInterface;
     broker?: ProvingJobBroker;
+    l1TxUtils?: L1TxUtils;
   } = {},
 ) {
   const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -51,8 +53,14 @@ export async function createProverNode(
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = deps.publisher ?? new L1Publisher(config, { telemetry, blobSinkClient });
+  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
+  const chain = createEthereumChain(rpcUrl, chainId);
+  const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
+
+  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+
+  const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(publicClient, walletClient, log, config);
+  const publisher = deps.publisher ?? new ProverNodePublisher(config, { telemetry, rollupContract, l1TxUtils });
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
@@ -81,9 +89,8 @@ export async function createProverNode(
   const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig, telemetry);
   const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
 
-  const rollupContract = publisher.getRollupContract();
-  const walletClient = publisher.getClient();
-  const bondManager = await createBondManager(rollupContract, walletClient, config);
+  const escrowContractAddress = await rollupContract.getProofCommitmentEscrow();
+  const bondManager = await createBondManager(EthAddress.fromString(escrowContractAddress), walletClient, config);
 
   return new ProverNode(
     prover,

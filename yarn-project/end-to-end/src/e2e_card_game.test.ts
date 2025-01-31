@@ -85,10 +85,10 @@ describe('e2e_card_game', () => {
   let contractAsSecondPlayer: CardGameContract;
   let contractAsThirdPlayer: CardGameContract;
 
-  const getPackedCards = (accountIndex: number, seed: bigint): Card[] => {
+  const getPackedCards = async (accountIndex: number, seed: bigint): Promise<Card[]> => {
     // First we get the app nullifier secret key for the account
     const masterNullifierSecretKey = masterNullifierSecretKeys[accountIndex];
-    const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
+    const appNullifierSecretKey = await computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
     // Then we compute the mix from it and hash it to get the random bytes the same way as in the contract
     const mix = appNullifierSecretKey.toBigInt() + seed;
     const randomBytes = sha256(toBufferLE(mix, 32));
@@ -159,7 +159,7 @@ describe('e2e_card_game', () => {
     await contract.methods.buy_pack(seed).send().wait();
     // docs:end:send_tx
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
-    const expected = getPackedCards(0, seed);
+    const expected = await getPackedCards(0, seed);
     expect(boundedVecToArray(collection)).toMatchObject(expected);
   });
 

@@ -9,7 +9,7 @@ import {
   ContractInstanceWithAddress,
   loadContractArtifact,
 } from "@aztec/aztec.js";
-import { AztecContext } from "../home/home";
+import { AztecContext } from "../../aztecEnv";
 import {
   Button,
   Card,
@@ -133,6 +133,7 @@ export function ContractComponent() {
     currentContractAddress,
     currentContract,
     setCurrentContract,
+    setCurrentContractAddress,
     setCurrentTx,
   } = useContext(AztecContext);
 
@@ -160,7 +161,10 @@ export function ContractComponent() {
       });
       setIsLoadingArtifact(false);
     };
-    if (currentContractAddress) {
+    if (
+      currentContractAddress &&
+      currentContract?.address !== currentContractAddress
+    ) {
       loadCurrentContract();
     }
   }, [currentContractAddress]);
@@ -201,6 +205,7 @@ export function ContractComponent() {
       setCurrentContract(
         await Contract.at(contract.address, contractArtifact, wallet)
       );
+      setCurrentContractAddress(contract.address);
     }
     setOpenDeployContractDialog(false);
     setOpenRegisterContractDialog(false);
@@ -241,7 +246,7 @@ export function ContractComponent() {
       const call = currentContract.methods[fnName](...parameters[fnName]);
 
       const provenCall = await call.prove();
-      txHash = provenCall.getTxHash();
+      txHash = await provenCall.getTxHash();
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: "sending" },
@@ -424,6 +429,7 @@ export function ContractComponent() {
                 />
                 <IconButton
                   onClick={(e) => {
+                    setCurrentContractAddress(null);
                     setCurrentContract(null);
                     setContractArtifact(null);
                   }}
