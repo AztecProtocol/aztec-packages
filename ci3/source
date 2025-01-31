@@ -14,31 +14,8 @@ export ci3="$root/ci3"
 export DEVBOX_IMAGE=aztecprotocol/devbox:3.0
 export ISOLATION_IMAGE=aztecprotocol/build:3.0
 
-# We always want color.
-export FORCE_COLOR=true
-
-# Set REF_NAME to be the branch name if on a branch, or the tag name if on a tag.
-# If REF_NAME starts with "release/", just keep what comes after.
-# Example outputs:
-# - master (branch is master)
-# - cl/ci_branch (a feature branch)
-# - v1.2.3 (a tagged version)
-# - wise-weasle (a tagged release e.g. release/wise-weasle)
-# We use this for e.g:
-# - Creating a unqiue instance name when launching spots.
-# - Identifying GitHub releases to upload assets to.
-# - Tagging released images.
-# - Identifying a PR associated with a branch.
-# This is obviously overloaded in terms of how its value is generated, and how it's used.
-# So far this has been fine, so requiring more distinct variables has been unnecessary.
-if [ -z "$REF_NAME" ]; then
-  export REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match)
-  export REF_NAME="${REF_NAME#release/}"
-fi
-
-[ -z "$COMMIT_HASH" ] && export COMMIT_HASH=$(git rev-parse HEAD)
-
 source $ci3/source_options
 source $ci3/source_stdlib
 source $ci3/source_color
 source $ci3/source_redis
+source $ci3/source_refname

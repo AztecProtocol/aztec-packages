@@ -11,3 +11,6 @@ reset="\033[0m"
 # OSC 8 support for links.
 link_open='\033]8;;'
 link_close='\x07'
+
+# We always want color.
+export FORCE_COLOR=true
