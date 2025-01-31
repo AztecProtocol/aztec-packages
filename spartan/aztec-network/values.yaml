@@ -240,6 +240,8 @@ ethereum:
     storageSize: "80Gi"
   beacon:
     externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
     service:
       port: 5052
       targetPort: 5052

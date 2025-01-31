@@ -20,6 +20,8 @@ ethereum:
   externalHost:
   beacon:
     externalHost:
+    apiKey: ""
+    apiKeyHeader: ""
 
 validator:
   l1FixedPriorityFeePerGas: 2

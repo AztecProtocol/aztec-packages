@@ -59,6 +59,25 @@ variable "ETHEREUM_EXTERNAL_HOST" {
   type        = string
   default     = ""
 }
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST" {
+  description = "External host to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY" {
+  description = "API key to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER" {
+  description = "API key header to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
 variable "L1_DEPLOYMENT_SALT" {
   description = "Salt to use for the L1 contract deployments"
   type        = string

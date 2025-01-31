@@ -80,7 +80,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
-      this.log.debug('Getting slot number from consensus host');
+      this.log.debug('Getting slot number from consensus host', {
+        blockHash,
+        consensusHostUrl: this.config.l1ConsensusHostUrl,
+      });
       const slotNumber = await this.getSlotNumber(blockHash);
       if (slotNumber) {
         const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
@@ -106,12 +109,14 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   ): Promise<Blob[]> {
     // TODO(md): right now we assume all blobs are ours, this will not yet work on sepolia
     try {
-      let url = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
+      let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
       if (indices && indices.length > 0) {
-        url += `?indices=${indices.join(',')}`;
+        baseUrl += `?indices=${indices.join(',')}`;
       }
 
-      const res = await this.fetch(url);
+      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config);
+
+      const res = await this.fetch(url, options);
 
       if (res.ok) {
         const body = await res.json();
@@ -183,7 +188,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     // Query beacon chain to get the slot number for that block root
     try {
-      const res = await this.fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`);
+      const { url, ...options } = getBeaconNodeFetchOptions(
+        `${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`,
+        this.config,
+      );
+      const res = await this.fetch(url, options);
+
       if (res.ok) {
         const body = await res.json();
 
@@ -209,4 +219,20 @@ function filterRelevantBlobs(blobs: Blob[], blobHashes: Buffer[]): Blob[] {
     const blobHash = blob.getEthVersionedBlobHash();
     return blobHashes.some(hash => hash.equals(blobHash));
   });
+}
+
+function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
+  let formattedUrl = url;
+  if (config.l1ConsensusHostApiKey && !config.l1ConsensusHostApiKeyHeader) {
+    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${config.l1ConsensusHostApiKey}`;
+  }
+  return {
+    url: formattedUrl,
+    ...(config.l1ConsensusHostApiKey &&
+      config.l1ConsensusHostApiKeyHeader && {
+        headers: {
+          [config.l1ConsensusHostApiKeyHeader]: config.l1ConsensusHostApiKey,
+        },
+      }),
+  };
 }
