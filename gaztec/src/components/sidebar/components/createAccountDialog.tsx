@@ -35,11 +35,10 @@ export function CreateAccountDialog({
   const [alias, setAlias] = useState("");
   const [secretKey] = useState(Fr.random());
   const [deployingAccount, setDeployingAccount] = useState(false);
-  const { pxe, setLogsOpen, setDrawerOpen } = useContext(AztecContext);
+  const { pxe } = useContext(AztecContext);
 
   const createAccount = async () => {
     setDeployingAccount(true);
-    setLogsOpen(true);
     const salt = Fr.random();
     const account = await getSchnorrAccount(
       pxe,
