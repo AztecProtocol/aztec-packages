@@ -15,22 +15,30 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
  */
 export class ContractClassStore {
   #contractClasses: AztecMap<string, Buffer>;
+  #bytecodeCommitments: AztecMap<string, Buffer>;
 
   constructor(private db: AztecKVStore) {
     this.#contractClasses = db.openMap('archiver_contract_classes');
+    this.#bytecodeCommitments = db.openMap('archiver_bytecode_commitments');
   }
 
-  async addContractClass(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+  async addContractClass(
+    contractClass: ContractClassPublic,
+    bytecodeCommitment: Fr,
+    blockNumber: number,
+  ): Promise<void> {
     await this.#contractClasses.setIfNotExists(
       contractClass.id.toString(),
       serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
     );
+    await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
   }
 
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
     const restoredContractClass = this.#contractClasses.get(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.#contractClasses.delete(contractClass.id.toString());
+      await this.#bytecodeCommitments.delete(contractClass.id.toString());
     }
   }
 
@@ -39,8 +47,13 @@ export class ContractClassStore {
     return contractClass && { ...deserializeContractClassPublic(contractClass), id };
   }
 
+  getBytecodeCommitment(id: Fr): Fr | undefined {
+    const value = this.#bytecodeCommitments.get(id.toString());
+    return value === undefined ? undefined : Fr.fromBuffer(value);
+  }
+
   getContractClassIds(): Fr[] {
-    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
+    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromHexString(key));
   }
 
   async addFunctions(

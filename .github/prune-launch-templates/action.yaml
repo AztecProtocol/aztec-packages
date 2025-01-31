@@ -1,0 +1,24 @@
+name: 'Prune launch templates'
+description: 'Prune launch templates older than a given age'
+branding:
+  icon: 'server'
+  color: 'orange'
+inputs:
+  aws_access_key_id:
+    description: 'AWS access key ID'
+    required: true
+  aws_secret_access_key:
+    description: 'AWS secret access key'
+    required: true
+  aws_region:
+    description: 'AWS Region'
+    required: true
+  max_age_in_days:
+    description: 'Maximum age in days before deletion'
+    required: true
+  dry_run:
+    description: 'If true, don\'t actually delete anything'
+    required: false
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

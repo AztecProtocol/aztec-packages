@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
@@ -25,10 +25,9 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
   },
-  // NOTE: Special case for l1Contracts
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
-    defaultValue: l1ContractAddressesMapping,
+    nested: l1ContractAddressesMapping,
   },
   viemPollingIntervalMS: {
     env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',
@@ -36,3 +35,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     ...numberConfigHelper(1_000),
   },
 };
+
+export function getL1ReaderConfigFromEnv(): L1ReaderConfig {
+  return getConfigFromMappings<L1ReaderConfig>(l1ReaderConfigMappings);
+}

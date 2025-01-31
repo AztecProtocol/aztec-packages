@@ -31,6 +31,9 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../types"
     }
   ],

@@ -16,7 +16,7 @@ use dep::types::{
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
@@ -47,6 +47,11 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+            self.private_call.verify(false);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -88,7 +93,7 @@ mod tests {
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        constants::{EMPTY_NESTED_INDEX, PRIVATE_KERNEL_INIT_INDEX},
+        constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_TAIL_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -127,15 +132,16 @@ mod tests {
 
         // note_hash_read_requests
         builder.previous_kernel.append_note_hash_read_requests(1);
-        let prev_note_hash_read_requests = builder.previous_kernel.note_hash_read_requests.storage;
+        let prev_note_hash_read_requests =
+            builder.previous_kernel.note_hash_read_requests.storage();
         builder.private_call.append_note_hash_read_requests(2);
-        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
+        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
 
-        // encrypted_logs_hashes
-        builder.previous_kernel.append_encrypted_log_hashes(2);
-        let prev_encrypted_log_hashes = builder.previous_kernel.encrypted_logs_hashes.storage;
-        builder.private_call.append_encrypted_log_hashes(1);
-        let curr_encrypted_log_hashes = builder.private_call.encrypted_logs_hashes.storage;
+        // private_logs
+        builder.previous_kernel.append_private_logs(2);
+        let prev_private_logs = builder.previous_kernel.private_logs.storage();
+        builder.private_call.append_private_logs(1);
+        let curr_private_logs = builder.private_call.private_logs.storage();
 
         let public_inputs = builder.execute();
         assert_array_eq(
@@ -147,12 +153,8 @@ mod tests {
             ],
         );
         assert_array_eq(
-            public_inputs.end.encrypted_logs_hashes,
-            [
-                prev_encrypted_log_hashes[0],
-                prev_encrypted_log_hashes[1],
-                curr_encrypted_log_hashes[0],
-            ],
+            public_inputs.end.private_logs,
+            [prev_private_logs[0], prev_private_logs[1], curr_private_logs[0]],
         );
     }
 
@@ -170,7 +172,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

@@ -1,8 +1,10 @@
 use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
-use super::utils::get_serialized_size;
+use super::utils::get_packed_size;
 use super::utils::is_note;
 
+/// Stores a map from a module to the name of the struct that describes its storage layout.
+/// This is then used when generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
@@ -25,7 +27,8 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     // TODO(#8658): uncomment the code below to inject the Context type parameter.
     //let mut new_storage_fields = &[];
     //let context_generic = s.add_generic("Context");
-    for field in s.fields() {
+    for field in s.fields_as_written() {
+        // FIXME: This doesn't handle field types with generics
         let (name, typ) = field;
         let (storage_field_constructor, serialized_size) =
             generate_storage_field_constructor(typ, quote { $slot }, false);
@@ -63,7 +66,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     let module = s.module();
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
-    let module_name_str = module_name.as_str_quote();
+    let (module_name_str, module_name_len) = module_name.as_str_quote();
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
@@ -79,7 +82,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         }
 
         #[abi(storage)]
-        pub global $storage_layout_name = StorageLayout {
+        pub global $storage_layout_name: StorageLayout<$module_name_len> = StorageLayout {
             contract_name: $module_name_str,
             fields: StorageLayoutFields { $storage_layout_constructors }
         };
@@ -132,7 +135,7 @@ comptime fn generate_storage_field_constructor(
                 // TODO(#8659): remove the PublicMutable exception above
                 1
             } else {
-                get_serialized_size(stored_struct)
+                get_packed_size(stored_struct)
             }
         };
 

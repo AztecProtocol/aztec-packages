@@ -22,6 +22,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../bot"
     },
     {
@@ -32,6 +35,9 @@
     },
     {
       "path": "../entrypoints"
+    },
+    {
+      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -80,6 +86,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

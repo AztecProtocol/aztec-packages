@@ -2,7 +2,7 @@ use crate::{
     abis::gas_fees::GasFees,
     address::{AztecAddress, EthAddress},
     constants::GLOBAL_VARIABLES_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
 };
 

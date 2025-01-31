@@ -128,9 +128,11 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
-        let (s, _) = typ.as_struct().unwrap();
-        let field_signatures =
-            s.fields().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+        let (s, generics) = typ.as_struct().unwrap();
+        let field_signatures = s
+            .fields(generics)
+            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
+            .join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -143,12 +145,12 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
 }
 
 trait AsStrQuote {
-    fn as_str_quote(self) -> Self;
+    fn as_str_quote(self) -> (Self, u32);
 }
 
 impl<let N: u32, Env> AsStrQuote for Quoted {
-    // Used to convert an arbirary quoted type into a quoted string, removing whitespace between tokens
-    comptime fn as_str_quote(self) -> Quoted {
+    // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
+    comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();
         let mut acc: [u8] = &[];
         let mut total_len: u32 = 0;
@@ -166,7 +168,7 @@ impl<let N: u32, Env> AsStrQuote for Quoted {
                 signature_as_array.as_str_unchecked()
             },
         );
-        quote { $result }
+        (quote { $result }, total_len)
     }
 }
 
@@ -181,7 +183,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let args_signatures =
         f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
-    let signature_str_quote = signature_quote.as_str_quote();
+    let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
         protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
@@ -201,13 +203,15 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     // The signature will be "Foo(Field,AztecAddress)".
     let event_name = s.name();
     let args_signatures = s
-        .fields()
+        .fields_as_written()
         .map(|(_, typ): (Quoted, Type)| {
-            signature_of_type(typ) // signature_of_type can handle structs, so this supports nested structs
+            // signature_of_type can handle structs, so this supports nested structs
+            // FIXME: Field generics are not handled here!
+            signature_of_type(typ)
         })
         .join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
-    let signature_str_quote = signature_quote.as_str_quote();
+    let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
         protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()
@@ -215,16 +219,15 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
+pub(crate) comptime fn get_packed_size(typ: Type) -> u32 {
     let any = fresh_type_variable();
-    let maybe_serialize_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+    let maybe_packed_impl =
+        typ.get_trait_impl(quote { protocol_types::traits::Packable<$any> }.as_trait_constraint());
 
-    maybe_serialize_impl
-        .expect(
-            f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait",
-        )
-        .trait_generic_args()[0]
+    maybe_packed_impl
+        .expect(f"Attempted to fetch packed length, but {typ} does not implement the Packable trait"
+            )
+            .trait_generic_args()[0]
         .as_constant()
         .unwrap()
 }

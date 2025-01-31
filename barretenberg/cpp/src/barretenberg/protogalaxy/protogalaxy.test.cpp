@@ -1,5 +1,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
+#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -7,6 +8,7 @@
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 
@@ -43,7 +45,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using TupleOfKeys = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
                                    std::vector<std::shared_ptr<DeciderVerificationKey>>>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     static void construct_circuit(Builder& builder)
     {
@@ -80,9 +82,10 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
     static std::tuple<std::shared_ptr<DeciderProvingKey>, std::shared_ptr<DeciderVerificationKey>> fold_and_verify(
         const std::vector<std::shared_ptr<DeciderProvingKey>>& proving_keys,
-        const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys)
+        const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
-        FoldingProver folding_prover(proving_keys);
+        FoldingProver folding_prover(proving_keys, trace_usage_tracker);
         FoldingVerifier folding_verifier(verification_keys);
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
@@ -90,27 +93,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
-    static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
-                                                    bool expected_result)
-    {
-        size_t accumulator_size = accumulator->proving_key.circuit_size;
-        PGInternal pg_internal;
-        auto expected_honk_evals = pg_internal.compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
-        // Construct pow(\vec{betas*}) as in the paper
-        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
-                                                         accumulator->gate_challenges.size());
-
-        // Compute the corresponding target sum and create a dummy accumulator
-        FF expected_target_sum{ 0 };
-        for (size_t idx = 0; idx < accumulator_size; idx++) {
-            expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
-        }
-        EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
-    }
-
-    static void decide_and_verify(std::shared_ptr<DeciderProvingKey>& prover_accumulator,
-                                  std::shared_ptr<DeciderVerificationKey>& verifier_accumulator,
+    static void decide_and_verify(const std::shared_ptr<DeciderProvingKey>& prover_accumulator,
+                                  const std::shared_ptr<DeciderVerificationKey>& verifier_accumulator,
                                   bool expected_result)
     {
         DeciderProver decider_prover(prover_accumulator);
@@ -133,18 +117,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
 
-        decider_pk->relation_parameters.eta = FF::random_element();
-        decider_pk->relation_parameters.eta_two = FF::random_element();
-        decider_pk->relation_parameters.eta_three = FF::random_element();
-        decider_pk->relation_parameters.beta = FF::random_element();
-        decider_pk->relation_parameters.gamma = FF::random_element();
-
-        decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
-                                                                     decider_pk->relation_parameters.eta_two,
-                                                                     decider_pk->relation_parameters.eta_three);
-        decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-        decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
-                                                                 decider_pk->final_active_wire_idx + 1);
+        WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();
@@ -154,7 +127,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
-        for (const auto& eval : full_honk_evals) {
+        for (const auto& eval : full_honk_evals.coeffs()) {
             EXPECT_EQ(eval, FF(0));
         }
     }
@@ -169,7 +142,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
+        Polynomial honk_evaluations_poly(full_honk_evaluations.size());
+        for (auto [poly_val, val] : zip_view(honk_evaluations_poly.coeffs(), full_honk_evaluations)) {
+            poly_val = val;
+        }
+        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, honk_evaluations_poly);
         std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
         EXPECT_EQ(perturbator.size(), 4); // log(size) + 1
         for (size_t i = 0; i < perturbator.size(); i++) {
@@ -331,7 +308,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
             // Perform prover and verifier folding
             auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
-            check_accumulator_target_sum_manual(prover_accumulator, true);
+            EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
             // Run decider
             decide_and_verify(prover_accumulator, verifier_accumulator, true);
@@ -414,9 +391,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
 
         // Expect failure in manual target sum check and decider
-        bool expected_result = false;
-        check_accumulator_target_sum_manual(prover_accumulator, expected_result);
-        decide_and_verify(prover_accumulator, verifier_accumulator, expected_result);
+        EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
+        decide_and_verify(prover_accumulator, verifier_accumulator, false);
     }
 
     /**
@@ -427,12 +403,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
@@ -443,19 +419,60 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy_structured_trace()
     {
-        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
         TupleOfKeys keys_1 = construct_keys(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys keys_2 = construct_keys(1, trace_settings); // just one key pair
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->proving_key.circuit_size);
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
+    }
+
+    /**
+     * @brief Testing folding a larger circuit into a smaller one by increasing the virtual size of the first.
+     * @details Fold two circuits using a structured trace, where the second overflows the trace such that the dyadic
+     * size is doubled. The virtual size of the polynomials in the first key is increased internally in the PG prover to
+     * match the size of the second.
+     *
+     */
+    static void test_fold_with_virtual_size_expansion()
+    {
+        uint32_t overflow_capacity = 0; // consider the case where the overflow is not known until runtime
+        TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity };
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
+
+        std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
+        std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
+
+        // define parameters for two circuits; the first fits within the structured trace, the second overflows
+        const std::vector<size_t> log2_num_gates = { 14, 18 };
+        for (size_t i = 0; i < 2; ++i) {
+            MegaCircuitBuilder builder;
+
+            MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
+
+            auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+            trace_usage_tracker.update(builder);
+            auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->proving_key);
+            auto decider_verification_key = std::make_shared<DeciderVerificationKey>(verification_key);
+            decider_pks.push_back(decider_proving_key);
+            decider_vks.push_back(decider_verification_key);
+        }
+
+        // Ensure the dyadic size of the first key is strictly less than that of the second
+        EXPECT_TRUE(decider_pks[0]->proving_key.circuit_size < decider_pks[1]->proving_key.circuit_size);
+
+        // The size discrepency should be automatically handled by the PG prover via a virtual size increase
+        const auto [prover_accumulator, verifier_accumulator] =
+            fold_and_verify(decider_pks, decider_vks, trace_usage_tracker);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
+        decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 
     /**
@@ -488,7 +505,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Fold the first two pairs
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Construct the decider key pair for the third circuit
         TupleOfKeys keys_2;
@@ -497,7 +514,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         // Fold 3rd pair of keys into their respective accumulators
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->proving_key.circuit_size);
 
         // Decide on final accumulator
@@ -512,7 +529,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with a commitment
         verifier_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
@@ -520,7 +537,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
-        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
     }
@@ -534,11 +551,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         TupleOfKeys insts = construct_keys(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        check_accumulator_target_sum_manual(prover_accumulator, true);
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with an accumulator polynomial
         prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
-        check_accumulator_target_sum_manual(prover_accumulator, false);
+        EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
@@ -558,8 +575,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
-        check_accumulator_target_sum_manual(prover_accumulator, true);
-
+        EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
         decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 };
@@ -612,6 +628,12 @@ TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTrace)
 {
     TestFixture::test_full_protogalaxy_structured_trace();
 }
+
+TYPED_TEST(ProtogalaxyTests, VirtualSizeExpansion)
+{
+    TestFixture::test_fold_with_virtual_size_expansion();
+}
+
 TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTraceInhomogeneous)
 {
     TestFixture::test_full_protogalaxy_structured_trace_inhomogeneous_circuits();

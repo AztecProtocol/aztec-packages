@@ -1,9 +1,10 @@
-use crate::components::tail_to_public_output_composer::meter_gas_used::meter_gas_used;
+use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{gas::Gas, public_call_request::PublicCallRequest},
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG,
+        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::fixture_builder::FixtureBuilder,
 };
@@ -50,17 +51,14 @@ fn meter_gas_used_everything_succeeds() {
     non_revertible_builder.append_note_hashes(3);
     non_revertible_builder.append_nullifiers(1);
     non_revertible_builder.append_l2_to_l1_msgs(0);
-    non_revertible_builder.add_note_encrypted_log_hash(1001, 12, 0);
-    non_revertible_builder.add_encrypted_log_hash(2001, 2);
+    non_revertible_builder.append_private_logs(3);
     non_revertible_builder.add_contract_class_log_hash(3001, 51);
     non_revertible_builder.append_public_call_requests(1);
 
     revertible_builder.append_note_hashes(1);
     revertible_builder.append_nullifiers(2);
     revertible_builder.append_l2_to_l1_msgs(1);
-    revertible_builder.add_note_encrypted_log_hash(1002, 8, 0);
-    revertible_builder.add_note_encrypted_log_hash(1003, 20, 0);
-    revertible_builder.add_encrypted_log_hash(2002, 6);
+    non_revertible_builder.append_private_logs(2);
     revertible_builder.append_public_call_requests(1);
 
     let non_revertible_data = non_revertible_builder.to_private_to_public_accumulated_data();
@@ -77,17 +75,15 @@ fn meter_gas_used_everything_succeeds() {
     );
 
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_length = 12
-        + 8
-        + 20 // note_encrypted_log_hash
-        + 2
-        + 6 // encrypted_log_hash
-        + 51; // contract_class_log_hash
+    let total_log_bytes = 5 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD // private_logs
+        + 51; // contract_class_logs
     let computed_da_gas =
-        (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
+        (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_bytes) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
         + 3 * L2_GAS_PER_NULLIFIER
-        + total_log_length * L2_GAS_PER_LOG_BYTE
+        + 1 * L2_GAS_PER_L2_TO_L1_MSG
+        + 5 * L2_GAS_PER_PRIVATE_LOG
+        + 51 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */
         + 2 * FIXED_AVM_STARTUP_L2_GAS;
 
     assert_eq(

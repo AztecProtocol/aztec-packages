@@ -15,11 +15,14 @@ Private functions are executed locally by the user, so that the user can ensure 
 
 Given this natural flow from private-land to public-land, private functions can enqueue calls to public functions. But the opposite direction is not true. We'll see [below](#public-to-private-messaging) that public functions cannot "call" private functions, but rather they must pass messages.
 
-Since private functions execute first, they cannot 'wait' on the results of any of their calls to public functions.
+Since private functions execute first, they cannot 'wait' on the results of their calls to public functions.
 
 By way of example, suppose a function makes a call to a public function, and then to a private function. The public function will not be executed immediately, but will instead be enqueued for the sequencer to execute later.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
     A[Private Function 1] --> |1st call| B(Public Function 1)
     A --> |2nd call| C[Private Function 2]
@@ -27,11 +30,15 @@ graph LR
     A --> |3rd call| D(Public Function 2)
     A --> |4th call| E[Private Function 3]
     E --> |return values| A
+</Mermaid>
 ```
 
 The order of execution will actually be:
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
     A[Private Function 1] --> C[Private Function 2]
     C --> |return values| A
@@ -39,13 +46,18 @@ graph LR
     E --> |return values| A
     A -----> |Enqueued| B(Public Function 1)
     A -----> |Enqueued| D(Public Function 2)
+</Mermaid>
 ```
 
 And the order of proving will actually be:
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 flowchart LR
     A[Private Function 1] --> C[Private Function 2] --> E[Private Function 3] ----> B(Public Function 1) --> D(Public Function 2)
+</Mermaid>
 ```
 
 ## Private to Public Messaging

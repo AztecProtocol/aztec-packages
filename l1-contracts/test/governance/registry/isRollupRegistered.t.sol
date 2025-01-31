@@ -10,12 +10,12 @@ contract IsRollupRegisteredTest is RegistryBase {
     _;
   }
 
-  function test_When_rollupIs0xdead() external givenNoAdditionalListedRollups {
+  function test_When_rollupIs0xdead() external view givenNoAdditionalListedRollups {
     // it should return true
     assertTrue(registry.isRollupRegistered(address(0xdead)));
   }
 
-  function test_When_rollupNot0xdead(address _rollup) external givenNoAdditionalListedRollups {
+  function test_When_rollupNot0xdead(address _rollup) external view givenNoAdditionalListedRollups {
     // it should return false
     vm.assume(_rollup != address(0xdead));
     assertFalse(registry.isRollupRegistered(_rollup));

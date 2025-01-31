@@ -1,13 +1,15 @@
 import {
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  Header,
+  PrivateLog,
   type PublicFunction,
   PublicKeys,
+  computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -15,24 +17,22 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
-import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
 import {
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  type L2BlockL2Logs,
-  UnencryptedL2BlockL2Logs,
-} from '../logs/l2_block_l2_logs.js';
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  TxScopedL2Log,
+} from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
-import { type FromLogType, LogType } from '../logs/log_type.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
@@ -97,7 +97,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const result = await context.client.getBlockHeader(1);
-    expect(result).toBeInstanceOf(Header);
+    expect(result).toBeInstanceOf(BlockHeader);
   });
 
   it('getBlocks', async () => {
@@ -106,12 +106,12 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
-    const result = await context.client.getSettledTxReceipt(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
@@ -156,19 +156,9 @@ describe('ArchiverApiSchema', () => {
     ]);
   });
 
-  it('getLogs(Encrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.ENCRYPTED);
-    expect(result).toEqual([expect.any(EncryptedL2BlockL2Logs)]);
-  });
-
-  it('getLogs(NoteEncrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.NOTEENCRYPTED);
-    expect(result).toEqual([expect.any(EncryptedNoteL2BlockL2Logs)]);
-  });
-
-  it('getLogs(Unencrypted)', async () => {
-    const result = await context.client.getLogs(1, 1, LogType.UNENCRYPTED);
-    expect(result).toEqual([expect.any(UnencryptedL2BlockL2Logs)]);
+  it('getPrivateLogs', async () => {
+    const result = await context.client.getPrivateLogs(1, 1);
+    expect(result).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getLogsByTags', async () => {
@@ -176,36 +166,51 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const result = await context.client.getUnencryptedLogs({
+  it('getPublicLogs', async () => {
+    const result = await context.client.getPublicLogs({
       txHash: TxHash.random(),
-      contractAddress: AztecAddress.random(),
+      contractAddress: await AztecAddress.random(),
     });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
     const result = await context.client.getContractClassLogs({
       txHash: TxHash.random(),
-      contractAddress: AztecAddress.random(),
+      contractAddress: await AztecAddress.random(),
     });
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
   it('getPublicFunction', async () => {
     const selector = FunctionSelector.random();
-    const result = await context.client.getPublicFunction(AztecAddress.random(), selector);
+    const result = await context.client.getPublicFunction(await AztecAddress.random(), selector);
     expect(result).toEqual({ selector, bytecode: Buffer.alloc(10, 10) });
   });
 
   it('getContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getContractClass(Fr.random());
     expect(result).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
       unconstrainedFunctions: [],
       privateFunctions: [],
     });
+  });
+
+  it('getContractFunctionName', async () => {
+    const selector = await FunctionSelector.fromNameAndParameters(
+      artifact.functions[0].name,
+      artifact.functions[0].parameters,
+    );
+    const result = await context.client.getContractFunctionName(await AztecAddress.random(), selector);
+    expect(result).toEqual(artifact.functions[0].name);
+  });
+
+  it('getBytecodeCommitment', async () => {
+    const contractClass = await getContractClassFromArtifact(artifact);
+    const result = await context.client.getBytecodeCommitment(Fr.random());
+    expect(result).toEqual(await computePublicBytecodeCommitment(contractClass.packedBytecode));
   });
 
   it('getContractClassIds', async () => {
@@ -223,17 +228,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('getContractArtifact', async () => {
-    const result = await context.client.getContractArtifact(AztecAddress.random());
-    deepStrictEqual(result, artifact);
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
   });
 
-  it('addContractArtifact', async () => {
-    await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  }, 20_000);
-
   it('getContract', async () => {
-    const address = AztecAddress.random();
+    const address = await AztecAddress.random();
     const result = await context.client.getContract(address);
     expect(result).toEqual({
       address,
@@ -247,12 +247,17 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('addContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({
       ...omit(contractClass, 'publicBytecodeCommitment'),
       unconstrainedFunctions: [],
       privateFunctions: [],
     });
+  });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
   });
 });
 
@@ -277,15 +282,15 @@ class MockArchiver implements ArchiverApi {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
-  getBlockHeader(_number: number | 'latest'): Promise<Header | undefined> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
-  getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
-    return Promise.resolve([L2Block.random(from)]);
+  async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
+    return [await L2Block.random(from)];
   }
-  getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -297,9 +302,9 @@ class MockArchiver implements ArchiverApi {
   getL2EpochNumber(): Promise<bigint> {
     return Promise.resolve(1n);
   }
-  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+  async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     expect(epochNumber).toEqual(1n);
-    return Promise.resolve([L2Block.random(Number(epochNumber))]);
+    return [await L2Block.random(Number(epochNumber))];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);
@@ -319,56 +324,59 @@ class MockArchiver implements ArchiverApi {
     expect(nullifiers[1]).toBeInstanceOf(Fr);
     return Promise.resolve([randomInBlock(Fr.random().toBigInt()), undefined]);
   }
-  getLogs<TLogType extends LogType>(
-    _from: number,
-    _limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    switch (logType) {
-      case LogType.ENCRYPTED:
-        return Promise.resolve([EncryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.NOTEENCRYPTED:
-        return Promise.resolve([EncryptedNoteL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      case LogType.UNENCRYPTED:
-        return Promise.resolve([UnencryptedL2BlockL2Logs.random(1, 1, 1)] as L2BlockL2Logs<FromLogType<TLogType>>[]);
-      default:
-        throw new Error(`Unexpected log type: ${logType}`);
-    }
+  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
+    return Promise.resolve([PrivateLog.random()]);
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
     return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     expect(selector).toBeInstanceOf(FunctionSelector);
     return Promise.resolve({ selector, bytecode: Buffer.alloc(10, 10) });
   }
-  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
-    const contractClass = getContractClassFromArtifact(this.artifact);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   }
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return Promise.resolve({
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    expect(id).toBeInstanceOf(Fr);
+    const contractClass = await getContractClassFromArtifact(this.artifact);
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
+  }
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    expect(address).toBeInstanceOf(AztecAddress);
+    expect(selector).toBeInstanceOf(FunctionSelector);
+    const functionsAndSelectors = await Promise.all(
+      this.artifact.functions.map(async f => ({
+        name: f.name,
+        selector: await FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }),
+      })),
+    );
+    return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
+  }
+  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return {
       address,
       contractClassId: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       version: 1,
-    });
+    };
   }
   getContractClassIds(): Promise<Fr[]> {
     return Promise.resolve([Fr.random()]);
@@ -377,10 +385,9 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
-    // We use node's native assertion because jest's is too slow
-    deepStrictEqual(contract, this.artifact);
+    expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
@@ -393,5 +400,8 @@ class MockArchiver implements ArchiverApi {
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();
+  }
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 }

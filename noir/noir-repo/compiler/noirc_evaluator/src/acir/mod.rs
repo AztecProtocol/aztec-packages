@@ -1,7 +1,6 @@
 //! This file holds the pass to convert from Noir's SSA IR to ACIR.
 
 use fxhash::FxHashMap as HashMap;
-use im::Vector;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 
@@ -24,19 +23,19 @@ mod big_int;
 mod brillig_directive;
 mod generated_acir;
 
+use crate::brillig::brillig_gen::gen_brillig_for;
 use crate::brillig::{
     brillig_gen::brillig_fn::FunctionContext as BrilligFunctionContext,
-    brillig_ir::{
-        artifact::{BrilligParameter, GeneratedBrillig},
-        BrilligContext,
-    },
+    brillig_ir::artifact::{BrilligParameter, GeneratedBrillig},
     Brillig,
 };
 use crate::errors::{InternalError, InternalWarning, RuntimeError, SsaReport};
+use crate::ssa::ir::instruction::Hint;
 use crate::ssa::{
     function_builder::data_bus::DataBus,
     ir::{
-        dfg::{CallStack, DataFlowGraph},
+        call_stack::CallStack,
+        dfg::DataFlowGraph,
         function::{Function, FunctionId, RuntimeType},
         instruction::{
             Binary, BinaryOp, ConstrainError, Instruction, InstructionId, Intrinsic,
@@ -248,7 +247,7 @@ impl Debug for AcirDynamicArray {
 #[derive(Debug, Clone)]
 pub(crate) enum AcirValue {
     Var(AcirVar, AcirType),
-    Array(Vector<AcirValue>),
+    Array(im::Vector<AcirValue>),
     DynamicArray(AcirDynamicArray),
 }
 
@@ -518,7 +517,7 @@ impl<'a> Context<'a> {
         let outputs: Vec<AcirType> =
             vecmap(main_func.returns(), |result_id| dfg.type_of_value(*result_id).into());
 
-        let code = self.gen_brillig_for(main_func, arguments.clone(), brillig)?;
+        let code = gen_brillig_for(main_func, arguments.clone(), brillig)?;
 
         // We specifically do not attempt execution of the brillig code being generated as this can result in it being
         // replaced with constraints on witnesses to the program outputs.
@@ -573,7 +572,7 @@ impl<'a> Context<'a> {
                 AcirValue::Array(_) => {
                     let block_id = self.block_id(param_id);
                     let len = if matches!(typ, Type::Array(_, _)) {
-                        typ.flattened_size()
+                        typ.flattened_size() as usize
                     } else {
                         return Err(InternalError::Unexpected {
                             expected: "Block params should be an array".to_owned(),
@@ -676,7 +675,7 @@ impl<'a> Context<'a> {
         brillig: &Brillig,
     ) -> Result<Vec<SsaReport>, RuntimeError> {
         let instruction = &dfg[instruction_id];
-        self.acir_context.set_call_stack(dfg.get_call_stack(instruction_id));
+        self.acir_context.set_call_stack(dfg.get_instruction_call_stack(instruction_id));
         let mut warnings = Vec::new();
         match instruction {
             Instruction::Binary(binary) => {
@@ -724,6 +723,47 @@ impl<'a> Context<'a> {
 
                 self.acir_context.assert_eq_var(lhs, rhs, assert_payload)?;
             }
+            Instruction::ConstrainNotEqual(lhs, rhs, assert_message) => {
+                let lhs = self.convert_numeric_value(*lhs, dfg)?;
+                let rhs = self.convert_numeric_value(*rhs, dfg)?;
+
+                let assert_payload = if let Some(error) = assert_message {
+                    match error {
+                        ConstrainError::StaticString(string) => Some(
+                            self.acir_context.generate_assertion_message_payload(string.clone()),
+                        ),
+                        ConstrainError::Dynamic(error_selector, is_string_type, values) => {
+                            if let Some(constant_string) = try_to_extract_string_from_error_payload(
+                                *is_string_type,
+                                values,
+                                dfg,
+                            ) {
+                                Some(
+                                    self.acir_context
+                                        .generate_assertion_message_payload(constant_string),
+                                )
+                            } else {
+                                let acir_vars: Vec<_> = values
+                                    .iter()
+                                    .map(|value| self.convert_value(*value, dfg))
+                                    .collect();
+
+                                let expressions_or_memory =
+                                    self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
+
+                                Some(AssertionPayload {
+                                    error_selector: error_selector.as_u64(),
+                                    payload: expressions_or_memory,
+                                })
+                            }
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                self.acir_context.assert_neq_var(lhs, rhs, assert_payload)?;
+            }
             Instruction::Cast(value_id, _) => {
                 let acir_var = self.convert_numeric_value(*value_id, dfg)?;
                 self.define_result_var(dfg, instruction_id, acir_var);
@@ -770,7 +810,8 @@ impl<'a> Context<'a> {
                 unreachable!("Expected all load instructions to be removed before acir_gen")
             }
             Instruction::IncrementRc { .. } | Instruction::DecrementRc { .. } => {
-                // Do nothing. Only Brillig needs to worry about reference counted arrays
+                // Only Brillig needs to worry about reference counted arrays
+                unreachable!("Expected all Rc instructions to be removed before acir_gen")
             }
             Instruction::RangeCheck { value, max_bit_size, assert_message } => {
                 let acir_var = self.convert_numeric_value(*value, dfg)?;
@@ -789,6 +830,7 @@ impl<'a> Context<'a> {
                 let result = dfg.instruction_results(instruction_id)[0];
                 self.ssa_values.insert(result, value);
             }
+            Instruction::Noop => (),
         }
 
         self.acir_context.set_call_stack(CallStack::new());
@@ -818,17 +860,17 @@ impl<'a> Context<'a> {
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
                                 let output_count = result_ids
                                     .iter()
-                                    .map(|result_id| dfg.type_of_value(*result_id).flattened_size())
+                                    .map(|result_id| {
+                                        dfg.type_of_value(*result_id).flattened_size() as usize
+                                    })
                                     .sum();
 
-                                let Some(acir_function_id) =
-                                    ssa.entry_point_to_generated_index.get(id)
-                                else {
+                                let Some(acir_function_id) = ssa.get_entry_point_index(id) else {
                                     unreachable!("Expected an associated final index for call to acir function {id} with args {arguments:?}");
                                 };
 
                                 let output_vars = self.acir_context.call_acir_function(
-                                    AcirFunctionId(*acir_function_id),
+                                    AcirFunctionId(acir_function_id),
                                     inputs,
                                     output_count,
                                     self.current_side_effects_enabled_var,
@@ -878,8 +920,7 @@ impl<'a> Context<'a> {
                                         None,
                                     )?
                                 } else {
-                                    let code =
-                                        self.gen_brillig_for(func, arguments.clone(), brillig)?;
+                                    let code = gen_brillig_for(func, arguments.clone(), brillig)?;
                                     let generated_pointer =
                                         self.shared_context.new_generated_pointer();
                                     let output_values = self.acir_context.brillig_call(
@@ -951,7 +992,7 @@ impl<'a> Context<'a> {
                 let block_id = self.block_id(&array_id);
                 let array_typ = dfg.type_of_value(array_id);
                 let len = if matches!(array_typ, Type::Array(_, _)) {
-                    array_typ.flattened_size()
+                    array_typ.flattened_size() as usize
                 } else {
                     Self::flattened_value_size(&output)
                 };
@@ -999,47 +1040,6 @@ impl<'a> Context<'a> {
             .collect()
     }
 
-    fn gen_brillig_for(
-        &self,
-        func: &Function,
-        arguments: Vec<BrilligParameter>,
-        brillig: &Brillig,
-    ) -> Result<GeneratedBrillig<FieldElement>, InternalError> {
-        // Create the entry point artifact
-        let mut entry_point = BrilligContext::new_entry_point_artifact(
-            arguments,
-            BrilligFunctionContext::return_values(func),
-            func.id(),
-        );
-        entry_point.name = func.name().to_string();
-
-        // Link the entry point with all dependencies
-        while let Some(unresolved_fn_label) = entry_point.first_unresolved_function_call() {
-            let artifact = &brillig.find_by_label(unresolved_fn_label.clone());
-            let artifact = match artifact {
-                Some(artifact) => artifact,
-                None => {
-                    return Err(InternalError::General {
-                        message: format!("Cannot find linked fn {unresolved_fn_label}"),
-                        call_stack: CallStack::new(),
-                    })
-                }
-            };
-            entry_point.link_with(artifact);
-            // Insert the range of opcode locations occupied by a procedure
-            if let Some(procedure_id) = &artifact.procedure {
-                let num_opcodes = entry_point.byte_code.len();
-                let previous_num_opcodes = entry_point.byte_code.len() - artifact.byte_code.len();
-                // We subtract one as to keep the range inclusive on both ends
-                entry_point
-                    .procedure_locations
-                    .insert(procedure_id.clone(), (previous_num_opcodes, num_opcodes - 1));
-            }
-        }
-        // Generate the final bytecode
-        Ok(entry_point.finish())
-    }
-
     /// Handles an ArrayGet or ArraySet instruction.
     /// To set an index of the array (and create a new array in doing so), pass Some(value) for
     /// store_value. To just retrieve an index of the array, pass None for store_value.
@@ -1069,8 +1069,7 @@ impl<'a> Context<'a> {
         // Ensure that array id is fully resolved.
         let array = dfg.resolve(array);
 
-        let array_id = dfg.resolve(array);
-        let array_typ = dfg.type_of_value(array_id);
+        let array_typ = dfg.type_of_value(array);
         // Compiler sanity checks
         assert!(!array_typ.is_nested_slice(), "ICE: Nested slice type has reached ACIR generation");
         let (Type::Array(_, _) | Type::Slice(_)) = &array_typ else {
@@ -1125,15 +1124,7 @@ impl<'a> Context<'a> {
         index: ValueId,
         store_value: Option<ValueId>,
     ) -> Result<bool, RuntimeError> {
-        let array_id = dfg.resolve(array);
-        let array_typ = dfg.type_of_value(array_id);
-        // Compiler sanity checks
-        assert!(!array_typ.is_nested_slice(), "ICE: Nested slice type has reached ACIR generation");
-        let (Type::Array(_, _) | Type::Slice(_)) = &array_typ else {
-            unreachable!("ICE: expected array or slice type");
-        };
-
-        match self.convert_value(array_id, dfg) {
+        match self.convert_value(array, dfg) {
             AcirValue::Var(acir_var, _) => {
                 Err(RuntimeError::InternalError(InternalError::Unexpected {
                     expected: "an array value".to_string(),
@@ -1160,7 +1151,7 @@ impl<'a> Context<'a> {
         &mut self,
         instruction: InstructionId,
         dfg: &DataFlowGraph,
-        array: Vector<AcirValue>,
+        array: im::Vector<AcirValue>,
         index: FieldElement,
         store_value: Option<AcirValue>,
     ) -> Result<bool, RuntimeError> {
@@ -1343,9 +1334,9 @@ impl<'a> Context<'a> {
         typ: &Type,
     ) -> Result<AcirValue, RuntimeError> {
         match typ {
-            Type::Numeric(_) => self.array_get_value(&Type::field(), call_data_block, offset),
+            Type::Numeric(_) => self.array_get_value(typ, call_data_block, offset),
             Type::Array(arc, len) => {
-                let mut result = Vector::new();
+                let mut result = im::Vector::new();
                 for _i in 0..*len {
                     for sub_type in arc.iter() {
                         let element = self.get_from_call_data(offset, call_data_block, sub_type)?;
@@ -1436,7 +1427,7 @@ impl<'a> Context<'a> {
                 Ok(AcirValue::Var(read, typ))
             }
             Type::Array(element_types, len) => {
-                let mut values = Vector::new();
+                let mut values = im::Vector::new();
                 for _ in 0..len {
                     for typ in element_types.as_ref() {
                         values.push_back(self.array_get_value(typ, block_id, var_index)?);
@@ -1488,7 +1479,7 @@ impl<'a> Context<'a> {
         // a separate SSA value and restrictions on slice indices should be generated elsewhere in the SSA.
         let array_typ = dfg.type_of_value(array);
         let array_len = if !array_typ.contains_slice_element() {
-            array_typ.flattened_size()
+            array_typ.flattened_size() as usize
         } else {
             self.flattened_slice_size(array, dfg)
         };
@@ -1583,7 +1574,7 @@ impl<'a> Context<'a> {
                     let value = self.convert_value(array, dfg);
                     let array_typ = dfg.type_of_value(array);
                     let len = if !array_typ.contains_slice_element() {
-                        array_typ.flattened_size()
+                        array_typ.flattened_size() as usize
                     } else {
                         self.flattened_slice_size(array, dfg)
                     };
@@ -1724,7 +1715,7 @@ impl<'a> Context<'a> {
             let read = self.acir_context.read_from_memory(source, &index_var)?;
             Ok::<AcirValue, RuntimeError>(AcirValue::Var(read, AcirType::field()))
         })?;
-        let array: Vector<AcirValue> = init_values.into();
+        let array: im::Vector<AcirValue> = init_values.into();
         self.initialize_array(destination, array_len, Some(AcirValue::Array(array)))?;
         Ok(())
     }
@@ -1854,7 +1845,7 @@ impl<'a> Context<'a> {
 
         return_values
             .iter()
-            .fold(0, |acc, value_id| acc + dfg.type_of_value(*value_id).flattened_size())
+            .fold(0, |acc, value_id| acc + dfg.type_of_value(*value_id).flattened_size() as usize)
     }
 
     /// Converts an SSA terminator's return values into their ACIR representations
@@ -1865,7 +1856,7 @@ impl<'a> Context<'a> {
     ) -> Result<(Vec<AcirVar>, Vec<SsaReport>), RuntimeError> {
         let (return_values, call_stack) = match terminator {
             TerminatorInstruction::Return { return_values, call_stack } => {
-                (return_values, call_stack.clone())
+                (return_values, *call_stack)
             }
             // TODO(https://github.com/noir-lang/noir/issues/4616): Enable recursion on foldable/non-inlined ACIR functions
             _ => unreachable!("ICE: Program must have a singular return"),
@@ -1884,6 +1875,7 @@ impl<'a> Context<'a> {
             }
         }
 
+        let call_stack = dfg.call_stack_data.get_call_stack(call_stack);
         let warnings = if has_constant_return {
             vec![SsaReport::Warning(InternalWarning::ReturnConstant { call_stack })]
         } else {
@@ -1915,14 +1907,15 @@ impl<'a> Context<'a> {
 
         let acir_value = match value {
             Value::NumericConstant { constant, typ } => {
-                AcirValue::Var(self.acir_context.add_constant(*constant), typ.into())
+                let typ = AcirType::from(Type::Numeric(*typ));
+                AcirValue::Var(self.acir_context.add_constant(*constant), typ)
             }
             Value::Intrinsic(..) => todo!(),
             Value::Function(function_id) => {
                 // This conversion is for debugging support only, to allow the
                 // debugging instrumentation code to work. Taking the reference
                 // of a function in ACIR is useless.
-                let id = self.acir_context.add_constant(function_id.to_usize());
+                let id = self.acir_context.add_constant(function_id.to_u32());
                 AcirValue::Var(id, AcirType::field())
             }
             Value::ForeignFunction(_) => unimplemented!(
@@ -1930,6 +1923,9 @@ impl<'a> Context<'a> {
             ),
             Value::Instruction { .. } | Value::Param { .. } => {
                 unreachable!("ICE: Should have been in cache {value_id} {value:?}")
+            }
+            Value::Global(_) => {
+                unreachable!("ICE: All globals should have been inlined");
             }
         };
         self.ssa_values.insert(value_id, acir_value.clone());
@@ -1988,9 +1984,9 @@ impl<'a> Context<'a> {
         let bit_count = binary_type.bit_size::<FieldElement>();
         let num_type = binary_type.to_numeric_type();
         let result = match binary.operator {
-            BinaryOp::Add => self.acir_context.add_var(lhs, rhs),
-            BinaryOp::Sub => self.acir_context.sub_var(lhs, rhs),
-            BinaryOp::Mul => self.acir_context.mul_var(lhs, rhs),
+            BinaryOp::Add { .. } => self.acir_context.add_var(lhs, rhs),
+            BinaryOp::Sub { .. } => self.acir_context.sub_var(lhs, rhs),
+            BinaryOp::Mul { .. } => self.acir_context.mul_var(lhs, rhs),
             BinaryOp::Div => self.acir_context.div_var(
                 lhs,
                 rhs,
@@ -2012,6 +2008,7 @@ impl<'a> Context<'a> {
             BinaryOp::Mod => self.acir_context.modulo_var(
                 lhs,
                 rhs,
+                binary_type.clone(),
                 bit_count,
                 self.current_side_effects_enabled_var,
             ),
@@ -2022,14 +2019,7 @@ impl<'a> Context<'a> {
 
         if let NumericType::Unsigned { bit_size } = &num_type {
             // Check for integer overflow
-            self.check_unsigned_overflow(
-                result,
-                *bit_size,
-                binary.lhs,
-                binary.rhs,
-                dfg,
-                binary.operator,
-            )?;
+            self.check_unsigned_overflow(result, *bit_size, binary, dfg)?;
         }
 
         Ok(result)
@@ -2040,47 +2030,18 @@ impl<'a> Context<'a> {
         &mut self,
         result: AcirVar,
         bit_size: u32,
-        lhs: ValueId,
-        rhs: ValueId,
+        binary: &Binary,
         dfg: &DataFlowGraph,
-        op: BinaryOp,
     ) -> Result<(), RuntimeError> {
-        // We try to optimize away operations that are guaranteed not to overflow
-        let max_lhs_bits = dfg.get_value_max_num_bits(lhs);
-        let max_rhs_bits = dfg.get_value_max_num_bits(rhs);
-
-        let msg = match op {
-            BinaryOp::Add => {
-                if std::cmp::max(max_lhs_bits, max_rhs_bits) < bit_size {
-                    // `lhs` and `rhs` have both been casted up from smaller types and so cannot overflow.
-                    return Ok(());
-                }
-                "attempt to add with overflow".to_string()
-            }
-            BinaryOp::Sub => {
-                if dfg.is_constant(lhs) && max_lhs_bits > max_rhs_bits {
-                    // `lhs` is a fixed constant and `rhs` is restricted such that `lhs - rhs > 0`
-                    // Note strict inequality as `rhs > lhs` while `max_lhs_bits == max_rhs_bits` is possible.
-                    return Ok(());
-                }
-                "attempt to subtract with overflow".to_string()
-            }
-            BinaryOp::Mul => {
-                if bit_size == 1 || max_lhs_bits + max_rhs_bits <= bit_size {
-                    // Either performing boolean multiplication (which cannot overflow),
-                    // or `lhs` and `rhs` have both been casted up from smaller types and so cannot overflow.
-                    return Ok(());
-                }
-                "attempt to multiply with overflow".to_string()
-            }
-            _ => return Ok(()),
+        let Some(msg) = binary.check_unsigned_overflow_msg(dfg, bit_size) else {
+            return Ok(());
         };
 
         let with_pred = self.acir_context.mul_var(result, self.current_side_effects_enabled_var)?;
         self.acir_context.range_constrain_var(
             with_pred,
             &NumericType::Unsigned { bit_size },
-            Some(msg),
+            Some(msg.to_string()),
         )?;
         Ok(())
     }
@@ -2092,8 +2053,9 @@ impl<'a> Context<'a> {
     ///
     /// There are some edge cases to consider:
     /// - Constants are not explicitly type casted, so we need to check for this and
-    /// return the type of the other operand, if we have a constant.
+    ///   return the type of the other operand, if we have a constant.
     /// - 0 is not seen as `Field 0` but instead as `Unit 0`
+    ///
     /// TODO: The latter seems like a bug, if we cannot differentiate between a function returning
     /// TODO nothing and a 0.
     ///
@@ -2143,7 +2105,7 @@ impl<'a> Context<'a> {
             Value::Instruction { instruction, .. } => {
                 if matches!(
                     &dfg[*instruction],
-                    Instruction::Binary(Binary { operator: BinaryOp::Sub, .. })
+                    Instruction::Binary(Binary { operator: BinaryOp::Sub { .. }, .. })
                 ) {
                     // Subtractions must first have the integer modulus added before truncation can be
                     // applied. This is done in order to prevent underflow.
@@ -2174,6 +2136,15 @@ impl<'a> Context<'a> {
         result_ids: &[ValueId],
     ) -> Result<Vec<AcirValue>, RuntimeError> {
         match intrinsic {
+            Intrinsic::Hint(Hint::BlackBox) => {
+                // Identity function; at the ACIR level this is a no-op, it only affects the SSA.
+                assert_eq!(
+                    arguments.len(),
+                    result_ids.len(),
+                    "ICE: BlackBox input and output lengths should match."
+                );
+                Ok(arguments.iter().map(|v| self.convert_value(*v, dfg)).collect())
+            }
             Intrinsic::BlackBox(black_box) => {
                 // Slices are represented as a tuple of (length, slice contents).
                 // We must check the inputs to determine if there are slices
@@ -2199,7 +2170,7 @@ impl<'a> Context<'a> {
                 let inputs = vecmap(&arguments_no_slice_len, |arg| self.convert_value(*arg, dfg));
 
                 let output_count = result_ids.iter().fold(0usize, |sum, result_id| {
-                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
+                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1) as usize
                 });
 
                 let vars = self.acir_context.black_box_function(black_box, inputs, output_count)?;
@@ -2223,7 +2194,7 @@ impl<'a> Context<'a> {
                         endian,
                         field,
                         radix,
-                        array_length as u32,
+                        array_length,
                         result_type[0].clone().into(),
                     )
                     .map(|array| vec![array])
@@ -2233,16 +2204,11 @@ impl<'a> Context<'a> {
 
                 let Type::Array(result_type, array_length) = dfg.type_of_value(result_ids[0])
                 else {
-                    unreachable!("ICE: ToRadix result must be an array");
+                    unreachable!("ICE: ToBits result must be an array");
                 };
 
                 self.acir_context
-                    .bit_decompose(
-                        endian,
-                        field,
-                        array_length as u32,
-                        result_type[0].clone().into(),
-                    )
+                    .bit_decompose(endian, field, array_length, result_type[0].clone().into())
                     .map(|array| vec![array])
             }
             Intrinsic::ArrayLen => {
@@ -2256,45 +2222,41 @@ impl<'a> Context<'a> {
             Intrinsic::AsSlice => {
                 let slice_contents = arguments[0];
                 let slice_typ = dfg.type_of_value(slice_contents);
-                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
-                let result_block_id = self.block_id(&result_ids[1]);
                 let acir_value = self.convert_value(slice_contents, dfg);
+                let (slice_length, result) = match acir_value {
+                    AcirValue::Var(_, _) => {
+                        unreachable!("ICE: cannot call `as_slice` on non-array type")
+                    }
+                    array @ AcirValue::Array(_) => {
+                        let array_len = if !slice_typ.contains_slice_element() {
+                            slice_typ.flattened_size() as usize
+                        } else {
+                            self.flattened_slice_size(slice_contents, dfg)
+                        };
+                        (array_len, array)
+                    }
+                    AcirValue::DynamicArray(source_array) => {
+                        let result_block_id = self.block_id(&result_ids[1]);
+                        self.copy_dynamic_array(
+                            source_array.block_id,
+                            result_block_id,
+                            source_array.len,
+                        )?;
 
-                let array_len = if !slice_typ.contains_slice_element() {
-                    slice_typ.flattened_size()
-                } else {
-                    self.flattened_slice_size(slice_contents, dfg)
+                        let array = AcirValue::DynamicArray(AcirDynamicArray {
+                            block_id: result_block_id,
+                            len: source_array.len,
+                            value_types: source_array.value_types,
+                            element_type_sizes: source_array.element_type_sizes,
+                        });
+
+                        (source_array.len, array)
+                    }
                 };
-                let slice_length = self.acir_context.add_constant(array_len);
-                self.copy_dynamic_array(block_id, result_block_id, array_len)?;
 
-                let element_type_sizes = if !can_omit_element_sizes_array(&slice_typ) {
-                    Some(self.init_element_type_sizes_array(
-                        &slice_typ,
-                        slice_contents,
-                        Some(&acir_value),
-                        dfg,
-                    )?)
-                } else {
-                    None
-                };
-
-                let value_types = self.convert_value(slice_contents, dfg).flat_numeric_types();
-                assert!(
-                    array_len == value_types.len(),
-                    "AsSlice: unexpected length difference: {:?} != {:?}",
-                    array_len,
-                    value_types.len()
-                );
-
-                let result = AcirValue::DynamicArray(AcirDynamicArray {
-                    block_id: result_block_id,
-                    len: value_types.len(),
-                    value_types,
-                    element_type_sizes,
-                });
+                let slice_length = self.acir_context.add_constant(slice_length);
                 Ok(vec![AcirValue::Var(slice_length, AcirType::field()), result])
             }
             Intrinsic::SlicePushBack => {
@@ -2308,7 +2270,7 @@ impl<'a> Context<'a> {
                 let slice = self.convert_value(slice_contents, dfg);
                 let mut new_elem_size = Self::flattened_value_size(&slice);
 
-                let mut new_slice = Vector::new();
+                let mut new_slice = im::Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 let elements_to_push = &arguments[2..];
@@ -2379,7 +2341,7 @@ impl<'a> Context<'a> {
                 let one = self.acir_context.add_constant(FieldElement::one());
                 let new_slice_length = self.acir_context.add_var(slice_length, one)?;
 
-                let mut new_slice = Vector::new();
+                let mut new_slice = im::Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 let elements_to_push = &arguments[2..];
@@ -2453,7 +2415,7 @@ impl<'a> Context<'a> {
                 }
 
                 let slice = self.convert_value(slice_contents, dfg);
-                let mut new_slice = Vector::new();
+                let mut new_slice = im::Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 let mut results = vec![
@@ -2479,7 +2441,7 @@ impl<'a> Context<'a> {
 
                 let slice = self.convert_value(slice_contents, dfg);
 
-                let mut new_slice = Vector::new();
+                let mut new_slice = im::Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 let element_size = slice_typ.element_size();
@@ -2666,7 +2628,7 @@ impl<'a> Context<'a> {
 
                 let slice_size = Self::flattened_value_size(&slice);
 
-                let mut new_slice = Vector::new();
+                let mut new_slice = im::Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 // Compiler sanity check
@@ -2795,8 +2757,6 @@ impl<'a> Context<'a> {
                 unreachable!("Expected static_assert to be removed by this point")
             }
             Intrinsic::StrAsBytes => unreachable!("Expected as_bytes to be removed by this point"),
-            Intrinsic::FromField => unreachable!("Expected from_field to be removed by this point"),
-            Intrinsic::AsField => unreachable!("Expected as_field to be removed by this point"),
             Intrinsic::IsUnconstrained => {
                 unreachable!("Expected is_unconstrained to be removed by this point")
             }
@@ -2806,12 +2766,19 @@ impl<'a> Context<'a> {
             Intrinsic::FieldLessThan => {
                 unreachable!("FieldLessThan can only be called in unconstrained")
             }
+            Intrinsic::ArrayRefCount | Intrinsic::SliceRefCount => {
+                let zero = self.acir_context.add_constant(FieldElement::zero());
+                Ok(vec![AcirValue::Var(
+                    zero,
+                    AcirType::NumericType(NumericType::Unsigned { bit_size: 32 }),
+                )])
+            }
         }
     }
 
     fn slice_intrinsic_input(
         &mut self,
-        old_slice: &mut Vector<AcirValue>,
+        old_slice: &mut im::Vector<AcirValue>,
         input: AcirValue,
     ) -> Result<(), RuntimeError> {
         match input {
@@ -2916,14 +2883,14 @@ mod test {
     use acvm::{
         acir::{
             circuit::{
-                brillig::BrilligFunctionId, opcodes::AcirFunctionId, ExpressionWidth, Opcode,
-                OpcodeLocation,
+                brillig::BrilligFunctionId,
+                opcodes::{AcirFunctionId, BlackBoxFuncCall},
+                ExpressionWidth, Opcode, OpcodeLocation,
             },
             native_types::Witness,
         },
         FieldElement,
     };
-    use im::vector;
     use noirc_errors::Location;
     use noirc_frontend::monomorphization::ast::InlineType;
     use std::collections::BTreeMap;
@@ -2933,9 +2900,16 @@ mod test {
         brillig::Brillig,
         ssa::{
             function_builder::FunctionBuilder,
-            ir::{function::FunctionId, instruction::BinaryOp, map::Id, types::Type},
+            ir::{
+                function::FunctionId,
+                instruction::BinaryOp,
+                map::Id,
+                types::{NumericType, Type},
+            },
         },
     };
+
+    use super::Ssa;
 
     fn build_basic_foo_with_return(
         builder: &mut FunctionBuilder,
@@ -2955,13 +2929,16 @@ mod test {
             builder.new_function("foo".into(), foo_id, inline_type);
         }
         // Set a call stack for testing whether `brillig_locations` in the `GeneratedAcir` was accurately set.
-        builder.set_call_stack(vector![Location::dummy(), Location::dummy()]);
+        let stack = vec![Location::dummy(), Location::dummy()];
+        let call_stack =
+            builder.current_function.dfg.call_stack_data.get_or_insert_locations(stack);
+        builder.set_call_stack(call_stack);
 
         let foo_v0 = builder.add_parameter(Type::field());
         let foo_v1 = builder.add_parameter(Type::field());
 
         let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
-        let zero = builder.numeric_constant(0u128, Type::unsigned(1));
+        let zero = builder.numeric_constant(0u128, NumericType::unsigned(1));
         builder.insert_constrain(foo_equality_check, zero, None);
         builder.terminate_with_return(vec![foo_v0]);
     }
@@ -3018,7 +2995,7 @@ mod test {
 
         build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
-        let ssa = builder.finish();
+        let ssa = builder.finish().generate_entry_point_index();
 
         let (acir_functions, _, _, _) = ssa
             .into_acir(&Brillig::default(), ExpressionWidth::default())
@@ -3126,6 +3103,7 @@ mod test {
         let ssa = builder.finish();
 
         let (acir_functions, _, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
         // The expected result should look very similar to the above test expect that the input witnesses of the `Call`
@@ -3212,7 +3190,11 @@ mod test {
         let func_with_nested_call_v1 = builder.add_parameter(Type::field());
 
         let two = builder.field_constant(2u128);
-        let v0_plus_two = builder.insert_binary(func_with_nested_call_v0, BinaryOp::Add, two);
+        let v0_plus_two = builder.insert_binary(
+            func_with_nested_call_v0,
+            BinaryOp::Add { unchecked: false },
+            two,
+        );
 
         let foo_id = Id::test_new(2);
         let foo_call = builder.import_function(foo_id);
@@ -3223,7 +3205,7 @@ mod test {
 
         build_basic_foo_with_return(&mut builder, foo_id, false, inline_type);
 
-        let ssa = builder.finish();
+        let ssa = builder.finish().generate_entry_point_index();
 
         let (acir_functions, _, _, _) = ssa
             .into_acir(&Brillig::default(), ExpressionWidth::default())
@@ -3350,6 +3332,7 @@ mod test {
         let brillig = ssa.to_brillig(false);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3375,8 +3358,8 @@ mod test {
         // We have two normal Brillig functions that was called multiple times.
         // We should have a single locations map for each function's debug metadata.
         assert_eq!(main_acir.brillig_locations.len(), 2);
-        assert!(main_acir.brillig_locations.get(&BrilligFunctionId(0)).is_some());
-        assert!(main_acir.brillig_locations.get(&BrilligFunctionId(1)).is_some());
+        assert!(main_acir.brillig_locations.contains_key(&BrilligFunctionId(0)));
+        assert!(main_acir.brillig_locations.contains_key(&BrilligFunctionId(1)));
     }
 
     // Test that given multiple primitive operations that are represented by Brillig directives (e.g. invert/quotient),
@@ -3403,7 +3386,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3414,6 +3397,7 @@ mod test {
         // The Brillig bytecode we insert for the stdlib is hardcoded so we do not need to provide any
         // Brillig artifacts to the ACIR gen pass.
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3475,7 +3459,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3488,6 +3472,7 @@ mod test {
         println!("{}", ssa);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3509,7 +3494,7 @@ mod test {
         // We have one normal Brillig functions that was called twice.
         // We should have a single locations map for each function's debug metadata.
         assert_eq!(main_acir.brillig_locations.len(), 1);
-        assert!(main_acir.brillig_locations.get(&BrilligFunctionId(0)).is_some());
+        assert!(main_acir.brillig_locations.contains_key(&BrilligFunctionId(0)));
     }
 
     // Test that given both normal Brillig calls, Brillig stdlib calls, and non-inlined ACIR calls, that we accurately generate ACIR.
@@ -3560,7 +3545,7 @@ mod test {
 
         // Call the same primitive operation again
         let v1_div_v2 = builder.insert_binary(main_v1, BinaryOp::Div, main_v2);
-        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let one = builder.numeric_constant(1u128, NumericType::unsigned(32));
         builder.insert_constrain(v1_div_v2, one, None);
 
         builder.terminate_with_return(vec![]);
@@ -3576,6 +3561,7 @@ mod test {
         println!("{}", ssa);
 
         let (acir_functions, brillig_functions, _, _) = ssa
+            .generate_entry_point_index()
             .into_acir(&brillig, ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
@@ -3601,7 +3587,7 @@ mod test {
         );
 
         assert_eq!(main_acir.brillig_locations.len(), 1);
-        assert!(main_acir.brillig_locations.get(&BrilligFunctionId(0)).is_some());
+        assert!(main_acir.brillig_locations.contains_key(&BrilligFunctionId(0)));
 
         let foo_acir = &acir_functions[1];
         let foo_opcodes = foo_acir.opcodes();
@@ -3674,5 +3660,68 @@ mod test {
             num_normal_brillig_calls, expected_num_normal_calls,
             "Should have {expected_num_normal_calls} BrilligCall opcodes to normal Brillig functions but got {num_normal_brillig_calls}"
         );
+    }
+
+    #[test]
+    fn multiply_with_bool_should_not_emit_range_check() {
+        let src = "
+            acir(inline) fn main f0 {
+            b0(v0: bool, v1: u32):
+                enable_side_effects v0
+                v2 = cast v0 as u32
+                v3 = mul v2, v1
+                return v3
+            }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let brillig = ssa.to_brillig(false);
+
+        let (mut acir_functions, _brillig_functions, _, _) = ssa
+            .into_acir(&brillig, ExpressionWidth::default())
+            .expect("Should compile manually written SSA into ACIR");
+
+        assert_eq!(acir_functions.len(), 1);
+
+        let opcodes = acir_functions[0].take_opcodes();
+
+        for opcode in opcodes {
+            if let Opcode::BlackBoxFuncCall(BlackBoxFuncCall::RANGE { input }) = opcode {
+                assert!(
+                    input.to_witness().0 <= 1,
+                    "only input witnesses should have range checks: {opcode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn does_not_generate_memory_blocks_without_dynamic_accesses() {
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: [Field; 2]):
+            v2, v3 = call as_slice(v0) -> (u32, [Field])
+            call f1(u32 2, v3)
+            v7 = array_get v0, index u32 0 -> Field
+            constrain v7 == Field 0
+            return
+        }
+        
+        brillig(inline) fn foo f1 {
+          b0(v0: u32, v1: [Field]):
+              return
+          }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let brillig = ssa.to_brillig(false);
+
+        let (acir_functions, _brillig_functions, _, _) = ssa
+            .into_acir(&brillig, ExpressionWidth::default())
+            .expect("Should compile manually written SSA into ACIR");
+
+        assert_eq!(acir_functions.len(), 1);
+
+        // Check that no memory opcodes were emitted.
+        let main = &acir_functions[0];
+        assert!(!main.opcodes().iter().any(|opcode| matches!(opcode, Opcode::MemoryOp { .. })));
     }
 }

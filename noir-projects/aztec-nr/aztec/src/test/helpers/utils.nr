@@ -1,9 +1,14 @@
 use dep::protocol_types::{
     address::AztecAddress,
     contract_instance::ContractInstance,
-    public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
+    public_keys::PublicKeys,
     traits::{Deserialize, Serialize},
 };
+use std::meta::derive;
+
+// The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
+use dep::protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
+use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 use crate::context::call_interfaces::CallInterface;
 use crate::context::{PrivateContext, PublicContext};
@@ -11,8 +16,8 @@ use crate::test::helpers::cheatcodes;
 
 use crate::context::gas::GasOpts;
 use crate::hash::hash_args;
-use crate::oracle::arguments::pack_arguments;
 use crate::oracle::execution::get_block_number;
+use crate::oracle::execution_cache;
 
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
@@ -40,8 +45,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
-        pack_arguments(args);
-        let _ = private_context.call_private_function_with_packed_args(
+        execution_cache::store(args);
+        let _ = private_context.call_private_function_with_args_hash(
             instance.to_address(),
             call_interface.get_selector(),
             args_hash,
@@ -114,36 +119,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     }
 }
 
-// Keys length + address
-global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
-
+#[derive(Deserialize, Serialize)]
 pub struct TestAccount {
     pub address: AztecAddress,
     pub keys: PublicKeys,
-}
-
-impl Serialize<TEST_ACCOUNT_LENGTH> for TestAccount {
-    fn serialize(self) -> [Field; TEST_ACCOUNT_LENGTH] {
-        let mut output = [0; TEST_ACCOUNT_LENGTH];
-
-        output[0] = self.address.to_field();
-
-        for i in 0..PUBLIC_KEYS_LENGTH {
-            output[i + 1] = self.keys.serialize()[i];
-        }
-        output
-    }
-}
-
-impl Deserialize<TEST_ACCOUNT_LENGTH> for TestAccount {
-    fn deserialize(input: [Field; TEST_ACCOUNT_LENGTH]) -> Self {
-        let address = AztecAddress::from_field(input[0]);
-        let mut key_buffer = [0; PUBLIC_KEYS_LENGTH];
-        for i in 0..PUBLIC_KEYS_LENGTH {
-            key_buffer[i] = input[i + 1];
-        }
-        let keys = PublicKeys::deserialize(key_buffer);
-
-        Self { address, keys }
-    }
 }

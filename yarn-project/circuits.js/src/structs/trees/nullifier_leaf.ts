@@ -38,14 +38,6 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
       );
   }
 
-  toJSON() {
-    return {
-      nullifier: this.nullifier.toString(),
-      nextNullifier: this.nextNullifier.toString(),
-      nextIndex: '0x' + this.nextIndex.toString(16),
-    };
-  }
-
   getKey(): bigint {
     return this.nullifier.toBigInt();
   }
@@ -101,14 +93,6 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
 
   static clone(preimage: NullifierLeafPreimage): NullifierLeafPreimage {
     return new NullifierLeafPreimage(preimage.nullifier, preimage.nextNullifier, preimage.nextIndex);
-  }
-
-  static fromJSON(json: any): NullifierLeafPreimage {
-    return new NullifierLeafPreimage(
-      Fr.fromString(json.nullifier),
-      Fr.fromString(json.nextNullifier),
-      BigInt(json.nextIndex),
-    );
   }
 }
 

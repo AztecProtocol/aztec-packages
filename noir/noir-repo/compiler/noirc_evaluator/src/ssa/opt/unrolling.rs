@@ -18,17 +18,23 @@
 //!
 //! When unrolling ACIR code, we remove reference count instructions because they are
 //! only used by Brillig bytecode.
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use acvm::{acir::AcirField, FieldElement};
+use im::HashSet;
 
 use crate::{
+    brillig::{
+        brillig_gen::{brillig_globals::convert_ssa_globals, convert_ssa_function},
+        brillig_ir::brillig_variable::BrilligVariable,
+    },
     errors::RuntimeError,
     ssa::{
         ir::{
             basic_block::BasicBlockId,
+            call_stack::{CallStack, CallStackId},
             cfg::ControlFlowGraph,
-            dfg::{CallStack, DataFlowGraph},
+            dfg::DataFlowGraph,
             dom::DominatorTree,
             function::Function,
             function_inserter::{ArrayCache, FunctionInserter},
@@ -44,67 +50,120 @@ use fxhash::FxHashMap as HashMap;
 impl Ssa {
     /// Loop unrolling can return errors, since ACIR functions need to be fully unrolled.
     /// This meta-pass will keep trying to unroll loops and simplifying the SSA until no more errors are found.
-    #[tracing::instrument(level = "trace", skip(ssa))]
-    pub(crate) fn unroll_loops_iteratively(mut ssa: Ssa) -> Result<Ssa, RuntimeError> {
-        for (_, function) in ssa.functions.iter_mut() {
-            // Try to unroll loops first:
-            let mut unroll_errors = function.try_unroll_loops();
+    ///
+    /// The `max_bytecode_incr_pct`, when given, is used to limit the growth of the Brillig bytecode size
+    /// after unrolling small loops to some percentage of the original loop. For example a value of 150 would
+    /// mean the new loop can be 150% (ie. 2.5 times) larger than the original loop. It will still contain
+    /// fewer SSA instructions, but that can still result in more Brillig opcodes.
+    #[tracing::instrument(level = "trace", skip(self))]
+    pub(crate) fn unroll_loops_iteratively(
+        mut self,
+        max_bytecode_increase_percent: Option<i32>,
+    ) -> Result<Ssa, RuntimeError> {
+        let mut global_cache = None;
 
-            // Keep unrolling until no more errors are found
-            while !unroll_errors.is_empty() {
-                let prev_unroll_err_count = unroll_errors.len();
+        for function in self.functions.values_mut() {
+            let is_brillig = function.runtime().is_brillig();
 
-                // Simplify the SSA before retrying
+            // Take a snapshot in case we have to restore it.
+            let orig_function =
+                (max_bytecode_increase_percent.is_some() && is_brillig).then(|| function.clone());
 
-                // Do a mem2reg after the last unroll to aid simplify_cfg
-                function.mem2reg();
-                function.simplify_function();
-                // Do another mem2reg after simplify_cfg to aid the next unroll
-                function.mem2reg();
+            // We must be able to unroll ACIR loops at this point, so exit on failure to unroll.
+            let has_unrolled = function.unroll_loops_iteratively()?;
 
-                // Unroll again
-                unroll_errors = function.try_unroll_loops();
-                // If we didn't manage to unroll any more loops, exit
-                if unroll_errors.len() >= prev_unroll_err_count {
-                    return Err(unroll_errors.swap_remove(0));
+            // Check if the size increase is acceptable
+            // This is here now instead of in `Function::unroll_loops_iteratively` because we'd need
+            // more finessing to convince the borrow checker that it's okay to share a read-only reference
+            // to the globals and a mutable reference to the function at the same time, both part of the `Ssa`.
+            if has_unrolled && is_brillig {
+                if let Some(max_incr_pct) = max_bytecode_increase_percent {
+                    if global_cache.is_none() {
+                        let globals = (*function.dfg.globals).clone();
+                        // DIE is run at the end of our SSA optimizations, so we mark all globals as in use here.
+                        let used_globals = &globals.values_iter().map(|(id, _)| id).collect();
+                        let (_, brillig_globals, _) =
+                            convert_ssa_globals(false, globals, used_globals);
+                        global_cache = Some(brillig_globals);
+                    }
+                    let brillig_globals = global_cache.as_ref().unwrap();
+
+                    let orig_function = orig_function.expect("took snapshot to compare");
+                    let new_size = brillig_bytecode_size(function, brillig_globals);
+                    let orig_size = brillig_bytecode_size(&orig_function, brillig_globals);
+                    if !is_new_size_ok(orig_size, new_size, max_incr_pct) {
+                        *function = orig_function;
+                    }
                 }
             }
         }
-        Ok(ssa)
+        Ok(self)
     }
 }
 
 impl Function {
+    /// Try to unroll loops in the function.
+    ///
+    /// Returns an `Err` if it cannot be done, for example because the loop bounds
+    /// cannot be determined at compile time. This can happen during pre-processing,
+    /// but it should still leave the function in a partially unrolled, but valid state.
+    ///
+    /// If successful, returns a flag indicating whether any loops have been unrolled.
+    pub(super) fn unroll_loops_iteratively(&mut self) -> Result<bool, RuntimeError> {
+        // Try to unroll loops first:
+        let (mut has_unrolled, mut unroll_errors) = self.try_unroll_loops();
+
+        // Keep unrolling until no more errors are found
+        while !unroll_errors.is_empty() {
+            let prev_unroll_err_count = unroll_errors.len();
+
+            // Simplify the SSA before retrying
+            simplify_between_unrolls(self);
+
+            // Unroll again
+            let (new_unrolled, new_errors) = self.try_unroll_loops();
+            unroll_errors = new_errors;
+            has_unrolled |= new_unrolled;
+
+            // If we didn't manage to unroll any more loops, exit
+            if unroll_errors.len() >= prev_unroll_err_count {
+                return Err(unroll_errors.swap_remove(0));
+            }
+        }
+
+        Ok(has_unrolled)
+    }
+
     // Loop unrolling in brillig can lead to a code explosion currently.
     // This can also be true for ACIR, but we have no alternative to unrolling in ACIR.
     // Brillig also generally prefers smaller code rather than faster code,
     // so we only attempt to unroll small loops, which we decide on a case-by-case basis.
-    fn try_unroll_loops(&mut self) -> Vec<RuntimeError> {
+    fn try_unroll_loops(&mut self) -> (bool, Vec<RuntimeError>) {
         Loops::find_all(self).unroll_each(self)
     }
 }
 
-struct Loop {
+pub(super) struct Loop {
     /// The header block of a loop is the block which dominates all the
     /// other blocks in the loop.
-    header: BasicBlockId,
+    pub(super) header: BasicBlockId,
 
     /// The start of the back_edge n -> d is the block n at the end of
     /// the loop that jumps back to the header block d which restarts the loop.
     back_edge_start: BasicBlockId,
 
     /// All the blocks contained within the loop, including `header` and `back_edge_start`.
-    blocks: HashSet<BasicBlockId>,
+    pub(super) blocks: BTreeSet<BasicBlockId>,
 }
 
-struct Loops {
+pub(super) struct Loops {
     /// The loops that failed to be unrolled so that we do not try to unroll them again.
     /// Each loop is identified by its header block id.
     failed_to_unroll: HashSet<BasicBlockId>,
 
-    yet_to_unroll: Vec<Loop>,
+    pub(super) yet_to_unroll: Vec<Loop>,
     modified_blocks: HashSet<BasicBlockId>,
-    cfg: ControlFlowGraph,
+    pub(super) cfg: ControlFlowGraph,
 }
 
 impl Loops {
@@ -136,7 +195,7 @@ impl Loops {
     /// loop_end    loop_body
     /// ```
     /// `loop_entry` has two predecessors: `main` and `loop_body`, and it dominates `loop_body`.
-    fn find_all(function: &Function) -> Self {
+    pub(super) fn find_all(function: &Function) -> Self {
         let cfg = ControlFlowGraph::with_function(function);
         let post_order = PostOrder::with_function(function);
         let mut dom_tree = DominatorTree::with_cfg_and_post_order(&cfg, &post_order);
@@ -163,17 +222,19 @@ impl Loops {
         loops.sort_by_key(|loop_| loop_.blocks.len());
 
         Self {
-            failed_to_unroll: HashSet::new(),
+            failed_to_unroll: HashSet::default(),
             yet_to_unroll: loops,
-            modified_blocks: HashSet::new(),
+            modified_blocks: HashSet::default(),
             cfg,
         }
     }
 
     /// Unroll all loops within a given function.
     /// Any loops which fail to be unrolled (due to using non-constant indices) will be unmodified.
-    fn unroll_each(mut self, function: &mut Function) -> Vec<RuntimeError> {
+    /// Returns whether any blocks have been modified
+    fn unroll_each(mut self, function: &mut Function) -> (bool, Vec<RuntimeError>) {
         let mut unroll_errors = vec![];
+        let mut has_unrolled = false;
         while let Some(next_loop) = self.yet_to_unroll.pop() {
             if function.runtime().is_brillig() && !next_loop.is_small_loop(function, &self.cfg) {
                 continue;
@@ -183,13 +244,17 @@ impl Loops {
             if next_loop.blocks.iter().any(|block| self.modified_blocks.contains(block)) {
                 let mut new_loops = Self::find_all(function);
                 new_loops.failed_to_unroll = self.failed_to_unroll;
-                return unroll_errors.into_iter().chain(new_loops.unroll_each(function)).collect();
+                let (new_unrolled, new_errors) = new_loops.unroll_each(function);
+                return (has_unrolled || new_unrolled, [unroll_errors, new_errors].concat());
             }
 
             // Don't try to unroll the loop again if it is known to fail
             if !self.failed_to_unroll.contains(&next_loop.header) {
                 match next_loop.unroll(function, &self.cfg) {
-                    Ok(_) => self.modified_blocks.extend(next_loop.blocks),
+                    Ok(_) => {
+                        has_unrolled = true;
+                        self.modified_blocks.extend(next_loop.blocks);
+                    }
                     Err(call_stack) => {
                         self.failed_to_unroll.insert(next_loop.header);
                         unroll_errors.push(RuntimeError::UnknownLoopBound { call_stack });
@@ -197,7 +262,7 @@ impl Loops {
                 }
             }
         }
-        unroll_errors
+        (has_unrolled, unroll_errors)
     }
 }
 
@@ -209,7 +274,7 @@ impl Loop {
         back_edge_start: BasicBlockId,
         cfg: &ControlFlowGraph,
     ) -> Self {
-        let mut blocks = HashSet::new();
+        let mut blocks = BTreeSet::default();
         blocks.insert(header);
 
         let mut insert = |block, stack: &mut Vec<BasicBlockId>| {
@@ -251,10 +316,10 @@ impl Loop {
         &self,
         function: &Function,
         cfg: &ControlFlowGraph,
-    ) -> Result<Option<FieldElement>, CallStack> {
-        let pre_header = self.get_pre_header(function, cfg)?;
-        let jump_value = get_induction_variable(function, pre_header)?;
-        Ok(function.dfg.get_numeric_constant(jump_value))
+    ) -> Option<FieldElement> {
+        let pre_header = self.get_pre_header(function, cfg).ok()?;
+        let jump_value = get_induction_variable(function, pre_header).ok()?;
+        function.dfg.get_numeric_constant(jump_value)
     }
 
     /// Find the upper bound of the loop in the loop header and return it
@@ -271,14 +336,21 @@ impl Loop {
     ///     v5 = lt v1, u32 4           // Upper bound
     ///     jmpif v5 then: b3, else: b2
     /// ```
-    fn get_const_upper_bound(&self, function: &Function) -> Option<FieldElement> {
+    pub(super) fn get_const_upper_bound(&self, function: &Function) -> Option<FieldElement> {
         let block = &function.dfg[self.header];
         let instructions = block.instructions();
-        assert_eq!(
-            instructions.len(),
-            1,
-            "The header should just compare the induction variable and jump"
-        );
+        if instructions.is_empty() {
+            // If the loop condition is constant time, the loop header will be
+            // simplified to a simple jump.
+            return None;
+        }
+
+        if instructions.len() != 1 {
+            // The header should just compare the induction variable and jump.
+            // If that's not the case, this might be a `loop` and not a `for` loop.
+            return None;
+        }
+
         match &function.dfg[instructions[0]] {
             Instruction::Binary(Binary { lhs: _, operator: BinaryOp::Lt, rhs }) => {
                 function.dfg.get_numeric_constant(*rhs)
@@ -299,14 +371,10 @@ impl Loop {
         &self,
         function: &Function,
         cfg: &ControlFlowGraph,
-    ) -> Result<Option<(FieldElement, FieldElement)>, CallStack> {
-        let Some(lower) = self.get_const_lower_bound(function, cfg)? else {
-            return Ok(None);
-        };
-        let Some(upper) = self.get_const_upper_bound(function) else {
-            return Ok(None);
-        };
-        Ok(Some((lower, upper)))
+    ) -> Option<(FieldElement, FieldElement)> {
+        let lower = self.get_const_lower_bound(function, cfg)?;
+        let upper = self.get_const_upper_bound(function)?;
+        Some((lower, upper))
     }
 
     /// Unroll a single loop in the function.
@@ -393,7 +461,7 @@ impl Loop {
     /// The loop pre-header is the block that comes before the loop begins. Generally a header block
     /// is expected to have 2 predecessors: the pre-header and the final block of the loop which jumps
     /// back to the beginning. Other predecessors can come from `break` or `continue`.
-    fn get_pre_header(
+    pub(super) fn get_pre_header(
         &self,
         function: &Function,
         cfg: &ControlFlowGraph,
@@ -441,7 +509,7 @@ impl Loop {
         match context.dfg()[fresh_block].unwrap_terminator() {
             TerminatorInstruction::JmpIf { condition, then_destination, else_destination, call_stack } => {
                 let condition = *condition;
-                let next_blocks = context.handle_jmpif(condition, *then_destination, *else_destination, call_stack.clone());
+                let next_blocks = context.handle_jmpif(condition, *then_destination, *else_destination, *call_stack);
 
                 // If there is only 1 next block the jmpif evaluated to a single known block.
                 // This is the expected case and lets us know if we should loop again or not.
@@ -519,9 +587,9 @@ impl Loop {
         &self,
         function: &Function,
         cfg: &ControlFlowGraph,
-    ) -> Result<HashSet<ValueId>, CallStack> {
+    ) -> Option<HashSet<ValueId>> {
         // We need to traverse blocks from the pre-header up to the block entry point.
-        let pre_header = self.get_pre_header(function, cfg)?;
+        let pre_header = self.get_pre_header(function, cfg).ok()?;
         let function_entry = function.entry_block();
 
         // The algorithm in `find_blocks_in_loop` expects to collect the blocks between the header and the back-edge of the loop,
@@ -529,22 +597,19 @@ impl Loop {
         let blocks = Self::find_blocks_in_loop(function_entry, pre_header, cfg).blocks;
 
         // Collect allocations in all blocks above the header.
-        let allocations = blocks.iter().flat_map(|b| {
-            function.dfg[*b]
-                .instructions()
-                .iter()
+        let allocations = blocks.iter().flat_map(|block| {
+            let instructions = function.dfg[*block].instructions().iter();
+            instructions
                 .filter(|i| matches!(&function.dfg[**i], Instruction::Allocate))
-                .map(|i| {
-                    // Get the value into which the allocation was stored.
-                    function.dfg.instruction_results(*i)[0]
-                })
+                // Get the value into which the allocation was stored.
+                .map(|i| function.dfg.instruction_results(*i)[0])
         });
 
         // Collect reference parameters of the function itself.
         let params =
             function.parameters().iter().filter(|p| function.dfg.value_is_reference(**p)).copied();
 
-        Ok(params.chain(allocations).collect())
+        Some(params.chain(allocations).collect())
     }
 
     /// Count the number of load and store instructions of specific variables in the loop.
@@ -575,13 +640,11 @@ impl Loop {
 
     /// Count the number of instructions in the loop, including the terminating jumps.
     fn count_all_instructions(&self, function: &Function) -> usize {
-        self.blocks
-            .iter()
-            .map(|block| {
-                let block = &function.dfg[*block];
-                block.instructions().len() + block.terminator().map(|_| 1).unwrap_or_default()
-            })
-            .sum()
+        let iter = self.blocks.iter().map(|block| {
+            let block = &function.dfg[*block];
+            block.instructions().len() + block.terminator().is_some() as usize
+        });
+        iter.sum()
     }
 
     /// Count the number of increments to the induction variable.
@@ -592,10 +655,16 @@ impl Loop {
         let header = &function.dfg[self.header];
         let induction_var = header.parameters()[0];
 
-        back.instructions().iter().filter(|instruction|  {
-            let instruction = &function.dfg[**instruction];
-            matches!(instruction, Instruction::Binary(Binary { lhs, operator: BinaryOp::Add, rhs: _ }) if *lhs == induction_var)
-        }).count()
+        back.instructions()
+            .iter()
+            .filter(|instruction| {
+                let instruction = &function.dfg[**instruction];
+                matches!(instruction,
+                    Instruction::Binary(Binary { lhs, operator: BinaryOp::Add { .. }, rhs: _ })
+                        if *lhs == induction_var
+                )
+            })
+            .count()
     }
 
     /// Decide if this loop is small enough that it can be inlined in a way that the number
@@ -612,18 +681,11 @@ impl Loop {
         function: &Function,
         cfg: &ControlFlowGraph,
     ) -> Option<BoilerplateStats> {
-        let Ok(Some((lower, upper))) = self.get_const_bounds(function, cfg) else {
-            return None;
-        };
-        let Some(lower) = lower.try_to_u64() else {
-            return None;
-        };
-        let Some(upper) = upper.try_to_u64() else {
-            return None;
-        };
-        let Ok(refs) = self.find_pre_header_reference_values(function, cfg) else {
-            return None;
-        };
+        let (lower, upper) = self.get_const_bounds(function, cfg)?;
+        let lower = lower.try_to_u64()?;
+        let upper = upper.try_to_u64()?;
+        let refs = self.find_pre_header_reference_values(function, cfg)?;
+
         let (loads, stores) = self.count_loads_and_stores(function, &refs);
         let increments = self.count_induction_increments(function);
         let all_instructions = self.count_all_instructions(function);
@@ -724,15 +786,22 @@ fn get_induction_variable(function: &Function, block: BasicBlockId) -> Result<Va
             // block parameters. If that becomes the case we'll need to figure out which variable
             // is generally constant and increasing to guess which parameter is the induction
             // variable.
-            assert_eq!(arguments.len(), 1, "It is expected that a loop's induction variable is the only block parameter of the loop header");
+            if arguments.len() != 1 {
+                // It is expected that a loop's induction variable is the only block parameter of the loop header.
+                // If there's no variable this might be a `loop`.
+                let call_stack = function.dfg.get_call_stack(*location);
+                return Err(call_stack);
+            }
+
             let value = arguments[0];
             if function.dfg.get_numeric_constant(value).is_some() {
                 Ok(value)
             } else {
-                Err(location.clone())
+                let call_stack = function.dfg.get_call_stack(*location);
+                Err(call_stack)
             }
         }
-        Some(terminator) => Err(terminator.call_stack()),
+        Some(terminator) => Err(function.dfg.get_call_stack(terminator.call_stack())),
         None => Err(CallStack::new()),
     }
 }
@@ -831,12 +900,7 @@ impl<'f> LoopIteration<'f> {
                 then_destination,
                 else_destination,
                 call_stack,
-            } => self.handle_jmpif(
-                *condition,
-                *then_destination,
-                *else_destination,
-                call_stack.clone(),
-            ),
+            } => self.handle_jmpif(*condition, *then_destination, *else_destination, *call_stack),
             TerminatorInstruction::Jmp { destination, arguments, call_stack: _ } => {
                 if self.get_original_block(*destination) == self.loop_.header {
                     // We found the back-edge of the loop.
@@ -860,7 +924,7 @@ impl<'f> LoopIteration<'f> {
         condition: ValueId,
         then_destination: BasicBlockId,
         else_destination: BasicBlockId,
-        call_stack: CallStack,
+        call_stack: CallStackId,
     ) -> Vec<BasicBlockId> {
         let condition = self.inserter.resolve(condition);
 
@@ -921,10 +985,9 @@ impl<'f> LoopIteration<'f> {
             }
             self.inserter.push_instruction(instruction, self.insert_block);
         }
-        let mut terminator = self.dfg()[self.source_block]
-            .unwrap_terminator()
-            .clone()
-            .map_values(|value| self.inserter.resolve(value));
+        let mut terminator = self.dfg()[self.source_block].unwrap_terminator().clone();
+
+        terminator.map_values_mut(|value| self.inserter.resolve(value));
 
         // Replace the blocks in the terminator with fresh one with the same parameters,
         // while remembering which were the original block IDs.
@@ -949,21 +1012,62 @@ impl<'f> LoopIteration<'f> {
     }
 }
 
+/// Unrolling leaves some duplicate instructions which can potentially be removed.
+fn simplify_between_unrolls(function: &mut Function) {
+    // Do a mem2reg after the last unroll to aid simplify_cfg
+    function.mem2reg();
+    function.simplify_function();
+    // Do another mem2reg after simplify_cfg to aid the next unroll
+    function.mem2reg();
+}
+
+/// Convert the function to Brillig bytecode and return the resulting size.
+fn brillig_bytecode_size(
+    function: &Function,
+    globals: &HashMap<ValueId, BrilligVariable>,
+) -> usize {
+    // We need to do some SSA passes in order for the conversion to be able to go ahead,
+    // otherwise we can hit `unreachable!()` instructions in `convert_ssa_instruction`.
+    // Creating a clone so as not to modify the originals.
+    let mut temp = function.clone();
+
+    // Might as well give it the best chance.
+    simplify_between_unrolls(&mut temp);
+
+    // This is to try to prevent hitting ICE.
+    temp.dead_instruction_elimination(false, true);
+
+    convert_ssa_function(&temp, false, globals).byte_code.len()
+}
+
+/// Decide if the new bytecode size is acceptable, compared to the original.
+///
+/// The maximum increase can be expressed as a negative value if we demand a decrease.
+/// (Values -100 and under mean the new size should be 0).
+fn is_new_size_ok(orig_size: usize, new_size: usize, max_incr_pct: i32) -> bool {
+    let max_size_pct = 100i32.saturating_add(max_incr_pct).max(0) as usize;
+    let max_size = orig_size.saturating_mul(max_size_pct);
+    new_size.saturating_mul(100) <= max_size
+}
+
 #[cfg(test)]
 mod tests {
     use acvm::FieldElement;
+    use test_case::test_case;
 
     use crate::errors::RuntimeError;
     use crate::ssa::{ir::value::ValueId, opt::assert_normalized_ssa_equals, Ssa};
 
-    use super::{BoilerplateStats, Loops};
+    use super::{is_new_size_ok, BoilerplateStats, Loops};
 
-    /// Tries to unroll all loops in each SSA function.
+    /// Tries to unroll all loops in each SSA function once, calling the `Function` directly,
+    /// bypassing the iterative loop done by the SSA which does further optimisations.
+    ///
     /// If any loop cannot be unrolled, it is left as-is or in a partially unrolled state.
     fn try_unroll_loops(mut ssa: Ssa) -> (Ssa, Vec<RuntimeError>) {
         let mut errors = vec![];
         for function in ssa.functions.values_mut() {
-            errors.extend(function.try_unroll_loops());
+            errors.extend(function.try_unroll_loops().1);
         }
         (ssa, errors)
     }
@@ -1076,7 +1180,6 @@ mod tests {
 
         let (lower, upper) = loops.yet_to_unroll[0]
             .get_const_bounds(function, &loops.cfg)
-            .expect("should find bounds")
             .expect("bounds are numeric const");
 
         assert_eq!(lower, FieldElement::from(0u32));
@@ -1092,7 +1195,7 @@ mod tests {
 
         let refs = loop0.find_pre_header_reference_values(function, &loops.cfg).unwrap();
         assert_eq!(refs.len(), 1);
-        assert!(refs.contains(&ValueId::new(2)));
+        assert!(refs.contains(&ValueId::test_new(2)));
 
         let (loads, stores) = loop0.count_loads_and_stores(function, &refs);
         assert_eq!(loads, 1);
@@ -1223,7 +1326,24 @@ mod tests {
 
         let (ssa, errors) = try_unroll_loops(ssa);
         assert_eq!(errors.len(), 0, "Unroll should have no errors");
+        // Check that it's still the original
         assert_normalized_ssa_equals(ssa, parse_ssa().to_string().as_str());
+    }
+
+    #[test]
+    fn test_brillig_unroll_iteratively_respects_max_increase() {
+        let ssa = brillig_unroll_test_case();
+        let ssa = ssa.unroll_loops_iteratively(Some(-90)).unwrap();
+        // Check that it's still the original
+        assert_normalized_ssa_equals(ssa, brillig_unroll_test_case().to_string().as_str());
+    }
+
+    #[test]
+    fn test_brillig_unroll_iteratively_with_large_max_increase() {
+        let ssa = brillig_unroll_test_case();
+        let ssa = ssa.unroll_loops_iteratively(Some(50)).unwrap();
+        // Check that it did the unroll
+        assert_eq!(ssa.main().reachable_blocks().len(), 2, "The loop should be unrolled");
     }
 
     /// Test that `break` and `continue` stop unrolling without any panic.
@@ -1254,12 +1374,15 @@ mod tests {
           b2():
             v7 = eq v0, u32 2
             jmpif v7 then: b7, else: b3
-          b7():
-            v18 = add v0, u32 1
-            jmp b1(v18)
           b3():
             v9 = eq v0, u32 5
             jmpif v9 then: b5, else: b4
+          b4():
+            v10 = load v1 -> Field
+            v12 = add v10, Field 1
+            store v12 at v1
+            v14 = add v0, u32 1
+            jmp b1(v14)
           b5():
             jmp b6()
           b6():
@@ -1267,12 +1390,9 @@ mod tests {
             v17 = eq v15, Field 4
             constrain v15 == Field 4
             return
-          b4():
-            v10 = load v1 -> Field
-            v12 = add v10, Field 1
-            store v12 at v1
-            v14 = add v0, u32 1
-            jmp b1(v14)
+          b7():
+            v18 = add v0, u32 1
+            jmp b1(v18)
         }
         ";
         let ssa = Ssa::from_str(src).unwrap();
@@ -1378,5 +1498,15 @@ mod tests {
         let mut loops = Loops::find_all(function);
         let loop0 = loops.yet_to_unroll.pop().expect("there should be a loop");
         loop0.boilerplate_stats(function, &loops.cfg).expect("there should be stats")
+    }
+
+    #[test_case(1000, 700, 50, true; "size decreased")]
+    #[test_case(1000, 1500, 50, true; "size increased just by the max")]
+    #[test_case(1000, 1501, 50, false; "size increased over the max")]
+    #[test_case(1000, 700, -50, false; "size decreased but not enough")]
+    #[test_case(1000, 250, -50, true; "size decreased over expectations")]
+    #[test_case(1000, 250, -1250, false; "demanding more than minus 100 is handled")]
+    fn test_is_new_size_ok(old: usize, new: usize, max: i32, ok: bool) {
+        assert_eq!(is_new_size_ok(old, new, max), ok);
     }
 }

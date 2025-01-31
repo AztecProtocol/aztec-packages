@@ -44,6 +44,19 @@ export class GasFees {
     }
   }
 
+  mul(scalar: number | bigint) {
+    if (scalar === 1 || scalar === 1n) {
+      return this.clone();
+    } else if (typeof scalar === 'bigint') {
+      return new GasFees(new Fr(this.feePerDaGas.toBigInt() * scalar), new Fr(this.feePerL2Gas.toBigInt() * scalar));
+    } else {
+      return new GasFees(
+        new Fr(this.feePerDaGas.toNumberUnsafe() * scalar),
+        new Fr(this.feePerL2Gas.toNumberUnsafe() * scalar),
+      );
+    }
+  }
+
   static from(fields: FieldsOf<GasFees>) {
     return new GasFees(fields.feePerDaGas, fields.feePerL2Gas);
   }
@@ -54,11 +67,6 @@ export class GasFees {
 
   static empty() {
     return new GasFees(Fr.ZERO, Fr.ZERO);
-  }
-
-  /** Fixed gas fee values used until we define how gas fees in the protocol are computed. */
-  static default() {
-    return new GasFees(Fr.ONE, Fr.ONE);
   }
 
   isEmpty() {
@@ -81,17 +89,6 @@ export class GasFees {
 
   toFields() {
     return serializeToFields(this.feePerDaGas, this.feePerL2Gas);
-  }
-
-  static fromJSON(obj: any) {
-    return new GasFees(Fr.fromString(obj.feePerDaGas), Fr.fromString(obj.feePerL2Gas));
-  }
-
-  toJSON() {
-    return {
-      feePerDaGas: this.feePerDaGas.toString(),
-      feePerL2Gas: this.feePerL2Gas.toString(),
-    };
   }
 
   [inspect.custom]() {

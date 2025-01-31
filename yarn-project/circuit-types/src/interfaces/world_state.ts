@@ -25,10 +25,17 @@ export interface WorldStateSynchronizerStatus {
   syncedToL2Block: L2BlockId;
 }
 
-/**
- * Defines the interface for a world state synchronizer.
- */
-export interface WorldStateSynchronizer {
+/** Provides writeable forks of the world state at a given block number. */
+export interface ForkMerkleTreeOperations {
+  /** Forks the world state at the given block number, defaulting to the latest one. */
+  fork(block?: number): Promise<MerkleTreeWriteOperations>;
+
+  /** Gets a handle that allows reading the state as it was at the given block number. */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+}
+
+/** Defines the interface for a world state synchronizer. */
+export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
   /**
    * Starts the synchronizer.
    * @returns A promise that resolves once the initial sync is completed.
@@ -54,18 +61,7 @@ export interface WorldStateSynchronizer {
   syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
-   * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
-   */
-  fork(block?: number): Promise<MerkleTreeWriteOperations>;
-
-  /**
    * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
    */
   getCommitted(): MerkleTreeReadOperations;
-
-  /**
-   * Returns a readonly instance of MerkleTreeAdminOperations where the state is as it was at the given block number
-   * @param block - The block number to look at
-   */
-  getSnapshot(block: number): MerkleTreeReadOperations;
 }

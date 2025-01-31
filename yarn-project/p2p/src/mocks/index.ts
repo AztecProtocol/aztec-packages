@@ -1,12 +1,15 @@
 import {
   type ClientProtocolCircuitVerifier,
   type L2BlockSource,
+  type P2PClientType,
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -14,6 +17,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
@@ -21,20 +25,18 @@ import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
-import { DiscV5Service } from '../service/discV5_service.js';
-import { LibP2PService, createLibP2PPeerId } from '../service/libp2p_service.js';
-import { type PeerManager } from '../service/peer_manager.js';
-import { type P2PReqRespConfig } from '../service/reqresp/config.js';
-import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
+import { DiscV5Service } from '../services/discv5/discV5_service.js';
+import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
+import { type P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
-  PING_PROTOCOL,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
-  STATUS_PROTOCOL,
-  TX_REQ_PROTOCOL,
   noopValidator,
-} from '../service/reqresp/interface.js';
-import { ReqResp } from '../service/reqresp/reqresp.js';
+} from '../services/reqresp/interface.js';
+import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
+import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
 /**
@@ -93,16 +95,18 @@ export async function createLibp2pNode(
  *
  *
  */
-export async function createTestLibP2PService(
+export async function createTestLibP2PService<T extends P2PClientType>(
+  clientType: T,
   boostrapAddrs: string[] = [],
   l2BlockSource: L2BlockSource,
   worldStateSynchronizer: WorldStateSynchronizer,
-  mempools: MemPools,
+  epochCache: EpochCache,
+  mempools: MemPools<T>,
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,
 ) {
-  peerId = peerId ?? (await createLibP2PPeerId());
+  peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
@@ -121,12 +125,14 @@ export async function createTestLibP2PService(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
-  return new LibP2PService(
+  return new LibP2PService<T>(
+    clientType,
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,
     mempools,
     l2BlockSource,
+    epochCache,
     proofVerifier,
     worldStateSynchronizer,
     telemetry,
@@ -144,25 +150,29 @@ export type ReqRespNode = {
 
 // Mock sub protocol handlers
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [PING_PROTOCOL]: pingHandler,
-  [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from('tx'))),
+  [ReqRespSubProtocol.PING]: pingHandler,
+  [ReqRespSubProtocol.STATUS]: statusHandler,
+  [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
+  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
 };
 
 // By default, all requests are valid
 // If you want to test an invalid response, you can override the validator
 export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [PING_PROTOCOL]: noopValidator,
-  [STATUS_PROTOCOL]: noopValidator,
-  [TX_REQ_PROTOCOL]: noopValidator,
+  [ReqRespSubProtocol.PING]: noopValidator,
+  [ReqRespSubProtocol.STATUS]: noopValidator,
+  [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
+  [ReqRespSubProtocol.BLOCK]: noopValidator,
 };
 
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (peerManager: PeerManager, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
+export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
 };
 
 export const startNodes = async (
@@ -176,22 +186,18 @@ export const startNodes = async (
 };
 
 export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
-  const stopPromises = [];
-  for (const node of nodes) {
-    stopPromises.push(node.req.stop());
-    stopPromises.push(node.p2p.stop());
-  }
+  const stopPromises = nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]);
   await Promise.all(stopPromises);
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerManager: PeerManager): Promise<ReqRespNode> => {
+export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerManager);
+  const req = new ReqResp(config, p2p, peerScoring);
   return {
     p2p,
     req,
@@ -231,13 +237,15 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
     peerIdPrivateKey: privateKey,
     minPeerCount: 10,
     maxPeerCount: 100,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 0,
   };
 }
 
 export function createBootstrapNodeFromPrivateKey(
   privateKey: string,
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
   return startBootstrapNode(config, telemetry);
@@ -245,16 +253,18 @@ export function createBootstrapNodeFromPrivateKey(
 
 export async function createBootstrapNode(
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerId();
+  const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
   return startBootstrapNode(config, telemetry);
 }
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
-  const bootstrapNode = new BootstrapNode(telemetry);
+  // Open an ephemeral store that will only exist in memory
+  const store = openTmpStore(true);
+  const bootstrapNode = new BootstrapNode(store, telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

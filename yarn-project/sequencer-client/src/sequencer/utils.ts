@@ -19,21 +19,17 @@ export enum SequencerState {
    */
   PROPOSER_CHECK = 'PROPOSER_CHECK',
   /**
-   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
+   * Initializing the block proposal. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
    */
-  WAITING_FOR_TXS = 'WAITING_FOR_TXS',
+  INITIALIZING_PROPOSAL = 'INITIALIZING_PROPOSAL',
   /**
    * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
   CREATING_BLOCK = 'CREATING_BLOCK',
   /**
-   * Publishing blocks to validator peers. Will move to WAITING_FOR_ATTESTATIONS.
+   * Collecting attestations from its peers. Will move to PUBLISHING_BLOCK.
    */
-  PUBLISHING_BLOCK_TO_PEERS = 'PUBLISHING_BLOCK_TO_PEERS',
-  /**
-   * The block has been published to peers, and we are waiting for attestations. Will move to PUBLISHING_CONTRACT_DATA.
-   */
-  WAITING_FOR_ATTESTATIONS = 'WAITING_FOR_ATTESTATIONS',
+  COLLECTING_ATTESTATIONS = 'COLLECTING_ATTESTATIONS',
   /**
    * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to SYNCHRONIZING.
    */
@@ -53,12 +49,15 @@ export function sequencerStateToNumber(state: SequencerState): number {
  *
  * @todo: perform this logic within the memory attestation store instead?
  */
-export function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
+export async function orderAttestations(
+  attestations: BlockAttestation[],
+  orderAddresses: EthAddress[],
+): Promise<Signature[]> {
   // Create a map of sender addresses to BlockAttestations
   const attestationMap = new Map<string, BlockAttestation>();
 
   for (const attestation of attestations) {
-    const sender = attestation.getSender();
+    const sender = await attestation.getSender();
     if (sender) {
       attestationMap.set(sender.toString(), attestation);
     }
@@ -71,9 +70,4 @@ export function orderAttestations(attestations: BlockAttestation[], orderAddress
   });
 
   return orderedAttestations;
-}
-
-export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number, slotNumber: number): number {
-  const slotStartTimestamp = l1GenesisTime + slotNumber * aztecSlotDuration;
-  return Date.now() / 1000 - slotStartTimestamp;
 }

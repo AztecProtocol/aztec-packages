@@ -3,7 +3,6 @@ import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/cir
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';
-import { toHumanReadable } from '@aztec/foundation/serialize';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
@@ -13,8 +12,10 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
     return;
   }
 
-  log(`Block ${blockNumber} (${block.hash().toString()})`);
+  const blockHash = await block.hash();
+  log(`Block ${blockNumber} (${blockHash.toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
+  log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
     ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas.toBigInt()} L2=${block.header.globalVariables.gasFees.feePerL2Gas.toBigInt()}`,
   );
@@ -38,10 +39,10 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, notes] = await Promise.all([
+  const [receipt, effectsInBlock, getNotes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
@@ -58,19 +59,18 @@ export async function inspectTx(
   const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(pxe));
 
   if (opts.includeBlockInfo) {
-    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString('hex')})`);
+    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
   }
   if (receipt.transactionFee) {
     log(` Fee: ${receipt.transactionFee.toString()}`);
   }
 
-  // Unencrypted logs
-  const unencryptedLogs = effects.unencryptedLogs.unrollLogs();
-  if (unencryptedLogs.length > 0) {
+  // Public logs
+  const publicLogs = effects.publicLogs;
+  if (publicLogs.length > 0) {
     log(' Logs:');
-    for (const unencryptedLog of unencryptedLogs) {
-      const data = toHumanReadable(unencryptedLog.data, 1000);
-      log(`  ${toFriendlyAddress(unencryptedLog.contractAddress, artifactMap)}: ${data}`);
+    for (const publicLog of publicLogs) {
+      log(`  ${publicLog.toHumanReadable()}`);
     }
   }
 
@@ -84,15 +84,15 @@ export async function inspectTx(
   }
 
   // Created notes
-  const noteEncryptedLogsCount = effects.noteEncryptedLogs.unrollLogs().length;
-  if (noteEncryptedLogsCount > 0) {
+  const notes = effects.noteHashes;
+  if (notes.length > 0) {
     log(' Created notes:');
-    const notVisibleNotes = noteEncryptedLogsCount - notes.length;
-    if (notVisibleNotes > 0) {
-      log(`  ${notVisibleNotes} notes not visible in the PXE`);
-    }
-    for (const note of notes) {
-      inspectNote(note, artifactMap, log);
+    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
+    if (getNotes.length) {
+      log('  Found notes:');
+      for (const note of getNotes) {
+        inspectNote(note, artifactMap, log);
+      }
     }
   }
 
@@ -102,7 +102,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -181,17 +181,23 @@ type ArtifactMap = Record<string, ContractArtifactWithClassId>;
 type ContractArtifactWithClassId = ContractArtifact & { classId: Fr };
 async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   const knownContractAddresses = await pxe.getContracts();
-  const knownContracts = await Promise.all(knownContractAddresses.map(contract => pxe.getContractInstance(contract)));
+  const knownContracts = (
+    await Promise.all(knownContractAddresses.map(contractAddress => pxe.getContractMetadata(contractAddress)))
+  ).map(contractMetadata => contractMetadata.contractInstance);
   const classIds = [...new Set(knownContracts.map(contract => contract?.contractClassId))];
-  const knownArtifacts = await Promise.all(
-    classIds.map(classId =>
-      classId ? pxe.getContractArtifact(classId).then(a => (a ? { ...a, classId } : undefined)) : undefined,
-    ),
+  const knownArtifacts = (
+    await Promise.all(classIds.map(classId => (classId ? pxe.getContractClassMetadata(classId) : undefined)))
+  ).map(contractClassMetadata =>
+    contractClassMetadata
+      ? { ...contractClassMetadata.artifact, classId: contractClassMetadata.contractClass?.id }
+      : undefined,
   );
   const map: Record<string, ContractArtifactWithClassId> = {};
   for (const instance of knownContracts) {
     if (instance) {
-      const artifact = knownArtifacts.find(a => a?.classId.equals(instance.contractClassId));
+      const artifact = knownArtifacts.find(a =>
+        a?.classId?.equals(instance.contractClassId),
+      ) as ContractArtifactWithClassId;
       if (artifact) {
         map[instance.address.toString()] = artifact;
       }

@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -24,7 +25,7 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  */
 void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    auto circuit_builder = AvmCircuitBuilder();
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 };
@@ -36,9 +37,9 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
  * @param trace The execution trace
  */
 void validate_trace(std::vector<Row>&& trace,
-                    VmPublicInputsNT const& public_inputs,
-                    std::vector<FF> const& calldata,
-                    std::vector<FF> const& returndata,
+                    AvmPublicInputs const& public_inputs,
+                    [[maybe_unused]] std::vector<FF> const& calldata,
+                    [[maybe_unused]] std::vector<FF> const& returndata,
                     bool with_proof,
                     bool expect_proof_failure)
 {
@@ -59,19 +60,22 @@ void validate_trace(std::vector<Row>&& trace,
     auto public_inputs_with_end_gas = public_inputs;
     avm_trace::inject_end_gas_values(public_inputs_with_end_gas, trace);
 
-    auto circuit_builder = AvmCircuitBuilder();
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     if (with_proof) {
-        AvmComposer composer = AvmComposer();
-        AvmProver prover = composer.create_prover(circuit_builder);
+        bb::avm::AvmComposer composer = bb::avm::AvmComposer();
+        bb::avm::AvmProver prover = composer.create_prover(circuit_builder);
         HonkProof proof = prover.construct_proof();
 
-        AvmVerifier verifier = composer.create_verifier(circuit_builder);
+        bb::avm::AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        std::vector<std::vector<FF>> public_inputs_as_vec =
-            bb::avm_trace::copy_public_inputs_columns(public_inputs_with_end_gas, calldata, returndata);
+        // At the current development stage (new public inputs for whole tx), we are not handling public related inputs
+        // except calldata and returndata.
+        std::vector<std::vector<FF>> public_inputs_as_vec{ {}, {}, {}, {}, calldata, returndata };
+        // TODO: Copy all public inputs
+        // bb::avm_trace::copy_public_inputs_columns(public_inputs_with_end_gas, calldata, returndata);
 
         bool verified = verifier.verify_proof(proof, { public_inputs_as_vec });
 
@@ -125,13 +129,11 @@ void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& sele
     mem_row->mem_val = newValue;
 };
 
-VmPublicInputsNT generate_base_public_inputs()
+AvmPublicInputs generate_base_public_inputs()
 {
-    VmPublicInputsNT public_inputs;
-    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-    kernel_inputs.at(DA_START_GAS_KERNEL_INPUTS_COL_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-    kernel_inputs.at(L2_START_GAS_KERNEL_INPUTS_COL_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-    std::get<0>(public_inputs) = kernel_inputs;
+    AvmPublicInputs public_inputs;
+    public_inputs.gas_settings.gas_limits.l2_gas = DEFAULT_INITIAL_L2_GAS;
+    public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
     return public_inputs;
 }
 

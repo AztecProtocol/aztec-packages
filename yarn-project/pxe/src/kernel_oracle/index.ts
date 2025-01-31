@@ -12,10 +12,10 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -31,13 +31,13 @@ export class KernelOracle implements ProvingDataOracle {
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
-    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+    private log = createLogger('pxe:kernel_oracle'),
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
     return {
-      saltedInitializationHash: computeSaltedInitializationHash(instance),
+      saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
     };
   }
@@ -51,9 +51,9 @@ export class KernelOracle implements ProvingDataOracle {
     return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, selector);
   }
 
-  public getVkMembershipWitness(vk: VerificationKeyAsFields) {
-    const leafIndex = getVKIndex(vk);
-    return Promise.resolve(new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)));
+  public async getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = await getVKIndex(vk);
+    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex));
   }
 
   async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {

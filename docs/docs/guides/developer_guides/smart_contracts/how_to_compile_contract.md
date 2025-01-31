@@ -444,11 +444,11 @@ export class TokenContract extends ContractBase {
 }
 ```
 
-Read more about interacting with contracts using `aztec.js` [by following this tutorial](../../../tutorials/codealong/aztecjs-getting-started).
+Read more about interacting with contracts using `aztec.js` [by following this tutorial](../../../tutorials/codealong/js_tutorials/aztecjs-getting-started.md).
 
 ### Aztec.nr interfaces
 
-An Aztec.nr contract can [call a function](./writing_contracts/call_functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
+An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
 
 To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one.
 
@@ -466,7 +466,7 @@ contract FPC {
 
    #[private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
-        assert(asset == storage.other_asset.read_private());
+        assert(asset == storage.other_asset.read());
         Token::at(asset).transfer_to_public(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
         FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
     }

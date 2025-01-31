@@ -37,6 +37,8 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
+    UltraProver_(const std::shared_ptr<DeciderPK>&, const std::shared_ptr<CommitmentKey>&);
+
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
@@ -46,6 +48,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     HonkProof export_proof();
     HonkProof construct_proof();
+    HonkProof prove() { return construct_proof(); };
 
   private:
     HonkProof proof;

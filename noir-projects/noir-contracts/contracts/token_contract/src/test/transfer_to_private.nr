@@ -23,7 +23,7 @@ unconstrained fn transfer_to_private_internal_orchestration() {
 #[test]
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, recipient, amount) =
+    let (env, token_contract_address, owner, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     let note_randomness = random();
@@ -33,7 +33,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 
     // We prepare the transfer
     let hiding_point_slot: Field = Token::at(token_contract_address)
-        .prepare_private_balance_increase(recipient)
+        .prepare_private_balance_increase(recipient, owner)
         .call(&mut env.private());
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
@@ -41,14 +41,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    // We need to manually add the note because #8771 has not yet been implemented
-    utils::add_token_note(
-        env,
-        token_contract_address,
-        recipient,
-        amount,
-        note_randomness,
-    );
+    env.advance_block_by(1);
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(token_contract_address, recipient, amount);
@@ -72,14 +65,14 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
 #[test(should_fail_with = "Assertion failed: attempt to subtract with underflow 'hi == high'")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, not_owner, amount) =
+    let (env, token_contract_address, owner, not_owner, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
     let hiding_point_slot: Field = Token::at(token_contract_address)
-        .prepare_private_balance_increase(not_owner)
+        .prepare_private_balance_increase(not_owner, owner)
         .call(&mut env.private());
 
     // Try transferring someone else's token balance

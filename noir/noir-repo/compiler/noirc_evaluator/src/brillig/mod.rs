@@ -2,7 +2,8 @@ pub(crate) mod brillig_gen;
 pub(crate) mod brillig_ir;
 
 use acvm::FieldElement;
-use brillig_ir::artifact::LabelType;
+use brillig_gen::brillig_globals::convert_ssa_globals;
+use brillig_ir::{artifact::LabelType, brillig_variable::BrilligVariable, registers::GlobalSpace};
 
 use self::{
     brillig_gen::convert_ssa_function,
@@ -12,7 +13,11 @@ use self::{
     },
 };
 use crate::ssa::{
-    ir::function::{Function, FunctionId, RuntimeType},
+    ir::{
+        dfg::DataFlowGraph,
+        function::{Function, FunctionId},
+        value::ValueId,
+    },
     ssa_gen::Ssa,
 };
 use fxhash::FxHashMap as HashMap;
@@ -26,12 +31,19 @@ pub use self::brillig_ir::procedures::ProcedureId;
 pub struct Brillig {
     /// Maps SSA function labels to their brillig artifact
     ssa_function_to_brillig: HashMap<FunctionId, BrilligArtifact<FieldElement>>,
+    globals: BrilligArtifact<FieldElement>,
+    globals_memory_size: usize,
 }
 
 impl Brillig {
     /// Compiles a function into brillig and store the compilation artifacts
-    pub(crate) fn compile(&mut self, func: &Function, enable_debug_trace: bool) {
-        let obj = convert_ssa_function(func, enable_debug_trace);
+    pub(crate) fn compile(
+        &mut self,
+        func: &Function,
+        enable_debug_trace: bool,
+        globals: &HashMap<ValueId, BrilligVariable>,
+    ) {
+        let obj = convert_ssa_function(func, enable_debug_trace, globals);
         self.ssa_function_to_brillig.insert(func.id(), obj);
     }
 
@@ -46,6 +58,7 @@ impl Brillig {
             }
             // Procedures are compiled as needed
             LabelType::Procedure(procedure_id) => Some(Cow::Owned(compile_procedure(procedure_id))),
+            LabelType::GlobalInit => Some(Cow::Borrowed(&self.globals)),
             _ => unreachable!("ICE: Expected a function or procedure label"),
         }
     }
@@ -59,7 +72,7 @@ impl std::ops::Index<FunctionId> for Brillig {
 }
 
 impl Ssa {
-    /// Compile to brillig brillig functions and ACIR functions reachable from them
+    /// Compile Brillig functions and ACIR functions reachable from them
     #[tracing::instrument(level = "trace", skip_all)]
     pub(crate) fn to_brillig(&self, enable_debug_trace: bool) -> Brillig {
         // Collect all the function ids that are reachable from brillig
@@ -67,15 +80,26 @@ impl Ssa {
         let brillig_reachable_function_ids = self
             .functions
             .iter()
-            .filter_map(|(id, func)| {
-                matches!(func.runtime(), RuntimeType::Brillig(_)).then_some(*id)
-            })
+            .filter_map(|(id, func)| func.runtime().is_brillig().then_some(*id))
             .collect::<BTreeSet<_>>();
 
         let mut brillig = Brillig::default();
+
+        if brillig_reachable_function_ids.is_empty() {
+            return brillig;
+        }
+
+        // Globals are computed once at compile time and shared across all functions,
+        // thus we can just fetch globals from the main function.
+        let globals = (*self.functions[&self.main_id].dfg.globals).clone();
+        let (artifact, brillig_globals, globals_size) =
+            convert_ssa_globals(enable_debug_trace, globals, &self.used_global_values);
+        brillig.globals = artifact;
+        brillig.globals_memory_size = globals_size;
+
         for brillig_function_id in brillig_reachable_function_ids {
             let func = &self.functions[&brillig_function_id];
-            brillig.compile(func, enable_debug_trace);
+            brillig.compile(func, enable_debug_trace, &brillig_globals);
         }
 
         brillig

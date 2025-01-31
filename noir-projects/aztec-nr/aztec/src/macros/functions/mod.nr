@@ -1,10 +1,11 @@
 pub mod interfaces;
+pub mod initialization_utils;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
     is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
 };
-use protocol_types::meta::flatten_to_fields;
+use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
@@ -64,18 +65,19 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
         .quoted_contents()
 }
 
 comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::mark_as_initialized_{fn_visibility}(&mut context);".quoted_contents()
+    f"dep::aztec::macros::functions::initialization_utils::mark_as_initialized_{fn_visibility}(&mut context);"
+        .quoted_contents()
 }
 
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);"
         .quoted_contents()
 }
 
@@ -248,7 +250,9 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
     let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len())
+        .map(|(name, typ): (Quoted, Type)| {
+            generate_serialize_to_fields(name, typ, &[], false).0.len()
+        })
         .fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.

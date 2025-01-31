@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/aztec.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type { Abi, Narrow } from 'abitype';
 import { type Account, type Chain, type Hex, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
@@ -28,7 +29,7 @@ export async function deployL1Contract(
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
+    throw new Error(`No contract address found in receipt: ${jsonStringify(receipt)}`);
   }
 
   return EthAddress.fromString(receipt.contractAddress!);

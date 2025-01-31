@@ -5,12 +5,11 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -18,6 +17,8 @@ import {
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+
+import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.
@@ -39,19 +40,6 @@ export interface NoteData {
   index?: bigint;
 }
 
-export class MessageLoadOracleInputs<N extends number> {
-  constructor(
-    /** The index of the message commitment in the merkle tree. */
-    public index: bigint,
-    /** The path in the merkle tree to the message. */
-    public siblingPath: SiblingPath<N>,
-  ) {}
-
-  toFields(): Fr[] {
-    return [new Fr(this.index), ...this.siblingPath.toFields()];
-  }
-}
-
 class OracleMethodNotAvailableError extends Error {
   constructor(methodName: string) {
     super(`Oracle method ${methodName} is not available.`);
@@ -68,16 +56,12 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packArgumentsArray');
+  storeInExecutionCache(_values: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }
 
-  packReturns(_returns: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packReturns');
-  }
-
-  unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('unpackReturns');
+  loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('loadFromExecutionCache');
   }
 
   getBlockNumber(): Promise<number> {
@@ -108,10 +92,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getMembershipWitness');
   }
 
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('getSiblingPath');
-  }
-
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new OracleMethodNotAvailableError('getNullifierMembershipWitness');
   }
@@ -127,8 +107,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getLowNullifierMembershipWitness');
   }
 
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new OracleMethodNotAvailableError('getHeader');
+  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    throw new OracleMethodNotAvailableError('getBlockHeader');
   }
 
   getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
@@ -170,6 +150,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
+  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('notifyCreatedNullifier');
+  }
+
   checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
     throw new OracleMethodNotAvailableError('checkNullifierExists');
   }
@@ -193,23 +177,6 @@ export abstract class TypedOracle {
 
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageWrite');
-  }
-
-  emitEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _encryptedEvent: Buffer,
-    _counter: number,
-  ): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
-  }
-
-  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
-  }
-
-  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }
 
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
@@ -254,8 +221,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('debugLog');
   }
 
-  getAppTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    throw new OracleMethodNotAvailableError('getAppTaggingSecretAsSender');
+  getIndexedTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    throw new OracleMethodNotAvailableError('getIndexedTaggingSecretAsSender');
   }
 
   incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
@@ -264,5 +231,34 @@ export abstract class TypedOracle {
 
   syncNotes(): Promise<void> {
     throw new OracleMethodNotAvailableError('syncNotes');
+  }
+
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('deliverNote');
+  }
+
+  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbStore');
+  }
+
+  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('dbLoad');
+  }
+
+  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbDelete');
+  }
+
+  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbCopy');
   }
 }

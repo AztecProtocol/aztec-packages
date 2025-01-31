@@ -1,13 +1,20 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { type ArchiverApi, type Service } from '@aztec/circuit-types';
-import { type ContractClassPublic, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  type ContractClassPublic,
+  computePublicBytecodeCommitment,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
+import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
-import { TokenBridgeContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts.js';
-import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createStore } from '@aztec/kv-store/lmdb';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
+import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';
 import { type ArchiverConfig } from './archiver/config.js';
@@ -16,15 +23,16 @@ import { createArchiverClient } from './rpc/index.js';
 
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Maybe<Service>> {
   if (!config.archiverUrl) {
-    const store = await createStore('archiver', config, createDebugLogger('aztec:archiver:lmdb'));
+    const store = await createStore('archiver', config, createLogger('archiver:lmdb'));
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
     await registerProtocolContracts(archiverStore);
     await registerCommonContracts(archiverStore);
-    return Archiver.createAndSync(config, archiverStore, telemetry, opts.blockUntilSync);
+    return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
   } else {
     return createArchiverClient(config.archiverUrl);
   }
@@ -33,14 +41,20 @@ export async function createArchiver(
 async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
-    const contract = getCanonicalProtocolContract(name);
+    const contract = await getCanonicalProtocolContract(name);
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],
       unconstrainedFunctions: [],
     };
-    await store.addContractArtifact(contract.address, contract.artifact);
-    await store.addContractClasses([contractClassPublic], blockNumber);
+
+    const publicFunctionSignatures = contract.artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+
+    await store.registerContractFunctionSignatures(contract.address, publicFunctionSignatures);
+    const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
+    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
   }
 }
@@ -53,10 +67,13 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
 async function registerCommonContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   const artifacts = [TokenBridgeContractArtifact, TokenContractArtifact];
-  const classes = artifacts.map(artifact => ({
-    ...getContractClassFromArtifact(artifact),
-    privateFunctions: [],
-    unconstrainedFunctions: [],
-  }));
-  await store.addContractClasses(classes, blockNumber);
+  const classes = await Promise.all(
+    artifacts.map(async artifact => ({
+      ...(await getContractClassFromArtifact(artifact)),
+      privateFunctions: [],
+      unconstrainedFunctions: [],
+    })),
+  );
+  const bytecodeCommitments = await Promise.all(classes.map(x => computePublicBytecodeCommitment(x.packedBytecode)));
+  await store.addContractClasses(classes, bytecodeCommitments, blockNumber);
 }

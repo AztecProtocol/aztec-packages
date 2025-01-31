@@ -35,6 +35,27 @@ export class FieldReader {
   }
 
   /**
+   * Skips the next n fields.
+   *
+   * @param n - The number of fields to skip.
+   */
+  public skip(n: number) {
+    if (this.index + n > this.length) {
+      throw new Error('Not enough fields to be consumed.');
+    }
+    this.index += n;
+  }
+
+  /**
+   * Returns the current cursor position.
+   *
+   * @returns The current cursor position.
+   */
+  public get cursor() {
+    return this.index;
+  }
+
+  /**
    * Reads a single field from the array.
    *
    * @returns A field.
@@ -44,6 +65,18 @@ export class FieldReader {
       throw new Error('Not enough fields to be consumed.');
     }
     return this.fields[this.index++];
+  }
+
+  /**
+   * Peeks at the next field without advancing the cursor.
+   *
+   * @returns A field.
+   */
+  public peekField(): Fr {
+    if (this.index === this.length) {
+      throw new Error('Not enough fields to be consumed.');
+    }
+    return this.fields[this.index];
   }
 
   /**
@@ -139,5 +172,13 @@ export class FieldReader {
     fromFields: (reader: FieldReader) => T;
   }): T {
     return deserializer.fromFields(this);
+  }
+
+  /**
+   * Returns whether the reader has finished reading all fields.
+   * @returns A bool.
+   */
+  public isFinished(): boolean {
+    return this.index >= this.length;
   }
 }

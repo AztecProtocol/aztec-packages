@@ -1,5 +1,5 @@
 use crate::{
-    abis::side_effect::Scoped,
+    abis::side_effect::{Scoped as ScopedTrait, scoped::Scoped},
     address::aztec_address::AztecAddress,
     traits::{Empty, is_empty},
 };
@@ -75,7 +75,7 @@ pub fn assert_array_appended_scoped<ST, T, let N: u32, let M: u32>(
     contract_address: AztecAddress,
 )
 where
-    ST: Scoped<T> + Empty + Eq,
+    ST: ScopedTrait<T> + Empty + Eq,
     T: Eq,
 {
     let items_propagated = num_prepended_items + num_source_items;
@@ -94,6 +94,42 @@ where
                 );
                 assert_eq(
                     dest[i].contract_address(),
+                    contract_address,
+                    "propagated contract address does not match",
+                );
+            } else {
+                assert(is_empty(dest[i]), "output should be appended with empty items");
+            }
+        }
+    }
+}
+
+pub fn assert_array_appended_and_scoped<T, let N: u32, let M: u32>(
+    dest: [Scoped<T>; N],
+    source: [T; M],
+    num_source_items: u32,
+    num_prepended_items: u32,
+    contract_address: AztecAddress,
+)
+where
+    T: Eq + Empty,
+{
+    let items_propagated = num_prepended_items + num_source_items;
+    assert(items_propagated <= N, "number of total items exceeds limit");
+    let mut should_check = false;
+    let mut is_non_empty_item = true;
+    for i in 0..dest.len() {
+        should_check |= i == num_prepended_items;
+        is_non_empty_item &= i != items_propagated;
+        if should_check {
+            if is_non_empty_item {
+                assert_eq(
+                    dest[i].inner,
+                    source[i - num_prepended_items],
+                    "source item does not append to dest",
+                );
+                assert_eq(
+                    dest[i].contract_address,
                     contract_address,
                     "propagated contract address does not match",
                 );

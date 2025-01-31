@@ -9,10 +9,10 @@ pub struct ContractFunction {
     pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
-pub global default_vk = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+pub global default_vk: [Field; 143] = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
 
 // sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
-pub global default_private_function = ContractFunction {
+pub global default_private_function: ContractFunction = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: crate::hash::verification_key_hash(default_vk),
     acir_hash: 1111,

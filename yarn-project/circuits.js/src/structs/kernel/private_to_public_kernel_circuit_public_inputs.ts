@@ -1,6 +1,11 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
 
+import { GeneratorIndex, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -30,6 +35,18 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     );
   }
 
+  static getFields(fields: FieldsOf<PrivateToPublicKernelCircuitPublicInputs>) {
+    return [
+      fields.constants,
+      fields.rollupValidationRequests,
+      fields.nonRevertibleAccumulatedData,
+      fields.revertibleAccumulatedData,
+      fields.publicTeardownCallRequest,
+      fields.gasUsed,
+      fields.feePayer,
+    ] as const;
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateToPublicKernelCircuitPublicInputs(
@@ -56,10 +73,24 @@ export class PrivateToPublicKernelCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return PrivateToPublicKernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateToPublicKernelCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateToPublicKernelCircuitPublicInputs.getFields(this));
+    if (fields.length !== PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateToPublicKernelCircuitPublicInputs. Expected ${PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  hash() {
+    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PUBLIC_TX_HASH);
   }
 }

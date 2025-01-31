@@ -160,16 +160,20 @@ struct OriginTag {
     OriginTag(OriginTag&& other) = default;
     OriginTag& operator=(const OriginTag& other) = default;
     OriginTag& operator=(OriginTag&& other) = default;
+    ~OriginTag() = default;
 
-    OriginTag(size_t, size_t, bool is_submitted [[maybe_unused]] = true) {}
+    OriginTag(size_t parent_index [[maybe_unused]],
+              size_t child_index [[maybe_unused]],
+              bool is_submitted [[maybe_unused]] = true)
+    {}
 
     OriginTag(const OriginTag&, const OriginTag&) {}
     template <class... T> OriginTag(const OriginTag&, const T&...) {}
     bool operator==(const OriginTag& other) const;
     void poison() {}
     void unpoison() {}
-    bool is_poisoned() const { return false; }
-    bool is_empty() const { return true; };
+    static bool is_poisoned() { return false; }
+    static bool is_empty() { return true; };
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {

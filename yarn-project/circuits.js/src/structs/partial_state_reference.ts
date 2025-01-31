@@ -4,7 +4,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { z } from 'zod';
 
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '../constants.gen.js';
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 
 /**
  * Stores snapshots of trees which are commonly needed by base or merge rollup circuits.
@@ -18,14 +18,6 @@ export class PartialStateReference {
     /** Snapshot of the public data tree. */
     public readonly publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
-
-  toJSON() {
-    return {
-      noteHashTree: this.noteHashTree,
-      nullifierTree: this.nullifierTree,
-      publicDataTree: this.publicDataTree,
-    };
-  }
 
   static get schema() {
     return z

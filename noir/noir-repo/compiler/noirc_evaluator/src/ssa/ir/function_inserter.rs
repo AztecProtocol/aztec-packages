@@ -4,7 +4,8 @@ use crate::ssa::ir::types::Type;
 
 use super::{
     basic_block::BasicBlockId,
-    dfg::{CallStack, InsertInstructionResult},
+    call_stack::CallStackId,
+    dfg::InsertInstructionResult,
     function::Function,
     instruction::{Instruction, InstructionId},
     value::ValueId,
@@ -25,7 +26,7 @@ pub(crate) struct FunctionInserter<'f> {
     ///
     /// This is optional since caching arrays relies on the inserter inserting strictly
     /// in control-flow order. Otherwise, if arrays later in the program are cached first,
-    /// they may be refered to by instructions earlier in the program.
+    /// they may be referred to by instructions earlier in the program.
     array_cache: Option<ArrayCache>,
 
     /// If this pass is loop unrolling, store the block before the loop to optionally
@@ -72,26 +73,25 @@ impl<'f> FunctionInserter<'f> {
     }
 
     /// Get an instruction and make sure all the values in it are freshly resolved.
-    pub(crate) fn map_instruction(&mut self, id: InstructionId) -> (Instruction, CallStack) {
-        (
-            self.function.dfg[id].clone().map_values(|id| self.resolve(id)),
-            self.function.dfg.get_call_stack(id),
-        )
+    pub(crate) fn map_instruction(&mut self, id: InstructionId) -> (Instruction, CallStackId) {
+        let mut instruction = self.function.dfg[id].clone();
+        instruction.map_values_mut(|id| self.resolve(id));
+        (instruction, self.function.dfg.get_instruction_call_stack_id(id))
     }
 
     /// Maps a terminator in place, replacing any ValueId in the terminator with the
     /// resolved version of that value id from this FunctionInserter's internal value mapping.
     pub(crate) fn map_terminator_in_place(&mut self, block: BasicBlockId) {
         let mut terminator = self.function.dfg[block].take_terminator();
-        terminator.mutate_values(|value| self.resolve(value));
+        terminator.map_values_mut(|value| self.resolve(value));
         self.function.dfg[block].set_terminator(terminator);
     }
 
     /// Maps the data bus in place, replacing any ValueId in the data bus with the
     /// resolved version of that value id from this FunctionInserter's internal value mapping.
     pub(crate) fn map_data_bus_in_place(&mut self) {
-        let data_bus = self.function.dfg.data_bus.clone();
-        let data_bus = data_bus.map_values(|value| self.resolve(value));
+        let mut data_bus = self.function.dfg.data_bus.clone();
+        data_bus.map_values_mut(|value| self.resolve(value));
         self.function.dfg.data_bus = data_bus;
     }
 
@@ -115,7 +115,7 @@ impl<'f> FunctionInserter<'f> {
         instruction: Instruction,
         id: InstructionId,
         mut block: BasicBlockId,
-        call_stack: CallStack,
+        call_stack: CallStackId,
     ) -> InsertInstructionResult {
         let results = self.function.dfg.instruction_results(id);
         let results = vecmap(results, |id| self.function.dfg.resolve(*id));
@@ -129,7 +129,7 @@ impl<'f> FunctionInserter<'f> {
         // another MakeArray instruction. Note that this assumes the function inserter is inserting
         // in control-flow order. Otherwise we could refer to ValueIds defined later in the program.
         let make_array = if let Instruction::MakeArray { elements, typ } = &instruction {
-            if self.array_is_constant(elements) {
+            if self.array_is_constant(elements) && self.function.runtime().is_acir() {
                 if let Some(fetched_value) = self.get_cached_array(elements, typ) {
                     assert_eq!(results.len(), 1);
                     self.values.insert(results[0], fetched_value);

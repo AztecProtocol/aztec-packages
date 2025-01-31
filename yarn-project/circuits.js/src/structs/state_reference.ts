@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { PartialStateReference } from './partial_state_reference.js';
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 
 /**
  * Stores snapshots of all the trees but archive.
@@ -18,10 +18,6 @@ export class StateReference {
     /** Reference to the rest of the state. */
     public partial: PartialStateReference,
   ) {}
-
-  toJSON() {
-    return { l1ToL2MessageTree: this.l1ToL2MessageTree, partial: this.partial };
-  }
 
   static get schema() {
     return z
@@ -71,6 +67,15 @@ export class StateReference {
 
   isEmpty(): boolean {
     return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
+  }
+
+  toInspect() {
+    return {
+      l1ToL2MessageTree: this.l1ToL2MessageTree.root.toString(),
+      noteHashTree: this.partial.noteHashTree.root.toString(),
+      nullifierTree: this.partial.nullifierTree.root.toString(),
+      publicDataTree: this.partial.publicDataTree.root.toString(),
+    };
   }
 
   [inspect.custom]() {

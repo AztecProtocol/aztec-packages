@@ -1,4 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { type QuoteProvider, type QuoteProviderResult } from './index.js';
 import { getTotalFees, getTxCount } from './utils.js';
@@ -17,7 +18,7 @@ export class HttpQuoteProvider implements QuoteProvider {
 
     const response = await fetch(this.url, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: jsonStringify(payload),
       headers: { 'content-type': 'application/json' },
     });
 
@@ -27,7 +28,7 @@ export class HttpQuoteProvider implements QuoteProvider {
 
     const data = await response.json();
     if (!data.basisPointFee || !data.bondAmount) {
-      throw new Error(`Missing required fields (basisPointFee | bondAmount) in response: ${JSON.stringify(data)}`);
+      throw new Error(`Missing required fields (basisPointFee | bondAmount) in response: ${jsonStringify(data)}`);
     }
 
     const basisPointFee = Number(data.basisPointFee);

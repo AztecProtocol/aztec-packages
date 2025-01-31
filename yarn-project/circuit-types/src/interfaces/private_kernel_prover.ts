@@ -57,7 +57,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsInit - The private data structure for the initial iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofInit(
+  generateInitOutput(
+    privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the first kernel iteration without generating a proof.
+   *
+   * @param privateKernelInputsInit - The private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInit(
     privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -67,7 +77,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsInner - The private input data structure for the inner iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofInner(
+  generateInnerOutput(
+    privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes an inner kernel iteration without generating a proof.
+   *
+   * @param privateKernelInputsInit - The private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInner(
     privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -77,7 +97,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsTail - The private input data structure for the reset circuit.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofReset(
+  generateResetOutput(
+    privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the reset circuit without generating a proof
+   *
+   * @param privateKernelInputsTail - The private input data structure for the reset circuit.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs an empty kernel proof.
+   */
+  simulateReset(
     privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -87,7 +117,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofTail(
+  generateTailOutput(
+    privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  /**
+   * Executes the final ordering iteration circuit.
+   *
+   * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs an empty kernel proof.
+   */
+  simulateTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
@@ -97,15 +137,6 @@ export interface PrivateKernelProver {
    * @param witnessStack The witnessses for each program bytecode.
    */
   createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
-
-  /**
-   * Creates a proof for an app circuit.
-   *
-   * @param bytecode - The circuit bytecode in gzipped bincode format
-   * @param appCircuitName - Optionally specify the name of the app circuit
-   * @returns A Promise resolving to a Proof object
-   */
-  computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
 
   /**
    * Compute the gate count for a given circuit.

@@ -15,7 +15,7 @@ pub struct TailToPublicOutputComposerBuilder {
 impl TailToPublicOutputComposerBuilder {
     pub fn new() -> Self {
         let mut previous_kernel = FixtureBuilder::new();
-        previous_kernel.set_first_nullifier(); // Need the first nullifier to silo note hashes.
+        previous_kernel.set_protocol_nullifier(); // Need the first nullifier to silo note hashes.
         TailToPublicOutputComposerBuilder { previous_kernel }
     }
 

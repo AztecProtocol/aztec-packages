@@ -15,16 +15,17 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
 
 /**
  * Used for managing keys. Can hold keys of multiple accounts.
  */
 export class KeyStore {
-  #keys: AztecMap<string, Buffer>;
+  #keys: AztecAsyncMap<string, Buffer>;
 
-  constructor(database: AztecKVStore) {
+  constructor(database: AztecAsyncKVStore) {
     this.#keys = database.openMap('key_store');
   }
 
@@ -51,9 +52,9 @@ export class KeyStore {
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
       publicKeys,
-    } = deriveKeys(sk);
+    } = await deriveKeys(sk);
 
-    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
     const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
@@ -69,30 +70,28 @@ export class KeyStore {
 
     // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
-    await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
-    await this.#keys.set(
-      `${account.toString()}-ivpk_m_hash`,
-      publicKeys.masterIncomingViewingPublicKey.hash().toBuffer(),
-    );
-    await this.#keys.set(
-      `${account.toString()}-ovpk_m_hash`,
-      publicKeys.masterOutgoingViewingPublicKey.hash().toBuffer(),
-    );
-    await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
+    const masterNullifierPublicKeyHash = await publicKeys.masterNullifierPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
+    const masterIncomingViewingPublicKeyHash = await publicKeys.masterIncomingViewingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
+    const masterOutgoingViewingPublicKeyHash = await publicKeys.masterOutgoingViewingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-ovpk_m_hash`, masterOutgoingViewingPublicKeyHash.toBuffer());
+    const masterTaggingPublicKeyHash = await publicKeys.masterTaggingPublicKey.hash();
+    await this.#keys.set(`${account.toString()}-tpk_m_hash`, masterTaggingPublicKeyHash.toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(completeAddress);
+    return completeAddress;
   }
 
   /**
    * Retrieves addresses of accounts stored in the key store.
    * @returns A Promise that resolves to an array of account addresses.
    */
-  public getAccounts(): Promise<AztecAddress[]> {
-    const allMapKeys = Array.from(this.#keys.keys());
+  public async getAccounts(): Promise<AztecAddress[]> {
+    const allMapKeys = await toArray(this.#keys.keysAsync());
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
-    return Promise.resolve(accounts.map(account => AztecAddress.fromString(account)));
+    return accounts.map(account => AztecAddress.fromString(account));
   }
 
   /**
@@ -102,11 +101,11 @@ export class KeyStore {
    * @param contractAddress - The contract address to silo the secret key in the key validation request with.
    * @returns The key validation request.
    */
-  public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkMHash);
+  public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
-    const pkMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
+    const pkMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}pk_m`);
     if (!pkMBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
@@ -114,13 +113,13 @@ export class KeyStore {
     }
 
     const pkM = Point.fromBuffer(pkMBuffer);
-
-    if (!pkM.hash().equals(pkMHash)) {
+    const computedPkMHash = await pkM.hash();
+    if (!computedPkMHash.equals(pkMHash)) {
       throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
     }
 
     // Now we find the secret key for the public key
-    const skMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    const skMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}sk_m`);
     if (!skMBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
@@ -130,14 +129,15 @@ export class KeyStore {
     const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedPkM.equals(pkM)) {
       throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
     }
 
     // At last we silo the secret key and return the key validation request
-    const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
+    const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
-    return Promise.resolve(new KeyValidationRequest(pkM, skApp));
+    return new KeyValidationRequest(pkM, skApp);
   }
 
   /**
@@ -147,13 +147,13 @@ export class KeyStore {
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    const masterNullifierPublicKeyBuffer = await this.#keys.getAsync(`${account.toString()}-npk_m`);
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
+    return Point.fromBuffer(masterNullifierPublicKeyBuffer);
   }
 
   /**
@@ -163,13 +163,13 @@ export class KeyStore {
    * @returns The master incoming viewing public key for the account.
    */
   public async getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterIncomingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ivpk_m`);
+    const masterIncomingViewingPublicKeyBuffer = await this.#keys.getAsync(`${account.toString()}-ivpk_m`);
     if (!masterIncomingViewingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    return Promise.resolve(Point.fromBuffer(masterIncomingViewingPublicKeyBuffer));
+    return Point.fromBuffer(masterIncomingViewingPublicKeyBuffer);
   }
 
   /**
@@ -179,13 +179,13 @@ export class KeyStore {
    * @returns A Promise that resolves to the master outgoing viewing key.
    */
   public async getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterOutgoingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ovpk_m`);
+    const masterOutgoingViewingPublicKeyBuffer = await this.#keys.getAsync(`${account.toString()}-ovpk_m`);
     if (!masterOutgoingViewingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    return Promise.resolve(Point.fromBuffer(masterOutgoingViewingPublicKeyBuffer));
+    return Point.fromBuffer(masterOutgoingViewingPublicKeyBuffer);
   }
 
   /**
@@ -195,13 +195,13 @@ export class KeyStore {
    * @returns A Promise that resolves to the master tagging key.
    */
   public async getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterTaggingPublicKeyBuffer = this.#keys.get(`${account.toString()}-tpk_m`);
+    const masterTaggingPublicKeyBuffer = await this.#keys.getAsync(`${account.toString()}-tpk_m`);
     if (!masterTaggingPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    return Promise.resolve(Point.fromBuffer(masterTaggingPublicKeyBuffer));
+    return Point.fromBuffer(masterTaggingPublicKeyBuffer);
   }
 
   /**
@@ -211,15 +211,13 @@ export class KeyStore {
    * @returns A Promise that resolves to the master incoming viewing secret key.
    */
   public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
-    const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
+    const masterIncomingViewingSecretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
-
-    return Promise.resolve(masterIncomingViewingSecretKey);
+    return GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
   }
 
   /**
@@ -230,7 +228,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the application outgoing viewing secret key.
    */
   public async getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
-    const masterOutgoingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ovsk_m`);
+    const masterOutgoingViewingSecretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-ovsk_m`);
     if (!masterOutgoingViewingSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -238,11 +236,9 @@ export class KeyStore {
     }
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
-    return Promise.resolve(
-      poseidon2HashWithSeparator(
-        [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
-        GeneratorIndex.OVSK_M,
-      ),
+    return poseidon2HashWithSeparator(
+      [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
+      GeneratorIndex.OVSK_M,
     );
   }
 
@@ -253,10 +249,10 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkM);
+  public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
-    const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}sk_m`);
     if (!secretKeyBuffer) {
       throw new Error(
         `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
@@ -264,7 +260,8 @@ export class KeyStore {
     }
 
     const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
-    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+    const derivedpkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedpkM.equals(pkM)) {
       throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 
@@ -277,10 +274,11 @@ export class KeyStore {
    * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
    * in the key store.
    */
-  public getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
+  public async getKeyPrefixAndAccount(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
     const valueBuffer = serializeToBuffer(value);
-    for (const [key, val] of this.#keys.entries()) {
-      if (val.equals(valueBuffer)) {
+    for await (const [key, val] of this.#keys.entriesAsync()) {
+      // Browser returns Uint8Array, Node.js returns Buffer
+      if (Buffer.from(val).equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
             const account = AztecAddress.fromString(key.split('-')[0]);

@@ -1,12 +1,13 @@
-import { ProvingRequestType, type V2ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { type ProvingJobId, ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
 import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { ProvingJobController, ProvingJobStatus } from './proving_job_controller.js';
+import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
 describe('ProvingJobController', () => {
   let prover: MockProver;
@@ -17,12 +18,12 @@ describe('ProvingJobController', () => {
     prover = new MockProver();
     onComplete = jest.fn();
     controller = new ProvingJobController(
+      '1' as ProvingJobId,
       {
         type: ProvingRequestType.BASE_PARITY,
-        blockNumber: 1,
-        id: '1' as V2ProvingJobId,
         inputs: makeBaseParityInputs(),
       },
+      42,
       0,
       prover,
       onComplete,
@@ -30,18 +31,25 @@ describe('ProvingJobController', () => {
   });
 
   it('reports IDLE status initially', () => {
-    expect(controller.getStatus()).toBe(ProvingJobStatus.IDLE);
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.IDLE);
   });
 
   it('reports PROVING status while busy', () => {
     controller.start();
-    expect(controller.getStatus()).toBe(ProvingJobStatus.PROVING);
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.PROVING);
   });
 
   it('reports DONE status after job is done', async () => {
     controller.start();
     await sleep(1); // give promises a chance to complete
-    expect(controller.getStatus()).toBe(ProvingJobStatus.DONE);
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.DONE);
+  });
+
+  it('reports ABORTED status after job is aborted', async () => {
+    controller.start();
+    controller.abort();
+    await sleep(1); // give promises a chance to complete
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.ABORTED);
   });
 
   it('calls onComplete with the proof', async () => {
@@ -54,10 +62,7 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1); // give promises a chance to complete
-    expect(onComplete).toHaveBeenCalledWith(undefined, {
-      type: ProvingRequestType.BASE_PARITY,
-      value: resp,
-    });
+    expect(onComplete).toHaveBeenCalledWith('1', ProvingRequestType.BASE_PARITY, undefined, resp);
   });
 
   it('calls onComplete with the error', async () => {
@@ -66,7 +71,7 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1);
-    expect(onComplete).toHaveBeenCalledWith(err, undefined);
+    expect(onComplete).toHaveBeenCalledWith('1', ProvingRequestType.BASE_PARITY, err, undefined);
   });
 
   it('does not crash if onComplete throws', async () => {
@@ -87,5 +92,31 @@ describe('ProvingJobController', () => {
     controller.start();
     await sleep(1);
     expect(onComplete).toHaveBeenCalled();
+  });
+
+  it('does not call onComplete if abort is called', async () => {
+    const { promise, resolve } = promiseWithResolvers<any>();
+    jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(promise);
+
+    controller.start();
+
+    await sleep(1);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    controller.abort();
+    await sleep(1);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    // simulate a prover that does not respect signals, still completes the proof after aborting
+    resolve(
+      makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
+
+    await sleep(1);
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

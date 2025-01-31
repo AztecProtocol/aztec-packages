@@ -18,7 +18,7 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
   /**
    * The unique identifier for a contract function in bytecode.
    */
-  readonly selector: FunctionSelector;
+  selector: () => Promise<FunctionSelector>;
 };
 
 /**
@@ -62,7 +62,7 @@ export class ContractBase {
          * A getter for users to fetch the function selector.
          * @returns Selector of the function.
          */
-        get selector() {
+        selector() {
           return FunctionSelector.fromNameAndParameters(f.name, f.parameters);
         },
       });

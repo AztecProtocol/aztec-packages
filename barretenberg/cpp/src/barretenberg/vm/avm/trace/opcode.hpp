@@ -115,7 +115,6 @@ enum class OpCode : uint8_t {
 enum class EnvironmentVariable {
     ADDRESS,
     SENDER,
-    FUNCTIONSELECTOR,
     TRANSACTIONFEE,
     CHAINID,
     VERSION,

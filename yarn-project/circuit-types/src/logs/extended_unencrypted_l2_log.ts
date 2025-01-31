@@ -1,4 +1,5 @@
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import isEqual from 'lodash.isequal';
@@ -9,6 +10,7 @@ import { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class ExtendedUnencryptedL2Log {
   constructor(
@@ -18,12 +20,8 @@ export class ExtendedUnencryptedL2Log {
     public readonly log: UnencryptedL2Log,
   ) {}
 
-  static random() {
-    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
-  }
-
-  toJSON() {
-    return { id: this.id, log: this.log };
+  static async random() {
+    return new ExtendedUnencryptedL2Log(LogId.random(), await UnencryptedL2Log.random());
   }
 
   static get schema() {
@@ -52,7 +50,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A string containing the serialized log.
    */
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -92,7 +90,6 @@ export class ExtendedUnencryptedL2Log {
    * @returns An `ExtendedUnencryptedL2Log` object.
    */
   public static fromString(data: string): ExtendedUnencryptedL2Log {
-    const buffer = Buffer.from(data, 'hex');
-    return ExtendedUnencryptedL2Log.fromBuffer(buffer);
+    return ExtendedUnencryptedL2Log.fromBuffer(hexToBuffer(data));
   }
 }

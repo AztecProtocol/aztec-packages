@@ -17,3 +17,15 @@ export const TopicTypeMap: Record<string, typeof Gossipable> = {
   [TopicType.block_attestation]: BlockAttestation as unknown as typeof Gossipable,
   [TopicType.epoch_proof_quote]: EpochProofQuote as unknown as typeof Gossipable,
 };
+
+/**
+ * Map from topic to deserialiser
+ *
+ * Used in msgIdFn libp2p to get the p2pMessageIdentifier from a message
+ */
+export const TopicToDeserializer = {
+  [Tx.p2pTopic]: Tx.fromBuffer,
+  [BlockProposal.p2pTopic]: BlockProposal.fromBuffer,
+  [BlockAttestation.p2pTopic]: BlockAttestation.fromBuffer,
+  [EpochProofQuote.p2pTopic]: EpochProofQuote.fromBuffer,
+};

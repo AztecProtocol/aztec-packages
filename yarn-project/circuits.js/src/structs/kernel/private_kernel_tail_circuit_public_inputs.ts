@@ -1,20 +1,16 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { Gas } from '../gas.js';
-import { GlobalVariables } from '../global_variables.js';
-import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicCallRequest } from '../public_call_request.js';
-import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
-import { CombinedAccumulatedData } from './combined_accumulated_data.js';
-import { CombinedConstantData } from './combined_constant_data.js';
-import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_kernel_circuit_public_inputs.js';
+import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from './private_to_rollup_kernel_circuit_public_inputs.js';
 import { TxConstantData } from './tx_constant_data.js';
 
 export class PartialPrivateTailPublicInputsForPublic {
@@ -80,11 +76,11 @@ export class PartialPrivateTailPublicInputsForPublic {
 }
 
 export class PartialPrivateTailPublicInputsForRollup {
-  constructor(public end: CombinedAccumulatedData) {}
+  constructor(public end: PrivateToRollupAccumulatedData) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForRollup {
     const reader = BufferReader.asReader(buffer);
-    return new PartialPrivateTailPublicInputsForRollup(reader.readObject(CombinedAccumulatedData));
+    return new PartialPrivateTailPublicInputsForRollup(reader.readObject(PrivateToRollupAccumulatedData));
   }
 
   getSize() {
@@ -96,7 +92,7 @@ export class PartialPrivateTailPublicInputsForRollup {
   }
 
   static empty() {
-    return new PartialPrivateTailPublicInputsForRollup(CombinedAccumulatedData.empty());
+    return new PartialPrivateTailPublicInputsForRollup(PrivateToRollupAccumulatedData.empty());
   }
 }
 
@@ -131,11 +127,11 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   static get schema() {
-    return hexSchemaFor(PrivateKernelTailCircuitPublicInputs);
+    return bufferSchemaFor(PrivateKernelTailCircuitPublicInputs);
   }
 
   toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
+    return this.toBuffer();
   }
 
   getSize() {
@@ -148,7 +144,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toPublicKernelCircuitPublicInputs() {
+  toPrivateToPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
@@ -163,23 +159,20 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toKernelCircuitPublicInputs() {
+  toPrivateToRollupKernelCircuitPublicInputs() {
     if (!this.forRollup) {
       throw new Error('Private tail public inputs is not for rollup circuit.');
     }
-    const constants = new CombinedConstantData(
+    const constants = new TxConstantData(
       this.constants.historicalHeader,
       this.constants.txContext,
       this.constants.vkTreeRoot,
       this.constants.protocolContractTreeRoot,
-      GlobalVariables.empty(),
     );
-    return new KernelCircuitPublicInputs(
+    return new PrivateToRollupKernelCircuitPublicInputs(
+      constants,
       this.rollupValidationRequests,
       this.forRollup.end,
-      constants,
-      PartialStateReference.empty(),
-      RevertCode.OK,
       this.gasUsed,
       this.feePayer,
     );
@@ -240,6 +233,16 @@ export class PrivateKernelTailCircuitPublicInputs {
     return nullifiers.filter(n => !n.isZero());
   }
 
+  getNonEmptyPrivateLogs() {
+    const privateLogs = this.forPublic
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+          this.forPublic.revertibleAccumulatedData.privateLogs,
+        )
+      : this.forRollup!.end.privateLogs;
+    return privateLogs.filter(n => !n.isEmpty());
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();
@@ -282,7 +285,7 @@ export class PrivateKernelTailCircuitPublicInputs {
    * TODO(#9269): Remove this method as we move away from 1st nullifier as hash.
    */
   static emptyWithNullifier() {
-    const data = CombinedAccumulatedData.empty();
+    const data = PrivateToRollupAccumulatedData.empty();
     data.nullifiers[0] = Fr.random();
     return new PrivateKernelTailCircuitPublicInputs(
       TxConstantData.empty(),

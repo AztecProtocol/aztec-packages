@@ -16,6 +16,7 @@ import {
   allPxeConfigMappings,
   createPXEService,
 } from '@aztec/pxe';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
@@ -76,7 +77,7 @@ export async function addPXE(
     process.exit(1);
   }
 
-  const node = deps.node ?? createAztecNodeClient(nodeUrl!);
+  const node = deps.node ?? createAztecNodeClient(nodeUrl!, makeTracedFetch([1, 2, 3], true));
   const pxe = await createPXEService(node, pxeConfig as PXEServiceConfig);
 
   // register basic contracts
@@ -93,32 +94,31 @@ export async function addPXE(
       l2Contracts[key] = {
         name: key,
         address: AztecAddress.fromString(basicContractsInfo[key].address),
-        initHash: Fr.fromString(basicContractsInfo[key].initHash),
-        salt: Fr.fromString(basicContractsInfo[key].salt),
+        initHash: Fr.fromHexString(basicContractsInfo[key].initHash),
+        salt: Fr.fromHexString(basicContractsInfo[key].salt),
         artifact: await getContractArtifact(artifactName, userLog),
       };
     }
 
-    Object.values(l2Contracts).forEach(async ({ name, address, artifact, initHash, salt }) => {
-      const instance: ContractInstanceWithAddress = {
-        version: 1,
-        salt,
-        initializationHash: initHash,
-        address,
-        deployer: AztecAddress.ZERO,
-        contractClassId: getContractClassFromArtifact(artifact!).id,
-        publicKeys: PublicKeys.default(),
-      };
-      userLog(`Registering ${name} at ${address.toString()}`);
-      await pxe.registerContract({ artifact, instance });
-    });
+    await Promise.all(
+      Object.values(l2Contracts).map(async ({ name, address, artifact, initHash, salt }) => {
+        const instance: ContractInstanceWithAddress = {
+          version: 1,
+          salt,
+          initializationHash: initHash,
+          address,
+          deployer: AztecAddress.ZERO,
+          contractClassId: (await getContractClassFromArtifact(artifact!)).id,
+          publicKeys: PublicKeys.default(),
+        };
+        userLog(`Registering ${name} at ${address.toString()}`);
+        await pxe.registerContract({ artifact, instance });
+      }),
+    );
   }
 
   // Add PXE to services list
   services.pxe = [pxe, PXESchema];
-
-  // Add PXE stop function to signal handlers
-  signalHandlers.push(pxe.stop);
 
   return pxe;
 }

@@ -35,6 +35,10 @@ variable "FEE_JUICE_CONTRACT_ADDRESS" {
   type = string
 }
 
+variable "STAKING_ASSET_CONTRACT_ADDRESS" {
+  type = string
+}
+
 variable "DEV_COIN_CONTRACT_ADDRESS" {
   type = string
 }

@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
 
+/**
+ * @type {import('webpack').Configuration}
+ */
 export default {
   target: 'web',
   mode: 'production',
@@ -14,7 +17,19 @@ export default {
     rules: [
       {
         test: /\.wasm\.gz$/,
-        type: 'asset/inline',
+        type: 'asset/resource',
+        generator: {
+          // The wasm filenames are actually the same, but we symlink them to the correct one
+          // (threads or not) on the .ts folder. Unfortunately webpack uses the original name,
+          // so we have to manually correct it here.
+          filename: (path) => {
+            if(path.filename.includes('wasm-threads')) {
+              return 'barretenberg-threads.wasm.gz';
+            }
+            return '[base]';
+          },
+          publicPath: '/'
+        }
       },
       {
         test: /\.worker\.ts$/,
@@ -36,9 +51,13 @@ export default {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
     filename: 'index.js',
     module: true,
+    globalObject: 'globalThis',
     library: {
       type: 'module',
     },
+  },
+  optimization: {
+    minimize: false,
   },
   experiments: {
     outputModule: true,
@@ -55,6 +74,11 @@ export default {
     fallback: {
       os: false,
     },
+    alias: {
+      // All node specific code, wherever it's located, should be imported as below.
+      // Provides a clean and simple way to always strip out the node code for the web build.
+      './node/index.js': false,
+    }
   },
   devServer: {
     hot: false,

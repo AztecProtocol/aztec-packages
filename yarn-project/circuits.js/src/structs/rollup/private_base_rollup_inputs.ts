@@ -1,5 +1,6 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { PrivateBaseRollupHints } from './base_rollup_hints.js';
@@ -26,24 +27,24 @@ export class PrivateBaseRollupInputs {
   }
 
   static fromString(str: string) {
-    return PrivateBaseRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateBaseRollupInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static empty() {
     return new PrivateBaseRollupInputs(PrivateTubeData.empty(), PrivateBaseRollupHints.empty());
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(PrivateBaseRollupInputs);
+    return bufferSchemaFor(PrivateBaseRollupInputs);
   }
 }

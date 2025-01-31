@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "gmock/gmock.h"
 #include <array>
@@ -21,8 +22,8 @@
 
 namespace tests_avm {
 
-using FF = bb::AvmFlavorSettings::FF;
-using Row = bb::AvmFullRow<bb::fr>;
+using FF = bb::avm::AvmFlavorSettings::FF;
+using Row = bb::avm::AvmFullRow<bb::fr>;
 using ThreeOpParam = std::array<FF, 3>;
 using ThreeOpParamRow = std::tuple<ThreeOpParam, bb::avm_trace::AvmMemoryTag>;
 using VmPublicInputsNT = bb::avm_trace::VmPublicInputs_<FF>;
@@ -32,7 +33,7 @@ using VmPublicInputsNT = bb::avm_trace::VmPublicInputs_<FF>;
 // enabled all the time in a given test, use validate_trace with setting with_proof = true.
 void validate_trace_check_circuit(std::vector<Row>&& trace);
 void validate_trace(std::vector<Row>&& trace,
-                    VmPublicInputsNT const& public_inputs = {},
+                    AvmPublicInputs const& public_inputs = {},
                     std::vector<FF> const& calldata = {},
                     std::vector<FF> const& returndata = {},
                     bool with_proof = false,
@@ -46,6 +47,6 @@ void update_slice_registers(Row& row, uint256_t a);
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<std::array<FF, 3>> operands,
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags);
 
-VmPublicInputsNT generate_base_public_inputs();
+AvmPublicInputs generate_base_public_inputs();
 
 } // namespace tests_avm

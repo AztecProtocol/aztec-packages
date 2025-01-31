@@ -10,7 +10,8 @@ LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {
-  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml
+  # prover full is ran standalone
+  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml | grep -v e2e_prover_full
 }
 
 # Read the full list from the YAML file
@@ -20,6 +21,7 @@ full_list=$(get_test_names)
 allow_list=(
   "e2e_2_pxes"
   "e2e_authwit"
+  "e2e_amm"
   "e2e_avm_simulator"
   "e2e_block_building"
   "e2e_cross_chain_messaging"
@@ -33,12 +35,14 @@ allow_list=(
   "e2e_max_block_number"
   "e2e_nested_contract"
   "e2e_ordering"
+  "e2e_pruned_blocks"
   "e2e_static_calls"
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"
   "e2e_prover_coordination"
   "e2e_lending_contract"
+  "e2e_p2p_gossip"
   "kind_network_smoke"
   "guides_dapp_testing"
   "guides_sample_dapp"
@@ -68,7 +72,6 @@ done
 
 # Add the input labels and expanded matches to allow_list
 allow_list+=("${input_labels[@]}" "${expanded_allow_list[@]}")
-
 
 # Generate full list of targets, excluding specific entries, on one line
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)

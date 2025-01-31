@@ -3,17 +3,31 @@ import {
   type ParseInput,
   type ParseReturnType,
   ZodFirstPartyTypeKind,
+  type ZodObject,
   ZodOptional,
   ZodParsedType,
+  type ZodRawShape,
   type ZodType,
   type ZodTypeAny,
   z,
 } from 'zod';
 
+import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { type ZodFor } from './types.js';
 
 export const hexSchema = z.string().refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix);
+
+// Copied from zod internals, which was copied from https://stackoverflow.com/questions/7860392/determine-if-string-is-in-base64-using-javascript
+const base64Regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+
+/** Schema for a buffer represented as a base64 string. */
+export const bufferSchema = z
+  .string()
+  // We only test the str for base64 if it's shorter than 1024 bytes, otherwise we've run into maximum
+  // stack size exceeded errors when trying to validate excessively long strings (such as contract bytecode).
+  .refine(str => str.length > 1024 || base64Regex.test(str), 'Not a valid base64 string')
+  .transform(data => Buffer.from(data, 'base64'));
 
 export class ZodNullableOptional<T extends ZodTypeAny> extends ZodOptional<T> {
   _isNullableOptional = true;
@@ -43,6 +57,8 @@ export function optional<T extends ZodTypeAny>(schema: T) {
   return ZodNullableOptional.create(schema);
 }
 
+type ToJsonIs<T, TRet> = T extends { toJSON(): TRet } ? T : never;
+
 /**
  * Creates a schema that accepts a hex string and uses it to hydrate an instance.
  * @param klazz - Class that implements either fromString or fromBuffer.
@@ -50,28 +66,34 @@ export function optional<T extends ZodTypeAny>(schema: T) {
  */
 export function hexSchemaFor<TClass extends { fromString(str: string): any } | { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
+  refinement?: (input: string) => boolean,
 ): ZodType<
   TClass extends { fromString(str: string): infer TInstance } | { fromBuffer(buf: Buffer): infer TInstance }
-    ? TInstance
+    ? ToJsonIs<TInstance, string>
     : never,
   any,
   string
 > {
+  const stringSchema = refinement ? z.string().refine(refinement, `Not a valid instance`) : z.string();
+  const hexSchema = stringSchema.refine(isHex, 'Not a valid hex string');
   return 'fromString' in klazz
     ? hexSchema.transform(klazz.fromString.bind(klazz))
-    : hexSchema.transform(str => Buffer.from(str, 'hex')).transform(klazz.fromBuffer.bind(klazz));
+    : hexSchema.transform(str => Buffer.from(withoutHexPrefix(str), 'hex')).transform(klazz.fromBuffer.bind(klazz));
 }
 
-// TODO(palla/schemas): Delete this class once all serialization of the type { type: string, value: string } are removed.
-export function maybeStructuredStringSchemaFor<TClass extends { fromString(str: string): any }>(
-  name: string,
+/**
+ * Creates a schema that accepts a base64 string and uses it to hydrate an instance.
+ * @param klazz - Class that implements fromBuffer.
+ * @returns A schema for the class.
+ */
+export function bufferSchemaFor<TClass extends { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
-  refinement?: (input: string) => boolean,
-): ZodFor<TClass extends { fromString(str: string): infer TInstance } ? TInstance : never> {
-  const stringSchema = refinement ? z.string().refine(refinement, `Not a valid ${name}`) : z.string();
-  return z
-    .union([stringSchema, z.object({ type: z.literal(name), value: stringSchema })])
-    .transform(input => klazz.fromString(typeof input === 'string' ? input : input.value));
+): ZodType<
+  TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never,
+  any,
+  string
+> {
+  return bufferSchema.transform(klazz.fromBuffer.bind(klazz));
 }
 
 /** Creates a schema for a js Map type that matches the serialization used in jsonStringify. */
@@ -82,4 +104,9 @@ export function mapSchema<TKey, TValue>(key: ZodFor<TKey>, value: ZodFor<TValue>
 /** Creates a schema for a js Set type that matches the serialization used in jsonStringify. */
 export function setSchema<T>(value: ZodFor<T>): ZodFor<Set<T>> {
   return z.array(value).transform(entries => new Set(entries));
+}
+
+/** Given an already parsed and validated object, extracts the keys defined in the given schema. Does not validate again. */
+export function pickFromSchema<T extends object, S extends ZodObject<ZodRawShape>>(obj: T, schema: S) {
+  return pick(obj, ...Object.keys(schema.shape));
 }

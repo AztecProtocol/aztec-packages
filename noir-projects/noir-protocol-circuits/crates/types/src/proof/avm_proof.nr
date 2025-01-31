@@ -1,7 +1,7 @@
 use crate::{constants::AVM_PROOF_LENGTH_IN_FIELDS, traits::{Deserialize, Empty, Serialize}};
 
 pub struct AvmProof {
-    fields: [Field; AVM_PROOF_LENGTH_IN_FIELDS],
+    pub fields: [Field; AVM_PROOF_LENGTH_IN_FIELDS],
 }
 
 impl Serialize<AVM_PROOF_LENGTH_IN_FIELDS> for AvmProof {

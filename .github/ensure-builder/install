@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -eu
+# One-time config.
+if ! [ -f ~/maybe_exit_spot.sh ] ; then
+  cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
+  # Run maybe_exit_spot.sh every minute
+  chmod +x ~/maybe_exit_spot.sh
+  echo "* * * * * ~/maybe_exit_spot.sh" | crontab -
+  echo "Configured instance exit cron job."
+else
+  echo "Chron jobs already configured."
+fi
+set +x
+# Ensure docker is active.
+i=0
+while ! systemctl is-active --quiet docker; do
+  sleep 2
+  if [ $(( i++ )) -gt 60 ]; then
+    echo "Docker service not found! Report this."
+    exit 1
+  fi
+done
+echo $1 | ci3/dump_fail docker login -u aztecprotocolci --password-stdin
+if ! command -v yq >/dev/null; then
+  ci3/dump_fail wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$(ci3/arch) -O ./yq
+  chmod +x ./yq
+  sudo mv ./yq /usr/bin/yq
+fi
+if ! command -v jq >/dev/null; then
+  ci3/dump_fail wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$(ci3/arch) -O ./jq 2>&1 >/dev/null
+  chmod +x ./jq
+  sudo mv ./jq /usr/bin/jq
+fi
+function install_parallel() {
+  sudo apt update && sudo systemctl stop unattended-upgrades && sudo apt install parallel
+}
+export -f install_parallel
+if ! command -v parallel >/dev/null; then
+  DENOISE=1 ci3/denoise ci3/retry install_parallel
+fi
+[ -x /usr/local/bin/earthly ] || ci3/dump_fail ci3/earthly_install

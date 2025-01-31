@@ -4,10 +4,12 @@ set -eu
 ROOT=$(realpath $(dirname "$0")/..)
 cd $ROOT/noir-repo
 
+echo Bootstrapping noir js packages...
+
 ./.github/scripts/wasm-bindgen-install.sh
 
 # Set build data manually.
-export SOURCE_DATE_EPOCH=$(date +%s)
+export SOURCE_DATE_EPOCH=$(date -d "today 00:00:00" +%s)
 export GIT_DIRTY=false
 export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
@@ -20,7 +22,7 @@ PROJECTS=(
 )
 INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
-yarn --immutable
+yarn install
 
 yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
 

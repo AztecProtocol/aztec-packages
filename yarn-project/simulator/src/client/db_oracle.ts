@@ -1,6 +1,5 @@
 import {
   type L2Block,
-  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
@@ -8,9 +7,9 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
@@ -138,25 +137,16 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @returns A Promise that resolves to a Header object.
    */
-  getHeader(): Promise<Header>;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
-   * Fetch the index of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the leaf index.
-   * @param treeId - The id of the tree to search.
-   * @param leafValue - The leaf value buffer.
-   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   * Fetches the index and sibling path of a leaf at a given block from a given tree.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - Id of the tree to get the sibling path from.
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Fetch the sibling path of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the sibling path.
-   * @param treeId - The id of the tree to search.
-   * @param leafIndex - The index of the leaf.
-   * @returns - The sibling path of the leaf.
-   */
-  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -198,21 +188,21 @@ export interface DBOracle extends CommitmentsDB {
   getBlockNumber(): Promise<number>;
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  getAppTaggingSecretAsSender(
+  getIndexedTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret>;
 
   /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -224,7 +214,7 @@ export interface DBOracle extends CommitmentsDB {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with the recipient's address and all the senders in the addressbook.
+   * Synchronizes the logs tagged with the recipient's address and all the senders in the address book.
    * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
@@ -242,4 +232,70 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The recipient of the logs.
    */
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+
+  /**
+   * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
+   * oracle.
+   *
+   * @param contractAddress - The address of the contract that created the note (i.e. the siloing contract)
+   * @param storageSlot - The storage slot of the note - used for indexing in `getNotes`
+   * @param nonce - The nonce of the note used by the kernel to compute the unique note hash
+   * @param content - The note's content: this is the primary item to return in `getNotes`
+   * @param noteHash - The non-unique non-siloed note hash
+   * @param nullifier - The inner (non-siloed) note nullifier
+   * @param txHash - The transaction in which the note was added to the note hash tree
+   * @param recipient - The account that discovered the note
+   */
+  deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<void>;
+
+  /**
+   * Removes all of a contract's notes that have been nullified from the note database.
+   */
+  removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `dbLoad`.
+   * * If data was already stored at this slot, it is overwrriten.
+   * @param contractAddress - The contract address to scope the data under.
+   * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
+   * @param values - The data to store.
+   */
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void>;
+
+  /**
+   * Returns data previously stored via `dbStore` in the per-contract non-volatile database.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to read.
+   * @returns The stored data or `null` if no data is stored under the slot.
+   */
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
+
+  /**
+   * Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to delete.
+   */
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void>;
+
+  /**
+   * Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
+   * structures by avoiding repeated calls to `dbLoad` and `dbStore`.
+   * Supports overlapping source and destination regions (which will result in the overlapped source values being
+   * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
+   *
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param srcSlot - The first slot to copy from.
+   * @param dstSlot - The first slot to copy to.
+   * @param numEntries - The number of entries to copy.
+   */
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
 }

@@ -1,9 +1,11 @@
-import type { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
+import type { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables } from '@aztec/circuits.js';
 
 /**
  * Interface for building global variables for Aztec blocks.
  */
 export interface GlobalVariableBuilder {
+  getCurrentBaseFees(): Promise<GasFees>;
+
   /**
    * Builds global variables for a given block.
    * @param blockNumber - The block number to build global variables for.

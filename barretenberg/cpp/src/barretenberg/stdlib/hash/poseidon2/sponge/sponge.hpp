@@ -53,16 +53,16 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         : builder(&builder_)
     {
         for (size_t i = 0; i < rate; ++i) {
-            state[i] = witness_t<Builder>(builder, 0);
+            state[i] = witness_t<Builder>::create_constant_witness(builder, 0);
         }
-        state[rate] = witness_t<Builder>(builder, domain_iv.get_value());
+        state[rate] = witness_t<Builder>::create_constant_witness(builder, domain_iv.get_value());
     }
 
     std::array<field_t, rate> perform_duplex()
     {
         // zero-pad the cache
         for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = witness_t<Builder>(builder, 0);
+            cache[i] = witness_t<Builder>::create_constant_witness(builder, 0);
         }
         // add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
@@ -122,7 +122,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             cache[i - 1] = cache[i];
         }
         cache_size -= 1;
-        cache[cache_size] = witness_t<Builder>(builder, 0);
+        cache[cache_size] = witness_t<Builder>::create_constant_witness(builder, 0);
         return result;
     }
 

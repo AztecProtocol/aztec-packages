@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {RegistryBase} from "./Base.t.sol";
 
 contract GetRollupTest is RegistryBase {
-  function test_GivenOneListedRollup() external {
+  function test_GivenOneListedRollup() external view {
     // it should return the newest
     assertEq(registry.getRollup(), address(0xdead));
   }

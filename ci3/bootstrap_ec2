@@ -1,0 +1,86 @@
+#!/bin/bash
+source $(git rev-parse --show-toplevel)/ci3/source
+
+cmd=${1:-"./bootstrap.sh ci || exec bash"}
+postfix=${2:-}
+cores=${CORES:-128}
+NO_TERMINATE=${NO_TERMINATE:-0}
+# picked up by github_group and github_endgroup
+GITHUB_LOG=${GITHUB_LOG:-}
+BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
+
+# Trap function to terminate our running instance when the script exits.
+function on_exit {
+    set +e
+    if [ "$NO_TERMINATE" -eq 0 ]; then
+      aws_terminate_instance $iid $sir
+    else
+      echo "Remote machine not terminated, connect with: ./ci.sh attach"
+    fi
+}
+
+# Verify that the commit exists on the remote. It will be the remote tip of itself if so.
+current_commit=$(git rev-parse HEAD)
+if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
+  echo "Commit $current_commit is not pushed, exiting."
+  exit 1
+fi
+
+instance_name="${BRANCH//\//_}"
+[ -n "$postfix" ] && instance_name+="_$postfix"
+
+github_group "Request Build Instance"
+# Terminate any existing instance with the same name.
+existing_instance=$(aws ec2 describe-instances \
+  --region us-east-2 \
+  --filters "Name=tag:Name,Values=$instance_name" \
+  --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
+  --output text)
+if [ -n "$existing_instance" ]; then
+  echo "Terminating existing instance: $existing_instance"
+  aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance > /dev/null 2>&1
+fi
+
+# Request new instance.
+ip_sir=$(aws_request_instance $instance_name $cores x86_64)
+parts=(${ip_sir//:/ })
+ip="${parts[0]}"
+sir="${parts[1]}"
+iid="${parts[2]}"
+trap on_exit EXIT
+github_endgroup
+
+args="-e GITHUB_LOG='$GITHUB_LOG' -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}'"
+[ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
+
+# Interactive if stdin is connected to terminal.
+[ -t 0 ] && args+=" -i"
+
+args+=" -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}"
+
+# Use ~/.ssh/build_instance_key to ssh into our requested instance.
+# Run in our build container, cloning commit and running bootstrap.sh.
+github_group "Start CI Image"
+ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  docker run --privileged $args --name aztec_build -t \
+    -v boostrap_ci_local_docker:/var/lib/docker \
+    -v \$HOME:/root \
+    -v /tmp:/tmp \
+    aztecprotocol/ci:2.2 bash -c '
+      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
+      [ -n \"$GITHUB_LOG\" ] && echo "::group::Clone Repository"
+      set -e
+      # When restarting the container, just hang around.
+      while [ -f started ]; do sleep 999; done
+      touch started
+      /usr/local/share/docker-init.sh &> /dev/null
+      mkdir -p /root/aztec-packages
+      cd /root/aztec-packages
+      git init &>/dev/null
+      git remote add origin https://github.com/aztecprotocol/aztec-packages
+      git fetch --depth 1 origin $current_commit &>/dev/null
+      git checkout FETCH_HEAD &>/dev/null
+      [ -n \"$GITHUB_LOG\" ] && echo "::endgroup::"
+      $cmd
+    '
+"

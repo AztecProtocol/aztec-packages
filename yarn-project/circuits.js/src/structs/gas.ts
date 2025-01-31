@@ -78,6 +78,11 @@ export class Gas {
     return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l2Gas * scalar));
   }
 
+  /** Returns true if any of this instance's dimensions is greater than the corresponding on the other. */
+  gtAny(other: Gas) {
+    return this.daGas > other.daGas || this.l2Gas > other.l2Gas;
+  }
+
   computeFee(gasFees: GasFees) {
     return GasDimensions.reduce(
       (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
@@ -92,13 +97,5 @@ export class Gas {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new Gas(reader.readU32(), reader.readU32());
-  }
-
-  toJSON() {
-    return { daGas: this.daGas, l2Gas: this.l2Gas };
-  }
-
-  static fromJSON(json: any) {
-    return new Gas(json.daGas, json.l2Gas);
   }
 }

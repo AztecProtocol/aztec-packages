@@ -3,14 +3,20 @@
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
 #include <gtest/gtest.h>
+#include <optional>
 
 namespace bb::crypto::merkle_tree {
 
-void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess)
+void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db,
+                                      block_number_t blockNumber,
+                                      fr root,
+                                      bool expectedSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -25,7 +31,7 @@ void inline check_block_and_root_data(LMDBTreeStore::SharedPtr db, index_t block
 }
 
 void inline check_block_and_root_data(
-    LMDBTreeStore::SharedPtr db, index_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
+    LMDBTreeStore::SharedPtr db, block_number_t blockNumber, fr root, bool expectedSuccess, bool expectedRootSuccess)
 {
     BlockPayload blockData;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
@@ -40,7 +46,7 @@ void inline check_block_and_root_data(
 }
 
 void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
-                                      index_t blockNumber,
+                                      block_number_t blockNumber,
                                       index_t expectedSize,
                                       bool expectedSuccess)
 {
@@ -56,13 +62,12 @@ void inline check_block_and_size_data(LMDBTreeStore::SharedPtr db,
 void inline check_indices_data(
     LMDBTreeStore::SharedPtr db, fr leaf, index_t index, bool entryShouldBePresent, bool indexShouldBePresent)
 {
-    Indices indices;
+    index_t retrieved = 0;
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    bool success = db->read_leaf_indices(leaf, indices, *tx);
+    bool success = db->read_leaf_index(leaf, retrieved, *tx);
     EXPECT_EQ(success, entryShouldBePresent);
     if (entryShouldBePresent) {
-        bool found = std::find(indices.indices.begin(), indices.indices.end(), index) != std::end(indices.indices);
-        EXPECT_EQ(found, indexShouldBePresent);
+        EXPECT_EQ(index == retrieved, indexShouldBePresent);
     }
 }
 
@@ -78,28 +83,141 @@ void check_leaf_by_hash(LMDBTreeStore::SharedPtr db, IndexedLeaf<LeafType> leaf,
     }
 }
 
-void inline check_leaf_keys_are_present(LMDBTreeStore::SharedPtr db,
-                                        uint64_t startIndex,
-                                        uint64_t endIndex,
-                                        const std::vector<fr>& keys)
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index(TypeOfTree& tree,
+                           const std::vector<LeafValueType>& leaves,
+                           const std::vector<std::optional<index_t>>& expected_indices,
+                           bool expected_success,
+                           bool includeUncommitted = true)
 {
-    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    for (uint64_t i = startIndex; i <= endIndex; i++) {
-        fr leafKey;
-        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
-        EXPECT_TRUE(success);
-        EXPECT_EQ(leafKey, keys[i - startIndex]);
-    }
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_indices, expected_indices);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices(leaves, includeUncommitted, completion);
+    signal.wait_for_level();
 }
 
-void inline check_leaf_keys_are_not_present(LMDBTreeStore::SharedPtr db, uint64_t startIndex, uint64_t endIndex)
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index_from(TypeOfTree& tree,
+                                const std::vector<LeafValueType>& leaves,
+                                index_t start_index,
+                                const std::vector<std::optional<index_t>>& expected_indices,
+                                bool expected_success,
+                                bool includeUncommitted = true)
 {
-    LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    for (uint64_t i = startIndex; i < endIndex; i++) {
-        fr leafKey;
-        bool success = db->read_leaf_key_by_index(i, leafKey, *tx);
-        EXPECT_FALSE(success);
-    }
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_indices, expected_indices);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices_from(leaves, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index(TypeOfTree& tree,
+                                    const std::vector<LeafValueType>& leaves,
+                                    block_number_t blockNumber,
+                                    const std::vector<std::optional<index_t>>& expected_indices,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_indices, expected_indices);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices(leaves, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index_from(TypeOfTree& tree,
+                                         const std::vector<LeafValueType>& leaves,
+                                         block_number_t blockNumber,
+                                         index_t start_index,
+                                         const std::vector<std::optional<index_t>>& expected_indices,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(response.inner.leaf_indices, expected_indices);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_indices_from(leaves, start_index, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index(TypeOfTree& tree,
+                           const LeafValueType& leaf,
+                           index_t expected_index,
+                           bool expected_success,
+                           bool includeUncommitted = true)
+{
+    check_find_leaf_index<LeafValueType, TypeOfTree>(
+        tree, { leaf }, { std::make_optional(expected_index) }, expected_success, includeUncommitted);
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index_from(TypeOfTree& tree,
+                                const LeafValueType& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    check_find_leaf_index_from<LeafValueType, TypeOfTree>(
+        tree, { leaf }, start_index, { std::make_optional(expected_index) }, expected_success, includeUncommitted);
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index(TypeOfTree& tree,
+                                    const LeafValueType& leaf,
+                                    block_number_t blockNumber,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    check_historic_find_leaf_index<LeafValueType, TypeOfTree>(
+        tree, { leaf }, blockNumber, { std::make_optional(expected_index) }, expected_success, includeUncommitted);
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index_from(TypeOfTree& tree,
+                                         const LeafValueType& leaf,
+                                         block_number_t blockNumber,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    check_historic_find_leaf_index_from<LeafValueType, TypeOfTree>(tree,
+                                                                   { leaf },
+                                                                   blockNumber,
+                                                                   start_index,
+                                                                   { std::make_optional(expected_index) },
+                                                                   expected_success,
+                                                                   includeUncommitted);
 }
 
 } // namespace bb::crypto::merkle_tree

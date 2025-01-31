@@ -25,6 +25,14 @@ export class PrivateKernelInitCircuitPrivateInputs {
      * Private calldata corresponding to this iteration of the kernel.
      */
     public privateCall: PrivateCallData,
+    /**
+     * Wether this tx will make public calls or not.
+     */
+    public isPrivateOnly: boolean,
+    /**
+     * A hint to what will be the first nullifier of the transaction, used for nonce generation.
+     */
+    public firstNullifierHint: Fr,
   ) {}
 
   /**
@@ -32,7 +40,13 @@ export class PrivateKernelInitCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.vkTreeRoot, this.protocolContractTreeRoot, this.privateCall);
+    return serializeToBuffer(
+      this.txRequest,
+      this.vkTreeRoot,
+      this.protocolContractTreeRoot,
+      this.privateCall,
+      this.firstNullifierHint,
+    );
   }
 
   /**
@@ -47,6 +61,8 @@ export class PrivateKernelInitCircuitPrivateInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
+      reader.readBoolean(),
+      Fr.fromBuffer(reader),
     );
   }
 }

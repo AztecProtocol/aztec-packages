@@ -1,3 +1,4 @@
+import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
@@ -13,6 +14,10 @@ export default (_, argv) => ({
   module: {
     rules: [
       {
+        test: /\.gz$/,
+        type: 'asset/resource',
+      },
+      {
         test: /\.tsx?$/,
         use: 'ts-loader',
       },
@@ -23,8 +28,17 @@ export default (_, argv) => ({
     ],
   },
   plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          context: '../../../barretenberg/ts/dest/browser',
+          from: '*.gz',
+        },
+      ],
+    }),
     new HtmlWebpackPlugin({
       template: './index.html',
+      scriptLoading: 'module',
     }),
     new webpack.DefinePlugin({
       'process.env': {
@@ -42,6 +56,7 @@ export default (_, argv) => ({
       os: false,
       fs: false,
       path: false,
+      tty: false,
       url: false,
       worker_threads: false,
       events: require.resolve('events/'),
@@ -53,7 +68,7 @@ export default (_, argv) => ({
   },
   devServer: {
     port: 5173,
-    historyApiFallback: true,
     open: true,
+    historyApiFallback: true,
   },
 });

@@ -10,7 +10,7 @@ contract GetSnapshotTest is RegistryBase {
     _;
   }
 
-  function test_When_versionExists() external givenMultipleListedRollups {
+  function test_When_versionExists() external view givenMultipleListedRollups {
     // it should return the snapshot
 
     DataStructures.RegistrySnapshot memory snapshot = registry.getSnapshot(0);
@@ -19,7 +19,11 @@ contract GetSnapshotTest is RegistryBase {
     assertEq(registry.numberOfVersions(), 1);
   }
 
-  function test_When_versionDoesNotExists(uint256 _version) external givenMultipleListedRollups {
+  function test_When_versionDoesNotExists(uint256 _version)
+    external
+    view
+    givenMultipleListedRollups
+  {
     // it should return empty snapshot
 
     uint256 version = bound(_version, 1, type(uint256).max);

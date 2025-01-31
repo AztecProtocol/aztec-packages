@@ -1,4 +1,4 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
@@ -13,7 +13,7 @@ import { type Delayer, withDelayer } from './tx_delayer.js';
 describe('tx_delayer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let logger: DebugLogger;
+  let logger: Logger;
   let account: PrivateKeyAccount;
   let client: ViemClient;
   let delayer: Delayer;
@@ -22,7 +22,7 @@ describe('tx_delayer', () => {
 
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await startAnvil(ETHEREUM_SLOT_DURATION));
-    logger = createDebugLogger('aztec:ethereum:test:tx_delayer');
+    logger = createLogger('ethereum:test:tx_delayer');
   });
 
   beforeEach(() => {
@@ -72,7 +72,11 @@ describe('tx_delayer', () => {
   }, 20000);
 
   it('delays a tx sent through a contract', async () => {
-    const deployTxHash = await client.deployContract({ abi: TestERC20Abi, bytecode: TestERC20Bytecode, args: [] });
+    const deployTxHash = await client.deployContract({
+      abi: TestERC20Abi,
+      bytecode: TestERC20Bytecode,
+      args: ['test', 'TST', account.address],
+    });
     const { contractAddress, blockNumber } = await client.waitForTransactionReceipt({
       hash: deployTxHash,
       pollingInterval: 100,

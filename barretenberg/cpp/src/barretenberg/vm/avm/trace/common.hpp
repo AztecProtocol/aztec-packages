@@ -11,7 +11,7 @@
 
 namespace bb::avm_trace {
 
-using FF = AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
 template <typename FF_>
@@ -48,16 +48,6 @@ enum class AvmMemoryTag : uint32_t {
 };
 
 static const uint32_t MAX_MEM_TAG = MEM_TAG_U128;
-
-enum class AvmError : uint32_t {
-    NO_ERROR,
-    TAG_ERROR,
-    ADDR_RES_ERROR,
-    DIV_ZERO,
-    PARSING_ERROR,
-    ENV_VAR_UNKNOWN,
-    CONTRACT_INST_MEM_UNKNOWN
-};
 
 static const size_t NUM_MEM_SPACES = 256;
 static const uint8_t INTERNAL_CALL_SPACE_ID = 255;

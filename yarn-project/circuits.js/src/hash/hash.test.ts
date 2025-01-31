@@ -1,5 +1,6 @@
 import { times } from '@aztec/foundation/collection';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress, EthAddress, Fr, L2ToL1Message, ScopedL2ToL1Message } from '../index.js';
 import { makeAztecAddress } from '../tests/factories.js';
@@ -18,31 +19,31 @@ import {
 describe('hash', () => {
   setupCustomSnapshotSerializers(expect);
 
-  it('computes note hash nonce', () => {
+  it('computes note hash nonce', async () => {
     const nullifierZero = new Fr(123n);
     const noteHashIndex = 456;
-    const res = computeNoteHashNonce(nullifierZero, noteHashIndex);
+    const res = await computeNoteHashNonce(nullifierZero, noteHashIndex);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes unique note hash', () => {
+  it('computes unique note hash', async () => {
     const nonce = new Fr(123n);
     const noteHash = new Fr(456);
-    const res = computeUniqueNoteHash(nonce, noteHash);
+    const res = await computeUniqueNoteHash(nonce, noteHash);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes siloed note hash', () => {
+  it('computes siloed note hash', async () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const uniqueNoteHash = new Fr(456);
-    const res = siloNoteHash(contractAddress, uniqueNoteHash);
+    const res = await siloNoteHash(contractAddress, uniqueNoteHash);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes siloed nullifier', () => {
+  it('computes siloed nullifier', async () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const innerNullifier = new Fr(456);
-    const res = siloNullifier(contractAddress, innerNullifier);
+    const res = await siloNullifier(contractAddress, innerNullifier);
     expect(res).toMatchSnapshot();
   });
 
@@ -52,39 +53,39 @@ describe('hash', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes public data tree leaf slot', () => {
+  it('computes public data tree leaf slot', async () => {
     const contractAddress = makeAztecAddress();
     const value = new Fr(3n);
-    const res = computePublicDataTreeLeafSlot(contractAddress, value);
+    const res = await computePublicDataTreeLeafSlot(contractAddress, value);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes empty function args', () => {
-    const res = computeVarArgsHash([]);
+  it('hashes empty function args', async () => {
+    const res = await computeVarArgsHash([]);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes function args', () => {
+  it('hashes function args', async () => {
     const args = times(8, i => new Fr(i));
-    const res = computeVarArgsHash(args);
+    const res = await computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes many function args', () => {
+  it('hashes many function args', async () => {
     const args = times(200, i => new Fr(i));
-    const res = computeVarArgsHash(args);
+    const res = await computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
   });
 
-  it('compute secret message hash', () => {
+  it('compute secret message hash', async () => {
     const value = new Fr(8n);
-    const hash = computeSecretHash(value);
+    const hash = await computeSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 
-  it('Var args hash matches noir', () => {
+  it('Var args hash matches noir', async () => {
     const args = times(100, i => new Fr(i));
-    const res = computeVarArgsHash(args);
+    const res = await computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
 
     // Value used in "compute_var_args_hash" test in hash.nr

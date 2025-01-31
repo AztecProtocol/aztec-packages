@@ -2,7 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {FeeMath, OracleInput} from "@aztec/core/libraries/FeeMath.sol";
+import {
+  FeeMath,
+  OracleInput,
+  MANA_TARGET,
+  L1_GAS_PER_BLOCK_PROPOSED,
+  L1_GAS_PER_EPOCH_VERIFIED,
+  MINIMUM_CONGESTION_MULTIPLIER
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Timestamp, TimeFns, Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
@@ -60,19 +67,17 @@ contract MinimalFeeModel is TimeFns {
     returns (ManaBaseFeeComponents memory)
   {
     L1Fees memory fees = getCurrentL1Fees();
-    uint256 dataCost = Math.mulDiv(
-      _blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil
-    );
-    uint256 gasUsed = FeeMath.L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
-      + FeeMath.L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
-    uint256 gasCost = Math.mulDiv(gasUsed, fees.base_fee, FeeMath.MANA_TARGET, Math.Rounding.Ceil);
+    uint256 dataCost =
+      Math.mulDiv(_blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, MANA_TARGET, Math.Rounding.Ceil);
+    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
+      + L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
+    uint256 gasCost = Math.mulDiv(gasUsed, fees.base_fee, MANA_TARGET, Math.Rounding.Ceil);
     uint256 provingCost = getProvingCost();
 
     uint256 congestionMultiplier = FeeMath.congestionMultiplier(calcExcessMana());
 
     uint256 total = dataCost + gasCost + provingCost;
-    uint256 congestionCost =
-      (total * congestionMultiplier / FeeMath.MINIMUM_CONGESTION_MULTIPLIER) - total;
+    uint256 congestionCost = (total * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER) - total;
 
     uint256 feeAssetPrice = _inFeeAsset ? getFeeAssetPrice() : 1e9;
 
@@ -91,7 +96,7 @@ contract MinimalFeeModel is TimeFns {
 
   function calcExcessMana() internal view returns (uint256) {
     FeeHeader storage parent = feeHeaders[populatedThrough];
-    return (parent.excess_mana + parent.mana_used).clampedAdd(-int256(FeeMath.MANA_TARGET));
+    return (parent.excess_mana + parent.mana_used).clampedAdd(-int256(MANA_TARGET));
   }
 
   function addSlot(OracleInput memory _oracleInput) public {

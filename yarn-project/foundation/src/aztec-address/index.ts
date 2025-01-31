@@ -2,6 +2,7 @@
 import { inspect } from 'util';
 
 import { Fr, Point, fromBuffer } from '../fields/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { type BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 import { hexToBuffer } from '../string/index.js';
@@ -74,11 +75,11 @@ export class AztecAddress {
   /**
    * @returns a random valid address (i.e. one that can be encrypted to).
    */
-  static random() {
+  static async random() {
     // About half of random field elements result in invalid addresses, so we loop until we get a valid one.
     while (true) {
       const candidate = new AztecAddress(Fr.random());
-      if (candidate.isValid()) {
+      if (await candidate.isValid()) {
         return candidate;
       }
     }
@@ -99,20 +100,20 @@ export class AztecAddress {
   /**
    * @returns true if the address is valid. Invalid addresses cannot receive encrypted messages.
    */
-  isValid() {
+  async isValid() {
     // An address is a field value (Fr), which for some purposes is assumed to be the x coordinate of a point in the
     // Grumpkin curve (notably in order to encrypt to it). An address that is not the x coordinate of such a point is
     // called an 'invalid' address.
     //
     // For Grumpkin, y^2 = x^3 − 17 . There exist values x ∈ Fr for which no y satisfies this equation. This means that
     // given such an x and t = x^3 − 17, then sqrt(t) does not exist in Fr.
-    return Point.YFromX(this.xCoord) !== null;
+    return (await Point.YFromX(this.xCoord)) !== null;
   }
 
   /**
    * @returns the Point from which the address is derived. Throws if the address is invalid.
    */
-  toAddressPoint() {
+  toAddressPoint(): Promise<Point> {
     return Point.fromXAndSign(this.xCoord, true);
   }
 
@@ -133,10 +134,11 @@ export class AztecAddress {
   }
 
   toJSON() {
-    return {
-      type: 'AztecAddress',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(AztecAddress, AztecAddress.isAddress);
   }
 }
 

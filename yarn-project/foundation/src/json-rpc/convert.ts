@@ -8,8 +8,8 @@ import { type ZodFor } from '../schemas/types.js';
  * @param schema - Zod schema.
  * @returns Result of parsing json with schema.
  */
-export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): T {
-  return schema.parse(JSON.parse(json));
+export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): Promise<T> {
+  return schema.parseAsync(JSON.parse(json));
 }
 
 /**
@@ -23,7 +23,9 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
     (_key, value) => {
       if (typeof value === 'bigint') {
         return value.toString();
-      } else if (typeof value === 'object' && Buffer.isBuffer(value)) {
+      } else if (typeof value === 'object' && value && value.type === 'Buffer' && Array.isArray(value.data)) {
+        return Buffer.from(value.data).toString('base64');
+      } else if (typeof value === 'object' && value && Buffer.isBuffer(value)) {
         return value.toString('base64');
       } else if (typeof value === 'object' && value instanceof Map) {
         return Array.from(value.entries());

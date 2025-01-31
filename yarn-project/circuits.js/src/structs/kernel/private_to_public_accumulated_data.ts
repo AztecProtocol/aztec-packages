@@ -1,21 +1,28 @@
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { LogHash, ScopedLogHash } from '../log_hash.js';
+import { ScopedLogHash } from '../log_hash.js';
+import { PrivateLog } from '../private_log.js';
 import { PublicCallRequest } from '../public_call_request.js';
 
 export class PrivateToPublicAccumulatedData {
@@ -23,8 +30,7 @@ export class PrivateToPublicAccumulatedData {
     public readonly noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
     public readonly nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     public readonly l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
-    public readonly noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    public readonly encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public readonly privateLogs: Tuple<PrivateLog, typeof MAX_PRIVATE_LOGS_PER_TX>,
     public readonly contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     public readonly publicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
   ) {}
@@ -34,8 +40,7 @@ export class PrivateToPublicAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
-      arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
-      arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.privateLogs) +
       arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.publicCallRequests)
     );
@@ -46,8 +51,7 @@ export class PrivateToPublicAccumulatedData {
       fields.noteHashes,
       fields.nullifiers,
       fields.l2ToL1Msgs,
-      fields.noteEncryptedLogsHashes,
-      fields.encryptedLogsHashes,
+      fields.privateLogs,
       fields.contractClassLogsHashes,
       fields.publicCallRequests,
     ] as const;
@@ -59,8 +63,7 @@ export class PrivateToPublicAccumulatedData {
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
@@ -76,8 +79,7 @@ export class PrivateToPublicAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
@@ -87,13 +89,22 @@ export class PrivateToPublicAccumulatedData {
     return serializeToBuffer(...PrivateToPublicAccumulatedData.getFields(this));
   }
 
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateToPublicAccumulatedData.getFields(this));
+    if (fields.length !== PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateToPublicAccumulatedData. Expected ${PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
   static empty() {
     return new PrivateToPublicAccumulatedData(
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
     );
@@ -113,11 +124,7 @@ export class PrivateToPublicAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      noteEncryptedLogsHashes: [${this.noteEncryptedLogsHashes
-        .filter(x => !x.isEmpty())
-        .map(h => inspect(h))
-        .join(', ')}],
-      encryptedLogsHashes: [${this.encryptedLogsHashes
+      privateLogs: [${this.privateLogs
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
         .join(', ')}],

@@ -2,7 +2,7 @@ use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     keys::getters::get_public_keys,
     note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
@@ -13,7 +13,9 @@ use dep::aztec::{
     state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
+use std::meta::derive;
 
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -32,12 +34,6 @@ impl FromField for Card {
 impl ToField for Card {
     fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field) * 65536
-    }
-}
-
-impl Serialize<2> for Card {
-    fn serialize(self) -> [Field; 2] {
-        [self.strength as Field, self.points as Field]
     }
 }
 
@@ -109,14 +105,11 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
-
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
             self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
-                msg_sender_ovpk_m,
                 owner,
                 self.set.context.msg_sender(),
             ));
@@ -150,7 +143,7 @@ impl Deck<UnconstrainedContext> {
     }
 }
 
-global PACK_CARDS = 3; // Limited by number of write requests (max 4)
+global PACK_CARDS: u32 = 3; // Limited by number of write requests (max 4)
 
 pub fn get_pack_cards(
     seed: Field,
@@ -163,7 +156,7 @@ pub fn get_pack_cards(
     let secret = context.request_nsk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes();
-    let random_bytes = std::hash::sha256(mix_bytes);
+    let random_bytes = sha256::digest(mix_bytes);
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards

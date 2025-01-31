@@ -1,10 +1,9 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
   deriveKeys,
@@ -12,14 +11,13 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
-import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
-  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: CompleteAddress[] = [];
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let token: TokenContract;
@@ -28,23 +26,23 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   const numAccounts = 3;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, pxe, logger } = await setup(0));
+    ({ teardown, pxe, logger } = await setup(0));
 
     const encryptionPrivateKey = Fr.random();
 
     for (let i = 0; i < numAccounts; i++) {
       logger.info(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = GrumpkinScalar.random();
-      const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
+      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitSetup({ interval: 0.1 });
-      const completeAddress = account.getCompleteAddress();
+      const completeAddress = await account.getCompleteAddress();
       wallets.push(wallet);
       accounts.push(completeAddress);
     }
     logger.info('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
+    const encryptionPublicKey = (await deriveKeys(encryptionPrivateKey)).publicKeys.masterIncomingViewingPublicKey;
 
     for (const account of accounts) {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
@@ -73,8 +71,6 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectTokenBalance(wallets[i], token, wallets[i].getAddress(), expectedBalances[i], logger);
     }
-
-    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };

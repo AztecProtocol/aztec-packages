@@ -8,22 +8,27 @@ import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
-import { mockGetContractInstance } from '../test_utils.js';
+import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
-  const address = AztecAddress.random();
-  const contractInstance = SerializableContractInstance.random();
-  const deployer = contractInstance.deployer;
-  const contractClassId = contractInstance.contractClassId;
-  const initializationHash = contractInstance.initializationHash;
+  let address: AztecAddress;
+  let contractInstance: SerializableContractInstance;
+  let deployer: AztecAddress;
+  let contractClassId: Fr;
+  let initializationHash: Fr;
 
   let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
+    contractInstance = await SerializableContractInstance.random();
+    deployer = contractInstance.deployer;
+    contractClassId = contractInstance.contractClassId;
+    initializationHash = contractInstance.initializationHash;
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
@@ -35,17 +40,17 @@ describe('Contract opcodes', () => {
       const buf = Buffer.from([
         GetContractInstance.opcode, // opcode
         0x01, // indirect
-        0x02, // memberEnum (immediate)
         ...Buffer.from('1234', 'hex'), // addressOffset
         ...Buffer.from('a234', 'hex'), // dstOffset
         ...Buffer.from('b234', 'hex'), // existsOffset
+        0x02, // memberEnum (immediate)
       ]);
       const inst = new GetContractInstance(
         /*indirect=*/ 0x01,
-        /*memberEnum=*/ 0x02,
         /*addressOffset=*/ 0x1234,
         /*dstOffset=*/ 0xa234,
         /*existsOffset=*/ 0xb234,
+        /*memberEnum=*/ 0x02,
       );
 
       expect(GetContractInstance.deserialize(buf)).toEqual(inst);
@@ -53,20 +58,22 @@ describe('Contract opcodes', () => {
     });
 
     describe.each([
-      [ContractInstanceMember.DEPLOYER, deployer.toField()],
-      [ContractInstanceMember.CLASS_ID, contractClassId.toField()],
-      [ContractInstanceMember.INIT_HASH, initializationHash.toField()],
-    ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, value: Fr) => {
+      [ContractInstanceMember.DEPLOYER, () => deployer.toField()],
+      [ContractInstanceMember.CLASS_ID, () => contractClassId.toField()],
+      [ContractInstanceMember.INIT_HASH, () => initializationHash.toField()],
+    ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
+        const value = valueGetter();
         mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+        mockNullifierExists(worldStateDB, address.toField());
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
           /*indirect=*/ 0,
-          memberEnum,
           /*addressOffset=*/ 0,
           /*dstOffset=*/ 1,
           /*existsOffset=*/ 2,
+          memberEnum,
         ).execute(context);
 
         // value should be right
@@ -95,10 +102,10 @@ describe('Contract opcodes', () => {
           context.machineState.memory.set(0, new Field(address.toField()));
           await new GetContractInstance(
             /*indirect=*/ 0,
-            memberEnum,
             /*addressOffset=*/ 0,
             /*dstOffset=*/ 1,
             /*existsOffset=*/ 2,
+            memberEnum,
           ).execute(context);
 
           // value should be 0
@@ -121,10 +128,10 @@ describe('Contract opcodes', () => {
       const invalidEnum = 255;
       const instruction = new GetContractInstance(
         /*indirect=*/ 0,
-        /*memberEnum=*/ invalidEnum,
         /*addressOffset=*/ 0,
         /*dstOffset=*/ 1,
         /*existsOffset=*/ 2,
+        /*memberEnum=*/ invalidEnum,
       );
       await expect(instruction.execute(context)).rejects.toThrow(
         `Invalid GETCONSTRACTINSTANCE member enum ${invalidEnum}`,

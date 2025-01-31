@@ -22,6 +22,7 @@ namespace bb::crypto::merkle_tree {
 class LMDBTreeWriteTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBTreeWriteTransaction>;
+    using SharedPtr = std::shared_ptr<LMDBTreeWriteTransaction>;
 
     LMDBTreeWriteTransaction(LMDBEnvironment::SharedPtr env);
     LMDBTreeWriteTransaction(const LMDBTreeWriteTransaction& other) = delete;
@@ -32,7 +33,11 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 
     template <typename T> void put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
 
+    template <typename T> void put_value(T& key, const index_t& data, const LMDBDatabase& db);
+
     void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
+
+    void put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db);
 
     template <typename T> void delete_value(T& key, const LMDBDatabase& db);
 
@@ -51,7 +56,13 @@ template <typename T>
 void LMDBTreeWriteTransaction::put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
-    lmdb_queries::put_value(keyBuffer, data, db, *this);
+    put_value(keyBuffer, data, db);
+}
+
+template <typename T> void LMDBTreeWriteTransaction::put_value(T& key, const index_t& data, const LMDBDatabase& db)
+{
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    put_value(keyBuffer, data, db);
 }
 
 template <typename T> void LMDBTreeWriteTransaction::delete_value(T& key, const LMDBDatabase& db)

@@ -1,1 +1,1 @@
-barretenberg_module(ultra_honk sumcheck)
+barretenberg_module(ultra_honk sumcheck stdlib_primitives stdlib_keccak stdlib_sha256)

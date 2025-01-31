@@ -7,7 +7,7 @@ namespace examples::simple {
 
 TEST(examples_simple, create_proof)
 {
-    auto srs_path = std::filesystem::absolute("../srs_db/ignition");
+    auto srs_path = std::filesystem::absolute(bb::srs::get_ignition_crs_path());
     srs::init_crs_factory(srs_path);
     auto ptrs = create_builder_and_composer();
     auto proof = create_proof(ptrs);

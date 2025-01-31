@@ -1,5 +1,6 @@
 import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
-import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
+import { AvmInitializerTestContract } from '@aztec/noir-contracts.js/AvmInitializerTest';
+import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
@@ -63,7 +64,9 @@ describe('e2e_avm_simulator', () => {
 
     describe('From private', () => {
       it('Should enqueue a public function correctly', async () => {
-        await avmContract.methods.enqueue_public_from_private().simulate();
+        const request = await avmContract.methods.enqueue_public_from_private().create();
+        const simulation = await wallet.simulateTx(request, true);
+        expect(simulation.publicOutput!.revertReason).toBeUndefined();
       });
     });
 
@@ -99,8 +102,8 @@ describe('e2e_avm_simulator', () => {
         const address = AztecAddress.fromBigInt(9090n);
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          avmContract.methods.set_storage_map(address, 100).request(),
-          avmContract.methods.add_storage_map(address, 100).request(),
+          await avmContract.methods.set_storage_map(address, 100).request(),
+          await avmContract.methods.add_storage_map(address, 100).request(),
         ])
           .send()
           .wait();
@@ -146,8 +149,8 @@ describe('e2e_avm_simulator', () => {
 
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          avmContract.methods.new_nullifier(nullifier).request(),
-          avmContract.methods.assert_nullifier_exists(nullifier).request(),
+          await avmContract.methods.new_nullifier(nullifier).request(),
+          await avmContract.methods.assert_nullifier_exists(nullifier).request(),
         ])
           .send()
           .wait();
@@ -155,11 +158,6 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Nested calls', () => {
-      it('Top-level call to non-existent contract reverts', async () => {
-        // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
-        const tx = await avmContract.methods.nested_call_to_nothing_recovers().send().wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
-      });
       it('Nested call to non-existent contract reverts & rethrows by default', async () => {
         // The nested call reverts and by default caller rethrows
         await expect(avmContract.methods.nested_call_to_nothing().send().wait()).rejects.toThrow(/No bytecode/);

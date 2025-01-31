@@ -99,7 +99,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
-    let fn_name_str = fn_name.as_str_quote();
+    let (fn_name_str, _) = fn_name.as_str_quote();
 
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
 

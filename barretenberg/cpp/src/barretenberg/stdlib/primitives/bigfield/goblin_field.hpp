@@ -2,6 +2,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -120,6 +121,14 @@ template <class Builder> class goblin_field {
 
     // done in the translator circuit
     void assert_is_in_field(){};
+
+    OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
+
+    void set_origin_tag(const OriginTag& tag)
+    {
+        limbs[0].set_origin_tag(tag);
+        limbs[1].set_origin_tag(tag);
+    }
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)
 {

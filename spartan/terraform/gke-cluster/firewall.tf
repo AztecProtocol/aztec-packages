@@ -8,7 +8,7 @@ resource "google_compute_firewall" "udp_ingress" {
   }
   direction     = "INGRESS"
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["gke-node"]
+  target_tags   = ["aztec-gke-node"]
 }
 
 # Create egress firewall rules for UDP
@@ -21,7 +21,7 @@ resource "google_compute_firewall" "udp_egress" {
   }
   direction          = "EGRESS"
   destination_ranges = ["0.0.0.0/0"]
-  target_tags        = ["gke-node"]
+  target_tags        = ["aztec-gke-node"]
 }
 
 # Create ingress firewall rules for TCP
@@ -34,7 +34,7 @@ resource "google_compute_firewall" "tcp_ingress" {
   }
   direction     = "INGRESS"
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["gke-node"]
+  target_tags   = ["aztec-gke-node"]
 }
 
 # Create egress firewall rules for TCP
@@ -47,5 +47,5 @@ resource "google_compute_firewall" "tcp_egress" {
   }
   direction          = "EGRESS"
   destination_ranges = ["0.0.0.0/0"]
-  target_tags        = ["gke-node"]
+  target_tags        = ["aztec-gke-node"]
 }

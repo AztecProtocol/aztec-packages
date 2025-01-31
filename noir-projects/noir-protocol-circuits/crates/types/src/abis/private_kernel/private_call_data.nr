@@ -1,7 +1,9 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
+    constants::{
+        FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
+    },
     merkle_tree::membership::MembershipWitness,
     proof::verification_key::ClientIVCVerificationKey,
     public_keys::PublicKeys,
@@ -20,6 +22,18 @@ pub struct PrivateCallData {
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
     pub acir_hash: Field,
+}
+
+impl PrivateCallData {
+    pub fn verify(self, is_first_app: bool) {
+        let proof_type = if is_first_app {
+            PROOF_TYPE_OINK
+        } else {
+            PROOF_TYPE_PG
+        };
+        // Client IVC public inputs are linked in the backend via the databus
+        std::verify_proof_with_type(self.vk.key, [], [], 0, proof_type);
+    }
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {

@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Uniswap {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
@@ -25,7 +25,7 @@ contract Uniswap {
 
     #[storage]
     struct Storage<Context> {
-        portal_address: SharedImmutable<EthAddress, Context>,
+        portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     #[public]
@@ -40,13 +40,13 @@ contract Uniswap {
     fn swap_public(
         sender: AztecAddress,
         input_asset_bridge: AztecAddress,
-        input_amount: Field,
+        input_amount: U128,
         output_asset_bridge: AztecAddress,
         // params for using the transfer approval
         nonce_for_transfer_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field,
-        minimum_output_amount: Field,
+        minimum_output_amount: U128,
         // params for the depositing output_asset back to Aztec
         recipient: AztecAddress,
         secret_hash_for_L1_to_l2_message: Field,
@@ -104,7 +104,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_public(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_public
 
@@ -113,13 +113,13 @@ contract Uniswap {
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress,
-        input_amount: Field,
+        input_amount: U128,
         output_asset_bridge: AztecAddress,
         // params for using the transfer_to_public approval
         nonce_for_transfer_to_public_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
-        minimum_output_amount: Field, // minimum output amount to receive (slippage protection for the swap)
+        minimum_output_amount: U128, // minimum output amount to receive (slippage protection for the swap)
         // params for the depositing output_asset back to Aztec
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -174,7 +174,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_private(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_private
 
@@ -189,26 +189,27 @@ contract Uniswap {
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,
         token_bridge: AztecAddress,
-        amount: Field,
+        amount: U128,
     ) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;
 
         let selector = FunctionSelector::from_signature("burn_public((Field),Field,Field)");
+        let serialized_amount = amount.serialize();
         let message_hash = compute_authwit_message_hash_from_call(
             token_bridge,
             token,
             context.chain_id(),
             context.version(),
             selector,
-            [context.this_address().to_field(), amount, nonce],
+            [context.this_address().to_field(), serialized_amount[0], serialized_amount[1], nonce],
         );
 
         // We need to make a call to update it.
         set_authorized(&mut context, message_hash, true);
 
-        let this_portal_address = storage.portal_address.read_public();
+        let this_portal_address = storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge)
             .exit_to_l1_public(this_portal_address, amount, this_portal_address, nonce)

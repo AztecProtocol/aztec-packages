@@ -18,7 +18,10 @@ In the end a siloed note hash is computed in the kernel.
 Some of the syntax below is a little butchered to make it easier to follow variables without the full code.
 :::
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 sequenceDiagram
     alt Call
     Token->>BalanceMap: Map::new(map_slot);
@@ -37,6 +40,7 @@ sequenceDiagram
     end
     Context->>Kernel: unique_note_hash = H(nonce, note_hash)
     Context->>Kernel: siloed_note_hash = H(contract_address, unique_note_hash)
+</Mermaid>
 ```
 
 Notice the `siloed_note_hash` at the very end. It's a hash that will be inserted into the note hashes tree. To clarify what this really is, we "unroll" the values to their simplest components. This gives us a better idea around what is actually inserted into the tree.

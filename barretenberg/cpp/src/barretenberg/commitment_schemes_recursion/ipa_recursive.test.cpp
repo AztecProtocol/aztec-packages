@@ -91,7 +91,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     void test_fixed_ipa_recursive_verifier()
     {
 
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 
         Builder builder_1(build_ipa_recursive_verifier_circuit(1 << 10));
         Builder builder_2(build_ipa_recursive_verifier_circuit(1 << 11));
@@ -160,6 +160,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         // polynomial.
         auto [output_claim, ipa_proof] =
             RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+        builder.add_ipa_claim(output_claim.get_witness_indices());
+        builder.ipa_proof = ipa_proof;
         builder.finalize_circuit(/*ensure_nonzero=*/false);
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
              builder.get_num_finalized_gates());
@@ -230,4 +232,104 @@ TEST_F(IPARecursiveTests, AccumulateMedium)
 TEST_F(IPARecursiveTests, ConstantVerifier)
 {
     test_fixed_ipa_recursive_verifier();
+}
+
+TEST_F(IPARecursiveTests, FullRecursiveVerifier)
+{
+    const size_t POLY_LENGTH = 1024;
+    Builder builder;
+    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
+
+    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
+    EXPECT_TRUE(result);
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    info("Full IPA Recursive Verifier num finalized gates for length ",
+         POLY_LENGTH,
+         " = ",
+         builder.get_num_finalized_gates());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
+{
+    const size_t POLY_LENGTH = 1024;
+
+    // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
+    // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
+    // contain the commitment and an opening claim.
+    Builder builder;
+
+    auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH);
+    auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH);
+
+    // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
+    // polynomial.
+    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    builder.add_ipa_claim(output_claim.get_witness_indices());
+    builder.ipa_proof = ipa_proof;
+    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
+         builder.get_num_finalized_gates());
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    Builder root_rollup;
+    // Fully recursively verify this proof to check it.
+    auto stdlib_pcs_vkey =
+        std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, 1 << CONST_ECCVM_LOG_N, this->vk());
+    auto stdlib_verifier_transcript =
+        std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
+    OpeningClaim<Curve> ipa_claim;
+    ipa_claim.opening_pair.challenge =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());
+    ipa_claim.opening_pair.evaluation =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.evaluation.get_value());
+    ipa_claim.commitment = Curve::AffineElement::from_witness(&root_rollup, output_claim.commitment.get_value());
+    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, ipa_claim, stdlib_verifier_transcript);
+    root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
+    EXPECT_TRUE(result);
+    info("Full IPA Recursive Verifier num finalized gates for length ",
+         1 << CONST_ECCVM_LOG_N,
+         " = ",
+         root_rollup.get_num_finalized_gates());
+}
+
+/**
+ * @brief Test accumulation of IPA claims with different polynomial lengths
+ *
+ */
+TEST_F(IPARecursiveTests, AccumulationWithDifferentSizes)
+{
+    // We create a circuit that does two IPA verifications of different sizes. However, we don't do the full
+    // verifications and instead accumulate the claims into one claim. This accumulation is done in circuit. Create two
+    // accumulators, which contain the commitment and an opening claim.
+    const size_t POLY_LENGTH_1 = 16;
+    const size_t POLY_LENGTH_2 = 32;
+    Builder builder;
+
+    auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH_1);
+    auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH_2);
+
+    // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
+    // polynomial.
+    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    builder.add_ipa_claim(output_claim.get_witness_indices());
+    builder.ipa_proof = ipa_proof;
+    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
+         builder.get_num_finalized_gates());
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
+                                                 bb::fq(output_claim.opening_pair.evaluation.get_value()) };
+    Commitment native_comm = output_claim.commitment.get_value();
+    const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
+
+    // Natively verify this proof to check it.
+    auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
+
+    auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result);
 }

@@ -1,3 +1,6 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+
+import { L2BlockHash } from './block_hash.js';
 import { TxHash } from './tx_hash.js';
 import { TxReceipt, TxStatus } from './tx_receipt.js';
 
@@ -8,16 +11,16 @@ describe('TxReceipt', () => {
       TxStatus.SUCCESS,
       'error',
       BigInt(1),
-      Buffer.from('blockHash'),
+      L2BlockHash.random(),
       undefined,
     );
 
-    expect(TxReceipt.fromJSON(receipt.toJSON())).toEqual(receipt);
+    expect(TxReceipt.schema.parse(JSON.parse(jsonStringify(receipt)))).toEqual(receipt);
   });
 
   it('serializes and deserializes from json with undefined fields', () => {
     const receipt = new TxReceipt(TxHash.random(), TxStatus.DROPPED, 'error', undefined, undefined, undefined);
 
-    expect(TxReceipt.fromJSON(receipt.toJSON())).toEqual(receipt);
+    expect(TxReceipt.schema.parse(JSON.parse(jsonStringify(receipt)))).toEqual(receipt);
   });
 });

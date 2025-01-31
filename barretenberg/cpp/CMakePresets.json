@@ -223,7 +223,8 @@
       "binaryDir": "build-gcc",
       "environment": {
         "CC": "gcc",
-        "CXX": "g++"
+        "CXX": "g++",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -233,7 +234,8 @@
       "inherits": "default",
       "environment": {
         "CC": "gcc-10",
-        "CXX": "g++-10"
+        "CXX": "g++-10",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -243,7 +245,8 @@
       "inherits": "default",
       "environment": {
         "CC": "gcc-13",
-        "CXX": "g++-13"
+        "CXX": "g++-13",
+        "CXXFLAGS": "-Wno-missing-field-initializers"
       }
     },
     {
@@ -268,7 +271,7 @@
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
       "inherits": "clang16-dbg",
-      "binaryDir": "build-fuzzing",
+      "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "FUZZING": "ON",
         "ENABLE_ASAN": "ON",

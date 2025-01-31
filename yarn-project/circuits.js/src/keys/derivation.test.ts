@@ -1,39 +1,38 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { PublicKeys } from '../types/public_keys.js';
 import { computeAddress, computePreaddress } from './derivation.js';
 
 describe('🔑', () => {
-  it('computing public keys hash matches Noir', () => {
+  it('computing public keys hash matches Noir', async () => {
     const masterNullifierPublicKey = new Point(new Fr(1), new Fr(2), false);
     const masterIncomingViewingPublicKey = new Point(new Fr(3), new Fr(4), false);
     const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6), false);
     const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8), false);
 
-    const expected = Fr.fromString('0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad');
-    expect(
-      new PublicKeys(
-        masterNullifierPublicKey,
-        masterIncomingViewingPublicKey,
-        masterOutgoingViewingPublicKey,
-        masterTaggingPublicKey,
-      ).hash(),
-    ).toEqual(expected);
+    const expected = Fr.fromHexString('0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad');
+    const publicKeysHash = await new PublicKeys(
+      masterNullifierPublicKey,
+      masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+    ).hash();
+    expect(publicKeysHash).toEqual(expected);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/keys/public_keys.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/public_keys.nr',
       'expected_public_keys_hash',
       expected.toString(),
     );
   });
 
-  it('Pre address from partial matches Noir', () => {
+  it('Pre address from partial matches Noir', async () => {
     const publicKeysHash = new Fr(1n);
     const partialAddress = new Fr(2n);
-    const address = computePreaddress(publicKeysHash, partialAddress).toString();
-    expect(address).toMatchSnapshot();
+    const address = await computePreaddress(publicKeysHash, partialAddress);
+    expect(address.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -43,7 +42,7 @@ describe('🔑', () => {
     );
   });
 
-  it('Address matches Noir', () => {
+  it('Address matches Noir', async () => {
     const npkM = Point.fromString(
       '0x22f7fcddfa3ce3e8f0cc8e82d7b94cdd740afa3e77f8e4a63ea78a239432dcab0471657de2b6216ade6c506d28fbc22ba8b8ed95c871ad9f3e3984e90d9723a7',
     );
@@ -59,9 +58,9 @@ describe('🔑', () => {
 
     const publicKeys = new PublicKeys(npkM, ivpkM, ovpkM, tpkM);
 
-    const partialAddress = Fr.fromString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
+    const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
 
-    const address = computeAddress(publicKeys, partialAddress).toString();
+    const address = (await computeAddress(publicKeys, partialAddress)).toString();
     expect(address).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

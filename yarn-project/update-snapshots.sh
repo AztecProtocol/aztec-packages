@@ -13,6 +13,11 @@ yarn workspace @aztec/end-to-end test e2e_nested_contract -t 'performs nested ca
 # only enable if needed
 # yarn workspace @aztec/end-to-end test e2e_prover
 
-yarn workspace @aztec/circuits.js test -u
-yarn workspace @aztec/noir-protocol-circuits-types test -u
-yarn workspace @aztec/protocol-contracts test -u
+yarn workspace @aztec/circuits.js test -u --max-workers 8
+yarn workspace @aztec/noir-protocol-circuits-types test -u --max-workers 8
+yarn workspace @aztec/protocol-contracts test -u --max-workers 8
+
+# format the noir code in noir-projects (outside of yarn-project)
+cd ../noir-projects
+./scripts/format.sh
+cd ../yarn-project

@@ -1,4 +1,4 @@
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { Registry } from 'prom-client';
 
@@ -28,7 +28,7 @@ interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void;
 
   collect?(): void;
-  addCollect(fn: CollectFn<Labels>): void;
+  addCollect(collectFn: CollectFn<Labels>): void;
 }
 
 interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
@@ -101,8 +101,12 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     this.gauge.addCallback(this.handleObservation.bind(this));
   }
 
-  addCollect(fn: CollectFn<Labels>): void {
-    this.collectFns.push(fn);
+  /**
+   * Add a collect callback
+   * @param collectFn - Callback function
+   */
+  addCollect(collectFn: CollectFn<Labels>): void {
+    this.collectFns.push(collectFn);
   }
 
   handleObservation(result: any): void {
@@ -281,7 +285,10 @@ class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
 
-  constructor(telemetryClient: TelemetryClient, private logger: Logger = createDebugLogger('otel-metrics-adapter')) {
+  constructor(
+    telemetryClient: TelemetryClient,
+    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
+  ) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }

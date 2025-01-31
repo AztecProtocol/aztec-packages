@@ -35,12 +35,21 @@ namespace bb::world_state {
 using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
-    std::vector<crypto::merkle_tree::LowLeafWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
+
+template <typename LeafValueType> struct SequentialInsertionResult {
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
+
+    MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
+};
+
+const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
 
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
@@ -100,6 +109,11 @@ class WorldState {
                                                           MerkleTreeId tree_id,
                                                           index_t leaf_index) const;
 
+    void get_block_numbers_for_leaf_indices(const WorldStateRevision& revision,
+                                            MerkleTreeId tree_id,
+                                            const std::vector<index_t>& leafIndices,
+                                            std::vector<std::optional<block_number_t>>& blockNumbers) const;
+
     /**
      * @brief Get the leaf preimage object
      *
@@ -144,15 +158,16 @@ class WorldState {
      *
      * @param revision The revision to query
      * @param tree_id The ID of the tree
-     * @param leaf The leaf to find
+     * @param leaves The leaves to find
+     * @param indices The indices to be updated
      * @param start_index The index to start searching from
-     * @return std::optional<index_t>
      */
     template <typename T>
-    std::optional<index_t> find_leaf_index(const WorldStateRevision& revision,
-                                           MerkleTreeId tree_id,
-                                           const T& leaf,
-                                           index_t start_index = 0) const;
+    void find_leaf_indices(const WorldStateRevision& revision,
+                           MerkleTreeId tree_id,
+                           const std::vector<T>& leaves,
+                           std::vector<std::optional<index_t>>& indices,
+                           index_t start_index = 0) const;
 
     /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
@@ -177,6 +192,19 @@ class WorldState {
                                                         const std::vector<T>& leaves,
                                                         uint32_t subtree_depth,
                                                         Fork::Id fork_id = CANONICAL_FORK_ID);
+
+    /**
+     * @brief Inserts a set of leaves sequentially into an indexed Merkle Tree.
+     *
+     * @tparam T The type of the leaves.
+     * @param tree_id The ID of the Merkle Tree.
+     * @param leaves The leaves to insert.
+     * @return SequentialInsertionResult<T>
+     */
+    template <typename T>
+    SequentialInsertionResult<T> insert_indexed_leaves(MerkleTreeId tree_id,
+                                                       const std::vector<T>& leaves,
+                                                       Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Updates a leaf in an existing Merkle Tree.
@@ -215,13 +243,12 @@ class WorldState {
     WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
 
     void get_status_summary(WorldStateStatusSummary& status) const;
-    WorldStateStatusFull sync_block(
-        const StateReference& block_state_ref,
-        const bb::fr& block_header_hash,
-        const std::vector<bb::fr>& notes,
-        const std::vector<bb::fr>& l1_to_l2_messages,
-        const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-        const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
+    WorldStateStatusFull sync_block(const StateReference& block_state_ref,
+                                    const bb::fr& block_header_hash,
+                                    const std::vector<bb::fr>& notes,
+                                    const std::vector<bb::fr>& l1_to_l2_messages,
+                                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -240,12 +267,12 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
-    Fork::SharedPtr create_new_fork(const index_t& blockNumber);
-    void remove_forks_for_block(const index_t& blockNumber);
+    Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
+    void remove_forks_for_block(const block_number_t& blockNumber);
 
-    bool unwind_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool set_finalised_block(const index_t& blockNumber);
+    bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool set_finalised_block(const block_number_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 
@@ -257,7 +284,7 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,
@@ -285,7 +312,7 @@ class WorldState {
                      std::atomic_bool& success,
                      std::string& message,
                      TreeMeta& meta,
-                     const index_t& blockNumber);
+                     const block_number_t& blockNumber);
 
     template <typename TreeType>
     void remove_historic_block_for_tree(TreeDBStats& dbStats,
@@ -294,7 +321,7 @@ class WorldState {
                                         std::atomic_bool& success,
                                         std::string& message,
                                         TreeMeta& meta,
-                                        const index_t& blockNumber);
+                                        const block_number_t& blockNumber);
 };
 
 template <typename TreeType>
@@ -323,7 +350,7 @@ void WorldState::unwind_tree(TreeDBStats& dbStats,
                              std::atomic_bool& success,
                              std::string& message,
                              TreeMeta& meta,
-                             const index_t& blockNumber)
+                             const block_number_t& blockNumber)
 {
     tree.unwind_block(blockNumber, [&](TypedResponse<UnwindResponse>& response) {
         bool expected = true;
@@ -343,7 +370,7 @@ void WorldState::remove_historic_block_for_tree(TreeDBStats& dbStats,
                                                 std::atomic_bool& success,
                                                 std::string& message,
                                                 TreeMeta& meta,
-                                                const index_t& blockNumber)
+                                                const block_number_t& blockNumber)
 {
     tree.remove_historic_block(blockNumber, [&](TypedResponse<RemoveHistoricResponse>& response) {
         bool expected = true;
@@ -365,15 +392,13 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<GetIndexedLeafResponse<T>> local;
 
     if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&fork->_trees.at(id))) {
-        std::optional<IndexedLeaf<T>> value;
-        Signal signal;
-        auto callback = [&](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
-            if (response.inner.indexed_leaf.has_value()) {
-                value = response.inner.indexed_leaf;
-            }
 
+        Signal signal;
+        auto callback = [&](TypedResponse<GetIndexedLeafResponse<T>>& response) {
+            local = std::move(response);
             signal.signal_level(0);
         };
 
@@ -384,7 +409,11 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
         }
         signal.wait_for_level();
 
-        return value;
+        if (!local.success) {
+            throw std::runtime_error("Failed to find indexed leaf: " + local.message);
+        }
+
+        return local.inner.indexed_leaf;
     }
 
     throw std::runtime_error("Invalid tree type");
@@ -400,12 +429,17 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
 
     std::optional<T> leaf;
+    bool success = true;
+    std::string error_msg;
     Signal signal;
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
-            if (resp.inner.leaf.has_value()) {
-                leaf = resp.inner.leaf.value();
+        auto callback = [&signal, &leaf, &success, &error_msg](const TypedResponse<GetLeafResponse>& response) {
+            if (!response.success || !response.inner.leaf.has_value()) {
+                success = false;
+                error_msg = response.message;
+            } else {
+                leaf = response.inner.leaf;
             }
             signal.signal_level();
         };
@@ -420,12 +454,16 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetIndexedLeafResponse<T>>& resp) {
-            if (resp.inner.indexed_leaf.has_value()) {
-                leaf = resp.inner.indexed_leaf.value().value;
-            }
-            signal.signal_level();
-        };
+        auto callback =
+            [&signal, &leaf, &success, &error_msg](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
+                if (!response.success || !response.inner.indexed_leaf.has_value()) {
+                    success = false;
+                    error_msg = response.message;
+                } else {
+                    leaf = response.inner.indexed_leaf.value().value;
+                }
+                signal.signal_level();
+            };
 
         if (revision.blockNumber) {
             wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
@@ -435,33 +473,34 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     }
 
     signal.wait_for_level();
+
     return leaf;
 }
 
 template <typename T>
-std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev,
-                                                   MerkleTreeId id,
-                                                   const T& leaf,
-                                                   index_t start_index) const
+void WorldState::find_leaf_indices(const WorldStateRevision& rev,
+                                   MerkleTreeId id,
+                                   const std::vector<T>& leaves,
+                                   std::vector<std::optional<index_t>>& indices,
+                                   index_t start_index) const
 {
     using namespace crypto::merkle_tree;
-    std::optional<index_t> index;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<FindLeafIndexResponse> local;
 
     Signal signal;
-    auto callback = [&](const TypedResponse<FindLeafIndexResponse>& response) {
-        if (response.success) {
-            index = response.inner.leaf_index;
-        }
+    auto callback = [&](TypedResponse<FindLeafIndexResponse>& response) {
+        local = std::move(response);
         signal.signal_level(0);
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.blockNumber, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
 
     } else {
@@ -470,14 +509,20 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
     }
 
     signal.wait_for_level(0);
-    return index;
+
+    if (!local.success || local.inner.leaf_indices.size() != leaves.size()) {
+        throw std::runtime_error(local.message);
+    }
+
+    indices = std::move(local.inner.leaf_indices);
 }
 
 template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
@@ -518,7 +563,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     signal.wait_for_level(0);
 
     if (!success) {
-        throw std::runtime_error("Failed to append leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 }
 
@@ -557,7 +602,46 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error("Failed to batch insert indexed leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
+    }
+
+    return result;
+}
+
+template <typename T>
+SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
+                                                               const std::vector<T>& leaves,
+                                                               Fork::Id fork_id)
+{
+    using namespace crypto::merkle_tree;
+    using Store = ContentAddressedCachedTreeStore<T>;
+    using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
+
+    Signal signal;
+    SequentialInsertionResult<T> result;
+    const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+    bool success = true;
+    std::string error_msg;
+
+    wrapper.tree->add_or_update_values_sequentially(
+        leaves, [&](const TypedResponse<AddIndexedDataSequentiallyResponse<T>>& response) {
+            if (response.success) {
+                result.low_leaf_witness_data = *response.inner.low_leaf_witness_data;
+                result.insertion_witness_data = *response.inner.insertion_witness_data;
+            } else {
+                success = false;
+                error_msg = response.message;
+            }
+
+            signal.signal_level(0);
+        });
+
+    signal.wait_for_level();
+
+    if (!success) {
+        throw std::runtime_error(error_msg);
     }
 
     return result;

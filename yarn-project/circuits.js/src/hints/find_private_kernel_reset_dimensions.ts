@@ -150,7 +150,7 @@ export function findPrivateKernelResetDimensions(
       (dimensions: PrivateKernelResetDimensions) =>
         dimensions.NOTE_HASH_SILOING_AMOUNT === 0 &&
         dimensions.NULLIFIER_SILOING_AMOUNT === 0 &&
-        dimensions.ENCRYPTED_LOG_SILOING_AMOUNT === 0 &&
+        dimensions.PRIVATE_LOG_SILOING_AMOUNT === 0 &&
         isEnough(dimensions);
 
   const options = [

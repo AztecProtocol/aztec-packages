@@ -1,6 +1,6 @@
 ---
 title: "Private & Public token contract"
-sidebar_position: 5
+draft: true
 ---
 
 In this tutorial we will go through writing an L2 native token contract
@@ -422,7 +422,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./advanced/token_bridge/index.md) is a great follow up to this one.
+The [token bridge tutorial](.//token_bridge/index.md) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 

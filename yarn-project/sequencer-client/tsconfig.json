@@ -13,10 +13,16 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -59,6 +65,9 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../archiver"
     },
     {
       "path": "../kv-store"

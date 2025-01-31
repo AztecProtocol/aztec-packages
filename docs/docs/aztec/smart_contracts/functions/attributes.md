@@ -186,7 +186,7 @@ When a struct is annotated with `#[note]`, the Aztec macro applies a series of t
 
 1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
 
-   - `serialize_content` and `deserialize_content`
+   - `pack_content` and `unpack_content`
    - `get_header` and `set_header`
    - `get_note_type_id`
    - `compute_note_hiding_point`
@@ -219,21 +219,21 @@ struct CustomNote {
 
 ```rust
 impl CustomNote {
-    fn serialize_content(self: CustomNote) -> [Field; NOTE_SERIALIZED_LEN] {
+    fn pack_content(self: CustomNote) -> [Field; PACKED_NOTE_CONTENT_LEN] {
         [self.data, self.owner.to_field()]
     }
 
-    fn deserialize_content(serialized_note: [Field; NOTE_SERIALIZED_LEN]) -> Self {
+    fn unpack_content(packed_content: [Field; PACKED_NOTE_CONTENT_LEN]) -> Self {
         CustomNote {
-            data: serialized_note[0] as Field,
-            owner: Address::from_field(serialized_note[1]),
+            data: packed_content[0] as Field,
+            owner: Address::from_field(packed_content[1]),
             header: NoteHeader::empty()
         }
     }
 
     fn get_note_type_id() -> Field {
-        // Automatically generated unique ID based on Keccak hash of the struct name
-        0xd2de93eaab1d59abddf06134e737665f076f556feb7b6d3d72ca557b430b14d2
+        // Assigned by macros by incrementing a counter
+        2
     }
 
     fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {

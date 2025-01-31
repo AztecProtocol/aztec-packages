@@ -7,6 +7,7 @@ import {
   FunctionSelector,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
@@ -31,8 +32,8 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
     const artifact = await this.txeOracle.getContractDataOracle().getContractArtifact(id);
-    const tree = new PrivateFunctionsTree(artifact);
-    const privateFunctionsRoot = tree.getFunctionTreeRoot();
+    const tree = await PrivateFunctionsTree.create(artifact);
+    const privateFunctionsRoot = await tree.getFunctionTreeRoot();
 
     const publicFunctions: PublicFunction[] = [];
     if (contractClass!.packedBytecode.length > 0) {
@@ -54,6 +55,11 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     };
   }
 
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
+  }
+
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     const instance = await this.txeOracle.getContractDataOracle().getContractInstance(address);
     return { ...instance, address };
@@ -68,8 +74,24 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
   }
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.txeOracle.addContractArtifact(contract);
+  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const artifact = await this.getContractArtifact(address);
+    if (!artifact) {
+      return undefined;
+    }
+    const functionSelectorsAndNames = await Promise.all(
+      artifact.functions.map(async f => ({
+        name: f.name,
+        selector: await FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }),
+      })),
+    );
+    const func = functionSelectorsAndNames.find(f => f.selector.equals(selector));
+
+    return Promise.resolve(func?.name);
+  }
+
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: []): Promise<void> {
+    return Promise.resolve();
   }
 
   // TODO(#10007): Remove this method.

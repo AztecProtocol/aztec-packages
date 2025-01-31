@@ -1,10 +1,16 @@
-import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
-import { ClientIvcProof } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  BB_RESULT,
+  executeBbClientIvcProof,
+  readFromOutputDirectory,
+  verifyClientIvcProof,
+  writeToOutputDirectory,
+} from '@aztec/bb-prover';
+import { type ClientIvcProof } from '@aztec/circuits.js';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,7 +19,7 @@ import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } fr
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createLogger('ivc-integration:test:native');
 
 jest.setTimeout(120_000);
 
@@ -46,7 +52,7 @@ describe('Client IVC Integration', () => {
       throw new Error(provingResult.reason);
     }
 
-    return ClientIvcProof.readFromOutputDirectory(bbWorkingDirectory);
+    return readFromOutputDirectory(bbWorkingDirectory);
   }
 
   // This test will verify a client IVC proof of a simple tx:
@@ -57,7 +63,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
@@ -74,7 +80,7 @@ describe('Client IVC Integration', () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);

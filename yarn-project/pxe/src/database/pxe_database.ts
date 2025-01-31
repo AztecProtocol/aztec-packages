@@ -1,8 +1,8 @@
-import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type Header,
   type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
@@ -12,8 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
+import { type NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -51,17 +50,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   popCapsule(): Promise<Fr[] | undefined>;
 
   /**
-   * Gets incoming notes based on the provided filter.
+   * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
-
-  /**
-   * Gets outgoing notes.
-   * @returns The outgoing notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]>;
+  getNotes(filter: NotesFilter): Promise<NoteDao[]>;
 
   /**
    * Adds a note to DB.
@@ -69,25 +62,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param scope - The scope to add the note under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNote(note: IncomingNoteDao, scope?: AztecAddress): Promise<void>;
+  addNote(note: NoteDao, scope?: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to DB.
    * @param note - The note to add.
    */
-  addNullifiedNote(note: IncomingNoteDao): Promise<void>;
+  addNullifiedNote(note: NoteDao): Promise<void>;
 
   /**
    * Adds an array of notes to DB.
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param incomingNotes - An array of notes which were decrypted as incoming.
-   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
+   * @param notes - An array of notes.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
+  addNotes(notes: NoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -96,13 +88,13 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<NoteDao[]>;
 
   /**
    * Gets the most recently processed block number.
    * @returns The most recently processed block number or undefined if never synched.
    */
-  getBlockNumber(): number | undefined;
+  getBlockNumber(): Promise<number | undefined>;
 
   /**
    * Retrieve the stored Block Header from the database.
@@ -115,7 +107,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The Block Header.
    * @throws If no block have been processed yet.
    */
-  getHeader(): Header;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Set the latest Block Header.
@@ -124,27 +116,27 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param header - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHeader(header: Header): Promise<void>;
+  setHeader(header: BlockHeader): Promise<void>;
 
   /**
-   * Adds contact address to the database.
+   * Adds sender address to the database.
    * @param address - The address to add to the address book.
    * @returns A promise resolving to true if the address was added, false if it already exists.
    */
-  addContactAddress(address: AztecAddress): Promise<boolean>;
+  addSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Retrieves the list of contact addresses in the address book.
+   * Retrieves the list of sender addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): AztecAddress[];
+  getSenderAddresses(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact address from the database.
+   * Removes a sender address from the database.
    * @param address - The address to remove from the address book.
    * @returns A promise resolving to true if the address was removed, false if it does not exist.
    */
-  removeContactAddress(address: AztecAddress): Promise<boolean>;
+  removeSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
    * Adds complete address to the database.
@@ -169,19 +161,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getCompleteAddresses(): Promise<CompleteAddress[]>;
 
   /**
-   * Updates up to which block number we have processed notes for a given public key.
-   * @param account - The account to set the synched block number for.
-   * @param blockNumber - The block number to set.
-   */
-  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void>;
-
-  /**
-   * Get the synched block number for a given public key.
-   * @param account - The account to get the synched block number for.
-   */
-  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined;
-
-  /**
    * Returns the estimated size in bytes of this db.
    * @returns The estimated size in bytes of this db.
    */
@@ -202,11 +181,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets in the senders database
-   * To be used when the generated tags have been used as sender
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+  setTaggingSecretsIndexesAsSender(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 
   /**
    * Sets the index for the provided app siloed tagging secrets
@@ -234,4 +213,41 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * is also required to deal with chain reorgs.
    */
   resetNoteSyncData(): Promise<void>;
+
+  /**
+   * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `dbLoad`.
+   * If data was already stored at this slot, it is overwrriten.
+   * @param contractAddress - The contract address to scope the data under.
+   * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
+   * @param values - The data to store.
+   */
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void>;
+
+  /**
+   * Returns data previously stored via `dbStore` in the per-contract non-volatile database.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to read.
+   * @returns The stored data or `null` if no data is stored under the slot.
+   */
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
+
+  /**
+   * Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to delete.
+   */
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void>;
+
+  /**
+   * Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
+   * structures by avoiding repeated calls to `dbLoad` and `dbStore`.
+   * Supports overlapping source and destination regions (which will result in the overlapped source values being
+   * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
+   *
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param srcSlot - The first slot to copy from.
+   * @param dstSlot - The first slot to copy to.
+   * @param numEntries - The number of entries to copy.
+   */
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
 }

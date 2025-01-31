@@ -1,6 +1,5 @@
-use dep::protocol_types::{
-    constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage, utils::arr_copy_slice,
-};
+use crate::utils::array;
+use dep::protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage};
 
 global LEAF_PREIMAGE_LENGTH: u32 = 4;
 global PUBLIC_DATA_WITNESS: u32 = 45;
@@ -30,10 +29,6 @@ pub unconstrained fn get_public_data_witness(
             next_index: fields[3] as u32,
             next_slot: fields[4],
         },
-        path: arr_copy_slice(
-            fields,
-            [0; PUBLIC_DATA_TREE_HEIGHT],
-            1 + LEAF_PREIMAGE_LENGTH,
-        ),
+        path: array::subarray(fields, 1 + LEAF_PREIMAGE_LENGTH),
     }
 }

@@ -1,4 +1,9 @@
-import { type ContractClassPublic, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  Fr,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 
 import { type jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -6,8 +11,10 @@ import { mock } from 'jest-mock-extended';
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 
-export function mockGetBytecode(worldStateDB: WorldStateDB, bytecode: Buffer) {
+export async function mockGetBytecode(worldStateDB: WorldStateDB, bytecode: Buffer) {
+  const commitment = await computePublicBytecodeCommitment(bytecode);
   (worldStateDB as jest.Mocked<WorldStateDB>).getBytecode.mockResolvedValue(bytecode);
+  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecodeCommitment.mockResolvedValue(commitment);
 }
 
 export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace?: PublicSideEffectTraceInterface) {
@@ -18,6 +25,10 @@ export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace
 
 export function mockStorageRead(worldStateDB: WorldStateDB, value: Fr) {
   (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockResolvedValue(value);
+}
+
+export function mockNoteHashCount(mockedTrace: PublicSideEffectTraceInterface, count: number) {
+  (mockedTrace as jest.Mocked<PublicSideEffectTraceInterface>).getNoteHashCount.mockReturnValue(count);
 }
 
 export function mockStorageReadWithMap(worldStateDB: WorldStateDB, mockedStorage: Map<bigint, Fr>) {

@@ -1,15 +1,12 @@
+import { type Fr } from '@aztec/circuits.js';
+import { timesParallel } from '@aztec/foundation/collection';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import {
-  ContractClass2BlockL2Logs,
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  UnencryptedL2BlockL2Logs,
-} from './logs/index.js';
+import { ContractClass2BlockL2Logs } from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {
@@ -21,16 +18,12 @@ export class Body {
     });
   }
 
-  static get schema() {
+  static get schema(): ZodFor<Body> {
     return z
       .object({
         txEffects: z.array(TxEffect.schema),
       })
       .transform(({ txEffects }) => new Body(txEffects));
-  }
-
-  toJSON() {
-    return { txEffects: this.txEffects };
   }
 
   /**
@@ -51,42 +44,43 @@ export class Body {
     return new this(reader.readVector(TxEffect));
   }
 
-  [inspect.custom]() {
-    return `Body {
-  txEffects: ${inspect(this.txEffects)},
-  emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
-  emptyTxEffectHash: ${TxEffect.empty().hash().toString('hex')},
-  txsEffectsHash: ${this.getTxsEffectsHash().toString('hex')},
-}`;
+  /**
+   * Returns a flat packed array of fields of all tx effects - used for blobs.
+   */
+  toBlobFields() {
+    let flattened: Fr[] = [];
+    this.txEffects.forEach((effect: TxEffect) => {
+      flattened = flattened.concat(effect.toBlobFields());
+    });
+    return flattened;
   }
 
   /**
-   * Computes the transactions effects hash for the L2 block
-   * This hash is also computed in the `TxDecoder`.
-   * @returns The txs effects hash.
+   * Decodes a block from blob fields.
+   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
+   * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
-  getTxsEffectsHash() {
-    const emptyTxEffectHash = TxEffect.empty().hash();
-    const leaves: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    return computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
+  static fromBlobFields(fields: Fr[], contractClassLogs?: ContractClass2BlockL2Logs) {
+    const txEffectsFields: Fr[][] = [];
+    let checkedFields = 0;
+    while (checkedFields !== fields.length) {
+      if (!TxEffect.isFirstField(fields[checkedFields])) {
+        throw new Error('Invalid fields given to Body.fromBlobFields(): First field invalid.');
+      }
+      const len = TxEffect.decodeFirstField(fields[checkedFields]).length;
+      txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
+      checkedFields += len;
+    }
+    const txEffects = txEffectsFields
+      .filter(effect => effect.length)
+      .map((effect, i) => TxEffect.fromBlobFields(effect, contractClassLogs?.txLogs[i]));
+    return new this(txEffects);
   }
 
-  get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.noteEncryptedLogs);
-
-    return new EncryptedNoteL2BlockL2Logs(logs);
-  }
-
-  get encryptedLogs(): EncryptedL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
-
-    return new EncryptedL2BlockL2Logs(logs);
-  }
-
-  get unencryptedLogs(): UnencryptedL2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
-
-    return new UnencryptedL2BlockL2Logs(logs);
+  [inspect.custom]() {
+    return `Body {
+  txEffects: ${inspect(this.txEffects)},
+}`;
   }
 
   get contractClassLogs(): ContractClass2BlockL2Logs {
@@ -95,30 +89,9 @@ export class Body {
     return new ContractClass2BlockL2Logs(logs);
   }
 
-  /**
-   * Computes the number of transactions in the block including padding transactions.
-   * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad
-   */
-  get numberOfTxsIncludingPadded() {
-    const numTxEffects = this.txEffects.length;
-
-    // 2 is the minimum number of tx effects
-    if (numTxEffects <= 2) {
-      return 2;
-    }
-
-    return numTxEffects;
-  }
-
-  static random(
-    txsPerBlock = 4,
-    numPrivateCallsPerTx = 2,
-    numPublicCallsPerTx = 3,
-    numEncryptedLogsPerCall = 2,
-    numUnencryptedLogsPerCall = 1,
-  ) {
-    const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+  static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {
+    const txEffects = await timesParallel(txsPerBlock, () =>
+      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall),
     );
 
     return new Body(txEffects);

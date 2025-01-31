@@ -3,14 +3,14 @@ use dep::protocol_types::constants::{
     GENERATOR_INDEX__TSK_M,
 };
 
-pub global NULLIFIER_INDEX = 0;
-pub global INCOMING_INDEX = 1;
-pub global OUTGOING_INDEX = 2;
-pub global TAGGING_INDEX = 3;
+pub global NULLIFIER_INDEX: Field = 0;
+pub global INCOMING_INDEX: Field = 1;
+pub global OUTGOING_INDEX: Field = 2;
+pub global TAGGING_INDEX: Field = 3;
 
-pub global NUM_KEY_TYPES = 4;
+pub global NUM_KEY_TYPES: u32 = 4;
 
-pub global sk_generators = [
+pub global sk_generators: [Field; 4] = [
     GENERATOR_INDEX__NSK_M as Field,
     GENERATOR_INDEX__IVSK_M as Field,
     GENERATOR_INDEX__OVSK_M as Field,

@@ -38,12 +38,14 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
     bool get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_sibling_path(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
-    bool find_leaf_index(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool append_leaves(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool update_archive(msgpack::object& obj, msgpack::sbuffer& buffer);
 

@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class Poseidon2Tests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 using fr = field<Bn254FrParams>;
 
@@ -48,7 +48,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},

@@ -1,9 +1,9 @@
 import { getSingleKeyAccount } from '@aztec/accounts/single_key';
 import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createLogger('example:token');
 
 export const alicePrivateKey = Fr.random();
 export const bobPrivateKey = Fr.random();
@@ -24,8 +24,10 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  aliceWallet = await getSingleKeyAccount(pxe, alicePrivateKey).waitSetup();
-  bobWallet = await getSingleKeyAccount(pxe, bobPrivateKey).waitSetup();
+  const aliceAccount = await getSingleKeyAccount(pxe, alicePrivateKey);
+  aliceWallet = await aliceAccount.waitSetup();
+  const bobAccount = await getSingleKeyAccount(pxe, bobPrivateKey);
+  bobWallet = await bobAccount.waitSetup();
   const alice = aliceWallet.getCompleteAddress();
   const bob = bobWallet.getCompleteAddress();
 

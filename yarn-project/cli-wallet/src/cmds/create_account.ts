@@ -1,7 +1,7 @@
 import { type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
@@ -18,7 +18,7 @@ export async function createAccount(
   wait: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
 ) {
   secretKey ??= Fr.random();
@@ -27,13 +27,13 @@ export async function createAccount(
     client,
     undefined /* address, we don't have it yet */,
     undefined /* db, as we want to create from scratch */,
-    accountType,
     secretKey,
+    accountType,
     Fr.ZERO,
     publicKey,
   );
   const salt = account.getInstance().salt;
-  const { address, publicKeys, partialAddress } = account.getCompleteAddress();
+  const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
   if (json) {
@@ -66,7 +66,7 @@ export async function createAccount(
   } else {
     const wallet = await account.getWallet();
     const sendOpts: DeployAccountOptions = {
-      ...feeOpts.toSendOpts(wallet),
+      ...(await feeOpts.toSendOpts(wallet)),
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,

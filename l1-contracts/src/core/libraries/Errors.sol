@@ -10,6 +10,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
  * @notice Library that contains errors used throughout the Aztec protocol
  * Errors are prefixed with the contract name to make it easy to identify where the error originated
  * when there are multiple contracts that could have thrown the error.
+ *
+ * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect src/core/libraries/Errors.sol:Errors errors`
  */
 library Errors {
   // DEVNET related
@@ -38,7 +40,6 @@ library Errors {
     uint32 deadlinePassed
   ); // 0x5e789f34
   error Outbox__InvalidPathLength(uint256 expected, uint256 actual); // 0x481bcd9c
-  error Outbox__InsertingInvalidRoot(); // 0x73c2daca
   error Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber); // 0x3eccfd3e
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
@@ -60,6 +61,9 @@ library Errors {
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
+  error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
+  error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
+  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NotClaimingCorrectEpoch(Epoch expected, Epoch actual); // 0xf0e0744d
@@ -75,10 +79,7 @@ library Errors {
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
-
-  //TxsDecoder
-  error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
-  error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
+  error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -94,11 +95,27 @@ library Errors {
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
 
-  // Sequencer Selection (Leonidas)
-  error Leonidas__EpochNotSetup(); // 0xcf4e597e
-  error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
-  error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
-  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
+  // Sequencer Selection (ValidatorSelection)
+  error ValidatorSelection__EpochNotSetup(); // 0x10816cae
+  error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
+  error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
+  error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
+  error ValidatorSelection__InsufficientAttestationsProvided(
+    uint256 minimumNeeded, uint256 provided
+  ); // 0x4d4f66ac
+
+  // Staking
+  error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__AlreadyRegistered(address); // 0x18047699
+  error Staking__CannotSlashExitedStake(address); // 0x45bf4940
+  error Staking__FailedToRemove(address); // 0xa7d7baab
+  error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
+  error Staking__NoOneToSlash(address); // 0x7e2f7f1c
+  error Staking__NotExiting(address); // 0xef566ee0
+  error Staking__NotSlasher(address, address); // 0x23a6f432
+  error Staking__NotWithdrawer(address, address); // 0x8e668e5d
+  error Staking__NothingToExit(address); // 0xd2aac9b6
+  error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

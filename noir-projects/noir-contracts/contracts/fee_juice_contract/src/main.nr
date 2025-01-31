@@ -6,8 +6,8 @@ use dep::aztec::macros::aztec;
 contract FeeJuice {
     use dep::aztec::{
         macros::{functions::{internal, private, public, view}, storage::storage},
-        protocol_types::{address::{AztecAddress, EthAddress}, constants::FEE_JUICE_INITIAL_MINT},
-        state_vars::{Map, PublicMutable, SharedImmutable},
+        protocol_types::address::{AztecAddress, EthAddress},
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use crate::lib::get_bridge_gas_msg_hash;
@@ -17,20 +17,18 @@ contract FeeJuice {
         // This map is accessed directly by protocol circuits to check balances for fee payment.
         // Do not change this storage layout unless you also update the base rollup circuits.
         balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
-        portal_address: SharedImmutable<EthAddress, Context>,
+        portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     // Not flagged as initializer to reduce cost of checking init nullifier in all functions.
     // This function should be called as entrypoint to initialize the contract by minting itself funds.
     #[private]
-    fn initialize(portal_address: EthAddress) {
+    fn initialize(portal_address: EthAddress, initial_mint: U128) {
         // Validate contract class parameters are correct
         let self = context.this_address();
 
         // Increase self balance and set as fee payer, and end setup
-        FeeJuice::at(self)._increase_public_balance(self, FEE_JUICE_INITIAL_MINT).enqueue(
-            &mut context,
-        );
+        FeeJuice::at(self)._increase_public_balance(self, initial_mint).enqueue(&mut context);
         context.set_as_fee_payer();
         context.end_setup();
 
@@ -43,14 +41,14 @@ contract FeeJuice {
     // is a hardcoded constant in the rollup circuits.
     #[public]
     fn set_portal(portal_address: EthAddress) {
-        assert(storage.portal_address.read_public().is_zero());
+        assert(storage.portal_address.read().is_zero());
         storage.portal_address.initialize(portal_address);
     }
 
     #[private]
-    fn claim(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
+    fn claim(to: AztecAddress, amount: U128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
-        let portal_address = storage.portal_address.read_private();
+        let portal_address = storage.portal_address.read();
         assert(!portal_address.is_zero());
 
         // Consume message and emit nullifier
@@ -65,22 +63,21 @@ contract FeeJuice {
 
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {
-        let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));
+    fn _increase_public_balance(to: AztecAddress, amount: U128) {
+        let new_balance = storage.balances.at(to).read().add(amount);
         storage.balances.at(to).write(new_balance);
     }
 
     #[public]
     #[view]
-    fn check_balance(fee_limit: Field) {
-        let fee_limit = U128::from_integer(fee_limit);
+    fn check_balance(fee_limit: U128) {
         assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
     }
 
     // utility function for testing
     #[public]
     #[view]
-    fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.balances.at(owner).read().to_field()
+    fn balance_of_public(owner: AztecAddress) -> pub U128 {
+        storage.balances.at(owner).read()
     }
 }

@@ -8,9 +8,9 @@ use crate::ast::{
     UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, Visibility,
 };
 use crate::node_interner::{
-    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, StructId,
+    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, TypeId,
 };
-use crate::token::{Attributes, FunctionAttribute, Token, Tokens};
+use crate::token::{Attributes, FmtStrFragment, FunctionAttribute, Token, Tokens};
 use crate::{Kind, Type};
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
@@ -210,8 +210,8 @@ impl ExpressionKind {
         ExpressionKind::Literal(Literal::RawStr(contents, hashes))
     }
 
-    pub fn format_string(contents: String) -> ExpressionKind {
-        ExpressionKind::Literal(Literal::FmtStr(contents))
+    pub fn format_string(fragments: Vec<FmtStrFragment>, length: u32) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::FmtStr(fragments, length))
     }
 
     pub fn constructor(
@@ -434,7 +434,7 @@ pub enum Literal {
     Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
     Str(String),
     RawStr(String, u8),
-    FmtStr(String),
+    FmtStr(Vec<FmtStrFragment>, u32 /* length */),
     Unit,
 }
 
@@ -559,7 +559,7 @@ pub struct ConstructorExpression {
     /// This may be filled out during macro expansion
     /// so that we can skip re-resolving the type name since it
     /// would be lost at that point.
-    pub struct_type: Option<StructId>,
+    pub struct_type: Option<TypeId>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -669,7 +669,13 @@ impl Display for Literal {
                     std::iter::once('#').cycle().take(*num_hashes as usize).collect();
                 write!(f, "r{hashes}\"{string}\"{hashes}")
             }
-            Literal::FmtStr(string) => write!(f, "f\"{string}\""),
+            Literal::FmtStr(fragments, _length) => {
+                write!(f, "f\"")?;
+                for fragment in fragments {
+                    fragment.fmt(f)?;
+                }
+                write!(f, "\"")
+            }
             Literal::Unit => write!(f, "()"),
         }
     }
@@ -815,8 +821,8 @@ impl FunctionDefinition {
         is_unconstrained: bool,
         generics: &UnresolvedGenerics,
         parameters: &[(Ident, UnresolvedType)],
-        body: &BlockExpression,
-        where_clause: &[UnresolvedTraitConstraint],
+        body: BlockExpression,
+        where_clause: Vec<UnresolvedTraitConstraint>,
         return_type: &FunctionReturnType,
     ) -> FunctionDefinition {
         let p = parameters
@@ -837,9 +843,9 @@ impl FunctionDefinition {
             visibility: ItemVisibility::Private,
             generics: generics.clone(),
             parameters: p,
-            body: body.clone(),
+            body,
             span: name.span(),
-            where_clause: where_clause.to_vec(),
+            where_clause,
             return_type: return_type.clone(),
             return_visibility: Visibility::Private,
         }

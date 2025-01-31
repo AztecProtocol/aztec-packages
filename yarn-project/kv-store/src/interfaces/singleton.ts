@@ -2,12 +2,7 @@
  * Represents a singleton value in the database.
  * Note: The singleton loses type info so it's recommended to serialize to buffer when storing it.
  */
-export interface AztecSingleton<T> {
-  /**
-   * Gets the value.
-   */
-  get(): T | undefined;
-
+interface AztecBaseSingleton<T> {
   /**
    * Sets the value.
    * @param val - The new value
@@ -18,4 +13,17 @@ export interface AztecSingleton<T> {
    * Deletes the value.
    */
   delete(): Promise<boolean>;
+}
+export interface AztecSingleton<T> extends AztecBaseSingleton<T> {
+  /**
+   * Gets the value.
+   */
+  get(): T | undefined;
+}
+
+export interface AztecAsyncSingleton<T> extends AztecBaseSingleton<T> {
+  /**
+   * Gets the value.
+   */
+  getAsync(): Promise<T | undefined>;
 }

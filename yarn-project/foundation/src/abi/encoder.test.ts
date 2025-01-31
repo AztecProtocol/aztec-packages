@@ -1,13 +1,13 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
-import { jsonParseWithSchema } from '../json-rpc/convert.js';
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
 import { schemas } from '../schemas/schemas.js';
 import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
-  it('serializes fields as fields', () => {
+  it('serializes fields as fields', async () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.PRIVATE,
@@ -30,7 +30,7 @@ describe('abi/encoder', () => {
     const field = Fr.random();
     expect(encodeArguments(abi, [field])).toEqual([field]);
 
-    const serializedField = jsonParseWithSchema(JSON.stringify(field), schemas.Fr);
+    const serializedField = await jsonParseWithSchema(jsonStringify(field), schemas.Fr);
     expect(encodeArguments(abi, [serializedField])).toEqual([field]);
   });
 
@@ -87,7 +87,7 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [str])).toEqual(expected);
   });
 
-  it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
+  it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', async (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
@@ -114,15 +114,15 @@ describe('abi/encoder', () => {
       errorTypes: {},
     };
 
-    const address = AztecAddress.random();
+    const address = await AztecAddress.random();
     expect(encodeArguments(abi, [address])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address }])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address: address.toField() }])).toEqual([address.toField()]);
 
-    const completeAddressLike = { address, publicKey: Point.random(), partialAddress: Fr.random() };
+    const completeAddressLike = { address, publicKey: await Point.random(), partialAddress: Fr.random() };
     expect(encodeArguments(abi, [completeAddressLike])).toEqual([address.toField()]);
 
-    const serializedAddress = jsonParseWithSchema(JSON.stringify(address), schemas.AztecAddress);
+    const serializedAddress = await jsonParseWithSchema(jsonStringify(address), schemas.AztecAddress);
     expect(encodeArguments(abi, [serializedAddress])).toEqual([address.toField()]);
   });
 

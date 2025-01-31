@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -14,14 +15,14 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
+const { E2E_DATA_PATH: dataPath, METRICS_PORT: metricsPort } = process.env;
 
 export class TokenContractTest {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
@@ -29,8 +30,10 @@ export class TokenContractTest {
   badAccount!: DocsExampleContract;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath);
+    this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
+    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
+      metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
+    });
   }
 
   /**
@@ -43,9 +46,13 @@ export class TokenContractTest {
     jest.setTimeout(120_000);
 
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

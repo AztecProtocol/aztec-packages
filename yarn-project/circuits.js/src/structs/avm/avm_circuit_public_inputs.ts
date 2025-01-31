@@ -1,6 +1,8 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
@@ -22,6 +24,7 @@ export class AvmCircuitPublicInputs {
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
     public gasSettings: GasSettings,
+    public feePayer: AztecAddress,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicTeardownCallRequest: PublicCallRequest,
@@ -43,6 +46,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
       reader.readObject(GasSettings),
+      reader.readObject(AztecAddress),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readObject(PublicCallRequest),
@@ -64,6 +68,7 @@ export class AvmCircuitPublicInputs {
       this.startTreeSnapshots,
       this.startGasUsed,
       this.gasSettings,
+      this.feePayer,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
       this.publicTeardownCallRequest,
@@ -80,11 +85,11 @@ export class AvmCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return AvmCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return AvmCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -94,6 +99,7 @@ export class AvmCircuitPublicInputs {
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
       GasSettings.fromFields(reader),
+      AztecAddress.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       PublicCallRequest.fromFields(reader),
@@ -115,6 +121,7 @@ export class AvmCircuitPublicInputs {
       TreeSnapshots.empty(),
       Gas.empty(),
       GasSettings.empty(),
+      AztecAddress.zero(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       PublicCallRequest.empty(),
@@ -136,6 +143,7 @@ export class AvmCircuitPublicInputs {
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
       startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
+      feePayer: ${inspect(this.feePayer)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))

@@ -1,20 +1,21 @@
-import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
+import { readFieldCompressedString } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 
-  const logger = createDebugLogger(`aztec:spartan:4epochs`);
+  const logger = createLogger(`e2e:spartan:4epochs`);
   const l1Config = getL1ContractsConfigEnvVars();
 
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
@@ -36,7 +37,7 @@ describe('token transfer test', () => {
         hostPort: config.HOST_PXE_PORT,
       });
       await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_ETHEREUM_PORT,
         hostPort: config.HOST_ETHEREUM_PORT,
@@ -58,7 +59,7 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
@@ -67,9 +68,9 @@ describe('token transfer test', () => {
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
-    });
+    }
 
     expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
@@ -97,11 +98,11 @@ describe('token transfer test', () => {
       );
     }
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
         await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
       );
-    });
+    }
 
     expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
       await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),

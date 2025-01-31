@@ -318,18 +318,6 @@ struct BlackBoxOp {
         static EcdsaSecp256r1 bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct SchnorrVerify {
-        Program::MemoryAddress public_key_x;
-        Program::MemoryAddress public_key_y;
-        Program::HeapVector message;
-        Program::HeapVector signature;
-        Program::MemoryAddress result;
-
-        friend bool operator==(const SchnorrVerify&, const SchnorrVerify&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static SchnorrVerify bincodeDeserialize(std::vector<uint8_t>);
-    };
-
     struct MultiScalarMul {
         Program::HeapVector points;
         Program::HeapVector scalars;
@@ -436,8 +424,9 @@ struct BlackBoxOp {
     struct ToRadix {
         Program::MemoryAddress input;
         Program::MemoryAddress radix;
-        Program::HeapArray output;
-        bool output_bits;
+        Program::MemoryAddress output_pointer;
+        Program::MemoryAddress num_limbs;
+        Program::MemoryAddress output_bits;
 
         friend bool operator==(const ToRadix&, const ToRadix&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -450,7 +439,6 @@ struct BlackBoxOp {
                  Keccakf1600,
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
-                 SchnorrVerify,
                  MultiScalarMul,
                  EmbeddedCurveAdd,
                  BigIntAdd,
@@ -855,18 +843,6 @@ struct BlackBoxFuncCall {
         static Blake3 bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct SchnorrVerify {
-        Program::FunctionInput public_key_x;
-        Program::FunctionInput public_key_y;
-        std::array<Program::FunctionInput, 64> signature;
-        std::vector<Program::FunctionInput> message;
-        Program::Witness output;
-
-        friend bool operator==(const SchnorrVerify&, const SchnorrVerify&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static SchnorrVerify bincodeDeserialize(std::vector<uint8_t>);
-    };
-
     struct EcdsaSecp256k1 {
         std::array<Program::FunctionInput, 32> public_key_x;
         std::array<Program::FunctionInput, 32> public_key_y;
@@ -1017,7 +993,6 @@ struct BlackBoxFuncCall {
                  RANGE,
                  Blake2s,
                  Blake3,
-                 SchnorrVerify,
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
                  MultiScalarMul,
@@ -2818,73 +2793,6 @@ Program::BlackBoxFuncCall::Blake3 serde::Deserializable<Program::BlackBoxFuncCal
 
 namespace Program {
 
-inline bool operator==(const BlackBoxFuncCall::SchnorrVerify& lhs, const BlackBoxFuncCall::SchnorrVerify& rhs)
-{
-    if (!(lhs.public_key_x == rhs.public_key_x)) {
-        return false;
-    }
-    if (!(lhs.public_key_y == rhs.public_key_y)) {
-        return false;
-    }
-    if (!(lhs.signature == rhs.signature)) {
-        return false;
-    }
-    if (!(lhs.message == rhs.message)) {
-        return false;
-    }
-    if (!(lhs.output == rhs.output)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> BlackBoxFuncCall::SchnorrVerify::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BlackBoxFuncCall::SchnorrVerify>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BlackBoxFuncCall::SchnorrVerify BlackBoxFuncCall::SchnorrVerify::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BlackBoxFuncCall::SchnorrVerify>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxFuncCall::SchnorrVerify>::serialize(
-    const Program::BlackBoxFuncCall::SchnorrVerify& obj, Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.public_key_x)>::serialize(obj.public_key_x, serializer);
-    serde::Serializable<decltype(obj.public_key_y)>::serialize(obj.public_key_y, serializer);
-    serde::Serializable<decltype(obj.signature)>::serialize(obj.signature, serializer);
-    serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
-    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::BlackBoxFuncCall::SchnorrVerify serde::Deserializable<Program::BlackBoxFuncCall::SchnorrVerify>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::BlackBoxFuncCall::SchnorrVerify obj;
-    obj.public_key_x = serde::Deserializable<decltype(obj.public_key_x)>::deserialize(deserializer);
-    obj.public_key_y = serde::Deserializable<decltype(obj.public_key_y)>::deserialize(deserializer);
-    obj.signature = serde::Deserializable<decltype(obj.signature)>::deserialize(deserializer);
-    obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
-    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
 inline bool operator==(const BlackBoxFuncCall::EcdsaSecp256k1& lhs, const BlackBoxFuncCall::EcdsaSecp256k1& rhs)
 {
     if (!(lhs.public_key_x == rhs.public_key_x)) {
@@ -4111,73 +4019,6 @@ Program::BlackBoxOp::EcdsaSecp256r1 serde::Deserializable<Program::BlackBoxOp::E
 
 namespace Program {
 
-inline bool operator==(const BlackBoxOp::SchnorrVerify& lhs, const BlackBoxOp::SchnorrVerify& rhs)
-{
-    if (!(lhs.public_key_x == rhs.public_key_x)) {
-        return false;
-    }
-    if (!(lhs.public_key_y == rhs.public_key_y)) {
-        return false;
-    }
-    if (!(lhs.message == rhs.message)) {
-        return false;
-    }
-    if (!(lhs.signature == rhs.signature)) {
-        return false;
-    }
-    if (!(lhs.result == rhs.result)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> BlackBoxOp::SchnorrVerify::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BlackBoxOp::SchnorrVerify>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BlackBoxOp::SchnorrVerify BlackBoxOp::SchnorrVerify::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BlackBoxOp::SchnorrVerify>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxOp::SchnorrVerify>::serialize(const Program::BlackBoxOp::SchnorrVerify& obj,
-                                                                        Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.public_key_x)>::serialize(obj.public_key_x, serializer);
-    serde::Serializable<decltype(obj.public_key_y)>::serialize(obj.public_key_y, serializer);
-    serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
-    serde::Serializable<decltype(obj.signature)>::serialize(obj.signature, serializer);
-    serde::Serializable<decltype(obj.result)>::serialize(obj.result, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::BlackBoxOp::SchnorrVerify serde::Deserializable<Program::BlackBoxOp::SchnorrVerify>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::BlackBoxOp::SchnorrVerify obj;
-    obj.public_key_x = serde::Deserializable<decltype(obj.public_key_x)>::deserialize(deserializer);
-    obj.public_key_y = serde::Deserializable<decltype(obj.public_key_y)>::deserialize(deserializer);
-    obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
-    obj.signature = serde::Deserializable<decltype(obj.signature)>::deserialize(deserializer);
-    obj.result = serde::Deserializable<decltype(obj.result)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
 inline bool operator==(const BlackBoxOp::MultiScalarMul& lhs, const BlackBoxOp::MultiScalarMul& rhs)
 {
     if (!(lhs.points == rhs.points)) {
@@ -4771,7 +4612,10 @@ inline bool operator==(const BlackBoxOp::ToRadix& lhs, const BlackBoxOp::ToRadix
     if (!(lhs.radix == rhs.radix)) {
         return false;
     }
-    if (!(lhs.output == rhs.output)) {
+    if (!(lhs.output_pointer == rhs.output_pointer)) {
+        return false;
+    }
+    if (!(lhs.num_limbs == rhs.num_limbs)) {
         return false;
     }
     if (!(lhs.output_bits == rhs.output_bits)) {
@@ -4806,7 +4650,8 @@ void serde::Serializable<Program::BlackBoxOp::ToRadix>::serialize(const Program:
 {
     serde::Serializable<decltype(obj.input)>::serialize(obj.input, serializer);
     serde::Serializable<decltype(obj.radix)>::serialize(obj.radix, serializer);
-    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
+    serde::Serializable<decltype(obj.output_pointer)>::serialize(obj.output_pointer, serializer);
+    serde::Serializable<decltype(obj.num_limbs)>::serialize(obj.num_limbs, serializer);
     serde::Serializable<decltype(obj.output_bits)>::serialize(obj.output_bits, serializer);
 }
 
@@ -4818,7 +4663,8 @@ Program::BlackBoxOp::ToRadix serde::Deserializable<Program::BlackBoxOp::ToRadix>
     Program::BlackBoxOp::ToRadix obj;
     obj.input = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
     obj.radix = serde::Deserializable<decltype(obj.radix)>::deserialize(deserializer);
-    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
+    obj.output_pointer = serde::Deserializable<decltype(obj.output_pointer)>::deserialize(deserializer);
+    obj.num_limbs = serde::Deserializable<decltype(obj.num_limbs)>::deserialize(deserializer);
     obj.output_bits = serde::Deserializable<decltype(obj.output_bits)>::deserialize(deserializer);
     return obj;
 }
