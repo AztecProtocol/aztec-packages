@@ -28,4 +28,6 @@ if [ -z "${REF_NAME:-}" ]; then
   [ -z "${REF_NAME:-}" ] && exit 1
 fi
 
-[ -z "${COMMIT_HASH:-}" ] && export COMMIT_HASH=$(git rev-parse HEAD)
+if [ -z "${COMMIT_HASH:-}" ]; then
+  export COMMIT_HASH=$(git rev-parse HEAD)
+fi
