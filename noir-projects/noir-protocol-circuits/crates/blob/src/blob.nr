@@ -221,7 +221,8 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
         /// Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
-        let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe { __compute_partial_sums(fracs, ROOTS) };
+        let partial_sums: [F; FIELDS_PER_BLOB / 8] =
+            unsafe { __compute_partial_sums(fracs, ROOTS) };
 
         // We split off the first term to check the initial sum
 
@@ -721,8 +722,8 @@ mod tests {
 
     #[test]
     fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
-    unsafe {
-           let fields = fields.map(|f| field_to_bignum(f));
+        unsafe {
+            let fields = fields.map(|f| field_to_bignum(f));
 
             let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
 
