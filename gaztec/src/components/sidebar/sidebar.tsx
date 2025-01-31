@@ -26,7 +26,7 @@ const container = css({
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  width: "25vw",
+  width: "100%",
   backgroundColor: "var(--mui-palette-primary-light)",
   overflow: "hidden",
   padding: "0 0.5rem",

@@ -42,7 +42,7 @@ import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
 const container = css({
   display: "flex",
   height: "100vh",
-  width: "75vw",
+  width: "100%",
   overflow: "hidden",
   justifyContent: "center",
   alignItems: "center",
@@ -53,9 +53,9 @@ const dropZoneContainer = css({
   flexDirection: "column",
   width: "100%",
   height: "80%",
-  border: "5px dashed black",
+  border: "3px dashed black",
   borderRadius: "15px",
-  margin: "5rem",
+  margin: "0rem 2rem 2rem 2rem",
 });
 
 const contractFnContainer = css({

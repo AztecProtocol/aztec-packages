@@ -2,7 +2,6 @@ import { css, Global } from "@emotion/react";
 import { AztecContext } from "../../aztecEnv";
 import { useContext, useState } from "react";
 import {
-  Button,
   CssBaseline,
   Fab,
   styled,
@@ -64,11 +63,10 @@ const safeStringify = (obj: any) =>
 const drawerBleeding = 56;
 
 export function LogPanel() {
-  const { logs } = useContext(AztecContext);
-  const [open, setOpen] = useState(false);
+  const { logs, logsOpen, setLogsOpen } = useContext(AztecContext);
 
   const toggleDrawer = (newOpen: boolean) => () => {
-    setOpen(newOpen);
+    setLogsOpen(newOpen);
   };
   return (
     <>
@@ -84,7 +82,7 @@ export function LogPanel() {
         />
         <SwipeableDrawer
           anchor="bottom"
-          open={open}
+          open={logsOpen}
           onClose={toggleDrawer(false)}
           onOpen={toggleDrawer(true)}
           swipeAreaWidth={drawerBleeding}

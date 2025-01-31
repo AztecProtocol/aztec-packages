@@ -101,6 +101,10 @@ export const AztecContext = createContext<{
   currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
   logs: Log[];
+  logsOpen: boolean;
+  drawerOpen: boolean;
+  setDrawerOpen: (drawerOpen: boolean) => void;
+  setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
   setWalletDB: (walletDB: WalletDB) => void;
   setPXEInitialized: (isPXEInitialized: boolean) => void;
@@ -122,6 +126,10 @@ export const AztecContext = createContext<{
   currentContractAddress: null,
   currentTx: null,
   logs: [],
+  logsOpen: false,
+  drawerOpen: false,
+  setDrawerOpen: (drawerOpen: boolean) => {},
+  setLogsOpen: (logsOpen: boolean) => {},
   setLogs: (logs: Log[]) => {},
   setWalletDB: (walletDB: WalletDB) => {},
   setPXEInitialized: (isPXEInitialized: boolean) => {},

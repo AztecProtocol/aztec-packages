@@ -6,6 +6,7 @@ import { AztecContext } from "../../aztecEnv";
 import NoSleep from "nosleep.js";
 import { LogPanel } from "../logPanel/logPanel";
 import logoURL from "../../assets/Aztec_logo.png";
+import { Box, Drawer } from "@mui/material";
 
 const layout = css({
   display: "flex",
@@ -15,7 +16,7 @@ const layout = css({
 
 const logo = css({
   width: "100%",
-  margin: "0.5rem",
+  padding: "0.5rem",
 });
 
 const collapsedDrawer = css({
@@ -48,6 +49,8 @@ export default function Home() {
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const AztecContextInitialValue = {
     pxe,
@@ -61,6 +64,10 @@ export default function Home() {
     node,
     currentContractAddress,
     logs,
+    logsOpen,
+    drawerOpen,
+    setDrawerOpen,
+    setLogsOpen,
     setLogs,
     setAztecNode,
     setCurrentTx,
@@ -77,12 +84,24 @@ export default function Home() {
   return (
     <div css={layout}>
       <AztecContext.Provider value={AztecContextInitialValue}>
-        <div css={collapsedDrawer}>
+        <div css={collapsedDrawer} onClick={() => setDrawerOpen(!drawerOpen)}>
           <img css={logo} src={logoURL} />
         </div>
-        <SidebarComponent />
-        <ContractComponent />
+        <Drawer
+          sx={{
+            "& .MuiDrawer-paper": {
+              height: "100%",
+              width: "340px",
+            },
+          }}
+          onClose={() => setDrawerOpen(false)}
+          variant="temporary"
+          open={drawerOpen}
+        >
+          <SidebarComponent />
+        </Drawer>
         <LogPanel />
+        <ContractComponent />
       </AztecContext.Provider>
     </div>
   );
