@@ -4,6 +4,7 @@ if (NOT(FUZZING) AND NOT(WASM))
         main.cpp
         get_bn254_crs.cpp
         get_grumpkin_crs.cpp
+        api_flag_types.cpp
     )
 
     target_link_libraries(

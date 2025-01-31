@@ -110,7 +110,7 @@ template <typename VK> struct ProofAndKey {
 };
 
 class UltraHonkAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_stack(const std::string& input_type,
+    static std::vector<acir_format::AcirProgram> _build_stack(InputType input_type,
                                                               const std::filesystem::path& bytecode_path,
                                                               const std::filesystem::path& witness_path)
     {
@@ -121,7 +121,7 @@ class UltraHonkAPI : public API {
         // WORKTODO: handle single circuit case here
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-        if (input_type == "compiletime_stack") {
+        if (input_type == InputType::COMPILETIME_STACK) {
             auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/1);
             // Accumulate the entire program stack into the IVC
             while (!program_stack.empty()) {
@@ -144,15 +144,13 @@ class UltraHonkAPI : public API {
         UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
         info("instantiated ivc class");
 
-        std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, witness_path);
+        std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
         info("built stack");
         VectorCircuitSource circuit_source{ stack };
         info("created circuit source");
 
-        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
-        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
-               (*flags.initialize_pairing_point_accumulator) == "false");
-        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
+        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
         HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
@@ -164,10 +162,8 @@ class UltraHonkAPI : public API {
                                                                   const std::filesystem::path& bytecode_path,
                                                                   const std::filesystem::path& witness_path)
     {
-        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
-        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
-               (*flags.initialize_pairing_point_accumulator) == "false");
-        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
+        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
         UltraKeccakProver prover =
@@ -233,14 +229,10 @@ class UltraHonkAPI : public API {
         return verified;
     }
 
-    enum class OutputDataType : size_t { BYTES, FIELDS, BYTES_AND_FIELDS };
-    enum class OutputContent : size_t { PROOF_ONLY, VK_ONLY, PROOF_AND_VK };
-
-    // WORKTODO: move this out of here
     template <typename ProverOutput>
     void _write_data(const ProverOutput& prover_output,
                      const OutputDataType& output_data_type,
-                     const OutputContent& output_content,
+                     const OutputContentType& output_content,
                      const std::filesystem::path& output_dir)
     {
         enum class ObjectToWrite : size_t { PROOF, VK };
@@ -304,7 +296,7 @@ class UltraHonkAPI : public API {
         };
 
         switch (output_content) {
-        case OutputContent::PROOF_ONLY: {
+        case OutputContentType::PROOF: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
                 info("case OutputDataType::BYTES: ");
@@ -322,10 +314,12 @@ class UltraHonkAPI : public API {
                 write_fields(ObjectToWrite::PROOF);
                 break;
             }
+            default:
+                ASSERT("Invalid OutputDataType for PROOF");
             }
             break;
         }
-        case OutputContent::VK_ONLY: {
+        case OutputContentType::VK: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
                 info("case OutputDataType::BYTES: ");
@@ -343,10 +337,12 @@ class UltraHonkAPI : public API {
                 write_fields(ObjectToWrite::VK);
                 break;
             }
+            default:
+                ASSERT("Invalid OutputDataType for VK");
             }
             break;
         }
-        case OutputContent::PROOF_AND_VK: {
+        case OutputContentType::PROOF_AND_VK: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
                 info("case OutputDataType::BYTES: ");
@@ -368,33 +364,39 @@ class UltraHonkAPI : public API {
                 write_fields(ObjectToWrite::VK);
                 break;
             }
+            default:
+                ASSERT("Invalid OutputDataType for PROOF_AND_VK");
             }
             break;
         }
+        default:
+            ASSERT("Invalid OutputContentType");
         }
     }
 
     void _prove(const bool vk_only,
                 const OutputDataType output_data_type,
-                const OutputContent output_content,
+                const OutputContentType output_content_type,
                 const API::Flags& flags,
                 const std::filesystem::path& bytecode_path,
                 const std::filesystem::path& witness_path,
                 const std::filesystem::path& output_dir)
     {
-        if (*flags.ipa_accumulation == "true") {
+        if (flags.ipa_accumulation) {
             info("proving with ipa_accumulation");
             _write_data(
-                _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content, output_dir);
-        } else if (*flags.oracle_hash == "poseidon2") {
+                _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
+        } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("proving with poseidon2");
-            _write_data(
-                _prove_poseidon2(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
-        } else if (*flags.oracle_hash == "keccak") {
+            _write_data(_prove_poseidon2(flags, bytecode_path, witness_path),
+                        output_data_type,
+                        output_content_type,
+                        output_dir);
+        } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("proving with keccak");
             _write_data(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
                         output_data_type,
-                        output_content,
+                        output_content_type,
                         output_dir);
         } else {
             info(flags);
@@ -408,37 +410,15 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        if (!flags.output_type.has_value()) {
+        if (flags.output_data_type == OutputDataType::UNSPECIFIED) {
             ASSERT("No output type provided");
         }
-        if (!flags.output_content.has_value()) {
+        if (flags.output_content_type == OutputContentType::UNSPECIFIED) {
             ASSERT("No output content provided");
         }
 
-        const OutputDataType output_data_type = [&]() {
-            if (*flags.output_type == "bytes") {
-                return OutputDataType::BYTES;
-            } else if (*flags.output_type == "fields") {
-                return OutputDataType::FIELDS;
-            } else {
-                ASSERT(*flags.output_type == "bytes_and_fields");
-                return OutputDataType::BYTES_AND_FIELDS;
-            }
-        }();
-
-        const OutputContent output_content = [&]() {
-            if (*flags.output_content == "proof") {
-                return OutputContent::PROOF_ONLY;
-            } else if (*flags.output_content == "vk") {
-                return OutputContent::VK_ONLY;
-            } else {
-                info("*flags.output_content: ", *flags.output_content);
-                ASSERT(*flags.output_content == "proof_and_vk");
-                return OutputContent::PROOF_AND_VK;
-            }
-        }();
-
-        _prove(/*vk_only=*/false, output_data_type, output_content, flags, bytecode_path, witness_path, output_dir);
+        _prove(
+            false, flags.output_data_type, flags.output_content_type, flags, bytecode_path, witness_path, output_dir);
     };
 
     /**
@@ -457,16 +437,16 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
-        const bool ipa_accumulation = *flags.ipa_accumulation == "true";
+        const bool ipa_accumulation = flags.ipa_accumulation;
         if (ipa_accumulation) {
             info("verifying with ipa accumulation");
             return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
         }
-        if (*flags.oracle_hash == "poseidon2") {
+        if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("verifying with poseidon2");
             return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
         }
-        if (*flags.oracle_hash == "keccak") {
+        if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("verifying with keccak");
             return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
         }
@@ -482,13 +462,11 @@ class UltraHonkAPI : public API {
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE);
         UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
 
-        std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, witness_path);
+        std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
         VectorCircuitSource circuit_source{ stack };
 
-        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
-        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
-               (*flags.initialize_pairing_point_accumulator) == "false");
-        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
+        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
         const bool verified =
             ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
@@ -509,12 +487,13 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        if (!flags.output_type.has_value()) {
+        if (flags.output_data_type == OutputDataType::UNSPECIFIED) {
             ASSERT("No output type provided");
         }
-        ASSERT(*flags.output_type == "bytes" || *flags.output_type == "fields");
-        OutputDataType output_type = flags.output_type == "bytes" ? OutputDataType::BYTES : OutputDataType::FIELDS;
-        _prove(/*vk_only*/ true, output_type, OutputContent::VK_ONLY, flags, bytecode_path, "", output_path);
+        ASSERT(flags.output_data_type == OutputDataType::BYTES || flags.output_data_type == OutputDataType::FIELDS);
+        OutputDataType output_type =
+            flags.output_data_type == OutputDataType::BYTES ? OutputDataType::BYTES : OutputDataType::FIELDS;
+        _prove(/*vk_only*/ true, output_type, OutputContentType::VK, flags, bytecode_path, "", output_path);
     };
 
     /**
@@ -568,8 +547,7 @@ class UltraHonkAPI : public API {
                                 const std::string& witness_path,
                                 const std::string& output_path) override
     {
-        ASSERT(*flags.ipa_accumulation == "true" || *flags.ipa_accumulation == "false");
-        const bool ipa_accumulation = *flags.ipa_accumulation == "true";
+        const bool ipa_accumulation = flags.ipa_accumulation;
         const auto write_toml = [&](auto&& prover_output) {
             // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
             std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
@@ -581,10 +559,10 @@ class UltraHonkAPI : public API {
         if (ipa_accumulation) {
             info("proving with ipa_accumulation");
             write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
-        } else if (*flags.oracle_hash == "poseidon2") {
+        } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("proving with poseidon2");
             write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
-        } else if (*flags.oracle_hash == "keccak") {
+        } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("proving with keccak");
             write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else {

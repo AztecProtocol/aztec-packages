@@ -1,5 +1,6 @@
 #include "barretenberg/bb/api.hpp"
 #include "barretenberg/bb/api_client_ivc.hpp"
+#include "barretenberg/bb/api_flag_types.hpp"
 #include "barretenberg/bb/api_ultra_honk.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/common/benchmark.hpp"
@@ -816,12 +817,12 @@ int main(int argc, char* argv[])
 
         const API::Flags flags = [&args]() {
             return API::Flags{
-                .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false"),
-                .ipa_accumulation = get_option(args, "--ipa_accumulation", "false"),
-                .oracle_hash = get_option(args, "--oracle_hash", "poseidon2"),
-                .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                .input_type = get_option(args, "--input_type", "compiletime_stack"),
-                .output_content = get_option(args, "--output_content", "proof"),
+                .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
+                .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
+                .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),
+                .output_data_type = parse_output_data_type(get_option(args, "--output_type", "fields_msgpack")),
+                .input_type = parse_input_type(get_option(args, "--input_type", "compiletime_stack")),
+                .output_content_type = parse_output_content_type(get_option(args, "--output_content", "proof")),
             };
         }();
 
@@ -951,7 +952,7 @@ int main(int argc, char* argv[])
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = "true" }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

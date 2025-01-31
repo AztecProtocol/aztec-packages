@@ -1,4 +1,5 @@
 #pragma once
+#include "api_flag_types.hpp"
 #include <filesystem>
 #include <iostream>
 
@@ -7,22 +8,22 @@ namespace bb {
 class API {
   public:
     struct Flags {
-        std::optional<std::string> initialize_pairing_point_accumulator; // fka recursive
-        std::optional<std::string> ipa_accumulation;                     // true or false
-        std::optional<std::string> oracle_hash;                          // poseidon2, keccak, ... starknet_poseidon??
-        std::optional<std::string> output_type;    // bytes, fields, bytes_and_fields, fields_msgpack
-        std::optional<std::string> input_type;     // compiletime_stack, runtime_stack
-        std::optional<std::string> output_content; // proof, vk, proof_and_vk
+        bool initialize_pairing_point_accumulator;
+        bool ipa_accumulation;
+        OracleHashType oracle_hash_type;
+        OutputDataType output_data_type;
+        InputType input_type;
+        OutputContentType output_content_type;
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
-               << "  initialize_pairing_point_accumulator: " << *flags.initialize_pairing_point_accumulator << "\n"
-               << "  ipa_accumulation: " << *flags.ipa_accumulation << "\n"
-               << "  oracle_hash: " << *flags.oracle_hash << "\n"
-               << "  output_type: " << *flags.output_type << "\n"
-               << "  input_type: " << *flags.input_type << "\n"
-               << "  output_content: " << *flags.output_content << "\n]";
+               << "  initialize_pairing_point_accumulator: " << flags.initialize_pairing_point_accumulator << "\n"
+               << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
+               << "  oracle_hash_type: " << to_string(flags.oracle_hash_type) << "\n"
+               << "  output_type: " << to_string(flags.output_data_type) << "\n"
+               << "  input_type: " << to_string(flags.input_type) << "\n"
+               << "  output_content_type: " << to_string(flags.output_content_type) << "\n]";
             return os;
         }
     };
