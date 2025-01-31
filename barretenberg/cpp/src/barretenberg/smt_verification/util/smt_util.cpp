@@ -33,7 +33,6 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
         res += std::strtoull(slice.data(), &ptr, base);
     }
     res = number[0] == '-' ? -res : res;
-
     return res;
 }
 
