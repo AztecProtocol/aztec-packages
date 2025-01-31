@@ -233,7 +233,6 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"
@@ -243,7 +242,6 @@ ethereum:
     service:
       port: 5052
       targetPort: 5052
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"

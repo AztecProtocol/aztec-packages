@@ -37,7 +37,6 @@ export default defineConfig({
         "../yarn-project/noir-protocol-circuits-types/artifacts",
         "../noir/packages/noirc_abi/web",
         "../noir/packages/acvm_js/web",
-        "../barretenberg/ts/dest/browser",
       ],
     },
   },
@@ -47,8 +46,8 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: "../barretenberg/ts/dest/browser/*.gz",
-          dest: "assets/",
+          src: "../barretenberg/ts/dest/browser/*.wasm.gz",
+          dest: "./",
         },
       ],
     }),

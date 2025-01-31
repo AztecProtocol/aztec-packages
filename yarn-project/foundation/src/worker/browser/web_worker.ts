@@ -15,6 +15,7 @@ export async function createWebWorker(url: string, initialMem?: number, maxMem?:
   const transportClient = new TransportClient<DispatchMsg>(transportConnect);
   await transportClient.open();
   const remoteModule = createDispatchProxy(WasmModule, transportClient) as WasmWorker;
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   remoteModule.destroyWorker = async () => {
     await transportClient.request({ fn: '__destroyWorker__', args: [] });
     transportClient.close();

@@ -134,11 +134,11 @@ export async function makeProcessedTxFromTxWithPublicCalls(
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
 ): Promise<ProcessedTx> {
-  const avmOutput = avmProvingRequest.inputs.output;
+  const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
-  const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
+  const constants = CombinedConstantData.combine(tx.data.constants, avmPublicInputs.globalVariables);
 
-  const publicDataWrites = avmOutput.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
+  const publicDataWrites = avmPublicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
 
   const privateLogs = [
     ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
@@ -150,15 +150,15 @@ export async function makeProcessedTxFromTxWithPublicCalls(
   const txEffect = new TxEffect(
     revertCode,
     await tx.getTxHash(),
-    avmOutput.transactionFee,
-    avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
-    avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
-    avmOutput.accumulatedData.l2ToL1Msgs
+    avmPublicInputs.transactionFee,
+    avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
+    avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),
+    avmPublicInputs.accumulatedData.l2ToL1Msgs
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
     privateLogs,
-    avmOutput.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
+    avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
     new Fr(contractClassLogPreimagesLength),
     tx.contractClassLogs,
   );

@@ -12,9 +12,6 @@ export default {
     index: "./src/index.ts",
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
       {
         test: /\.gz$/,

@@ -287,7 +287,7 @@ validator:
   validator:
     disabled: false
   sequencer:
-    maxTxsPerBlock: 4
+    maxTxsPerBlock: 40
     enforceTimeTable: true
 
 bootNode:
@@ -303,7 +303,7 @@ bootNode:
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 2
+  replicas: 8
 
 proverBroker:
   resources:
@@ -322,7 +322,7 @@ proverNode:
   maxOldSpaceSize: "11776"
 
 bot:
-  replicas: 1
+  replicas: 10
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1

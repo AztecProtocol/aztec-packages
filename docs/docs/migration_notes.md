@@ -8,6 +8,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Improved storage slot allocation
+State variables are no longer assumed to be generic over a type that implements the `Serialize` trait: instead, they must implement the `Storage` trait with an `N` value equal to the number of slots they need to reserve.
+
+For the vast majority of state variables, this simply means binding the serialization length to this trait:
+
+```diff
++ impl<T, let N: u32> Storage<N> for MyStateVar<T> where T: Serialize<N> { };
+```
+
 ### [Aztec.nr] Introduction of `Packable` trait
 We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array.
 This is in contrast to the `Serialize` and `Deserialize` traits, which follows Noir's intrinsic serialization format.
@@ -66,6 +75,26 @@ pub trait NoteInterface<let N: u32> {
     fn compute_note_hash(self) -> Field;
 }
 ```
+
+### [PXE] Cleanup of Contract and ContractClass information getters
+
+```diff
+- pxe.isContractInitialized
+- pxe.getContractInstance
+- pxe.isContractPubliclyDeployed
++ pxe.getContractMetadata
+```
+
+have been merged into getContractMetadata
+
+```diff
+- pxe.getContractClass
+- pxe.isContractClassPubliclyRegistered
+- pxe.getContractArtifact
++ pxe.getContractClassMetadata
+```
+
+These functions have been merged into `pxe.getContractMetadata` and `pxe.getContractClassMetadata`.
 
 ## 0.72.0
 ### Some functions in `aztec.js` and `@aztec/accounts` are now async
