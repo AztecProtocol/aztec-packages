@@ -14,8 +14,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
     transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);

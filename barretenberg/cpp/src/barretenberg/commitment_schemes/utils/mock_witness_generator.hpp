@@ -20,8 +20,8 @@ template <typename Curve> struct MockWitnessGenerator {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
     using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
-    using ClaimBatcher = bb::ShpleminiVerifier_<Curve>::ClaimBatcher;
-    using ClaimBatch = bb::ShpleminiVerifier_<Curve>::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     std::shared_ptr<CommitmentKey> ck;
     std::vector<Polynomial> unshifted_polynomials = {};

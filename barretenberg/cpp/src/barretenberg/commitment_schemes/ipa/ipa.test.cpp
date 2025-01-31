@@ -24,8 +24,8 @@ class IPATest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using ClaimBatcher = ShpleminiVerifier::ClaimBatcher;
-    using ClaimBatch = ShpleminiVerifier::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     static std::shared_ptr<CK> ck;
     static std::shared_ptr<VK> vk;
