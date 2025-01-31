@@ -1,0 +1,323 @@
++ PRESET=clang16
++ TARGET=bb
++ INCREMENTAL=true
+++ dirname ./scripts/analyze_compile_time.sh
++ cd ./scripts/..
++ '[' -d /home/cody/ClangBuildAnalyzer ']'
++ cmake -DCMAKE_CXX_FLAGS=-ftime-trace --preset clang16 -Bbuild-clang16-compiler-profile
+Preset CMake variables:
+
+  TARGET_ARCH="skylake"
+
+Preset environment variables:
+
+  CC="clang-16"
+  CMAKE_EXPORT_COMPILE_COMMANDS="ON"
+  CXX="clang++-16"
+
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+-- Build type: Release
+-- Target architecture: skylake
+-- Multithreading is enabled.
+-- OMP multithreading is disabled.
+-- std::execution parallel algorithms are disabled.
+Parsing public/common/TracyVersion.hpp file
+VERSION 0.11.0
+-- TRACY_ENABLE: ON
+-- TRACY_ON_DEMAND: OFF
+-- TRACY_CALLSTACK: OFF
+-- TRACY_NO_CALLSTACK: OFF
+-- TRACY_NO_CALLSTACK_INLINES: OFF
+-- TRACY_ONLY_LOCALHOST: OFF
+-- TRACY_NO_BROADCAST: OFF
+-- TRACY_ONLY_IPV4: OFF
+-- TRACY_NO_CODE_TRANSFER: OFF
+-- TRACY_NO_CONTEXT_SWITCH: OFF
+-- TRACY_NO_EXIT: OFF
+-- TRACY_NO_SAMPLING: OFF
+-- TRACY_NO_VERIFY: OFF
+-- TRACY_NO_VSYNC_CAPTURE: OFF
+-- TRACY_NO_FRAME_IMAGE: OFF
+-- TRACY_NO_SYSTEM_TRACING: OFF
+-- TRACY_PATCHABLE_NOPSLEDS: OFF
+-- TRACY_DELAYED_INIT: OFF
+-- TRACY_MANUAL_LIFETIME: OFF
+-- TRACY_FIBERS: OFF
+-- TRACY_NO_CRASH_HANDLER: OFF
+-- TRACY_TIMER_FALLBACK: OFF
+-- TRACY_LIBUNWIND_BACKTRACE: OFF
+-- TRACY_SYMBOL_OFFLINE_RESOLVE: OFF
+-- TRACY_LIBBACKTRACE_ELF_DYNLOAD_SUPPORT: OFF
+-- TRACY_VERBOSE: OFF
+-- TRACY_DEMANGLE: OFF
+-- Failed to find LLVM FileCheck
+-- git version: v0.0.0 normalized to 0.0.0
+-- Google Benchmark version: 1.8.3
+-- Enabling additional flags: -DINCLUDE_DIRECTORIES=/home/cody/aztec-packages/barretenberg/cpp/build-clang16-compiler-profile/_deps/benchmark-src/include
+-- Performing Test HAVE_THREAD_SAFETY_ATTRIBUTES -- success
+-- Performing Test HAVE_STD_REGEX -- success
+-- Performing Test HAVE_GNU_POSIX_REGEX -- failed to compile
+-- Performing Test HAVE_POSIX_REGEX -- success
+-- Performing Test HAVE_STEADY_CLOCK -- success
+-- Performing Test HAVE_PTHREAD_AFFINITY -- success
+-- Using optimized assembly for field arithmetic.
+-- Compiling all-in-one barretenberg archive
+-- Configuring done (1.7s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/cody/aztec-packages/barretenberg/cpp/build-clang16-compiler-profile
++ cd build-clang16-compiler-profile
++ ninja bb
+[1/2] Building CXX object src/barretenberg/bb/CMakeFiles/bb.dir/main.cpp.o
+[2/2] Linking CXX executable bin/bb
++ /home/cody/ClangBuildAnalyzer/build/ClangBuildAnalyzer --all . compile-profile.json
+Processing all files and saving to 'compile-profile.json'...
+WARN: JSON parse error in ./compile-profile.json: UNCLOSED_STRING: A string is opened, but never closed..
+  done in 4.8s. Run 'ClangBuildAnalyzer --analyze compile-profile.json' to analyze it.
++ /home/cody/ClangBuildAnalyzer/build/ClangBuildAnalyzer --analyze compile-profile.json
+Analyzing build trace from 'compile-profile.json'...
+**** Time summary:
+Compilation (220 times):
+  Parsing (frontend):         3867.3 s
+  Codegen & opts (backend):    677.5 s
+
+**** Files that took longest to parse (compiler frontend):
+122965 ms: ./src/barretenberg/numeric/CMakeFiles/numeric_objects.dir/uintx/uintx.cpp.o
+ 55419 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_proofs/c_bind.cpp.o
+ 55317 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_proofs/acir_composer.cpp.o
+ 55235 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/acir_format.cpp.o
+ 52240 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/acir_to_constraint_buf.cpp.o
+ 50566 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/acir_format_mocks.cpp.o
+ 48636 ms: ./src/barretenberg/eccvm/CMakeFiles/eccvm_objects.dir/eccvm_prover.cpp.o
+ 48420 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/aes128_constraint.cpp.o
+ 45028 ms: ./src/barretenberg/stdlib/hash/pedersen/CMakeFiles/stdlib_pedersen_hash_objects.dir/pedersen.cpp.o
+ 43999 ms: ./src/barretenberg/stdlib/commitment/pedersen/CMakeFiles/stdlib_pedersen_commitment_objects.dir/pedersen.cpp.o
+
+**** Files that took longest to codegen (compiler backend):
+ 41209 ms: ./src/barretenberg/stdlib/hash/keccak/CMakeFiles/stdlib_keccak_objects.dir/keccak.cpp.o
+ 27763 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/ecdsa_secp256r1.cpp.o
+ 27198 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/bigint_constraint.cpp.o
+ 26378 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/ecdsa_secp256k1.cpp.o
+ 20034 ms: ./src/barretenberg/bb/CMakeFiles/bb.dir/main.cpp.o
+ 18616 ms: ./src/barretenberg/stdlib/honk_verifier/CMakeFiles/stdlib_honk_verifier_objects.dir/ultra_recursive_verifier.cpp.o
+ 17776 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/acir_to_constraint_buf.cpp.o
+ 17291 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/acir_format.cpp.o
+ 16902 ms: ./src/barretenberg/dsl/CMakeFiles/dsl_objects.dir/acir_format/recursion_constraint.cpp.o
+ 16862 ms: ./src/barretenberg/stdlib/translator_vm_verifier/CMakeFiles/stdlib_translator_vm_verifier_objects.dir/translator_recursive_verifier.cpp.o
+
+**** Templates that took longest to instantiate:
+1556019 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::divmod (95 times, avg 16379 ms)
+1538376 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::operator/= (94 times, avg 16365 ms)
+1538366 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::operator/ (94 times, avg 16365 ms)
+561629 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::barrett_... (95 times, avg 5911 ms)
+512994 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::barrett_... (95 times, avg 5399 ms)
+481035 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::barrett_... (95 times, avg 5063 ms)
+248899 ms: bb::numeric::uintx<bb::numeric::uint256_t>::divmod (186 times, avg 1338 ms)
+247351 ms: bb::numeric::uintx<bb::numeric::uint256_t>::operator% (185 times, avg 1337 ms)
+101914 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::invmod (1 times, avg 101914 ms)
+101912 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::u... (1 times, avg 101912 ms)
+101911 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::o... (1 times, avg 101911 ms)
+101911 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::d... (1 times, avg 101911 ms)
+ 93673 ms: bb::numeric::uintx<bb::numeric::uint256_t>::barrett_reduction_bn254 (186 times, avg 503 ms)
+ 78502 ms: bb::numeric::uintx<bb::numeric::uint256_t>::barrett_reduction_secp25... (186 times, avg 422 ms)
+ 76040 ms: bb::numeric::uintx<bb::numeric::uint256_t>::barrett_reduction_secp25... (186 times, avg 408 ms)
+ 56409 ms: bb::crypto::generator_data<bb::curve::Grumpkin>::get (4 times, avg 14102 ms)
+ 52726 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::b... (1 times, avg 52726 ms)
+ 39793 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates()::(anonymous cla... (56 times, avg 710 ms)
+ 25786 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::b... (1 times, avg 25786 ms)
+ 23394 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::b... (1 times, avg 23394 ms)
+ 21347 ms: std::vformat_to<std::__format::_Sink_iter<char>> (134 times, avg 159 ms)
+ 21308 ms: std::__format::__do_vformat_to<std::__format::_Sink_iter<char>, char... (134 times, avg 159 ms)
+ 20653 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates<std::tuple<bb::Re... (29 times, avg 712 ms)
+ 19923 ms: std::vformat_to<std::__format::_Sink_iter<wchar_t>> (135 times, avg 147 ms)
+ 19877 ms: std::__format::__do_vformat_to<std::__format::_Sink_iter<wchar_t>, w... (134 times, avg 148 ms)
+ 19169 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates<std::tuple<bb::Re... (27 times, avg 709 ms)
+ 17924 ms: bb::numeric::uintx<bb::numeric::uint256_t>::invmod (95 times, avg 188 ms)
+ 17768 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::unsafe_i... (95 times, avg 187 ms)
+ 17663 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::operator% (1 times, avg 17663 ms)
+ 13535 ms: bb::group<bb::field<bb::Bn254FrParams>, bb::field<bb::Bn254FqParams>... (14 times, avg 966 ms)
+
+**** Template sets that took longest to instantiate:
+1906829 ms: bb::numeric::uintx<$>::divmod (282 times, avg 6761 ms)
+1538376 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::operator/= (94 times, avg 16365 ms)
+1538366 ms: bb::numeric::uintx<bb::numeric::uintx<numeric::uint256_t>>::operator/ (94 times, avg 16365 ms)
+708029 ms: bb::numeric::uintx<$>::barrett_reduction_bn254 (282 times, avg 2510 ms)
+612429 ms: bb::numeric::uintx<$>::barrett_reduction_secp256r1 (282 times, avg 2171 ms)
+585325 ms: bb::numeric::uintx<$>::barrett_reduction_secp256k1 (282 times, avg 2075 ms)
+247351 ms: bb::numeric::uintx<bb::numeric::uint256_t>::operator% (185 times, avg 1337 ms)
+119839 ms: bb::numeric::uintx<$>::invmod (96 times, avg 1248 ms)
+119745 ms: bb::numeric::uintx<$>::unsafe_invmod (172 times, avg 696 ms)
+101911 ms: bb::numeric::uintx<bb::numeric::uintx<uintx<numeric::uint256_t>>>::o... (1 times, avg 101911 ms)
+ 71231 ms: std::__and_<$> (45943 times, avg 1 ms)
+ 63667 ms: std::tuple<$> (4603 times, avg 13 ms)
+ 62963 ms: std::make_tuple<$> (2017 times, avg 31 ms)
+ 56409 ms: bb::crypto::generator_data<$>::get (4 times, avg 14102 ms)
+ 54391 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates<$> (137 times, avg 397 ms)
+ 42824 ms: std::__or_<$> (50654 times, avg 0 ms)
+ 41270 ms: std::vformat_to<$> (269 times, avg 153 ms)
+ 41185 ms: std::__format::__do_vformat_to<$> (268 times, avg 153 ms)
+ 39793 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates()::(anonymous cla... (56 times, avg 710 ms)
+ 38739 ms: serde::Deserializable<$>::deserialize<$> (372 times, avg 104 ms)
+ 37502 ms: std::vector<$>::emplace_back<$> (4930 times, avg 7 ms)
+ 36683 ms: std::_Tuple_impl<$> (4569 times, avg 8 ms)
+ 28433 ms: std::vector<$> (8580 times, avg 3 ms)
+ 26267 ms: std::_TupleConstraints<$>::__is_implicitly_constructible<$> (9265 times, avg 2 ms)
+ 25802 ms: std::_Destroy<$> (5796 times, avg 4 ms)
+ 23972 ms: std::__do_visit<$> (454 times, avg 52 ms)
+ 23389 ms: std::vector<$>::_M_realloc_insert<$> (5881 times, avg 3 ms)
+ 21727 ms: std::formatter<$>::format<$> (3330 times, avg 6 ms)
+ 21465 ms: std::vector<$>::vector (4038 times, avg 5 ms)
+ 20540 ms: std::__detail::__variant::__gen_vtable_impl<$>::__visit_invoke (3441 times, avg 5 ms)
+
+**** Functions that took longest to compile:
+  5906 ms: void bb::TranslatorDecompositionRelationImpl<bb::field<bb::Bn254FrPa... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp)
+  1910 ms: bb::ECCVMFlavor::WireEntities<bb::stdlib::bigfield<bb::UltraCircuitB... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.cpp)
+  1044 ms: void bb::TranslatorDecompositionRelationImpl<bb::field<bb::Bn254FrPa... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/translator_vm/translator_decomposition_relation_1.cpp)
+   999 ms: void bb::TranslatorZeroConstraintsRelationImpl<bb::field<bb::Bn254Fr... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/translator_vm/translator_extra_relations.cpp)
+   939 ms: void bb::TranslatorDecompositionRelationImpl<bb::field<bb::Bn254FrPa... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp)
+   923 ms: void bb::TranslatorNonNativeFieldRelationImpl<bb::field<bb::Bn254FrP... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp)
+   693 ms: bb::ECCVMFlavor::ShiftedEntities<bb::stdlib::bigfield<bb::UltraCircu... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.cpp)
+   672 ms: bb::TranslatorCircuitBuilder::check_circuit() (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/translator_vm/translator_circuit_builder.cpp)
+   596 ms: void bb::ECCVMTranscriptRelationImpl<bb::stdlib::bigfield<bb::UltraC... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/ecc_transcript_relation.cpp)
+   596 ms: void bb::ECCVMMSMRelationImpl<bb::stdlib::bigfield<bb::UltraCircuitB... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/ecc_msm_relation.cpp)
+   593 ms: void bb::ECCVMMSMRelationImpl<bb::stdlib::bigfield<bb::MegaCircuitBu... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/ecc_msm_relation.cpp)
+   474 ms: void bb::ECCVMTranscriptRelationImpl<bb::field<bb::Bn254FqParams> >:... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp)
+   452 ms: void bb::ECCVMTranscriptRelationImpl<bb::field<bb::Bn254FqParams> >:... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp)
+   422 ms: bb::group_elements::element<bb::field<bb::secp256k1::FqParams>, bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/crypto/ecdsa/c_bind.cpp)
+   420 ms: bb::group_elements::element<bb::field<bb::secp256k1::FqParams>, bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.cpp)
+   410 ms: bb::group_elements::element<bb::field<bb::secp256k1::FqParams>, bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/dsl/acir_format/ecdsa_secp256k1.cpp)
+   401 ms: bb::group_elements::element<bb::field<bb::secp256k1::FqParams>, bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/ecc/curves/secp256k1/c_bind.cpp)
+   394 ms: auto void bb::RelationUtils<bb::TranslatorFlavor>::scale_univariates... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/translator_vm/translator_prover.cpp)
+   390 ms: acir_format::HonkRecursionConstraintOutput acir_format::create_honk_... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/dsl/acir_format/honk_recursion_constraint.cpp)
+   356 ms: void bb::ECCVMTranscriptRelationImpl<bb::stdlib::bigfield<bb::MegaCi... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/eccvm_verifier/ecc_transcript_relation.cpp)
+   353 ms: bb::group_elements::element<bb::field<bb::secp256r1::FqParams>, bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/dsl/acir_format/ecdsa_secp256r1.cpp)
+   325 ms: bb::Univariate<bb::field<bb::Bn254FqParams>, 22ul, 0ul, 0ul> bb::ECC... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_set_relation.cpp)
+   317 ms: bb::TranslatorCircuitBuilder::generate_witness_values(bb::field<bb::... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/translator_vm/translator_circuit_builder.cpp)
+   283 ms: void bb::ECCVMBoolsRelationImpl<bb::field<bb::Bn254FqParams> >::accu... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_bools_relation.cpp)
+   282 ms: void bb::ECCVMMSMRelationImpl<bb::field<bb::Bn254FqParams> >::accumu... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_msm_relation.cpp)
+   282 ms: void bb::ECCVMMSMRelationImpl<bb::field<bb::Bn254FqParams> >::accumu... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_msm_relation.cpp)
+   259 ms: void bb::ECCVMWnafRelationImpl<bb::field<bb::Bn254FqParams> >::accum... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_wnaf_relation.cpp)
+   257 ms: auto void bb::RelationUtils<bb::TranslatorFlavor>::scale_univariates... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/translator_vm/translator_prover.cpp)
+   256 ms: void bb::ECCVMTranscriptRelationImpl<bb::field<bb::Bn254FqParams> >:... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp)
+   254 ms: bb::Univariate<bb::field<bb::Bn254FqParams>, 22ul, 0ul, 0ul> bb::ECC... (/home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/relations/ecc_vm/ecc_set_relation.cpp)
+
+**** Function sets that took longest to compile / optimize:
+  7265 ms: bb::stdlib::bigfield<$>::unsafe_evaluate_multiply_add(bb::stdlib::bi... (56 times, avg 129 ms)
+  5906 ms: void bb::TranslatorDecompositionRelationImpl<$>::accumulate<$>(std::... (1 times, avg 5906 ms)
+  3272 ms: bb::stdlib::bigfield<$>::bigfield(bb::stdlib::field_t<$> const&, bb:... (63 times, avg 51 ms)
+  2341 ms: bb::stdlib::bigfield<$>::unsafe_evaluate_multiple_multiply_add(std::... (17 times, avg 137 ms)
+  2117 ms: bb::field<$>::field(int) (186 times, avg 11 ms)
+  1918 ms: bb::stdlib::bigfield<$>::self_reduce() const (56 times, avg 34 ms)
+  1910 ms: bb::ECCVMFlavor::WireEntities<$>::WireEntities(bb::ECCVMFlavor::Wire... (1 times, avg 1910 ms)
+  1865 ms: bb::group_elements::element<bb::field<bb::secp256k1::FqParams>, bb::... (5 times, avg 373 ms)
+  1846 ms: bb::group_elements::element<$>::self_dbl() (48 times, avg 38 ms)
+  1440 ms: bb::field<$>::invert() const (103 times, avg 13 ms)
+  1420 ms: std::array<$> bb::stdlib::element_default::element<$>::create_group_... (43 times, avg 33 ms)
+  1360 ms: bb::stdlib::bigfield<$>::internal_div(std::vector<$> const&, bb::std... (35 times, avg 38 ms)
+  1318 ms: bb::plonk::VerifierPermutationWidget<$>::compute_quotient_evaluation... (10 times, avg 131 ms)
+  1299 ms: bb::plonk::VerifierPlookupWidget<$>::compute_quotient_evaluation_con... (10 times, avg 129 ms)
+  1292 ms: bb::stdlib::bigfield<bb::UltraCircuitBuilder_<bb::UltraExecutionTrac... (18 times, avg 71 ms)
+  1189 ms: void bb::ECCVMMSMRelationImpl<$>::accumulate<$>(std::array<$>&, bb::... (2 times, avg 594 ms)
+  1044 ms: void bb::TranslatorDecompositionRelationImpl<$>::accumulate<$>(std::... (1 times, avg 1044 ms)
+  1032 ms: bb::stdlib::bigfield<$>::assert_is_not_equal(bb::stdlib::bigfield<$>... (35 times, avg 29 ms)
+  1021 ms: bb::stdlib::bigfield<$>::conditional_negate(bb::stdlib::bool_t<$> co... (12 times, avg 85 ms)
+   999 ms: void bb::TranslatorZeroConstraintsRelationImpl<$>::accumulate<$>(std... (1 times, avg 999 ms)
+   952 ms: void bb::ECCVMTranscriptRelationImpl<$>::accumulate<$>(std::array<$>... (2 times, avg 476 ms)
+   939 ms: void bb::TranslatorDecompositionRelationImpl<$>::accumulate<$>(std::... (1 times, avg 939 ms)
+   924 ms: bb::stdlib::bigfield<$>::create_from_u512_as_witness(bb::UltraCircui... (27 times, avg 34 ms)
+   923 ms: void bb::TranslatorNonNativeFieldRelationImpl<$>::accumulate<$>(std:... (1 times, avg 923 ms)
+   895 ms: bb::stdlib::bigfield<$>::mult_madd(std::vector<$> const&, std::vecto... (17 times, avg 52 ms)
+   887 ms: std::vector<$>::~vector() (401 times, avg 2 ms)
+   873 ms: bb::group_elements::element<bb::field<bb::Bn254FqParams>, bb::field<... (28 times, avg 31 ms)
+   871 ms: void bb::TranslatorDecompositionRelationImpl<$>::accumulate<$>(std::... (5 times, avg 174 ms)
+   861 ms: bb::stdlib::field_t<$> bb::stdlib::keccak<$>::normalize_and_rotate<$... (75 times, avg 11 ms)
+   845 ms: bb::stdlib::element_default::element<$>::multiple_montgomery_ladder(... (11 times, avg 76 ms)
+
+**** Expensive headers:
+527793 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/eccvm/eccvm_flavor.hpp (included 29 times, avg 18199 ms), included via:
+  7x: <direct include>
+  5x: eccvm_recursive_flavor.hpp 
+  3x: acir_format.hpp client_ivc.hpp goblin.hpp eccvm_prover.hpp 
+  2x: ecc_transcript_relation_impl.hpp 
+  2x: acir_to_constraint_buf.hpp acir_format.hpp client_ivc.hpp goblin.hpp eccvm_prover.hpp 
+  1x: eccvm_recursive_verifier.hpp eccvm_recursive_flavor.hpp 
+  ...
+
+408211 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/group/cycle_group.hpp (included 89 times, avg 4586 ms), included via:
+  7x: eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp 
+  6x: translator_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp 
+  6x: translator_recursive_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp 
+  5x: eccvm_recursive_flavor.hpp eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp 
+  2x: acir_format.hpp aes128_constraint.hpp witness_constant.hpp 
+  2x: simple.hpp ultra.hpp hash_path.hpp hash.hpp pedersen.hpp 
+  ...
+
+393471 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/ecc/curves/bn254/fr.hpp (included 186 times, avg 2115 ms), included via:
+  7x: relation_definitions.hpp relation_types.hpp 
+  6x: circuit_builders.hpp circuit_simulator.hpp bn254.hpp 
+  5x: eccvm_flavor.hpp ipa.hpp claim.hpp commitment_key.hpp batched_affine_addition.hpp bn254.hpp 
+  4x: translator_decomposition_relation_impl.hpp translator_decomposition_relation.hpp relation_types.hpp 
+  3x: <direct include>
+  2x: translator_permutation_relation_impl.hpp translator_permutation_relation.hpp relation_types.hpp 
+  ...
+
+370414 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp (included 131 times, avg 2827 ms), included via:
+  8x: field.hpp witness.hpp 
+  7x: eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp 
+  6x: <direct include>
+  6x: translator_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp 
+  5x: eccvm_recursive_flavor.hpp eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp 
+  2x: acir_to_constraint_buf.hpp acir_format.hpp aes128_constraint.hpp witness_constant.hpp ecdsa_secp256k1.hpp byte_array.hpp bool.hpp witness.hpp 
+  ...
+
+362217 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/dsl/acir_format/witness_constant.hpp (included 16 times, avg 22638 ms), included via:
+  2x: acir_format.hpp aes128_constraint.hpp 
+  2x: acir_to_constraint_buf.hpp acir_format.hpp aes128_constraint.hpp 
+  1x: blake2s_constraint.hpp 
+  1x: sha256_constraint.hpp 
+  1x: acir_composer.hpp acir_format.hpp aes128_constraint.hpp 
+  1x: blake3_constraint.hpp 
+  ...
+
+328597 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp (included 131 times, avg 2508 ms), included via:
+  8x: field.hpp witness.hpp circuit_builders.hpp 
+  7x: eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp 
+  6x: circuit_builders.hpp 
+  6x: translator_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp 
+  5x: eccvm_recursive_flavor.hpp eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp 
+  2x: acir_to_constraint_buf.hpp acir_format.hpp aes128_constraint.hpp witness_constant.hpp ecdsa_secp256k1.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp 
+  ...
+
+274747 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/bool/bool.hpp (included 117 times, avg 2348 ms), included via:
+  7x: eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp 
+  6x: translator_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp 
+  6x: translator_recursive_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp 
+  5x: eccvm_recursive_flavor.hpp eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp 
+  4x: uint.hpp 
+  4x: uint.hpp 
+  ...
+
+271468 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/mega_flavor.hpp (included 40 times, avg 6786 ms), included via:
+  6x: sumcheck.hpp decider_proving_key.hpp mega_zk_flavor.hpp 
+  3x: mega_zk_flavor.hpp 
+  3x: acir_format.hpp client_ivc.hpp goblin.hpp mock_circuits.hpp ultra_recursive_verifier.hpp mega_recursive_flavor.hpp 
+  2x: <direct include>
+  2x: acir_to_constraint_buf.hpp acir_format.hpp client_ivc.hpp goblin.hpp mock_circuits.hpp ultra_recursive_verifier.hpp mega_recursive_flavor.hpp 
+  2x: ultra_recursive_verifier.hpp mega_recursive_flavor.hpp 
+  ...
+
+243149 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp (included 132 times, avg 1842 ms), included via:
+  8x: field.hpp witness.hpp circuit_builders.hpp mega_circuit_builder.hpp 
+  7x: eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp mega_circuit_builder.hpp 
+  6x: circuit_builders.hpp mega_circuit_builder.hpp 
+  6x: translator_flavor.hpp kzg.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp mega_circuit_builder.hpp 
+  5x: eccvm_recursive_flavor.hpp eccvm_flavor.hpp ipa.hpp claim.hpp grumpkin.hpp bigfield.hpp byte_array.hpp bool.hpp witness.hpp circuit_builders.hpp mega_circuit_builder.hpp 
+  2x: ultra_composer.hpp plonk_flavors.hpp 
+  ...
+
+230248 ms: /home/cody/aztec-packages/barretenberg/cpp/src/barretenberg/dsl/acir_format/acir_format.hpp (included 7 times, avg 32892 ms), included via:
+  3x: <direct include>
+  2x: acir_to_constraint_buf.hpp 
+  1x: acir_composer.hpp 
+  1x: api_client_ivc.hpp acir_format_getters.hpp 
+
+  done in 2.7s.

@@ -18,7 +18,7 @@ TEST(uintx, BarrettReduction512)
     static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
     constexpr uint256_t modulus(modulus_0, modulus_1, modulus_2, modulus_3);
 
-    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_result, remainder_result] = x.barrett_reduction_bn254();
     const auto [quotient_expected, remainder_expected] = x.divmod_base(uint512_t(modulus));
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);
@@ -35,7 +35,7 @@ TEST(uintx, BarrettReduction1024)
     constexpr uint256_t modulus_partial(modulus_0, modulus_1, modulus_2, modulus_3);
     constexpr uint512_t modulus = uint512_t(modulus_partial) * uint512_t(modulus_partial);
 
-    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_result, remainder_result] = x.barrett_reduction_bn254();
     const auto [quotient_expected, remainder_expected] = x.divmod_base(uint1024_t(modulus));
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);

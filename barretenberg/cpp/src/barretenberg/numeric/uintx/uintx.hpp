@@ -14,6 +14,7 @@
 #include "../uint256/uint256.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <concepts>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -34,7 +35,12 @@ template <class base_uint> class uintx {
 
     constexpr uintx(const base_uint input_lo, const base_uint input_hi)
         : lo(input_lo)
-        , hi(input_hi)
+        , hi(input_hi){};
+
+    constexpr uintx(const uint256_t input)
+        requires(!std::same_as<uint256_t, base_uint>)
+        : lo(input)
+        , hi(0)
     {}
 
     constexpr uintx(const uintx& other)
@@ -49,11 +55,11 @@ template <class base_uint> class uintx {
     constexpr uintx& operator=(uintx&& other) noexcept = default;
 
     constexpr ~uintx() = default;
-    explicit constexpr operator bool() const { return static_cast<bool>(lo.data[0]); };
-    explicit constexpr operator uint8_t() const { return static_cast<uint8_t>(lo.data[0]); };
-    explicit constexpr operator uint16_t() const { return static_cast<uint16_t>(lo.data[0]); };
-    explicit constexpr operator uint32_t() const { return static_cast<uint32_t>(lo.data[0]); };
-    explicit constexpr operator uint64_t() const { return static_cast<uint64_t>(lo.data[0]); };
+    explicit constexpr operator bool() const { return static_cast<bool>(lo); };
+    explicit constexpr operator uint8_t() const { return static_cast<uint8_t>(lo); };
+    explicit constexpr operator uint16_t() const { return static_cast<uint16_t>(lo); };
+    explicit constexpr operator uint32_t() const { return static_cast<uint32_t>(lo); };
+    explicit constexpr operator uint64_t() const { return static_cast<uint64_t>(lo); };
 
     explicit constexpr operator base_uint() const { return lo; }
 
@@ -158,7 +164,11 @@ template <class base_uint> class uintx {
     base_uint lo;
     base_uint hi;
 
-    template <base_uint modulus> constexpr std::pair<uintx, uintx> barrett_reduction() const;
+    // These were instantiations of a template, but constexpr issues precluded explicit instantiation (at least for me),
+    // so to help compile times I opted for code duplication
+    constexpr std::pair<uintx, uintx> barrett_reduction_bn254() const;
+    constexpr std::pair<uintx, uintx> barrett_reduction_secp256k1() const;
+    constexpr std::pair<uintx, uintx> barrett_reduction_secp256r1() const;
     constexpr std::pair<uintx, uintx> divmod(const uintx& b) const;
     constexpr std::pair<uintx, uintx> divmod_base(const uintx& b) const;
 };
@@ -188,6 +198,9 @@ template <class base_uint> inline std::ostream& operator<<(std::ostream& os, uin
 
 using uint512_t = uintx<numeric::uint256_t>;
 using uint1024_t = uintx<uint512_t>;
+
+extern template class uintx<numeric::uint256_t>;
+extern template class uintx<uintx<numeric::uint256_t>>;
 
 } // namespace bb::numeric
 

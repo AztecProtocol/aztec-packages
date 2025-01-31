@@ -348,13 +348,13 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod
         uint256_t(0xFFFFFFFFFFFFFFFFULL, 0x00000000FFFFFFFFULL, 0x0000000000000000ULL, 0xFFFFFFFF00000001ULL);
 
     if (b == uintx(BN254FQMODULUS256)) {
-        return (*this).template barrett_reduction<BN254FQMODULUS256>();
+        return barrett_reduction_bn254();
     }
     if (b == uintx(SECP256K1FQMODULUS256)) {
-        return (*this).template barrett_reduction<SECP256K1FQMODULUS256>();
+        return barrett_reduction_secp256k1();
     }
     if (b == uintx(SECP256R1FQMODULUS256)) {
-        return (*this).template barrett_reduction<SECP256R1FQMODULUS256>();
+        return barrett_reduction_secp256r1();
     }
 
     return divmod_base(b);
@@ -372,9 +372,113 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod
  * @return constexpr std::pair<uintx<base_uint>, uintx<base_uint>>
  */
 template <class base_uint>
-template <base_uint modulus>
-constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction() const
+constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction_bn254() const
 {
+    constexpr uint256_t modulus =
+        uint256_t(0x3C208C16D87CFD47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL);
+
+    // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
+    //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
+    constexpr size_t k = base_uint::length() - 1;
+    // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
+    // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
+    constexpr uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
+
+    const auto x = *this;
+
+    // compute x * redc_parameter
+    const auto mul_result = x.mul_extended(redc_parameter);
+    constexpr size_t shift = 2 * k;
+
+    // compute (x * redc_parameter) >> 2k
+    // This is equivalent to (x * (2^{2k} / modulus) / 2^{2k})
+    // which approximates to x / modulus
+    const uintx downshifted_hi_bits = mul_result.second & ((uintx(1) << shift) - 1);
+    const uintx mul_hi_underflow = uintx(downshifted_hi_bits) << (length() - shift);
+    uintx quotient = (mul_result.first >> shift) | mul_hi_underflow;
+
+    // compute remainder by determining value of x - quotient * modulus
+    uintx qm_lo(0);
+    {
+        const auto lolo = quotient.lo.mul_extended(modulus);
+        const auto lohi = quotient.hi.mul_extended(modulus);
+        base_uint t0 = lolo.first;
+        base_uint t1 = lolo.second;
+        t1 = t1 + lohi.first;
+        qm_lo = uintx(t0, t1);
+    }
+    uintx remainder = x - qm_lo;
+
+    // because redc_parameter is an imperfect representation of 2^{2k} / n (might be too small),
+    // the computed quotient may be off by up to 3 (classic algorithm should be up to 1,
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
+    size_t i = 0;
+    while (remainder >= uintx(modulus)) {
+        ASSERT(i < 3);
+        remainder = remainder - modulus;
+        quotient = quotient + 1;
+        i++;
+    }
+    return std::make_pair(quotient, remainder);
+}
+
+template <class base_uint>
+constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction_secp256k1() const
+{
+    constexpr uint256_t modulus =
+        uint256_t(0xFFFFFFFEFFFFFC2FULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL);
+
+    // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
+    //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
+    constexpr size_t k = base_uint::length() - 1;
+    // N.B. computation of redc_parameter requires division operation - if this cannot be precomputed (or amortized over
+    // multiple reductions over the same modulus), barrett_reduction is much slower than divmod
+    constexpr uintx redc_parameter = ((uintx(1) << (k * 2)).divmod_base(uintx(modulus))).first;
+
+    const auto x = *this;
+
+    // compute x * redc_parameter
+    const auto mul_result = x.mul_extended(redc_parameter);
+    constexpr size_t shift = 2 * k;
+
+    // compute (x * redc_parameter) >> 2k
+    // This is equivalent to (x * (2^{2k} / modulus) / 2^{2k})
+    // which approximates to x / modulus
+    const uintx downshifted_hi_bits = mul_result.second & ((uintx(1) << shift) - 1);
+    const uintx mul_hi_underflow = uintx(downshifted_hi_bits) << (length() - shift);
+    uintx quotient = (mul_result.first >> shift) | mul_hi_underflow;
+
+    // compute remainder by determining value of x - quotient * modulus
+    uintx qm_lo(0);
+    {
+        const auto lolo = quotient.lo.mul_extended(modulus);
+        const auto lohi = quotient.hi.mul_extended(modulus);
+        base_uint t0 = lolo.first;
+        base_uint t1 = lolo.second;
+        t1 = t1 + lohi.first;
+        qm_lo = uintx(t0, t1);
+    }
+    uintx remainder = x - qm_lo;
+
+    // because redc_parameter is an imperfect representation of 2^{2k} / n (might be too small),
+    // the computed quotient may be off by up to 3 (classic algorithm should be up to 1,
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
+    size_t i = 0;
+    while (remainder >= uintx(modulus)) {
+        ASSERT(i < 3);
+        remainder = remainder - modulus;
+        quotient = quotient + 1;
+        i++;
+    }
+    return std::make_pair(quotient, remainder);
+}
+
+template <class base_uint>
+constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction_secp256r1() const
+{
+    constexpr uint256_t modulus =
+        uint256_t(0xFFFFFFFFFFFFFFFFULL, 0x00000000FFFFFFFFULL, 0x0000000000000000ULL, 0xFFFFFFFF00000001ULL);
+
     // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
     //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
     constexpr size_t k = base_uint::length() - 1;

@@ -37,6 +37,8 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #endif
 
+// trigger rebuild
+
 using namespace bb;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
