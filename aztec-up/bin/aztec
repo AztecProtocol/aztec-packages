@@ -77,8 +77,9 @@ elif [ "${1:-}" == "flamegraph" ]; then
     --entrypoint /usr/bin/flamegraph.sh \
     --env PROFILER_PATH=/usr/bin/noir-profiler \
     --env BACKEND_PATH=/usr/bin/bb \
+    --env SERVE=${SERVE:-0} \
+    $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
     -v $(realpath $(dirname $2))/:/tmp \
-    -p 8000:8000 \
     aztecprotocol/aztec-nargo:$VERSION /tmp/$(basename $2) $3
 else
   ENV_VARS_TO_INJECT="SECRET_KEY" SKIP_PORT_ASSIGNMENT=1 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
