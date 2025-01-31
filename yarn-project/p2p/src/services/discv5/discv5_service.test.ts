@@ -1,6 +1,6 @@
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -31,7 +31,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void>
 describe('Discv5Service', () => {
   jest.setTimeout(10_000);
 
-  let store: AztecKVStore;
+  let store: AztecAsyncKVStore;
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
@@ -46,7 +46,7 @@ describe('Discv5Service', () => {
 
   beforeEach(async () => {
     const telemetryClient = getTelemetryClient();
-    store = openTmpStore(true);
+    store = await openTmpStore('test');
     bootNode = new BootstrapNode(store, telemetryClient);
     await bootNode.start(baseConfig);
     bootNodePeerId = bootNode.getPeerId();
@@ -54,7 +54,7 @@ describe('Discv5Service', () => {
 
   afterEach(async () => {
     await bootNode.stop();
-    await store.clear();
+    await store.close();
   });
 
   it('should initialize with default values', async () => {
@@ -66,6 +66,7 @@ describe('Discv5Service', () => {
     const peers = node.getAllPeers();
     const bootnode = peers[0];
     expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
+    await node.stop();
   });
 
   it('should discover & add a peer', async () => {
