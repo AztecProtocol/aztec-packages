@@ -10,7 +10,6 @@ import { ContractFunctionInteractionTx } from "../../../utils/txs";
 import { TxHash } from "@aztec/aztec.js";
 
 const txPanel = css({
-  marginBottom: "5rem",
   width: "100%",
   backgroundColor: "var(--mui-palette-primary-main)",
   maxHeight: "30vh",
