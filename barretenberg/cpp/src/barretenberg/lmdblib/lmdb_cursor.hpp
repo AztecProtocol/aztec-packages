@@ -31,6 +31,7 @@ class LMDBCursor {
     bool read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const;
 
   private:
+    mutable std::mutex _mtx;
     std::shared_ptr<LMDBReadTransaction> _tx;
     std::shared_ptr<LMDBDatabase> _db;
     uint64_t _id;

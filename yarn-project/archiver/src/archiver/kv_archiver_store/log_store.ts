@@ -126,17 +126,18 @@ export class LogStore {
    * @returns True if the operation is successful.
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
+    const taggedLogsToAdd = blocks
+      .flatMap(block => [this.#extractTaggedLogsFromPrivate(block), this.#extractTaggedLogsFromPublic(block)])
+      .reduce((acc, val) => {
+        for (const [tag, logs] of val.entries()) {
+          const currentLogs = acc.get(tag) ?? [];
+          acc.set(tag, currentLogs.concat(logs));
+        }
+        return acc;
+      });
+    const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
+
     return this.db.transactionAsync(async () => {
-      const taggedLogsToAdd = blocks
-        .flatMap(block => [this.#extractTaggedLogsFromPrivate(block), this.#extractTaggedLogsFromPublic(block)])
-        .reduce((acc, val) => {
-          for (const [tag, logs] of val.entries()) {
-            const currentLogs = acc.get(tag) ?? [];
-            acc.set(tag, currentLogs.concat(logs));
-          }
-          return acc;
-        });
-      const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
       const currentTaggedLogs = await Promise.all(
         tagsToUpdate.map(async tag => ({ tag, logBuffers: await this.#logsByTag.getAsync(tag) })),
       );
@@ -229,13 +230,11 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.db.transactionAsync(async () => {
-      const logs = await Promise.all(tags.map(tag => this.#logsByTag.getAsync(tag.toString())));
-      return logs.map(
-        noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? [],
-      );
-    });
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const logs = await Promise.all(tags.map(tag => this.#logsByTag.getAsync(tag.toString())));
+    return logs.map(
+      noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? [],
+    );
   }
 
   /**
