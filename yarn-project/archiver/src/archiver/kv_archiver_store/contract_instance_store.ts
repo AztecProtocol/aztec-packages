@@ -1,13 +1,13 @@
 import { type AztecAddress, type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/circuits.js';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class ContractInstanceStore {
-  #contractInstances: AztecMap<string, Buffer>;
+  #contractInstances: AztecAsyncMap<string, Buffer>;
 
-  constructor(db: AztecKVStore) {
+  constructor(db: AztecAsyncKVStore) {
     this.#contractInstances = db.openMap('archiver_contract_instances');
   }
 
@@ -22,8 +22,8 @@ export class ContractInstanceStore {
     return this.#contractInstances.delete(contractInstance.address.toString());
   }
 
-  getContractInstance(address: AztecAddress): ContractInstanceWithAddress | undefined {
-    const contractInstance = this.#contractInstances.get(address.toString());
+  async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contractInstance = await this.#contractInstances.getAsync(address.toString());
     return contractInstance && SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
   }
 }
