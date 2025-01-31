@@ -1,4 +1,3 @@
-import { toHex } from '@aztec/foundation/bigint-buffer';
 import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
@@ -663,27 +662,24 @@ export class L1TxUtils {
       abi: Abi;
       address: Hex;
     },
-    blobInputs?: L1BlobInputs & { maxFeePerBlobGas: bigint },
+    blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
+    stateOverride: {
+      address: `0x${string}`;
+      stateDiff: {
+        slot: `0x${string}`;
+        value: `0x${string}`;
+      }[];
+    }[] = [],
   ) {
     try {
       // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
       // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
-      const checkBlobSlot = 9n;
       await this.publicClient.simulateContract({
         ...args,
         account: this.walletClient.account,
-        stateOverride: [
-          {
-            address: args.address,
-            stateDiff: [
-              {
-                slot: toHex(checkBlobSlot, true),
-                value: toHex(0n, true),
-              },
-            ],
-          },
-        ],
+        stateOverride,
       });
+      this.logger?.info('Simulated blob tx', { blobInputs });
       // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
@@ -702,7 +698,9 @@ export class L1TxUtils {
             to: args.address,
             data,
           };
+      this.logger?.info('Preparing tx', { request });
       await this.walletClient.prepareTransactionRequest(request);
+      this.logger?.info('Prepared tx');
       return undefined;
     } catch (simulationErr: any) {
       // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.

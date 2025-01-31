@@ -191,7 +191,11 @@ describe('L1Publisher integration', () => {
     );
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerPublicClient, sequencerWalletClient, logger, config);
     const rollupContract = new RollupContract(sequencerPublicClient, l1ContractAddresses.rollupAddress.toString());
-    const forwarderContract = await createForwarderContract(config, sequencerPK);
+    const forwarderContract = await createForwarderContract(
+      config,
+      sequencerPK,
+      l1ContractAddresses.rollupAddress.toString(),
+    );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
       sequencerPublicClient,

@@ -408,10 +408,8 @@ describe('e2e_synching', () => {
       logger,
       config,
     );
-    const rollupContract = new RollupContract(
-      deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-    );
+    const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
+    const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.publicClient,
       config.l1Contracts.governanceProposerAddress.toString(),
@@ -421,7 +419,7 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.publicClient,
       slashingProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK);
+    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });

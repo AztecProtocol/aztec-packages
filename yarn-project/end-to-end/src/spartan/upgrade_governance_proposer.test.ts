@@ -68,12 +68,12 @@ describe('spartan_upgrade_governance_proposer', () => {
     // check the balance of the account
     const balance = await validatorWalletClient.getBalance({ address: account.address });
     debugLogger.info(`deployer balance: ${balance}`);
-    if (balance <= parseEther('0.5')) {
+    if (balance <= parseEther('5')) {
       debugLogger.info('sending some eth to the deployer account');
       // send some eth to the account
       const tx = await validatorWalletClient.sendTransaction({
         to: account.address,
-        value: parseEther('1'),
+        value: parseEther('10'),
       });
       const receipt = await validatorWalletClient.waitForTransactionReceipt({ hash: tx });
       debugLogger.info(`receipt: ${stringify(receipt)}`);
@@ -149,7 +149,7 @@ describe('spartan_upgrade_governance_proposer', () => {
       debugLogger.info(`Waiting for round ${executableRound + 1n}`);
 
       while (info.round === executableRound) {
-        await sleep(12000);
+        await sleep(12500);
         info = await govInfo();
         debugLogger.info(`slot: ${info.slot}`);
       }
@@ -157,8 +157,9 @@ describe('spartan_upgrade_governance_proposer', () => {
       expect(info.round).toBeGreaterThan(executableRound);
 
       debugLogger.info(`Executing proposal ${info.round}`);
+
       const l1TxUtils = new L1TxUtils(l1PublicClient, l1WalletClient, debugLogger);
-      const { receipt } = await governanceProposer.executeProposal(info.round, l1TxUtils);
+      const { receipt } = await governanceProposer.executeProposal(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');
       debugLogger.info(`Executed proposal ${info.round}`);

@@ -86,8 +86,18 @@ export class SequencerClient {
     ] as const);
     const forwarderContract =
       config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
-        ? new ForwarderContract(publicClient, config.customForwarderContractAddress.toString())
-        : await ForwarderContract.create(walletClient.account.address, walletClient, publicClient, log);
+        ? new ForwarderContract(
+            publicClient,
+            config.customForwarderContractAddress.toString(),
+            config.l1Contracts.rollupAddress.toString(),
+          )
+        : await ForwarderContract.create(
+            walletClient.account.address,
+            walletClient,
+            publicClient,
+            log,
+            config.l1Contracts.rollupAddress.toString(),
+          );
 
     const governanceProposerContract = new GovernanceProposerContract(
       publicClient,

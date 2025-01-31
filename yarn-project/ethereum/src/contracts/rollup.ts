@@ -1,7 +1,7 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 
 import {
   type Account,
@@ -44,6 +44,14 @@ export type EpochProofQuoteViemArgs = {
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+
+  static get checkBlobSlot(): bigint {
+    const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
+    if (asString === undefined) {
+      throw new Error('checkBlobSlot not found');
+    }
+    return BigInt(asString);
+  }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
     const {

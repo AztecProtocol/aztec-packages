@@ -228,6 +228,7 @@ export class SequencerPublisher {
         this.l1TxUtils,
         gasConfig,
         blobConfig,
+        this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
       return result;
