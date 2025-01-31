@@ -41,9 +41,16 @@ const logContainer = css({
   display: "flex",
   flexDirection: "row",
   backgroundColor: "var(--mui-palette-primary-light)",
-  margin: "0.15rem",
-  padding: "0.1rem 0.5rem",
+  margin: "0.11rem",
+  padding: "0.1rem 0.2rem",
   borderRadius: "0.5rem",
+});
+
+const logPrefix = css({
+  minWidth: "10rem",
+});
+
+const logContent = css({
   whiteSpace: "nowrap",
   textOverflow: "ellipsis",
   ":hover": css({
@@ -53,9 +60,7 @@ const logContainer = css({
   }),
 });
 
-const divider = css({
-  minWidth: "10rem",
-});
+const logTimestamp = css({});
 
 const safeStringify = (obj: any) =>
   JSON.stringify(obj, (_, v) => (typeof v === "bigint" ? v.toString() : v));
@@ -110,21 +115,20 @@ export function LogPanel() {
           <StyledBox sx={{ px: 2, pb: 2, height: "100%", overflow: "auto" }}>
             {logs.map((log, index) => (
               <div key={log.message} css={logContainer}>
-                <div css={divider}>
+                <div css={logPrefix}>
                   <Typography variant="subtitle2">
                     {log.prefix}:&nbsp;
                   </Typography>
                 </div>
-                <Typography
-                  sx={{ overflow: "hidden", flexGrow: 1 }}
-                  variant="body2"
-                >
-                  {log.message}&nbsp;
-                  <span css={{ fontStyle: "italic", fontSize: "0.8rem" }}>
-                    {safeStringify(log.data)}
-                  </span>
-                </Typography>
-                <div css={divider}>
+                <div css={logContent}>
+                  <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                    {log.message}&nbsp;
+                    <span css={{ fontStyle: "italic", fontSize: "0.6rem" }}>
+                      {safeStringify(log.data)}
+                    </span>
+                  </Typography>
+                </div>
+                <div css={logTimestamp}>
                   <Typography sx={{ marginLeft: "1rem" }} variant="body2">
                     +
                     {log.timestamp -
