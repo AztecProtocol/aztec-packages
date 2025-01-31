@@ -1,6 +1,5 @@
 import {
   ClientIvcProof,
-  ContractClassLog,
   Fr,
   type GasSettings,
   PrivateKernelTailCircuitPublicInputs,

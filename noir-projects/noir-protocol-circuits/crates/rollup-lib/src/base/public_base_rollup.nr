@@ -311,7 +311,7 @@ mod tests {
         },
         traits::{Empty, Hash, is_empty, Serialize},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, find_index_hint_from_end, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -953,6 +953,8 @@ mod tests {
         let NUM_PRIV_EVENT_LOGS = 4;
         let NUM_PUB_LOGS = 6;
         let NUM_CC_LOGS = 1;
+        // Below will only work with NUM_CC_LOGS=1
+        let cc_log = [1, 2, 3];
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
         let TOTAL_BLOB_FIELDS = 3 // revert code, tx hash and tx fee
@@ -964,7 +966,7 @@ mod tests {
             + 1 // L2 to L1 msgs and prefix
             + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
             + 1 // public logs and prefix
-            + NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
+            + NUM_CC_LOGS * (cc_log.len() + 1)
             + 1 // contract class logs and prefix
             + 2
             + 1 // single public data update (2 fields) and prefix
@@ -994,7 +996,7 @@ mod tests {
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         builder.avm_data.append_public_logs(NUM_PUB_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        builder.tube_data.add_contract_class_log([1, 2, 3]);
+        builder.tube_data.add_contract_class_log(cc_log);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -1087,19 +1089,25 @@ mod tests {
         }
         offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 1);
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
             let siloed_log = builder.tube_data.contract_class_logs.storage()[i].inner.log;
+            let log_len = find_index_hint_from_end(siloed_log.fields, |f| f == 0);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
             for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + j] =
-                    siloed_log.fields[j];
+                if j < log_len {
+                    reconstructed_tx_effects[offset] = siloed_log.fields[j];
+                    offset += 1;
+                }
             }
         }
-        offset += total_contract_class_logs_len;
 
         // Sanity check
         assert(offset == TOTAL_BLOB_FIELDS);

@@ -20,7 +20,10 @@ export class ExtendedContractClassLog {
   ) {}
 
   static async random() {
-    return new ExtendedContractClassLog(LogId.random(), await ContractClassLog.random());
+    // TODO(MW): make this not async. Just lazily adding promise so I dont have to edit 50 files
+    return await new Promise<ExtendedContractClassLog>(
+      () => new ExtendedContractClassLog(LogId.random(), ContractClassLog.random()),
+    );
   }
 
   static get schema() {

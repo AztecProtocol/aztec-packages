@@ -50,10 +50,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public async addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
-    const logs = tx.data.getNonEmptyContractClassLogs();
-    const contractClassRegisteredEvents = logs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(siloContractClassLog(log)))
-      .map(log => ContractClassRegisteredEvent.fromLog(siloContractClassLog(log)));
+    const siloedLogs = await Promise.all(tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)));
+    const contractClassRegisteredEvents = siloedLogs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map(log => ContractClassRegisteredEvent.fromLog(log));
     await Promise.all(
       contractClassRegisteredEvents.map(async event => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
@@ -78,15 +78,15 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * Removes new contracts added from transactions
    * @param tx - The tx's contracts to be removed
    */
-  public removeNewContracts(tx: Tx): Promise<void> {
+  public async removeNewContracts(tx: Tx): Promise<void> {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const logs = tx.data.getNonEmptyContractClassLogs();
-    logs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(siloContractClassLog(log)))
+    const siloedLogs = await Promise.all(tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)));
+    siloedLogs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
       .forEach(log => {
-        const event = ContractClassRegisteredEvent.fromLog(siloContractClassLog(log));
+        const event = ContractClassRegisteredEvent.fromLog(log);
         this.classCache.delete(event.contractClassId.toString());
       });
 

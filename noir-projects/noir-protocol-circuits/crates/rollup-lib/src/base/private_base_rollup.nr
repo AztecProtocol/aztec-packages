@@ -256,7 +256,7 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, is_empty},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, find_index_hint_from_end, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -879,7 +879,8 @@ mod tests {
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        builder.tube_data.add_contract_class_log([1, 2, 3]);
+        let cc_log = [1, 2, 3];
+        builder.tube_data.add_contract_class_log(cc_log);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -934,19 +935,25 @@ mod tests {
         }
         offset += total_private_logs_len;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 1);
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
             let siloed_log = builder.tube_data.contract_class_logs.storage()[i].inner.log;
+            let log_len = find_index_hint_from_end(siloed_log.fields, |f| f == 0);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
             for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + j] =
-                    siloed_log.fields[j];
+                if j < log_len {
+                    reconstructed_tx_effects[offset] = siloed_log.fields[j];
+                    offset += 1;
+                }
             }
         }
-        offset += total_contract_class_logs_len;
 
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0

@@ -1,6 +1,6 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  ContractClassLog,
+  type ContractClassLog,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
   type UnconstrainedFunction,
   type UnconstrainedFunctionWithMembershipProof,

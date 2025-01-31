@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, type Fr } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -51,6 +51,14 @@ export class Body {
     this.txEffects.forEach((effect: TxEffect) => {
       flattened = flattened.concat(effect.toBlobFields());
     });
+    if (flattened.length > BLOBS_PER_BLOCK * FIELDS_PER_BLOB) {
+      throw new Error(
+        `Attempted to overfill block's blobs with ${flattened.length} elements. The maximum is ${
+          BLOBS_PER_BLOCK * FIELDS_PER_BLOB
+        }`,
+      );
+    }
+
     return flattened;
   }
 
@@ -70,9 +78,7 @@ export class Body {
       txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
       checkedFields += len;
     }
-    const txEffects = txEffectsFields
-      .filter(effect => effect.length)
-      .map((effect, i) => TxEffect.fromBlobFields(effect));
+    const txEffects = txEffectsFields.filter(effect => effect.length).map(effect => TxEffect.fromBlobFields(effect));
     return new this(txEffects);
   }
 

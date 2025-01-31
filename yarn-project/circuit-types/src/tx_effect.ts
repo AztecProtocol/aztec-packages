@@ -28,7 +28,6 @@ import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/arra
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
@@ -365,10 +364,12 @@ export class TxEffect {
       flattened.push(...this.publicLogs.map(l => l.toFields()).flat());
     }
     if (this.contractClassLogs.length) {
-      flattened.push(
-        this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.length * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
+      const totalLogLen = this.contractClassLogs.reduce(
+        (total, log) => (total + log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
+        0,
       );
-      flattened.push(...this.contractClassLogs.map(l => l.fields).flat());
+      flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, totalLogLen));
+      flattened.push(...this.contractClassLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
     }
 
     // The first value appended to each list of fields representing a tx effect is:
@@ -450,9 +451,14 @@ export class TxEffect {
         case CONTRACT_CLASS_LOGS_PREFIX: {
           ensureEmpty(effect.contractClassLogs);
           const flatContractClassLogs = reader.readFieldArray(length);
-          for (let i = 0; i < length; i += CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) {
+          let i = 0;
+          while (i < length) {
+            const logLen = flatContractClassLogs[i++].toNumber();
+            const logFields = flatContractClassLogs.slice(i, (i += logLen));
             effect.contractClassLogs.push(
-              ContractClassLog.fromFields(flatContractClassLogs.slice(i, i + CONTRACT_CLASS_LOG_SIZE_IN_FIELDS)),
+              ContractClassLog.fromFields(
+                logFields.concat(new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO)),
+              ),
             );
           }
           break;

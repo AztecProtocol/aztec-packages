@@ -20,7 +20,7 @@ use dep::types::{
     hash::accumulate_sha256,
     merkle_tree::VariableMerkleTree,
     traits::{Empty, is_empty, Serialize},
-    utils::arrays::{array_length, array_merge},
+    utils::arrays::{array_length, array_merge, find_index_hint_from_end},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -346,21 +346,36 @@ fn get_tx_effects_hash_input(
     }
 
     // CONTRACT CLASS LOGS
-    array_len = array_length(contract_class_logs) * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+    array_len = array_length(contract_class_logs);
     if array_len != 0 {
-        let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
-        assert_eq(tx_effects_hash_input[offset], contract_class_logs_prefix);
+        // TODO(MW): this is just an inefficient way of removing trailing zeros to get it to run for now. I know it sucks.
+        let prefix_index = offset;
+        let mut total_cc_log_len = 0;
+
         offset += 1;
 
         for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
+            /// Safety: we constrain below that after log_len each elt is zero
+            let log_len =
+                unsafe { find_index_hint_from_end(contract_class_logs[j].fields, |f| f == 0) };
+            if log_len != 0 {
+                assert_eq(tx_effects_hash_input[offset], log_len as Field);
+                offset += 1;
+            }
             for k in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + k;
-                if index < array_len {
-                    assert_eq(tx_effects_hash_input[index], contract_class_logs[j].fields[k]);
+                if k < log_len {
+                    assert_eq(tx_effects_hash_input[offset], contract_class_logs[j].fields[k]);
+                    offset += 1;
+                } else {
+                    assert_eq(0, contract_class_logs[j].fields[k]);
                 }
             }
+            // plus one for prefix
+            total_cc_log_len += log_len + 1;
         }
-        offset += array_len;
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_cc_log_len);
+        assert_eq(tx_effects_hash_input[prefix_index], contract_class_logs_prefix);
     }
 
     // Now we know the number of fields appended, we can assign the first value:
@@ -501,20 +516,27 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // CONTRACT CLASS LOGS
     let num_cc_logs = array_length(contract_class_logs);
     if num_cc_logs != 0 {
-        let array_len = num_cc_logs * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
-        let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
-        tx_effects_hash_input[offset] = contract_class_logs_prefix;
+        // TODO(MW): this is just an inefficient way of removing trailing zeros to get it to run for now. I know it sucks.
+        let prefix_index = offset;
+        let mut total_cc_log_len = 0;
+
         offset += 1;
 
         for j in 0..num_cc_logs {
-            // TODO(MW): do not append trailing zeroes here. Can use find_index_hint_from_end() to find index, or
-            // array_length if contract class logs never contain zeroes.
-            for k in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + k;
-                tx_effects_hash_input[index] = contract_class_logs[j].fields[k];
+            let log_len = find_index_hint_from_end(contract_class_logs[j].fields, |f| f == 0);
+            // prefix this log with its field length
+            tx_effects_hash_input[offset] = log_len as Field;
+            offset += 1;
+            for k in 0..log_len {
+                tx_effects_hash_input[offset] = contract_class_logs[j].fields[k];
+                offset += 1;
             }
+            // plus one for prefix
+            total_cc_log_len += log_len + 1;
         }
-        offset += array_len;
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_cc_log_len);
+        tx_effects_hash_input[prefix_index] = contract_class_logs_prefix;
     }
 
     // Now we know the number of fields appended, we can assign the first value:

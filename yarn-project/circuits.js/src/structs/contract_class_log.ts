@@ -12,13 +12,16 @@ export class ContractClassLog {
 
   // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
   // public fields: Tuple<Fr, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>
-  constructor(public fields: Fr[]) {}
+  constructor(public fields: Fr[]) {
+    // TODO(MW): len check or pad with 0s
+  }
 
   toFields(): Fr[] {
     return this.fields;
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
+    // TODO(MW): len check or pad with 0s
     const reader = FieldReader.asReader(fields);
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     // return new ContractClassLog(reader.readFieldArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS));
@@ -50,21 +53,29 @@ export class ContractClassLog {
   }
 
   static random() {
+    // TODO(MW): Lazily used instead of CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, because this keeps overfilling block blobs
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     // makeTuple(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, Fr.random);
-    return new ContractClassLog(Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, () => Fr.random()));
+    const fields = Array.from({ length: Math.ceil(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS / 2) }, () => Fr.random());
+    return new ContractClassLog(
+      fields.concat(Array.from({ length: Math.floor(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS / 2) }, () => Fr.ZERO)),
+    );
   }
 
   getEmittedLength() {
     // TODO(MW): Make good
+    return this.getEmittedFields().length;
+  }
+
+  getEmittedFields() {
     let lastZeroIndex = 0;
     for (let i = this.fields.length - 1; i >= 0; i--) {
       if (!this.fields[i].isZero() && lastZeroIndex == 0) {
-        lastZeroIndex = i;
+        lastZeroIndex = i + 1;
         break;
       }
     }
-    return lastZeroIndex;
+    return this.fields.slice(0, lastZeroIndex);
   }
 
   static get schema() {

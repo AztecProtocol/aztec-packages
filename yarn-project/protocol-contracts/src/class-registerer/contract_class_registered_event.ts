@@ -1,5 +1,5 @@
 import {
-  ContractClassLog,
+  type ContractClassLog,
   type ContractClassPublic,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,

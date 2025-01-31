@@ -440,11 +440,14 @@ export class PublicProcessor implements Traceable {
       this.globalVariables,
     );
 
+    const contractClassLogs = await Promise.all(
+      tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)),
+    );
+
     this.metrics.recordClassRegistration(
-      ...tx.data
-        .getNonEmptyContractClassLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(siloContractClassLog(log)))
-        .map(log => ContractClassRegisteredEvent.fromLog(siloContractClassLog(log))),
+      ...contractClassLogs
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+        .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
     return [processedTx, undefined];
   }
@@ -471,11 +474,14 @@ export class PublicProcessor implements Traceable {
       }
     });
 
+    const contractClassLogs = await Promise.all(
+      tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)),
+    );
+
     this.metrics.recordClassRegistration(
-      ...tx.data
-        .getNonEmptyContractClassLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(siloContractClassLog(log)))
-        .map(log => ContractClassRegisteredEvent.fromLog(siloContractClassLog(log))),
+      ...contractClassLogs
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+        .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
 
     const phaseCount = processedPhases.length;

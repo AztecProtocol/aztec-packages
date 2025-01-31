@@ -3,7 +3,7 @@ import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/f
 import { Fr } from '@aztec/foundation/fields';
 
 import { GeneratorIndex } from '../constants.gen.js';
-import { ContractClassLog, ScopedContractClassLogData } from '../index.js';
+import { type ContractClassLog, type ScopedContractClassLogData } from '../index.js';
 import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
 
 /**
@@ -133,11 +133,11 @@ export function siloL2ToL1Message(l2ToL1Message: ScopedL2ToL1Message, version: F
   return Fr.fromBuffer(sha256Trunc(preimage));
 }
 
-export function siloContractClassLog(log: ScopedContractClassLogData): ContractClassLog {
-  let innerLog = log.inner.log.clone();
+export async function siloContractClassLog(log: ScopedContractClassLogData): Promise<ContractClassLog> {
+  const innerLog = log.inner.log.clone();
   if (log.contractAddress.isZero()) {
     return innerLog;
   }
-  innerLog.fields[0] = poseidon2Hash([log.contractAddress, innerLog.fields[0]]);
+  innerLog.fields[0] = await poseidon2Hash([log.contractAddress, innerLog.fields[0]]);
   return innerLog;
 }

@@ -17,7 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
-  ContractClassLog,
+  type ContractClassLog,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,

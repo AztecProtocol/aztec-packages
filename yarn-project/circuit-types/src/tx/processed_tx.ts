@@ -1,7 +1,7 @@
 import {
   type ClientIvcProof,
   CombinedConstantData,
-  Fr,
+  type Fr,
   Gas,
   type GlobalVariables,
   type PrivateKernelTailCircuitPublicInputs,
@@ -99,7 +99,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
-    data.end.contractClassLogs.filter(l => !l.isEmpty()).map(l => siloContractClassLog(l)),
+    await Promise.all(data.end.contractClassLogs.filter(l => !l.isEmpty()).map(l => siloContractClassLog(l))),
   );
 
   const gasUsed = {
@@ -161,7 +161,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     publicDataWrites,
     privateLogs,
     avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
-    contractClassLogs.map(l => siloContractClassLog(l)),
+    await Promise.all(contractClassLogs.map(l => siloContractClassLog(l))),
   );
 
   return {

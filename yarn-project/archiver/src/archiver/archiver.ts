@@ -17,7 +17,6 @@ import {
   type TxHash,
   type TxReceipt,
   type TxScopedL2Log,
-  type UnencryptedL2Log,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
@@ -25,7 +24,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
-  ContractClassLog,
+  type ContractClassLog,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
