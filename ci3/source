@@ -32,6 +32,8 @@ if [ -z "$REF_NAME" ]; then
   export REF_NAME="${REF_NAME#release/}"
 fi
 
+[ -z "$COMMIT_HASH" ] && export COMMIT_HASH=$(git rev-parse HEAD)
+
 source $ci3/source_options
 source $ci3/source_stdlib
 source $ci3/source_color

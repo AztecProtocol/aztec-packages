@@ -47,18 +47,19 @@ fi
 
 set +e
 SECONDS=0
-output=$($flow_script 2>&1 | add_timestamps)
+if [ "$VERBOSE" -eq 1 ]; then
+  output=$($flow_script 2>&1 | add_timestamps | tee /dev/stderr)
+else
+  output=$($flow_script 2>&1 | add_timestamps)
+fi
 result=$?
 duration=$SECONDS
 set -e
 
 if [ $result -eq 0 ]; then
   echo -e "${green}PASSED${reset} (${duration}s)"
-  if [ "$VERBOSE" -eq 1 ]; then
-    echo "$output"
-  fi
 else
-  echo -e "${red}FAILED${reset}"
-  echo "$output"
+  [ "$VERBOSE" -eq 0 ] && echo "$output"
+  echo -e "${red}FAILED${reset} (${duration}s)"
   exit 1
 fi

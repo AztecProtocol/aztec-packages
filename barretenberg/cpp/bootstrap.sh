@@ -95,19 +95,33 @@ function build_release {
   mkdir build-release
   local arch=$(arch)
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
-  tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+  if [ "$REF_NAME" == "master" ]; then
+    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
+  fi
 }
 
 export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
 
 function build {
   echo_header "bb cpp build"
-  parallel --line-buffered --tag denoise {} ::: \
-    build_native build_world_state_napi build_wasm build_wasm_threads build_darwin build_gcc_syntax_check_only download_old_crs
+  builds=(
+    build_native
+    build_world_state_napi
+    build_wasm
+    build_wasm_threads
+    download_old_crs
+  )
+  if [ "$REF_NAME" == "master" ]; then
+    builds+=(
+      build_gcc_syntax_check_only
+      build_darwin
+    )
+  fi
+  parallel --line-buffered --tag denoise {} ::: ${builds[@]}
   build_release
 }
 
@@ -136,14 +150,15 @@ function test {
 function build_benchmarks {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.tar.gz; then
-    parallel --line-buffered --tag denoise \
-      "cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench" ::: \
+    parallel --line-buffered --tag -v "denoise \
+      'cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench'" ::: \
       clang16-assert wasm-threads op-count op-count-time
     cache_upload barretenberg-benchmarks-$hash.tar.gz \
       {build,build-wasm-threads,build-op-count,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
 }
 
+# Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
   build_benchmarks
@@ -152,34 +167,68 @@ function bench {
   export IGNITION_CRS_PATH=./srs_db/ignition
   export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
-  mkdir -p bench-out
+  rm -rf bench-out && mkdir -p bench-out
 
   # Ultra honk.
-  ./build/bin/ultra_honk_bench \
-    --benchmark_out=./bench-out/ultra_honk_release.json \
-    --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
-  wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-    ./build-wasm-threads/bin/ultra_honk_bench \
-      --benchmark_out=./bench-out/ultra_honk_wasm.json \
+  function ultra_honk_release {
+    ./build/bin/ultra_honk_bench \
+      --benchmark_out=./bench-out/ultra_honk_release.json \
       --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+  }
+  function ultra_honk_wasm {
+    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+      ./build-wasm-threads/bin/ultra_honk_bench \
+        --benchmark_out=./bench-out/ultra_honk_wasm.json \
+        --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+  }
 
   # Client IVC
-  ./build/bin/client_ivc_bench \
-    --benchmark_out=./bench-out/client_ivc_17_in_20_release.json \
-    --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
-  ./build/bin/client_ivc_bench \
-    --benchmark_out=./bench-out/client_ivc_release.json \
-    --benchmark_filter="ClientIVCBench/Full/6$"
-   ./build-op-count/bin/client_ivc_bench \
-    --benchmark_out=./bench-out/client_ivc_op_count.json \
-    --benchmark_filter="ClientIVCBench/Full/6$"
-   ./build-op-count-time/bin/client_ivc_bench \
-    --benchmark_out=./bench-out/client_ivc_op_count_time.json \
-    --benchmark_filter="ClientIVCBench/Full/6$"
-  wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-    ./build-wasm-threads/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_wasm.json \
+  function client_ivc_17_in_20_release {
+    ./build/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_17_in_20_release.json \
+      --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
+  }
+  function client_ivc_release {
+    ./build/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_release.json \
       --benchmark_filter="ClientIVCBench/Full/6$"
+  }
+  function client_ivc_op_count {
+    ./build-op-count/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_op_count.json \
+      --benchmark_filter="ClientIVCBench/Full/6$"
+  }
+  function client_ivc_op_count_time {
+    ./build-op-count-time/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_op_count_time.json \
+      --benchmark_filter="ClientIVCBench/Full/6$"
+  }
+  function client_ivc_wasm {
+    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+      ./build-wasm-threads/bin/client_ivc_bench \
+        --benchmark_out=./bench-out/client_ivc_wasm.json \
+        --benchmark_filter="ClientIVCBench/Full/6$"
+  }
+  function run_benchmark {
+    local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
+    local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
+    echo taskset -c $start_core-$end_core bash -c "$2"
+    taskset -c $start_core-$end_core bash -c "$2"
+  }
+
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
+
+  local num_cpus=$(get_num_cpus)
+  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
+    ultra_honk_release \
+    ultra_honk_wasm \
+    client_ivc_17_in_20_release \
+    client_ivc_release \
+    client_ivc_op_count \
+    client_ivc_op_count_time \
+    client_ivc_wasm
 
   ./scripts/ci/combine_benchmarks.py \
     native ./bench-out/client_ivc_17_in_20_release.json \
@@ -190,6 +239,8 @@ function bench {
     "" ./bench-out/client_ivc_op_count.json \
     "" ./bench-out/client_ivc_op_count_time.json \
     > ./bench-out/bench.json
+
+    cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bench.json
 }
 
 # Upload assets to release.

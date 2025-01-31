@@ -53,8 +53,6 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-mkdir -p $key_dir
-
 # Export vars needed inside compile.
 export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 

@@ -20,6 +20,9 @@ export type BackendOptions = {
 
   /** @description Path to download CRS files */
   crsPath?: string;
+
+  /** @description Path to download WASM files */
+  wasmPath?: string;
 };
 
 export type CircuitOptions = {
@@ -48,7 +51,7 @@ export class Barretenberg extends BarretenbergApi {
   static async new(options: BackendOptions = {}) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(options.threads);
+    const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath);
     await wasm.init(
       module,
       threads,
@@ -101,16 +104,16 @@ export class BarretenbergSync extends BarretenbergApiSync {
     super(wasm);
   }
 
-  private static async new() {
+  private static async new(wasmPath?: string) {
     const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1);
+    const { module, threads } = await fetchModuleAndThreads(1, wasmPath);
     await wasm.init(module, threads, createDebug('bb.js:bb_wasm_sync'));
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton() {
+  static async initSingleton(wasmPath?: string) {
     if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new();
+      barrentenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath);
     }
 
     barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;

@@ -39,12 +39,7 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/boxes
-    # WORKTODO put in playwright 1.50 into build image
-    entrypoint: >
-      sh -c '
-        npx -y playwright@1.50 install --with-deps
-        yarn workspace @aztec/$$BOX test --project=$$BROWSER
-      '
+    command: "yarn workspace @aztec/$BOX test --project=$BROWSER"
     environment:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"
