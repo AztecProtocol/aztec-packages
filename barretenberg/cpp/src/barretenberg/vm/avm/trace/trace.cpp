@@ -166,7 +166,7 @@ void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
 
 std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_class_id)
 {
-
+    // dummy change
     // Find the bytecode based on the hinted contract class id
     // TODO: still need to make sure that the contract address does correspond to this class id
     const AvmContractBytecode bytecode_hint =
