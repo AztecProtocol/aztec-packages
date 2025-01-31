@@ -89,7 +89,7 @@ opentelemetry-collector:
 # https://artifacthub.io/packages/helm/grafana/tempo
 tempo:
   minio:
-    enabled: true
+    enabled: false
     mode: standalone
     rootUser: grafana-tempo
     rootPassword: supersecret
@@ -101,9 +101,9 @@ tempo:
   traces:
     otlp:
       grpc:
-        enabled: true
+        enabled: false
       http:
-        enabled: true
+        enabled: false
     zipkin:
       enabled: false
     jaeger:
