@@ -70,7 +70,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
+              node --no-warnings -r /usr/src/yarn-project/aztec/node18-polyfill.cjs /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
           env:
             - name: K8S_POD_UID
               valueFrom:
