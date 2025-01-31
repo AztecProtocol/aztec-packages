@@ -40,7 +40,6 @@ export function CreateAccountDialog({
   const createAccount = async () => {
     setDeployingAccount(true);
     setLogsOpen(true);
-    setDrawerOpen(false);
     const salt = Fr.random();
     const account = await getSchnorrAccount(
       pxe,

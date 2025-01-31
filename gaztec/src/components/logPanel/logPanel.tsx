@@ -2,6 +2,7 @@ import { css, Global } from "@emotion/react";
 import { AztecContext } from "../../aztecEnv";
 import { useContext, useState } from "react";
 import {
+  CircularProgress,
   CssBaseline,
   Fab,
   styled,
@@ -41,18 +42,22 @@ const logContainer = css({
   display: "flex",
   flexDirection: "row",
   backgroundColor: "var(--mui-palette-primary-light)",
-  margin: "0.11rem",
-  padding: "0.1rem 0.2rem",
+  margin: "0.1rem",
+  padding: "0.1rem 0.25rem",
   borderRadius: "0.5rem",
 });
 
 const logPrefix = css({
-  minWidth: "10rem",
+  width: "8rem",
+  minWidth: "8rem",
+  overflow: "hidden",
 });
 
 const logContent = css({
   whiteSpace: "nowrap",
   textOverflow: "ellipsis",
+  flexGrow: 1,
+  overflow: "hidden",
   ":hover": css({
     whiteSpace: "unset",
     textOverflow: "unset",
@@ -98,6 +103,8 @@ export function LogPanel() {
         >
           <StyledBox
             sx={{
+              display: "flex",
+              flexDirection: "row",
               position: "absolute",
               top: -drawerBleeding,
               borderTopLeftRadius: 8,
@@ -105,6 +112,7 @@ export function LogPanel() {
               visibility: "visible",
               right: 0,
               left: 0,
+              alignItems: "center",
             }}
           >
             <Puller />
@@ -112,18 +120,18 @@ export function LogPanel() {
               {logs.length}&nbsp;logs
             </Typography>
           </StyledBox>
-          <StyledBox sx={{ px: 2, pb: 2, height: "100%", overflow: "auto" }}>
+          <StyledBox sx={{ px: 0.5, height: "100%", overflow: "auto" }}>
             {logs.map((log, index) => (
-              <div key={log.message} css={logContainer}>
+              <div key={`${log.timestamp}-${log.message}`} css={logContainer}>
                 <div css={logPrefix}>
                   <Typography variant="subtitle2">
                     {log.prefix}:&nbsp;
                   </Typography>
                 </div>
                 <div css={logContent}>
-                  <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
                     {log.message}&nbsp;
-                    <span css={{ fontStyle: "italic", fontSize: "0.6rem" }}>
+                    <span css={{ fontStyle: "italic", fontSize: "0.75rem" }}>
                       {safeStringify(log.data)}
                     </span>
                   </Typography>

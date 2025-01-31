@@ -75,6 +75,7 @@ export function SidebarComponent() {
     isPXEInitialized,
     pxe,
   } = useContext(AztecContext);
+  const [changingNetworks, setChangingNetworks] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
@@ -101,6 +102,7 @@ export function SidebarComponent() {
   };
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
+    setChangingNetworks(true);
     setPXEInitialized(false);
     const nodeURL = event.target.value;
     setNodeURL(nodeURL);
@@ -109,9 +111,8 @@ export function SidebarComponent() {
     const pxe = await AztecEnv.initPXE(node, setLogs);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses
       .rollupAddress;
-    const walletLogger = WebLogger.getInstance().createLogger(
-      "wallet:data:indexeddb"
-    );
+    const walletLogger =
+      WebLogger.getInstance().createLogger("wallet:data:idb");
     const walletDBStore = await createStore(
       `wallet-${rollupAddress}`,
       { dataDirectory: "wallet", dataStoreMapSizeKB: 2e10 },
@@ -122,6 +123,7 @@ export function SidebarComponent() {
     setPXE(pxe);
     setWalletDB(walletDB);
     setPXEInitialized(true);
+    setChangingNetworks(false);
   };
 
   useEffect(() => {
@@ -218,6 +220,7 @@ export function SidebarComponent() {
           fullWidth
           value={nodeURL}
           label="Network"
+          disabled={changingNetworks}
           onChange={handleNetworkChange}
         >
           {NETWORKS.map((network) => (

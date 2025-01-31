@@ -51,7 +51,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:indexeddb"),
+      createLogger("pxe:data:idb"),
     );
 
     const keyStore = new KeyStore(store);

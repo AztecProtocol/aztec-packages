@@ -80,7 +80,6 @@ export function DeployContractDialog({
   const deploy = async () => {
     setDeploying(true);
     setLogsOpen(true);
-    setDrawerOpen(false);
 
     const nodeInfo = await wallet.getNodeInfo();
     const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
