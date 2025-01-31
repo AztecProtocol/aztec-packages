@@ -308,8 +308,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      void this.#storeTaggedLogsFromPrivate(block);
-      void this.#storeTaggedLogsFromPublic(block);
+      this.#storeTaggedLogsFromPrivate(block);
+      this.#storeTaggedLogsFromPublic(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
       this.contractClassLogsPerBlock.set(
@@ -770,7 +770,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
   }
 
-  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  public estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
+    return Promise.resolve({ mappingSize: 0, actualSize: 0, numItems: 0 });
   }
 }

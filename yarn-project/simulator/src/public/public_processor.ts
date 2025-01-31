@@ -138,7 +138,7 @@ export class PublicProcessor implements Traceable {
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
-    txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
+    txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: {
       maxTransactions?: number;
       maxBlockSize?: number;

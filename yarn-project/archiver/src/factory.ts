@@ -9,7 +9,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { protocolContractNames } from '@aztec/protocol-contracts';

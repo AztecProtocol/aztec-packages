@@ -7,7 +7,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -80,6 +80,7 @@ describe('Archiver', () => {
   let mockRollup: {
     read: typeof mockRollupRead;
     getEvents: typeof mockRollupEvents;
+    address: string;
   };
   let mockInbox: {
     read: typeof mockInboxRead;
@@ -147,6 +148,7 @@ describe('Archiver', () => {
     mockRollup = {
       read: mockRollupRead,
       getEvents: mockRollupEvents,
+      address: rollupAddress.toString(),
     };
 
     (archiver as any).rollup = mockRollup;
@@ -571,7 +573,7 @@ async function makeRollupTx(l2Block: L2Block) {
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex((await l2Block.header.hash()).toBuffer());
-  const input = encodeFunctionData({
+  const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
     args: [
@@ -581,7 +583,14 @@ async function makeRollupTx(l2Block: L2Block) {
       blobInput,
     ],
   });
-  return { input } as Transaction<bigint, number>;
+
+  const forwarderInput = encodeFunctionData({
+    abi: ForwarderAbi,
+    functionName: 'forward',
+    args: [[EthAddress.ZERO.toString()], [rollupInput]],
+  });
+
+  return { input: forwarderInput } as Transaction<bigint, number>;
 }
 
 /**

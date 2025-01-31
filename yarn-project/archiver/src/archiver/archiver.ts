@@ -1134,7 +1134,7 @@ class ArchiverStoreHelper
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
   }
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
 }
