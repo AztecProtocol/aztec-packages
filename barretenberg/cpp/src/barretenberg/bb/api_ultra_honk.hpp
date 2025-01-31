@@ -302,7 +302,6 @@ class UltraHonkAPI : public API {
         };
 
         switch (output_content) {
-            info("case OutputContent::PROOF_ONLY: ");
         case OutputContent::PROOF_ONLY: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
@@ -324,7 +323,6 @@ class UltraHonkAPI : public API {
             }
             break;
         }
-            info("case OutputContent::VK_ONLY: ");
         case OutputContent::VK_ONLY: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
@@ -346,7 +344,6 @@ class UltraHonkAPI : public API {
             }
             break;
         }
-            info("case OutputContent::PROOF_AND_VK: ");
         case OutputContent::PROOF_AND_VK: {
             switch (output_data_type) {
             case OutputDataType::BYTES: {
