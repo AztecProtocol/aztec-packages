@@ -405,7 +405,7 @@ export class Sequencer {
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
   protected async buildBlock(
-    pendingTxs: Iterable<Tx> | AsyncIterableIterator<Tx>,
+    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     newGlobalVariables: GlobalVariables,
     opts: { validateOnly?: boolean } = {},
   ) {
@@ -549,7 +549,7 @@ export class Sequencer {
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
   private async buildBlockAndEnqueuePublish(
-    pendingTxs: AsyncIterableIterator<Tx>,
+    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: BlockHeader,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
