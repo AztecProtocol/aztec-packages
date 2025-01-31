@@ -91,15 +91,19 @@ resource "helm_release" "aztec-gke-cluster" {
   set_sensitive {
     name = "prometheus.serverFiles"
     value = jsonencode({
-      "prometheus.yml" = {
+      prometheus.yml = {
         scrape_configs = [
           {
-            job_name       = "otel-collector"
-            static_configs = [{ targets = ["http://${google_compute_address.otel_collector_ip.address}:8888"] }]
+            job_name = "otel-collector"
+            static_configs = [{
+              targets = ["http://${google_compute_address.otel_collector_ip.address}:8888"]
+            }]
           },
           {
-            job_name       = "aztec"
-            static_configs = [{ targets = ["http://${google_compute_address.otel_collector_ip.address}:8889"] }]
+            job_name = "aztec"
+            static_configs = [{
+              targets = ["http://${google_compute_address.otel_collector_ip.address}:8889"]
+            }]
           }
         ]
       }
