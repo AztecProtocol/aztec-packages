@@ -38,7 +38,10 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        info("SETTING honk_recursion to 2");
         honk_recursion = 2;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     }
     const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
@@ -46,8 +49,6 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
     if (!witness_path.empty()) {
         program.witness = get_witness(witness_path);
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
@@ -180,8 +181,8 @@ class UltraHonkAPI : public API {
                                                                   const std::filesystem::path& bytecode_path,
                                                                   const std::filesystem::path& witness_path)
     {
-        UltraProver_<UltraRollupFlavor> prover = compute_valid_prover<UltraRollupFlavor>(
-            bytecode_path, witness_path, /*initialize_pairing_point_accumulator*/ false);
+        UltraProver_<UltraRollupFlavor> prover =
+            compute_valid_prover<UltraRollupFlavor>(bytecode_path, witness_path, true);
         return { vk_only ? HonkProof() : prover.construct_proof(),
                  UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
@@ -214,8 +215,8 @@ class UltraHonkAPI : public API {
             const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
             const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
             // The extra calculation is for the IPA proof length.
-            vinfo("proof size: ", proof.size());
-            vinfo("num public inputs: ", num_public_inputs);
+            info("proof size: ", proof.size());
+            info("num public inputs: ", num_public_inputs);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
             ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
             // split out the ipa proof
@@ -228,7 +229,7 @@ class UltraHonkAPI : public API {
             verified = verifier.verify_proof(proof);
         }
 
-        vinfo("verified: ", verified);
+        info("verified: ", verified);
         return verified;
     }
 
@@ -382,21 +383,21 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& output_dir)
     {
         if (*flags.ipa_accumulation == "true") {
-            vinfo("proving with ipa_accumulation");
+            info("proving with ipa_accumulation");
             _write_data(
                 _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "poseidon2") {
-            vinfo("proving with poseidon2");
+            info("proving with poseidon2");
             _write_data(
                 _prove_poseidon2(flags, bytecode_path, witness_path), output_data_type, output_content, output_dir);
         } else if (*flags.oracle_hash == "keccak") {
-            vinfo("proving with keccak");
+            info("proving with keccak");
             _write_data(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
                         output_data_type,
                         output_content,
                         output_dir);
         } else {
-            vinfo(flags);
+            info(flags);
             ASSERT("Invalid proving options specified");
         };
     };
@@ -458,15 +459,15 @@ class UltraHonkAPI : public API {
     {
         const bool ipa_accumulation = *flags.ipa_accumulation == "true";
         if (ipa_accumulation) {
-            vinfo("verifying with ipa accumulation");
+            info("verifying with ipa accumulation");
             return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         if (*flags.oracle_hash == "poseidon2") {
-            vinfo("verifying with poseidon2");
+            info("verifying with poseidon2");
             return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         if (*flags.oracle_hash == "keccak") {
-            vinfo("verifying with keccak");
+            info("verifying with keccak");
             return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         return false;
@@ -578,16 +579,16 @@ class UltraHonkAPI : public API {
             write_file(toml_path, { toml_content.begin(), toml_content.end() });
         };
         if (ipa_accumulation) {
-            vinfo("proving with ipa_accumulation");
+            info("proving with ipa_accumulation");
             write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
         } else if (*flags.oracle_hash == "poseidon2") {
-            vinfo("proving with poseidon2");
+            info("proving with poseidon2");
             write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
         } else if (*flags.oracle_hash == "keccak") {
-            vinfo("proving with keccak");
+            info("proving with keccak");
             write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else {
-            vinfo(flags);
+            info(flags);
             ASSERT("Invalid proving options specified");
         };
     }
