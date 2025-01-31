@@ -9,8 +9,8 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from '@jest/globals';
 
@@ -19,7 +19,7 @@ import { SlasherClient, type SlasherConfig } from './slasher_client.js';
 // Most of this test are directly copied from the P2P client test.
 describe('In-Memory Slasher Client', () => {
   let blockSource: MockL2BlockSource;
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let client: SlasherClient;
   let config: SlasherConfig & L1ContractsConfig & L1ReaderConfig;
 
@@ -42,19 +42,14 @@ describe('In-Memory Slasher Client', () => {
       viemPollingIntervalMS: 1000,
     };
 
-    kvStore = openTmpStore();
+    kvStore = await openTmpStore('test');
     client = new SlasherClient(config, kvStore, blockSource);
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     blockSource.setProvenEpochNumber(provenEpochNumber);
-    await retryUntil(
-      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
-      'synced',
-      10,
-      0.1,
-    );
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
