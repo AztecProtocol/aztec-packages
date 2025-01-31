@@ -1,70 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738271408797,
+  "lastUpdate": 1738333218046,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "0446fce7b7b9edb58f3f169933163594ffd66b91",
-          "message": "chore(master): Release 0.70.0",
-          "timestamp": "2025-01-15T18:00:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/11107/commits/0446fce7b7b9edb58f3f169933163594ffd66b91"
-        },
-        "date": 1736964745566,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18832.871579999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15962.695484 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21547.46009799999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18915.530278 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4048.498585999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3744.1330009999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75316.450114,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75316450000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14522.144704999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14522145000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3236149145,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3236149145 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136362140,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136362140 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 141857476,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141857476 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e3a38ec24033b102897baaf8397ace9d8584677",
+          "message": "feat: change data store backend to use liblmdb directly (#11357)\n\nThis PR adds a new backend implementation for data stores that's based\r\non a thin layer on top of lmdb.c. This is the same layer used by\r\n`NativeWorldState`.\r\n\r\nThis enables us to have tighter control over how data is serialized (no\r\nmore bigint issues #9690 #9793), how it's accessed and enable us to use\r\na consistent version of lmdb across our stack.\r\n\r\nThings brings with it a change of interface since reads and writes are\r\nasynchronous.\r\n\r\n## Architecture\r\n\r\nThe architecture is similar to `NativeWorldState`: a module that wraps\r\nlmdb.c and provides C++ idiomatic access to\r\ndatabases/transactions/cursors\r\n[liblmdb](https://github.com/AztecProtocol/aztec-packages/blob/feat/lmdb-wrapper/barretenberg/cpp/src/barretenberg/lmdblib/lmdb_store.hpp).\r\nThis module is thread safe.\r\n\r\nThis module is then exposed through node-module-api to Nodejs. The\r\ncommunication interface between the C++ code and Nodejs is based on\r\npassing msgpack encoded messages around. The addon interface is really\r\nsimple, only exposing a single class with a single asynchronous method\r\n`call: (message: Buffer) => Promise<Buffer>`.\r\n\r\nThe C++ module does not have its own thread pool, it will piggy back off\r\nthe Nodejs thread pool, which means we have to be careful not to exhaust\r\nit.\r\n\r\nOn the Nodejs side we create a new `AsyncStore` backend that implements\r\nthe same interface (only async).\r\n\r\n## Transactions\r\n\r\nLMDB supports multiple concurrent readers, but one writer.\r\n\r\nThe `WriteTransaction` class in Nodejs accumulates writes locally and\r\nsends them to the database as one big, atomic batch. Any reads that\r\nhappen while a write transaction is open (and in the same async context)\r\ntake the uncommitted data into account.\r\n\r\nWhile `WriteTransaction` is accumulating writes, reads to the database\r\nare still honoured, but they will only see committed data (providing\r\nisolation from dirty writes). The `WriteTransaction` object is only\r\navailable in the async context (using `AsyncLocalStorage`) that started\r\nthat operation.\r\n\r\nThe Nodejs store queues up write transactions so that only one is active\r\nat a time.\r\n\r\n## Cursors\r\n\r\nCursors on the Nodejs side implement the `AsyncIterable` protocol so\r\nthey can be used in `for await of` loops and can be passed to our\r\nhelpers in aztec/foundation (e.g. `toArray`, `take`, etc)\r\n\r\nCursors use a long-lived read transaction. A lot of the queries used in\r\nour stores actual depend on cursors (e.g. `getLatestSynchedL2Block` -\r\nstarts a cursor at the end of the database and reads one block).\r\n\r\nWe have a limited number of readers available in C++, if this number is\r\nreached then the text read will block until a reader becomes available.\r\nThe Nodejs store uses a semaphore that only allows up to `maxReaders -\r\n1` cursors to be open at any one time. We always leave one reader\r\navailable to perform simple gets (otherwise we'd risk blocking the\r\nentire thread pool)\r\n\r\nWe've added two 'optimizations' to our cursor implementation: (1) when\r\nstarting a cursor the first page of results is sent back immediately and\r\n(2) if we know we want a small number of results (e.g. the last block in\r\n`getLatestSynchedL2Block`) then close the cursors in the same operation\r\n(this way we avoid keeping a reader open that will be closed in the next\r\nasync execution)\r\n\r\n## Performance\r\n\r\nIn tests the performance is similar to the old backend. There is a\r\npenalty to reads (reads are async now) but writes are on par.\r\n\r\n## Changes to existing stores\r\n\r\nThe only modification necessary has been to have async reads and await\r\nthe write operations in transactions.\r\n\r\n## Ported data stores\r\n\r\n- the archiver (blocks, logs, contracts, txs)\r\n- the tx mempool \r\n- the proving job store\r\n\r\n## TODO\r\n\r\n- [x] port attestation pool, peer store\r\n- [ ] add metrics\r\n- [ ] fix merge conflicts :cry:\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
+          "timestamp": "2025-01-31T14:03:48Z",
+          "tree_id": "4449257c99a2684e919c5e51c6b1bd5d711071ba",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e3a38ec24033b102897baaf8397ace9d8584677"
+        },
+        "date": 1738333210139,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19080.836506999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16264.548896999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21344.32804800002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18585.712211000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4130.762439999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3808.5139319999994 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 82651.25711600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 82651258000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14616.400564,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14616400000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3757146058,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3757146058 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 137466003,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 137466003 ns\nthreads: 1"
           }
         ]
       }
