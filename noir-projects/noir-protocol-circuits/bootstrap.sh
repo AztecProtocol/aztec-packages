@@ -16,6 +16,7 @@ export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
 key_dir=./target/keys
+mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
@@ -149,6 +150,7 @@ function build {
   set +e
   set -u
   rm -rf target
+  mkdir $key_dir
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
