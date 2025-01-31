@@ -20,38 +20,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  ci-amd64:
     runs-on: ubuntu-latest
-    # Build for both architectures, but arm is only on master.
-    strategy:
-      matrix:
-        include:
-          - arch: amd64
-          - arch: arm64
-            master_only: true
     if: >
       (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
       (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
     steps:
       - name: Checkout
-        if: matrix.master_only == false || github.ref == 'refs/heads/master'
         uses: actions/checkout@v3
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup
-        if: matrix.master_only == false || github.ref == 'refs/heads/master'
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
       - name: Run
-        if: matrix.master_only == false || github.ref == 'refs/heads/master'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ARCH: ${{ matrix.arch }}
+          ARCH: amd64
           LOG_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2
@@ -71,3 +61,30 @@ jobs:
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
+
+  ci-arm64:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow') &&
+      github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ARCH: arm64
+          LOG_ID: ${{ github.run_id }}
+        run: |
+          ./ci.sh ec2
