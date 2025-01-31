@@ -98,7 +98,6 @@ add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/vm2)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
-add_subdirectory(barretenberg/acir_formal_proofs)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
