@@ -140,7 +140,7 @@ class UltraHonkAPI : public API {
                                                                const std::filesystem::path& witness_path)
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
+        static constexpr size_t PROVER_SRS_LOG_SIZE = 23;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
         UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
         info("instantiated ivc class");
