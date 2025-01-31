@@ -9,7 +9,7 @@ pub struct PublicMutable<T, Context> {
 }
 // docs:end:public_mutable_struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PublicMutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PublicMutable<T, Context>
 where
     T: Packable<N>,
 {
