@@ -263,3 +263,19 @@ function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
       }),
   };
 }
+
+function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
+  let formattedUrl = url;
+  if (config.l1ConsensusHostApiKey && !config.l1ConsensusHostApiKeyHeader) {
+    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${config.l1ConsensusHostApiKey}`;
+  }
+  return {
+    url: formattedUrl,
+    ...(config.l1ConsensusHostApiKey &&
+      config.l1ConsensusHostApiKeyHeader && {
+        headers: {
+          [config.l1ConsensusHostApiKeyHeader]: config.l1ConsensusHostApiKey,
+        },
+      }),
+  };
+}
