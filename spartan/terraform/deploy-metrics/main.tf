@@ -88,10 +88,10 @@ resource "helm_release" "aztec-gke-cluster" {
     value = google_compute_address.otel_collector_ip.address
   }
 
-  set_sensitive {
+  set {
     name = "prometheus.serverFiles"
-    value = jsonencode({
-      "prometheus.yml" = {
+    value = yamlencode({
+      prometheus.yml = {
         scrape_configs = [
           {
             job_name = "otel-collector"
