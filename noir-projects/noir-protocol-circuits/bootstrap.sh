@@ -148,7 +148,7 @@ function build {
   set +e
   set -u
   rm -rf target
-  mkdir $key_dir
+  mkdir -p $key_dir
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
