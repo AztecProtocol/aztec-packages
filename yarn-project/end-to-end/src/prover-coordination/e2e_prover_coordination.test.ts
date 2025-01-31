@@ -99,7 +99,8 @@ describe('e2e_prover_coordination', () => {
     await ctx.proverNode!.stop();
 
     publicClient = ctx.deployL1ContractsValues.publicClient;
-    publisherAddress = EthAddress.fromString(ctx.deployL1ContractsValues.walletClient.account.address);
+    publisherAddress = ctx.aztecNode.getSequencer()?.forwarderAddress ?? EthAddress.ZERO;
+    expect(publisherAddress).not.toEqual(EthAddress.ZERO);
     rollupContract = getContract({
       address: getAddress(ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString()),
       abi: RollupAbi,

@@ -20,10 +20,10 @@ export function reqRespTxHandler<T extends P2PClientType>(mempools: MemPools<T>)
    * @param msg - the tx request message
    * @returns the tx response message
    */
-  return (_peerId: PeerId, msg: Buffer) => {
+  return async (_peerId: PeerId, msg: Buffer) => {
     const txHash = TxHash.fromBuffer(msg);
-    const foundTx = mempools.txPool.getTxByHash(txHash);
+    const foundTx = await mempools.txPool.getTxByHash(txHash);
     const buf = foundTx ? foundTx.toBuffer() : Buffer.alloc(0);
-    return Promise.resolve(buf);
+    return buf;
   };
 }

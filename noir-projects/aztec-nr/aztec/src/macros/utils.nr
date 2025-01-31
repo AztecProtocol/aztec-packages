@@ -219,16 +219,15 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
+pub(crate) comptime fn get_packed_size(typ: Type) -> u32 {
     let any = fresh_type_variable();
-    let maybe_serialize_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+    let maybe_packed_impl =
+        typ.get_trait_impl(quote { protocol_types::traits::Packable<$any> }.as_trait_constraint());
 
-    maybe_serialize_impl
-        .expect(
-            f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait",
-        )
-        .trait_generic_args()[0]
+    maybe_packed_impl
+        .expect(f"Attempted to fetch packed length, but {typ} does not implement the Packable trait"
+            )
+            .trait_generic_args()[0]
         .as_constant()
         .unwrap()
 }

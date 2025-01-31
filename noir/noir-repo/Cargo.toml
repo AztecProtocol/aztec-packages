@@ -24,6 +24,7 @@ members = [
     "tooling/noirc_abi_wasm",
     "tooling/acvm_cli",
     "tooling/profiler",
+    "tooling/inspector",
     # ACVM
     "acvm-repo/acir_field",
     "acvm-repo/acir",
@@ -40,6 +41,7 @@ default-members = [
     "tooling/nargo_cli",
     "tooling/acvm_cli",
     "tooling/profiler",
+    "tooling/inspector",
 ]
 resolver = "2"
 
