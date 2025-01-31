@@ -6,6 +6,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
@@ -560,5 +561,35 @@ class UltraHonkAPI : public API {
             info("contract written to: ", output_path);
         }
     };
+
+    void write_recursion_inputs(const API::Flags& flags,
+                                const std::string& bytecode_path,
+                                const std::string& witness_path,
+                                const std::string& output_path) override
+    {
+        ASSERT(*flags.ipa_accumulation == "true" || *flags.ipa_accumulation == "false");
+        const bool ipa_accumulation = *flags.ipa_accumulation == "true";
+        const auto write_toml = [&](auto&& prover_output) {
+            // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+            std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
+                prover_output.proof, prover_output.key, ipa_accumulation);
+            // Write all components to the TOML file
+            std::string toml_path = output_path + "/Prover.toml";
+            write_file(toml_path, { toml_content.begin(), toml_content.end() });
+        };
+        if (ipa_accumulation) {
+            vinfo("proving with ipa_accumulation");
+            write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
+        } else if (*flags.oracle_hash == "poseidon2") {
+            vinfo("proving with poseidon2");
+            write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
+        } else if (*flags.oracle_hash == "keccak") {
+            vinfo("proving with keccak");
+            write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
+        } else {
+            vinfo(flags);
+            ASSERT("Invalid proving options specified");
+        };
+    }
 };
 } // namespace bb

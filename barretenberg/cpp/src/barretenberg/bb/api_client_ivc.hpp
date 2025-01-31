@@ -372,5 +372,13 @@ class ClientIVCAPI : public API {
 
         write_vk_for_ivc(*flags.output_type == "fields", bytecode_path, output_path);
     };
+
+    void write_recursion_inputs([[maybe_unused]] const API::Flags& flags,
+                                [[maybe_unused]] const std::string& bytecode_path,
+                                [[maybe_unused]] const std::string& witness_path,
+                                [[maybe_unused]] const std::string& output_path) override
+    {
+        throw_or_abort("API function not implemented; IVC is built in!");
+    };
 };
 } // namespace bb

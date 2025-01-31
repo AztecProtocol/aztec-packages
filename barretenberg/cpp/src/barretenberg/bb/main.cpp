@@ -7,7 +7,6 @@
 #include "barretenberg/common/timer.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -15,8 +14,6 @@
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 
 #ifndef DISABLE_AZTEC_VM
@@ -190,60 +187,6 @@ void gate_count(const std::string& bytecode_path, bool recursive, uint32_t honk_
     size_t length = strlen(jsonData);
     std::vector<uint8_t> data(jsonData, jsonData + length);
     write_bytes_to_stdout(data);
-}
-
-// ULTRA HONK
-
-/**
- * @brief Write a toml file containing recursive verifier inputs for a given program + witness
- *
- * @tparam Flavor
- * @param bytecode_path Path to the file containing the serialized circuit
- * @param witness_path Path to the file containing the serialized witness
- * @param output_path Path to write toml file
- */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
-// double_verify_honk_proof as well
-template <IsUltraFlavor Flavor>
-void write_recursion_inputs_honk(const std::string& bytecode_path,
-                                 const std::string& witness_path,
-                                 const std::string& output_path,
-                                 const bool recursive)
-{
-    using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using FF = Flavor::FF;
-
-    ASSERT(recursive);
-
-    uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    }
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
-
-    acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
-    program.witness = get_witness(witness_path);
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Construct Honk proof and verification key
-    Prover prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    std::vector<FF> proof = prover.construct_proof();
-    VerificationKey verification_key(prover.proving_key->proving_key);
-
-    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
-    std::string toml_content =
-        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data<Flavor>(proof, verification_key);
-
-    // Write all components to the TOML file
-    std::string toml_path = output_path + "/Prover.toml";
-    write_file(toml_path, { toml_content.begin(), toml_content.end() });
 }
 
 // ULTRA PLONK
@@ -907,6 +850,10 @@ int main(int argc, char* argv[])
                 const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
                 api.contract(flags, output_path, vk_path);
                 return 0;
+            } else if (command == "write_recursion_inputs") {
+                const std::string output_path = get_option(args, "-o", "./target");
+                api.write_recursion_inputs(flags, bytecode_path, witness_path, output_path);
+                return 0;
             } else {
                 throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
                 return 1;
@@ -931,12 +878,6 @@ int main(int argc, char* argv[])
         else if (proof_system == "ultra_honk") {
             UltraHonkAPI api;
             execute_command(command, flags, api);
-        } else if (command == "write_recursion_inputs_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./target");
-            write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "write_recursion_inputs_rollup_honk") {
-            std::string output_path = get_option(args, "-o", "./target");
-            write_recursion_inputs_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
         }
         // ULTRA PLONK
         else if (command == "gates") {
