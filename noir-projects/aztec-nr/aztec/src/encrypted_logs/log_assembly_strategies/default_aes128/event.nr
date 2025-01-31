@@ -137,8 +137,6 @@ where
 
     let ciphertext_bytes = aes128_encrypt(final_plaintext, iv, sym_key);
 
-    assert(ciphertext_bytes.len() == 16 * (1 + ((N * 32) + 32) / 16));
-
     // *****************************************************************************
     // Compute the header ciphertext
     // *****************************************************************************
