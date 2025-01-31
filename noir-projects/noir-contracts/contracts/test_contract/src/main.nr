@@ -496,6 +496,7 @@ contract Test {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
 
+    #[derive(Serialize)]
     pub struct DummyNote {
         amount: Field,
         secret_hash: Field,
@@ -508,12 +509,6 @@ contract Test {
 
         fn get_commitment(self) -> Field {
             pedersen_hash([self.amount, self.secret_hash], 0)
-        }
-    }
-
-    impl Serialize<2> for DummyNote {
-        fn serialize(self) -> [Field; 2] {
-            [self.amount, self.secret_hash]
         }
     }
 
