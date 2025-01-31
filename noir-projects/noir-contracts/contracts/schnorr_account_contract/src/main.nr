@@ -25,7 +25,9 @@ contract SchnorrAccount {
 
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_key
         signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        // docs:end:public_key
     }
 
     // Constructs the contract
