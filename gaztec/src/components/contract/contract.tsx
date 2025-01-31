@@ -88,7 +88,12 @@ const header = css({
 const search = css({
   display: "flex",
   overflow: "hidden",
-  width: "100%",
+  "@media (width <= 800px)": {
+    width: "100%",
+  },
+  "@media (width > 800px)": {
+    maxWidth: "500px",
+  },
 });
 
 const contractActions = css({
@@ -357,12 +362,14 @@ export function ContractComponent() {
                 <div css={contractActions}>
                   <Button
                     variant="contained"
+                    size="small"
                     css={{ marginRight: "0.5rem" }}
                     onClick={() => setOpenDeployContractDialog(true)}
                   >
                     Deploy
                   </Button>
                   <Button
+                    size="small"
                     variant="contained"
                     onClick={() => setOpenRegisterContractDialog(true)}
                   >
@@ -402,9 +409,10 @@ export function ContractComponent() {
               )}
             </div>
             <div css={search}>
-              <FormGroup>
+              <FormGroup sx={{ width: "100%" }}>
                 <Input
                   type="text"
+                  fullWidth
                   placeholder="Search function"
                   value={filters.searchTerm}
                   onChange={(e) =>
@@ -473,6 +481,7 @@ export function ContractComponent() {
           {contractArtifact.functions
             .filter(
               (fn) =>
+                !fn.isInternal &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                 ((filters.private && fn.functionType === "private") ||
                   (filters.public && fn.functionType === "public") ||
@@ -488,6 +497,7 @@ export function ContractComponent() {
                 sx={{
                   backgroundColor: "primary.light",
                   margin: "0.5rem",
+                  overflow: "hidden",
                 }}
               >
                 <CardContent sx={{ textAlign: "left" }}>
@@ -551,6 +561,7 @@ export function ContractComponent() {
                     disabled={!wallet || !currentContract || isWorking}
                     color="secondary"
                     variant="contained"
+                    size="small"
                     onClick={() => simulate(fn.name)}
                     endIcon={<PsychologyIcon />}
                   >
@@ -563,6 +574,7 @@ export function ContractComponent() {
                       isWorking ||
                       fn.functionType === "unconstrained"
                     }
+                    size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() => send(fn.name)}
@@ -577,6 +589,7 @@ export function ContractComponent() {
                       isWorking ||
                       fn.functionType === "unconstrained"
                     }
+                    size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() =>
@@ -588,7 +601,7 @@ export function ContractComponent() {
                     }
                     endIcon={<VpnKeyIcon />}
                   >
-                    Create authwit
+                    Authwit
                   </Button>
                 </CardActions>
               </Card>
