@@ -91,7 +91,7 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name = "prometheus.serverFiles"
     value = yamlencode({
-      prometheus.yml = {
+      "prometheus.yml" = {
         scrape_configs = [
           {
             job_name = "otel-collector"
