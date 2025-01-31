@@ -10,6 +10,7 @@
 !/yarn-project/package.json
 !/yarn-project/*/package.json
 !/yarn-project/*/dest/
+!/yarn-project/aztec/node18-polyfill.cjs
 !/yarn-project/cli-wallet/wallet-entrypoint.sh
 !/yarn-project/accounts/artifacts/
 !/yarn-project/noir-protocol-circuits-types/artifacts/

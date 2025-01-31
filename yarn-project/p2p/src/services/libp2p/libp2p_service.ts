@@ -66,7 +66,7 @@ class CustomEventPolyfill extends Event {
     this.detail = data?.detail;
   }
 }
-globalThis.CustomEvent  = globalThis.CustomEvent ?? CustomEventPolyfill;
+globalThis.CustomEvent = globalThis.CustomEvent ?? CustomEventPolyfill;
 
 type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 

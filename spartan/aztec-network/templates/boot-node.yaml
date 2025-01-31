@@ -115,7 +115,7 @@ spec:
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
               env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
+              node --no-warnings -r /usr/src/yarn-project/aztec/node18-polyfill.cjs /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
           startupProbe:
             httpGet:
               path: /status
