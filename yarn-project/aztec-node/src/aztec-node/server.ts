@@ -68,8 +68,8 @@ import { type P2P, createP2PClient } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   GlobalVariableBuilder,
-  type L1Publisher,
   SequencerClient,
+  type SequencerPublisher,
   createSlasherClient,
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
@@ -144,7 +144,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     deps: {
       telemetry?: TelemetryClient;
       logger?: Logger;
-      publisher?: L1Publisher;
+      publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
     } = {},

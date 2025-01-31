@@ -314,7 +314,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     for (const scope of new Set(filter.scopes)) {
       const formattedScopeString = scope.toString();
-      if (!this.#scopes.hasAsync(formattedScopeString)) {
+      if (!(await this.#scopes.hasAsync(formattedScopeString))) {
         throw new Error('Trying to get incoming notes of an scope that is not in the PXE database');
       }
 
@@ -568,7 +568,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async removeSenderAddress(address: AztecAddress): Promise<boolean> {
-    if (!this.#addressBook.hasAsync(address.toString())) {
+    if (!(await this.#addressBook.hasAsync(address.toString()))) {
       return false;
     }
 
