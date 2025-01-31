@@ -23,8 +23,8 @@ describe('MetadataTxValidator', () => {
   };
 
   it('allows only transactions for the right chain', async () => {
-    const goodTxs = [mockTx(1), mockTxForRollup(2)];
-    const badTxs = [mockTx(3), mockTxForRollup(4)];
+    const goodTxs = await Promise.all([mockTx(1), mockTxForRollup(2)]);
+    const badTxs = await Promise.all([mockTx(3), mockTxForRollup(4)]);
 
     goodTxs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
@@ -41,7 +41,7 @@ describe('MetadataTxValidator', () => {
   });
 
   it.each([42, 43])('allows txs with valid max block number', async maxBlockNumber => {
-    const goodTx = mockTxForRollup(1);
+    const goodTx = await mockTxForRollup(1);
     goodTx.data.constants.txContext.chainId = chainId;
     goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(maxBlockNumber));
 
@@ -49,7 +49,7 @@ describe('MetadataTxValidator', () => {
   });
 
   it('allows txs with unset max block number', async () => {
-    const goodTx = mockTxForRollup(1);
+    const goodTx = await mockTxForRollup(1);
     goodTx.data.constants.txContext.chainId = chainId;
     goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, Fr.ZERO);
 
@@ -57,7 +57,7 @@ describe('MetadataTxValidator', () => {
   });
 
   it('rejects txs with lower max block number', async () => {
-    const badTx = mockTxForRollup(1);
+    const badTx = await mockTxForRollup(1);
     badTx.data.constants.txContext.chainId = chainId;
     badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber.sub(new Fr(1)));
 

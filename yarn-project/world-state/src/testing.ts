@@ -18,7 +18,7 @@ export async function generateGenesisValues(prefilledPublicData: PublicDataTreeL
     prefilledPublicData,
   );
   const initialHeader = ws.getInitialHeader();
-  const genesisBlockHash = initialHeader.hash();
+  const genesisBlockHash = await initialHeader.hash();
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 

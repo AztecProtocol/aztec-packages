@@ -22,7 +22,7 @@ describe('e2e_deploy_contract private initialization', () => {
   it('executes a function in an undeployed contract from an account contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
     const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
-    const expected = siloNullifier(contract.address, new Fr(10));
+    const expected = await siloNullifier(contract.address, new Fr(10));
     expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
   });
 
@@ -51,7 +51,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const contracts = await Promise.all(
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
-    const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request());
+    const calls = await Promise.all(contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request()));
     await new BatchCall(wallet, calls).send().wait();
     expect(await contracts[0].methods.summed_values(owner).simulate()).toEqual(42n);
     expect(await contracts[1].methods.summed_values(owner).simulate()).toEqual(52n);
@@ -63,8 +63,8 @@ describe('e2e_deploy_contract private initialization', () => {
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     const sender = owner;
     const batch = new BatchCall(wallet, [
-      contract.methods.constructor(...initArgs).request(),
-      contract.methods.create_note(owner, sender, 10).request(),
+      await contract.methods.constructor(...initArgs).request(),
+      await contract.methods.create_note(owner, sender, 10).request(),
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send().wait();

@@ -73,7 +73,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
+        ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
       });
 
@@ -95,7 +95,7 @@ describe('guides/dapp/testing', () => {
       it('checks public storage', async () => {
         // docs:start:public-storage
         await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );
@@ -156,7 +156,7 @@ describe('guides/dapp/testing', () => {
         const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );

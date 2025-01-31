@@ -11,6 +11,8 @@ import {
   type L2Tips,
   type LogFilter,
   type MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   type NullifierMembershipWitness,
   type ProverConfig,
   type PublicDataWitness,
@@ -44,7 +46,7 @@ import {
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
+import { type NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
@@ -59,7 +61,8 @@ export class TXENode implements AztecNode {
     private blockNumber: number,
     private version: number,
     private chainId: number,
-    private trees: MerkleTrees,
+    private nativeWorldStateService: NativeWorldStateService,
+    private baseFork: MerkleTreeWriteOperations,
   ) {}
 
   /**
@@ -95,10 +98,10 @@ export class TXENode implements AztecNode {
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
-  setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
+  async setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
     // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
     // simply the hash of the block number.
-    const blockHash = poseidon2Hash([blockNumber]);
+    const blockHash = await poseidon2Hash([blockNumber]);
 
     this.#txEffectsByTxHash.set(txHash.toString(), {
       l2BlockHash: blockHash.toString(),
@@ -200,19 +203,17 @@ export class TXENode implements AztecNode {
     publicLogs.forEach(log => {
       // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
       const firstFieldBuf = log.log[0].toBuffer();
-      if (
-        !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
-        firstFieldBuf[26] !== 0 ||
-        firstFieldBuf[29] !== 0
-      ) {
-        // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
-        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+      // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
+      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+      if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
+        // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
+        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
         this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
         return;
       }
       // Check that the length values line up with the log contents
-      const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
-      const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+      const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
+      const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
       // Add 1 for the first field holding lengths
       const totalLogLength = 1 + publicValuesLength + privateValuesLength;
       // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
@@ -274,14 +275,10 @@ export class TXENode implements AztecNode {
     // We should likely migrate this so that the trees are owned by the node.
 
     // TODO: blockNumber is being passed as undefined, figure out why
-    if (blockNumber === 'latest' || blockNumber === undefined) {
-      blockNumber = await this.getBlockNumber();
-    }
-
-    const db =
-      blockNumber === (await this.getBlockNumber())
-        ? await this.trees.getLatest()
-        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+    const db: MerkleTreeReadOperations =
+      blockNumber === (await this.getBlockNumber()) || blockNumber === 'latest' || blockNumber === undefined
+        ? this.baseFork
+        : this.nativeWorldStateService.getSnapshot(blockNumber);
 
     return await db.findLeafIndices(
       treeId,

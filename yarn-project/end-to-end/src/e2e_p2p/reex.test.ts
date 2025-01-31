@@ -131,7 +131,9 @@ describe('e2e_p2p_reex', () => {
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
           proposal.payload,
-          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
+          await signer.signMessage(
+            await getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal),
+          ),
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -156,8 +158,8 @@ describe('e2e_p2p_reex', () => {
           const originalSimulate = simulator.simulate.bind(simulator);
           // We only stub the simulate method if it's NOT the first time we see the tx
           // so the proposer works fine, but we cause the failure in the validators.
-          jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
-            const txHash = tx.getTxHash().toString();
+          jest.spyOn(simulator, 'simulate').mockImplementation(async (tx: Tx) => {
+            const txHash = (await tx.getTxHash()).toString();
             if (seenTxs.has(txHash)) {
               t.logger.warn('Calling stubbed simulate for tx', { txHash });
               return stub(tx, originalSimulate);

@@ -11,8 +11,8 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import {
@@ -41,7 +41,7 @@ export type SequencerClientConfig = PublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -133,7 +133,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**

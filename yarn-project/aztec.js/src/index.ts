@@ -147,14 +147,12 @@ export { elapsed } from '@aztec/foundation/timer';
 export { type FieldsOf } from '@aztec/foundation/types';
 export { fileURLToPath } from '@aztec/foundation/url';
 
-export { EthCheatCodes, deployL1Contract, deployL1Contracts, type DeployL1Contracts } from '@aztec/ethereum';
-
 // Start of section that exports public api via granular api.
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
 export * from './api/fee.js';
-export * from './api/init.js';
+export * from './api/addresses.js';
+export * from './api/ethereum.js';
 // Granular export, even if not in the api folder
 export * from './contract/index.js';
-export * from './api/addresses.js';

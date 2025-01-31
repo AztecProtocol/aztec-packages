@@ -341,7 +341,6 @@ async function setupFromFresh(
     initialFundedAccounts.map(a => a.address),
     opts.initialAccountFeeJuice,
   );
-  console.log('>>>> setup from fresh', prefilledPublicData);
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
@@ -471,7 +470,6 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
   const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
-  console.log('>>>> setup from state', prefilledPublicData);
 
   const blobSink = await createBlobSinkServer({
     port: blobSinkPort,
@@ -595,14 +593,17 @@ export async function publicDeployAccounts(
   waitUntilProven = false,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
-  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const instances = (
+    await Promise.all(accountAddressesToDeploy.map(account => sender.getContractMetadata(account)))
+  ).map(metadata => metadata.contractInstance);
 
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: FunctionCall[] = [];
   if (!alreadyRegistered) {
-    calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
+    const registerContractCall = await registerContractClass(sender, SchnorrAccountContractArtifact);
+    calls.push(await registerContractCall.request());
   }
   const requests = await Promise.all(
     instances.map(async instance => (await deployInstance(sender, instance!)).request()),

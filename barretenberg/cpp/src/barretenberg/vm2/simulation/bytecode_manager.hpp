@@ -40,13 +40,15 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       ClassIdDerivationInterface& class_id_derivation,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeHashingEvent>& hash_events,
-                      EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events)
+                      EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
+                      EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
         : db(db)
         , address_derivation(address_derivation)
         , class_id_derivation(class_id_derivation)
         , retrieval_events(retrieval_events)
         , hash_events(hash_events)
         , decomposition_events(decomposition_events)
+        , fetching_events(fetching_events)
     {}
 
     BytecodeId get_bytecode(const AztecAddress& address) override;
@@ -59,6 +61,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeHashingEvent>& hash_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
+    EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
     unordered_flat_map<AztecAddress, BytecodeId> resolved_addresses;
     BytecodeId next_bytecode_id = 0;

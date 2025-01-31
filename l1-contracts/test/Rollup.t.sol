@@ -21,7 +21,7 @@ import {Rollup} from "./harnesses/Rollup.sol";
 import {IRollup, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -51,7 +51,7 @@ contract RollupTest is DecoderBase, TimeFns {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
-  Leonidas internal leo;
+  ValidatorSelection internal leo;
   MerkleTestUtil internal merkleTestUtil;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
@@ -74,7 +74,7 @@ contract RollupTest is DecoderBase, TimeFns {
     {
       testERC20 = new TestERC20("test", "TEST", address(this));
 
-      leo = new Leonidas(
+      leo = new ValidatorSelection(
         testERC20,
         TestConstants.AZTEC_MINIMUM_STAKE,
         TestConstants.AZTEC_SLASHING_QUORUM,

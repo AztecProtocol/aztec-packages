@@ -1,0 +1,55 @@
+volumes:
+  eth_execution_data:
+  eth_beacon_data:
+  eth_validator_data:
+
+services:
+  eth_execution:
+    build:
+      context: .
+      dockerfile: entrypoints/eth-execution.Dockerfile
+    ports:
+      - "8545:8545"
+      - "8551:8551"
+    volumes:
+      - "eth_execution_data:/data"
+      - "${PWD}/out/genesis.json:/genesis/genesis.json"
+      - "${PWD}/out/jwt-secret.hex:/genesis/jwt-secret.hex"
+    environment:
+      - HTTP_PORT=8545
+      - MAX_TX_INPUT_SIZE_BYTES=1310720
+
+  eth_beacon:
+    depends_on:
+      - eth_execution
+    build:
+      context: .
+      dockerfile: entrypoints/eth-beacon.Dockerfile
+    ports:
+      - "5052:5052"
+    volumes:
+      - "eth_beacon_data:/data"
+      - "${PWD}/out/jwt-secret.hex:/genesis/jwt-secret.hex"
+      - "${PWD}/out/config.yaml:/genesis/config.yaml"
+      - "${PWD}/out/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
+      - "${PWD}/out/genesis.ssz:/genesis/genesis.ssz"
+    environment:
+      ETH_EXECUTION_URL: "http://eth_execution:8551"
+      BEACON_HTTP_PORT: 5052
+
+  eth_validator:
+    depends_on:
+      - eth_execution
+      - eth_beacon
+    build:
+      context: .
+      dockerfile: entrypoints/eth-validator.Dockerfile
+    volumes:
+      - "eth_validator_data:/data"
+      - "${PWD}/config/val-keys/data/keys:/validator_setup/validators"
+      - "${PWD}/config/val-keys/data/secrets:/validator_setup/secrets"
+      - "${PWD}/out/config.yaml:/genesis/config.yaml"
+      - "${PWD}/out/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
+      - "${PWD}/out/genesis.ssz:/genesis/genesis.ssz"
+    environment:
+      ETH_BEACON_URL: "http://eth_beacon:5052/"

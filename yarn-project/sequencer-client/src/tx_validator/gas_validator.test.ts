@@ -29,11 +29,11 @@ describe('GasTxValidator', () => {
     feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     gasFees = new GasFees(11, 22);
 
-    tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = await AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     payer = tx.data.feePayer;
-    expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
+    expectedBalanceSlot = await poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 
@@ -67,8 +67,8 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
-    const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))');
-    patchNonRevertibleFn(tx, 0, {
+    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))');
+    await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       args: [selector.toField(), payer.toField(), ...new U128(1n).toFields()],
@@ -88,8 +88,8 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
-    patchRevertibleFn(tx, 0, {
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
+    await patchRevertibleFn(tx, 0, {
+      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
       args: [payer.toField(), ...new U128(1n).toFields()],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');

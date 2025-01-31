@@ -531,7 +531,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
       throw new Error('State in header does not match current state');
     }
 
-    const blockHash = header.hash();
+    const blockHash = await header.hash();
     await this.#appendLeaves(MerkleTreeId.ARCHIVE, [blockHash]);
   }
 
@@ -709,7 +709,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
     }
     await this.#snapshot(l2Block.number);
 
-    this.metrics.recordDbSize(this.store.estimateSize().actualSize);
+    this.metrics.recordDbSize((await this.store.estimateSize()).actualSize);
     this.metrics.recordSyncDuration('commit', timer);
     return buildEmptyWorldStateStatusFull();
   }

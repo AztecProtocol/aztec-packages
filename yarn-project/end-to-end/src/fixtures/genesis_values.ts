@@ -10,9 +10,13 @@ export async function getGenesisValues(
   initialAccountFeeJuice = defaultInitialAccountFeeJuice,
 ) {
   // Top up the accounts with fee juice.
-  const prefilledPublicData = initialAccounts
-    .map(address => new PublicDataTreeLeaf(computeFeePayerBalanceLeafSlot(address), initialAccountFeeJuice))
-    .sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
+  const prefilledPublicData = (
+    await Promise.all(
+      initialAccounts.map(
+        async address => new PublicDataTreeLeaf(await computeFeePayerBalanceLeafSlot(address), initialAccountFeeJuice),
+      ),
+    )
+  ).sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
 
   const { genesisBlockHash, genesisArchiveRoot } = await generateGenesisValues(prefilledPublicData);
 

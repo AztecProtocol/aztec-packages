@@ -20,7 +20,6 @@ import {
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -39,6 +38,7 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -62,7 +62,7 @@ struct Config {
  * not giving a damn about gas costs.
  * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
-contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -113,7 +113,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Config memory _config
   )
     Ownable(_ares)
-    Leonidas(
+    ValidatorSelection(
       _stakingAsset,
       _config.minimumStake,
       _config.slashingQuorum,
@@ -398,7 +398,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Signature[] memory sigs = new Signature[](0);
     DataStructures.ExecutionFlags memory flags =
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
-    _validateLeonidas(slot, sigs, _archive, flags);
+    _validateValidatorSelection(slot, sigs, _archive, flags);
 
     return (slot, pendingBlockNumber + 1);
   }
@@ -413,7 +413,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
-   * @param _blobsHash - The blobs hash for this block
+   * @param _blobsHashesCommitment - The blobs hash for this block
    * @param _flags - The flags to validate
    */
   function validateHeader(
@@ -421,7 +421,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    bytes32 _blobsHashesCommitment,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
     _validateHeader(
@@ -430,7 +430,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
       _digest,
       _currentTime,
       getManaBaseFeeAt(_currentTime, true),
-      _blobsHash,
+      _blobsHashesCommitment,
       _flags
     );
   }
@@ -443,7 +443,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     external
     view
     override(IRollup)
-    returns (bytes32, bytes32)
+    returns (bytes32[] memory, bytes32, bytes32)
   {
     return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
   }
@@ -515,7 +515,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
 
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (bytes32 blobsHash, bytes32 blobPublicInputsHash) =
+    (bytes32[] memory blobHashes, bytes32 blobsHashesCommitment, bytes32 blobPublicInputsHash) =
       ExtRollupLib.validateBlobs(_blobInput, checkBlob);
 
     // Decode and validate header
@@ -531,7 +531,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
       _digest: _args.digest(),
       _currentTime: Timestamp.wrap(block.timestamp),
       _manaBaseFee: manaBaseFee,
-      _blobsHash: blobsHash,
+      _blobsHashesCommitment: blobsHashesCommitment,
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
 
@@ -557,7 +557,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
 
-    emit L2BlockProposed(blockNumber, _args.archive);
+    emit L2BlockProposed(blockNumber, _args.archive, blobHashes);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
@@ -830,7 +830,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    * @param _signatures - The signatures for the attestations
    * @param _digest - The digest that signatures signed
    * @param _currentTime - The time of execution
-   * @param _blobsHash - The blobs hash for this block
+   * @param _blobsHashesCommitment - The blobs hash for this block
    * @dev                - This value is provided to allow for simple simulation of future
    * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
@@ -840,7 +840,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     bytes32 _digest,
     Timestamp _currentTime,
     uint256 _manaBaseFee,
-    bytes32 _blobsHash,
+    bytes32 _blobsHashesCommitment,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber = canPruneAtTime(_currentTime)
@@ -852,7 +852,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
         header: _header,
         currentTime: _currentTime,
         manaBaseFee: _manaBaseFee,
-        blobsHash: _blobsHash,
+        blobsHashesCommitment: _blobsHashesCommitment,
         pendingBlockNumber: pendingBlockNumber,
         flags: _flags,
         version: VERSION,
@@ -869,7 +869,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
   /**
    * @notice  Validate a header for submission to the pending chain (sequencer selection checks)
    *
-   *          These validation checks are directly related to Leonidas.
+   *          These validation checks are directly related to ValidatorSelection.
    *          Note that while these checks are strict, they can be relaxed with some changes to
    *          message boxes.
    *
@@ -902,7 +902,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Epoch currentEpoch = getEpochAt(_currentTime);
     require(epochNumber == currentEpoch, Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber));
 
-    _validateLeonidas(_slot, _signatures, _digest, _flags);
+    _validateValidatorSelection(_slot, _signatures, _digest, _flags);
   }
 
   // Helper to avoid stack too deep

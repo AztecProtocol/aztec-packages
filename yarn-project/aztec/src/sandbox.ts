@@ -1,17 +1,17 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type AztecNode } from '@aztec/circuit-types';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/circuits.js/constants';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import {
-  type DeployL1Contracts,
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
+  waitForPublicClient,
 } from '@aztec/ethereum';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -37,39 +37,6 @@ const logger = createLogger('sandbox');
 const localAnvil = foundry;
 
 /**
- * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
- */
-async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
-  const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
-  // wait for ETH RPC to respond to a request.
-  const publicClient = createPublicClient({
-    chain: chain.chainInfo,
-    transport: httpViemTransport(chain.rpcUrl),
-  });
-  const l1ChainID = await retryUntil(
-    async () => {
-      let chainId = 0;
-      try {
-        chainId = await publicClient.getChainId();
-      } catch (err) {
-        logger.warn(`Failed to connect to Ethereum node at ${chain.rpcUrl}. Retrying...`);
-      }
-      return chainId;
-    },
-    'isEthRpcReady',
-    600,
-    1,
-  );
-
-  if (!l1ChainID) {
-    throw Error(`Ethereum node unresponsive at ${chain.rpcUrl}.`);
-  }
-
-  // Deploy L1 contracts
-  return await deployFunction();
-}
-
-/**
  * Function to deploy our L1 contracts to the sandbox L1
  * @param aztecNodeConfig - The Aztec Node Config
  * @param hdAccount - Account for publishing L1 contracts
@@ -84,17 +51,24 @@ export async function deployContractsToL1(
     ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
     : { chainInfo: localAnvil };
 
-  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, {
+  await waitForPublicClient(aztecNodeConfig);
+
+  const l1Contracts = await deployL1Contracts(
+    aztecNodeConfig.l1RpcUrl,
+    hdAccount,
+    chain.chainInfo,
+    contractDeployLogger,
+    {
+      ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
+      ...aztecNodeConfig,
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
-      ...getL1ContractsConfigEnvVars(),
-    }),
+    },
   );
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
@@ -152,6 +126,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, initial
       l1ContractAddresses.rollupAddress,
       publicClient,
     );
+    watcher.setIsSandbox(true);
     await watcher.start();
   }
 

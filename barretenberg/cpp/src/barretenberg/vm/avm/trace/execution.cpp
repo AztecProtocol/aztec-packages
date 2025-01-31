@@ -121,7 +121,7 @@ std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relati
             }
             degrees_string += std::to_string(degree) + "°: " + std::to_string(count);
         }
-        relations_degrees.insert({ Relation::NAME, std::move(degrees_string) });
+        relations_degrees.insert({ std::string(Relation::NAME), std::move(degrees_string) });
     });
 
     return relations_degrees;
@@ -151,8 +151,8 @@ void show_trace_info(const auto& trace)
         size_t total_entries = 0;
         size_t fullness = 0; // 0 to 100.
     };
-    std::vector<ColumnStats> column_stats(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS));
-    bb::parallel_for(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS), [&](size_t col) {
+    std::vector<ColumnStats> column_stats(avm::NUM_COLUMNS_WITH_SHIFTS);
+    bb::parallel_for(avm::NUM_COLUMNS_WITH_SHIFTS, [&](size_t col) {
         size_t non_zero_entries = 0;
         ssize_t last_non_zero_row = -1;
         for (uint32_t row_n = 0; row_n < trace.size(); row_n++) {

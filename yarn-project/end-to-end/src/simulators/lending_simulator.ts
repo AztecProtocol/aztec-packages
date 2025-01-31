@@ -1,6 +1,7 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
 
@@ -99,7 +100,7 @@ export class LendingSimulator {
     this.time = Number(await this.rollup.read.getTimestampForSlot([slot]));
   }
 
-  async progressSlots(diff: number) {
+  async progressSlots(diff: number, dateProvider?: TestDateProvider) {
     if (diff <= 1) {
       return;
     }
@@ -111,6 +112,9 @@ export class LendingSimulator {
 
     // Mine ethereum blocks such that the next block will be in a new slot
     await this.cc.eth.warp(this.time - this.ethereumSlotDuration);
+    if (dateProvider) {
+      dateProvider.setTime(this.time * 1000);
+    }
 
     await this.rollup.write.setAssumeProvenThroughBlockNumber([(await this.rollup.read.getPendingBlockNumber()) + 1n]);
     this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
@@ -190,7 +194,7 @@ export class LendingSimulator {
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, AztecAddress.fromField(this.account.key())]) {
+    for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
       const privatePos = await this.lendingContract.methods.get_position(key).simulate();
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);

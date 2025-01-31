@@ -24,14 +24,14 @@ export async function getCanonicalFeeJuice(): Promise<ProtocolContract> {
 /**
  * Computes the storage slot within the Fee Juice contract for the balance of the fee payer.
  */
-export function computeFeePayerBalanceStorageSlot(feePayer: AztecAddress) {
+export function computeFeePayerBalanceStorageSlot(feePayer: AztecAddress): Promise<Fr> {
   return deriveStorageSlotInMap(FeeJuiceArtifact.storageLayout.balances.slot, feePayer);
 }
 
 /**
  * Computes the leaf slot in the public data tree for the balance of the fee payer in the Fee Juice.
  */
-export function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Fr {
-  const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+export async function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Promise<Fr> {
+  const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
   return computePublicDataTreeLeafSlot(ProtocolContractAddress.FeeJuice, balanceSlot);
 }

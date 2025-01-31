@@ -64,7 +64,7 @@ export class BotFactory {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
     const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
-    const isInit = await this.pxe.isContractInitialized(account.getAddress());
+    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
@@ -114,7 +114,7 @@ export class BotFactory {
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if (await this.pxe.isContractPubliclyDeployed(address)) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -154,13 +154,13 @@ export class BotFactory {
       const from = sender; // we are setting from to sender here because of TODO(#9887)
       calls.push(
         isStandardToken
-          ? token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
-          : token.methods.mint(MINT_BALANCE, sender).request(),
+          ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
+          : await token.methods.mint(MINT_BALANCE, sender).request(),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE).request());
+      calls.push(await token.methods.mint_to_public(sender, MINT_BALANCE).request());
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);

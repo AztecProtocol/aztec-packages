@@ -320,33 +320,33 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
 
     const asset = await this.getAsset();
 
-    return Promise.resolve([
-      this.wallet
-        .setPublicAuthWit(
-          {
-            caller: this.paymentContract,
-            action: {
-              name: 'transfer_in_public',
-              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
-              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
-              type: FunctionType.PUBLIC,
-              isStatic: false,
-              to: asset,
-              returnTypes: [],
-            },
-          },
-          true,
-        )
-        .request(),
+    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+      {
+        caller: this.paymentContract,
+        action: {
+          name: 'transfer_in_public',
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
+          type: FunctionType.PUBLIC,
+          isStatic: false,
+          to: asset,
+          returnTypes: [],
+        },
+      },
+      true,
+    );
+
+    return [
+      await setPublicAuthWitInteraction.request(),
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [...tooMuchFee.toFields(), nonce],
         returnTypes: [],
       },
-    ]);
+    ];
   }
 }

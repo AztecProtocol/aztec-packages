@@ -16,6 +16,7 @@ const setWait = (state: boolean): void =>
 
 document.querySelector('#deploy').addEventListener('click', async ({ target }: any) => {
   setWait(true);
+
   wallet = (await getDeployedTestAccountsWallets(pxe))[0];
   if (!wallet) {
     alert('Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.');
@@ -47,3 +48,5 @@ document.querySelector('#get').addEventListener('click', async () => {
   const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress().address).simulate();
   alert(`Number is: ${viewTxReceipt.value}`);
 });
+
+(document.querySelector('#deploy') as HTMLButtonElement).hidden = false;

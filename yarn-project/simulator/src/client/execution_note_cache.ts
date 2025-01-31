@@ -52,7 +52,7 @@ export class ExecutionNoteCache {
    * Enters the revertible phase of the transaction.
    * @param minRevertibleSideEffectCounter - The counter at which the transaction enters the revertible phase.
    */
-  public setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
+  public async setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
     if (this.inRevertiblePhase) {
       throw new Error(
         `Cannot enter the revertible phase twice. Current counter: ${minRevertibleSideEffectCounter}. Previous enter counter: ${this.minRevertibleSideEffectCounter}`,
@@ -72,15 +72,20 @@ export class ExecutionNoteCache {
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
     // The nonces will be used to create the "complete" nullifier.
-    const updatedNotes = this.notes.map(({ note, counter }, i) => {
-      const nonce = computeNoteHashNonce(nonceGenerator, i);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(note.contractAddress, note.noteHash));
-      return {
-        counter,
-        note: { ...note, nonce },
-        noteHashForConsumption: uniqueNoteHash,
-      };
-    });
+    const updatedNotes = await Promise.all(
+      this.notes.map(async ({ note, counter }, i) => {
+        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        const uniqueNoteHash = await computeUniqueNoteHash(
+          nonce,
+          await siloNoteHash(note.contractAddress, note.noteHash),
+        );
+        return {
+          counter,
+          note: { ...note, nonce },
+          noteHashForConsumption: uniqueNoteHash,
+        };
+      }),
+    );
     // Rebuild the data.
     this.notes = [];
     this.noteMap = new Map();
@@ -120,8 +125,8 @@ export class ExecutionNoteCache {
    * @param noteHash - A hash of the note. If this value equals 0, it means the note being nullified is from a previous
    * transaction (and thus not a new note).
    */
-  public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
-    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+  public async nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted noteHash is not empty.
     if (!noteHash.isEmpty()) {
@@ -152,8 +157,8 @@ export class ExecutionNoteCache {
    * @param contractAddress - Contract address that emitted the nullifier.
    * @param innerNullifier
    */
-  public nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
-    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+  public async nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
+    const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     this.recordNullifier(contractAddress, siloedNullifier);
   }
 

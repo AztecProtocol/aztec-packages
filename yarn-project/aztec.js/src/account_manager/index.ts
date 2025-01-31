@@ -136,7 +136,7 @@ export class AccountManager {
    * @returns A DeployMethod instance that deploys this account contract.
    */
   public async getDeployMethod(deployWallet?: Wallet) {
-    if (!this.isDeployable()) {
+    if (!(await this.isDeployable())) {
       throw new Error(
         `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
       );

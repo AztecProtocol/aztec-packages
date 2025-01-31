@@ -1,6 +1,7 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 
+import { jest } from '@jest/globals';
 import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -17,6 +18,8 @@ const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40600;
 
 const DATA_DIR = './data/gossip';
+
+jest.setTimeout(1000 * 60 * 10);
 
 const qosAlerts: AlertConfig[] = [
   {

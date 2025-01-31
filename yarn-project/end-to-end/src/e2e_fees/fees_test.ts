@@ -148,8 +148,8 @@ export class FeesTest {
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         if (this.numberOfAccounts > 1) {
-          const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
-          await this.aliceWallet.registerAccount(deployedAccounts[1].secret, computePartialAddress(bobInstance!));
+          const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
+          await this.aliceWallet.registerAccount(deployedAccounts[1].secret, await computePartialAddress(bobInstance!));
         }
         this.coinbase = EthAddress.random();
 
@@ -217,7 +217,7 @@ export class FeesTest {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)

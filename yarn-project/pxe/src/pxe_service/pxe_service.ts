@@ -146,13 +146,33 @@ export class PXEService implements PXE {
     return this.db.getContractInstance(address);
   }
 
-  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+  public async getContractClassMetadata(
+    id: Fr,
+    includeArtifact: boolean = false,
+  ): Promise<{
+    contractClass: ContractClassWithId | undefined;
+    isContractClassPubliclyRegistered: boolean;
+    artifact: ContractArtifact | undefined;
+  }> {
     const artifact = await this.db.getContractArtifact(id);
-    return artifact && getContractClassFromArtifact(artifact);
+
+    return {
+      contractClass: artifact && (await getContractClassFromArtifact(artifact)),
+      isContractClassPubliclyRegistered: await this.#isContractClassPubliclyRegistered(id),
+      artifact: includeArtifact ? artifact : undefined,
+    };
   }
 
-  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
-    return this.db.getContractArtifact(id);
+  public async getContractMetadata(address: AztecAddress): Promise<{
+    contractInstance: ContractInstanceWithAddress | undefined;
+    isContractInitialized: boolean;
+    isContractPubliclyDeployed: boolean;
+  }> {
+    return {
+      contractInstance: await this.db.getContractInstance(address),
+      isContractInitialized: await this.#isContractInitialized(address),
+      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+    };
   }
 
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
@@ -217,7 +237,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -228,8 +248,8 @@ export class PXEService implements PXE {
 
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
-      const contractClass = getContractClassFromArtifact(artifact);
-      const contractClassId = computeContractClassId(contractClass);
+      const contractClass = await getContractClassFromArtifact(artifact);
+      const contractClassId = await computeContractClassId(contractClass);
       if (!contractClassId.equals(instance.contractClassId)) {
         throw new Error(
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
@@ -341,7 +361,7 @@ export class PXEService implements PXE {
         throw new Error('Note does not exist.');
       }
 
-      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
+      const siloedNullifier = await siloNullifier(note.contractAddress, innerNullifier!);
       const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
         siloedNullifier,
       ]);
@@ -434,7 +454,7 @@ export class PXEService implements PXE {
         break;
       }
 
-      const nonce = computeNoteHashNonce(firstNullifier, i);
+      const nonce = await computeNoteHashNonce(firstNullifier, i);
       const { uniqueNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
         note.contractAddress,
         nonce,
@@ -528,8 +548,9 @@ export class PXEService implements PXE {
         }
       }
 
-      this.log.info(`Simulation completed for ${simulatedTx.getTxHash()} in ${timer.ms()}ms`, {
-        txHash: simulatedTx.getTxHash(),
+      const txHash = await simulatedTx.getTxHash();
+      this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+        txHash,
         ...txInfo,
         ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
         ...(publicOutput
@@ -560,7 +581,7 @@ export class PXEService implements PXE {
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -647,7 +668,7 @@ export class PXEService implements PXE {
     return {
       name: functionDao.name,
       args: encodeArguments(functionDao, args),
-      selector: FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
+      selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
       isStatic: functionDao.isStatic,
@@ -827,16 +848,16 @@ export class PXEService implements PXE {
     });
   }
 
-  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+  async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
   }
 
-  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
   }
 
-  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
-    const initNullifier = siloNullifier(address, address.toField());
+  async #isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = await siloNullifier(address, address.toField());
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
@@ -869,7 +890,7 @@ export class PXEService implements PXE {
             throw new Error('No registered account');
           }
 
-          const preaddress = registeredAccount.getPreaddress();
+          const preaddress = await registeredAccount.getPreaddress();
 
           secretKey = await computeAddressSecret(preaddress, secretKey);
         }

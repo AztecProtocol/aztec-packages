@@ -11,7 +11,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn build:app",
+    "build": "yarn clean && yarn generate && yarn build:ts",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "generate": "yarn generate:artifacts && yarn generate:code",
     "generate:artifacts": "mkdir -p artifacts/keys && ls circuits | xargs -n 1 ./generate_artifacts.sh",

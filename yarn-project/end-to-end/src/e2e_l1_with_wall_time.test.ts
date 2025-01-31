@@ -5,9 +5,12 @@ import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type PXEService } from '@aztec/pxe';
 
+import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+
+jest.setTimeout(1000 * 60 * 10);
 
 describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
