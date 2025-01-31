@@ -1,23 +1,4 @@
-import {
-  BlockAttestation,
-  BlockProposal,
-  type ClientProtocolCircuitVerifier,
-  EpochProofQuote,
-  type Gossipable,
-  type L2BlockSource,
-  MerkleTreeId,
-  P2PClientType,
-  PeerErrorSeverity,
-  type PeerInfo,
-  type RawGossipMessage,
-  TopicTypeMap,
-  Tx,
-  type TxHash,
-  type TxValidationResult,
-  type WorldStateSynchronizer,
-  getTopicTypeForClientType,
-  metricsTopicStrToLabels,
-} from '@aztec/circuit-types';
+import { BlockAttestation, BlockProposal, type ClientProtocolCircuitVerifier, EpochProofQuote, type Gossipable, type L2BlockSource, MerkleTreeId, P2PClientType, PeerErrorSeverity, type PeerInfo, type RawGossipMessage, TopicTypeMap, Tx, type TxHash, type TxValidationResult, type WorldStateSynchronizer, getTopicTypeForClientType, metricsTopicStrToLabels } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
@@ -26,13 +7,10 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
+
+
 import { type ENR } from '@chainsafe/enr';
-import {
-  type GossipSub,
-  type GossipSubComponents,
-  type GossipsubMessage,
-  gossipsub,
-} from '@chainsafe/libp2p-gossipsub';
+import { type GossipSub, type GossipSubComponents, type GossipsubMessage, gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -44,16 +22,13 @@ import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
+
+
 import { type P2PConfig } from '../../config.js';
 import { type MemPools } from '../../mem_pools/interface.js';
 import { EpochProofQuoteValidator } from '../../msg_validators/epoch_proof_quote_validator/index.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
-import {
-  DataTxValidator,
-  DoubleSpendTxValidator,
-  MetadataTxValidator,
-  TxProofValidator,
-} from '../../msg_validators/tx_validator/index.js';
+import { DataTxValidator, DoubleSpendTxValidator, MetadataTxValidator, TxProofValidator } from '../../msg_validators/tx_validator/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
@@ -65,6 +40,7 @@ import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } fro
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
+
 
 interface MessageValidator {
   validator: {
@@ -78,6 +54,19 @@ interface ValidationResult {
   isValid: TxValidationResult;
   severity: PeerErrorSeverity;
 }
+
+// For some reason, the polyfill provided by libp2p does not suffice.
+// TODO: remove once we upgrade past Node v18.19.1
+class CustomEventPolyfill extends Event {
+  /** Returns any custom data event was created with. Typically used for synthetic events. */
+  detail: any;
+  constructor(message: string, data?: EventInit) {
+    super(message, data);
+    // @ts-expect-error could be undefined
+    this.detail = data?.detail;
+  }
+}
+globalThis.CustomEvent  = globalThis.CustomEvent ?? CustomEventPolyfill;
 
 type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 

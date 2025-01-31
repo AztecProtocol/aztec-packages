@@ -27,11 +27,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-broker
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.storage.localSsd }}
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}

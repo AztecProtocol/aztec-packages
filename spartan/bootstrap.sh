@@ -64,15 +64,13 @@ case "$cmd" in
     # do nothing but the install_deps.sh above
     ;;
   "kind")
-    if kubectl config get-clusters | grep -q "^kind-kind$"; then
-      echo "Cluster 'kind' already exists. Skipping creation."
-    else
+    if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
       kind delete cluster || true
       kind create cluster
     fi
-    kubectl config use-context kind-kind || true
+    kubectl config use-context kind-kind >/dev/null || true
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh
@@ -112,7 +110,7 @@ case "$cmd" in
     ;;
   "test-local")
     # Isolate network stack in docker.
-    docker_isolate ../scripts/run_native_testnet.sh -i --val 3
+    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
     ;;
   "gke")
     gke

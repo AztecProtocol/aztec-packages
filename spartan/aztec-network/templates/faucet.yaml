@@ -17,8 +17,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: faucet
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
