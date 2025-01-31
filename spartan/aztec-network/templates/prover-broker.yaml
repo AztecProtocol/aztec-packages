@@ -28,9 +28,8 @@ spec:
         app: prover-broker
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
-      {{- if .Values.storage.localSsd }}
-      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
-      {{- end }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet

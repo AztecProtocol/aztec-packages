@@ -53,7 +53,8 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
     ]
 
     labels = {
-      env = "production"
+      env       = "production"
+      local-ssd = "true"
 
     }
     tags = ["aztec-gke-node", "aztec"]
@@ -85,7 +86,8 @@ resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
     ]
 
     labels = {
-      env = "production"
+      env       = "production"
+      local-ssd = "true"
 
     }
     tags = ["aztec-gke-node", "aztec"]
@@ -114,7 +116,8 @@ resource "google_container_node_pool" "aztec_nodes-32core" {
     ]
 
     labels = {
-      env = "production"
+      env       = "production"
+      local-ssd = "false"
     }
     tags = ["aztec-gke-node", "aztec"]
   }
@@ -149,8 +152,9 @@ resource "google_container_node_pool" "spot_nodes_32core" {
     ]
 
     labels = {
-      env  = "production"
-      pool = "spot"
+      env       = "production"
+      pool      = "spot"
+      local-ssd = "false"
     }
     tags = ["aztec-gke-node", "spot"]
 

@@ -27,9 +27,8 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-node
     spec:
-      {{- if .Values.storage.localSsd }}
-      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
-      {{- end }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
