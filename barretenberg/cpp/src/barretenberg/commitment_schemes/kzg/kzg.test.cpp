@@ -133,12 +133,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point,
-                                            RefVector(instance_witness.unshifted_evals),
-                                            RefVector(instance_witness.shifted_evals),
-                                            RefVector(instance_witness.unshifted_commitments),
-                                            RefVector(instance_witness.to_be_shifted_commitments),
-                                            verifier_transcript);
+        GeminiVerifier::reduce_verification(mle_opening_point, instance_witness.claim_batcher, verifier_transcript);
 
     // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
     const auto shplonk_verifier_claim =

@@ -265,12 +265,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point,
-                                            RefVector(instance_witness.unshifted_evals),
-                                            RefVector(instance_witness.shifted_evals),
-                                            RefVector(instance_witness.unshifted_commitments),
-                                            RefVector(instance_witness.to_be_shifted_commitments),
-                                            verifier_transcript);
+        GeminiVerifier::reduce_verification(mle_opening_point, instance_witness.claim_batcher, verifier_transcript);
 
     const auto shplonk_verifier_claim =
         ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);

@@ -30,6 +30,9 @@ template <typename Curve> struct ClaimBatcher_ {
     std::optional<Batch> unshifted; // commitments and evaluations of unshifted polynomials
     std::optional<Batch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
 
+    Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
+    Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
+
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
     /**

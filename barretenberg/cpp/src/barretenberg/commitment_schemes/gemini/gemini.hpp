@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -252,6 +253,7 @@ template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
 
   public:
     /**
@@ -268,10 +270,7 @@ template <typename Curve> class GeminiVerifier_ {
      */
     static std::vector<OpeningClaim<Curve>> reduce_verification(
         std::span<Fr> multilinear_challenge,
-        RefSpan<Fr> unshifted_evaluations,
-        RefSpan<Fr> shifted_evaluations,
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> to_be_shifted_commitments,
+        ClaimBatcher& claim_batcher,
         auto& transcript,
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
@@ -288,13 +287,15 @@ template <typename Curve> class GeminiVerifier_ {
 
         Fr batched_evaluation = Fr(0);
         Fr batching_scalar = Fr(1);
-        for (auto [eval, comm] : zip_view(unshifted_evaluations, unshifted_commitments)) {
+        for (auto [eval, comm] :
+             zip_view(claim_batcher.get_unshifted().evaluations, claim_batcher.get_unshifted().commitments)) {
             batched_evaluation += eval * batching_scalar;
             batched_commitment_unshifted += comm * batching_scalar;
             batching_scalar *= rho;
         }
 
-        for (auto [eval, comm] : zip_view(shifted_evaluations, to_be_shifted_commitments)) {
+        for (auto [eval, comm] :
+             zip_view(claim_batcher.get_shifted().evaluations, claim_batcher.get_shifted().commitments)) {
             batched_evaluation += eval * batching_scalar;
             batched_commitment_to_be_shifted += comm * batching_scalar;
             batching_scalar *= rho;

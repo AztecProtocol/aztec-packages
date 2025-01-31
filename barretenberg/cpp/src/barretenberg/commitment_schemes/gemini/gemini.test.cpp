@@ -48,13 +48,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claims =
-            GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                RefVector(instance_witness.unshifted_evals),
-                                                RefVector(instance_witness.shifted_evals),
-                                                RefVector(instance_witness.unshifted_commitments),
-                                                RefVector(instance_witness.to_be_shifted_commitments),
-                                                verifier_transcript);
+        auto verifier_claims = GeminiVerifier::reduce_verification(
+            multilinear_evaluation_point, instance_witness.claim_batcher, verifier_transcript);
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
@@ -94,15 +89,11 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claims =
-            GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                RefVector(instance_witness.unshifted_evals),
-                                                RefVector(instance_witness.shifted_evals),
-                                                RefVector(instance_witness.unshifted_commitments),
-                                                RefVector(instance_witness.to_be_shifted_commitments),
-                                                verifier_transcript,
-                                                concatenation_group_commitments,
-                                                concatenated_evaluations);
+        auto verifier_claims = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
+                                                                   instance_witness.claim_batcher,
+                                                                   verifier_transcript,
+                                                                   concatenation_group_commitments,
+                                                                   concatenated_evaluations);
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
