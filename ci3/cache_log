@@ -9,7 +9,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ] && [ ! -t 1 ]; then
   key=${2:-$(uuid)}
   redis_cli SETEX $key 604800 "In progress..." &>/dev/null
   tee >(redis_cli -x SETEX $key 604800 &>/dev/null)
-  echo_stderr -e "$name log id: ${yellow}$key${reset}"
+  echo_stderr -e "$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
 else
   cat
 fi

@@ -64,10 +64,7 @@ jobs:
 
   ci-arm64:
     runs-on: ubuntu-latest
-    if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow') &&
-      github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout
         uses: actions/checkout@v3

@@ -71,11 +71,20 @@ case ${1:-} in
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
       "
     else
-      # TODO: Why this inherit user 0 stuff?
-      # INHERIT_USER=0 $(dirname $0)/.aztec-run "${args[@]}"
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
     fi
+    ;;
+  flamegraph)
+    # TODO: Fix. Totally clobbered my branch so can't deal with it now.
+    # docker run -it \
+    #   --entrypoint /usr/bin/flamegraph.sh \
+    #   --env PROFILER_PATH=/usr/bin/noir-profiler \
+    #   --env BACKEND_PATH=/usr/bin/bb \
+    #   --env SERVE=${SERVE:-0} \
+    #   $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
+    #   -v $(realpath $(dirname $2))/:/tmp \
+    #   aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"

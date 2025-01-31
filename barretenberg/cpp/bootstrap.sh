@@ -20,14 +20,14 @@ function build_native {
   fi
 }
 
-function build_world_state_napi {
+function build_nodejs_module {
   set -eu
-  (cd src/barretenberg/world_state_napi && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-release-world-state-$hash.tar.gz; then
+  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
+  if ! cache_download barretenberg-release-nodejs-module-$hash.tar.gz; then
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
-    cmake --build --preset $pic_preset --target world_state_napi
-    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib/world_state_napi.node
+    cmake --build --preset $pic_preset --target nodejs_module
+    cache_upload barretenberg-release-nodejs-module-$hash.tar.gz build-pic/lib/nodejs_module.node
   fi
 }
 
@@ -104,13 +104,13 @@ function build_release {
   fi
 }
 
-export -f build_native build_darwin build_world_state_napi build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
+export -f build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
 
 function build {
   echo_header "bb cpp build"
   builds=(
     build_native
-    build_world_state_napi
+    build_nodejs_module
     build_wasm
     build_wasm_threads
     download_old_crs

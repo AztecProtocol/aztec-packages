@@ -118,6 +118,8 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+    -e GITHUB_REF=${GITHUB_REF:-} \
+    -e GITHUB_REF_HEAD=${GITHUB_REF_HEAD:-} \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c '$container_script'
 "
