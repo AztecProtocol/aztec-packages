@@ -72,6 +72,15 @@ elif [ "${1:-}" == "start" ]; then
   readarray -t ENV_VARS_TO_INJECT <"$LOCAL_ENV_VAR_FILE"
   export ENV_VARS_TO_INJECT="${ENV_VARS_TO_INJECT[*]}"
   ENV_VARS_TO_INJECT="${ENV_VARS_TO_INJECT[*]}" INHERIT_USER=0 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
+elif [ "${1:-}" == "flamegraph" ]; then
+  docker run -it \
+    --entrypoint /usr/bin/flamegraph.sh \
+    --env PROFILER_PATH=/usr/bin/noir-profiler \
+    --env BACKEND_PATH=/usr/bin/bb \
+    --env SERVE=${SERVE:-0} \
+    $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
+    -v $(realpath $(dirname $2))/:/tmp \
+    aztecprotocol/aztec-nargo:$VERSION /tmp/$(basename $2) $3
 else
   ENV_VARS_TO_INJECT="SECRET_KEY" SKIP_PORT_ASSIGNMENT=1 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 fi

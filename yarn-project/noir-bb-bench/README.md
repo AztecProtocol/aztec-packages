@@ -6,7 +6,7 @@ The goal of this module is to provide a simple place for people to construct ben
 
 The package assumes that bb.js has been built, but it is easy to rebuild, as we show below.
 
-The full build command `yarn build` deletes all circuit artifacts and generated code, compiles the circuits, computes their verification keys, generates declarations and types for parsing circuit bytecode and verification keys in typescript, generates additional type information for noir.js and bb.js, and builds the typescript. With all of this, `yarn test` will run whatever jest tests are present, and `yarn serve:app` will serve a simple app with proving for execution in a web browser. but we can build more incrementally as well.
+The full build command `yarn build` deletes all circuit artifacts and generated code, compiles the circuits, computes their verification keys, generates declarations and types for parsing circuit bytecode and verification keys in typescript, generates additional type information for noir.js and bb.js, and builds the typescript. With all of this, `yarn test` will run whatever jest tests are present. To additionally build and deploy the browser test app, use `yarn build:app && yarn serve:app`. We can build more incrementally as well. Some examples:
 
 Scenario: I have made changes to bb.js and now I want to rebuild and run the browser app with multithreaded proving and symbols for the meaningful WASM stack traces. Command:
 ```

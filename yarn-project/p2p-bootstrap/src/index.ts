@@ -41,7 +41,9 @@ async function main(
     logger.info('Node stopped');
     process.exit(0);
   };
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGTERM', stop);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGINT', stop);
 }
 

@@ -19,7 +19,7 @@ class MessageDispatcher {
   public:
     MessageDispatcher() = default;
 
-    bool onNewData(msgpack::object& obj, msgpack::sbuffer& buffer)
+    bool onNewData(msgpack::object& obj, msgpack::sbuffer& buffer) const
     {
         bb::messaging::HeaderOnlyMessage header;
         obj.convert(header);

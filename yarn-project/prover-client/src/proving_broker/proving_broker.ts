@@ -178,8 +178,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
     this.started = true;
-
-    return Promise.resolve();
   }
 
   public async stop(): Promise<void> {

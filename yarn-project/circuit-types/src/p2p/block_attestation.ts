@@ -57,12 +57,20 @@ export class BlockAttestation extends Gossipable {
     return this.payload.archive;
   }
 
+  get slotNumber(): Fr {
+    return this.payload.header.globalVariables.slotNumber;
+  }
+
+  get blockNumber(): Fr {
+    return this.payload.header.globalVariables.blockNumber;
+  }
+
   /**Get sender
    *
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  async getSender() {
+  async getSender(): Promise<EthAddress> {
     if (!this.sender) {
       // Recover the sender from the attestation
       const hashed = await getHashedSignaturePayloadEthSignedMessage(
