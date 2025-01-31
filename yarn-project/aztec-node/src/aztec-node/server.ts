@@ -449,7 +449,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    if (this.p2pClient.getTxStatus(txHash) === 'pending') {
+    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 

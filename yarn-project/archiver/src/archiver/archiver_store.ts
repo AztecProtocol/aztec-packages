@@ -280,5 +280,5 @@ export interface ArchiverDataStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
 }

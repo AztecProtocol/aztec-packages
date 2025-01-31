@@ -6,7 +6,7 @@ import {
   SerializableContractInstance,
   SerializableContractInstanceUpdate,
 } from '@aztec/circuits.js';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 type ContractInstanceUpdateKey = [string, number] | [string, number, number];
 
@@ -14,10 +14,10 @@ type ContractInstanceUpdateKey = [string, number] | [string, number, number];
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class ContractInstanceStore {
-  #contractInstances: AztecMap<string, Buffer>;
-  #contractInstanceUpdates: AztecMap<ContractInstanceUpdateKey, Buffer>;
+  #contractInstances: AztecAsyncMap<string, Buffer>;
+  #contractInstanceUpdates: AztecAsyncMap<ContractInstanceUpdateKey, Buffer>;
 
-  constructor(db: AztecKVStore) {
+  constructor(db: AztecAsyncKVStore) {
     this.#contractInstances = db.openMap('archiver_contract_instances');
     this.#contractInstanceUpdates = db.openMap('archiver_contract_instance_updates');
   }
@@ -62,10 +62,14 @@ export class ContractInstanceStore {
     );
   }
 
-  getCurrentContractInstanceClassId(address: AztecAddress, blockNumber: number, originalClassId: Fr): Fr {
+  async getCurrentContractInstanceClassId(
+    address: AztecAddress,
+    blockNumber: number,
+    originalClassId: Fr,
+  ): Promise<Fr> {
     // We need to find the last update before the given block number
-    const queryResult = this.#contractInstanceUpdates
-      .values({
+    const queryResult = await this.#contractInstanceUpdates
+      .valuesAsync({
         reverse: true,
         end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
         limit: 1,
@@ -83,14 +87,17 @@ export class ContractInstanceStore {
     return update.newContractClassId;
   }
 
-  getContractInstance(address: AztecAddress, blockNumber: number): ContractInstanceWithAddress | undefined {
-    const contractInstance = this.#contractInstances.get(address.toString());
+  async getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    const contractInstance = await this.#contractInstances.getAsync(address.toString());
     if (!contractInstance) {
       return undefined;
     }
 
     const instance = SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
-    instance.currentContractClassId = this.getCurrentContractInstanceClassId(
+    instance.currentContractClassId = await this.getCurrentContractInstanceClassId(
       address,
       blockNumber,
       instance.originalContractClassId,
