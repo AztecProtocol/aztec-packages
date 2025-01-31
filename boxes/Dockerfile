@@ -21,5 +21,5 @@ COPY . .
 ENV AZTEC_NARGO=/usr/aztec-nargo/compile_then_postprocess.sh
 ENV AZTEC_BUILDER=/usr/src/yarn-project/builder/aztec-builder-dest
 RUN yarn
-RUN npx -y playwright@1.50 install --with-deps
+RUN npx -y playwright@1.49 install --with-deps
 ENTRYPOINT ["/bin/sh", "-c"]
