@@ -49,9 +49,9 @@ function gke {
 }
 
 function test_cmds {
-  echo "$hash NAMESPACE=smoke FRESH_INSTALL=true INSTALL_METRICS=false spartan/scripts/run_test.sh kind ./src/spartan/smoke.test.ts ci-smoke.yaml"
-  echo "$hash NAMESPACE=4epochs FRESH_INSTALL=true INSTALL_METRICS=false spartan/scripts/run_test.sh kind ./src/spartan/4epochs.test.ts ci.yaml"
-  echo "$hash spartan/scripts/run_test.sh local -t ./test-transfer.sh -val 3"
+  echo "$hash ./bootstrap.sh test-kind-smoke"
+  echo "$hash ./bootstrap.sh test-kind-4epochs"
+  echo "$hash ./bootstrap.sh test-local"
 }
 
 function test {
@@ -103,6 +103,16 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "test-kind-smoke")
+    NAMESPACE=smoke FRESH_INSTALL=true INSTALL_METRICS=false ./scripts/test_kind.sh ci-smoke.yaml
+    ;;
+  "test-kind-4epochs")
+    NAMESPACE=4epochs FRESH_INSTALL=true INSTALL_METRICS=false ./scripts/test_kind.sh ci.yaml
+    ;;
+  "test-local")
+    # Isolate network stack in docker.
+    docker_isolate ../scripts/run_native_testnet.sh -i --val 3
     ;;
   "gke")
     gke

@@ -10,7 +10,6 @@ name=docker-isolate-$(hash_str "$*")
 [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
 trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
 docker rm -f $name &>/dev/null || true
-# TODO: possibly compute --cpus and --memory flags
 docker run --rm \
   ${name_arg:-} \
   ${DOCKER_FLAGS:-} \
