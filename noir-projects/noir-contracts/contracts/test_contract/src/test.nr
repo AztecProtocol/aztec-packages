@@ -16,7 +16,7 @@ unconstrained fn test_note_type_id() {
 unconstrained fn test_storage_slot_allocation() {
     // This tests that sufficient storage slots are assigned to each state variable so that they do not interfere with
     // one another. The space a state variable needs is determined by the N value in its implementation of the Storage
-    // trait. Most state variables bind N to the serialization length of the type they hold.
+    // trait. Most state variables bind N to the packed length of the type they hold.
     //
     // This is the storage declaration:
     //
@@ -37,7 +37,7 @@ unconstrained fn test_storage_slot_allocation() {
     let mut expected_slot = 1;
     assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
 
-    // Even though example_constant holds TestNote, which serializes to a length larger than 1, notes always reserve a
+    // Even though example_constant holds TestNote, which packs to a length larger than 1, notes always reserve a
     // single slot.
     expected_slot += 1;
     assert_eq(Test::storage_layout().example_set.slot, expected_slot);
@@ -46,7 +46,7 @@ unconstrained fn test_storage_slot_allocation() {
     expected_slot += 1;
     assert_eq(Test::storage_layout().example_struct.slot, expected_slot);
 
-    // example_struct allocates 5 slots because it is not a note and it's serialization length is 5.
+    // example_struct allocates 5 slots because it is not a note and it's packed length is 5.
     expected_slot += 5;
     assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
 
