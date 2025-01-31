@@ -59,7 +59,7 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
-  add_subdirectory(barretenberg/world_state_napi)
+  add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 add_subdirectory(barretenberg/bb)
@@ -79,6 +79,7 @@ add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
+add_subdirectory(barretenberg/lmdblib)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/plonk_honk_shared)
@@ -177,8 +178,9 @@ if(NOT DISABLE_AZTEC_VM)
 endif()
 
 if(NOT WASM)
-    # enable merkle trees
+    # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
 endif()
 
 add_library(

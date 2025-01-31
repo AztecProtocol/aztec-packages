@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
@@ -21,16 +22,18 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Builds nargo and acvm binaries.
+# Builds narg, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
   cd noir-repo
   if cache_download noir-$hash.tar.gz; then
     return
   fi
-  cargo build --release
-  # TODO: clippy
-  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm
+  parallel --tag --line-buffer --halt now,fail=1 ::: \
+    "cargo fmt --all --check" \
+    "cargo build --locked --release --target-dir target/build" \
+    "cargo clippy --target-dir target/clippy --workspace --locked --release"
+  cache_upload noir-$hash.tar.gz target/build/release/nargo target/build/release/acvm target/build/release/noir-profiler
 }
 
 # Builds js packages.
@@ -155,21 +158,11 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "build-native")
-    build_native
-    ;;
-  "build-packages")
-    build_packages
-    ;;
-  "test")
-    test
+  build_native|build_packages|format|test)
+    $cmd $@
     ;;
   "test-cmds")
     test_cmds
-    ;;
-  "format")
-    # can take --check as arg
-    format
     ;;
   "hash")
     echo $hash

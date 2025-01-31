@@ -26,8 +26,8 @@ function build_world_state_napi {
   if ! cache_download barretenberg-release-world-state-$hash.tar.gz; then
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
-    cmake --build --preset $pic_preset --target world_state_napi
-    cache_upload barretenberg-release-world-state-$hash.tar.gz build-pic/lib/world_state_napi.node
+    cmake --build --preset $pic_preset --target nodejs_module
+    cache_upload barretenberg-release-nodejs-module-$hash.tar.gz build-pic/lib/nodejs_module.node
   fi
 }
 
