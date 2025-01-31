@@ -13,16 +13,17 @@
 # This is obviously overloaded in terms of how its value is generated, and how it's used.
 # So far this has been fine, so requiring more distinct variables has been unnecessary.
 # In Github Actions we need to take from what GA provides to avoid any race conditions.
-if [ -n "${GITHUB_REF:-}" ]; then
-  REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
-  REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
-  REF_NAME="${REF_NAME#refs/pull/}"      # Handle PRs
-else
-  if [ -z "${REF_NAME:-}" ]; then
+if [ -z "${REF_NAME:-}" ]; then
+  if [ -n "${GITHUB_REF:-}" ]; then
+    REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
+    REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
+    REF_NAME="${REF_NAME#refs/pull/}"      # Handle PRs
+  else
     export REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match)
-    [ -z "${REF_NAME:-}" ] && exit 1
   fi
+  export REF_NAME="${REF_NAME#release/}"
+  # echo "REF_NAME=$REF_NAME"
+  [ -z "${REF_NAME:-}" ] && exit 1
 fi
-export REF_NAME="${REF_NAME#release/}"
 
 [ -z "${COMMIT_HASH:-}" ] && export COMMIT_HASH=$(git rev-parse HEAD)
