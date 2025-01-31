@@ -142,23 +142,14 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     std::vector<Fr> scalars;
     Fr verifier_batched_evaluation{ 0 };
 
-    const Fr unshifted_scalar = (shplonk_eval_challenge - gemini_eval_challenge).invert() +
-                                shplonk_batching_challenge * (shplonk_eval_challenge + gemini_eval_challenge).invert();
+    Fr inverted_vanishing_eval_pos = (shplonk_eval_challenge - gemini_eval_challenge).invert();
+    Fr inverted_vanishing_eval_neg = (shplonk_eval_challenge + gemini_eval_challenge).invert();
 
-    const Fr shifted_scalar = gemini_eval_challenge.invert() *
-                              ((shplonk_eval_challenge - gemini_eval_challenge).invert() -
-                               shplonk_batching_challenge * (shplonk_eval_challenge + gemini_eval_challenge).invert());
+    pcs_instance_witness.claim_batcher.compute_scalars_for_each_batch(
+        inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
-    ShpleminiVerifier::batch_multivariate_opening_claims(RefVector(pcs_instance_witness.unshifted_commitments),
-                                                         RefVector(pcs_instance_witness.to_be_shifted_commitments),
-                                                         RefVector(pcs_instance_witness.unshifted_evals),
-                                                         RefVector(pcs_instance_witness.shifted_evals),
-                                                         rho,
-                                                         unshifted_scalar,
-                                                         shifted_scalar,
-                                                         commitments,
-                                                         scalars,
-                                                         verifier_batched_evaluation);
+    ShpleminiVerifier::batch_multivariate_opening_claims(
+        pcs_instance_witness.claim_batcher, rho, commitments, scalars, verifier_batched_evaluation);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
@@ -358,20 +349,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(this->n,
-                                                       RefVector(pcs_instance_witness.unshifted_commitments),
-                                                       RefVector(pcs_instance_witness.to_be_shifted_commitments),
-                                                       RefVector(pcs_instance_witness.unshifted_evals),
-                                                       RefVector(pcs_instance_witness.shifted_evals),
-                                                       const_size_mle_opening_point,
-                                                       this->vk()->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       {},
-                                                       true,
-                                                       &consistency_checked,
-                                                       libra_commitments,
-                                                       libra_evaluation);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
+                                                                                    pcs_instance_witness.claim_batcher,
+                                                                                    const_size_mle_opening_point,
+                                                                                    this->vk()->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    {},
+                                                                                    true,
+                                                                                    &consistency_checked,
+                                                                                    libra_commitments,
+                                                                                    libra_evaluation);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -475,10 +462,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Run Shplemini
     const auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(this->n,
-                                                       RefVector(pcs_instance_witness.unshifted_commitments),
-                                                       {},
-                                                       RefVector(pcs_instance_witness.unshifted_evals),
-                                                       {},
+                                                       pcs_instance_witness.claim_batcher,
                                                        challenge,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,

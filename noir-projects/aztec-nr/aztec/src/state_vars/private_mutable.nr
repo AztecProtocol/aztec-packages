@@ -23,7 +23,7 @@ pub struct PrivateMutable<Note, Context> {
 
 mod test;
 
-impl<T, Context, let N: u32> Storage<T, N> for PrivateMutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PrivateMutable<T, Context>
 where
     T: Packable<N>,
 {
