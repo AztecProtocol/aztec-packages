@@ -1,7 +1,6 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
     config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
-    unconstrained_config::compute_roots_of_unity,
 };
 
 use bigint::{BigNum, BigNumTrait};
@@ -184,9 +183,6 @@ pub fn evaluate_blobs(
  * @return y = p(z)
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
-    // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
-    let UNCONSTRAINED_ROOTS = unsafe { compute_roots_of_unity() };
-
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
@@ -205,7 +201,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //    i=0
     //
     // perhaps because all the omega^i terms are constant witnesses?
-    let fracs = compute_fracs(z, ys, UNCONSTRAINED_ROOTS);
+    let fracs = compute_fracs(z, ys);
 
     let sum = if !std::runtime::is_unconstrained() {
         // OK so...we can add multiple product terms into a sum...but I am not sure how many!
@@ -385,14 +381,10 @@ unconstrained fn __compute_fracs(
     fracs
 }
 
-fn compute_fracs(
-    z: F,
-    ys: [F; FIELDS_PER_BLOB],
-    unconstrained_roots: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB] {
+fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     /// Safety: We immediately constrain these `fracs` to be correct in the following call
     /// to `BigNum::evaluate_quadratic_expression`.
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, unconstrained_roots) };
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
