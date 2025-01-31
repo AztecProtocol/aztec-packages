@@ -1,14 +1,12 @@
 import {
   type AuthWitness,
   type AztecNode,
-  CountedContractClassLog,
   CountedPublicExecutionRequest,
   Note,
   NoteAndSlot,
   type NoteStatus,
   type PrivateCallExecutionResult,
   PublicExecutionRequest,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
@@ -57,7 +55,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
-  private contractClassLogs: CountedContractClassLog[] = [];
   private nestedExecutions: PrivateCallExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
@@ -130,13 +127,6 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   public getNoteHashNullifierCounterMap() {
     return this.noteHashNullifierCounterMap;
-  }
-
-  /**
-   * Return the contract class logs emitted during this execution.
-   */
-  public getContractClassLogs() {
-    return this.contractClassLogs;
   }
 
   /**
@@ -318,23 +308,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override notifyCreatedNullifier(innerNullifier: Fr) {
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
-  }
-
-  /**
-   * Emit a contract class unencrypted log.
-   * This fn exists because sha hashing the preimage
-   * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
-   * See private_context.nr
-   * TODO(#8945): Contract class logs are currently sha hashes. When these are fields, delete this.
-   * @param log - The unencrypted log to be emitted.
-   */
-  public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
-    this.contractClassLogs.push(new CountedContractClassLog(log, counter));
-    const text = log.toHumanReadable();
-    this.log.verbose(
-      `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
-    );
-    return Fr.fromBuffer(log.hash());
   }
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {

@@ -117,7 +117,6 @@ export {
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2Log,
   UniqueNote,
   createAztecNodeClient,
   getTimestampRangeForEpoch,

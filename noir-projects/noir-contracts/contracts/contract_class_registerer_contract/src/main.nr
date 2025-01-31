@@ -16,10 +16,7 @@ contract ContractClassRegisterer {
         utils::arrays::array_concat,
     };
 
-    use dep::aztec::{
-        context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
-    };
+    use dep::aztec::{context::PrivateContext, macros::functions::private};
 
     use crate::events::{
         class_registered::ContractClassRegistered,

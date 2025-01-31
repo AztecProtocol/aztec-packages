@@ -5,7 +5,6 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
@@ -177,10 +176,6 @@ export abstract class TypedOracle {
 
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageWrite');
-  }
-
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
-    throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 
   callPrivateFunction(

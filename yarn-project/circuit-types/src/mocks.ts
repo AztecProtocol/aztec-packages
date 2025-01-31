@@ -84,7 +84,6 @@ export const mockPrivateCallExecutionResult = async (
     [],
     enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
     publicTeardownFunctionCall,
-    [],
   );
 };
 

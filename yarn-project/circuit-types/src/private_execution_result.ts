@@ -1,14 +1,14 @@
-import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
+import { PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, mapSchema, schemas } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from './logs/index.js';
+import { Note } from './logs/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**
@@ -40,27 +40,6 @@ export class NoteAndSlot {
 
   static random() {
     return new NoteAndSlot(Note.random(), Fr.random(), NoteSelector.random());
-  }
-}
-
-export class CountedContractClassLog implements IsEmpty {
-  constructor(public log: UnencryptedL2Log, public counter: number) {}
-
-  static get schema() {
-    return z
-      .object({
-        log: UnencryptedL2Log.schema,
-        counter: schemas.Integer,
-      })
-      .transform(CountedContractClassLog.from);
-  }
-
-  static from(fields: { log: UnencryptedL2Log; counter: number }) {
-    return new CountedContractClassLog(fields.log, fields.counter);
-  }
-
-  isEmpty(): boolean {
-    return !this.log.data.length && !this.counter;
   }
 }
 
@@ -143,11 +122,6 @@ export class PrivateCallExecutionResult {
     public enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[],
     /** Public function execution requested for teardown */
     public publicTeardownFunctionCall: PublicExecutionRequest,
-    /**
-     * Contract class logs emitted during execution of this function call.
-     * Note: These are preimages to `contractClassLogsHashes`.
-     */
-    public contractClassLogs: CountedContractClassLog[],
   ) {}
 
   static get schema(): ZodFor<PrivateCallExecutionResult> {
@@ -164,7 +138,6 @@ export class PrivateCallExecutionResult {
         nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         enqueuedPublicFunctionCalls: z.array(CountedPublicExecutionRequest.schema),
         publicTeardownFunctionCall: PublicExecutionRequest.schema,
-        contractClassLogs: z.array(CountedContractClassLog.schema),
       })
       .transform(PrivateCallExecutionResult.from);
   }
@@ -182,7 +155,6 @@ export class PrivateCallExecutionResult {
       fields.nestedExecutions,
       fields.enqueuedPublicFunctionCalls,
       fields.publicTeardownFunctionCall,
-      fields.contractClassLogs,
     );
   }
 
@@ -199,7 +171,6 @@ export class PrivateCallExecutionResult {
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [await CountedPublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),
-      [new CountedContractClassLog(await UnencryptedL2Log.random(), randomInt(10))],
     );
   }
 }
@@ -225,26 +196,6 @@ export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionR
   };
   collectNoteHashNullifierCounterMapRecursive(execResult.entrypoint, accum);
   return accum;
-}
-
-/**
- * Collect all contract class logs across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All contract class logs.
- */
-function collectContractClassLogs(execResult: PrivateCallExecutionResult): CountedContractClassLog[] {
-  return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
-}
-
-/**
- * Collect all contract class logs across all nested executions and sorts by counter.
- * @param execResult - The topmost execution result.
- * @returns All contract class logs.
- */
-export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
-  const allLogs = collectContractClassLogs(execResult.entrypoint);
-  const sortedLogs = sortByCounter(allLogs);
-  return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }
 
 function collectEnqueuedCountedPublicExecutionRequests(

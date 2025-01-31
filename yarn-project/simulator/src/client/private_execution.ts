@@ -63,8 +63,6 @@ export async function executePrivateFunction(
     appCircuitName: functionName,
   } satisfies CircuitWitnessGenerationStats);
 
-  const contractClassLogs = context.getContractClassLogs();
-
   const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
@@ -88,7 +86,6 @@ export async function executePrivateFunction(
     nestedExecutions,
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
-    contractClassLogs,
   );
 }
 

@@ -1,4 +1,4 @@
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -286,14 +286,6 @@ export class Oracle {
   async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
     const newValues = await this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
     return newValues.map(toACVMField);
-  }
-
-  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
-
-    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
-    return toACVMField(logHash);
   }
 
   debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): void {
