@@ -75,7 +75,7 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
             StatementKind::For(for_loop_statement) => {
                 group.group(self.format_for_loop(for_loop_statement));
             }
-            StatementKind::Loop(block) => {
+            StatementKind::Loop(block, _) => {
                 group.group(self.format_loop(block));
             }
             StatementKind::Break => {
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe() {
-        let src = " fn foo() {
+        let src = " fn foo() { 
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_and_comment_before_it() {
-        let src = " fn foo() {
+        let src = " fn foo() { 
         // Some comment
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn format_unsafe_statement() {
-        let src = " fn foo() { unsafe {
+        let src = " fn foo() { unsafe { 
         1  } } ";
         let expected = "fn foo() {
     unsafe {

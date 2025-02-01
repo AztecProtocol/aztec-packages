@@ -233,17 +233,18 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"
         cpu: "1"
     storageSize: "80Gi"
   beacon:
+    externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
     service:
       port: 5052
       targetPort: 5052
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"

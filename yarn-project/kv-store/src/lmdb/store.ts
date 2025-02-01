@@ -7,7 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key } from '../interfaces/common.js';
+import { type Key, type StoreSize } from '../interfaces/common.js';
 import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
 import {
   type AztecAsyncMap,
@@ -216,7 +216,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     }
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  estimateSize(): Promise<StoreSize> {
     const stats = this.#rootDb.getStats();
     // The 'mapSize' is the total amount of virtual address space allocated to the DB (effectively the maximum possible size)
     // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
@@ -226,11 +226,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     }
     const dataResult = this.estimateSubDBSize(this.#data);
     const multiResult = this.estimateSubDBSize(this.#multiMapData);
-    return {
+    return Promise.resolve({
       mappingSize: mapSize,
       actualSize: dataResult.actualSize + multiResult.actualSize,
       numItems: dataResult.numItems + multiResult.numItems,
-    };
+    });
   }
 
   private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {

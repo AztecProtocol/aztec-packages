@@ -1,4 +1,4 @@
-import { aztecNodeConfigMappings } from '@aztec/aztec-node';
+import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -13,6 +13,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
+import { validateL1Config } from '../validation.js';
 
 export async function startNode(
   options: any,
@@ -42,10 +43,17 @@ export async function startNode(
     } else {
       throw new Error('--node.publisherPrivateKey or --l1-mnemonic is required to deploy L1 contracts');
     }
+    // REFACTOR: We should not be calling a method from sandbox on the prod start flow
     await deployContractsToL1(nodeConfig, account!, undefined, {
       assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
       salt: nodeSpecificOptions.deployAztecContractsSalt,
     });
+  }
+  // If not deploying, validate that the addresses and config provided are correct.
+  // Eventually, we should be able to dynamically load this just by having the L1 governance address,
+  // instead of only validating the config the user has entered.
+  else {
+    await validateL1Config({ ...getNodeConfigEnvVars(), ...nodeConfig });
   }
 
   // if no publisher private key, then use l1Mnemonic

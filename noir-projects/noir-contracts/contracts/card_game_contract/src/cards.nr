@@ -13,7 +13,9 @@ use dep::aztec::{
     state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
+use std::meta::derive;
 
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -32,12 +34,6 @@ impl FromField for Card {
 impl ToField for Card {
     fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field) * 65536
-    }
-}
-
-impl Serialize<2> for Card {
-    fn serialize(self) -> [Field; 2] {
-        [self.strength as Field, self.points as Field]
     }
 }
 
@@ -160,7 +156,7 @@ pub fn get_pack_cards(
     let secret = context.request_nsk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes();
-    let random_bytes = std::hash::sha256(mix_bytes);
+    let random_bytes = sha256::digest(mix_bytes);
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards

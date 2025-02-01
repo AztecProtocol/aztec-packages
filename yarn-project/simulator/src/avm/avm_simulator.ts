@@ -28,20 +28,14 @@ type OpcodeTally = {
   count: number;
   gas: Gas;
 };
-type PcTally = {
-  opcode: string;
-  count: number;
-  gas: Gas;
-};
 
 export class AvmSimulator {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
-  private pcTallies: Map<number, PcTally> = new Map();
 
   private tallyPrintFunction = () => {};
-  private tallyInstructionFunction = (_a: number, _b: string, _c: Gas) => {};
+  private tallyInstructionFunction = (_b: string, _c: Gas) => {};
 
   // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
   // only. Otherwise, use build() below.
@@ -145,7 +139,6 @@ export class AvmSimulator {
       while (!machineState.getHalted()) {
         const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
-        const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
 
         this.log.trace(
           `[PC:${machineState.pc}] [IC:${instrCounter++}] ${instruction.toString()} (gasLeft l2=${
@@ -168,7 +161,7 @@ export class AvmSimulator {
           l2Gas: instrStartGas.l2Gas - machineState.l2GasLeft,
           daGas: instrStartGas.daGas - machineState.daGasLeft,
         };
-        this.tallyInstructionFunction(instrPc, instruction.constructor.name, gasUsed);
+        this.tallyInstructionFunction(instruction.constructor.name, gasUsed);
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
@@ -239,18 +232,12 @@ export class AvmSimulator {
     );
   }
 
-  private tallyInstruction(pc: number, opcode: string, gasUsed: Gas) {
+  private tallyInstruction(opcode: string, gasUsed: Gas) {
     const opcodeTally = this.opcodeTallies.get(opcode) || ({ count: 0, gas: { l2Gas: 0, daGas: 0 } } as OpcodeTally);
     opcodeTally.count++;
     opcodeTally.gas.l2Gas += gasUsed.l2Gas;
     opcodeTally.gas.daGas += gasUsed.daGas;
     this.opcodeTallies.set(opcode, opcodeTally);
-
-    const pcTally = this.pcTallies.get(pc) || ({ opcode: opcode, count: 0, gas: { l2Gas: 0, daGas: 0 } } as PcTally);
-    pcTally.count++;
-    pcTally.gas.l2Gas += gasUsed.l2Gas;
-    pcTally.gas.daGas += gasUsed.daGas;
-    this.pcTallies.set(pc, pcTally);
   }
 
   private printOpcodeTallies() {
@@ -260,17 +247,6 @@ export class AvmSimulator {
     for (const [opcode, tally] of sortedOpcodes) {
       // NOTE: don't care to clutter the logs with DA gas for now
       this.log.debug(`${opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`);
-    }
-
-    this.log.debug(`Printing tallies per PC sorted by #times each PC was executed...`);
-    const sortedPcs = Array.from(this.pcTallies.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .filter((_, i) => i < 20);
-    for (const [pc, tally] of sortedPcs) {
-      // NOTE: don't care to clutter the logs with DA gas for now
-      this.log.debug(
-        `PC:${pc} containing opcode ${tally.opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`,
-      );
     }
   }
 }
