@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+//
+import "@aztec/foundation/polyfills/node18";
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';

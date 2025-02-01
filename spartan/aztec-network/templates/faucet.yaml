@@ -58,7 +58,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              node --no-warnings -r /usr/src/yarn-project/aztec/node18-polyfill.cjs /usr/src/yarn-project/aztec/dest/bin/index.js start --faucet --faucet.apiServer --faucet.apiServerPort {{ .Values.faucet.apiServerPort }}
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --faucet --faucet.apiServer --faucet.apiServerPort {{ .Values.faucet.apiServerPort }}
           env:
             - name: AZTEC_PORT
               value: "{{ .Values.faucet.service.nodePort }}"

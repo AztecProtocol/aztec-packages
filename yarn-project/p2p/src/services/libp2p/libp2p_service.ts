@@ -55,19 +55,6 @@ interface ValidationResult {
   severity: PeerErrorSeverity;
 }
 
-// For some reason, the polyfill provided by libp2p does not suffice.
-// TODO: remove once we upgrade past Node v18.19.1
-class CustomEventPolyfill extends Event {
-  /** Returns any custom data event was created with. Typically used for synthetic events. */
-  detail: any;
-  constructor(message: string, data?: EventInit) {
-    super(message, data);
-    // @ts-expect-error could be undefined
-    this.detail = data?.detail;
-  }
-}
-globalThis.CustomEvent = globalThis.CustomEvent ?? CustomEventPolyfill;
-
 type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 
 /**

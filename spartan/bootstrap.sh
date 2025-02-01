@@ -103,10 +103,10 @@ case "$cmd" in
     test
     ;;
   "test-kind-smoke")
-    NAMESPACE=smoke FRESH_INSTALL=true INSTALL_METRICS=false ./scripts/test_kind.sh ci-smoke.yaml
+    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
     ;;
   "test-kind-4epochs")
-    NAMESPACE=4epochs FRESH_INSTALL=true INSTALL_METRICS=false ./scripts/test_kind.sh ci.yaml
+    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
     ;;
   "test-local")
     # Isolate network stack in docker.
