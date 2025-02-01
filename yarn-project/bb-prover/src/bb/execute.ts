@@ -220,7 +220,7 @@ export async function computeVerificationKey(
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
     const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
-    let result = await executeBB(pathToBB, `write_vk`, args, logFunction);
+    const result = await executeBB(pathToBB, `write_vk`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
