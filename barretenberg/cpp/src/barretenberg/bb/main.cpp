@@ -921,7 +921,14 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
 
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
+    if constexpr (Flavor::HasZK) {
+        // Ensure there are enough points to commit to the libra polynomials required for zero-knowledge sumcheck
+        if (required_crs_size < curve::BN254::SUBGROUP_SIZE * 2) {
+            required_crs_size = curve::BN254::SUBGROUP_SIZE * 2;
+        }
+    }
+    init_bn254_crs(required_crs_size);
 
     // output the vk
     typename Flavor::VerificationKey vk(prover.proving_key->proving_key);

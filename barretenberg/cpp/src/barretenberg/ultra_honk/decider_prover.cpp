@@ -36,7 +36,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            info("log_subgroup_size: ", log_subgroup_size);
             auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
