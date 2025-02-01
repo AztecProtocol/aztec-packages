@@ -29,6 +29,15 @@ provider "helm" {
   }
 }
 
+
+data "terraform_remote_state" "metrics" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke-private/metrics/terraform.tfstate"
+  }
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider         = helm.gke-cluster
@@ -125,8 +134,13 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "telemetry.useGcloudObservability"
-    value = "true"
+    name  = "telemetry.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "network.gke"
+    value = true
   }
 
   # Setting timeout and wait conditions
