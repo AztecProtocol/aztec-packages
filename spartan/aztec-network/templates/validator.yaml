@@ -28,9 +28,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
+      {{- end }}
 
       {{- if .Values.network.public }}
       hostNetwork: true

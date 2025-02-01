@@ -114,6 +114,11 @@ resource "helm_release" "aztec-gke-cluster" {
     value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
   }
 
+  set {
+    name  = "network.gke"
+    value = true
+  }
+
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds
   wait          = true

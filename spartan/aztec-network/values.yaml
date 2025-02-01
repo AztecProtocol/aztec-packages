@@ -11,6 +11,10 @@ network:
   public: false
   setupL2Contracts: true
 
+  # If true, pods are scheduled onto specific node pools using selectors
+  # This is only applicable to GKE deployments
+  gke: false
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB

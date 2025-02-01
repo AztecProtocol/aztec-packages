@@ -28,9 +28,11 @@ spec:
         app: prover-broker
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet

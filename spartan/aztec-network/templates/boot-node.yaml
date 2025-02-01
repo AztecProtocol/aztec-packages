@@ -27,9 +27,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: boot-node
     spec:
+      {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true
