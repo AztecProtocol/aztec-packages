@@ -33,6 +33,12 @@ prometheus:
         cpu: 1.5
     nodeSelector:
       node-type: infra
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    replicaCount: 10
+    statefulSet:
+      enabled: true
   alertmanager:
     nodeSelector:
       node-type: infra
@@ -42,12 +48,6 @@ prometheus:
   pushgateway:
     nodeSelector:
       node-type: infra
-    persistentVolume:
-      enabled: true
-      size: 100Gi
-    replicaCount: 10
-    statefulSet:
-      enabled: true
 
 loki:
   enabled: false
