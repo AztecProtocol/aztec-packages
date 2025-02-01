@@ -51,7 +51,7 @@ const header = css({
 
 const NETWORKS = [
   {
-    nodeURL: "http://192.168.1.171:8080",
+    nodeURL: "http://localhost:8080",
     name: "Local",
   },
   { nodeURL: "http://34.145.98.34:8080", name: "Devnet" },
