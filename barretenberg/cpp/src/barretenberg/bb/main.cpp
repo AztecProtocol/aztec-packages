@@ -905,7 +905,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
 
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
@@ -1289,7 +1289,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
 
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
