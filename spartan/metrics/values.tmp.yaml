@@ -7,9 +7,6 @@ opentelemetry-collector:
   image:
     repository: "otel/opentelemetry-collector-contrib"
 
-  nodeSelector:
-    node-type: infra
-
   ports:
     otlp-http:
       enabled: true
@@ -55,29 +52,6 @@ opentelemetry-collector:
       telemetry:
         metrics:
           address: ${env:MY_POD_IP}:8888
-      pipelines:
-        # logs:
-        #   receivers:
-        #     - otlp
-        #   processors:
-        #     - batch
-        #   exporters:
-        #     - otlphttp/logs
-        # traces:
-        #   receivers:
-        #     - otlp
-        #   processors:
-        #     - batch
-        #   exporters:
-        #     - otlp/tempo
-        metrics:
-          receivers:
-            - otlp
-          processors:
-            - batch
-          exporters:
-            - prometheus
-            # - debug
 
 # Enable and configure the Loki subchart
 # https://artifacthub.io/packages/helm/grafana/loki
@@ -89,7 +63,7 @@ opentelemetry-collector:
 # https://artifacthub.io/packages/helm/grafana/tempo
 tempo:
   minio:
-    enabled: false
+    enabled: true
     mode: standalone
     rootUser: grafana-tempo
     rootPassword: supersecret
@@ -101,9 +75,9 @@ tempo:
   traces:
     otlp:
       grpc:
-        enabled: false
+        enabled: true
       http:
-        enabled: false
+        enabled: true
     zipkin:
       enabled: false
     jaeger:
@@ -117,18 +91,6 @@ prometheus:
     global:
       evaluation_interval: 15s
       scrape_interval: 15s
-  alertmanager:
-    nodeSelector:
-        node-type: infra
-  nodeExporter:
-    nodeSelector:
-        node-type: infra
-  server:
-    nodeSelector:
-        node-type: infra
-  pushgateway:
-    nodeSelector:
-        node-type: infra
   serverFiles:
     prometheus.yml:
       scrape_configs:
@@ -146,18 +108,10 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
-  nodeSelector:
-    node-type: infra
   datasources:
     datasources.yaml:
       apiVersion: 1
       datasources:
-        # - name: Loki
-        #   type: loki
-        #   url: http://metrics-loki.metrics:3100
-        # - name: Tempo
-        #   type: tempo
-        #   url: http://metrics-tempo.metrics:3100
         - name: Prometheus
           type: prometheus
           uid: spartan-metrics-prometheus

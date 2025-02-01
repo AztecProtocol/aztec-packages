@@ -62,39 +62,6 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   }
 }
 
-# Create 4 core node pool with local ssd
-resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
-  name     = "${var.cluster_name}-4core-ssd"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 256
-  }
-
-  # Node configuration
-  node_config {
-    machine_type = "n2d-standard-4"
-    ephemeral_storage_local_ssd_config {
-      local_ssd_count = 1
-    }
-
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = {
-      env       = "production"
-      local-ssd = "true"
-      node-type = "network"
-    }
-    tags = ["aztec-gke-node", "aztec"]
-  }
-}
-
 # Create 2 core node pool no ssd
 resource "google_container_node_pool" "aztec_nodes-2core" {
   name     = "${var.cluster_name}-2core"
