@@ -217,7 +217,7 @@ bot:
     successThreshold: 1
     failureThreshold: 3
   gke:
-    spotEnabled: false
+    spotEnabled: true
   resources:
     requests:
       memory: "4Gi"
@@ -280,7 +280,7 @@ proverAgent:
   pollIntervalMs: 1000
   proofTypes: ["foo", "bar", "baz"]
   gke:
-    spotEnabled: false
+    spotEnabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
