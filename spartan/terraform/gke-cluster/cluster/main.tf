@@ -179,6 +179,51 @@ resource "google_container_node_pool" "spot_nodes_32core" {
   }
 }
 
+# Create 8 core spot instance node pool with autoscaling
+resource "google_container_node_pool" "spot_nodes_8core" {
+  name     = "${var.cluster_name}-8core-spot"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 1500
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-8"
+    spot         = true
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      pool      = "spot"
+      local-ssd = "false"
+      node-type = "network"
+    }
+    tags = ["aztec-gke-node", "spot"]
+
+    # Spot instance termination handler
+    taint {
+      key    = "cloud.google.com/gke-spot"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+}
+
 # Create 2 core spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes_2core" {
   name     = "${var.cluster_name}-2core-spot"
