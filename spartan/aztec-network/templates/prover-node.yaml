@@ -39,6 +39,30 @@ spec:
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
+
+        - name: get-private-key
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              source /scripts/get-private-key.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.proverKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
         - name: wait-for-services
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -95,6 +119,7 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+              source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
@@ -152,8 +177,6 @@ spec:
               value: "{{ .Values.proverNode.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverNode.proverBroker.jobMaxRetries }}"
-            - name: PROVER_PUBLISHER_PRIVATE_KEY
-              value: "{{ .Values.proverNode.proverPublisherPrivateKey }}"
             - name: PROVER_NODE_TX_GATHERING_TIMEOUT_MS
               value: "{{ .Values.proverNode.txGathering.timeoutMs }}"
             - name: PROVER_NODE_TX_GATHERING_INTERVAL_MS
