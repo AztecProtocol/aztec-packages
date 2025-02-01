@@ -89,7 +89,7 @@ export class ForwarderContract {
       const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
       return { receipt, gasPrice, stats };
     } else {
-      logger.error('Forwarder transaction failed', { receipt });
+      logger.error('Forwarder transaction failed', undefined, { receipt });
 
       const args = {
         ...forwarderFunctionData,

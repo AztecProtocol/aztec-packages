@@ -583,26 +583,44 @@ describe('L1Publisher integration', () => {
       await expect(publisher.enqueueProposeL2Block(block)).resolves.toEqual(true);
 
       await expect(publisher.sendRequests()).resolves.toMatchObject({
-        errorMsg: expect.stringContaining('Rollup__InvalidBlobHash'),
+        errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
       });
 
       // Test for both calls
       // NOTE: First error is from the simulate fn, which isn't supported by anvil
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
-
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(1, 'Bundled [propose] transaction [failed]');
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
 
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        1,
+        'Forwarder transaction failed',
+        undefined,
+        expect.objectContaining({
+          receipt: expect.objectContaining({
+            type: 'eip4844',
+            blockHash: expect.any(String),
+            blockNumber: expect.any(BigInt),
+            transactionHash: expect.any(String),
+          }),
+        }),
+      );
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
+        expect.stringContaining('Bundled [propose] transaction [failed]'),
+      );
+
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        3,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidBlobHash/i,
+          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({
-          blockHash: expect.any(String),
+          blockHash: expect.any(Fr),
           blockNumber: expect.any(Number),
           slotNumber: expect.any(BigInt),
           txHash: expect.any(String),
+          txCount: expect.any(Number),
+          blockTimestamp: expect.any(Number),
         }),
       );
     });

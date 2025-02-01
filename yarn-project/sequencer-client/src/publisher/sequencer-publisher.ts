@@ -636,6 +636,7 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
+    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -687,7 +688,7 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash: block.hash().toString(),
+            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

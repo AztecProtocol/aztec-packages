@@ -94,6 +94,6 @@ describe('e2e_gov_proposal', () => {
       );
       expect(votes).toEqual(roundDuration);
     },
-    5 * 60000,
+    1000 * 60 * 5,
   );
 });
