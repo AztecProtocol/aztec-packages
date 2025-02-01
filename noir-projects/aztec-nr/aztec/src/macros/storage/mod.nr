@@ -1,6 +1,6 @@
 use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
-use super::utils::get_packed_size;
+use super::utils::get_storage_size;
 use super::utils::is_note;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout.
@@ -30,7 +30,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     for field in s.fields_as_written() {
         // FIXME: This doesn't handle field types with generics
         let (name, typ) = field;
-        let (storage_field_constructor, serialized_size) =
+        let (storage_field_constructor, storage_size) =
             generate_storage_field_constructor(typ, quote { $slot }, false);
         storage_vars_constructors =
             storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
@@ -38,14 +38,14 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         // because that way a dev gets a more reasonable error if he defines a struct with the same name in
         // a contract.
         storage_layout_fields =
-            storage_layout_fields.push_back(quote { $name: dep::aztec::prelude::Storable });
+            storage_layout_fields.push_back(quote { pub $name: dep::aztec::prelude::Storable });
         storage_layout_constructors = storage_layout_constructors.push_back(
             quote { $name: dep::aztec::prelude::Storable { slot: $slot } },
         );
         //let with_context_generic = add_context_generic(typ, context_generic);
         //println(with_context_generic);
         //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));
-        slot += serialized_size;
+        slot += storage_size;
     }
 
     //s.set_fields(new_storage_fields);
@@ -119,28 +119,25 @@ comptime fn generate_storage_field_constructor(
             generate_storage_field_constructor(generics[1], quote { slot }, true);
         (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
-        let (container_struct, container_struct_generics) = typ.as_struct().unwrap();
-        let container_struct_name = container_struct.name();
-
-        let serialized_size = if parent_is_map {
+        let storage_size = if parent_is_map {
             // Variables inside a map do not require contiguous slots since the map slot derivation is assumed to result
             // in slots very far away from one another.
             1
         } else {
+            let (_, container_struct_generics) = typ.as_struct().unwrap();
             let stored_struct = container_struct_generics[0];
-            if is_note(stored_struct) & (container_struct_name != quote { PublicMutable }) {
+
+            if is_note(stored_struct) {
                 // Private notes always occupy a single slot, since the slot is only used as a state variable
                 // identifier.
-                // Someone could store a Note in PublicMutable for whatever reason though.
-                // TODO(#8659): remove the PublicMutable exception above
                 1
             } else {
-                get_packed_size(stored_struct)
+                get_storage_size(typ)
             }
         };
 
         // We assume below that all state variables implement `fn new<Context>(context: Context, slot: Field) -> Self`.
-        (quote { $struct_name::new(context, $slot)}, serialized_size)
+        (quote { $struct_name::new(context, $slot)}, storage_size)
     }
 }
 

@@ -603,56 +603,6 @@ contract Token {
         finalization_payload.emit();
     }
 
-    // docs:start:setup_refund
-    /// Called by fee payer contract (FPC) to set up a refund for a user during the private fee payment flow.
-    #[private]
-    fn setup_refund(
-        user: AztecAddress, // A user for which we are setting up the fee refund.
-        max_fee: U128, // The maximum fee a user is willing to pay for the tx.
-        nonce: Field, // A nonce to make authwitness unique.
-    ) {
-        // 1. This function is called by FPC when setting up a refund so we need to support the authwit flow here
-        // and check that the user really permitted fee_recipient to set up a refund on their behalf.
-        assert_current_call_valid_authwit(&mut context, user);
-
-        // 2. Deduct the max fee from user's balance. The difference between max fee and the actual tx fee will
-        // be refunded to the user in the `complete_refund(...)` function.
-        let change = subtract_balance(
-            &mut context,
-            storage,
-            user,
-            max_fee,
-            INITIAL_TRANSFER_CALL_MAX_NOTES,
-        );
-        // Emit the change note.
-        storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            user,
-            user,
-        ));
-
-        // 3. Prepare the partial note for the refund.
-        let user_point_slot = _prepare_private_balance_increase(user, user, &mut context, storage);
-
-        // 4. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
-        // function has access to the final transaction fee, which is needed to compute the actual refund amount.
-        let fee_recipient = context.msg_sender(); // FPC is the fee recipient.
-        let max_fee_serialized = max_fee.serialize();
-        context.set_public_teardown_function(
-            context.this_address(),
-            comptime {
-                FunctionSelector::from_signature("complete_refund((Field),Field,(Field,Field))")
-            },
-            [
-                fee_recipient.to_field(),
-                user_point_slot,
-                max_fee_serialized[0],
-                max_fee_serialized[1],
-            ],
-        );
-    }
-    // docs:end:setup_refund
-
     // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
     // users to derive manually. This will however go away once we have a real transient storage since we will not need
     // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
@@ -668,35 +618,6 @@ contract Token {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
-
-    // docs:start:complete_refund
-    /// Executed as a public teardown function and is responsible for completing the refund in a private fee payment
-    /// flow.
-    #[public]
-    #[internal]
-    fn complete_refund(fee_recipient: AztecAddress, user_slot: Field, max_fee: U128) {
-        let tx_fee = U128::from_integer(context.transaction_fee());
-
-        // 1. We check that user funded the fee payer contract with at least the transaction fee.
-        // TODO(#7796): we should try to prevent reverts here
-        assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
-
-        // 2. We compute the refund amount as the difference between funded amount and the tx fee.
-        // TODO(#10805): Introduce a real exchange rate
-        let refund_amount = max_fee - tx_fee;
-
-        // 3. We send the tx fee to the fee recipient in public.
-        _increase_public_balance_inner(fee_recipient, tx_fee, storage);
-
-        // 4. We construct the user note finalization payload with the refund amount.
-        let user_finalization_payload =
-            UintNote::finalization_payload().new(&mut context, user_slot, refund_amount);
-
-        // 5. At last we emit the user finalization note hash and the corresponding note log.
-        user_finalization_payload.emit();
-        // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
-    }
-    // docs:end:complete_refund
 
     /// Internal ///
     // docs:start:increase_public_balance

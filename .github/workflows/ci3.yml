@@ -41,8 +41,11 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           ./ci.sh ec2
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz

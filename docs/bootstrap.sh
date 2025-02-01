@@ -25,11 +25,16 @@ function build {
   cache_upload docs-$hash.tar.gz build
 }
 
-# If we're a CI run and have a PR, do a preview release.
+# If we're a amd64 CI run and have a PR, do a preview release.
 function release_preview {
+  if [ -z "${GITHUB_TOKEN:-}" ] || [ "$CI" -eq 0 ] || [ "$(arch)" != "amd64" ]; then
+    return
+  fi
+
+  export GH_TOKEN=$GITHUB_TOKEN
   pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
 
-  if [ "$CI" -eq 1 ] && [ -n "$pr_number" ]; then
+  if [ -n "$pr_number" ]; then
     echo_header "docs release preview"
 
     # Deploy and capture exit code and output.
