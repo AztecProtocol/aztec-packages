@@ -96,6 +96,7 @@ EOF
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
+set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
@@ -127,6 +128,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     aztecprotocol/devbox:3.0 bash -c '$container_script'
 "
 code=$?
+set -e
 echo "SSH exited with code: $code"
 
 # If we were spot evicted, try again using on-demand.

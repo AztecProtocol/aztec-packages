@@ -20,7 +20,6 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     --memory 4g \
     -v$(git rev-parse --show-toplevel):/root/aztec-packages \
     -v$HOME/.bb-crs:/root/.bb-crs \
-    --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
     --workdir /root/aztec-packages/yarn-project/$dir \
     -e FORCE_COLOR=true \
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
