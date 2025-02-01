@@ -147,7 +147,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {

@@ -27,6 +27,8 @@ template <typename Curve> struct aggregation_state {
             P0 += other.P0 * recursion_separator;
             P1 += other.P1 * recursion_separator;
         } else {
+            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
+            // recursion_separator} directly to avoid edge cases.
             typename Curve::Group point_to_aggregate = other.P0.template scalar_mul<128>(recursion_separator);
             P0 += point_to_aggregate;
             point_to_aggregate = other.P1.template scalar_mul<128>(recursion_separator);
@@ -41,6 +43,8 @@ template <typename Curve> struct aggregation_state {
             P0 += other[0] * recursion_separator;
             P1 += other[1] * recursion_separator;
         } else {
+            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
+            // recursion_separator} directly to avoid edge cases.
             typename Curve::Group point_to_aggregate = other[0].template scalar_mul<128>(recursion_separator);
             P0 += point_to_aggregate;
             point_to_aggregate = other[1].template scalar_mul<128>(recursion_separator);

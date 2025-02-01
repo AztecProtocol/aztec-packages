@@ -878,21 +878,30 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar) const
      * specifics.
      *
      **/
+    OriginTag tag{};
+    tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
+
     bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
     element result;
     if constexpr (max_num_bits != 0) {
+        // The case of short scalars
         result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
     } else {
+        // The case of arbitrary length scalars
         result = element::bn254_endo_batch_mul({ *this }, { scalar }, {}, {}, num_rounds);
     };
 
+    // Handle point at infinity
     result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);
     result.y = Fq::conditional_assign(is_point_at_infinity, y, result.y);
 
     result.set_point_at_infinity(is_point_at_infinity);
+
+    // Propagate the origin tag
+    result.set_origin_tag(tag);
 
     return result;
 }
