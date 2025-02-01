@@ -89,7 +89,7 @@ describe('ValidationService', () => {
     const proposal = await makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
     // Mock the p2pClient.requestTxs to return undefined for all transactions
     p2pClient.requestTxs.mockImplementation(() => Promise.resolve([undefined]));
 
@@ -102,14 +102,14 @@ describe('ValidationService', () => {
     const proposal = await makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(async () => ({
       currentProposer: await proposal.getSender(),
       nextProposer: await proposal.getSender(),
       currentSlot: proposal.slotNumber.toBigInt(),
       nextSlot: proposal.slotNumber.toBigInt() + 1n,
     }));
-    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+    epochCache.isInCommittee.mockResolvedValue(true);
 
     const val = ValidatorClient.new(config, epochCache, p2pClient);
     val.registerBlockBuilder(() => {

@@ -14,7 +14,7 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PublicImmutable<T, Context>
 where
     T: Packable<N>,
 {
