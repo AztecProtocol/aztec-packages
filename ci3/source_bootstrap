@@ -3,7 +3,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Default value.
-export CI=0
+export CI=${CI:-0}
 
 # Checks whether or not we should release.
 # Called before any bootstrap scripts (root or project) release command is run.
