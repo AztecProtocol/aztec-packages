@@ -12,42 +12,24 @@ hash=$(cache_content_hash \
 function build {
   echo_header "yarn-project build"
 
-  # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
-
-  # Fast build does not delete everything first.
-  # It regenerates all generated code, then performs an incremental tsc build.
-  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
   denoise "yarn install"
 
-  # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash.tar.gz
-
-  if cache_download $tar_file; then
-    yarn install
+  if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
 
-  case "${1:-}" in
-    "fast")
-      denoise "yarn build:fast"
-      ;;
-    "full")
-      denoise "yarn build"
-      ;;
-    *)
-      if ! yarn build:fast; then
-        echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
-        yarn build
-      fi
-  esac
+  for project in foundation l1-artifacts circuits.js; do
+    denoise "cd $project && yarn build"
+  done
+  denoise "yarn generate"
+  denoise "yarn tsc -b"
 
-  denoise 'cd aztec.js && yarn build:web'
-  denoise 'cd end-to-end && yarn build:web'
+  parallel --line-buffered --tag "denoise 'cd {}; yarn build:web'" ::: aztec.js end-to-end
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
   # Then one-off cases. If you've written into src, you need to update this.
-  cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+  cache_upload yarn-project-$hash.tar.gz \
+    */{dest,fixtures,build,artifacts,generated} \
     circuit-types/src/test/artifacts \
     end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz} \
     ivc-integration/src/types/ \
@@ -95,8 +77,12 @@ case "$cmd" in
     build
     test
     ;;
-  ""|"fast"|"full")
-    build $cmd
+  ""|"fast")
+    build
+    ;;
+  "full")
+    git clean -fdx --exclude=node_modules --exclude=.yarn
+    build
     ;;
   "test")
     test

@@ -89,13 +89,6 @@ function check_toolchains {
       exit 1
     fi
   done
-  # Check for yarn availability
-  if ! command -v yarn > /dev/null; then
-    encourage_dev_container
-    echo "yarn not found."
-    echo "Installation: corepack enable"
-    exit 1
-  fi
 }
 
 # Install pre-commit git hooks.

@@ -27,9 +27,13 @@ function build {
 
 # If we're a CI run and have a PR, do a preview release.
 function release_preview {
+  if [ -z "${GH_TOKEN:-}" ] || [ "$CI" -eq 0 ]; then
+    return
+  fi
+
   pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
 
-  if [ "$CI" -eq 1 ] && [ -n "$pr_number" ]; then
+  if [ -n "$pr_number" ]; then
     echo_header "docs release preview"
 
     # Deploy and capture exit code and output.
