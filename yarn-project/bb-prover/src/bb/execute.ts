@@ -139,6 +139,8 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
+      '--output_content',
+      'proof_and_vk',
     ];
 
     const timer = new Timer();
@@ -662,7 +664,8 @@ export async function verifyAvmProofV2(
  */
 export async function verifyClientIvcProof(
   pathToBB: string,
-  targetPath: string,
+  proofPath: string,
+  keyPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -674,7 +677,7 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['-o', targetPath, '--scheme', 'client_ivc'];
+    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
     const timer = new Timer();
     const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);
