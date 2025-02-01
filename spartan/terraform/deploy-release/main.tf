@@ -97,10 +97,34 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.ETHEREUM_EXTERNAL_HOST != "" ? toset(["iterate"]) : toset([])
+    for_each = var.EXTERNAL_ETHEREUM_HOST != "" ? toset(["iterate"]) : toset([])
     content {
       name  = "ethereum.externalHost"
-      value = var.ETHEREUM_EXTERNAL_HOST
+      value = var.EXTERNAL_ETHEREUM_HOST
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.beacon.externalHost"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.beacon.apiKey"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.beacon.apiKeyHeader"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
     }
   }
 
