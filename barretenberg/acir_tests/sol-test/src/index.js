@@ -55,13 +55,19 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
+// If testing honk is set, then we compile the honk test suite
+const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
+const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+
+const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
+console.log(verifierContract);
 export const compilationInput = {
   language: "Solidity",
   sources: {
     "Test.sol": {
       content: test,
     },
-    "Verifier.sol": {
+    [verifierContract]: {
       content: verifier,
     },
   },
@@ -79,9 +85,6 @@ export const compilationInput = {
   },
 };
 
-// If testing honk is set, then we compile the honk test suite
-const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
-const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
   ? hasZK
     ? NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF

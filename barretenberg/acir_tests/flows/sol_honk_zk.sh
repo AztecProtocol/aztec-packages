@@ -14,10 +14,10 @@ $BIN prove_ultra_keccak_honk_zk -o $PROOF $FLAGS $BFLAG
 $BIN write_vk_ultra_keccak_honk -o $VK $FLAGS $BFLAG
 $BIN verify_ultra_keccak_honk_zk -k $VK -p $PROOF $FLAGS
 $BIN proof_as_fields_honk $FLAGS -p $PROOF -o $PROOF_AS_FIELDS
-$BIN contract_ultra_honk_zk -k $VK $FLAGS -o Verifier.sol
+$BIN contract_ultra_honk_zk -k $VK $FLAGS -o ZKVerifier.sol
 
 # Export the paths to the environment variables for the js test runner
-export VERIFIER_PATH="$PWD/Verifier.sol"
+export VERIFIER_PATH="$PWD/ZKVerifier.sol"
 export TEST_PATH=$(realpath "../../sol-test/ZKHonkTest.sol")
 export TESTING_HONK="true"
 export HAS_ZK="true"
