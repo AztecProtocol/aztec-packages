@@ -21,6 +21,7 @@ function prepare_tests {
   COMPILE=2 ./run_test.sh assert_statement
   local bb=$(realpath ../cpp/build/bin/bb)
   (cd ./acir_tests/assert_statement && \
+    # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
     $bb write_recursion_inputs --scheme ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
     $bb write_recursion_inputs --scheme ultra_honk --ipa_accumulation true -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
 

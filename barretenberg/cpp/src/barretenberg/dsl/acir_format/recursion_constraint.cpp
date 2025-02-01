@@ -338,6 +338,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
                     if (contains_pairing_point_accumulator) {
+                        // NOTE(recursive): flag determins whether this block of code runs
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
