@@ -90,7 +90,6 @@ import {
   generateTubeProof,
   verifyAvmProof,
   verifyProof,
-  writeProofAsFields,
 } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
@@ -738,27 +737,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
       await fs.writeFile(vkFullFilename, vk.keyAsBytes);
 
-      const logFunction = (message: string) => {
-        logger.debug(`${circuit} BB out - ${message}`);
-      };
-
-      const result = await writeProofAsFields(
-        this.config.bbBinaryPath,
-        bbWorkingDirectory,
-        PROOF_FILENAME,
-        vkFullFilename,
-        logFunction,
-      );
-
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to convert ${circuit} proof to fields, ${result.reason}`;
-        throw new ProvingError(errorMessage, result, result.retry);
-      }
-
       const proofString = await fs.readFile(path.join(bbWorkingDirectory, PROOF_FIELDS_FILENAME), {
         encoding: 'utf-8',
       });
       const json = JSON.parse(proofString);
+      // ugh
       const fields = json
         .slice(0, 3)
         .map(Fr.fromHexString)

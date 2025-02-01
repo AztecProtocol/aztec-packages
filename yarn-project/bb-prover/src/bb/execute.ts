@@ -218,18 +218,11 @@ export async function computeVerificationKey(
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
     const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
-    let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, logFunction);
+    let result = await executeBB(pathToBB, `write_vk`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
 
-    // WORKTODO vk_as_fields
-    result = await executeBB(
-      pathToBB,
-      `vk_as_fields_${flavor}`,
-      ['-o', outputPath + '_fields.json', '-k', outputPath, '-v'],
-      logFunction,
-    );
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -248,6 +241,20 @@ export async function computeVerificationKey(
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
+function getArgs(flavor: UltraHonkFlavor) {
+  switch (flavor) {
+    case 'ultra_honk': {
+      return ['--oracle_hash', 'poseidon2'];
+    }
+    case 'ultra_keccak_honk': {
+      return ['--oracle_hash', 'keccak'];
+    }
+    case 'ultra_rollup_honk': {
+      return ['--oracle_hash', 'poseidon2', '--ipa_accumulation', 'true'];
+    }
   }
 }
 
@@ -296,7 +303,20 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
-    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v', recursive ? '--recursive' : ''];
+    const args = getArgs(flavor).concat([
+      '--output_type',
+      'bytes_and_fields',
+      '--output_content',
+      'proof_and_vk',
+      '-o',
+      outputPath,
+      '-b',
+      bytecodePath,
+      '-w',
+      inputWitnessFile,
+      '-v',
+      recursive ? '--recursive' : '',
+    ]);
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
@@ -721,90 +741,6 @@ async function verifyProofInternal(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for verifying proofs of noir circuits
- * @param pathToBB - The full path to the bb binary
- * @param verificationKeyPath - The directory containing the binary verification key
- * @param verificationKeyFilename - The filename of the verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
-export async function writeVkAsFields(
-  pathToBB: string,
-  verificationKeyPath: string,
-  verificationKeyFilename: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    const args = ['-k', `${verificationKeyPath}/${verificationKeyFilename}`, '-v'];
-    const timer = new Timer();
-    const result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', args, log);
-    const duration = timer.ms();
-    if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, durationMs: duration, vkPath: verificationKeyPath };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to create vk as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for verifying proofs of noir circuits
- * @param pathToBB - The full path to the bb binary
- * @param proofPath - The directory containing the binary proof
- * @param proofFileName - The filename of the proof
- * @param vkFileName - The filename of the verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
-export async function writeProofAsFields(
-  pathToBB: string,
-  proofPath: string,
-  proofFileName: string,
-  vkFilePath: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
-    const timer = new Timer();
-    const result = await executeBB(pathToBB, 'proof_as_fields_honk', args, log);
-    const duration = timer.ms();
-    if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, durationMs: duration, proofPath: proofPath };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to create proof as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
       retry: !!result.signal,
     };
   } catch (error) {
