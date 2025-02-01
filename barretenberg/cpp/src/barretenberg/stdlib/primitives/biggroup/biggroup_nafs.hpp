@@ -441,7 +441,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         // updates multiplicative constants without computing new witnesses. This ensures the low accumulator will not
         // underflow
         //
-        // Once we hvae reconstructed an Fr element out of our accumulators,
+        // Once we have reconstructed an Fr element out of our accumulators,
         // we ALSO construct an Fr element from the constant offset terms we left out
         // We then subtract off the constant term and call `Fr::assert_is_in_field` to reduce the value modulo
         // Fr::modulus
@@ -491,7 +491,6 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
-    info(scalar_multiplier);
     // NAF can't handle 0
     if (scalar_multiplier == 0) {
         scalar_multiplier = Fr::modulus;
@@ -594,8 +593,9 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         } else {
             // If the number of rounds is smaller than Fr::NUM_LIMB_BITS, the high bits of the resulting Fr element are
             // 0.
+            const field_t<C> zero = field_t<C>::from_witness_index(ctx, 0);
             lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
-            hi_accumulators = std::make_pair(field_t<C>(0), field_t<C>(0));
+            hi_accumulators = std::make_pair(zero, zero);
         }
 
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);

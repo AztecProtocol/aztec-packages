@@ -143,8 +143,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         result.y.assert_is_in_field();
         return result;
     }
-
-    element scalar_mul(const Fr& scalar, const size_t num_bits = 0) const;
+    template <size_t max_num_bits> element scalar_mul(const Fr& scalar) const;
 
     element reduce() const
     {
@@ -527,7 +526,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             num_fives = num_points / 5;
             num_sixes = 0;
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
-            if (num_fives * 5 == (num_points - 1)) {
+            if (num_points == 1) {
+                num_fives = 0;
+                num_sixes = 0;
+            } else if (num_fives * 5 == (num_points - 1)) {
                 num_fives -= 1;
                 num_sixes = 1;
             } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {

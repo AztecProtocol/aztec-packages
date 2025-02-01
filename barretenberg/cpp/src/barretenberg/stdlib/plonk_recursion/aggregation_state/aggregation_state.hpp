@@ -27,9 +27,9 @@ template <typename Curve> struct aggregation_state {
             P0 += other.P0 * recursion_separator;
             P1 += other.P1 * recursion_separator;
         } else {
-            typename Curve::Group point_to_aggregate = other.P0.short_scalar_mul(recursion_separator, 128);
+            typename Curve::Group point_to_aggregate = other.P0.template scalar_mul<128>(recursion_separator);
             P0 += point_to_aggregate;
-            point_to_aggregate = other.P1.short_scalar_mul(recursion_separator, 128);
+            point_to_aggregate = other.P1.template scalar_mul<128>(recursion_separator);
             P1 += point_to_aggregate;
         }
     }
@@ -41,9 +41,9 @@ template <typename Curve> struct aggregation_state {
             P0 += other[0] * recursion_separator;
             P1 += other[1] * recursion_separator;
         } else {
-            typename Curve::Group point_to_aggregate = other[0].short_scalar_mul(recursion_separator, 128);
+            typename Curve::Group point_to_aggregate = other[0].template scalar_mul<128>(recursion_separator);
             P0 += point_to_aggregate;
-            point_to_aggregate = other[1].short_scalar_mul(recursion_separator, 128);
+            point_to_aggregate = other[1].template scalar_mul<128>(recursion_separator);
             P1 += point_to_aggregate;
         }
     }

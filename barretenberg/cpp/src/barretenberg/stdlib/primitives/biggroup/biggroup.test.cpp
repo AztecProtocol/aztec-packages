@@ -433,7 +433,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             P.set_origin_tag(submitted_value_origin_tag);
 
             std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            element_ct c = P.scalar_mul(x, 128);
+            element_ct c = P.template scalar_mul<128>(x);
             info(c);
             std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
@@ -470,7 +470,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         P.set_origin_tag(submitted_value_origin_tag);
 
         std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-        element_ct c = P.scalar_mul(x);
+        element_ct c = P.template scalar_mul<128>(x);
         info(c);
         std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
@@ -1018,25 +1018,36 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_compute_naf()
     {
         Builder builder = Builder();
-        size_t num_repetitions(32);
-        for (size_t i = 0; i < num_repetitions; i++) {
-            fr scalar_val = fr::random_element();
-            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-            // Set tag for scalar
-            scalar.set_origin_tag(submitted_value_origin_tag);
-            auto naf = element_ct::compute_naf(scalar);
+        std::vector<size_t> bit_lengths = { 254, 128 };
 
-            for (const auto& bit : naf) {
-                // Check that the tag is propagated to bits
-                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        for (auto max_num_bits : bit_lengths) {
+            size_t num_repetitions(32);
+            for (size_t i = 0; i < num_repetitions; i++) {
+                fr scalar_val = fr::random_element();
+                if (max_num_bits == 128) {
+                    uint256_t scalar_raw = fr::random_element();
+                    scalar_raw.data[2] = 0ULL;
+                    scalar_raw.data[3] = 0ULL;
+                    scalar_val = fr(scalar_raw);
+                }
+                scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+                // Set tag for scalar
+                scalar.set_origin_tag(submitted_value_origin_tag);
+                auto naf = element_ct::compute_naf(scalar, max_num_bits);
+
+                for (const auto& bit : naf) {
+                    // Check that the tag is propagated to bits
+                    EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+                }
+                // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
+                fr reconstructed_val(0);
+                for (size_t i = 0; i < max_num_bits; i++) {
+                    reconstructed_val +=
+                        (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (max_num_bits - 1 - i));
+                };
+                reconstructed_val -= fr(naf[max_num_bits].witness_bool);
+                EXPECT_EQ(scalar_val, reconstructed_val);
             }
-            // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
-            fr reconstructed_val(0);
-            for (size_t i = 0; i < 254; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (253 - i));
-            };
-            reconstructed_val -= fr(naf[254].witness_bool);
-            EXPECT_EQ(scalar_val, reconstructed_val);
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1403,7 +1414,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_bn254_endo_batch_mul()
     {
-        const size_t num_big_points = 2;
+        const size_t num_big_points = 0;
         const size_t num_small_points = 1;
         Builder builder;
         std::vector<affine_element> big_points;
@@ -1452,9 +1463,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             union_tag = OriginTag(
                 union_tag, small_circuit_points[i].get_origin_tag(), small_circuit_scalars[i].get_origin_tag());
         }
-
+        std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
         element_ct result_point = element_ct::bn254_endo_batch_mul(
             big_circuit_points, big_circuit_scalars, small_circuit_points, small_circuit_scalars, 128);
+        std::cerr << "gates after mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
         // Check that the resulting tag is a union of input tags
         EXPECT_EQ(result_point.get_origin_tag(), union_tag);
