@@ -104,8 +104,11 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
+
 output.errors.forEach((e) => {
-  if (e.errorCode == "5574") throw new Error(JSON.stringify(e)); // Contract exceeds allowed bytecode size
+  // Stop execution if the contract exceeded the allowed bytecode size
+  if (e.errorCode == "5574") throw new Error(JSON.stringify(e));
+  // Throw if there are compilation errors
   if (e.severity == "error") {
     throw new Error(JSON.stringify(output.errors, null, 2));
   }

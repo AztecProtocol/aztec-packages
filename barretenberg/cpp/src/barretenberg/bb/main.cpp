@@ -605,7 +605,7 @@ void contract_honk(const std::string& output_path, const std::string& vk_path)
 }
 
 /**
- * @brief Writes a Honk Solidity verifier contract for an ACIR circuit to a file
+ * @brief Writes a zero-knowledge Honk Solidity verifier contract for an ACIR circuit to a file
  *
  * Communication:
  * - stdout: The Solidity verifier contract is written to stdout as a string
@@ -951,7 +951,6 @@ void prove_honk(const std::string& bytecodePath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath, recursive);
     auto proof = prover.construct_proof();
-    info("proof length: ", proof.size());
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
