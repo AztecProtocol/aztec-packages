@@ -14,7 +14,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, pairing} from "./utils.sol";
+import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {
@@ -51,7 +51,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs)
+        public
+        view
+        override
+        returns (bool verified)
+    {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
 
@@ -68,13 +73,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         );
 
         // Sumcheck
-        bool sumcheckVerified = verifySumcheck(p, t);
-        if (!sumcheckVerified) revert SumcheckFailed();
+        if (!verifySumcheck(p, t)) revert SumcheckFailed();
 
-        bool shpleminiVerified = verifyShplemini(p, vk, t);
-        if (!shpleminiVerified) revert ShpleminiFailed();
+        if (!verifyShplemini(p, vk, t)) revert ShpleminiFailed();
 
-        return sumcheckVerified; // && shpleminiVerified; // Boolean condition not required - nice for vanity :)
+        verified = true;
     }
 
     function computePublicInputDelta(bytes32[] memory publicInputs, Fr beta, Fr gamma, uint256 offset)
@@ -111,14 +114,15 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // We perform sumcheck reductions over log n rounds ( the multivariate degree )
         for (uint256 round; round < logN; ++round) {
             Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
-            bool valid = checkSum(roundUnivariate, roundTargetSum);
-            if (!valid) revert SumcheckFailed();
+            Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
+            if (totalSum != roundTargetSum) revert SumcheckFailed();
 
             Fr roundChallenge = tp.sumCheckUChallenges[round];
 
             // Update the round target for the next rounf
             roundTargetSum = computeNextTargetSum(roundUnivariate, roundChallenge);
-            powPartialEvaluation = partiallyEvaluatePOW(tp.gateChallenges[round], powPartialEvaluation, roundChallenge);
+            powPartialEvaluation =
+                powPartialEvaluation * (Fr.wrap(1) + roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
         }
 
         // Last round
@@ -126,18 +130,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
 
-        Fr correctingFactor = computeCorrectingFactor(tp.sumCheckUChallenges);
-        grandHonkRelationSum = grandHonkRelationSum * correctingFactor + proof.libraEvaluation * tp.libraChallenge;
-        verified = (grandHonkRelationSum == roundTargetSum);
-    }
+        Fr evaluation = Fr.wrap(1);
+        for (uint256 i = 2; i < logN; i++) {
+            evaluation = evaluation * tp.sumCheckUChallenges[i];
+        }
 
-    function checkSum(Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTargetSum)
-        internal
-        pure
-        returns (bool checked)
-    {
-        Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
-        checked = totalSum == roundTargetSum;
+        grandHonkRelationSum =
+            grandHonkRelationSum * (Fr.wrap(1) - evaluation) + proof.libraEvaluation * tp.libraChallenge;
+        verified = (grandHonkRelationSum == roundTargetSum);
     }
 
     // Return the new target sum for the next sumcheck round
@@ -159,17 +159,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000009d80)
         ];
 
-        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_DOMAIN = [
-            Fr.wrap(0x00),
-            Fr.wrap(0x01),
-            Fr.wrap(0x02),
-            Fr.wrap(0x03),
-            Fr.wrap(0x04),
-            Fr.wrap(0x05),
-            Fr.wrap(0x06),
-            Fr.wrap(0x07),
-            Fr.wrap(0x08)
-        ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
         // TODO: opt: use same array mem for each iteratioon
@@ -183,39 +172,15 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
-            inv = inv * (roundChallenge - BARYCENTRIC_DOMAIN[i]);
-            inv = FrLib.invert(inv);
-            denominatorInverses[i] = inv;
+            denominatorInverses[i] = FrLib.invert(BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * (roundChallenge - Fr.wrap(i)));
         }
 
         for (uint256 i; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr term = roundUnivariates[i];
-            term = term * denominatorInverses[i];
-            targetSum = targetSum + term;
+            targetSum = targetSum + roundUnivariates[i] * denominatorInverses[i];
         }
 
         // Scale the sum by the value of B(x)
         targetSum = targetSum * numeratorValue;
-    }
-
-    // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
-    function partiallyEvaluatePOW(Fr gateChallenge, Fr currentEvaluation, Fr roundChallenge)
-        internal
-        pure
-        returns (Fr newEvaluation)
-    {
-        Fr univariateEval = Fr.wrap(1) + (roundChallenge * (gateChallenge - Fr.wrap(1)));
-        newEvaluation = currentEvaluation * univariateEval;
-    }
-
-    function computeCorrectingFactor(Fr[CONST_PROOF_SIZE_LOG_N] memory roundChallenges) internal view returns (Fr) {
-        Fr one = Fr.wrap(1);
-        Fr evaluation = one;
-        for (uint256 i = 2; i < logN; i++) {
-            evaluation = evaluation * roundChallenges[i];
-        }
-        return one - evaluation;
     }
 
     uint256 constant LIBRA_COMMITMENTS = 3;
@@ -417,11 +382,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
         scalars[boundary++] = mem.constantTermAccumulator;
 
-        bool consistencyVerified =
-            checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation);
-        if (!consistencyVerified) {
+        if (!checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation)) {
             revert ConsistencyCheckFailed();
         }
+
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
         commitments[boundary] = quotient_commitment;
@@ -448,7 +412,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr geminiR,
         Fr[CONST_PROOF_SIZE_LOG_N] memory uChallenges,
         Fr libraEval
-    ) internal view returns (bool) {
+    ) internal view returns (bool check) {
         Fr one = Fr.wrap(1);
         Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one;
         if (vanishingPolyEval == Fr.wrap(0)) {
@@ -486,7 +450,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
                 * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
         mem.diff = mem.diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
 
-        return (mem.diff == Fr.wrap(0));
+        check = mem.diff == Fr.wrap(0);
     }
 
     // This implementation is the same as above with different constants

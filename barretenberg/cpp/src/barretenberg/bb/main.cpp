@@ -14,6 +14,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
@@ -570,7 +571,7 @@ void contract(const std::string& output_path, const std::string& vk_path)
 }
 
 /**
- * @brief Writes a Honk Solidity verifier contract for an ACIR circuit to a file
+ * @brief Writes a Honk Zero Knowledge Solidity verifier contract for an ACIR circuit to a file
  *
  * Communication:
  * - stdout: The Solidity verifier contract is written to stdout as a string
@@ -593,6 +594,40 @@ void contract_honk(const std::string& output_path, const std::string& vk_path)
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
     std::string contract = get_honk_solidity_verifier(vk);
+
+    if (output_path == "-") {
+        writeStringToStdout(contract);
+        vinfo("contract written to stdout");
+    } else {
+        write_file(output_path, { contract.begin(), contract.end() });
+        vinfo("contract written to: ", output_path);
+    }
+}
+
+/**
+ * @brief Writes a Honk Solidity verifier contract for an ACIR circuit to a file
+ *
+ * Communication:
+ * - stdout: The Solidity verifier contract is written to stdout as a string
+ * - Filesystem: The Solidity verifier contract is written to the path specified by outputPath
+ *
+ * Note: The fact that the contract was computed is for an ACIR circuit is not of importance
+ * because this method uses the verification key to compute the Solidity verifier contract
+ *
+ * @param output_path Path to write the contract to
+ * @param vk_path Path to the file containing the serialized verification key
+ */
+void contract_honk_zk(const std::string& output_path, const std::string& vk_path)
+{
+    using VerificationKey = UltraKeccakZKFlavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+
+    auto g2_data = get_bn254_g2_data(CRS_PATH);
+    srs::init_crs_factory({}, g2_data);
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+    std::string contract = get_honk_zk_solidity_verifier(vk);
 
     if (output_path == "-") {
         writeStringToStdout(contract);
@@ -916,6 +951,7 @@ void prove_honk(const std::string& bytecodePath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath, recursive);
     auto proof = prover.construct_proof();
+    info("proof length: ", proof.size());
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
@@ -1429,6 +1465,9 @@ int main(int argc, char* argv[])
         } else if (command == "contract_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract_honk(output_path, vk_path);
+        } else if (command == "contract_ultra_honk_zk") {
+            std::string output_path = get_option(args, "-o", "./target/contract.sol");
+            contract_honk_zk(output_path, vk_path);
         } else if (command == "write_vk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk(bytecode_path, output_path, recursive);
@@ -1485,6 +1524,9 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_keccak_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
+        } else if (command == "prove_ultra_keccak_honk_zk") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk<UltraKeccakZKFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
@@ -1492,6 +1534,8 @@ int main(int argc, char* argv[])
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "verify_ultra_keccak_honk_zk") {
+            return verify_honk<UltraKeccakZKFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_rollup_honk") {
             return verify_honk<UltraRollupFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {

@@ -38,11 +38,6 @@ function build {
       --optimize \
       --optimizer-runs 200
 
-    # Step 3: Test the Honk ZK verifier (temporary)
-    forge test --match-contract Add2HonkZKTest --match-test testValidProof
-    forge test --match-contract BlakeZKTest --match-test testValidProof
-    forge test --match-contract ECDSAZKTest --match-test testValidProof
-
     cache_upload $artifact out
   fi
   github_endgroup

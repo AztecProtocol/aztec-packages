@@ -40,7 +40,7 @@ contract Add2HonkTest is TestBaseHonk {
         (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
 
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
-
+        console.log("wii");
         console.log("Proof verified");
     }
 }

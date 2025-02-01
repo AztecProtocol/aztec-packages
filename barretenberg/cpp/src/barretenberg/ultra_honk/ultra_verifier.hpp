@@ -22,7 +22,9 @@ template <typename Flavor> class UltraVerifier_ {
         const std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>>& ipa_verification_key = nullptr)
         : verification_key(std::make_shared<DeciderVK>(verifier_key))
         , ipa_verification_key(ipa_verification_key)
-    {}
+    {
+        info("public input size: ", verifier_key->num_public_inputs);
+    }
 
     bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {});
 
