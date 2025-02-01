@@ -71,9 +71,9 @@ bootNode:
     enabled: "true"
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
-  maxOldSpaceSize: "3584"
+  maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -127,9 +127,9 @@ validator:
     failureThreshold: 120
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
-  maxOldSpaceSize: "3584"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   attestationPollingInterval: 1000
@@ -161,9 +161,9 @@ proverNode:
     jobMaxRetries: 3
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
-  maxOldSpaceSize: "3584"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   pollInterval: 1000
@@ -220,8 +220,9 @@ bot:
     spotEnabled: true
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
+  maxOldSpaceSize: "4608"
 
 ethereum:
   replicas: 1
@@ -289,8 +290,9 @@ proverAgent:
     hardwareConcurrency: ""
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
+  maxOldSpaceSize: "4608"
   pollInterval: 200
 
 proverBroker:
@@ -306,9 +308,9 @@ proverBroker:
   dataDir: "/data"
   resources:
     requests:
-      memory: "4Gi"
+      memory: "5Gi"
       cpu: "1.5"
-  maxOldSpaceSize: "3584"
+  maxOldSpaceSize: "4608"
 
 jobs:
   deployL1Verifier:
