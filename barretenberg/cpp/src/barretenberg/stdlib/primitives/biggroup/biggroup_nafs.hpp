@@ -515,7 +515,6 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
-            // info(i, " next entry false");
             bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
@@ -530,10 +529,8 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
                 ctx->create_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
             }
-            // info(bit);
             naf_entries[num_rounds - i - 1] = bit;
         } else {
-            // info(i, " next entry true");
             bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
@@ -549,7 +546,6 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             }
             naf_entries[num_rounds - i - 1] = bit;
-            // info(bit);
         }
     }
     naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
@@ -601,9 +597,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
-
         Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
-
         Fr accumulator = reconstructed_positive - reconstructed_negative;
         accumulator.assert_equal(scalar);
     }

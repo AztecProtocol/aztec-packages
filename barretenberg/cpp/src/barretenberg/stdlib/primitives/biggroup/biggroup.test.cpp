@@ -386,7 +386,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input(element::random_element());
-            fr scalar(fr(6));
+            fr scalar(fr::random_element());
             if (uint256_t(scalar).get_bit(0)) {
                 scalar -= fr(1); // make sure to add skew
             }
@@ -399,7 +399,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = P * x;
-            info(c);
             std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
@@ -421,9 +420,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input(element::random_element());
-            fr scalar(fr(6));
+            // Get 128-bit scalar
+            uint256_t scalar_raw = fr::random_element();
+            scalar_raw.data[2] = 0ULL;
+            scalar_raw.data[3] = 0ULL;
+            fr scalar = fr(scalar_raw);
+            // Add skew
             if (uint256_t(scalar).get_bit(0)) {
-                scalar -= fr(1); // make sure to add skew
+                scalar -= fr(1);
             }
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
@@ -434,7 +438,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = P.template scalar_mul<128>(x);
-            info(c);
             std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
@@ -456,8 +459,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         element input = element::infinity();
 
-        info(input);
-
         fr scalar(fr(6));
         if (uint256_t(scalar).get_bit(0)) {
             scalar -= fr(1); // make sure to add skew
@@ -471,7 +472,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
         element_ct c = P.template scalar_mul<128>(x);
-        info(c);
         std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
         // Check the result of the multiplication has a tag that's the union of inputs' tags
@@ -1414,7 +1414,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_bn254_endo_batch_mul()
     {
-        const size_t num_big_points = 0;
+        const size_t num_big_points = 2;
         const size_t num_small_points = 1;
         Builder builder;
         std::vector<affine_element> big_points;
@@ -1463,10 +1463,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             union_tag = OriginTag(
                 union_tag, small_circuit_points[i].get_origin_tag(), small_circuit_scalars[i].get_origin_tag());
         }
-        std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+
         element_ct result_point = element_ct::bn254_endo_batch_mul(
             big_circuit_points, big_circuit_scalars, small_circuit_points, small_circuit_scalars, 128);
-        std::cerr << "gates after mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
         // Check that the resulting tag is a union of input tags
         EXPECT_EQ(result_point.get_origin_tag(), union_tag);
