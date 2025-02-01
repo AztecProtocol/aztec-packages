@@ -16,7 +16,6 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { Blob } from '@aztec/foundation/blob';
-import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 
@@ -34,8 +33,6 @@ const mockGovernanceProposerAddress = EthAddress.random().toString();
 const mockForwarderAddress = EthAddress.random().toString();
 const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
-
-const logger = createLogger('SequencerPublisher');
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
@@ -218,9 +215,6 @@ describe('SequencerPublisher', () => {
 
     await publisher.sendRequests();
     expect(forwarder.forward).toHaveBeenCalledTimes(1);
-    logger.info('asdf');
-    logger.info('asdf');
-    logger.info('asdf');
     const blobInput = Blob.getEthBlobEvaluationInputs(expectedBlobs);
 
     const args = [

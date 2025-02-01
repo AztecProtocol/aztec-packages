@@ -21,7 +21,7 @@ import {
   type L1GasConfig,
   type L1TxRequest,
   type L1TxUtilsWithBlobs,
-  type RollupContract,
+  RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
@@ -606,7 +606,7 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(9n, true),
+                slot: toHex(RollupContract.checkBlobSlot, true),
                 value: toHex(0n, true),
               },
             ],

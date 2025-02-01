@@ -35,13 +35,14 @@ describe('e2e_gov_proposal', () => {
       ethereumSlotDuration,
       salt: 420,
       minTxsPerBlock: 8,
+      enforceTimeTable: true,
     }));
   }, 3 * 60000);
 
   afterEach(() => teardown());
 
   it(
-    'should produce blocks with a bunch of transactions',
+    'should build/propose blocks while voting',
     async () => {
       const { address: newGovernanceProposerAddress } = await deployL1Contract(
         deployL1ContractsValues.walletClient,
@@ -71,6 +72,11 @@ describe('e2e_gov_proposal', () => {
       logger.info(`Warping to round ${round + 1n} at slot ${nextRoundBeginsAtSlot}`);
       await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp));
 
+      // Now we submit a bunch of transactions to the PXE.
+      // We know that this will last at least as long as the round duration,
+      // since we wait for the txs to be mined, and do so `roundDuration` times.
+      // Simultaneously, we should be voting for the proposal in every slot.
+
       for (let i = 0; i < roundDuration; i++) {
         const txs = await submitTxsTo(pxe as PXEService, 8, logger);
         await Promise.all(
@@ -80,6 +86,7 @@ describe('e2e_gov_proposal', () => {
           }),
         );
       }
+
       const votes = await governanceProposer.getProposalVotes(
         deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round + 1n,

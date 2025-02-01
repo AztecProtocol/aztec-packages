@@ -1,4 +1,4 @@
-import { type NodeInfo, type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
 import {
   GovernanceProposerContract,
   L1TxUtils,
@@ -58,6 +58,9 @@ describe('spartan_upgrade_governance_proposer', () => {
     nodeInfo = await pxe.getNodeInfo();
   });
 
+  // We need a separate account to deploy the new governance proposer
+  // because the underlying validators are currently producing blob transactions
+  // and you can't submit blob and non-blob transactions from the same account
   const setupDeployerAccount = async () => {
     const chain = createEthereumChain(ETHEREUM_HOST, 1337);
     const { walletClient: validatorWalletClient } = createL1Clients(ETHEREUM_HOST, MNEMONIC, chain.chainInfo);
@@ -84,29 +87,7 @@ describe('spartan_upgrade_governance_proposer', () => {
   it(
     'should deploy new governance proposer',
     async () => {
-      // We need a separate account to deploy the new governance proposer
-      // because the underlying validators are currently producing blob transactions
-      // and you can't submit blob and non-blob transactions from the same account
-      const { walletClient: l1WalletClient, publicClient: l1PublicClient } = await setupDeployerAccount();
-
-      debugLogger.info('asdf2');
-      const { address: newGovernanceProposerAddress } = await deployL1Contract(
-        l1WalletClient,
-        l1PublicClient,
-        NewGovernanceProposerPayloadAbi,
-        NewGovernanceProposerPayloadBytecode,
-        [nodeInfo.l1ContractAddresses.registryAddress.toString()],
-        '0x2a', // salt
-      );
-      debugLogger.info('asdf3');
-      expect(newGovernanceProposerAddress).toBeDefined();
-      debugLogger.info(`newGovernanceProposerAddress: ${newGovernanceProposerAddress.toString()}`);
-
-      const rollup = new RollupContract(l1PublicClient, nodeInfo.l1ContractAddresses.rollupAddress.toString());
-      const governanceProposer = new GovernanceProposerContract(
-        l1PublicClient,
-        nodeInfo.l1ContractAddresses.governanceProposerAddress.toString(),
-      );
+      /** Helpers */
       const govInfo = async () => {
         const bn = await l1PublicClient.getBlockNumber();
         const slot = await rollup.getSlotNumber();
@@ -123,9 +104,30 @@ describe('spartan_upgrade_governance_proposer', () => {
         return { bn, slot, round, info, leaderVotes };
       };
 
+      /** Setup */
+
+      const { walletClient: l1WalletClient, publicClient: l1PublicClient } = await setupDeployerAccount();
+
+      const { address: newGovernanceProposerAddress } = await deployL1Contract(
+        l1WalletClient,
+        l1PublicClient,
+        NewGovernanceProposerPayloadAbi,
+        NewGovernanceProposerPayloadBytecode,
+        [nodeInfo.l1ContractAddresses.registryAddress.toString()],
+        '0x2a', // salt
+      );
+      expect(newGovernanceProposerAddress).toBeDefined();
+      expect(newGovernanceProposerAddress.equals(EthAddress.ZERO)).toBeFalsy();
+      debugLogger.info(`newGovernanceProposerAddress: ${newGovernanceProposerAddress.toString()}`);
       await updateSequencersConfig(config, {
         governanceProposerPayload: newGovernanceProposerAddress,
       });
+
+      const rollup = new RollupContract(l1PublicClient, nodeInfo.l1ContractAddresses.rollupAddress.toString());
+      const governanceProposer = new GovernanceProposerContract(
+        l1PublicClient,
+        nodeInfo.l1ContractAddresses.governanceProposerAddress.toString(),
+      );
 
       let info = await govInfo();
       expect(info.bn).toBeDefined();
@@ -135,6 +137,10 @@ describe('spartan_upgrade_governance_proposer', () => {
       const quorumSize = await governanceProposer.getQuorumSize();
       debugLogger.info(`quorumSize: ${quorumSize}`);
       expect(quorumSize).toBeGreaterThan(0);
+
+      /** GovernanceProposer Voting */
+
+      // Wait until we have enough votes to execute the proposal.
       while (true) {
         info = await govInfo();
         debugLogger.info(`Leader votes: ${info.leaderVotes}`);

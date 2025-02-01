@@ -657,7 +657,7 @@ export class L1TxUtils {
   public async tryGetErrorFromRevertedTx(
     data: Hex,
     args: {
-      args: any[];
+      args: readonly any[];
       functionName: string;
       abi: Abi;
       address: Hex;

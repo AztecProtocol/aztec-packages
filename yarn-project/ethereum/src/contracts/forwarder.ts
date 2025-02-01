@@ -5,6 +5,7 @@ import { ForwarderAbi, ForwarderBytecode } from '@aztec/l1-artifacts';
 import {
   type Account,
   type Chain,
+  type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
@@ -68,16 +69,17 @@ export class ForwarderContract {
     requests = requests.filter(request => request.to !== null);
     const toArgs = requests.map(request => request.to!);
     const dataArgs = requests.map(request => request.data!);
-    const data = encodeFunctionData({
+    const forwarderFunctionData: EncodeFunctionDataParameters<typeof ForwarderAbi, 'forward'> = {
       abi: ForwarderAbi,
       functionName: 'forward',
       args: [toArgs, dataArgs],
-    });
+    };
+    const encodedForwarderData = encodeFunctionData(forwarderFunctionData);
 
     const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction(
       {
         to: this.forwarder.address,
-        data,
+        data: encodedForwarderData,
       },
       gasConfig,
       blobConfig,
@@ -88,10 +90,9 @@ export class ForwarderContract {
       return { receipt, gasPrice, stats };
     } else {
       logger.error('Forwarder transaction failed', { receipt });
+
       const args = {
-        args: [toArgs, dataArgs],
-        functionName: 'forward',
-        abi: ForwarderAbi,
+        ...forwarderFunctionData,
         address: this.forwarder.address,
       };
 
@@ -102,8 +103,9 @@ export class ForwarderContract {
         if (maxFeePerBlobGas === undefined) {
           errorMsg = 'maxFeePerBlobGas is required to get the error message';
         } else {
+          logger.debug('Trying to get error from reverted tx with blob config');
           errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(
-            data,
+            encodedForwarderData,
             args,
             {
               blobs: blobConfig.blobs,
@@ -124,8 +126,8 @@ export class ForwarderContract {
           );
         }
       } else {
-        logger.info('Trying to get error from reverted tx without blob config');
-        errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(data, args, undefined, []);
+        logger.debug('Trying to get error from reverted tx without blob config');
+        errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
       }
 
       return { receipt, gasPrice, errorMsg };
