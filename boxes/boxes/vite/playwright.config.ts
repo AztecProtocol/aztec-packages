@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 3,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://127.0.0.1:5173",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "on-first-retry",
@@ -31,7 +31,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn serve",
+    command: "yarn serve --host",
     port: 5173,
   },
 });
