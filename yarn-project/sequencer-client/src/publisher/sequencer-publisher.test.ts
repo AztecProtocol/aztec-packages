@@ -247,6 +247,7 @@ describe('SequencerPublisher', () => {
       // val + (val * 20n) / 100n
       { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
       { blobs: expectedBlobs.map(b => b.data), kzg },
+      expect.anything(), // the logger
     );
   });
 
