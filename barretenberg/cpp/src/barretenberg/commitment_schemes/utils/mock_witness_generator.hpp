@@ -29,11 +29,6 @@ template <typename Curve> struct MockClaimGenerator {
         std::vector<Polynomial> polys;
         std::vector<Commitment> commitments;
         std::vector<Fr> evals;
-
-        // Polynomial (Polynomial::*operation)() const; // Polynomial member function ptr
-
-        // ClaimData(Polynomial (Polynomial::*op)() const = &Polynomial::identity)
-        //     : operation(op){};
     };
 
     ClaimData unshifted;
@@ -88,32 +83,27 @@ template <typename Curve> struct MockClaimGenerator {
         // Construct claim data for polynomials that are to-be-shifted
         for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
-            to_be_shifted.commitments.push_back(ck->commit(poly));
+            Commitment commitment = ck->commit(poly);
+            to_be_shifted.commitments.push_back(commitment);
             to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
-            to_be_shifted.polys.push_back(std::move(poly));
+            to_be_shifted.polys.push_back(poly.share());
+            // Populate the unshifted counterpart in the unshifted claims
+            unshifted.commitments.push_back(commitment);
+            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.polys.push_back(std::move(poly));
         }
 
         // Construct claim data for polynomials that are to-be-right-shifted-by-k
         for (size_t idx = 0; idx < num_to_be_right_shifted_by_k; idx++) {
             Polynomial poly = Polynomial::random(poly_size - k_magnitude, poly_size, 0);
-            to_be_right_shifted_by_k.commitments.push_back(ck->commit(poly));
+            Commitment commitment = ck->commit(poly);
+            to_be_right_shifted_by_k.commitments.push_back(commitment);
             to_be_right_shifted_by_k.evals.push_back(poly.right_shifted(k_magnitude).evaluate_mle(mle_opening_point));
-            to_be_right_shifted_by_k.polys.push_back(std::move(poly));
-        }
-
-        // Add an unshifted counterpart for each to-be-shifted claim
-        for (const auto& [poly, comm] : zip_view(to_be_shifted.polys, to_be_shifted.commitments)) {
-            unshifted.polys.push_back(poly.share());
-            unshifted.commitments.push_back(comm);
+            to_be_right_shifted_by_k.polys.push_back(poly.share());
+            // Populate the unshifted counterpart in the unshifted claims
+            unshifted.commitments.push_back(commitment);
             unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
-        }
-
-        // Add an unshifted counterpart for each to-be-shifted-by-k claim
-        for (const auto& [poly, comm] :
-             zip_view(to_be_right_shifted_by_k.polys, to_be_right_shifted_by_k.commitments)) {
-            unshifted.polys.push_back(poly.share());
-            unshifted.commitments.push_back(comm);
-            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.polys.push_back(std::move(poly));
         }
 
         polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
