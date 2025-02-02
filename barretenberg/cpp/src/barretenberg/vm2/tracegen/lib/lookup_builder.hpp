@@ -13,6 +13,9 @@
 
 namespace bb::avm2::tracegen {
 
+// Add new selector for optimizing inverse computations
+static constexpr Column SEL_COUNT_NONZERO = Column::sel_count_nonzero;
+
 template <typename LookupSettings_> class BaseLookupTraceBuilder : public InteractionBuilderInterface {
   public:
     ~BaseLookupTraceBuilder() override = default;
@@ -21,6 +24,11 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
     {
         init(trace);
 
+        // Initialize sel_count_nonzero to 0
+        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
+            trace.set(LookupSettings::SEL_COUNT_NONZERO, row, FF::zero());
+        });
+
         // Let "src_sel {c1, c2, ...} in dst_sel {d1, d2, ...}" be a lookup,
         // For each row that has a 1 in the src_sel, we take the values of {c1, c2, ...},
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
@@ -28,21 +36,25 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         // The complexity is O(|src_selector|) * O(find_in_dst).
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
             assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
+            (void)src_sel_value;
 
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
-            uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
-            trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
+            uint32_t dst_row = find_in_dst(src_values);
 
-            // We set a dummy value in the inverse column so that the size of the column is right.
-            // The correct value will be set by the prover.
+            // Update counts and sel_count_nonzero
+            FF new_count = trace.get(LookupSettings::COUNTS, dst_row) + 1;
+            trace.set(LookupSettings::COUNTS, dst_row, new_count);
+            trace.set(LookupSettings::SEL_COUNT_NONZERO, dst_row, FF::one());
+
+            // Set dummy value for inverse
             trace.set(LookupSettings::INVERSES, row, 0xdeadbeef);
         });
 
-        // We set a dummy value in the inverse column so that the size of the column is right.
-        // The correct value will be set by the prover.
+        // Set dummy values for inverses in destination rows
         trace.visit_column(LookupSettings::DST_SELECTOR,
-                           [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
+                         [&](uint32_t row, const FF&) {
+                             trace.set(LookupSettings::INVERSES, row, 0xdeadbeef);
+                         });
     }
 
   protected:
@@ -89,6 +101,80 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
     // TODO: Using the whole tuple as the key is not memory efficient.
     unordered_flat_map<ArrayTuple, uint32_t> row_idx;
 };
+
+// Optimize inverse computation by using sel_count_nonzero
+template <typename AllEntities>
+static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+{
+    // Only compute inverses for rows with active source selector or non-zero count
+    return (in._src_selector() == 1 || in._sel_count_nonzero() == 1);
+}
+
+// Add constraint to ensure sel_count_nonzero is correct
+template <typename Builder>
+void add_sel_count_nonzero_constraint(Builder& builder, const FF& count)
+{
+    // sel_count_nonzero == 1 <=> count != 0
+    builder.assert_equal(sel_count_nonzero, count != 0);
+}
+
+// Add efficient traversal of non-zero rows for inverse computation
+template <typename Settings, typename Trace>
+void compute_inverses(Trace& trace)
+{
+    // Use trace object to efficiently visit non-zero rows
+    trace.visit_nonzero_rows([&](uint32_t row) {
+        if (trace.get(Settings::SRC_SELECTOR, row) == 1 ||
+            trace.get(Settings::SEL_COUNT_NONZERO, row) == 1) {
+            // Compute and set inverse only for relevant rows
+            FF inverse = compute_inverse_for_row<Settings>(trace, row);
+            trace.set(Settings::INVERSES, row, inverse);
+        } else {
+            // Set dummy value for other rows
+            trace.set(Settings::INVERSES, row, 0xdeadbeef);
+        }
+    });
+}
+
+// Helper function to compute inverse for a specific row
+template <typename Settings, typename Trace>
+FF compute_inverse_for_row(Trace& trace, uint32_t row)
+{
+    // Get values needed for inverse computation
+    auto src_values = trace.get_multiple(Settings::SRC_COLUMNS, row);
+    auto dst_values = trace.get_multiple(Settings::DST_COLUMNS, row);
+    return compute_lookup_inverse(src_values, dst_values);
+}
+
+// Original (unoptimized) inverse computation for testing/comparison
+template <typename Settings, typename Trace>
+void compute_inverses_original(Trace& trace)
+{
+    // Iterate through all rows
+    for (uint32_t row = 0; row < trace.size(); row++) {
+        if (trace.get(Settings::SRC_SELECTOR, row) == 1 ||
+            trace.get(Settings::DST_SELECTOR, row) == 1) {
+            // Compute inverse for every row with active selector
+            FF inverse = compute_inverse_for_row<Settings>(trace, row);
+            trace.set(Settings::INVERSES, row, inverse);
+        } else {
+            trace.set(Settings::INVERSES, row, 0xdeadbeef);
+        }
+    }
+}
+
+// Compute inverse for lookup relation
+template <typename T, size_t N>
+FF compute_lookup_inverse(const std::array<T, N>& src_values, const std::array<T, N>& dst_values)
+{
+    // Compute product of differences for lookup relation
+    FF product = FF::one();
+    for (size_t i = 0; i < N; ++i) {
+        product *= (src_values[i] - dst_values[i]);
+    }
+    // Return inverse of the product
+    return product.invert();
+}
 
 } // namespace bb::avm2::tracegen
 
