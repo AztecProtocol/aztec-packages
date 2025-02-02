@@ -11,6 +11,10 @@ network:
   public: false
   setupL2Contracts: true
 
+  # If true, pods are scheduled onto specific node pools using selectors
+  # This is only applicable to GKE deployments
+  gke: false
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -67,9 +71,9 @@ bootNode:
     enabled: "true"
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -123,9 +127,9 @@ validator:
     failureThreshold: 120
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   attestationPollingInterval: 1000
@@ -157,9 +161,9 @@ proverNode:
     jobMaxRetries: 3
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   pollInterval: 1000
@@ -186,7 +190,7 @@ pxe:
   resources:
     requests:
       memory: "4Gi"
-      cpu: "1"
+      cpu: "1.5"
 
 bot:
   enabled: true
@@ -212,10 +216,13 @@ bot:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
 
 ethereum:
   replicas: 1
@@ -236,16 +243,19 @@ ethereum:
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1"
+        cpu: "1.5"
     storageSize: "80Gi"
   beacon:
+    externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
     service:
       port: 5052
       targetPort: 5052
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1"
+        cpu: "1.5"
     storageSize: "80Gi"
   validator:
     resources:
@@ -262,7 +272,7 @@ ethereum:
   resources:
     requests:
       memory: "4Gi"
-      cpu: "1"
+      cpu: "1.5"
   storageSize: "80Gi"
   deployL1ContractsPrivateKey:
 
@@ -274,14 +284,15 @@ proverAgent:
   pollIntervalMs: 1000
   proofTypes: ["foo", "bar", "baz"]
   gke:
-    spotEnabled: false
+    spotEnabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   pollInterval: 200
 
 proverBroker:
@@ -297,9 +308,9 @@ proverBroker:
   dataDir: "/data"
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
 
 jobs:
   deployL1Verifier:
