@@ -44,6 +44,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
 
+  public get dataDirectory(): string {
+    return this.dataDir;
+  }
+
   private async start() {
     this.writerQueue.start();
 
