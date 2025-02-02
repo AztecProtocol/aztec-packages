@@ -248,6 +248,7 @@ StatsResponse LMDBStoreWrapper::get_stats()
 
 BoolResponse LMDBStoreWrapper::close()
 {
+    _msg_processor.close();
     _store.reset(nullptr);
     return { true };
 }
