@@ -308,18 +308,18 @@ proverAgent:
 proverBroker:
   resources:
     requests:
-      memory: "5.5Gi"
+      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
-  maxOldSpaceSize: "5122"
+  maxOldSpaceSize: "4608"
 
 proverNode:
   resources:
     requests:
-      memory: "5.5Gi"
+      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
-  maxOldSpaceSize: "5122"
+  maxOldSpaceSize: "4608"
 
 bot:
   replicas: 10
