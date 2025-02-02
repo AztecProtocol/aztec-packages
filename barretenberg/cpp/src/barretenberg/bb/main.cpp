@@ -826,7 +826,7 @@ int main(int argc, char* argv[])
             };
         }();
 
-        // trigger build
+        // trigger rebuild
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
             info(flags);
             if (command == "prove") {
