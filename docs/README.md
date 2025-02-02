@@ -1,4 +1,3 @@
-
 # Aztec Network Documentation
 
 Documentation for the Aztec Network, built with docusaurus
@@ -152,3 +151,39 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.
+
+## Noir Documentation Generation
+
+A special generator is used to generate documentation for Noir code that supports Rust-like syntax.
+
+### Usage
+
+1. Run the documentation generator:
+```bash
+node src/preprocess/generate_noir_docs.js <source_path> <output_path>
+```
+
+### Supported Documentation Tags
+
+- `#[doc = "..."]` - main documentation
+- `#[deprecated]` - deprecation notice
+- `#[example]` - usage examples
+- Also supports existing `docs:start` and `docs:end` tags
+
+### Code Documentation Example
+
+```noir
+#[doc = "Represents a value note"]
+pub struct ValueNote {
+    #[doc = "The note value"]
+    value: Field,
+    #[doc = "The note owner"]
+    owner: Field,
+}
+
+#[doc = "Creates a new value note"]
+#[example = "let note = ValueNote::new(100, owner);"]
+pub fn new(value: Field, owner: Field) -> ValueNote {
+    ValueNote { value, owner }
+}
+```
