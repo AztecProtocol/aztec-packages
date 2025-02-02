@@ -1,6 +1,7 @@
 #!/bin/bash
 # Called by 'parallelise' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
 
 cmd=$1
 # Remove the rebuild hash (first field) to leave the test command.
