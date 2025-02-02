@@ -123,9 +123,13 @@ template <typename Curve> class GeminiProver_ {
 
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
+        RefVector<Polynomial> to_be_shifted_by_k;   // set of polynomials to be right shifted by k
+
+        size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
+        Polynomial batched_to_be_shifted_by_k;   // linear combination of to-be-shifted-by-k polynomials
 
       public:
         PolynomialBatcher(const size_t full_batched_size)
@@ -136,10 +140,17 @@ template <typename Curve> class GeminiProver_ {
 
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
+        bool has_to_be_shifted_by_k() const { return to_be_shifted_by_k.size() > 0; }
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
+        void set_to_be_shifted_by_k(RefVector<Polynomial> polynomials, const size_t shift_magnitude)
+        {
+            ASSERT(k_shift_magnitude % 2 == 0); // k must be even for the formulas herein to be valid
+            to_be_shifted_by_k = polynomials;
+            k_shift_magnitude = shift_magnitude;
+        }
 
         // Initialize the random polynomial used to add randomness to the batched polynomials for ZK
         void set_random_polynomial(Polynomial&& random)
@@ -185,6 +196,12 @@ template <typename Curve> class GeminiProver_ {
                 full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ = F + G/X
             }
 
+            // compute the linear combination H of the to-be-shifted-by-k polynomials
+            if (has_to_be_shifted_by_k()) {
+                batch(batched_to_be_shifted_by_k, to_be_shifted_by_k);
+                full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ = F + G/X + X^k*H
+            }
+
             return full_batched;
         }
 
@@ -207,14 +224,20 @@ template <typename Curve> class GeminiProver_ {
                 A_0_pos += batched_unshifted; // A₀₊ += F
             }
 
+            if (has_to_be_shifted_by_k()) {
+                Fr r_pow_k = r_challenge.pow(k_shift_magnitude); // r^k
+                batched_to_be_shifted_by_k *= r_pow_k;
+                A_0_pos += batched_to_be_shifted_by_k; // A₀₊ += r^k * H
+            }
+
             Polynomial A_0_neg = A_0_pos;
 
             if (has_to_be_shifted_by_one()) {
                 Fr r_inv = r_challenge.invert();       // r⁻¹
                 batched_to_be_shifted_by_one *= r_inv; // G = G/r
 
-                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ = F + G/r
-                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ = F - G/r
+                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ += G/r
+                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ -= G/r
             }
 
             return { A_0_pos, A_0_neg };
