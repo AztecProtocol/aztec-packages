@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738443238685,
+  "lastUpdate": 1738589206380,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "507ae9df9c369603da20f25ccc228729ee2733cd",
-          "message": "chore:  move shared pcs functionality to internal library in solidity and small refactorings in sumcheck (#11230)\n\n* functionality that is shared in PCS between the ZK and non-ZK contract\r\nhas been moved to a separate internal library.\r\n* simplified ZK sumcheck and pcs logic",
-          "timestamp": "2025-01-16T13:49:22Z",
-          "tree_id": "0e2de66dabc433e3e0a421e6157821ddac7af3a8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd"
-        },
-        "date": 1737036320369,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19000.743424999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16130.476988000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21541.346078999966,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19117.154511999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4078.367284999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3768.6865319999993 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83965.810647,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83965810000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14609.333038,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14609333000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3066862317,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3066862317 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134279785,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134279785 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 145621965,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 145621965 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84741533+jewelofchaos9@users.noreply.github.com",
+            "name": "defkit",
+            "username": "jewelofchaos9"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dddab22934b3abb798dbf204bccb68b557ee2193",
+          "message": "fix:  barretenber/stdlib/logic bugs (#11651)\n\nChunks are underconstrained if chunk_size  != 32\r\n`a == a_chunk[0] + a_chunk[1] * 2**32  + a_chunk[2] * 2**64...`\r\nTaking \r\n`a_chunk[0]  == a & (2 ** 33 - 1)`\r\n`a_chunk[1] == (a >> 33) & (2 ** 31 - 1)` \r\nWe receive valid witness\r\n\r\n---------\r\n\r\nCo-authored-by: root <root@ip-172-31-2-58.eu-central-1.compute.internal>",
+          "timestamp": "2025-02-03T13:07:41Z",
+          "tree_id": "ab294b01e45ef16fa73f9015cf489ef9726192b3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193"
+        },
+        "date": 1738589199409,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19571.291003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16750.087306 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21533.471905999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18712.34356 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4535.5377549999785,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4158.643636000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72923.275393,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72923275000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13573.823908000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13573824000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3058357023,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3058357023 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142811330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142811330 ns\nthreads: 1"
           }
         ]
       }
