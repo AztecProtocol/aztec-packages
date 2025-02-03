@@ -1,6 +1,7 @@
 ---
 title: Sequencer
 tags: [protocol, sequencer]
+draft: true
 ---
 
 The sequencer is a module responsible for creating and publishing new rollup blocks. This involves fetching txs from the P2P pool, ordering them, executing any public functions, running them through the rollup circuits, assembling the L2 block, and posting it to the L1 rollup contract along with any contract deployment public data.
