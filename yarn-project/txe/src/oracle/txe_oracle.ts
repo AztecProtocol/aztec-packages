@@ -501,6 +501,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+
     return header;
   }
 
@@ -739,6 +741,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
       Fr.ZERO,
     );
+
+    header.globalVariables.blockNumber = new Fr(blockNumber);
 
     l2Block.header = header;
 
