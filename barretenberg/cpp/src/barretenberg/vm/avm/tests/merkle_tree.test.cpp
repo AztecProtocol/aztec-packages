@@ -87,7 +87,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
 
         // We set the conditions up there.
         for (size_t r = 0; r < num_rows; ++r) {
-            Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
+            Relation::accumulate(result, polys.get_row(r), {}, 1);
         }
 
         for (size_t j = 0; j < result.size(); ++j) {

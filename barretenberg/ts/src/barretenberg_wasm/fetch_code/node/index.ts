@@ -14,7 +14,7 @@ function getCurrentDir() {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
+export async function fetchCode(multithreaded: boolean) {
   const path = getCurrentDir() + '/../../barretenberg-threads.wasm.gz';
   const compressedData = await readFile(path);
   const decompressedData = pako.ungzip(new Uint8Array(compressedData));

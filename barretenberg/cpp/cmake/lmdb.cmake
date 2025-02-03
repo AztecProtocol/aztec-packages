@@ -3,7 +3,6 @@ include(ExternalProject)
 set(LMDB_PREFIX "${CMAKE_BINARY_DIR}/_deps/lmdb")
 set(LMDB_INCLUDE "${LMDB_PREFIX}/src/lmdb_repo/libraries/liblmdb")
 set(LMDB_LIB "${LMDB_INCLUDE}/liblmdb.a")
-set(LMDB_HEADER "${LMDB_INCLUDE}/lmdb.h")
 set(LMDB_OBJECT "${LMDB_INCLUDE}/*.o")
 
 ExternalProject_Add(
@@ -16,7 +15,7 @@ ExternalProject_Add(
     BUILD_COMMAND make -C libraries/liblmdb -e XCFLAGS=-fPIC liblmdb.a
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
-    BUILD_BYPRODUCTS ${LMDB_LIB} ${LMDB_HEADER}
+    BUILD_BYPRODUCTS ${LMDB_LIB} ${LMDB_INCLUDE}
 )
 
 add_library(lmdb STATIC IMPORTED GLOBAL)

@@ -100,145 +100,22 @@ template <typename Curve> class GeminiProver_ {
     using Claim = ProverOpeningClaim<Curve>;
 
   public:
-    /**
-     * @brief Class responsible for computation of the batched multilinear polynomials required by the Gemini protocol
-     * @details Opening multivariate polynomials using Gemini requires the computation of three batched polynomials. The
-     * first, here denoted A₀, is a linear combination of all polynomials to be opened. If we denote the linear
-     * combinations (based on challenge rho) of the unshifted and the to-be-shited-by-1 polynomials by F and G,
-     * respectively, then A₀ = F + G/X. This polynomial is "folded" in Gemini to produce d-1 univariate polynomials
-     * Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated batched polynomials A₀₊ = F + G/r, and
-     * A₀₋ = F - G/r. These are required in order to prove the opening of shifted polynomials G_i/X from the commitments
-     * to their unshifted counterparts G_i.
-     * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein that
-     * could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of clarity.
-     */
-    class PolynomialBatcher {
-
-        size_t full_batched_size = 0; // size of the full batched polynomial (generally the circuit size)
-        bool batched_unshifted_initialized = false;
-
-        Polynomial random_polynomial; // random polynomial used for ZK
-        bool has_random_polynomial = false;
-
-        RefVector<Polynomial> unshifted;            // set of unshifted polynomials
-        RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
-
-        Polynomial batched_unshifted;            // linear combination of unshifted polynomials
-        Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
-
-      public:
-        PolynomialBatcher(const size_t full_batched_size)
-            : full_batched_size(full_batched_size)
-            , batched_unshifted(full_batched_size)
-            , batched_to_be_shifted_by_one(Polynomial::shiftable(full_batched_size))
-        {}
-
-        bool has_unshifted() const { return unshifted.size() > 0; }
-        bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
-
-        // Set references to the polynomials to be batched
-        void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
-        void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
-
-        // Initialize the random polynomial used to add randomness to the batched polynomials for ZK
-        void set_random_polynomial(Polynomial&& random)
-        {
-            has_random_polynomial = true;
-            random_polynomial = random;
-        }
-
-        /**
-         * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened
-         * @details If the random polynomial is set, it is added to the batched polynomial for ZK
-         *
-         * @param challenge batching challenge
-         * @param running_scalar power of the batching challenge
-         * @return Polynomial A₀
-         */
-        Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
-        {
-            // lambda for batching polynomials; updates the running scalar in place
-            auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
-                for (auto& poly : polynomials_to_batch) {
-                    batched.add_scaled(poly, running_scalar);
-                    running_scalar *= challenge;
-                }
-            };
-
-            Polynomial full_batched(full_batched_size);
-
-            // if necessary, add randomness to the full batched polynomial for ZK
-            if (has_random_polynomial) {
-                full_batched += random_polynomial;
-            }
-
-            // compute the linear combination F of the unshifted polynomials
-            if (has_unshifted()) {
-                batch(batched_unshifted, unshifted);
-                full_batched += batched_unshifted; // A₀ = F
-            }
-
-            // compute the linear combination G of the to-be-shifted polynomials
-            if (has_to_be_shifted_by_one()) {
-                batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
-                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ = F + G/X
-            }
-
-            return full_batched;
-        }
-
-        /**
-         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F - G/r
-         * @details If the random polynomial is set, it is added to each batched polynomial for ZK
-         *
-         * @param r_challenge partial evaluation challenge
-         * @return std::pair<Polynomial, Polynomial> {A₀₊, A₀₋}
-         */
-        std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
-        {
-            // Initialize A₀₊ and compute A₀₊ += Random and A₀₊ += F as necessary
-            Polynomial A_0_pos(full_batched_size); // A₀₊
-
-            if (has_random_polynomial) {
-                A_0_pos += random_polynomial; // A₀₊ += random
-            }
-            if (has_unshifted()) {
-                A_0_pos += batched_unshifted; // A₀₊ += F
-            }
-
-            Polynomial A_0_neg = A_0_pos;
-
-            if (has_to_be_shifted_by_one()) {
-                Fr r_inv = r_challenge.invert();       // r⁻¹
-                batched_to_be_shifted_by_one *= r_inv; // G = G/r
-
-                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ = F + G/r
-                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ = F - G/r
-            }
-
-            return { A_0_pos, A_0_neg };
-        };
-    };
-
-    static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
+    static std::vector<Polynomial> compute_fold_polynomials(const size_t log_N,
                                                             std::span<const Fr> multilinear_challenge,
-                                                            const Polynomial& A_0);
+                                                            Polynomial&& batched_unshifted,
+                                                            Polynomial&& batched_to_be_shifted,
+                                                            Polynomial&& batched_concatenated = {});
 
-    static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
-        const size_t log_n,
-        PolynomialBatcher& polynomial_batcher,
+    static std::vector<Claim> compute_fold_polynomial_evaluations(
+        const size_t log_N,
+        std::vector<Polynomial>&& fold_polynomials,
         const Fr& r_challenge,
-        const std::vector<Polynomial>& batched_groups_to_be_concatenated = {});
-
-    static std::vector<Claim> construct_univariate_opening_claims(const size_t log_n,
-                                                                  Polynomial&& A_0_pos,
-                                                                  Polynomial&& A_0_neg,
-                                                                  std::vector<Polynomial>&& fold_polynomials,
-                                                                  const Fr& r_challenge);
+        std::vector<Polynomial>&& batched_groups_to_be_concatenated = {});
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,
-                                    PolynomialBatcher& polynomial_batcher,
+                                    RefSpan<Polynomial> f_polynomials,
+                                    RefSpan<Polynomial> g_polynomials,
                                     std::span<Fr> multilinear_challenge,
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,

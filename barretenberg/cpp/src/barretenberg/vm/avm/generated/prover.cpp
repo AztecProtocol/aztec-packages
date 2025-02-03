@@ -50,9 +50,9 @@ void AvmProver::execute_wire_commitments_round()
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
-    const auto& labels = prover_polynomials.get_wires_labels();
+    auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitment_key->commit_sparse(wire_polys[idx]));
     }
 }
 
@@ -66,7 +66,7 @@ void AvmProver::execute_log_derivative_inverse_round()
     bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
         using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
         tasks.push_back([&]() {
-            AVM_TRACK_TIME(std::string("prove/execute_log_derivative_inverse_round/") + std::string(Relation::NAME),
+            AVM_TRACK_TIME(std::string("prove/execute_log_derivative_inverse_round/") + Relation::NAME,
                            (compute_logderivative_inverse<Flavor, Relation>(
                                prover_polynomials, relation_parameters, key->circuit_size)));
         });
@@ -83,8 +83,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
     }
 
     // Send all commitments to the verifier
-    for (auto [label, commitment] :
-         zip_view(prover_polynomials.get_derived_labels(), witness_commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), witness_commitments.get_derived())) {
         transcript->send_to_verifier(label, commitment);
     }
 }
@@ -111,14 +110,13 @@ void AvmProver::execute_relation_check_rounds()
 void AvmProver::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    PolynomialBatcher polynomial_batcher(key->circuit_size);
-    polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(prover_polynomials.get_to_be_shifted());
-
-    const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+    const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(key->circuit_size,
+                                                                             prover_polynomials.get_unshifted(),
+                                                                             prover_polynomials.get_to_be_shifted(),
+                                                                             sumcheck_output.challenge,
+                                                                             commitment_key,
+                                                                             transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

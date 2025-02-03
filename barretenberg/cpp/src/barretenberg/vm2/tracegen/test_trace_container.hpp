@@ -14,8 +14,6 @@ class TestTraceContainer : public TraceContainer {
     using Row = AvmFullRow<FF>;
     using RowTraceContainer = std::vector<Row>;
 
-    static TestTraceContainer from_rows(const RowTraceContainer& rows);
-
     TestTraceContainer() = default;
     TestTraceContainer(const std::vector<std::vector<std::pair<Column, FF>>>& values)
     {

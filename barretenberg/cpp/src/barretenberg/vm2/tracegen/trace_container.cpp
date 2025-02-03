@@ -2,7 +2,6 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -14,7 +13,7 @@ constexpr auto clk_column = Column::precomputed_clk;
 } // namespace
 
 TraceContainer::TraceContainer()
-    : trace(std::make_unique<std::array<SparseColumn, NUM_COLUMNS_WITHOUT_SHIFTS>>())
+    : trace(std::make_unique<std::array<SparseColumn, NUM_COLUMNS>>())
 {}
 
 const FF& TraceContainer::get(Column col, uint32_t row) const

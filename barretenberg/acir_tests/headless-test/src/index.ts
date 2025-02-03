@@ -66,7 +66,7 @@ program
     "Specify the path to the gzip encoded ACIR witness",
     "./target/witness.gz"
   )
-  .action(async ({ bytecodePath, witnessPath, }) => {
+  .action(async ({ bytecodePath, witnessPath, recursive }) => {
     const acir = readBytecodeFile(bytecodePath);
     const witness = readWitnessFile(witnessPath);
     const threads = Math.min(os.cpus().length, 16);

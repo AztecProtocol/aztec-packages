@@ -17,7 +17,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-TEST(ExecutionConstrainingTest, Basic)
+TEST(ExecutionConstrainingTest, AllPositive)
 {
     // clang-format off
     TestTraceContainer trace({
@@ -26,10 +26,10 @@ TEST(ExecutionConstrainingTest, Basic)
     });
     // clang-format on
 
-    check_relation<execution>(trace);
+    check_relation<execution>(trace.as_rows());
 }
 
-TEST(ExecutionConstrainingTest, Continuity)
+TEST(ExecutionConstrainingTest, ContinuityPositive)
 {
     // clang-format off
     TestTraceContainer trace({
@@ -40,7 +40,7 @@ TEST(ExecutionConstrainingTest, Continuity)
     });
     // clang-format on
 
-    check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1, execution::SR_TRACE_CONTINUITY_2);
+    check_relation<execution>(trace.as_rows(), execution::SR_TRACE_CONTINUITY_1, execution::SR_TRACE_CONTINUITY_2);
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
@@ -54,7 +54,8 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_2), "TRACE_CONTINUITY_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace.as_rows(), execution::SR_TRACE_CONTINUITY_2),
+                              "TRACE_CONTINUITY_2");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
@@ -68,8 +69,10 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1), "TRACE_CONTINUITY_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_2), "TRACE_CONTINUITY_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace.as_rows(), execution::SR_TRACE_CONTINUITY_1),
+                              "TRACE_CONTINUITY_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace.as_rows(), execution::SR_TRACE_CONTINUITY_2),
+                              "TRACE_CONTINUITY_2");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenAtTheEnd)
@@ -82,7 +85,8 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenAtTheEnd)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1), "TRACE_CONTINUITY_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace.as_rows(), execution::SR_TRACE_CONTINUITY_1),
+                              "TRACE_CONTINUITY_1");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
@@ -96,7 +100,8 @@ TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_LAST_IS_LAST), "LAST_IS_LAST.*row 1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace.as_rows(), execution::SR_LAST_IS_LAST),
+                              "LAST_IS_LAST.*row 1");
 }
 
 } // namespace

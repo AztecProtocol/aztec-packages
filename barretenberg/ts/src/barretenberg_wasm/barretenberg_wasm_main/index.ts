@@ -63,6 +63,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
     }
+    this.logger('init complete.');
   }
 
   /**
@@ -101,9 +102,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     /* eslint-enable camelcase */
   }
 
-  callWasmExport(funcName: string, inArgs: (Uint8Array | number)[], outLens: (number | undefined)[]) {
+  callWasmExport(funcName: string, inArgs: Uint8Array[], outLens: (number | undefined)[]) {
     const alloc = new HeapAllocator(this);
-    const inPtrs = alloc.getInputs(inArgs);
+    const inPtrs = alloc.copyToMemory(inArgs);
     const outPtrs = alloc.getOutputPtrs(outLens);
     this.call(funcName, ...inPtrs, ...outPtrs);
     const outArgs = this.getOutputArgs(outLens, outPtrs, alloc);

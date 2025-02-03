@@ -3,6 +3,59 @@
 
 namespace bb::avm2 {
 
+AvmFlavor::AllConstRefValues::AllConstRefValues(
+    const RefArray<AvmFlavor::AllConstRefValues::BaseDataType, AvmFlavor::NUM_ALL_ENTITIES>& il)
+    : precomputed_bitwise_input_a(il[0])
+    , precomputed_bitwise_input_b(il[1])
+    , precomputed_bitwise_op_id(il[2])
+    , precomputed_bitwise_output(il[3])
+    , precomputed_clk(il[4])
+    , precomputed_first_row(il[5])
+    , precomputed_sel_bitwise(il[6])
+    , execution_input(il[7])
+    , alu_dst_addr(il[8])
+    , alu_ia(il[9])
+    , alu_ia_addr(il[10])
+    , alu_ib(il[11])
+    , alu_ib_addr(il[12])
+    , alu_ic(il[13])
+    , alu_op(il[14])
+    , alu_sel_op_add(il[15])
+    , execution_addressing_error_idx(il[16])
+    , execution_addressing_error_kind(il[17])
+    , execution_base_address_tag(il[18])
+    , execution_base_address_val(il[19])
+    , execution_clk(il[20])
+    , execution_ex_opcode(il[21])
+    , execution_indirect(il[22])
+    , execution_last(il[23])
+    , execution_op1(il[24])
+    , execution_op1_after_relative(il[25])
+    , execution_op2(il[26])
+    , execution_op2_after_relative(il[27])
+    , execution_op3(il[28])
+    , execution_op3_after_relative(il[29])
+    , execution_op4(il[30])
+    , execution_op4_after_relative(il[31])
+    , execution_pc(il[32])
+    , execution_rop1(il[33])
+    , execution_rop2(il[34])
+    , execution_rop3(il[35])
+    , execution_rop4(il[36])
+    , execution_sel(il[37])
+    , execution_sel_addressing_error(il[38])
+    , execution_sel_op1_is_address(il[39])
+    , execution_sel_op2_is_address(il[40])
+    , execution_sel_op3_is_address(il[41])
+    , execution_sel_op4_is_address(il[42])
+    , lookup_dummy_precomputed_counts(il[43])
+    , lookup_dummy_dynamic_counts(il[44])
+    , perm_dummy_dynamic_inv(il[45])
+    , lookup_dummy_precomputed_inv(il[46])
+    , lookup_dummy_dynamic_inv(il[47])
+    , execution_sel_shift(il[48])
+{}
+
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
@@ -14,6 +67,111 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
         prover_poly = key_poly.shifted();
     }
 }
+
+AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_idx) const
+{
+    return RefArray{ precomputed_bitwise_input_a[row_idx],
+                     precomputed_bitwise_input_b[row_idx],
+                     precomputed_bitwise_op_id[row_idx],
+                     precomputed_bitwise_output[row_idx],
+                     precomputed_clk[row_idx],
+                     precomputed_first_row[row_idx],
+                     precomputed_sel_bitwise[row_idx],
+                     execution_input[row_idx],
+                     alu_dst_addr[row_idx],
+                     alu_ia[row_idx],
+                     alu_ia_addr[row_idx],
+                     alu_ib[row_idx],
+                     alu_ib_addr[row_idx],
+                     alu_ic[row_idx],
+                     alu_op[row_idx],
+                     alu_sel_op_add[row_idx],
+                     execution_addressing_error_idx[row_idx],
+                     execution_addressing_error_kind[row_idx],
+                     execution_base_address_tag[row_idx],
+                     execution_base_address_val[row_idx],
+                     execution_clk[row_idx],
+                     execution_ex_opcode[row_idx],
+                     execution_indirect[row_idx],
+                     execution_last[row_idx],
+                     execution_op1[row_idx],
+                     execution_op1_after_relative[row_idx],
+                     execution_op2[row_idx],
+                     execution_op2_after_relative[row_idx],
+                     execution_op3[row_idx],
+                     execution_op3_after_relative[row_idx],
+                     execution_op4[row_idx],
+                     execution_op4_after_relative[row_idx],
+                     execution_pc[row_idx],
+                     execution_rop1[row_idx],
+                     execution_rop2[row_idx],
+                     execution_rop3[row_idx],
+                     execution_rop4[row_idx],
+                     execution_sel[row_idx],
+                     execution_sel_addressing_error[row_idx],
+                     execution_sel_op1_is_address[row_idx],
+                     execution_sel_op2_is_address[row_idx],
+                     execution_sel_op3_is_address[row_idx],
+                     execution_sel_op4_is_address[row_idx],
+                     lookup_dummy_precomputed_counts[row_idx],
+                     lookup_dummy_dynamic_counts[row_idx],
+                     perm_dummy_dynamic_inv[row_idx],
+                     lookup_dummy_precomputed_inv[row_idx],
+                     lookup_dummy_dynamic_inv[row_idx],
+                     execution_sel_shift[row_idx] };
+}
+
+AvmFlavor::CommitmentLabels::CommitmentLabels()
+{
+    Base::precomputed_bitwise_input_a = "PRECOMPUTED_BITWISE_INPUT_A";
+    Base::precomputed_bitwise_input_b = "PRECOMPUTED_BITWISE_INPUT_B";
+    Base::precomputed_bitwise_op_id = "PRECOMPUTED_BITWISE_OP_ID";
+    Base::precomputed_bitwise_output = "PRECOMPUTED_BITWISE_OUTPUT";
+    Base::precomputed_clk = "PRECOMPUTED_CLK";
+    Base::precomputed_first_row = "PRECOMPUTED_FIRST_ROW";
+    Base::precomputed_sel_bitwise = "PRECOMPUTED_SEL_BITWISE";
+    Base::execution_input = "EXECUTION_INPUT";
+    Base::alu_dst_addr = "ALU_DST_ADDR";
+    Base::alu_ia = "ALU_IA";
+    Base::alu_ia_addr = "ALU_IA_ADDR";
+    Base::alu_ib = "ALU_IB";
+    Base::alu_ib_addr = "ALU_IB_ADDR";
+    Base::alu_ic = "ALU_IC";
+    Base::alu_op = "ALU_OP";
+    Base::alu_sel_op_add = "ALU_SEL_OP_ADD";
+    Base::execution_addressing_error_idx = "EXECUTION_ADDRESSING_ERROR_IDX";
+    Base::execution_addressing_error_kind = "EXECUTION_ADDRESSING_ERROR_KIND";
+    Base::execution_base_address_tag = "EXECUTION_BASE_ADDRESS_TAG";
+    Base::execution_base_address_val = "EXECUTION_BASE_ADDRESS_VAL";
+    Base::execution_clk = "EXECUTION_CLK";
+    Base::execution_ex_opcode = "EXECUTION_EX_OPCODE";
+    Base::execution_indirect = "EXECUTION_INDIRECT";
+    Base::execution_last = "EXECUTION_LAST";
+    Base::execution_op1 = "EXECUTION_OP1";
+    Base::execution_op1_after_relative = "EXECUTION_OP1_AFTER_RELATIVE";
+    Base::execution_op2 = "EXECUTION_OP2";
+    Base::execution_op2_after_relative = "EXECUTION_OP2_AFTER_RELATIVE";
+    Base::execution_op3 = "EXECUTION_OP3";
+    Base::execution_op3_after_relative = "EXECUTION_OP3_AFTER_RELATIVE";
+    Base::execution_op4 = "EXECUTION_OP4";
+    Base::execution_op4_after_relative = "EXECUTION_OP4_AFTER_RELATIVE";
+    Base::execution_pc = "EXECUTION_PC";
+    Base::execution_rop1 = "EXECUTION_ROP1";
+    Base::execution_rop2 = "EXECUTION_ROP2";
+    Base::execution_rop3 = "EXECUTION_ROP3";
+    Base::execution_rop4 = "EXECUTION_ROP4";
+    Base::execution_sel = "EXECUTION_SEL";
+    Base::execution_sel_addressing_error = "EXECUTION_SEL_ADDRESSING_ERROR";
+    Base::execution_sel_op1_is_address = "EXECUTION_SEL_OP1_IS_ADDRESS";
+    Base::execution_sel_op2_is_address = "EXECUTION_SEL_OP2_IS_ADDRESS";
+    Base::execution_sel_op3_is_address = "EXECUTION_SEL_OP3_IS_ADDRESS";
+    Base::execution_sel_op4_is_address = "EXECUTION_SEL_OP4_IS_ADDRESS";
+    Base::perm_dummy_dynamic_inv = "PERM_DUMMY_DYNAMIC_INV";
+    Base::lookup_dummy_precomputed_inv = "LOOKUP_DUMMY_PRECOMPUTED_INV";
+    Base::lookup_dummy_dynamic_inv = "LOOKUP_DUMMY_DYNAMIC_INV";
+    Base::lookup_dummy_precomputed_counts = "LOOKUP_DUMMY_PRECOMPUTED_COUNTS";
+    Base::lookup_dummy_dynamic_counts = "LOOKUP_DUMMY_DYNAMIC_COUNTS";
+};
 
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {

@@ -2,14 +2,14 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/lmdblib/lmdb_database.hpp"
-#include "barretenberg/lmdblib/lmdb_environment.hpp"
-#include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
-#include "barretenberg/lmdblib/lmdb_store_base.hpp"
-#include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
@@ -23,8 +23,6 @@
 #include <utility>
 
 namespace bb::crypto::merkle_tree {
-
-using namespace bb::lmdblib;
 
 struct BlockPayload {
 
@@ -158,18 +156,21 @@ struct BlockIndexPayload {
  * data
  */
 
-class LMDBTreeStore : public LMDBStoreBase {
+class LMDBTreeStore {
   public:
     using Ptr = std::unique_ptr<LMDBTreeStore>;
     using SharedPtr = std::shared_ptr<LMDBTreeStore>;
-    using ReadTransaction = LMDBReadTransaction;
-    using WriteTransaction = LMDBWriteTransaction;
+    using ReadTransaction = LMDBTreeReadTransaction;
+    using WriteTransaction = LMDBTreeWriteTransaction;
     LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders);
     LMDBTreeStore(const LMDBTreeStore& other) = delete;
     LMDBTreeStore(LMDBTreeStore&& other) = delete;
     LMDBTreeStore& operator=(const LMDBTreeStore& other) = delete;
     LMDBTreeStore& operator=(LMDBTreeStore&& other) = delete;
-    ~LMDBTreeStore() override = default;
+    ~LMDBTreeStore() = default;
+
+    WriteTransaction::Ptr create_write_transaction() const;
+    ReadTransaction::Ptr create_read_transaction();
 
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
@@ -232,6 +233,8 @@ class LMDBTreeStore : public LMDBStoreBase {
 
   private:
     std::string _name;
+    std::string _directory;
+    LMDBEnvironment::SharedPtr _environment;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafKeyToIndexDatabase;

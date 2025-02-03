@@ -14,10 +14,6 @@ export default {
   module: {
     rules: [
       {
-        test: /\.gz$/,
-        type: 'asset/resource',
-      },
-      {
         test: /\.tsx?$/,
         use: [{ loader: "ts-loader" }],
       },
@@ -27,23 +23,8 @@ export default {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
     filename: "[name].js",
     chunkFilename: "[name].chunk.js", // This naming pattern is used for chunks produced from code-splitting.
-    library: {
-      type: 'module',
-    },
-    chunkFormat: 'module',
-  },
-  experiments: {
-    outputModule: true,
   },
   plugins: [
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          context: '../../ts/dest/browser',
-          from: '*.gz',
-        },
-      ],
-    }),
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
   ],

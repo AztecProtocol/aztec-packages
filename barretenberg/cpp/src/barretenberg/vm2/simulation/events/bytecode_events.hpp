@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -13,37 +12,25 @@
 
 namespace bb::avm2::simulation {
 
-using BytecodeId = uint8_t;
-
-// Storage and decomposition of bytecode into sliding window.
-struct BytecodeDecompositionEvent {
-    BytecodeId bytecode_id;
-    std::shared_ptr<std::vector<uint8_t>> bytecode;
-};
-
+// TODO: Implement tracegen for this. This event might need to change. Ideally we'd
+// avoid having an event for each iteration of the hashing.
+// It really depends on how we want to separate the concerns between simulation and tracegen.
+// And wether we want to allow events to explode vertically in tracegen.
 struct BytecodeHashingEvent {
-    BytecodeId bytecode_id;
+    ContractClassId class_id;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
+    FF hash;
 };
 
-// This is the event that is emitted when the simulator needs to retrieve bytecode.
-// It might or might not result into the storage/decomposition of a bytecode.
-struct BytecodeRetrievalEvent {
-    BytecodeId bytecode_id;
-    AztecAddress address;
-    AztecAddress siloed_address;
-    ContractInstance contract_instance;
-    ContractClass contract_class;
-    FF nullifier_root;
-    bool error = false;
-};
-
-struct InstructionFetchingEvent {
-    BytecodeId bytecode_id;
+// WARNING: These events and the above will be "linked" by the bytecode column (1 byte per row).
+// Therefore, when generating the trace from this event, it will be absolutely necessary
+// to know where the first row of the bytecode is. That presents design challenges.
+// Question: consider processing in tandem?
+struct BytecodeDecompositionEvent {
+    ContractClassId class_id;
     uint32_t pc;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
-    std::shared_ptr<std::vector<uint8_t>> bytecode;
 };
 
 } // namespace bb::avm2::simulation

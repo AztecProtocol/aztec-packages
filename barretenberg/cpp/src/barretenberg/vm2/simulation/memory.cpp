@@ -1,10 +1,10 @@
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 #include <cstdint>
 #include <memory>
-
-#include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include <unordered_map>
 
 namespace bb::avm2::simulation {
 

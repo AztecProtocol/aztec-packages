@@ -230,16 +230,30 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_da
     read(it, accumulated_data.l2_to_l1_msgs);
 }
 
-struct PublicLog {
-    FF contract_address{};
-    std::array<FF, PUBLIC_LOG_DATA_SIZE_IN_FIELDS> log{};
+struct LogHash {
+    FF value{};
+    uint32_t counter = 0;
+    FF length{};
 };
 
-inline void read(uint8_t const*& it, PublicLog& public_log)
+inline void read(uint8_t const*& it, LogHash& log_hash)
 {
     using serialize::read;
-    read(it, public_log.contract_address);
-    read(it, public_log.log);
+    read(it, log_hash.value);
+    read(it, log_hash.counter);
+    read(it, log_hash.length);
+}
+
+struct ScopedLogHash {
+    LogHash log_hash;
+    FF contract_address{};
+};
+
+inline void read(uint8_t const*& it, ScopedLogHash& scoped_log_hash)
+{
+    using serialize::read;
+    read(it, scoped_log_hash.log_hash);
+    read(it, scoped_log_hash.contract_address);
 }
 
 struct PublicDataWrite {
@@ -268,9 +282,9 @@ struct AvmAccumulatedData {
      */
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
     /**
-     * The public logs emitted from the AVM execution.
+     * The unencrypted logs emitted from the AVM execution.
      */
-    std::array<PublicLog, MAX_PUBLIC_LOGS_PER_TX> public_logs{};
+    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX> unencrypted_logs_hashes{};
     /**
      * The public data writes made in the AVM execution.
      */
@@ -284,7 +298,7 @@ inline void read(uint8_t const*& it, AvmAccumulatedData& accumulated_data)
     read(it, accumulated_data.note_hashes);
     read(it, accumulated_data.nullifiers);
     read(it, accumulated_data.l2_to_l1_msgs);
-    read(it, accumulated_data.public_logs);
+    read(it, accumulated_data.unencrypted_logs_hashes);
     read(it, accumulated_data.public_data_writes);
 };
 

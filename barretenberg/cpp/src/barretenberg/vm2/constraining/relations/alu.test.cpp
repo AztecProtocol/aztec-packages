@@ -17,28 +17,28 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using alu = bb::avm2::alu<FF>;
 
-TEST(AluConstrainingTest, BasicAdd)
+TEST(AvmConstrainingTest, AluPositive)
 {
-    auto trace = TestTraceContainer::from_rows({
+    TestTraceContainer::RowTraceContainer trace = {
         { .alu_ia = 1, .alu_ib = 2, .alu_ic = 3, .alu_sel_op_add = 1 },
-    });
+    };
 
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, NegativeSelNonBoolean)
+TEST(AvmConstrainingTest, AluNegativeBoolean)
 {
-    auto trace = TestTraceContainer::from_rows({
+    TestTraceContainer::RowTraceContainer trace = {
         // Negative test, this should be a boolean only!
         { .alu_sel_op_add = 23 },
-    });
+    };
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_SEL_ADD_BINARY), "SEL_ADD_BINARY");
 }
 
-TEST(AluConstrainingTest, NegativeAdd)
+TEST(AvmConstrainingTest, AluNegativeAdd)
 {
-    auto trace = TestTraceContainer::from_rows({
+    TestTraceContainer::RowTraceContainer trace = {
         {
             // Wrong ADD.
             .alu_ia = 1,
@@ -47,7 +47,7 @@ TEST(AluConstrainingTest, NegativeAdd)
             // Observe that I'm making subrelation SEL_ADD_BINARY fail too, but we'll only check subrelation ALU_ADD!
             .alu_sel_op_add = 1,
         },
-    });
+    };
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_ALU_ADD), "ALU_ADD");
 }

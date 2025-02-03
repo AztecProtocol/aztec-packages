@@ -8,7 +8,6 @@ namespace bb::avm2::simulation {
 HintedRawDataDB::HintedRawDataDB(const ExecutionHints& hints)
     : contract_instances(hints.contractInstances)
     , contract_classes(hints.contractClasses)
-    , tree_roots(hints.initialTreeRoots)
 {}
 
 ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& address) const

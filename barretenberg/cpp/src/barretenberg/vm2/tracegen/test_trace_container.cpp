@@ -1,30 +1,48 @@
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
-#include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
-
 namespace bb::avm2::tracegen {
+namespace {
 
-TestTraceContainer TestTraceContainer::from_rows(const RowTraceContainer& rows)
+std::optional<ColumnAndShifts> shift_column(Column c)
 {
-    TestTraceContainer container;
-    for (uint32_t row = 0; row < rows.size(); ++row) {
-        const auto& full_row = rows[row];
-        for (size_t i = 0; i < container.num_columns(); ++i) {
-            const auto column = static_cast<Column>(i);
-            container.set(column, row, full_row.get_column(static_cast<ColumnAndShifts>(column)));
+    static std::unordered_map<Column, ColumnAndShifts> shifts = []() {
+        std::unordered_map<Column, ColumnAndShifts> shifts;
+        for (size_t i = 0; i < TO_BE_SHIFTED_COLUMNS_ARRAY.size(); ++i) {
+            shifts[TO_BE_SHIFTED_COLUMNS_ARRAY[i]] = SHIFTED_COLUMNS_ARRAY[i];
         }
-    }
-    return container;
+        return shifts;
+    }();
+
+    auto it = shifts.find(c);
+    return it == shifts.end() ? std::nullopt : std::make_optional(it->second);
 }
+
+} // namespace
 
 TestTraceContainer::RowTraceContainer TestTraceContainer::as_rows() const
 {
+    // Find the maximum size of any column.
     const uint32_t max_rows = get_num_rows();
+
     RowTraceContainer full_row_trace(max_rows);
-    for (uint32_t i = 0; i < max_rows; ++i) {
-        full_row_trace[i] = get_full_row(*this, i);
+    // Write the values.
+    for (size_t col = 0; col < num_columns(); ++col) {
+        visit_column(static_cast<Column>(col), [&](size_t row, const FF& value) {
+            full_row_trace[row].get_column(static_cast<ColumnAndShifts>(col)) = value;
+        });
     }
+
+    // Write the shifted values.
+    for (const auto& col : TO_BE_SHIFTED_COLUMNS_ARRAY) {
+        visit_column(col, [&](size_t row, const FF& value) {
+            if (row == 0) {
+                return;
+            }
+            auto shifted = shift_column(col);
+            full_row_trace[row - 1].get_column(shifted.value()) = value;
+        });
+    }
+
     return full_row_trace;
 }
 

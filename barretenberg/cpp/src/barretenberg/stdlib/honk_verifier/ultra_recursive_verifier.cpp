@@ -45,8 +45,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
 
     Output output;
     StdlibProof<Builder> honk_proof;
@@ -122,13 +120,12 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     bool consistency_checked = true;
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
-    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                               claim_batcher,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,

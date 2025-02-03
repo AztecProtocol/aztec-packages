@@ -15,18 +15,20 @@ template <typename FF_> struct AvmFullRow {
 
     FF AVM2_ALL_ENTITIES;
 
-    static constexpr size_t SIZE = 398;
+    RefVector<const FF> as_vector() const;
+    static std::vector<std::string> names();
+    static constexpr size_t SIZE = 48;
 
     // Risky but oh so efficient.
     FF& get_column(ColumnAndShifts col)
     {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
         return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
     }
 
     const FF& get_column(ColumnAndShifts col) const
     {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
         return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
     }
 };

@@ -51,7 +51,6 @@ extern bool debug_logging;
 #ifndef NDEBUG
 template <typename... Args> inline void debug(Args... args)
 {
-    // NDEBUG is used to turn off asserts, so we want this flag to prevent debug log spamming.
     if (debug_logging) {
         logstr(format(args...).c_str());
     }

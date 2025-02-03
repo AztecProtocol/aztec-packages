@@ -53,8 +53,8 @@ WASM_EXPORT void poseidon2_hash_accumulate(fr::vec_in_buf inputs_buffer, fr::out
     std::vector<fr> to_hash;
     read(inputs_buffer, to_hash);
     const size_t numHashes = to_hash.size();
-    fr result = to_hash[0];
-    size_t count = 1;
+    fr result = 0;
+    size_t count = 0;
     while (count < numHashes) {
         result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ to_hash[count], result });
         ++count;

@@ -65,8 +65,6 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript->load_proof(stdlib_proof);
@@ -116,33 +114,30 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
     bool consistency_checked = true;
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
-    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
+                                               commitments.get_unshifted_without_concatenated(),
+                                               commitments.get_to_be_shifted(),
+                                               claimed_evaluations.get_unshifted_without_concatenated(),
+                                               claimed_evaluations.get_shifted(),
+                                               multivariate_challenge,
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               {},
-                                               {},
+                                               libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),
-                                               sumcheck_output.claimed_evaluations.get_concatenated());
+                                               claimed_evaluations.get_concatenated());
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

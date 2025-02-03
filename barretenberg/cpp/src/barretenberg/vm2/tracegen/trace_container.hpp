@@ -45,7 +45,7 @@ class TraceContainer {
     // Maximum number of rows in any column (ignoring clk which is always 2^21).
     uint32_t get_num_rows_without_clk() const;
     // Number of columns (without shifts).
-    static constexpr size_t num_columns() { return NUM_COLUMNS_WITHOUT_SHIFTS; }
+    static constexpr size_t num_columns() { return NUM_COLUMNS; }
 
     // Free column memory.
     void clear_column(Column col);
@@ -62,11 +62,12 @@ class TraceContainer {
         // (see serialization.hpp).
         unordered_flat_map<uint32_t, FF> rows;
     };
+    static constexpr size_t NUM_COLUMNS = static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS);
     // We store the trace as a sparse matrix.
     // We use a unique_ptr to allocate the array in the heap vs the stack.
     // Even if the _content_ of each unordered_map is always heap-allocated, if we have 3k columns
     // we could unnecessarily put strain on the stack with sizeof(unordered_map) * 3k bytes.
-    std::unique_ptr<std::array<SparseColumn, NUM_COLUMNS_WITHOUT_SHIFTS>> trace;
+    std::unique_ptr<std::array<SparseColumn, NUM_COLUMNS>> trace;
 };
 
 } // namespace bb::avm2::tracegen

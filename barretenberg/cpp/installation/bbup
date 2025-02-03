@@ -49,7 +49,7 @@ main() {
 
   # Reject unsupported architectures.
   if [ "${ARCHITECTURE}" != "x86_64" ] && [ "${ARCHITECTURE}" != "aarch64" ]; then
-    err "unsupported architecture: $ARCHITECTURE-$PLATFORM"
+    err "unsupported architecure: $ARCHITECTURE-$PLATFORM"
   fi
 
   BBUP_TAG=$BBUP_VERSION

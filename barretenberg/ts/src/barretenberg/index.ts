@@ -22,9 +22,6 @@ export type BackendOptions = {
 
   /** @description Path to download CRS files */
   crsPath?: string;
-
-  /** @description Path to download WASM files */
-  wasmPath?: string;
 };
 
 export type CircuitOptions = {
@@ -53,7 +50,7 @@ export class Barretenberg extends BarretenbergApi {
   static async new(options: BackendOptions = {}) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath);
+    const { module, threads } = await fetchModuleAndThreads(options.threads);
     await wasm.init(module, threads, proxy(debug), options.memory?.initial, options.memory?.maximum);
     return new Barretenberg(worker, wasm, options);
   }
@@ -72,7 +69,7 @@ export class Barretenberg extends BarretenbergApi {
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, this.options.crsPath);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -92,28 +89,26 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
-let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 
 export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
 
-  private static async new(wasmPath?: string) {
+  static async new() {
     const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1, wasmPath);
+    const { module, threads } = await fetchModuleAndThreads(1);
     await wasm.init(module, threads);
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton(wasmPath?: string) {
-    if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath);
+  static initSingleton() {
+    if (!barretenbergSyncSingletonPromise) {
+      barretenbergSyncSingletonPromise = BarretenbergSync.new().then(s => (barretenbergSyncSingleton = s));
     }
-
-    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
-    return barretenbergSyncSingleton;
+    return barretenbergSyncSingletonPromise;
   }
 
   static getSingleton() {
@@ -127,3 +122,9 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return this.wasm;
   }
 }
+
+// If we're in ESM environment, use top level await. CJS users need to call it manually.
+// Need to ignore for cjs build.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+await BarretenbergSync.initSingleton(); // POSTPROCESS ESM ONLY

@@ -80,9 +80,8 @@ std::vector<FF> AvmBytecodeTraceBuilder::encode_bytecode(const std::vector<uint8
 // Compute the public bytecode commitment from a given contract bytecode
 FF AvmBytecodeTraceBuilder::compute_public_bytecode_commitment(const std::vector<uint8_t>& contract_bytes)
 {
-    FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(contract_bytes.size()));
     std::vector<FF> contract_bytecode_fields = encode_bytecode(contract_bytes);
-    FF running_hash = bytecode_length_in_bytes;
+    FF running_hash = FF::zero();
     for (auto& contract_bytecode_field : contract_bytecode_fields) {
         running_hash = poseidon2::hash({ contract_bytecode_field, running_hash });
     }
@@ -115,8 +114,7 @@ void AvmBytecodeTraceBuilder::build_bytecode_hash_columns()
         if (contract_bytecode.bytecode.size() == 0) {
             vinfo("Excluding non-existent contract from bytecode hash columns...");
         } else {
-            auto bytecode_length_in_bytes = FF(static_cast<uint64_t>(contract_bytecode.bytecode.size()));
-            FF running_hash = bytecode_length_in_bytes;
+            FF running_hash = FF::zero();
             auto field_encoded_bytecode = encode_bytecode(contract_bytecode.bytecode);
             // This size is already based on the number of fields
             for (size_t i = 0; i < field_encoded_bytecode.size(); ++i) {

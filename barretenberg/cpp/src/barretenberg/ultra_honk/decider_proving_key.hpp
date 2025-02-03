@@ -78,9 +78,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
 
         info("Finalized circuit size: ",
              circuit.num_gates,
-             ". Log dyadic circuit size: ",
-             numeric::get_msb(dyadic_circuit_size),
-             ".");
+             "\nLog dyadic circuit size: ",
+             numeric::get_msb(dyadic_circuit_size));
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);

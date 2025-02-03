@@ -4,7 +4,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 
 #include <array>
@@ -82,11 +81,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     static constexpr size_t BATCHED_POLYNOMIAL_LENGTH = 2 * SUBGROUP_SIZE + 2;
     // Size of Q(X)
     static constexpr size_t QUOTIENT_LENGTH = SUBGROUP_SIZE + 2;
-    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
+    // The length of a random polynomial to mask Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
     // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
     // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
     // required length from 23 to 3.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
@@ -192,7 +191,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
      * - Store these coefficients in `coeffs_lagrange_basis`.
      * More explicitly,
      * \f$ F = (1 , 1 , u_0, \ldots, u_0^{LIBRA_UNIVARIATES_LENGTH-1}, \ldots, 1, u_{D-1}, \ldots,
-     * u_{D-1}^{LIBRA_UNIVARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
+     * u_{D-1}^{LIBRA_UNVIARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
      *
      * ### Monomial Basis
      * If the curve is not `BN254`, the monomial polynomial is constructed directly using un-optimized Lagrange
@@ -419,11 +418,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
-    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
-    // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
-    // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
-    // required length from 23 to 3.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
 
   public:
     /*!
@@ -498,11 +493,6 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
         if constexpr (Curve::is_stdlib_type) {
-            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
-                diff.self_reduce();
-            }
-            diff.assert_equal(FF(0));
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
             return (diff.get_value() == FF(0).get_value());
         } else {

@@ -277,7 +277,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
-        auto verified = verifier_output.verified;
+        auto verified = verifier_output.verified.value();
 
         EXPECT_EQ(verified, true);
     };
@@ -367,7 +367,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
-        auto verified = verifier_output.verified;
+        auto verified = verifier_output.verified.value();
 
         EXPECT_EQ(verified, false);
     };

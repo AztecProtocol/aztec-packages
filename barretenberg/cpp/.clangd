@@ -80,12 +80,3 @@ Diagnostics:
     Remove:
       - cppcoreguidelines-avoid-non-const-global-variables
       - cppcoreguidelines-special-member-functions
-
---- # this divider is necessary
-# Suppressing some noisy AVM warnings
-If:
-  PathMatch: [src/barretenberg/vm.*\.cpp]
-Diagnostics:
-  Suppress:
-    - -Wmissing-designated-field-initializers
-

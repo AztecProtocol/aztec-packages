@@ -32,6 +32,7 @@ template <typename Flavor> class DeciderVerifier_ {
     bool verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     bool verify();                          // used when transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
+    std::map<std::string, Commitment> commitments;
     std::shared_ptr<DeciderVerificationKey> accumulator;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
