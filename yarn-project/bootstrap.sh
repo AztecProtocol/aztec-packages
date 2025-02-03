@@ -13,6 +13,20 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
+function get_projects {
+  dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+}
+
+function format {
+  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+}
+
+function lint {
+  get_projects | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
+}
+export -f format lint get_projects
+
 function build {
   echo_header "yarn-project build"
 
@@ -41,14 +55,21 @@ function build {
     types
   cat joblog.txt
 
-  dirname */src l1-artifacts/generated | grep -v scripts | compile_project
+  get_projects | compile_project
 
   cmds=(
+    format
     'cd aztec.js && yarn build:web'
     'cd end-to-end && yarn build:web'
   )
-  [ "${typecheck:-0}" -eq 1 ] && cmds+=('yarn tsc -b --emitDeclarationOnly')
-  parallel --line-buffered --tag denoise ::: "${cmds[@]}"
+  if [ "${typecheck:-0}" -eq 1 ]; then
+    cmds+=(
+      'yarn tsc -b --emitDeclarationOnly'
+      lint
+    )
+  fi
+  parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
+  cat joblog.txt
   # parallel --line-buffered --tag denoise 'cd {} && yarn build:web' ::: aztec.js end-to-end
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
@@ -64,15 +85,6 @@ function build {
     protocol-contracts/src/protocol_contract_data.ts
   echo
   echo -e "${green}Yarn project successfully built!${reset}"
-}
-
-function format {
-  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
-}
-
-function lint {
-  ls -d ./*/src | xargs dirname | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
 }
 
 function test_cmds {
@@ -109,7 +121,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    git clean -fdx --exclude=node_modules --exclude=.yarn
+    git ls-files --ignored --others --exclude-standard \
+      | grep -v '^node_modules/' \
+      | grep -v '^\.yarn/' \
+      | xargs rm -rf
     ;;
   "ci")
     typecheck=1 build
@@ -139,6 +154,9 @@ case "$cmd" in
     ;;
   "format")
     format
+    ;;
+  "lint")
+    lint
     ;;
   *)
     echo "Unknown command: $cmd"
