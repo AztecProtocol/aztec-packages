@@ -24,7 +24,7 @@ function encodeFirstField(length: number): Fr {
 /**
  * Make an encoded blob with the given length
  *
- * This will fail deserialisation in the archiver
+ * This will deserialise correctly in the archiver
  * @param length
  * @returns
  */
