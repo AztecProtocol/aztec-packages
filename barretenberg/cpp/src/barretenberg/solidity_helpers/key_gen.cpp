@@ -22,7 +22,7 @@ template <typename Circuit> void generate_keys(std::string output_path, std::str
 
     // Make verification key file upper case
     circuit_name.at(0) = static_cast<char>(std::toupper(static_cast<unsigned char>(circuit_name.at(0))));
-    std::string flavor_prefix = "UltraPlonk";
+    std::string flavor_prefix = "Ultra";
 
     std::string vk_class_name = circuit_name + flavor_prefix + "VerificationKey";
     std::string base_class_name = "Base" + flavor_prefix + "Verifier";

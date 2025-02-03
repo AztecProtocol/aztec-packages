@@ -34,13 +34,8 @@ class RecursiveCircuit {
     using inner_scalar_field = typename inner_curve::ScalarFieldNative;
     using outer_scalar_field = typename outer_curve::BaseFieldNative;
     using pairing_target_field = bb::fq12;
-    static constexpr bool is_ultra_to_ultra = std::is_same_v<Builder, bb::UltraCircuitBuilder>;
-    using ProverOfInnerCircuit =
-        std::conditional_t<is_ultra_to_ultra, plonk::UltraProver, plonk::UltraToStandardProver>;
-    using VerifierOfInnerProof =
-        std::conditional_t<is_ultra_to_ultra, plonk::UltraVerifier, plonk::UltraToStandardVerifier>;
-    using RecursiveSettings =
-        std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
+    using ProverOfInnerCircuit = plonk::UltraProver;
+    using VerifierOfInnerProof = plonk::UltraVerifier;
 
     struct circuit_outputs {
         stdlib::recursion::aggregation_state<outer_curve> aggregation_state;
@@ -88,7 +83,7 @@ class RecursiveCircuit {
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
 
-        auto output = recursion::verify_proof<outer_curve, RecursiveSettings>(
+        auto output = recursion::verify_proof<outer_curve, recursive_settings>(
             &outer_builder, verification_key, recursive_manifest, proof_to_recursively_verify);
 
         return { output, verification_key };
