@@ -1,4 +1,4 @@
-import { setup as e2eSetup, getL1WalletClient } from '../fixtures/utils.js';
+import { setup as e2eSetup } from '../fixtures/utils.js';
 import { type UniswapSetupContext, uniswapL1L2TestSuite } from '../shared/uniswap_l1_l2.js';
 
 // This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -18,10 +18,9 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
     deployL1ContractsValues,
     wallets,
     logger,
-    config,
   } = await e2eSetup(2, { stateLoad: dumpedState });
 
-  const walletClient = getL1WalletClient(config.l1RpcUrl, 1);
+  const walletClient = deployL1ContractsValues.walletClient;
   const publicClient = deployL1ContractsValues.publicClient;
 
   const ownerWallet = wallets[0];

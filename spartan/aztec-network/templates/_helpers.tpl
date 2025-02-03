@@ -145,6 +145,14 @@ Service Address Setup Container
       value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
       value: "{{ .Values.ethereum.execution.service.port }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
+      value: "{{ .Values.ethereum.beacon.externalHost }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+      value: "{{ .Values.ethereum.beacon.apiKey }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+      value: "{{ .Values.ethereum.beacon.apiKeyHeader }}"
+    - name: ETHEREUM_CONSENSUS_PORT
+      value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
@@ -188,7 +196,7 @@ affinity:
 
 {{- define "aztec-network.gcpLocalSsd" -}}
 nodeSelector:
-  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+  local-ssd: "true"
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}

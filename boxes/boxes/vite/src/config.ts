@@ -16,11 +16,6 @@ import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { WASMSimulator } from "@aztec/simulator/client";
 
-process.env = Object.keys(import.meta.env).reduce((acc, key) => {
-  acc[key.replace("VITE_", "")] = import.meta.env[key];
-  return acc;
-}, {});
-
 const SECRET_KEY = Fr.random();
 
 export class PrivateEnv {
@@ -28,16 +23,14 @@ export class PrivateEnv {
   accountContract;
   accountManager: AccountManager;
 
-  constructor(
-    private secretKey: Fr,
-    private nodeURL: string,
-  ) {}
+  constructor(private secretKey: Fr) {}
 
   async init() {
+    const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
-    config.proverEnabled = true;
-    const aztecNode = await createAztecNodeClient(this.nodeURL);
+    const aztecNode = await createAztecNodeClient(nodeURL);
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,
@@ -52,7 +45,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:indexeddb"),
+      createLogger("pxe:data:idb"),
     );
 
     const keyStore = new KeyStore(store);
@@ -87,10 +80,7 @@ export class PrivateEnv {
   }
 }
 
-export const deployerEnv = new PrivateEnv(
-  SECRET_KEY,
-  process.env.AZTEC_NODE_URL,
-);
+export const deployerEnv = new PrivateEnv(SECRET_KEY);
 
 const IGNORE_FUNCTIONS = [
   "constructor",

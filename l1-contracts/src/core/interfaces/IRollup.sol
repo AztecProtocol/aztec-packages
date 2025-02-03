@@ -15,7 +15,7 @@ import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -77,7 +77,9 @@ interface ITestRollup {
 }
 
 interface IRollup {
-  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive);
+  event L2BlockProposed(
+    uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
+  );
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event ProofRightClaimed(
@@ -171,5 +173,8 @@ interface IRollup {
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-  function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32, bytes32);
+  function validateBlobs(bytes calldata _blobsInputs)
+    external
+    view
+    returns (bytes32[] memory, bytes32, bytes32);
 }

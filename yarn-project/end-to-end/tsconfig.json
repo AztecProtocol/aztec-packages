@@ -37,6 +37,9 @@
       "path": "../entrypoints"
     },
     {
+      "path": "../epoch-cache"
+    },
+    {
       "path": "../ethereum"
     },
     {

@@ -322,7 +322,9 @@ void AvmTraceBuilder::pay_fee()
     // TS equivalent:
     // computeFeePayerBalanceStorageSlot(fee_payer);
     std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
-    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    // TODO: do constrained slot derivations!
+    // const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+    const auto balance_slot = Poseidon2::hash(slot_hash_inputs);
 
     // ** Read the balance before fee payment **
     // TS equivalent:
@@ -342,7 +344,8 @@ void AvmTraceBuilder::pay_fee()
     FF current_balance = read_hint.leaf_preimage.value;
 
     const auto updated_balance = current_balance - tx_fee;
-    if (current_balance < tx_fee) {
+    // Comparison on Field gives inverted results, so we cast to uint128, which should be enough for fees.
+    if (static_cast<uint128_t>(current_balance) < static_cast<uint128_t>(tx_fee)) {
         info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }

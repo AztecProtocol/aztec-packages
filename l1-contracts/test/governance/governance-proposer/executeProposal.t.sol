@@ -4,9 +4,9 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
-import {Leonidas} from "../../harnesses/Leonidas.sol";
+import {ValidatorSelection} from "../../harnesses/ValidatorSelection.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
@@ -14,7 +14,7 @@ import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
 contract ExecuteProposalTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
-  Leonidas internal leonidas;
+  ValidatorSelection internal validatorSelection;
 
   IPayload internal proposal = IPayload(address(this));
   address internal proposer = address(0);
@@ -30,12 +30,12 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalInstanceHoldCode() {
-    leonidas = new Leonidas();
+    validatorSelection = new ValidatorSelection();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(leonidas));
+    registry.upgrade(address(validatorSelection));
 
     // We jump into the future since slot 0, will behave as if already voted in
-    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(Slot.wrap(1))));
+    vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
     _;
   }
 
@@ -48,7 +48,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   }
 
   modifier whenRoundInPast() {
-    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(Slot.wrap(governanceProposer.M()))));
+    vm.warp(
+      Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(governanceProposer.M())))
+    );
     _;
   }
 
@@ -59,19 +61,20 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   {
     // it revert
 
-    Slot lower = leonidas.getCurrentSlot()
+    Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(leonidas.GENESIS_TIME())) / leonidas.SLOT_DURATION()
+      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+        / validatorSelection.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
-    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(slotToHit)));
+    vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(slotToHit)));
 
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.GovernanceProposer__ProposalTooOld.selector,
         0,
-        governanceProposer.computeRound(leonidas.getCurrentSlot())
+        governanceProposer.computeRound(validatorSelection.getCurrentSlot())
       )
     );
     governanceProposer.executeProposal(0);
@@ -95,13 +98,17 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         vm.prank(proposer);
         assertTrue(governanceProposer.vote(proposal));
         vm.warp(
-          Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
+          Timestamp.unwrap(
+            validatorSelection.getTimestampForSlot(
+              validatorSelection.getCurrentSlot() + Slot.wrap(1)
+            )
+          )
         );
       }
       vm.warp(
         Timestamp.unwrap(
-          leonidas.getTimestampForSlot(
-            leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+          validatorSelection.getTimestampForSlot(
+            validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
           )
         )
       );
@@ -129,10 +136,10 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     // The first slot in the next round (round 1)
     Slot lowerSlot = Slot.wrap(governanceProposer.M());
-    uint256 lower = Timestamp.unwrap(leonidas.getTimestampForSlot(lowerSlot));
+    uint256 lower = Timestamp.unwrap(validatorSelection.getTimestampForSlot(lowerSlot));
     // the last slot in the LIFETIME_IN_ROUNDS next round
     uint256 upper = Timestamp.unwrap(
-      leonidas.getTimestampForSlot(
+      validatorSelection.getTimestampForSlot(
         lowerSlot
           + Slot.wrap(governanceProposer.M() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
       )
@@ -168,7 +175,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     vm.warp(
       Timestamp.unwrap(
-        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
+        validatorSelection.getTimestampForSlot(
+          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+        )
       )
     );
     vm.expectRevert(
@@ -184,12 +193,16 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       vm.prank(proposer);
       assertTrue(governanceProposer.vote(proposal));
       vm.warp(
-        Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
+        Timestamp.unwrap(
+          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
+        )
       );
     }
     vm.warp(
       Timestamp.unwrap(
-        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
+        validatorSelection.getTimestampForSlot(
+          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+        )
       )
     );
 
@@ -208,12 +221,12 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it revert
 
     // When using a new registry we change the governanceProposer's interpetation of time :O
-    Leonidas freshInstance = new Leonidas();
+    ValidatorSelection freshInstance = new ValidatorSelection();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(freshInstance));
 
     // The old is still there, just not executable.
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), 1);
+    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
 
@@ -226,8 +239,8 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // Jump 2 rounds, since we are currently in round 0
     vm.warp(
       Timestamp.unwrap(
-        freshInstance.getTimestampForSlot(
-          freshInstance.getCurrentSlot() + Slot.wrap(2 * governanceProposer.M())
+        validatorSelection.getTimestampForSlot(
+          validatorSelection.getCurrentSlot() + Slot.wrap(2 * governanceProposer.M())
         )
       )
     );
@@ -288,7 +301,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IGovernanceProposer.ProposalExecuted(proposal, 1);
     assertTrue(governanceProposer.executeProposal(1));
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), 1);
+    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
     assertTrue(executed);
     assertEq(address(leader), address(proposal));
   }

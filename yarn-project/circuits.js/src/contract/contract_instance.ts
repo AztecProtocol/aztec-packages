@@ -113,15 +113,15 @@ export async function getContractInstanceFromDeployParams(
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
-  const contractClass = getContractClassFromArtifact(artifact);
-  const contractClassId = computeContractClassId(contractClass);
+  const contractClass = await getContractClassFromArtifact(artifact);
+  const contractClassId = await computeContractClassId(contractClass);
   const initializationHash =
     constructorArtifact && opts?.skipArgsDecoding
-      ? computeInitializationHashFromEncodedArgs(
-          FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
+      ? await computeInitializationHashFromEncodedArgs(
+          await FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
           args,
         )
-      : computeInitializationHash(constructorArtifact, args);
+      : await computeInitializationHash(constructorArtifact, args);
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {

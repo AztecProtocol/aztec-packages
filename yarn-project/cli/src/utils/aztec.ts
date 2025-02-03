@@ -49,6 +49,7 @@ export async function deployAztecContracts(
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
   config: L1ContractsConfig,
@@ -58,7 +59,7 @@ export async function deployAztecContracts(
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, chainId);
 
@@ -66,7 +67,7 @@ export async function deployAztecContracts(
 
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
+    vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
     salt,
     initialValidators,

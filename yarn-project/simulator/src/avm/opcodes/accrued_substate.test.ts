@@ -36,7 +36,11 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
-  const siloedNullifier0 = siloNullifier(address, value0);
+  let siloedNullifier0: Fr;
+
+  beforeAll(async () => {
+    siloedNullifier0 = await siloNullifier(address, value0);
+  });
 
   beforeEach(() => {
     worldStateDB = mock<WorldStateDB>();
@@ -124,9 +128,9 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 0);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      const siloedNotehash = await siloNoteHash(address, value0);
+      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });

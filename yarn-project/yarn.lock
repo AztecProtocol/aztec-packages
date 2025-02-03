@@ -199,6 +199,7 @@ __metadata:
     "@types/node": "npm:^18.7.23"
     axios: "npm:^1.7.2"
     buffer: "npm:^6.0.3"
+    copy-webpack-plugin: "npm:^12.0.2"
     crypto-browserify: "npm:^3.12.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
@@ -323,7 +324,9 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -382,6 +385,7 @@ __metadata:
     express: "npm:^4.21.1"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
+    snappy: "npm:^7.2.2"
     source-map-support: "npm:^0.5.21"
     supertest: "npm:^7.0.0"
     ts-node: "npm:^10.9.1"
@@ -593,6 +597,7 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -629,6 +634,7 @@ __metadata:
     "@viem/anvil": "npm:^0.0.9"
     buffer: "npm:^6.0.3"
     concurrently: "npm:^7.6.0"
+    copy-webpack-plugin: "npm:^12.0.2"
     crypto-browserify: "npm:^3.12.0"
     fs-extra: "npm:^11.2.0"
     get-port: "npm:^7.1.0"
@@ -797,6 +803,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -807,7 +814,7 @@ __metadata:
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
-    "@playwright/test": "npm:^1.48.2"
+    "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
     "@types/pako": "npm:^2.0.3"
@@ -821,7 +828,7 @@ __metadata:
     levelup: "npm:^5.1.1"
     memdown: "npm:^6.1.1"
     pako: "npm:^2.1.0"
-    playwright: "npm:^1.48.2"
+    playwright: "npm:1.49.0"
     puppeteer: "npm:^22.4.1"
     resolve-typescript-plugin: "npm:^2.0.1"
     serve: "npm:^14.2.1"
@@ -861,6 +868,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/native": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/chai": "npm:^5.0.1"
     "@types/chai-as-promised": "npm:^8.0.1"
@@ -868,6 +876,7 @@ __metadata:
     "@types/mocha": "npm:^10.0.10"
     "@types/mocha-each": "npm:^2.0.4"
     "@types/node": "npm:^18.7.23"
+    "@types/sinon": "npm:^17.0.3"
     "@web/dev-server-esbuild": "npm:^1.0.3"
     "@web/test-runner": "npm:^0.19.0"
     "@web/test-runner-playwright": "npm:^0.11.0"
@@ -878,6 +887,9 @@ __metadata:
     lmdb: "npm:^3.2.0"
     mocha: "npm:^10.8.2"
     mocha-each: "npm:^2.0.1"
+    msgpackr: "npm:^1.11.2"
+    ordered-binary: "npm:^1.5.3"
+    sinon: "npm:^19.0.2"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
   languageName: unknown
@@ -911,6 +923,23 @@ __metadata:
     sha256: "npm:^0.2.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+  languageName: unknown
+  linkType: soft
+
+"@aztec/native@workspace:^, @aztec/native@workspace:native":
+  version: 0.0.0-use.local
+  resolution: "@aztec/native@workspace:native"
+  dependencies:
+    "@aztec/foundation": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/bindings": "npm:^1.5.5"
+    "@types/jest": "npm:^29.5.0"
+    "@types/node": "npm:^18.7.23"
+    bindings: "npm:^1.5.0"
+    jest: "npm:^29.5.0"
+    msgpackr: "npm:^1.11.2"
+    ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
   languageName: unknown
   linkType: soft
@@ -1218,6 +1247,7 @@ __metadata:
     "@aztec/blob-sink": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -1425,19 +1455,17 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/native": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@types/bindings": "npm:^1.5.5"
     "@types/jest": "npm:^29.5.0"
     "@types/levelup": "npm:^5.1.2"
     "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
-    bindings: "npm:^1.5.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.5"
     memdown: "npm:^6.1.1"
-    msgpackr: "npm:^1.10.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
@@ -4408,14 +4436,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@playwright/test@npm:^1.48.2":
-  version: 1.48.2
-  resolution: "@playwright/test@npm:1.48.2"
+"@playwright/test@npm:1.49.0":
+  version: 1.49.0
+  resolution: "@playwright/test@npm:1.49.0"
   dependencies:
-    playwright: "npm:1.48.2"
+    playwright: "npm:1.49.0"
   bin:
     playwright: cli.js
-  checksum: 10/8557f9d60b93b9a60b66599d46f991b56df26b691f9285e8755298dabd9f42d1421c330a7d7578b76445fdd56040fe790d3f1081daa80e5e89a380170e0fd217
+  checksum: 10/e87485ab4c02b6dc0bc20a43ea3965c949c45caa4e7f5beea4a0abd29be0a318662931e887072db0d165f8dde93709b97ea1b2c6f4c833b403aa13427d76dd22
   languageName: node
   linkType: hard
 
@@ -4786,7 +4814,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sinonjs/commons@npm:^3.0.0":
+"@sinonjs/commons@npm:^3.0.0, @sinonjs/commons@npm:^3.0.1":
   version: 3.0.1
   resolution: "@sinonjs/commons@npm:3.0.1"
   dependencies:
@@ -4801,6 +4829,33 @@ __metadata:
   dependencies:
     "@sinonjs/commons": "npm:^3.0.0"
   checksum: 10/78155c7bd866a85df85e22028e046b8d46cf3e840f72260954f5e3ed5bd97d66c595524305a6841ffb3f681a08f6e5cef572a2cce5442a8a232dc29fb409b83e
+  languageName: node
+  linkType: hard
+
+"@sinonjs/fake-timers@npm:^13.0.1, @sinonjs/fake-timers@npm:^13.0.2":
+  version: 13.0.5
+  resolution: "@sinonjs/fake-timers@npm:13.0.5"
+  dependencies:
+    "@sinonjs/commons": "npm:^3.0.1"
+  checksum: 10/11ee417968fc4dce1896ab332ac13f353866075a9d2a88ed1f6258f17cc4f7d93e66031b51fcddb8c203aa4d53fd980b0ae18aba06269f4682164878a992ec3f
+  languageName: node
+  linkType: hard
+
+"@sinonjs/samsam@npm:^8.0.1":
+  version: 8.0.2
+  resolution: "@sinonjs/samsam@npm:8.0.2"
+  dependencies:
+    "@sinonjs/commons": "npm:^3.0.1"
+    lodash.get: "npm:^4.4.2"
+    type-detect: "npm:^4.1.0"
+  checksum: 10/58ca9752e8e835a09ed275f8edf8da2720fe95c0c02f6bcb90ad7f86fdceb393f35f744194b705dd94216228646ec0aedbb814e245eb869b940dcf1266b7a533
+  languageName: node
+  linkType: hard
+
+"@sinonjs/text-encoding@npm:^0.7.3":
+  version: 0.7.3
+  resolution: "@sinonjs/text-encoding@npm:0.7.3"
+  checksum: 10/f0cc89bae36e7ce159187dece7800b78831288f1913e9ae8cf8a878da5388232d2049740f6f4a43ec4b43b8ad1beb55f919f45eb9a577adb4a2a6eacb27b25fc
   languageName: node
   linkType: hard
 
@@ -10096,6 +10151,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"diff@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "diff@npm:7.0.0"
+  checksum: 10/e9b8e48d054c9c0c093c65ce8e2637af94b35f2427001607b14e5e0589e534ea3413a7f91ebe6d7c5a1494ace49cb7c7c3972f442ddd96a4767ff091999a082e
+  languageName: node
+  linkType: hard
+
 "diffie-hellman@npm:^5.0.0":
   version: 5.0.3
   resolution: "diffie-hellman@npm:5.0.3"
@@ -14596,6 +14658,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"just-extend@npm:^6.2.0":
+  version: 6.2.0
+  resolution: "just-extend@npm:6.2.0"
+  checksum: 10/1f487b074b9e5773befdd44dc5d1b446f01f24f7d4f1f255d51c0ef7f686e8eb5f95d983b792b9ca5c8b10cd7e60a924d64103725759eddbd7f18bcb22743f92
+  languageName: node
+  linkType: hard
+
 "jwa@npm:^2.0.0":
   version: 2.0.0
   resolution: "jwa@npm:2.0.0"
@@ -15049,6 +15118,13 @@ __metadata:
   version: 4.6.0
   resolution: "lodash.every@npm:4.6.0"
   checksum: 10/9f90e6b9f7ab26234fb4048886f150e61910db509f5c3f9685149e72a434865c688468771be1b269783f703abdbf49c0822f92dc2e1456cd8e90ee53a6f55b6b
+  languageName: node
+  linkType: hard
+
+"lodash.get@npm:^4.4.2":
+  version: 4.4.2
+  resolution: "lodash.get@npm:4.4.2"
+  checksum: 10/2a4925f6e89bc2c010a77a802d1ba357e17ed1ea03c2ddf6a146429f2856a216663e694a6aa3549a318cbbba3fd8b7decb392db457e6ac0b83dc745ed0a17380
   languageName: node
   linkType: hard
 
@@ -15955,18 +16031,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"msgpackr@npm:^1.10.2":
-  version: 1.10.2
-  resolution: "msgpackr@npm:1.10.2"
-  dependencies:
-    msgpackr-extract: "npm:^3.0.2"
-  dependenciesMeta:
-    msgpackr-extract:
-      optional: true
-  checksum: 10/c422bed19f70d23b5f8945cb8e334cb9e773350b422d606794397c22260ef64a42a17284c5e14c2693203f871ecb18157dc47e2b8bd2e66d7764fcde3442a5c1
-  languageName: node
-  linkType: hard
-
 "msgpackr@npm:^1.11.2":
   version: 1.11.2
   resolution: "msgpackr@npm:1.11.2"
@@ -16142,6 +16206,19 @@ __metadata:
   version: 2.0.2
   resolution: "netmask@npm:2.0.2"
   checksum: 10/375cabe898a5832816958664f26206f0a1e9f3605aa1816bfce803e060ff20f9d6ce56a2377e46f1470938358c31c27b3a8086f4a5e3ef678896147884d63ffa
+  languageName: node
+  linkType: hard
+
+"nise@npm:^6.1.1":
+  version: 6.1.1
+  resolution: "nise@npm:6.1.1"
+  dependencies:
+    "@sinonjs/commons": "npm:^3.0.1"
+    "@sinonjs/fake-timers": "npm:^13.0.1"
+    "@sinonjs/text-encoding": "npm:^0.7.3"
+    just-extend: "npm:^6.2.0"
+    path-to-regexp: "npm:^8.1.0"
+  checksum: 10/2d3175587cf0a351e2c91eb643fdc59d266de39f394a3ac0bace38571749d1e7f25341d763899245139b8f0d2ee048b2d3387d75ecf94c4897e947d5fc881eea
   languageName: node
   linkType: hard
 
@@ -17031,6 +17108,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"path-to-regexp@npm:^8.1.0":
+  version: 8.2.0
+  resolution: "path-to-regexp@npm:8.2.0"
+  checksum: 10/23378276a172b8ba5f5fb824475d1818ca5ccee7bbdb4674701616470f23a14e536c1db11da9c9e6d82b82c556a817bbf4eee6e41b9ed20090ef9427cbb38e13
+  languageName: node
+  linkType: hard
+
 "path-type@npm:^4.0.0":
   version: 4.0.0
   resolution: "path-type@npm:4.0.0"
@@ -17228,15 +17312,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.48.2":
-  version: 1.48.2
-  resolution: "playwright-core@npm:1.48.2"
-  bin:
-    playwright-core: cli.js
-  checksum: 10/dd029f797b1afb2240713a032fecc50e1ffc5464a39c075570cf10e929c145da3a8d0951a3f2b279e33b2f09cbeb8ff4330822cb1078452c0c75cc4ce34ca171
-  languageName: node
-  linkType: hard
-
 "playwright-core@npm:1.49.0":
   version: 1.49.0
   resolution: "playwright-core@npm:1.49.0"
@@ -17246,22 +17321,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright@npm:1.48.2, playwright@npm:^1.48.2":
-  version: 1.48.2
-  resolution: "playwright@npm:1.48.2"
-  dependencies:
-    fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.48.2"
-  dependenciesMeta:
-    fsevents:
-      optional: true
-  bin:
-    playwright: cli.js
-  checksum: 10/331af352504336f419cdf1369f0ef399c6f0e905fdb79a5e97c41f33e74766efd21430ab6ae2de0b237ae765ebfbe701e119a990d8dc01bcdac3bc43c1fa1fbf
-  languageName: node
-  linkType: hard
-
-"playwright@npm:^1.22.2":
+"playwright@npm:1.49.0, playwright@npm:^1.22.2":
   version: 1.49.0
   resolution: "playwright@npm:1.49.0"
   dependencies:
@@ -18932,6 +18992,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"sinon@npm:^19.0.2":
+  version: 19.0.2
+  resolution: "sinon@npm:19.0.2"
+  dependencies:
+    "@sinonjs/commons": "npm:^3.0.1"
+    "@sinonjs/fake-timers": "npm:^13.0.2"
+    "@sinonjs/samsam": "npm:^8.0.1"
+    diff: "npm:^7.0.0"
+    nise: "npm:^6.1.1"
+    supports-color: "npm:^7.2.0"
+  checksum: 10/0be47968e9352269d0bdd26cdae7ae4e67d94fa007e8417d1e66ac95ba8537214edc770aff01b0f5a6f07588a1f7d3c947fff9366d799db85d3a4c405b875460
+  languageName: node
+  linkType: hard
+
 "sisteransi@npm:^1.0.5":
   version: 1.0.5
   resolution: "sisteransi@npm:1.0.5"
@@ -19692,7 +19766,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supports-color@npm:^7.1.0":
+"supports-color@npm:^7.1.0, supports-color@npm:^7.2.0":
   version: 7.2.0
   resolution: "supports-color@npm:7.2.0"
   dependencies:
@@ -20360,6 +20434,13 @@ __metadata:
   version: 4.0.8
   resolution: "type-detect@npm:4.0.8"
   checksum: 10/5179e3b8ebc51fce1b13efb75fdea4595484433f9683bbc2dca6d99789dba4e602ab7922d2656f2ce8383987467f7770131d4a7f06a26287db0615d2f4c4ce7d
+  languageName: node
+  linkType: hard
+
+"type-detect@npm:^4.1.0":
+  version: 4.1.0
+  resolution: "type-detect@npm:4.1.0"
+  checksum: 10/e363bf0352427a79301f26a7795a27718624c49c576965076624eb5495d87515030b207217845f7018093adcbe169b2d119bb9b7f1a31a92bfbb1ab9639ca8dd
   languageName: node
   linkType: hard
 

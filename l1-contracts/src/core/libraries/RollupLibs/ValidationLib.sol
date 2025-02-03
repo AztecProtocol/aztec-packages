@@ -8,7 +8,7 @@ import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Errors} from "./../Errors.sol";
-import {Timestamp, Slot, Epoch} from "./../TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "./../TimeLib.sol";
 import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {Header} from "./HeaderLib.sol";
 
@@ -16,7 +16,7 @@ struct ValidateHeaderArgs {
   Header header;
   Timestamp currentTime;
   uint256 manaBaseFee;
-  bytes32 blobsHash;
+  bytes32 blobsHashesCommitment;
   uint256 pendingBlockNumber;
   DataStructures.ExecutionFlags flags;
   uint256 version;
@@ -76,7 +76,8 @@ library ValidationLib {
 
     // Check if the data is available
     require(
-      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHash,
+      _args.flags.ignoreDA
+        || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
       Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
     );
 
@@ -121,7 +122,7 @@ library ValidationLib {
 
     require(
       _currentProposer == address(0) || _currentProposer == msg.sender,
-      Errors.Leonidas__InvalidProposer(_currentProposer, msg.sender)
+      Errors.ValidatorSelection__InvalidProposer(_currentProposer, msg.sender)
     );
 
     require(

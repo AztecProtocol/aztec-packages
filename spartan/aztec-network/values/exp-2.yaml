@@ -1,34 +1,93 @@
+network:
+  public: false
+
+storage:
+  localSsd: true
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false
+
 telemetry:
   enabled: true
 
-network:
-  setupL2Contracts: false
-  public: false
+images:
+  aztec:
+    pullPolicy: Always
+
+validator:
+  storageSize: "300Gi"
+  replicas: 128
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
+  validator:
+    disabled: false
+  sequencer:
+    maxTxsPerBlock: 40
+    enforceTimeTable: true
+
+bootNode:
+  peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
+  storageSize: "100Gi"
+  validator:
+    disabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
+
+proverAgent:
+  replicas: 8
+
+proverBroker:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
+
+proverNode:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
+
+bot:
+  replicas: 10
+  followChain: "NONE"
+  enabled: true
+  txIntervalSeconds: 1
+
+jobs:
+  deployL1Verifier:
+    enable: false
 
 ethereum:
   execution:
-    externalHost:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"
   beacon:
-    externalHost:
-  chainId: "11155111"
-
-validator:
-  replicas: 3
-  validatorKeys:
-  validatorAddresses:
-    - 0xB5221f3FA03acDEA5A68e355CcDed3f76847F375
-    - 0x226E9D4c69525884b0A52C1E9E4C11054729223e
-    - 0xA33Fa6E2890C37C42CFC0875B86462E73885e02b
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"
   validator:
-    disabled: false
-
-bootNode:
-  seqPublisherPrivateKey:
-  validator:
-    disabled: true
-
-proverNode:
-  proverPublisherPrivateKey:
-
-bot:
-  txIntervalSeconds: 20
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1.5"
+    storageSize: "80Gi"

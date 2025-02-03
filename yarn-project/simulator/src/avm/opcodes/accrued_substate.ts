@@ -70,7 +70,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.address, noteHash);
+    await context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
   }
