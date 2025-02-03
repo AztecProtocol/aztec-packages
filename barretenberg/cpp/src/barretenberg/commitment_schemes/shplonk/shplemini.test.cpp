@@ -96,48 +96,60 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ 0,
+                                          /*num_to_be_right_shifted_by_k*/ 1,
                                           mle_opening_point,
                                           ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
-    // Compute batched multivariate evaluation
-    Fr batched_evaluation = Fr(0);
-    size_t idx = 0;
-    for (auto& eval : mock_claims.unshifted.evals) {
-        batched_evaluation += eval * rhos[idx];
-        idx++;
-    }
+    // Lambda to compute batched multivariate evaluation
+    auto update_batched_eval = [&](Fr& batched_eval, const std::vector<Fr>& evaluations, Fr& rho_power) {
+        for (auto& eval : evaluations) {
+            batched_eval += eval * rho_power;
+            rho_power *= rho;
+        }
+    };
 
-    for (auto& eval : mock_claims.to_be_shifted.evals) {
-        batched_evaluation += eval * rhos[idx];
-        idx++;
-    }
+    Fr rho_power(1);
+    Fr batched_evaluation(0);
+    update_batched_eval(batched_evaluation, mock_claims.unshifted.evals, rho_power);
+    update_batched_eval(batched_evaluation, mock_claims.to_be_shifted.evals, rho_power);
+    update_batched_eval(batched_evaluation, mock_claims.to_be_right_shifted_by_k.evals, rho_power);
+
+    // Lambda to compute batched commitment
+    auto compute_batched_commitment = [&](const std::vector<Commitment>& commitments, Fr& rho_power) {
+        GroupElement batched = GroupElement::zero();
+        for (auto& comm : commitments) {
+            batched += comm * rho_power;
+            rho_power *= rho;
+        }
+        return batched;
+    };
 
     // Compute batched commitments manually
-    idx = 0;
-    GroupElement batched_commitment_unshifted = GroupElement::zero();
-    for (auto& comm : mock_claims.unshifted.commitments) {
-        batched_commitment_unshifted += comm * rhos[idx];
-        idx++;
-    }
-
-    GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
-    for (auto& comm : mock_claims.to_be_shifted.commitments) {
-        batched_commitment_to_be_shifted += comm * rhos[idx];
-        idx++;
-    }
+    rho_power = Fr(1);
+    GroupElement batched_commitment_unshifted =
+        compute_batched_commitment(mock_claims.unshifted.commitments, rho_power);
+    GroupElement batched_commitment_to_be_shifted =
+        compute_batched_commitment(mock_claims.to_be_shifted.commitments, rho_power);
+    GroupElement batched_commitment_to_be_right_shifted_by_k =
+        compute_batched_commitment(mock_claims.to_be_right_shifted_by_k.commitments, rho_power);
 
     // Compute expected result manually
-    GroupElement commitment_to_univariate =
-        batched_commitment_unshifted + batched_commitment_to_be_shifted * gemini_eval_challenge.invert();
+    GroupElement to_be_right_shifted_by_k_contribution =
+        batched_commitment_to_be_right_shifted_by_k *
+        gemini_eval_challenge.pow(mock_claims.claim_batcher.k_shift_magnitude);
+    GroupElement to_be_shifted_contribution = batched_commitment_to_be_shifted * gemini_eval_challenge.invert();
+
+    GroupElement commitment_to_univariate_pos =
+        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution + to_be_shifted_contribution;
+
     GroupElement commitment_to_univariate_neg =
-        batched_commitment_unshifted - batched_commitment_to_be_shifted * gemini_eval_challenge.invert();
+        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution - to_be_shifted_contribution;
 
     GroupElement expected_result =
-        commitment_to_univariate * (shplonk_eval_challenge - gemini_eval_challenge).invert() +
+        commitment_to_univariate_pos * (shplonk_eval_challenge - gemini_eval_challenge).invert() +
         commitment_to_univariate_neg *
             (shplonk_batching_challenge * (shplonk_eval_challenge + gemini_eval_challenge).invert());
 
@@ -159,7 +171,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
-              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
+              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size() +
+                  mock_claims.to_be_right_shifted_by_k.commitments.size());
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }

@@ -291,8 +291,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
-        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0],
-                                                     inverse_vanishing_evals[1],
+        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z − r)
+                                                     inverse_vanishing_evals[1], // 1/(z + r)
                                                      shplonk_batching_challenge,
                                                      gemini_evaluation_challenge);
 
