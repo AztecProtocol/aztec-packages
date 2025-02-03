@@ -5,7 +5,7 @@ export class U128 {
   private readonly value: bigint;
 
   constructor(value: bigint | number) {
-    if (typeof value === 'number') {
+    if (typeof value !== 'bigint') {
       value = BigInt(value);
     }
 

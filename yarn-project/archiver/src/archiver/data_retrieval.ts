@@ -2,7 +2,7 @@ import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { Blob } from '@aztec/foundation/blob';
+import { Blob, BlobDeserializationError } from '@aztec/foundation/blob';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -109,6 +109,7 @@ export async function processL2BlockProposedLogs(
         blobHashes,
         l2BlockNumber,
         rollup.address,
+        logger,
       );
 
       const l1: L1PublishedData = {
@@ -201,6 +202,7 @@ async function getBlockFromRollupTx(
   blobHashes: Buffer[], // WORKTODO(md): buffer32?
   l2BlockNum: bigint,
   rollupAddress: Hex,
+  logger: Logger,
 ): Promise<L2Block> {
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
@@ -232,13 +234,25 @@ async function getBlockFromRollupTx(
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
-
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
-  const blockFields = Blob.toEncodedFields(blobBodies);
+  // TODO(#9101): Once calldata is removed, we can remove this field encoding and update
+  // Body.fromBlobFields to accept blob buffers directly
+  let blockFields: Fr[];
+  try {
+    blockFields = Blob.toEncodedFields(blobBodies);
+  } catch (err: any) {
+    if (err instanceof BlobDeserializationError) {
+      logger.fatal(err.message);
+    } else {
+      logger.fatal('Unable to sync: failed to decode fetched blob, this blob was likely not created by us');
+    }
+    throw err;
+  }
+
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.

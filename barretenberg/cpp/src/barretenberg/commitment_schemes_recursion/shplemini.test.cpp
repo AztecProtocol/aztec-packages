@@ -41,6 +41,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using Polynomial = bb::Polynomial<NativeFr>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using PolynomialBatcher = GeminiProver_<NativeCurve>::PolynomialBatcher;
+    using ClaimBatcher = ShpleminiVerifier::ClaimBatcher;
+    using ClaimBatch = ShpleminiVerifier::ClaimBatch;
 
     srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
@@ -135,11 +137,13 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             return zero;
         });
 
+        ClaimBatcher claim_batcher{
+            .unshifted = ClaimBatch{ RefVector(stdlib_f_commitments), RefVector(stdlib_v_evaluations) },
+            .shifted = ClaimBatch{ RefVector(stdlib_g_commitments), RefVector(stdlib_w_evaluations) }
+        };
+
         const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
-                                                                                  RefVector(stdlib_f_commitments),
-                                                                                  RefVector(stdlib_g_commitments),
-                                                                                  RefVector(stdlib_v_evaluations),
-                                                                                  RefVector(stdlib_w_evaluations),
+                                                                                  claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),
                                                                                   stdlib_verifier_transcript);

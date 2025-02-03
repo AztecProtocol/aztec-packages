@@ -3,6 +3,10 @@ name: Aztec Metrics Stack Deployment
 on:
   workflow_call:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. metrics
         required: true
@@ -28,11 +32,20 @@ on:
         required: false
         type: string
         default: "master"
+      grafana_dashboard_password_secret_name:
+        description: The name of the secret which holds the Grafana dashboard password
+        required: true
+        type: string
+        default: "grafana-dashboard-password"
     secrets:
       GCP_SA_KEY:
         required: true
   workflow_dispatch:
     inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private
+        required: true
+        type: string
       namespace:
         description: The namespace to deploy to, e.g. metrics
         required: true
@@ -53,6 +66,10 @@ on:
         description: The branch name to deploy from
         required: false
         default: "master"
+      grafana_dashboard_password_secret_name:
+        description: The name of the secret which holds the Grafana dashboard password
+        required: true
+        default: "grafana-dashboard-password"
 
 jobs:
   metrics_deployment:
@@ -67,10 +84,11 @@ jobs:
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
       CHART_PATH: ./spartan/metrics
-      CLUSTER_NAME: aztec-gke
+      CLUSTER_NAME: ${{ inputs.cluster }}
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
-      GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+      GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
+      GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
 
     steps:
       - name: Checkout code
@@ -94,6 +112,12 @@ jobs:
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
 
+      - name: Grab the Grafana dashboard password
+        id: get-grafana-dashboard-password
+        run: |
+          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})"
+          echo "grafana_dashboard_password=$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
+
       - name: Ensure Terraform state bucket exists
         run: |
           if ! gsutil ls gs://${{ env.TF_STATE_BUCKET }} >/dev/null 2>&1; then
@@ -103,6 +127,10 @@ jobs:
           else
             echo "Terraform state bucket already exists"
           fi
+
+      - name: Import Dashboard
+        working-directory: ./spartan/metrics
+        run: ./copy-dashboard.sh
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -122,10 +150,11 @@ jobs:
         # Destroy fails if the resources are already destroyed, so we continue on error
         continue-on-error: true
         run: |
-          terraform destroy -auto-approve \
+          terraform destroy -target helm_release.aztec-gke-cluster -auto-approve \
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
@@ -135,6 +164,7 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 
