@@ -19,9 +19,9 @@ To upgrade to a new Rollup instance is to:
 
 2. Sequencers move stake to the new Rollup contract to be eligible for any Hypothetical Asset rewards.
 
-To achieve 1, a new Rollup contract is deployed at address `0xRollup` (for example) and the code for calling `Registry.upgrade(_addressOfNewRollup)` is deployed at address `0xProposal`.
+To achieve 1, a new Rollup contract is deployed at an address, and the code for calling `Registry.upgrade(_addressOfNewRollup)` is deployed at a separate address.
 
-Sequencers of the current canonical rollup, that is the current rollup as pointed to by the Registry, must then call `vote(0xProposal)` on the Proposals contract. Sequencers can only vote during L2 slots for which they’ve been assigned as the block proposer by the L1 Rollup smart contract. For any given L2 slot, there is only one such sequencer. 
+Sequencers of the current canonical rollup, that is the current rollup as pointed to by the Registry, must then call `vote(proposal)` on the Proposals contract. Sequencers can only vote during L2 slots for which they’ve been assigned as the block proposer by the L1 Rollup smart contract. For any given L2 slot, there is only one such sequencer. 
 
 Sequencers vote by updating an environment variable `PROPOSAL_PAYLOAD` in their client software. If enough votes are received by the Proposals contract, any Ethereum account can call `pushProposal(_roundNumber)` where `_roundNumber` can be read from the L1.
 
@@ -33,4 +33,4 @@ If the vote passes, a proposal is moved to an Executable state after some delay.
  
 ## Proposal executed
 
-Anyone can call `execute(_proposalId)` on the Governance contract which in turn will call the code deployed to `0xProposal`.
+Anyone can call `execute(_proposalId)` on the Governance contract which in turn will call the proposal code that was deployed.

@@ -18,8 +18,8 @@ The initial deployment creates a set of contracts, as described in the [Deployme
 ## Upgrading the Rollup Contract
 
 1. **Proposal Creation:**
-   - A new Rollup contract is deployed to the network (e.g., `0xRollup`).
-   - Proposal code to execute the upgrade is deployed separately (e.g., `0xProposal`).
+   - A new Rollup contract is deployed to the network
+   - Proposal code to execute the upgrade is deployed separately
 
 2. **Governance Approval:**
    - Governance contract holders vote to approve or reject the proposal. Votes are proportional to the amount of Hypothetical Asset locked in the Governance contract.
@@ -33,6 +33,6 @@ The initial deployment creates a set of contracts, as described in the [Deployme
 After governance approval and a delay period, the proposal becomes executable:
 
 - Any Ethereum account can call `execute(_proposalId)` on the Governance contract.
-- The `execute` function calls the proposal code (e.g., at `0xProposal`), transitioning the network to the new Rollup instance.
+- The `execute` function calls the proposal code, transitioning the network to the new Rollup instance.
 
 For a more hands-on guide to reacting to upgrades as a sequencer/validators, read [this](../../guides/reacting_to_upgrades.md).
