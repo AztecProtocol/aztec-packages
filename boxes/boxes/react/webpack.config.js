@@ -2,6 +2,8 @@ import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import { resolve } from 'path';
+
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
@@ -31,7 +33,7 @@ export default (_, argv) => ({
     new CopyPlugin({
       patterns: [
         {
-          context: '../../../barretenberg/ts/dest/browser',
+          context: resolve(require.resolve('@aztec/aztec.js'), '../'),
           from: '*.gz',
         },
       ],
