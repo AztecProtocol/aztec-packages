@@ -5,7 +5,7 @@ mod test_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Test {
+pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 

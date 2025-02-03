@@ -13,7 +13,7 @@ mod helpers;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Lending {
+pub contract Lending {
     use dep::aztec::prelude::{AztecAddress, Map, PublicMutable};
 
     use crate::asset::Asset;
