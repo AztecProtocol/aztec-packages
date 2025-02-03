@@ -70,6 +70,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
+    capsules: Fr[][],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
@@ -79,7 +80,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
-    super(callContext.contractAddress, authWitnesses, db, node, log, scopes);
+    super(callContext.contractAddress, authWitnesses, capsules, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -383,6 +384,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
+      this.capsules,
       this.executionCache,
       this.noteCache,
       this.db,

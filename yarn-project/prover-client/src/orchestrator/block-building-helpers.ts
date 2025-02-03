@@ -102,6 +102,10 @@ export const buildBaseRollupHints = runInSpan(
     const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
 
+    // Create data hint for reading fee payer initial balance in Fee Juice
+    const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+    const feePayerFeeJuiceBalanceReadHint = await getPublicDataHint(db, leafSlot.toBigInt());
+
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.
     const txPublicDataUpdateRequestInfo = await processPublicDataUpdateRequests(tx, db);
@@ -196,13 +200,6 @@ export const buildBaseRollupHints = runInSpan(
         throw new Error(`More than one public data write in a private only tx`);
       }
 
-      // Create data hint for reading fee payer initial balance in Fee Juice
-      // If no fee payer is set, read hint should be empty
-      const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-      const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
-        ? PublicDataHint.empty()
-        : await getPublicDataHint(db, leafSlot.toBigInt());
-
       const feeWriteLowLeafPreimage =
         txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
       const feeWriteLowLeafMembershipWitness =
@@ -244,7 +241,7 @@ export const buildBaseRollupHints = runInSpan(
         start,
         startSpongeBlob: inputSpongeBlob,
         stateDiffHints,
-        feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
+        feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
         constants,
       });

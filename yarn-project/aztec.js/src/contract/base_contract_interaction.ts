@@ -32,6 +32,8 @@ export type SendMethodOptions = {
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');
 
+  private capsules: Fr[][] = [];
+
   constructor(protected wallet: Wallet) {}
 
   /**
@@ -162,5 +164,20 @@ export abstract class BaseContractInteraction {
     }
 
     return { gasSettings, paymentMethod };
+  }
+
+  /**
+   * Add data passed to the oracle calls during this contract interaction.
+   * @param capsule - Data passed to oracle calls.
+   */
+  public addCapsule(capsule: Fr[]) {
+    this.capsules.push(capsule);
+  }
+
+  /**
+   * Return all capsules added for this function interaction.
+   */
+  public getCapsules() {
+    return this.capsules;
   }
 }

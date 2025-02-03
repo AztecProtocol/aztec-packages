@@ -43,6 +43,10 @@ export class TxExecutionRequest {
      * These witnesses are not expected to be stored in the local witnesses database of the PXE.
      */
     public authWitnesses: AuthWitness[],
+    /**
+     * Data passed through the oracle calls during this tx execution.
+     */
+    public capsules: Fr[][],
   ) {}
 
   static get schema() {
@@ -54,6 +58,7 @@ export class TxExecutionRequest {
         txContext: TxContext.schema,
         argsOfCalls: z.array(HashedValues.schema),
         authWitnesses: z.array(AuthWitness.schema),
+        capsules: z.array(z.array(schemas.Fr)),
       })
       .transform(TxExecutionRequest.from);
   }
@@ -76,6 +81,7 @@ export class TxExecutionRequest {
       fields.txContext,
       fields.argsOfCalls,
       fields.authWitnesses,
+      fields.capsules,
     ] as const;
   }
 
@@ -95,6 +101,7 @@ export class TxExecutionRequest {
       this.txContext,
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
+      new Vector(this.capsules.map(c => new Vector(c))),
     );
   }
 
@@ -120,6 +127,7 @@ export class TxExecutionRequest {
       reader.readObject(TxContext),
       reader.readVector(HashedValues),
       reader.readVector(AuthWitness),
+      reader.readVector({ fromBuffer: () => reader.readVector(Fr) }),
     );
   }
 
@@ -140,6 +148,7 @@ export class TxExecutionRequest {
       TxContext.empty(),
       [await HashedValues.random()],
       [AuthWitness.random()],
+      [[Fr.random(), Fr.random()], [Fr.random()]],
     );
   }
 

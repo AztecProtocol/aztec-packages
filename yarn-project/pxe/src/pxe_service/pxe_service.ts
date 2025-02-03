@@ -138,10 +138,6 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
-  public addCapsule(capsule: Fr[]) {
-    return this.db.addCapsule(capsule);
-  }
-
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.db.getContractInstance(address);
   }
