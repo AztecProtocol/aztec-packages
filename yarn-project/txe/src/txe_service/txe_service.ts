@@ -1,6 +1,7 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
+  DEPLOYER_CONTRACT_ADDRESS,
   Fr,
   FunctionSelector,
   PublicDataWrite,
@@ -8,7 +9,7 @@ import {
   computePartialAddress,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
@@ -114,6 +115,11 @@ export class TXEService {
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
+
+    // Emit deployment nullifier
+    (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
+      await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
+    ]);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
