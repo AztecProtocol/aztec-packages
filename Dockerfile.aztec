@@ -3,7 +3,7 @@ ENV BB_WORKING_DIRECTORY=/usr/src/bb
 ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
-RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
+RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/native/build
 
 COPY /usr/src /usr/src
 

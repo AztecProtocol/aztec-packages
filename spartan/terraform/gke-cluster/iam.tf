@@ -32,7 +32,8 @@ resource "google_project_iam_member" "helm_sa_roles" {
   for_each = toset([
     "roles/container.admin",
     "roles/storage.admin",
-    "roles/secretmanager.admin"
+    "roles/secretmanager.admin",
+    "roles/compute.loadBalancerAdmin"
   ])
   project = var.project
   role    = each.key

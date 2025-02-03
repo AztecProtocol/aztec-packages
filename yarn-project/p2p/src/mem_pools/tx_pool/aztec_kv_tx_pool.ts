@@ -1,8 +1,9 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { ClientIvcProof } from '@aztec/circuits.js';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
@@ -13,25 +14,25 @@ import { type TxPool } from './tx_pool.js';
  * KV implementation of the Transaction Pool.
  */
 export class AztecKVTxPool implements TxPool {
-  #store: AztecKVStore;
+  #store: AztecAsyncKVStore;
 
   /** Our tx pool, stored as a Map, with K: tx hash and V: the transaction. */
-  #txs: AztecMap<string, Buffer>;
+  #txs: AztecAsyncMap<string, Buffer>;
 
   /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
-  #minedTxHashToBlock: AztecMap<string, number>;
+  #minedTxHashToBlock: AztecAsyncMap<string, number>;
 
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
-  #pendingTxPriorityToHash: AztecMultiMap<string, string>;
+  #pendingTxPriorityToHash: AztecAsyncMultiMap<string, string>;
 
   /** KV store for archived txs. */
-  #archive: AztecKVStore;
+  #archive: AztecAsyncKVStore;
 
   /** Archived txs map for future lookup. */
-  #archivedTxs: AztecMap<string, Buffer>;
+  #archivedTxs: AztecAsyncMap<string, Buffer>;
 
   /** Indexes of the archived txs by insertion order. */
-  #archivedTxIndices: AztecMap<number, string>;
+  #archivedTxIndices: AztecAsyncMap<number, string>;
 
   /** Number of txs to archive. */
   #archivedTxLimit: number;
@@ -49,8 +50,8 @@ export class AztecKVTxPool implements TxPool {
    * @param log - A logger.
    */
   constructor(
-    store: AztecKVStore,
-    archive: AztecKVStore,
+    store: AztecAsyncKVStore,
+    archive: AztecAsyncKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
     archivedTxLimit: number = 0,
     log = createLogger('p2p:tx_pool'),
@@ -75,16 +76,16 @@ export class AztecKVTxPool implements TxPool {
     }
 
     let deletedPending = 0;
-    return this.#store.transaction(() => {
+    return this.#store.transactionAsync(async () => {
       for (const hash of txHashes) {
         const key = hash.toString();
-        void this.#minedTxHashToBlock.set(key, blockNumber);
+        await this.#minedTxHashToBlock.set(key, blockNumber);
 
-        const tx = this.getTxByHash(hash);
+        const tx = await this.getTxByHash(hash);
         if (tx) {
           deletedPending++;
           const fee = getPendingTxPriority(tx);
-          void this.#pendingTxPriorityToHash.deleteValue(fee, key);
+          await this.#pendingTxPriorityToHash.deleteValue(fee, key);
         }
       }
       this.#metrics.recordAddedObjects(txHashes.length, 'mined');
@@ -98,14 +99,14 @@ export class AztecKVTxPool implements TxPool {
     }
 
     let markedAsPending = 0;
-    return this.#store.transaction(() => {
+    return this.#store.transactionAsync(async () => {
       for (const hash of txHashes) {
         const key = hash.toString();
-        void this.#minedTxHashToBlock.delete(key);
+        await this.#minedTxHashToBlock.delete(key);
 
-        const tx = this.getTxByHash(hash);
+        const tx = await this.getTxByHash(hash);
         if (tx) {
-          void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
+          await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
           markedAsPending++;
         }
       }
@@ -115,24 +116,23 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  public getPendingTxHashes(): Promise<TxHash[]> {
-    return Promise.resolve(
-      Array.from(this.#pendingTxPriorityToHash.values({ reverse: true })).map(x => TxHash.fromString(x)),
-    );
+  public async getPendingTxHashes(): Promise<TxHash[]> {
+    const vals = await toArray(this.#pendingTxPriorityToHash.valuesAsync({ reverse: true }));
+    return vals.map(x => TxHash.fromString(x));
   }
 
-  public getMinedTxHashes(): [TxHash, number][] {
-    return Array.from(this.#minedTxHashToBlock.entries()).map(([txHash, blockNumber]) => [
-      TxHash.fromString(txHash),
-      blockNumber,
-    ]);
+  public async getMinedTxHashes(): Promise<[TxHash, number][]> {
+    const vals = await toArray(this.#minedTxHashToBlock.entriesAsync());
+    return vals.map(([txHash, blockNumber]) => [TxHash.fromString(txHash), blockNumber]);
   }
 
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public async getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toString();
-    if (this.#minedTxHashToBlock.has(key)) {
+    const [isMined, isKnown] = await Promise.all([this.#minedTxHashToBlock.hasAsync(key), this.#txs.hasAsync(key)]);
+
+    if (isMined) {
       return 'mined';
-    } else if (this.#txs.has(key)) {
+    } else if (isKnown) {
       return 'pending';
     } else {
       return undefined;
@@ -144,8 +144,8 @@ export class AztecKVTxPool implements TxPool {
    * @param txHash - The generated tx hash.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  public getTxByHash(txHash: TxHash): Tx | undefined {
-    const buffer = this.#txs.get(txHash.toString());
+  public async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const buffer = await this.#txs.getAsync(txHash.toString());
     if (buffer) {
       const tx = Tx.fromBuffer(buffer);
       tx.setTxHash(txHash);
@@ -159,8 +159,8 @@ export class AztecKVTxPool implements TxPool {
    * @param txHash - The tx hash.
    * @returns The transaction metadata, if found, 'undefined' otherwise.
    */
-  public getArchivedTxByHash(txHash: TxHash): Tx | undefined {
-    const buffer = this.#archivedTxs.get(txHash.toString());
+  public async getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const buffer = await this.#archivedTxs.getAsync(txHash.toString());
     if (buffer) {
       const tx = Tx.fromBuffer(buffer);
       tx.setTxHash(txHash);
@@ -178,25 +178,27 @@ export class AztecKVTxPool implements TxPool {
     const hashesAndStats = await Promise.all(
       txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
     );
-    return this.#store.transaction(() => {
+    await this.#store.transactionAsync(async () => {
       let pendingCount = 0;
-      txs.forEach((tx, i) => {
-        const { txHash, txStats } = hashesAndStats[i];
-        this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
-          eventName: 'tx-added-to-pool',
-          ...txStats,
-        } satisfies TxAddedToPoolStats);
+      await Promise.all(
+        txs.map(async (tx, i) => {
+          const { txHash, txStats } = hashesAndStats[i];
+          this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
+            eventName: 'tx-added-to-pool',
+            ...txStats,
+          } satisfies TxAddedToPoolStats);
 
-        const key = txHash.toString();
-        void this.#txs.set(key, tx.toBuffer());
+          const key = txHash.toString();
+          await this.#txs.set(key, tx.toBuffer());
 
-        if (!this.#minedTxHashToBlock.has(key)) {
-          pendingCount++;
-          // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
-          void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
-          this.#metrics.recordSize(tx);
-        }
-      });
+          if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
+            pendingCount++;
+            // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
+            await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
+            this.#metrics.recordSize(tx);
+          }
+        }),
+      );
 
       this.#metrics.recordAddedObjects(pendingCount, 'pending');
     });
@@ -212,16 +214,16 @@ export class AztecKVTxPool implements TxPool {
     let minedDeleted = 0;
 
     const deletedTxs: Tx[] = [];
-    const poolDbTx = this.#store.transaction(() => {
+    const poolDbTx = this.#store.transactionAsync(async () => {
       for (const hash of txHashes) {
         const key = hash.toString();
-        const tx = this.getTxByHash(hash);
+        const tx = await this.getTxByHash(hash);
 
         if (tx) {
           const fee = getPendingTxPriority(tx);
-          void this.#pendingTxPriorityToHash.deleteValue(fee, key);
+          await this.#pendingTxPriorityToHash.deleteValue(fee, key);
 
-          const isMined = this.#minedTxHashToBlock.has(key);
+          const isMined = await this.#minedTxHashToBlock.hasAsync(key);
           if (isMined) {
             minedDeleted++;
           } else {
@@ -232,8 +234,8 @@ export class AztecKVTxPool implements TxPool {
             deletedTxs.push(tx);
           }
 
-          void this.#txs.delete(key);
-          void this.#minedTxHashToBlock.delete(key);
+          await this.#txs.delete(key);
+          await this.#minedTxHashToBlock.delete(key);
         }
       }
 
@@ -248,8 +250,9 @@ export class AztecKVTxPool implements TxPool {
    * Gets all the transactions stored in the pool.
    * @returns Array of tx objects in the order they were added to the pool.
    */
-  public getAllTxs(): Tx[] {
-    return Array.from(this.#txs.entries()).map(([hash, buffer]) => {
+  public async getAllTxs(): Promise<Tx[]> {
+    const vals = await toArray(this.#txs.entriesAsync());
+    return vals.map(([hash, buffer]) => {
       const tx = Tx.fromBuffer(buffer);
       tx.setTxHash(TxHash.fromString(hash));
       return tx;
@@ -260,8 +263,9 @@ export class AztecKVTxPool implements TxPool {
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  public getAllTxHashes(): TxHash[] {
-    return Array.from(this.#txs.keys()).map(x => TxHash.fromString(x));
+  public async getAllTxHashes(): Promise<TxHash[]> {
+    const vals = await toArray(this.#txs.keysAsync());
+    return vals.map(x => TxHash.fromString(x));
   }
 
   /**
@@ -271,17 +275,19 @@ export class AztecKVTxPool implements TxPool {
    */
   private async archiveTxs(txs: Tx[]): Promise<void> {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    return this.#archive.transaction(() => {
+    await this.#archive.transactionAsync(async () => {
       // calcualte the head and tail indices of the archived txs by insertion order.
-      let headIdx = (this.#archivedTxIndices.entries({ limit: 1, reverse: true }).next().value?.[0] ?? -1) + 1;
-      let tailIdx = this.#archivedTxIndices.entries({ limit: 1 }).next().value?.[0] ?? 0;
+      let headIdx =
+        ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
+      let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
 
-      txs.forEach((tx, i) => {
+      for (let i = 0; i < txs.length; i++) {
+        const tx = txs[i];
         while (headIdx - tailIdx >= this.#archivedTxLimit) {
-          const txHash = this.#archivedTxIndices.get(tailIdx);
+          const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
           if (txHash) {
-            void this.#archivedTxs.delete(txHash);
-            void this.#archivedTxIndices.delete(tailIdx);
+            await this.#archivedTxs.delete(txHash);
+            await this.#archivedTxIndices.delete(tailIdx);
           }
           tailIdx++;
         }
@@ -294,10 +300,10 @@ export class AztecKVTxPool implements TxPool {
           tx.publicTeardownFunctionCall,
         );
         const txHash = txHashes[i].toString();
-        void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
-        void this.#archivedTxIndices.set(headIdx, txHash);
+        await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+        await this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;
-      });
+      }
     });
   }
 }

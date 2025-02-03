@@ -18,6 +18,16 @@ export interface BlobSinkConfig {
    * The URL of the L1 consensus client
    */
   l1ConsensusHostUrl?: string;
+
+  /**
+   * The API key for the L1 consensus client. Added end of URL as "?key=<api-key>" unless a header is defined
+   */
+  l1ConsensusHostApiKey?: string;
+
+  /**
+   * The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>"
+   */
+  l1ConsensusHostApiKeyHeader?: string;
 }
 
 export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
@@ -32,6 +42,16 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
   l1ConsensusHostUrl: {
     env: 'L1_CONSENSUS_HOST_URL',
     description: 'The URL of the L1 consensus client',
+  },
+  l1ConsensusHostApiKey: {
+    env: 'L1_CONSENSUS_HOST_API_KEY',
+    description:
+      'The API key for the L1 consensus client, if needed. Added end of URL as "?key=<api-key>" unless a header is defined',
+  },
+  l1ConsensusHostApiKeyHeader: {
+    env: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+    description:
+      'The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>"',
   },
 };
 

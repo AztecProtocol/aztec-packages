@@ -23,7 +23,7 @@ import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import type { AztecKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
@@ -167,7 +167,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     epochCache: EpochCache,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
-    store: AztecKVStore,
+    store: AztecAsyncKVStore,
     telemetry: TelemetryClient,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
@@ -910,7 +910,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   // Libp2p seems to hang sometimes if new peers are initiating connections.
   private async stopLibP2P() {
     const TIMEOUT_MS = 5000; // 5 seconds timeout
-    const timeout = new Promise((resolve, reject) => {
+    const timeout = new Promise((_resolve, reject) => {
       setTimeout(() => reject(new Error('Timeout during libp2p.stop()')), TIMEOUT_MS);
     });
     try {

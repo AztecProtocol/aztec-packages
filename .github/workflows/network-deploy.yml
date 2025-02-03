@@ -115,6 +115,9 @@ jobs:
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
+      GCP_API_KEY_HEADER: "X-goog-api-key"
+      EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
+      EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
 
     steps:
       - name: Checkout code
@@ -150,12 +153,14 @@ jobs:
 
       - name: Grab the boot node deployment mnemonic
         id: get-mnemonic
+        if: ${{ inputs.sepolia_deployment != 'true' }}
         run: |
           echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
           echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
       - name: Generate eth devnet config
         id: generate-eth-devnet-config
+        if: ${{ inputs.sepolia_deployment != 'true' }}
         run: |
           REPO=$(git rev-parse --show-toplevel)
 
@@ -191,8 +196,11 @@ jobs:
               -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
               -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
-            -lock=${{ inputs.respect_tf_lock }}
+              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              -lock=${{ inputs.respect_tf_lock }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -217,7 +225,10 @@ jobs:
               -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
               -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
+              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           else
