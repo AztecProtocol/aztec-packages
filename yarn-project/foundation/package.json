@@ -52,7 +52,6 @@
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
-    "./polyfills/node18": "./dest/polyfills/node18.js",
     "./string": "./dest/string/index.js",
     "./message": "./dest/message/index.js"
   },

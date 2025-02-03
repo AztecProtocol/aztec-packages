@@ -50,8 +50,10 @@ function gke {
 
 function test_cmds {
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
-  # Note: commands that start with 'timeout ...' override the default timeout.
-  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
+  if [ "${REF_NAME:-}" == "master" ]; then
+    # Note: commands that start with 'timeout ...' override the default timeout.
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
+  fi
   echo "$hash ./spartan/bootstrap.sh test-local"
 }
 

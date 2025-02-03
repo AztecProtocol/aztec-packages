@@ -9,7 +9,6 @@ import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import '@aztec/foundation/polyfills/node18';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { Command } from 'commander';
