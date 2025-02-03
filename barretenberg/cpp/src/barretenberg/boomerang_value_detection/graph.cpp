@@ -38,7 +38,7 @@ inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circui
  */
 
 template <typename FF>
-inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
+inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
     auto& arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
@@ -51,10 +51,16 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
     auto q_2 = arithmetic_block.q_2()[index];
     auto q_3 = arithmetic_block.q_3()[index];
     auto q_4 = arithmetic_block.q_4()[index];
-    std::vector<uint32_t> gate_variables = {};
+    auto q_arith = arithmetic_block.q_arith()[index];
+    std::vector<uint32_t> gate_variables;
+    std::vector<uint32_t> minigate_variables;
+    if (q_m == 0 && q_1 == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 1) {
+        //this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
+        fixed_variables.insert(this->to_real(ultra_circuit_builder, left_idx));
+    }
     if (q_m != 0 || q_1 != 1 || q_2 != 0 || q_3 != 0 || q_4 != 0) {
         // this is not the gate for fix_witness, so we have to process this gate
-        if (arithmetic_block.q_arith()[index] > 0) {
+        if (q_arith > 0) {
             if (q_m != 0) {
                 gate_variables.emplace_back(left_idx);
                 gate_variables.emplace_back(right_idx);
@@ -71,22 +77,34 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
             if (q_4 != 0) {
                 gate_variables.emplace_back(fourth_idx);
             }
-            if (arithmetic_block.q_arith()[index] == 2) {
+            if (q_arith == 2) {
                 // We have to use w_4_shift from the next gate
                 // if and only if the current gate isn't last, cause we can't
                 // look into the next gate
                 if (index != arithmetic_block.size() - 1) {
-                    uint32_t fourth_shift_idx = arithmetic_block.w_4()[index + 1];
-                    gate_variables.emplace_back(fourth_shift_idx);
+                    gate_variables.emplace_back(arithmetic_block.w_4()[index + 1]);
                 }
             }
-            if (arithmetic_block.q_arith()[index] == 3) {
-                // TODO(daniel): want to process this case later
+            if (q_arith == 3) {
+                //In this gate mini gate is enabled, we have 2 equations: 
+                //q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
+                //w_1 + w_4 - w_1_omega + q_m = 0  
+                minigate_variables.insert(minigate_variables.end(), {left_idx, fourth_idx});
+                if (index != arithmetic_block.size() - 1) {
+                    gate_variables.emplace_back(arithmetic_block.w_4()[index + 1]);
+                    minigate_variables.emplace_back(arithmetic_block.w_l()[index + 1]);
+                }
             }
         }
     }
+    std::vector<std::vector<uint32_t>> all_gates_variables;
     this->process_gate_variables(ultra_circuit_builder, gate_variables);
-    return gate_variables;
+    this->process_gate_variables(ultra_circuit_builder, minigate_variables);
+    all_gates_variables.emplace_back(gate_variables);
+    if (!minigate_variables.empty()) {
+        all_gates_variables.emplace_back(minigate_variables);
+    }
+    return all_gates_variables;
 }
 
 /**
@@ -234,7 +252,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
         auto q_4 = block.q_4()[index];
         auto q_m = block.q_m()[index];
         auto q_arith = block.q_arith()[index];
-        auto q_c = block.q_c()[index];
+        [[maybe_unused]]auto q_c = block.q_c()[index];
 
         if (q_3 == 1 && q_4 == 1) {
             // bigfield limb accumulation 1
@@ -299,17 +317,6 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                     gate_variables.insert(gate_variables.end(),
                                           { block.w_4()[index], block.w_o()[index + 1], block.w_4()[index + 1] });
                 }
-            }
-        }
-        if (q_1 == 1 && q_m == 1) {
-            ASSERT(q_arith == 0);
-            // ram/rom access gate
-            // no we use special function for processing rom tables
-            // may be I will remove this case in the future btw
-            if (q_c != 0) {
-                gate_variables.insert(
-                    gate_variables.end(),
-                    { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
             }
         }
         if (q_1 == 1 && q_4 == 1) {
@@ -437,8 +444,12 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     bool arithmetic_gates_exists = arithmetic_gates_numbers > 0;
     if (arithmetic_gates_exists) {
         for (size_t i = 0; i < arithmetic_gates_numbers; i++) {
-            auto gate_variables = this->get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
-            this->connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
+            auto all_gates_variables = this->get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
+            for (const auto& gate_variables: all_gates_variables) {
+                if (!gate_variables.empty()) {
+                    this->connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
+                }
+            }
         }
     }
     const auto& elliptic_block = ultra_circuit_constructor.blocks.elliptic;
@@ -786,6 +797,22 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
         }
     }
 }
+
+
+template <typename FF>
+void Graph_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder) {    
+    std::map<uint64_t, UltraCircuitBuilder::RangeList> range_lists = ultra_builder.range_lists;
+    for (const auto& pair: range_lists) {
+        UltraCircuitBuilder::RangeList list = pair.second;
+        for (const auto& elem: list.variable_indices) {
+            uint32_t real_variable_index = to_real(ultra_builder, elem);
+            if (this->variables_in_one_gate.find(real_variable_index) != this->variables_in_one_gate.end()) {
+                this->variables_in_one_gate.erase(real_variable_index);
+            }
+        }
+    }
+}
+
 /**
  * @brief this method removes false cases variables from aes plookup tables.
  * AES_SBOX_MAP, AES_SPARSE_MAP, AES_SPARSE_NORMALIZE tables are used in read_from_1_to_2_table function which
@@ -963,6 +990,7 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
     }
 }
 
+
 /**
  * @brief this method returns a final set of variables that were in one gate
  * @tparam FF
@@ -993,6 +1021,10 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     this->remove_unnecessary_decompose_variables(
         ultra_circuit_builder, this->variables_in_one_gate, decompose_varialbes);
     this->remove_unnecessary_plookup_variables(ultra_circuit_builder, this->variables_in_one_gate);
+    this->remove_unnecessary_range_constrains_variables(ultra_circuit_builder);
+    for (const auto& elem: this->fixed_variables) {
+        this->variables_in_one_gate.erase(elem);
+    }
     return variables_in_one_gate;
 }
 
@@ -1027,7 +1059,7 @@ std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
 template <typename FF> void Graph_<FF>::print_graph()
 {
     for (const auto& elem : variable_adjacency_lists) {
-        info("variable with index", elem.first);
+        info("variable with index ", elem.first);
         if (variable_adjacency_lists[elem.first].empty()) {
             info("is isolated");
         } else {
