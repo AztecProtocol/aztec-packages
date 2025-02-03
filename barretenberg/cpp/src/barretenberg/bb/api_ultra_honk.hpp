@@ -3,14 +3,13 @@
 #include "barretenberg/bb/acir_format_getters.hpp"
 #include "barretenberg/bb/api.hpp"
 #include "barretenberg/bb/init_srs.hpp"
-#include "barretenberg/common/log.hpp"
+#include "barretenberg/bb/write_prover_output.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
-#include "libdeflate.h"
 
 namespace bb {
 
@@ -150,11 +149,7 @@ class UltraHonkAPI : public API {
         VectorCircuitSource circuit_source{ stack };
         info("created circuit source");
 
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
-        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
-        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
-
-        HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
+        HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, flags.recursive);
         return { proof, *ivc.previous_vk };
     }
 
@@ -163,12 +158,8 @@ class UltraHonkAPI : public API {
                                                                   const std::filesystem::path& bytecode_path,
                                                                   const std::filesystem::path& witness_path)
     {
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
-        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
-        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
-
         UltraKeccakProver prover =
-            compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
+            compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, flags.recursive);
 
         return { vk_only ? HonkProof() : prover.construct_proof(),
                  UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
@@ -230,151 +221,6 @@ class UltraHonkAPI : public API {
         return verified;
     }
 
-    template <typename ProverOutput>
-    void _write_data(const ProverOutput& prover_output,
-                     const OutputDataType& output_data_type,
-                     const OutputContentType& output_content,
-                     const std::filesystem::path& output_dir)
-    {
-        enum class ObjectToWrite : size_t { PROOF, VK };
-        const bool output_to_stdout = output_dir == "-";
-
-        info("output_dir is: ", output_dir);
-        info("output_to_stdout is: ", output_to_stdout);
-        info("output_data_type: ", static_cast<uint32_t>(output_data_type));
-        info("output_content: ", static_cast<uint32_t>(output_content));
-
-        const auto write_bytes = [&](const ObjectToWrite& obj) {
-            switch (obj) {
-            case ObjectToWrite::PROOF: {
-                info("case ObjectToWrite::PROOF: ");
-                const auto buf = to_buffer</*include_size*/ true>(prover_output.proof);
-                if (output_to_stdout) {
-                    write_bytes_to_stdout(buf);
-                } else {
-                    write_file(output_dir / "proof", buf);
-                }
-                break;
-            }
-            case ObjectToWrite::VK: {
-                info("case ObjectToWrite::VK: ");
-                const auto buf = to_buffer(prover_output.key);
-                if (output_to_stdout) {
-                    write_bytes_to_stdout(buf);
-                } else {
-                    write_file(output_dir / "vk", buf);
-                }
-                break;
-            }
-            }
-        };
-
-        const auto write_fields = [&](const ObjectToWrite& obj) {
-            switch (obj) {
-            case ObjectToWrite::PROOF: {
-                info("case ObjectToWrite::PROOF: ");
-                const std::string proof_json = to_json(prover_output.proof);
-                if (output_to_stdout) {
-                    write_string_to_stdout(proof_json);
-                } else {
-                    info("writing proof as fields to ", output_dir / "proof_fields.json");
-                    write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
-                }
-                break;
-            }
-            case ObjectToWrite::VK: {
-                info("case ObjectToWrite::VK: ");
-                const std::string vk_json = to_json(prover_output.key.to_field_elements());
-                if (output_to_stdout) {
-                    write_string_to_stdout(vk_json);
-                } else {
-                    info("writing vk as fields to ", output_dir / "vk_fields.json");
-                    write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
-                }
-                break;
-            }
-            }
-        };
-
-        switch (output_content) {
-        case OutputContentType::PROOF: {
-            switch (output_data_type) {
-            case OutputDataType::BYTES: {
-                info("case OutputDataType::BYTES: ");
-                write_bytes(ObjectToWrite::PROOF);
-                break;
-            }
-            case OutputDataType::FIELDS: {
-                info("case OutputDataType::FIELDS: ");
-                write_fields(ObjectToWrite::PROOF);
-                break;
-            }
-            case OutputDataType::BYTES_AND_FIELDS: {
-                info("case OutputDataType::BYTES_AND_FIELDS: ");
-                write_bytes(ObjectToWrite::PROOF);
-                write_fields(ObjectToWrite::PROOF);
-                break;
-            }
-            default:
-                ASSERT("Invalid OutputDataType for PROOF");
-            }
-            break;
-        }
-        case OutputContentType::VK: {
-            switch (output_data_type) {
-            case OutputDataType::BYTES: {
-                info("case OutputDataType::BYTES: ");
-                write_bytes(ObjectToWrite::VK);
-                break;
-            }
-            case OutputDataType::FIELDS: {
-                info("case OutputDataType::FIELDS: ");
-                write_fields(ObjectToWrite::VK);
-                break;
-            }
-            case OutputDataType::BYTES_AND_FIELDS: {
-                info("case OutputDataType::BYTES_AND_FIELDS: ");
-                write_bytes(ObjectToWrite::VK);
-                write_fields(ObjectToWrite::VK);
-                break;
-            }
-            default:
-                ASSERT("Invalid OutputDataType for VK");
-            }
-            break;
-        }
-        case OutputContentType::PROOF_AND_VK: {
-            switch (output_data_type) {
-            case OutputDataType::BYTES: {
-                info("case OutputDataType::BYTES: ");
-                write_bytes(ObjectToWrite::PROOF);
-                write_bytes(ObjectToWrite::VK);
-                break;
-            }
-            case OutputDataType::FIELDS: {
-                info("case OutputDataType::FIELDS: ");
-                write_fields(ObjectToWrite::PROOF);
-                write_fields(ObjectToWrite::VK);
-                break;
-            }
-            case OutputDataType::BYTES_AND_FIELDS: {
-                info("case OutputDataType::BYTES_AND_FIELDS: ");
-                write_bytes(ObjectToWrite::PROOF);
-                write_fields(ObjectToWrite::PROOF);
-                write_bytes(ObjectToWrite::VK);
-                write_fields(ObjectToWrite::VK);
-                break;
-            }
-            default:
-                ASSERT("Invalid OutputDataType for PROOF_AND_VK");
-            }
-            break;
-        }
-        default:
-            ASSERT("Invalid OutputContentType");
-        }
-    }
-
     void _prove(const bool vk_only,
                 const OutputDataType output_data_type,
                 const OutputContentType output_content_type,
@@ -385,20 +231,20 @@ class UltraHonkAPI : public API {
     {
         if (flags.ipa_accumulation) {
             info("proving with ipa_accumulation");
-            _write_data(
+            write(
                 _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("proving with poseidon2");
-            _write_data(_prove_poseidon2(flags, bytecode_path, witness_path),
-                        output_data_type,
-                        output_content_type,
-                        output_dir);
+            write(_prove_poseidon2(flags, bytecode_path, witness_path),
+                  output_data_type,
+                  output_content_type,
+                  output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("proving with keccak");
-            _write_data(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
-                        output_data_type,
-                        output_content_type,
-                        output_dir);
+            write(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
+                  output_data_type,
+                  output_content_type,
+                  output_dir);
         } else {
             info(flags);
             ASSERT("Invalid proving options specified");
@@ -471,12 +317,7 @@ class UltraHonkAPI : public API {
 
         std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
         VectorCircuitSource circuit_source{ stack };
-
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
-        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
-        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
-        const bool verified =
-            ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
+        const bool verified = ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, flags.recursive);
         return verified;
     };
 

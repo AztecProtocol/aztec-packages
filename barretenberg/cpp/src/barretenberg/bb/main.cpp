@@ -815,9 +815,9 @@ int main(int argc, char* argv[])
         const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
-        const API::Flags flags = [&args]() {
+        const API::Flags flags = [&args, &recursive]() {
             return API::Flags{
-                .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
+                .recursive = recursive,
                 .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
                 .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),
                 .output_data_type = parse_output_data_type(get_option(args, "--output_type", "fields_msgpack")),

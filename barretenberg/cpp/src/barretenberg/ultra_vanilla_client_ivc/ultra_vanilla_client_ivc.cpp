@@ -10,9 +10,7 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
     accumulator = verifier.verify_proof(proof, agg_obj).agg_obj;
 }
 
-void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit,
-                                               const size_t step,
-                                               const bool initialize_pairing_point_accumulator)
+void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit, const size_t step, const bool recursive)
 {
     if (step == 0) {
         info("internal ivc step 0");
@@ -22,23 +20,21 @@ void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit,
         accumulate(circuit, previous_proof, previous_vk);
         accumulator_indices = accumulator.get_witness_indices();
     }
-    if (initialize_pairing_point_accumulator) {
+    if (recursive) {
         info("calling add_pairing_point_accumulator");
         circuit.add_pairing_point_accumulator(accumulator_indices);
     }
     vinfo("set accumulator indices");
 }
 
-HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
-                                       const bool cache_vks,
-                                       const bool initialize_pairing_point_accumulator)
+HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool cache_vks, const bool recursive)
 {
     for (size_t step = 0; step < source.num_circuits(); step++) {
         vinfo("about to call next...");
         auto [circuit, vk] = source.next();
         vinfo("got next pair from source");
         // WORKTODO: note that this should go away altogether
-        handle_accumulator(circuit, step, initialize_pairing_point_accumulator);
+        handle_accumulator(circuit, step, recursive);
 
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
         vinfo("set accumulator data");
@@ -82,12 +78,10 @@ bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>
  * development/testing.
  *
  */
-bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source,
-                                             const bool cache_vks,
-                                             const bool initialize_pairing_point_accumulator)
+bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks, const bool recursive)
 {
     auto start = std::chrono::steady_clock::now();
-    prove(source, cache_vks, initialize_pairing_point_accumulator);
+    prove(source, cache_vks, recursive);
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to call UltraVanillaClientIVC::prove: ", diff.count(), " ms.");

@@ -1,0 +1,292 @@
+{"level":25,"time":1738598248628,"pid":2834700,"hostname":"ubuntu-192gb-hil-1","module":"logger","msg":"Logger initialized with level debug"}
+[15:57:31.069] [34mDEBUG[39m: [36m[1mworld-state:database[22m [0mCreated temporary world state database at: /tmp/aztec-world-state-KzpqJE with size: 10485760[0m[39m
+[15:57:31.073] [33mWARN[39m: [36m[1mworld-state:database[22m [0mNo world state version found, deleting world state directory[0m[39m
+[15:57:31.077] [32mINFO[39m: [36m[1mworld-state:database[22m [0mCreating world state data store at directory /tmp/aztec-world-state-KzpqJE/world_state with map size 10485760 KB and 16 threads.[0m[39m
+[15:57:31.627] [34mDEBUG[39m: [36m[1mfoundation:randomness_singleton[22m [0mUsing true randomness[0m[39m
+[15:57:31.629] [35mVERBOSE[39m: [36m[1mprover-client:test:bb-prover-parity[22m [0mUsing native BB binary at /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb with working directory /tmp/b1af4a9d/bb[0m[39m
+[15:57:31.630] [35mVERBOSE[39m: [36m[1mprover-client:test:bb-prover-parity[22m [0mUsing native ACVM binary at /home/cody/aztec-packages/noir/noir-repo/target/release/acvm with working directory /tmp/b1af4a9d/acvm[0m[39m
+[15:57:31.631] [32mINFO[39m: [36m[1mbb-prover[22m [0mUsing native BB at /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb and working directory /tmp/b1af4a9d/bb[0m[39m
+[15:57:31.631] [32mINFO[39m: [36m[1mbb-prover[22m [0mUsing native ACVM at /home/cody/aztec-packages/noir/noir-repo/target/release/acvm and working directory /tmp/b1af4a9d/acvm[0m[39m
+[15:57:31.632] [32mINFO[39m: [36m[1mprover-client:prover-pool:queue[22m [0mProving queue started[0m[39m
+[15:57:31.633] [32mINFO[39m: [36m[1mprover-client:prover-agent[22m [0mAgent started with concurrency=1[0m[39m
+[15:57:31.669] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mGenerating witness data for BaseParityArtifact[0m[39m
+[15:57:31.671] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mGenerating witness data for BaseParityArtifact[0m[39m
+[15:57:31.672] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mGenerating witness data for BaseParityArtifact[0m[39m
+[15:57:31.672] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mGenerating witness data for BaseParityArtifact[0m[39m
+[15:57:31.675] [34mDEBUG[39m: [36m[1msimulator:acvm-native[22m [0mCalling ACVM with execute --working-directory /tmp/b1af4a9d/acvm/tmp-MR4Nty --bytecode bytecode --input-witness input_witness.toml --print --output-witness output-witness[0m[39m
+[15:57:31.693] [34mDEBUG[39m: [36m[1msimulator:acvm-native[22m [0mCalling ACVM with execute --working-directory /tmp/b1af4a9d/acvm/tmp-1suZjI --bytecode bytecode --input-witness input_witness.toml --print --output-witness output-witness[0m[39m
+[15:57:31.704] [34mDEBUG[39m: [36m[1msimulator:acvm-native[22m [0mCalling ACVM with execute --working-directory /tmp/b1af4a9d/acvm/tmp-KVHRYt --bytecode bytecode --input-witness input_witness.toml --print --output-witness output-witness[0m[39m
+[15:57:31.717] [34mDEBUG[39m: [36m[1msimulator:acvm-native[22m [0mCalling ACVM with execute --working-directory /tmp/b1af4a9d/acvm/tmp-F6IU3r --bytecode bytecode --input-witness input_witness.toml --print --output-witness output-witness[0m[39m
+[15:57:31.754] [32mINFO[39m: [36m[1mbb-prover[22m [0mGenerated witness[0m[39m [90m{"circuitName":"base-parity","duration":83.49827766418457,"inputSize":160,"outputSize":96,"eventName":"circuit-witness-generation"}[39m
+[15:57:31.755] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mProving BaseParityArtifact...[0m[39m
+[15:57:31.760] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Executing BB with: /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb prove --scheme ultra_honk --oracle_hash poseidon2 --output_type bytes_and_fields --output_content proof_and_vk -o /tmp/b1af4a9d/bb/tmp-5MJ8m7 -b /tmp/b1af4a9d/bb/tmp-5MJ8m7/BaseParityArtifact-bytecode -w /tmp/b1af4a9d/bb/tmp-5MJ8m7/partial-witness.gz -v --recursive[0m[39m
+[15:57:31.788] [32mINFO[39m: [36m[1mbb-prover[22m [0mGenerated witness[0m[39m [90m{"circuitName":"base-parity","duration":116.64250755310059,"inputSize":160,"outputSize":96,"eventName":"circuit-witness-generation"}[39m
+[15:57:31.789] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mProving BaseParityArtifact...[0m[39m
+[15:57:31.797] [32mINFO[39m: [36m[1mbb-prover[22m [0mGenerated witness[0m[39m [90m{"circuitName":"base-parity","duration":124.50879669189453,"inputSize":160,"outputSize":96,"eventName":"circuit-witness-generation"}[39m
+[15:57:31.797] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mProving BaseParityArtifact...[0m[39m
+[15:57:31.798] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Executing BB with: /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb prove --scheme ultra_honk --oracle_hash poseidon2 --output_type bytes_and_fields --output_content proof_and_vk -o /tmp/b1af4a9d/bb/tmp-7OeFYz -b /tmp/b1af4a9d/bb/tmp-7OeFYz/BaseParityArtifact-bytecode -w /tmp/b1af4a9d/bb/tmp-7OeFYz/partial-witness.gz -v --recursive[0m[39m
+[15:57:31.811] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - bb command is: prove
+flags: [
+  recursive: 1
+  ipa_accumulation: 0
+  oracle_hash_type: POSEIDON2
+  output_type: BYTES_AND_FIELDS
+  input_type: COMPILETIME_STACK
+  output_content_type: PROOF_AND_VK
+]
+proving with poseidon2
+using cached bn254 crs of size 33554433 at "/home/cody/.bb-crs/bn254_g1.dat"[0m[39m
+[15:57:31.815] [32mINFO[39m: [36m[1mbb-prover[22m [0mGenerated witness[0m[39m [90m{"circuitName":"base-parity","duration":142.38037109375,"inputSize":160,"outputSize":96,"eventName":"circuit-witness-generation"}[39m
+[15:57:31.816] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mProving BaseParityArtifact...[0m[39m
+[15:57:31.816] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Executing BB with: /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb prove --scheme ultra_honk --oracle_hash poseidon2 --output_type bytes_and_fields --output_content proof_and_vk -o /tmp/b1af4a9d/bb/tmp-Alq3UL -b /tmp/b1af4a9d/bb/tmp-Alq3UL/BaseParityArtifact-bytecode -w /tmp/b1af4a9d/bb/tmp-Alq3UL/partial-witness.gz -v --recursive[0m[39m
+[15:57:31.829] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Executing BB with: /home/cody/aztec-packages/barretenberg/cpp/build/bin/bb prove --scheme ultra_honk --oracle_hash poseidon2 --output_type bytes_and_fields --output_content proof_and_vk -o /tmp/b1af4a9d/bb/tmp-pFUatC -b /tmp/b1af4a9d/bb/tmp-pFUatC/BaseParityArtifact-bytecode -w /tmp/b1af4a9d/bb/tmp-pFUatC/partial-witness.gz -v --recursive[0m[39m
+[15:57:31.843] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - bb command is: prove
+flags: [
+  recursive: 1
+  ipa_accumulation: 0
+  oracle_hash_type: POSEIDON2
+  output_type: BYTES_AND_FIELDS
+  input_type: COMPILETIME_STACK
+  output_content_type: PROOF_AND_VK
+]
+proving with poseidon2
+using cached bn254 crs of size 33554433 at "/home/cody/.bb-crs/bn254_g1.dat"[0m[39m
+[15:57:31.860] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - bb command is: prove
+flags: [
+  recursive: 1
+  ipa_accumulation: 0
+  oracle_hash_type: POSEIDON2
+  output_type: BYTES_AND_FIELDS
+  input_type: COMPILETIME_STACK
+  output_content_type: PROOF_AND_VK
+]
+proving with poseidon2[0m[39m
+[15:57:31.860] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - using cached bn254 crs of size 33554433 at "/home/cody/.bb-crs/bn254_g1.dat"[0m[39m
+[15:57:31.882] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - bb command is: prove
+flags: [
+  recursive: 1
+  ipa_accumulation: 0
+  oracle_hash_type: POSEIDON2
+  output_type: BYTES_AND_FIELDS
+  input_type: COMPILETIME_STACK
+  output_content_type: PROOF_AND_VK
+]
+proving with poseidon2[0m[39m
+[15:57:31.882] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - using cached bn254 crs of size 33554433 at "/home/cody/.bb-crs/bn254_g1.dat"[0m[39m
+[15:57:36.157] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Initialized BN254 prover CRS from memory with num points = 8388609[0m[39m
+[15:57:36.178] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Initialized BN254 prover CRS from memory with num points = 8388609[0m[39m
+[15:57:36.179] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Initialized BN254 prover CRS from memory with num points = 8388609[0m[39m
+[15:57:36.213] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Initialized BN254 prover CRS from memory with num points = 8388609[0m[39m
+[15:57:36.961] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - instantiated ivc class
+in get_acir_program_stack; witness path is /tmp/b1af4a9d/bb/tmp-5MJ8m7/partial-witness.gz[0m[39m
+[15:57:36.977] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - instantiated ivc class
+in get_acir_program_stack; witness path is /tmp/b1af4a9d/bb/tmp-pFUatC/partial-witness.gz[0m[39m
+[15:57:36.983] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - instantiated ivc class
+in get_acir_program_stack; witness path is /tmp/b1af4a9d/bb/tmp-Alq3UL/partial-witness.gz[0m[39m
+[15:57:36.984] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - instantiated ivc class
+in get_acir_program_stack; witness path is /tmp/b1af4a9d/bb/tmp-7OeFYz/partial-witness.gz[0m[39m
+[15:57:37.000] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - built stack[0m[39m
+[15:57:37.001] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit source
+about to call next...
+case 1
+about to create circuit with metadata recursive = 1 and honk_recursion = 1[0m[39m
+[15:57:37.016] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - built stack[0m[39m
+[15:57:37.016] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit source
+about to call next...
+case 1
+about to create circuit with metadata recursive = 1 and honk_recursion = 1[0m[39m
+[15:57:37.021] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - built stack[0m[39m
+[15:57:37.021] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit source
+about to call next...
+case 1
+about to create circuit with metadata recursive = 1 and honk_recursion = 1[0m[39m
+[15:57:37.023] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - built stack[0m[39m
+[15:57:37.023] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit source
+about to call next...
+case 1
+about to create circuit with metadata recursive = 1 and honk_recursion = 1[0m[39m
+[15:57:37.077] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit
+vk is nullptr: 1[0m[39m
+[15:57:37.085] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - got next pair from source
+internal ivc step 0[0m[39m
+[15:57:37.086] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - calling add_pairing_point_accumulator
+Builder failure when we have real witnesses!
+set accumulator indices
+set accumulator data
+Constructing DeciderProvingKey[0m[39m
+[15:57:37.089] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Finalized circuit size: 29928. Log dyadic circuit size: 16.[0m[39m
+[15:57:37.090] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - allocating polynomials object in proving key...[0m[39m
+[15:57:37.093] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit
+vk is nullptr: 1[0m[39m
+[15:57:37.099] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit
+vk is nullptr: 1[0m[39m
+[15:57:37.101] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created circuit
+vk is nullptr: 1[0m[39m
+[15:57:37.103] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - got next pair from source
+internal ivc step 0[0m[39m
+[15:57:37.104] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - calling add_pairing_point_accumulator
+Builder failure when we have real witnesses!
+set accumulator indices
+set accumulator data
+Constructing DeciderProvingKey[0m[39m
+[15:57:37.106] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - populating trace...[0m[39m
+[15:57:37.108] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Finalized circuit size: 29928. Log dyadic circuit size: 16.[0m[39m
+[15:57:37.108] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - allocating polynomials object in proving key...[0m[39m
+[15:57:37.109] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - got next pair from source
+internal ivc step 0[0m[39m
+[15:57:37.109] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - calling add_pairing_point_accumulator
+Builder failure when we have real witnesses!
+set accumulator indices
+set accumulator data
+Constructing DeciderProvingKey[0m[39m
+[15:57:37.111] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - got next pair from source
+internal ivc step 0[0m[39m
+[15:57:37.112] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - calling add_pairing_point_accumulator
+Builder failure when we have real witnesses!
+set accumulator indices
+set accumulator data[0m[39m
+[15:57:37.112] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Constructing DeciderProvingKey[0m[39m
+[15:57:37.114] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Finalized circuit size: 29928. Log dyadic circuit size: 16.[0m[39m
+[15:57:37.114] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - allocating polynomials object in proving key...[0m[39m
+[15:57:37.117] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - Finalized circuit size: 29928. Log dyadic circuit size: 16.[0m[39m
+[15:57:37.117] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - allocating polynomials object in proving key...[0m[39m
+[15:57:37.128] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - populating trace...[0m[39m
+[15:57:37.135] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - populating trace...[0m[39m
+[15:57:37.135] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - time to construct proving key: 49 ms.
+built proving key[0m[39m
+[15:57:37.137] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - populating trace...[0m[39m
+[15:57:37.138] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_preamble_round[0m[39m
+[15:57:37.139] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_wire_commitments_round[0m[39m
+[15:57:37.157] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - time to construct proving key: 52 ms.
+built proving key[0m[39m
+[15:57:37.160] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_preamble_round[0m[39m
+[15:57:37.160] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_wire_commitments_round[0m[39m
+[15:57:37.163] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_sorted_list_accumulator_round[0m[39m
+[15:57:37.166] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - time to construct proving key: 54 ms.
+built proving key[0m[39m
+[15:57:37.168] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - time to construct proving key: 58 ms.
+built proving key[0m[39m
+[15:57:37.170] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_preamble_round[0m[39m
+[15:57:37.171] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_wire_commitments_round[0m[39m
+[15:57:37.172] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_preamble_round
+execute_wire_commitments_round[0m[39m
+[15:57:37.186] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_log_derivative_inverse_round[0m[39m
+[15:57:37.196] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_sorted_list_accumulator_round[0m[39m
+[15:57:37.198] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_sorted_list_accumulator_round[0m[39m
+[15:57:37.206] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_sorted_list_accumulator_round[0m[39m
+[15:57:37.213] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_log_derivative_inverse_round[0m[39m
+[15:57:37.215] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_log_derivative_inverse_round[0m[39m
+[15:57:37.219] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_grand_product_computation_round[0m[39m
+[15:57:37.220] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_log_derivative_inverse_round[0m[39m
+[15:57:37.249] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_grand_product_computation_round[0m[39m
+[15:57:37.249] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created oink proof[0m[39m
+[15:57:37.250] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_grand_product_computation_round[0m[39m
+[15:57:37.252] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - execute_grand_product_computation_round[0m[39m
+[15:57:37.270] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created oink proof[0m[39m
+[15:57:37.276] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created oink proof[0m[39m
+[15:57:37.277] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - created oink proof[0m[39m
+[15:57:37.286] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - starting sumcheck rounds...[0m[39m
+[15:57:37.297] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - starting sumcheck rounds...[0m[39m
+[15:57:37.310] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - starting sumcheck rounds...[0m[39m
+[15:57:37.311] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - starting sumcheck rounds...[0m[39m
+[15:57:37.327] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - completed 16 rounds of sumcheck[0m[39m
+[15:57:37.332] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - completed 16 rounds of sumcheck[0m[39m
+[15:57:37.336] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - completed 16 rounds of sumcheck[0m[39m
+[15:57:37.336] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - completed 16 rounds of sumcheck[0m[39m
+[15:57:37.467] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - executed multivariate-to-univariate reduction[0m[39m
+[15:57:37.469] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - executed multivariate-to-univariate reduction[0m[39m
+[15:57:37.471] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - executed multivariate-to-univariate reduction[0m[39m
+[15:57:37.488] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - computed opening proof[0m[39m
+[15:57:37.488] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - executed multivariate-to-univariate reduction[0m[39m
+[15:57:37.499] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - computed opening proof[0m[39m
+[15:57:37.503] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - computed opening proof[0m[39m
+[15:57:37.517] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - computed opening proof[0m[39m
+[15:57:38.016] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case OutputDataType::BYTES_AND_FIELDS: 
+case ObjectToWrite::PROOF: 
+writing file to /tmp/b1af4a9d/bb/tmp-pFUatC/proof[0m[39m
+[15:57:38.016] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case ObjectToWrite::PROOF: 
+writing proof as fields to "/tmp/b1af4a9d/bb/tmp-pFUatC/proof_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-pFUatC/proof_fields.json
+case ObjectToWrite::VK: 
+writing file to /tmp/b1af4a9d/bb/tmp-pFUatC/vk
+case ObjectToWrite::VK: 
+writing vk as fields to "/tmp/b1af4a9d/bb/tmp-pFUatC/vk_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-pFUatC/vk_fields.json[0m[39m
+[15:57:38.018] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case OutputDataType::BYTES_AND_FIELDS: 
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.018] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing file to /tmp/b1af4a9d/bb/tmp-7OeFYz/proof
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.018] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing proof as fields to "/tmp/b1af4a9d/bb/tmp-7OeFYz/proof_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-7OeFYz/proof_fields.json[0m[39m
+[15:57:38.019] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case ObjectToWrite::VK: 
+writing file to /tmp/b1af4a9d/bb/tmp-7OeFYz/vk
+case ObjectToWrite::VK: [0m[39m
+[15:57:38.019] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing vk as fields to "/tmp/b1af4a9d/bb/tmp-7OeFYz/vk_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-7OeFYz/vk_fields.json[0m[39m
+[15:57:38.029] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case OutputDataType::BYTES_AND_FIELDS: 
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.029] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing file to /tmp/b1af4a9d/bb/tmp-Alq3UL/proof
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.029] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing proof as fields to "/tmp/b1af4a9d/bb/tmp-Alq3UL/proof_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-Alq3UL/proof_fields.json
+case ObjectToWrite::VK: 
+writing file to /tmp/b1af4a9d/bb/tmp-Alq3UL/vk[0m[39m
+[15:57:38.030] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case ObjectToWrite::VK: 
+writing vk as fields to "/tmp/b1af4a9d/bb/tmp-Alq3UL/vk_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-Alq3UL/vk_fields.json[0m[39m
+[15:57:38.049] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - case OutputDataType::BYTES_AND_FIELDS: 
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.050] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing file to /tmp/b1af4a9d/bb/tmp-5MJ8m7/proof
+case ObjectToWrite::PROOF: [0m[39m
+[15:57:38.050] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing proof as fields to "/tmp/b1af4a9d/bb/tmp-5MJ8m7/proof_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-5MJ8m7/proof_fields.json
+case ObjectToWrite::VK: 
+writing file to /tmp/b1af4a9d/bb/tmp-5MJ8m7/vk
+case ObjectToWrite::VK: [0m[39m
+[15:57:38.050] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mBaseParityArtifact BB out - writing vk as fields to "/tmp/b1af4a9d/bb/tmp-5MJ8m7/vk_fields.json"
+writing file to /tmp/b1af4a9d/bb/tmp-5MJ8m7/vk_fields.json[0m[39m
+Assertion failed: Proof length mismatch
+[15:57:38.146] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mCircuit path: /tmp/b1af4a9d/bb/tmp-pFUatC, complete proof length: 478, num public inputs: 3, circuit size: 65536, is recursive: true, raw length: 15300[0m[39m
+[15:57:38.147] [31mERROR[39m: [36m[1mbb-prover[22m [0mError running operation at /tmp/b1af4a9d/bb/tmp-pFUatC: Error: Proof length 475 does not match expected length 459.[0m[39m
+[15:57:38.187] [32mINFO[39m: [36m[1mprover-client:prover-agent[22m [0mAgent stopped[0m[39m
+Assertion failed: Proof length mismatch
+[15:57:38.190] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mCircuit path: /tmp/b1af4a9d/bb/tmp-5MJ8m7, complete proof length: 478, num public inputs: 3, circuit size: 65536, is recursive: true, raw length: 15300[0m[39m
+[15:57:38.191] [31mERROR[39m: [36m[1mbb-prover[22m [0mError running operation at /tmp/b1af4a9d/bb/tmp-5MJ8m7: Error: Proof length 475 does not match expected length 459.[0m[39m
+Assertion failed: Proof length mismatch
+[15:57:38.192] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mCircuit path: /tmp/b1af4a9d/bb/tmp-Alq3UL, complete proof length: 478, num public inputs: 3, circuit size: 65536, is recursive: true, raw length: 15300[0m[39m
+[15:57:38.192] [31mERROR[39m: [36m[1mbb-prover[22m [0mError running operation at /tmp/b1af4a9d/bb/tmp-Alq3UL: Error: Proof length 475 does not match expected length 459.[0m[39m
+Assertion failed: Proof length mismatch
+[15:57:38.193] [34mDEBUG[39m: [36m[1mbb-prover[22m [0mCircuit path: /tmp/b1af4a9d/bb/tmp-7OeFYz, complete proof length: 478, num public inputs: 3, circuit size: 65536, is recursive: true, raw length: 15300[0m[39m
+[15:57:38.194] [31mERROR[39m: [36m[1mbb-prover[22m [0mError running operation at /tmp/b1af4a9d/bb/tmp-7OeFYz: Error: Proof length 475 does not match expected length 459.[0m[39m
+FAIL src/test/bb_prover_parity.test.ts (9.664 s)
+  prover/bb_prover/parity
+    ✕ proves the parity circuits (6513 ms)
+
+  ● prover/bb_prover/parity › proves the parity circuits
+
+    Proof length 475 does not match expected length 459.
+
+      35 |   ) {
+      36 |     if (proof.length !== proofLength) {
+    > 37 |       throw new Error(`Proof length ${proof.length} does not match expected length ${proofLength}.`);
+         |             ^
+      38 |     }
+      39 |   }
+      40 |
+
+      at new RecursiveProof (../../circuits.js/src/structs/recursive_proof.ts:37:13)
+      at BBNativeRollupProver.readProofAsFields (../../bb-prover/src/prover/bb_prover.ts:802:12)
+      at operation (../../bb-prover/src/prover/bb_prover.ts:635:21)
+      at runInDirectory (../../foundation/src/fs/run_in_dir.ts:17:12)
+      at BBNativeRollupProver.createRecursiveProof (../../bb-prover/src/prover/bb_prover.ts:662:12)
+      at BBNativeRollupProver.getBaseParityProof (../../bb-prover/src/prover/bb_prover.ts:145:38)
+      at ../../telemetry-client/src/telemetry.ts:173:23
+          at async Promise.all (index 2)
+      at Object.<anonymous> (test/bb_prover_parity.test.ts:55:45)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        9.71 s, estimated 10 s
+Ran all test suites matching /src\/test\/bb_prover_parity.test.ts/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
