@@ -3,11 +3,31 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 hash=$(cache_content_hash \
   ../noir/.rebuild_patterns \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
+
+function compile_project {
+  # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
+  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
+}
+
+function get_projects {
+  dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+}
+
+function format {
+  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+}
+
+function lint {
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+}
+export -f format lint get_projects
 
 function build {
   echo_header "yarn-project build"
@@ -24,7 +44,38 @@ function build {
   denoise "yarn generate"
   denoise "yarn tsc -b"
 
-  parallel --line-buffered --tag "denoise 'cd {}; yarn build:web'" ::: aztec.js end-to-end
+  # This many projects have a generation stage now!?
+  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
+    accounts \
+    circuit-types \
+    circuits.js \
+    ivc-integration \
+    kv-store \
+    l1-artifacts \
+    native \
+    noir-contracts.js \
+    noir-protocol-circuits-types \
+    protocol-contracts \
+    pxe \
+    types
+  cat joblog.txt
+
+  get_projects | compile_project
+
+  cmds=(
+    format
+    'cd aztec.js && yarn build:web'
+    'cd end-to-end && yarn build:web'
+  )
+  if [ "${typecheck:-0}" -eq 1 ]; then
+    cmds+=(
+      'yarn tsc -b --emitDeclarationOnly'
+      lint
+    )
+  fi
+  parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
+  cat joblog.txt
+  # parallel --line-buffered --tag denoise 'cd {} && yarn build:web' ::: aztec.js end-to-end
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
   # Then one-off cases. If you've written into src, you need to update this.
@@ -74,10 +125,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
+    # git clean -fdx --exclude=node_modules --exclude=.yarn
     git ls-files --ignored --others --exclude-standard \
-      | grep -v '^node_modules/' \
-      | grep -v '^\.yarn/' \
-      | xargs rm -rf || true
+      | grep -vE '^(node_modules/|\.yarn/)' || true \
+      | xargs --no-run-if-empty rm -rf
     ;;
   "ci")
     build
@@ -102,6 +153,22 @@ case "$cmd" in
   "release")
     release
     ;;
+<<<<<<< HEAD
+=======
+  "compile")
+    if [ -n "${1:-}" ]; then
+      compile_project ::: "$@"
+    else
+      get_projects | compile_project
+    fi
+    ;;
+  "format")
+    format
+    ;;
+  "lint")
+    lint "$@"
+    ;;
+>>>>>>> origin/cl/ci3.3
   *)
     echo "Unknown command: $cmd"
     exit 1

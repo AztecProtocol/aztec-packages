@@ -12,25 +12,25 @@ import {
   type UpDownCounter as OtelUpDownCounter,
   type Span,
   SpanStatusCode,
-  Tracer,
+  type Tracer,
 } from '@opentelemetry/api';
 import { isPromise } from 'node:util/types';
 
-import * as Attributes from './attributes.js';
-import * as Metrics from './metrics.js';
+import type * as Attributes from './attributes.js';
+import type * as Metrics from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-export { Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
+export { type Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
 /** Global registry of attributes */
 type Attributes = Partial<Record<ValuesOf<typeof Attributes>, AttributeValue>>;
-export { Attributes };
+export type { Attributes };
 
 /** Global registry of metrics */
 type Metrics = (typeof Metrics)[keyof typeof Metrics];
-export { Metrics };
+export type { Metrics };
 
 export type Gauge = OtelGauge<Attributes>;
 export type Histogram = OtelHistogram<Attributes>;
@@ -40,7 +40,7 @@ export type ObservableUpDownCounter = OtelObservableUpDownCounter<Attributes>;
 export type ObservableResult = OtelObservableResult<Attributes>;
 export type BatchObservableResult = OtelBatchObservableResult<Attributes>;
 
-export { Tracer };
+export type { Tracer };
 
 // INTERNAL NOTE: this interface is the same as opentelemetry's Meter, but with proper types
 /**
