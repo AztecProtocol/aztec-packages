@@ -19,7 +19,7 @@ use utils::module_has_storage;
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let unconstrained_functions = m.functions().filter(|f: FunctionDefinition| {
+    let unconstrained_functions = m.functions().filter(|f| {
         f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
     });
     for f in unconstrained_functions {
@@ -115,16 +115,13 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_content_length: u32 = 0;
     let notes = NOTES.entries();
     let body = if notes.len() > 0 {
-        max_note_content_length = notes.fold(
-            0,
-            |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
-                if len > acc {
-                    len
-                } else {
-                    acc
-                }
-            },
-        );
+        max_note_content_length = notes.fold(0, |acc, (_, (_, len, _, _))| {
+            if len > acc {
+                len
+            } else {
+                acc
+            }
+        });
 
         let mut if_statements_list = &[];
 
@@ -256,7 +253,7 @@ comptime fn generate_process_log() -> Quoted {
                 unique_note_hashes_in_tx,
                 first_nullifier_in_tx,
                 recipient,
-                |packed_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
+                |packed_note_content, note_header, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
                     else {
                         panic(f"Unknown note type id {note_type_id}")
@@ -295,11 +292,9 @@ comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
-    notes
-        .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
-            generate_note_export(s, note_type_id, fields)
-        })
-        .join(quote {})
+    notes.map(|(s, _, note_type_id, fields)| generate_note_export(s, note_type_id, fields)).join(
+        quote {},
+    )
 }
 
 comptime fn generate_sync_notes() -> Quoted {
