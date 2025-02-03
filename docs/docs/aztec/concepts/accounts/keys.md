@@ -117,7 +117,7 @@ Participants in this escrow contract would then somehow get a hold of the escrow
 
 ### App-siloed keys
 
-All keys on Aztec (except for the signing keys) are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different.
+Nullifier keys and Incoming view keys are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different.
 
 App-siloed keys allow to minimize damage of potential key leaks as a leak of the scoped keys would only affect one application.
 
