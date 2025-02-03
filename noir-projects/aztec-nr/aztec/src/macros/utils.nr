@@ -1,4 +1,4 @@
-use std::meta::{typ::fresh_type_variable, unquote};
+use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
@@ -219,17 +219,18 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn get_packed_size(typ: Type) -> u32 {
-    let any = fresh_type_variable();
-    let maybe_packed_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Packable<$any> }.as_trait_constraint());
+/// Returns how many storage slots a type needs to reserve for itself. State variables must implement the Storage trait
+/// for slots to be allocated for them.
+pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
+    // We create a type variable for the storage size. We can't simply read the value used in the implementation because
+    // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
+    let storage_size = std::meta::typ::fresh_type_variable();
+    assert(
+        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+    );
 
-    maybe_packed_impl
-        .expect(f"Attempted to fetch packed length, but {typ} does not implement the Packable trait"
-            )
-            .trait_generic_args()[0]
-        .as_constant()
-        .unwrap()
+    storage_size.as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {

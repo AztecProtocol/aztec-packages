@@ -5,11 +5,10 @@ import {
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
 } from '@aztec/circuit-types';
-import { toArray } from '@aztec/foundation/iterable';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecMap } from '@aztec/kv-store';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mkdir, readdir } from 'fs/promises';
@@ -19,10 +18,10 @@ import { type ProverBrokerConfig } from '../config.js';
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
-  private jobs: AztecMap<ProvingJobId, string>;
-  private jobResults: AztecMap<ProvingJobId, string>;
+  private jobs: AztecAsyncMap<ProvingJobId, string>;
+  private jobResults: AztecAsyncMap<ProvingJobId, string>;
 
-  constructor(public readonly store: AztecLmdbStore) {
+  constructor(public readonly store: AztecAsyncKVStore) {
     this.jobs = store.openMap('proving_jobs');
     this.jobResults = store.openMap('proving_job_results');
   }
@@ -36,9 +35,9 @@ class SingleEpochDatabase {
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    for (const jobStr of this.jobs.values()) {
+    for await (const jobStr of this.jobs.valuesAsync()) {
       const job = await jsonParseWithSchema(jobStr, ProvingJob);
-      const resultStr = this.jobResults.get(job.id);
+      const resultStr = await this.jobResults.getAsync(job.id);
       const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
@@ -81,8 +80,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     );
   }
 
-  private estimateSize() {
-    const sizes = Array.from(this.epochs.values()).map(x => x.estimateSize());
+  private async estimateSize() {
+    const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
@@ -111,7 +110,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       logger.info(
         `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKB}KB`,
       );
-      const db = AztecLmdbStore.open(fullDirectory, config.dataStoreMapSizeKB, false);
+      const db = await AztecLMDBStoreV2.new(fullDirectory, config.dataStoreMapSizeKB);
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
@@ -145,7 +144,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       this.logger.info(
         `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
       );
-      const db = AztecLmdbStore.open(newEpochDirectory, this.config.dataStoreMapSizeKB, false);
+      const db = await AztecLMDBStoreV2.new(newEpochDirectory, this.config.dataStoreMapSizeKB);
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(job.epochNumber, epochDb);
     }
@@ -153,7 +152,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    const iterators = (await toArray(this.epochs.values())).map(x => x.allProvingJobs());
+    const iterators = Array.from(this.epochs.values()).map(x => x.allProvingJobs());
     for (const it of iterators) {
       yield* it;
     }

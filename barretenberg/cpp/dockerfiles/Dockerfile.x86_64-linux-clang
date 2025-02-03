@@ -28,7 +28,7 @@ RUN cmake --build --preset clang16 --target ultra_honk_rounds_bench --target bb 
 
 RUN npm install --global yarn
 RUN cmake --preset clang16-pic
-RUN cmake --build --preset clang16-pic --target world_state_napi
+RUN cmake --build --preset clang16-pic --target nodejs_module
 
 FROM ubuntu:lunar
 WORKDIR /usr/src/barretenberg/cpp
@@ -40,4 +40,4 @@ COPY --from=builder /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen /usr/sr
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a
-COPY --from=builder /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node
+COPY --from=builder /usr/src/barretenberg/cpp/build-pic/lib/nodejs_module.node /usr/src/barretenberg/cpp/build-pic/lib/nodejs_module.node
