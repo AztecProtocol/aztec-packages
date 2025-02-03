@@ -176,8 +176,7 @@ mod tests {
         }
 
         pub fn new() -> Self {
-            let transformed_value_array =
-                original_array.map(|item: TestTwoValues| combine_two_values(item));
+            let transformed_value_array = original_array.map(|item| combine_two_values(item));
 
             let split_counter = 15;
             let sorted_transformed_value_array_lt = [
@@ -218,8 +217,7 @@ mod tests {
         }
 
         pub fn new_desc() -> Self {
-            let transformed_value_array =
-                original_array.map(|item: TestTwoValues| combine_two_values(item));
+            let transformed_value_array = original_array.map(|item| combine_two_values(item));
 
             let split_counter = 15;
             let sorted_transformed_value_array_lt = [

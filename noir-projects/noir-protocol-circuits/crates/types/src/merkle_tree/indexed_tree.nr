@@ -99,7 +99,7 @@ where
     );
 
     // Create new subtree to insert into the whole indexed tree
-    let subtree_root = calculate_subtree_root(insertion_subtree.map(|leaf: Leaf| leaf.as_leaf()));
+    let subtree_root = calculate_subtree_root(insertion_subtree.map(|leaf| leaf.as_leaf()));
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here

@@ -19,7 +19,7 @@ where
         original_array_lt,
         original_array_gte,
         combined_array,
-        |from: T, to: T| from == to,
+        |from, to| from == to,
     )
 }
 
@@ -30,7 +30,7 @@ pub unconstrained fn combine_arrays<T, let N: u32>(
 where
     T: Empty + Eq,
 {
-    combine_and_transform_arrays(original_array_lt, original_array_gte, |from: T| from)
+    combine_and_transform_arrays(original_array_lt, original_array_gte, |from| from)
 }
 
 mod tests {

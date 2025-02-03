@@ -37,7 +37,7 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
 /// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
 pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
     // We need to quote the body before we can alter its contents, so we fold it by quoting each expression.
-    let mut body_quote = body.fold(quote {}, |full_quote: Quoted, expr: Expr| {
+    let mut body_quote = body.fold(quote {}, |full_quote, expr| {
         let expr_quote = expr.quoted();
         quote {
                 $full_quote
@@ -61,17 +61,16 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
     } else if typ.as_struct().is_some() {
         quote { $slice_name = $slice_name.append($name.serialize()); }
     } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
         quote {
-            let $serialized_name = $name.map(|x: $element_type | x.serialize());
+            let $serialized_name = $name.map(|x| x.serialize());
             for i in 0..$name.len() {
                 $slice_name = $slice_name.append($serialized_name[i].as_slice());
             }
         }
     } else if typ.as_str().is_some() {
         quote {
-            $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
+            $slice_name = $slice_name.append($name.as_bytes().map(|byte| byte as Field).as_slice());
         }
     } else {
         panic(
@@ -87,17 +86,16 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
     } else if typ.as_struct().is_some() {
         quote { $hasher_name.add_multiple($name.serialize()); }
     } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
         quote {
-           let $serialized_name = $name.map(|x: $element_type | x.serialize());
+           let $serialized_name = $name.map(|x| x.serialize());
             for i in 0..$name.len() {
                 $hasher_name.add_multiple($serialized_name[i]);
             }
         }
     } else if typ.as_str().is_some() {
         quote {
-            $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
+            $hasher_name.add_multiple($name.as_bytes().map(|byte| byte as Field));
         }
     } else {
         panic(
@@ -129,15 +127,13 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
         let (s, generics) = typ.as_struct().unwrap();
-        let field_signatures = s
-            .fields(generics)
-            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
-            .join(quote {,});
+        let field_signatures =
+            s.fields(generics).map(|(_, typ)| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
         let types = typ.as_tuple().unwrap();
-        let field_signatures = types.map(|typ: Type| signature_of_type(typ)).join(quote {,});
+        let field_signatures = types.map(|typ| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else {
         panic(f"Unsupported type {typ}")
@@ -180,8 +176,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     //
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
-    let args_signatures =
-        f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 

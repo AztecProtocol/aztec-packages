@@ -115,7 +115,7 @@ where
 
     /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
     /// of the element and non-emptiness of the previous element is checked below.
-    let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
+    let length = unsafe { find_index_hint(array, |elem| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }
@@ -254,7 +254,7 @@ fn test_array_length_invalid_arrays() {
 unconstrained fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = find_index_hint(values, |v: Field| min.lt(v));
+    let index = find_index_hint(values, |v| min.lt(v));
     assert_eq(index, 2);
 }
 
@@ -262,7 +262,7 @@ unconstrained fn find_index_greater_than_min() {
 unconstrained fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = find_index_hint(values, |v: Field| min.lt(v));
+    let index = find_index_hint(values, |v| min.lt(v));
     assert_eq(index, 4);
 }
 

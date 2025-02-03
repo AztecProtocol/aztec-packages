@@ -14,7 +14,7 @@ pub comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Pos
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
-        f.parameters().map(|(name, typ): (Quoted, Type)| quote { pub $name: $typ }).join(quote {,});
+        f.parameters().map(|(name, typ)| quote { pub $name: $typ }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
@@ -71,7 +71,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {
             let mut $args_acc_name = &[];
         },
-        |args_hasher, param: (Quoted, Type)| {
+        |args_hasher, param| {
             let (name, typ) = param;
             let appended_arg = add_to_field_slice(args_acc_name, name, typ);
             quote {
@@ -96,8 +96,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         args_acc
     };
 
-    let fn_parameters_list =
-        fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
+    let fn_parameters_list = fn_parameters.map(|(name, typ)| quote { $name: $typ }).join(quote {,});
 
     let (fn_name_str, _) = fn_name.as_str_quote();
 

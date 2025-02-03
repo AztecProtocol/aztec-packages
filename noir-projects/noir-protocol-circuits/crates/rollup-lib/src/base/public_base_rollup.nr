@@ -55,13 +55,11 @@ impl PublicBaseRollupInputs {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
         let revert_code = if reverted { 1 } else { 0 };
-        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(
-            |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                combined_constant_data.tx_context.version,
-                combined_constant_data.tx_context.chain_id,
-            ),
-        );
+        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
+            message,
+            combined_constant_data.tx_context.version,
+            combined_constant_data.tx_context.chain_id,
+        ));
 
         let private_logs = if reverted {
             from_private.non_revertible_accumulated_data.private_logs
@@ -80,7 +78,7 @@ impl PublicBaseRollupInputs {
             )
         };
         let contract_class_log_preimages_length =
-            contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
+            contract_class_logs_hashes.fold(0, |len, l| len + l.log_hash.length);
 
         TxEffect {
             tx_hash: self.tube_data.public_inputs.hash(),
@@ -222,7 +220,7 @@ impl PublicBaseRollupInputs {
     }
 
     fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree_root(leaves.map(|leaf: NullifierLeafPreimage| leaf.hash()))
+        calculate_subtree_root(leaves.map(|leaf| leaf.hash()))
     }
 
     fn validate_kernel_start_state(self) {
@@ -430,11 +428,9 @@ mod tests {
         fn build_pre_existing_tx_effects(self) -> TxEffect {
             let mut res = TxEffect::empty();
             res.note_hashes = self.pre_existing_notes;
-            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
-                nullifier.nullifier
-            });
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier| nullifier.nullifier);
             let all_public_data_update_requests = self.pre_existing_public_data.map(
-                |leaf_preimage: PublicDataTreeLeafPreimage| {
+                |leaf_preimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 },
             );
@@ -473,7 +469,7 @@ mod tests {
             /// Safety: This is a mock for testing only
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -584,9 +580,7 @@ mod tests {
 
             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
                 pad_end::<Field, MAX_NULLIFIERS_PER_TX, MAX_NULLIFIERS_PER_TX * 2>(
-                    self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| {
-                        preimage.hash()
-                    }),
+                    self.pre_existing_nullifiers.map(|preimage| preimage.hash()),
                     0,
                 ),
                 [0; NULLIFIER_TREE_HEIGHT],
@@ -801,7 +795,7 @@ mod tests {
             NullifierLeafPreimage { nullifier: 1, next_nullifier: 7, next_index: 1 };
 
         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+            tree_nullifiers.map(|preimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
             [0; NULLIFIER_SUBTREE_HEIGHT + 1],
@@ -858,7 +852,7 @@ mod tests {
         };
 
         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+            tree_nullifiers.map(|preimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
             [0; NULLIFIER_SUBTREE_HEIGHT + 1],
@@ -1122,13 +1116,11 @@ mod tests {
         }
 
         let out_hash = builder.execute().out_hash;
-        let siloed_l2_to_l1_msgs = builder.avm_data.l2_to_l1_msgs.map(
-            |l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.constants.global_variables.version,
-                builder.constants.global_variables.chain_id,
-            ),
-        );
+        let siloed_l2_to_l1_msgs = builder.avm_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message,
+            builder.constants.global_variables.version,
+            builder.constants.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());

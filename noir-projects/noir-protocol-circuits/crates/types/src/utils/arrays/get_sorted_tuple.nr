@@ -13,10 +13,7 @@ pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(
     for i in 0..N {
         tuples[i] = SortedTuple { elem: array[i], original_index: i };
     }
-    sort_by(
-        tuples,
-        |a: SortedTuple<T>, b: SortedTuple<T>| ordering(a.elem, b.elem),
-    )
+    sort_by(tuples, |a, b| ordering(a.elem, b.elem))
 }
 
 #[test]
@@ -28,7 +25,7 @@ unconstrained fn get_sorted_tuple_asc() {
         SortedTuple { elem: 5, original_index: 3 },
         SortedTuple { elem: 9, original_index: 2 },
     ];
-    let sorted = get_sorted_tuple(original, |a: u64, b: u64| a < b);
+    let sorted = get_sorted_tuple(original, |a, b| a < b);
     for i in 0..4 {
         assert_eq(sorted[i].elem, expected[i].elem);
         assert_eq(sorted[i].original_index, expected[i].original_index);

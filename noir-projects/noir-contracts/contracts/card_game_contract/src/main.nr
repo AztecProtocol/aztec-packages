@@ -121,10 +121,7 @@ pub contract CardGame {
         assert(!game_data.claimed, "Already claimed");
         game_data.claimed = true;
 
-        assert_eq(
-            cards_hash,
-            pedersen_hash(game_data.rounds_cards.map(|card: Card| card.to_field()), 0),
-        );
+        assert_eq(cards_hash, pedersen_hash(game_data.rounds_cards.map(|card| card.to_field()), 0));
 
         let winner = game_data.winner();
         assert(player.eq(winner.address), "Not the winner");

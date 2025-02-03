@@ -143,7 +143,7 @@ impl PrivateContext {
         // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
         debug_log_format(
             "Context.note_hashes, after pushing new note hash: {0}",
-            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
+            self.note_hashes.storage().map(|nh| nh.value),
         );
     }
 

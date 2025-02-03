@@ -41,9 +41,9 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
         if log.inner.note_hash_counter == 0 {
             propagated_logs.push(log);
         } else {
-            let linked_note_hash_propagated = propagated_note_hashes.storage().any(
-                |n: ScopedNoteHash| (n.counter() == log.inner.note_hash_counter),
-            );
+            let linked_note_hash_propagated = propagated_note_hashes.storage().any(|n| {
+                (n.counter() == log.inner.note_hash_counter)
+            });
             if linked_note_hash_propagated {
                 propagated_logs.push(log);
             }

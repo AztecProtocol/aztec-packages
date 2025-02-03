@@ -102,13 +102,11 @@ impl PrivateBaseRollupInputs {
         all_public_data_update_requests[0] = fee_public_data_write;
 
         // Append the tx effects for blob(s)
-        let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(
-            |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                self.tube_data.public_inputs.constants.tx_context.version,
-                self.tube_data.public_inputs.constants.tx_context.chain_id,
-            ),
-        );
+        let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
+            message,
+            self.tube_data.public_inputs.constants.tx_context.version,
+            self.tube_data.public_inputs.constants.tx_context.chain_id,
+        ));
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effect = TxEffect {
@@ -174,7 +172,7 @@ impl PrivateBaseRollupInputs {
     }
 
     fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree_root(leaves.map(|leaf: NullifierLeafPreimage| leaf.hash()))
+        calculate_subtree_root(leaves.map(|leaf| leaf.hash()))
     }
 
     fn build_fee_public_data_write(self, tx_fee: Field) -> PublicDataWrite {
@@ -362,7 +360,7 @@ mod tests {
         ) -> PublicDataHint {
             self.fee_payer_fee_juice_balance_pre_existing_public_data_index.map_or(
                 PublicDataHint::empty(),
-                |leaf_index_u32: u32| {
+                |leaf_index_u32| {
                     let leaf_index = leaf_index_u32 as Field;
                     let leaf_preimage = self.pre_existing_public_data[leaf_index];
                     let membership_witness = MembershipWitness {
@@ -388,11 +386,9 @@ mod tests {
         fn build_pre_existing_tx_effects(self) -> TxEffect {
             let mut res = TxEffect::empty();
             res.note_hashes = self.pre_existing_notes;
-            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
-                nullifier.nullifier
-            });
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier| nullifier.nullifier);
             let all_public_data_update_requests = self.pre_existing_public_data.map(
-                |leaf_preimage: PublicDataTreeLeafPreimage| {
+                |leaf_preimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 },
             );
@@ -432,7 +428,7 @@ mod tests {
             /// Safety: This is a mock for testing only
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
-                    self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
+                    self.nullifiers.storage().map(|insertion| insertion.value),
                     |a, b| full_field_less_than(b, a),
                 )
             };
@@ -504,7 +500,7 @@ mod tests {
             );
 
             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
-                self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+                self.pre_existing_nullifiers.map(|preimage| preimage.hash()),
                 [0; NULLIFIER_TREE_HEIGHT],
                 [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT],
                 [0; NULLIFIER_SUBTREE_HEIGHT],
@@ -707,7 +703,7 @@ mod tests {
             NullifierLeafPreimage { nullifier: 1, next_nullifier: 7, next_index: 1 };
 
         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+            tree_nullifiers.map(|preimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
             [0; NULLIFIER_SUBTREE_HEIGHT + 1],

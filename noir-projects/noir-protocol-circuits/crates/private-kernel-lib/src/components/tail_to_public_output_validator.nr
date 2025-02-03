@@ -71,7 +71,7 @@ impl TailToPublicOutputValidator {
             prev_data.note_hashes,
             output_non_revertible.note_hashes,
             output_revertible.note_hashes,
-            |prev: ScopedNoteHash, out: Field| out == prev.note_hash.value,
+            |prev, out| out == prev.note_hash.value,
             split_counter,
         );
 
@@ -80,7 +80,7 @@ impl TailToPublicOutputValidator {
             prev_data.nullifiers,
             output_non_revertible.nullifiers,
             output_revertible.nullifiers,
-            |prev: ScopedNullifier, out: Field| out == prev.nullifier.value,
+            |prev, out| out == prev.nullifier.value,
             split_counter,
         );
 
@@ -104,7 +104,7 @@ impl TailToPublicOutputValidator {
         // l2_to_l1_msgs
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.l2_to_l1_msgs,
-            prev_data.l2_to_l1_msgs.map(|log: ScopedL2ToL1Message| log.expose_to_public()),
+            prev_data.l2_to_l1_msgs.map(|log| log.expose_to_public()),
             split_counter,
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,
@@ -114,7 +114,7 @@ impl TailToPublicOutputValidator {
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes.map(|log| log.expose_to_public()),
             split_counter,
             output_non_revertible.contract_class_logs_hashes,
             output_revertible.contract_class_logs_hashes,
@@ -124,7 +124,7 @@ impl TailToPublicOutputValidator {
         // public_call_requests
         assert_split_sorted_transformed_value_arrays_desc(
             prev_data.public_call_requests,
-            prev_data.public_call_requests.map(|cr: Counted<PublicCallRequest>| cr.inner),
+            prev_data.public_call_requests.map(|cr| cr.inner),
             split_counter,
             output_non_revertible.public_call_requests,
             output_revertible.public_call_requests,

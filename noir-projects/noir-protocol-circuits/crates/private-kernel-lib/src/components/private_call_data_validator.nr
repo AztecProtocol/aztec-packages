@@ -378,7 +378,7 @@ impl PrivateCallDataValidator {
                 let note_index = unsafe {
                     find_index_hint(
                         accumulated_note_hashes,
-                        |n: ScopedNoteHash| n.counter() == log.note_hash_counter,
+                        |n| n.counter() == log.note_hash_counter,
                     )
                 };
                 assert(note_index != N, "could not find note hash linked to note log");

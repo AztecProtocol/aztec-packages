@@ -24,10 +24,9 @@ pub unconstrained fn get_transient_or_propagated_note_hash_indexes_for_logs<let 
             if !propagated {
                 for j in 0..note_hashes.len() {
                     if note_hashes[j].counter() == log_note_hash_counter {
-                        indexes[i] = find_index_hint(
-                            transient_data_index_hints,
-                            |hint: TransientDataIndexHint| hint.note_hash_index == j,
-                        );
+                        indexes[i] = find_index_hint(transient_data_index_hints, |hint| {
+                            hint.note_hash_index == j
+                        });
                     }
                 }
             }

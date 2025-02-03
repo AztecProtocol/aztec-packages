@@ -99,9 +99,8 @@ comptime fn generate_note_interface(
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
-    let prefixed_merged_fields = merged_fields.map(|(name, typ, index): (Quoted, Type, u32)| {
-        (quote { self.$name }, typ, index)
-    });
+    let prefixed_merged_fields =
+        merged_fields.map(|(name, typ, index)| (quote { self.$name }, typ, index));
     let (new_generators_list, new_scalars_list, _, new_aux_vars) =
         generate_multi_scalar_mul(prefixed_merged_fields);
 
@@ -177,11 +176,10 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
     let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields =
-        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let non_header_fields = s.fields_as_written().filter(|(_, typ)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
+        .map(|(name, _)| quote { pub $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
@@ -485,9 +483,7 @@ comptime fn get_setup_log_plaintext_body(
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the generate_serialize_to_fields function but we omit the NoteHeader and the nullable fields.
-    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    let to_omit = indexed_nullable_fields.map(|(name, _, _)| name).push_back(quote { header });
     let (fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
@@ -607,9 +603,7 @@ comptime fn generate_finalization_payload(
     // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
     // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
-    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    let to_omit = indexed_fixed_fields.map(|(name, _, _)| name).push_back(quote { header });
     let (nullable_fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 

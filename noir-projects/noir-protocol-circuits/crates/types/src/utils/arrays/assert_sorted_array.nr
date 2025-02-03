@@ -35,7 +35,7 @@ mod tests {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 50, 90, 0, 0];
         let indexes = [1, 0, 3, 2, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test]
@@ -43,7 +43,7 @@ mod tests {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [90, 50, 30, 20, 0, 0];
         let indexes = [2, 3, 0, 1, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| b.lt(a));
+        assert_sorted_array(original, sorted, indexes, |a, b| b.lt(a));
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod tests {
         let original = [0, 0, 0, 0, 0, 0];
         let sorted = [0, 0, 0, 0, 0, 0];
         let indexes = [0, 0, 0, 0, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test(should_fail_with = "Values not sorted")]
@@ -59,7 +59,7 @@ mod tests {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 90, 50, 0, 0];
         let indexes = [1, 0, 2, 3, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test(should_fail_with = "Values not sorted")]
@@ -67,7 +67,7 @@ mod tests {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 50, 0, 0, 90];
         let indexes = [1, 0, 5, 2, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test(should_fail_with = "Invalid index")]
@@ -75,7 +75,7 @@ mod tests {
         let original = [30, 20, 90, 50, 0, 0];
         let sorted = [20, 30, 50, 90, 0, 0];
         let indexes = [1, 1, 2, 3, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test(should_fail_with = "Empty values must be padded to the right")]
@@ -83,7 +83,7 @@ mod tests {
         let original = [30, 20, 90, 0, 50, 0];
         let sorted = [20, 30, 90, 0, 0, 0];
         let indexes = [1, 0, 2, 0, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 
     #[test(should_fail_with = "Empty values must not be mixed with sorted values")]
@@ -91,7 +91,7 @@ mod tests {
         let original = [30, 20, 90, 0, 0, 0];
         let sorted = [20, 30, 90, 0, 0, 10];
         let indexes = [1, 0, 2, 0, 0, 0];
-        assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
+        assert_sorted_array(original, sorted, indexes, |a, b| a.lt(b));
     }
 }
 

@@ -172,6 +172,6 @@ comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
         generics[generics.len() - 1] = context_generic;
     }
 
-    let generics = generics.map(|typ: Type| quote {$typ}).join(quote {,});
+    let generics = generics.map(|typ| quote {$typ}).join(quote {,});
     quote { $name<$generics> }.as_type()
 }

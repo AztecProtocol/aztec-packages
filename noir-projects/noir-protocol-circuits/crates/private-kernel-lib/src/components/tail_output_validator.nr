@@ -92,7 +92,7 @@ impl TailOutputValidator {
 
         // private_logs
         assert_eq(
-            self.previous_kernel.end.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
+            self.previous_kernel.end.private_logs.map(|l| l.inner.log),
             self.output.end.private_logs,
             "mismatch private_logs",
         );
@@ -103,14 +103,14 @@ impl TailOutputValidator {
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.l2_to_l1_msgs,
             self.output.end.l2_to_l1_msgs,
-            |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
+            |prev, out| out == prev.expose_to_public(),
             self.hints.sorted_l2_to_l1_msg_hints,
         );
         // contract_class_logs
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,
-            |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
+            |prev, out| out == prev.expose_to_public(),
             self.hints.sorted_contract_class_log_hash_hints,
         );
     }

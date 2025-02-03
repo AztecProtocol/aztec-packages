@@ -355,7 +355,7 @@ pub comptime fn generate_serialize_to_fields(
             // For struct we pref
             let nested_struct = typ.as_struct().unwrap();
             let params = nested_struct.0.fields(nested_struct.1);
-            let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
+            let struct_flattened = params.map(|(param_name, param_type)| {
                 let maybe_prefixed_name = if name == quote {} {
                     // Triggered when the param name is of a value available in the current scope (e.g. a function
                     // argument) --> then we don't prefix the name with anything.
@@ -372,14 +372,10 @@ pub comptime fn generate_serialize_to_fields(
                     should_pack,
                 )
             });
-            let struct_flattened_fields = struct_flattened.fold(
-                &[],
-                |acc: [Quoted], (fields, _): (_, [Quoted])| acc.append(fields),
-            );
-            let struct_flattened_aux_vars = struct_flattened.fold(
-                &[],
-                |acc: [Quoted], (_, aux_vars): ([Quoted], _)| acc.append(aux_vars),
-            );
+            let struct_flattened_fields =
+                struct_flattened.fold(&[], |acc, (fields, _)| acc.append(fields));
+            let struct_flattened_aux_vars =
+                struct_flattened.fold(&[], |acc, (_, aux_vars)| acc.append(aux_vars));
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
         } else if typ.as_array().is_some() {

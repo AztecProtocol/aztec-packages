@@ -345,36 +345,28 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(self.note_hash_read_requests.storage().map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
-            nullifier_read_requests: subarray(self.nullifier_read_requests.storage().map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
+            note_hash_read_requests: subarray(self.note_hash_read_requests.storage().map(|r| {
+                r.read_request
+            })),
+            nullifier_read_requests: subarray(self.nullifier_read_requests.storage().map(|r| {
+                r.read_request
+            })),
             key_validation_requests_and_generators: subarray(self
                 .scoped_key_validation_requests_and_generators
                 .storage()
-                .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
-            note_hashes: subarray(
-                self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
-            ),
+                .map(|r| r.request)),
+            note_hashes: subarray(self.note_hashes.storage().map(|n| n.note_hash)),
+            nullifiers: subarray(self.nullifiers.storage().map(|n| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage()),
             public_call_requests: subarray(self.public_call_requests.storage()),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage().map(|r: ScopedL2ToL1Message| {
-                r.message
-            })),
+            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage().map(|r| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.inner
+            private_logs: subarray(self.private_logs.storage().map(|l| l.inner)),
+            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(|l| {
+                l.log_hash
             })),
-            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.log_hash,
-            )),
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -423,32 +415,26 @@ impl FixtureBuilder {
 
     pub fn to_private_to_public_accumulated_data(self) -> PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.value()),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.value()),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
-                m.expose_to_public()
+            note_hashes: self.note_hashes.storage().map(|n| n.value()),
+            nullifiers: self.nullifiers.storage().map(|n| n.value()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m| m.expose_to_public()),
+            private_logs: self.private_logs.storage().map(|l| l.inner.log),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(|l| {
+                l.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
-            ),
-            public_call_requests: self.public_call_requests.storage().map(
-                |cr: Counted<PublicCallRequest>| cr.inner,
-            ),
+            public_call_requests: self.public_call_requests.storage().map(|cr| cr.inner),
         }
     }
 
     pub fn to_private_to_rollup_accumulated_data(self) -> PrivateToRollupAccumulatedData {
         PrivateToRollupAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
-                m.expose_to_public()
+            note_hashes: self.note_hashes.storage().map(|n| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m| m.expose_to_public()),
+            private_logs: self.private_logs.storage().map(|l| l.inner.log),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(|l| {
+                l.expose_to_public()
             }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
-            ),
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
         }
     }
@@ -555,8 +541,8 @@ impl FixtureBuilder {
 
     pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
         AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            note_hashes: self.note_hashes.storage().map(|n| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             public_logs: self.public_logs.storage(),
             public_data_writes: self.public_data_writes.storage(),

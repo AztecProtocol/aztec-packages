@@ -40,12 +40,10 @@ pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HI
     );
 
     // note_hashes
-    let sorted_note_hash_indexes =
-        get_order_hints_asc(kept_note_hashes).map(|h: OrderHint| h.sorted_index);
+    let sorted_note_hash_indexes = get_order_hints_asc(kept_note_hashes).map(|h| h.sorted_index);
 
     // nullifiers
-    let sorted_nullifier_indexes =
-        get_order_hints_asc(kept_nullifiers).map(|h: OrderHint| h.sorted_index);
+    let sorted_nullifier_indexes = get_order_hints_asc(kept_nullifiers).map(|h| h.sorted_index);
 
     // private_logs
     let transient_or_propagated_note_hash_indexes_for_logs = get_transient_or_propagated_note_hash_indexes_for_logs(
@@ -54,8 +52,7 @@ pub unconstrained fn generate_reset_output_hints<let NUM_TRANSIENT_DATA_INDEX_HI
         kept_note_hashes,
         transient_data_index_hints,
     );
-    let sorted_private_log_indexes =
-        get_order_hints_asc(kept_private_logs).map(|h: OrderHint| h.sorted_index);
+    let sorted_private_log_indexes = get_order_hints_asc(kept_private_logs).map(|h| h.sorted_index);
 
     ResetOutputHints {
         kept_note_hashes,

@@ -40,13 +40,13 @@ mod tests {
 
     unconstrained fn asc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = sort_by_counter_asc(items).map(|item: TestValue| item.counter);
+        let sorted = sort_by_counter_asc(items).map(|item| item.counter);
         assert_eq(sorted, expected);
     }
 
     unconstrained fn desc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = sort_by_counter_desc(items).map(|item: TestValue| item.counter);
+        let sorted = sort_by_counter_desc(items).map(|item| item.counter);
         assert_eq(sorted, expected);
     }
 

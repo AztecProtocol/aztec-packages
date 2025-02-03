@@ -17,7 +17,7 @@ impl<let VK_LENGTH: u32> VkData<VK_LENGTH> {
         /// Safety: find_index_hint should return an index into allowed_indices where
         /// `index == index_in_allowed_list`. The assertion below then verifies that the condition is met.
         let index_hint =
-            unsafe { find_index_hint(allowed_indices, |index: u32| index == self.vk_index) };
+            unsafe { find_index_hint(allowed_indices, |index| index == self.vk_index) };
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
 

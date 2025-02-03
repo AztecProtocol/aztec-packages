@@ -156,10 +156,7 @@ mod tests {
 
         let resulting_msgs = public_inputs.end.l2_to_l1_msgs;
 
-        assert_eq(
-            resulting_msgs,
-            original_msgs.map(|mut msg: ScopedL2ToL1Message| msg.expose_to_public()),
-        );
+        assert_eq(resulting_msgs, original_msgs.map(|mut msg| msg.expose_to_public()));
     }
 
     #[test(should_fail_with = "Private call stack must be empty when executing the tail circuit")]

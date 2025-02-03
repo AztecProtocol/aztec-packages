@@ -46,19 +46,14 @@ impl TailOutputComposer {
     ) -> PrivateToRollupAccumulatedData {
         let source = self.output_composer.public_inputs.end;
         let mut data = PrivateToRollupAccumulatedData::empty();
-        data.note_hashes = source.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value);
-        data.nullifiers = source.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value);
-        data.l2_to_l1_msgs =
-            source.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| m.expose_to_public());
-        data.private_logs =
-            source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log);
-        data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
-            |l: ScopedLogHash| l.expose_to_public(),
-        );
-        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage().fold(
-            0,
-            |len, l: ScopedLogHash| len + l.log_hash.length,
-        );
+        data.note_hashes = source.note_hashes.storage().map(|n| n.note_hash.value);
+        data.nullifiers = source.nullifiers.storage().map(|n| n.nullifier.value);
+        data.l2_to_l1_msgs = source.l2_to_l1_msgs.storage().map(|m| m.expose_to_public());
+        data.private_logs = source.private_logs.storage().map(|l| l.inner.log);
+        data.contract_class_logs_hashes =
+            source.contract_class_logs_hashes.storage().map(|l| l.expose_to_public());
+        data.contract_class_log_preimages_length =
+            source.contract_class_logs_hashes.storage().fold(0, |len, l| len + l.log_hash.length);
         data
     }
 }

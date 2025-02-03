@@ -226,9 +226,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             kept_note_hashes,
             output_note_hashes,
-            |prev: ScopedNoteHash, out: ScopedNoteHash| {
-                out.contract_address.is_zero() & (out.counter() == prev.counter())
-            },
+            |prev, out| out.contract_address.is_zero() & (out.counter() == prev.counter()),
             sorted_indexes,
             self.note_hash_siloing_amount,
         );
@@ -240,7 +238,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_nullifiers,
             self.output.end.nullifiers,
-            |prev: ScopedNullifier, out: ScopedNullifier| {
+            |prev, out| {
                 (out.value() == silo_nullifier(prev))
                     & (out.counter() == prev.counter())
                     & (out.nullifier.note_hash == prev.nullifier.note_hash)
@@ -255,7 +253,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_private_logs,
             self.output.end.private_logs,
-            |prev: Scoped<PrivateLogData>, out: Scoped<PrivateLogData>| {
+            |prev, out| {
                 is_valid_siloed_private_log(out.inner.log, prev)
                     & (out.inner.note_hash_counter == prev.inner.note_hash_counter)
                     & (out.inner.counter == prev.inner.counter)
