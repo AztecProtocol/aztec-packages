@@ -99,52 +99,29 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-        if (proving_key->get_is_structured()) {
-            witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_region_data.get_ranges());
-            witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_r, proving_key->proving_key.active_region_data.get_ranges());
-            witness_commitments.w_o = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_region_data.get_ranges());
-        } else {
-            witness_commitments.w_l =
-                proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_l);
-            witness_commitments.w_r =
-                proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_r);
-            witness_commitments.w_o =
-                proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_o);
-        }
-    }
-
-    auto wire_comms = witness_commitments.get_wires();
-    auto wire_labels = commitment_labels.get_wires();
-    for (size_t idx = 0; idx < 3; ++idx) {
-        transcript->send_to_verifier(domain_separator + wire_labels[idx], wire_comms[idx]);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_l, commitment_labels.w_l);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_r, commitment_labels.w_r);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_o, commitment_labels.w_o);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
-        // Commit to Goblin ECC op wires
-        for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
-                                                             proving_key->proving_key.polynomials.get_ecc_op_wires(),
-                                                             commitment_labels.get_ecc_op_wires())) {
+        // Commit to Goblin ECC op wires. Currently, they are not masked in MegaZKFlavor
+        for (auto [polynomial, label] :
+             zip_view(proving_key->proving_key.polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
-                commitment = proving_key->proving_key.commitment_key->commit(polynomial);
-            }
-            transcript->send_to_verifier(domain_separator + label, commitment);
+                commit_to_witness_polynomial(polynomial, label);
+            };
         }
 
         // Commit to DataBus related polynomials
-        for (auto [commitment, polynomial, label] :
-             zip_view(witness_commitments.get_databus_entities(),
-                      proving_key->proving_key.polynomials.get_databus_entities(),
-                      commitment_labels.get_databus_entities())) {
+        for (auto [polynomial, label] : zip_view(proving_key->proving_key.polynomials.get_databus_entities(),
+                                                 commitment_labels.get_databus_entities())) {
             {
                 PROFILE_THIS_NAME("COMMIT::databus");
-                commitment = proving_key->proving_key.commitment_key->commit(polynomial);
+                commit_to_witness_polynomial(polynomial, label);
             }
-            transcript->send_to_verifier(domain_separator + label, commitment);
         }
     }
 }
@@ -168,27 +145,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     {
         PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
-        witness_commitments.lookup_read_counts =
-            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_counts);
-        witness_commitments.lookup_read_tags =
-            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_read_tags);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_counts,
+                                     commitment_labels.lookup_read_counts);
+
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_tags,
+                                     commitment_labels.lookup_read_tags);
     }
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-        if (proving_key->get_is_structured()) {
-            witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_region_data.get_ranges());
-        } else {
-            witness_commitments.w_4 =
-                proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_4);
-        }
+        auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
+                                                              : CommitmentKey::CommitType::Default;
+        commit_to_witness_polynomial(
+            proving_key->proving_key.polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
     }
-
-    transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_counts,
-                                 witness_commitments.lookup_read_counts);
-    transcript->send_to_verifier(domain_separator + commitment_labels.lookup_read_tags,
-                                 witness_commitments.lookup_read_tags);
-    transcript->send_to_verifier(domain_separator + commitment_labels.w_4, witness_commitments.w_4);
 }
 
 /**
@@ -208,24 +177,20 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
-        witness_commitments.lookup_inverses = proving_key->proving_key.commitment_key->commit_sparse(
-            proving_key->proving_key.polynomials.lookup_inverses);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_inverses,
+                                     commitment_labels.lookup_inverses,
+                                     CommitmentKey::CommitType::Sparse);
     }
-    transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
-                                 witness_commitments.lookup_inverses);
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsMegaFlavor<Flavor>) {
-        for (auto [commitment, polynomial, label] :
-             zip_view(witness_commitments.get_databus_inverses(),
-                      proving_key->proving_key.polynomials.get_databus_inverses(),
-                      commitment_labels.get_databus_inverses())) {
+        for (auto [polynomial, label] : zip_view(proving_key->proving_key.polynomials.get_databus_inverses(),
+                                                 commitment_labels.get_databus_inverses())) {
             {
                 PROFILE_THIS_NAME("COMMIT::databus_inverses");
-                commitment = proving_key->proving_key.commitment_key->commit_sparse(polynomial);
+                commit_to_witness_polynomial(polynomial, label, CommitmentKey::CommitType::Sparse);
             }
-            transcript->send_to_verifier(domain_separator + label, commitment);
-        }
+        };
     }
 }
 
@@ -243,18 +208,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
-        if (proving_key->get_is_structured()) {
-            witness_commitments.z_perm =
-                proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-                    proving_key->proving_key.polynomials.z_perm,
-                    proving_key->proving_key.active_region_data.get_ranges(),
-                    proving_key->final_active_wire_idx + 1);
-        } else {
-            witness_commitments.z_perm =
-                proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
-        }
+        auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::StructuredNonZeroComplement
+                                                              : CommitmentKey::CommitType::Default;
+        commit_to_witness_polynomial(
+            proving_key->proving_key.polynomials.z_perm, commitment_labels.z_perm, commit_type);
     }
-    transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
 }
 
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
