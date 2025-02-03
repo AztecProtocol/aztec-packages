@@ -720,14 +720,17 @@ mod tests {
     }
 
     #[test]
-    fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
+    fn compute_sum_and_compute_partial_sums_agree() {
+        let mut fields = [BigNum::zero(); FIELDS_PER_BLOB];
+        for i in 0..FIELDS_PER_BLOB {
+            fields[i] = field_to_bignum(i as Field);
+        }
         unsafe {
-            let fields = fields.map(|f| field_to_bignum(f));
 
             let partial_sums = __compute_partial_sums(fields, ROOTS);
             let sum = __compute_sum(fields, ROOTS);
 
-            assert_eq(partial_sums[FIELDS_PER_BLOB - 1], sum);
+            assert_eq(partial_sums[FIELDS_PER_BLOB/8 - 1], sum);
         }
     }
 }
