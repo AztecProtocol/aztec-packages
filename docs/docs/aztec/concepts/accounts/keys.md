@@ -7,19 +7,20 @@ In this section, you will learn what keys are used in Aztec, and how the address
 
 ## Types of keys
 
-Each Aztec account is backed by four key pairs: 
+Each Aztec account is backed by four key pairs:
+
 - Nullifier keys – used to spend notes.
 - Address keys – this is an auxiliary key used for the address derivation; it’s internally utilized by the protocol and does not require any action from developers.
 - Incoming viewing keys – used to encrypt a note for the recipient.
-- Signing keys – an optional key pair used for account authorization. 
+- Signing keys – an optional key pair used for account authorization.
 
 The first three pairs are embedded into the protocol while the signing key is abstracted up to the account contract developer.
 
-### Nullifier keys 
+### Nullifier keys
 
-Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`). 
+Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`).
 
-To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app siloed nullifier secret key, the latter is derived using the nullifier master secret key.  To compute the nullifier, the protocol checks that the app siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address. 
+To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app siloed nullifier secret key, the latter is derived using the nullifier master secret key. To compute the nullifier, the protocol checks that the app siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address.
 
 ### Address keys
 
@@ -28,7 +29,7 @@ Address keys are used for account [address derivation](../accounts/index.md).
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
 
 :::note
-Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed. 
+Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed.
 :::
 
 ### Incoming viewing keys
@@ -36,7 +37,8 @@ Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing ke
 The incoming viewing public key (`Ivpk`) is used by the sender to encrypt a note for the recipient. The corresponding incoming viewing secret key (`ivsk`) is used by the recipient to decrypt the note.
 
 When it comes to notes encryption and decryption:
-- For each note, there is a randomly generated ephemeral key pair (`esk`, `Epk`) where `Epk = esk * G`. 
+
+- For each note, there is a randomly generated ephemeral key pair (`esk`, `Epk`) where `Epk = esk * G`.
 - The `AddressPublicKey` (derived from the `ivsk`) together with `esk` are encrypted as a secret `S`, `S = esk * AddressPublicKey`.
 - `symmetric_encryption_key = hash(S)`
 - `Ciphertext = aes_encrypt(note, symmetric_encryption_key)`
@@ -52,7 +54,7 @@ However if one wants to implement authorization logic containing signatures (e.g
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code is_valid_impl /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 ### Storing signing keys
 
@@ -66,13 +68,14 @@ Storing the signing public key in a private note makes it accessible from the en
 
 Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers and commitments per transaction. However, it does not allow the user to rotate their key if they lose it.
 
-#include_code public_key aztec-packages/noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code public_key noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 :::note
 When it comes to storing the signing key in a private note, there are several details that rely on the wallets:
-- A note with a key is managed similar to any other private note. Wallets are expected to backup all the notes so that they can be restored on another device (e.g. if the user wants to move to another device). 
-- The note with the key might exist locally only (in PXE) or it can be broadcasted as an encrypted note by the wallet to itself. In the second case, this note will also exist on Aztec. 
-:::
+
+- A note with a key is managed similar to any other private note. Wallets are expected to backup all the notes so that they can be restored on another device (e.g. if the user wants to move to another device).
+- The note with the key might exist locally only (in PXE) or it can be broadcasted as an encrypted note by the wallet to itself. In the second case, this note will also exist on Aztec.
+  :::
 
 #### Using Shared Mutable state
 
@@ -94,27 +97,27 @@ Since there are no restrictions on the actions that an account contract may exec
 
 All key pairs (except for the signing keys) are generated in the [Private Execution Environment](../pxe/index.md) (PXE) when a user creates an account. PXE is also responsible for the further key management (oracle access to keys, app siloed keys derivation, etc.)
 
-### Keys derivation 
+### Keys derivation
 
-All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md). Where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar. 
+All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md). Where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar.
 
 The address private key is an exception and derived in a way described above in the section “Address keys”.
 
 ### The special case of escrow contracts
 
-Typically, for account contracts the public keys will be non-zero and for non-account contracts zero. 
+Typically, for account contracts the public keys will be non-zero and for non-account contracts zero.
 
-An exception (a non-account contract which would have some of the keys non-zero) is an escrow contract. Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a` Npk_m` registered and the notes contain this `Npk_m`. 
+An exception (a non-account contract which would have some of the keys non-zero) is an escrow contract. Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a` Npk_m` registered and the notes contain this `Npk_m`.
 
 Participants in this escrow contract would then somehow get a hold of the escrow's `nsk_m` and nullify the notes based on the logic of the escrow. An example of an escrow contract is a betting contract. In this scenario, both parties involved in the bet would be aware of the escrow's `nsk_m`. The escrow would then release the reward only to the party that provides a "proof of winning".
 
 ### App siloed keys
 
-All keys on Aztec (except for the signing keys) are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different. 
+All keys on Aztec (except for the signing keys) are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different.
 
 App-siloed keys allow to minimize damage of potential key leaks as a leak of the scoped keys would only affect one application.
 
-App-siloed keys are derived from the corresponding master keys and the contract address. For example, for the app-siloed nullifier secret key: `nsk_app = hash(nsk_m, app_contract_address)`. 
+App-siloed keys are derived from the corresponding master keys and the contract address. For example, for the app-siloed nullifier secret key: `nsk_app = hash(nsk_m, app_contract_address)`.
 
 App-siloed keys [are derived](../storage_slots#implementation/index.md) in PXE every time the user interacts with the application.
 
@@ -122,6 +125,6 @@ App-siloed incoming viewing key also allows per-application auditability. A user
 
 ### Key rotation
 
-Key rotation is the process of creating new signing keys to replace existing keys. By rotating encryption keys on a regular schedule or after specific events, you can reduce the potential consequences of the key being compromised. 
+Key rotation is the process of creating new signing keys to replace existing keys. By rotating encryption keys on a regular schedule or after specific events, you can reduce the potential consequences of the key being compromised.
 
 On Aztec, key rotation is impossible for nullifier keys, incoming viewing keys and address keys as all of them are embedded into the address and address is unchangeable. In the meanwhile, signing keys can be rotated.
