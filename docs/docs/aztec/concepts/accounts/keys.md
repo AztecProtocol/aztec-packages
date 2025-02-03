@@ -80,7 +80,7 @@ When it comes to storing the signing key in a private note, there are several de
 #### Using Shared Mutable state
 
 :::note
-By [Shared Mutable](../shared_state#sharedmutable/index.md) we mean privately readable publicly mutable state.
+By [Shared Mutable](../../../reference/developer_references/smart_contract_reference/storage/shared_state#sharedmutable) we mean privately readable publicly mutable state.
 :::
 
 To make public state accessible privately, there should be a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
@@ -119,7 +119,7 @@ App-siloed keys allow to minimize damage of potential key leaks as a leak of the
 
 App-siloed keys are derived from the corresponding master keys and the contract address. For example, for the app-siloed nullifier secret key: `nsk_app = hash(nsk_m, app_contract_address)`.
 
-App-siloed keys [are derived](../storage_slots#implementation/index.md) in PXE every time the user interacts with the application.
+App-siloed keys [are derived](../storage/storage_slots#implementation/index.md) in PXE every time the user interacts with the application.
 
 App-siloed incoming viewing key also allows per-application auditability. A user may choose to disclose this key for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
 
