@@ -380,3 +380,41 @@ export class WalletDB {
     log(`Data stored in database with alias ${type}:${key}`);
   }
 }
+
+export class NetworkDB {
+  #networks!: AztecAsyncMap<string, Buffer>;
+
+  private static instance: NetworkDB;
+
+  static getInstance() {
+    if (!NetworkDB.instance) {
+      NetworkDB.instance = new NetworkDB();
+    }
+
+    return NetworkDB.instance;
+  }
+
+  init(store: AztecAsyncKVStore) {
+    this.#networks = store.openMap("networks");
+  }
+
+  async storeNetwork(network: string, alias: string) {
+    await this.#networks.set(network, Buffer.from(alias));
+  }
+
+  async retrieveNetwork(network: string) {
+    const result = await this.#networks.getAsync(network);
+    if (!result) {
+      throw new Error(`Could not find network with alias ${network}`);
+    }
+    return result.toString();
+  }
+
+  async listNetworks() {
+    const result = [];
+    for await (const [key, value] of this.#networks.entriesAsync()) {
+      result.push({ key, value: value.toString() });
+    }
+    return result;
+  }
+}
