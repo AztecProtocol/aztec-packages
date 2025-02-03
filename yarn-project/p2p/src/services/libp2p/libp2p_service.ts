@@ -212,6 +212,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
         pubsub: gossipsub({
           allowPublishToZeroTopicPeers: true,
+          floodPublish: false,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
