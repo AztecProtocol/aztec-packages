@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
@@ -32,17 +31,14 @@ export -f format lint get_projects
 function build {
   echo_header "yarn-project build"
 
+  denoise "$0 clean-lite"
   denoise "yarn install"
 
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
 
-  for project in foundation l1-artifacts circuits.js; do
-    denoise "cd $project && yarn build"
-  done
-  denoise "yarn generate"
-  denoise "yarn tsc -b"
+  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
   # This many projects have a generation stage now!?
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
@@ -122,6 +118,7 @@ function test {
 
 case "$cmd" in
   "clean")
+    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
   "clean-lite")
@@ -131,15 +128,14 @@ case "$cmd" in
       | xargs --no-run-if-empty rm -rf
     ;;
   "ci")
-    build
+    typecheck=1 build
     test
     ;;
   ""|"fast")
     build
     ;;
   "full")
-    git clean -fdx --exclude=node_modules --exclude=.yarn
-    build
+    typecheck=1 build
     ;;
   "test")
     test
