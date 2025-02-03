@@ -719,7 +719,7 @@ impl<'brillig> Context<'brillig> {
         // Should we consider calls to slice_push_back and similar to be mutating operations as well?
         if let Store { value: array, .. } | ArraySet { array, .. } = instruction {
             let Some(instruction) = function.dfg.get_local_or_global_instruction(*array) else {
-                return
+                return;
             };
 
             if matches!(instruction, Instruction::MakeArray { .. }) {
