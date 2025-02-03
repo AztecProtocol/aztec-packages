@@ -42,8 +42,8 @@ std::string pad_left(std::string input, size_t length)
 /**
  * @brief Main entry point for the proof generator.
  * Expected inputs:
- * 1. plonk_flavour: ultra
- * 2. circuit_flavour: blake, add2, recursive
+ * 1. plonk_flavor: ultra
+ * 2. circuit_flavor: blake, add2, recursive
  * 3. public_inputs: comma separated list of public inputs
  * 4. project_root_path: path to the solidity project root
  * 5. srs_path: path to the srs db
@@ -53,12 +53,12 @@ int main(int argc, char** argv)
     std::vector<std::string> args(argv, argv + argc);
 
     if (args.size() < 5) {
-        info("usage: ", args[0], "[plonk flavour] [circuit flavour] [srs path] [public inputs]");
+        info("usage: ", args[0], "[plonk flavor] [circuit flavor] [srs path] [public inputs]");
         return 1;
     }
 
-    const std::string plonk_flavour = args[1];
-    const std::string circuit_flavour = args[2];
+    const std::string plonk_flavor = args[1];
+    const std::string circuit_flavor = args[2];
     const std::string srs_path = args[3];
     const std::string string_input = args[4];
 
@@ -79,21 +79,21 @@ int main(int argc, char** argv)
         inputs[count++] = uint256_t(padded);
     }
 
-    if (plonk_flavour != "ultra") {
-        info("Only ultra plonk flavour is supported at the moment");
+    if (plonk_flavor != "ultra") {
+        info("Only ultra plonk flavor is supported at the moment");
         return 1;
     }
 
-    if (circuit_flavour == "blake") {
+    if (circuit_flavor == "blake") {
         generate_proof<UltraComposer, BlakeCircuit>(inputs);
-    } else if (circuit_flavour == "add2") {
+    } else if (circuit_flavor == "add2") {
         generate_proof<UltraComposer, Add2Circuit>(inputs);
-    } else if (circuit_flavour == "ecdsa") {
+    } else if (circuit_flavor == "ecdsa") {
         generate_proof<UltraComposer, EcdsaCircuit>(inputs);
-    } else if (circuit_flavour == "recursive") {
+    } else if (circuit_flavor == "recursive") {
         generate_proof<UltraComposer, RecursiveCircuit>(inputs);
     } else {
-        info("Invalid circuit flavour: " + circuit_flavour);
+        info("Invalid circuit flavor: " + circuit_flavor);
         return 1;
     }
 }

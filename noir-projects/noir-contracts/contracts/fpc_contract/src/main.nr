@@ -9,7 +9,7 @@ use dep::aztec::macros::aztec;
 /// Accepted asset funds sent by the users to this contract stay in this contract and later on can
 /// be pulled by the admin using the `pull_funds` function.
 #[aztec]
-contract FPC {
+pub contract FPC {
     use crate::config::Config;
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},

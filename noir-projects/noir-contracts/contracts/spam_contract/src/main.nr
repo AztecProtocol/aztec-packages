@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
-contract Spam {
+pub contract Spam {
 
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note_unconstrained,

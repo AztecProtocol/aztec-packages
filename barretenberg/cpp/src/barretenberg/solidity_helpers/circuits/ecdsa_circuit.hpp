@@ -86,7 +86,7 @@ template <typename Builder> class EcdsaCircuit {
             sig);
 
         // Assert the signature is true, we hash the message inside the verify sig stdlib call
-        bool_ct is_true = bool_ct(1);
+        bool_ct is_true = bool_ct(true);
         signature_result.must_imply(is_true, "signature verification failed");
 
         return builder;
