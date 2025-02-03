@@ -32,11 +32,6 @@ spec:
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
-      {{- if .Values.network.public }}
-      hostNetwork: true
-      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
-      {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
       containers:
         - name: blob-sink
