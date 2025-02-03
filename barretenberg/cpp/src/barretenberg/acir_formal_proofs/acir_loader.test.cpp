@@ -488,3 +488,4 @@ TEST(acir_formal_proofs, integer_terms_div)
         save_buggy_witness(TESTNAME, circuit);
     }
 }
+
