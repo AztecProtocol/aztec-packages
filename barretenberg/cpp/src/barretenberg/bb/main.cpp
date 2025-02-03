@@ -816,7 +816,7 @@ int main(int argc, char* argv[])
         const bool zk = flag_present(args, "--zk");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
-        const API::Flags flags = [&args, &recursive, &honk_recursion]() {
+        const API::Flags flags = [&]() {
             return API::Flags{
                 .zk = zk,
                 .recursive = recursive,
