@@ -16,7 +16,7 @@ function compile_project {
 function build {
   echo_header "yarn-project build"
 
-  denoise "$0 clean-lite"
+  denoise "./bootstrap.sh clean-lite"
   denoise "yarn install"
 
   if cache_download yarn-project-$hash.tar.gz; then
@@ -109,7 +109,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    git clean -fdx --exclude=node_modules --exclude=.yarn
+    git ls-files --ignored --others --exclude-standard \
+      | grep -v '^node_modules/' \
+      | grep -v '^\.yarn/' \
+      | xargs rm -rf
     ;;
   "ci")
     typecheck=1 build
