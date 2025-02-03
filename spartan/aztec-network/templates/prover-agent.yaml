@@ -17,7 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

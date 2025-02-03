@@ -17,6 +17,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: faucet
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
