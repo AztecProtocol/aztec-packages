@@ -45,4 +45,12 @@ export class ScheduledValueChange {
     }
     return ScheduledValueChange.fromFields(fields);
   }
+
+  getCurrentAt(blockNumber: number) {
+    if (blockNumber < this.blockOfChange) {
+      return this.previous;
+    } else {
+      return this.post;
+    }
+  }
 }

@@ -1,15 +1,20 @@
-import { PrivateCallExecutionResult } from '@aztec/circuit-types';
+import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  type ContractInstance,
   Fr,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PrivateCircuitPublicInputs,
+  ScheduledValueChange,
+  UPDATED_CLASS_IDS_SLOT,
 } from '@aztec/circuits.js';
+import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
@@ -114,4 +119,23 @@ export function extractPrivateCircuitPublicInputs(
     returnData.push(fromACVMField(returnedField));
   }
   return PrivateCircuitPublicInputs.fromFields(returnData);
+}
+
+export async function verifyCurrentClassId(
+  contractAddress: AztecAddress,
+  instance: ContractInstance,
+  node: AztecNode,
+  blockNumber: number,
+) {
+  const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
+  const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, slot =>
+    node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
+  );
+  let currentClassId = valueChange.getCurrentAt(blockNumber);
+  if (currentClassId.isZero()) {
+    currentClassId = instance.originalContractClassId;
+  }
+  if (!instance.currentContractClassId.equals(currentClassId)) {
+    throw new Error(`Contract ${contractAddress} is outdated, current class id is ${currentClassId}`);
+  }
 }

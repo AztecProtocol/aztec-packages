@@ -109,7 +109,6 @@ export class KernelOracle implements ProvingDataOracle {
       this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
 
     const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, readStorage);
-
     const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(

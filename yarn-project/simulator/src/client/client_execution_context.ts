@@ -31,7 +31,7 @@ import { type SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
-import { executePrivateFunction } from './private_execution.js';
+import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
 /**
@@ -370,6 +370,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
+    await verifyCurrentClassId(
+      targetContractAddress,
+      await this.db.getContractInstance(targetContractAddress),
+      this.node,
+      this.historicalHeader.globalVariables.blockNumber.toNumber(),
+    );
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
 

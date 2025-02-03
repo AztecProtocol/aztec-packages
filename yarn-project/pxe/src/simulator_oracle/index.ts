@@ -806,10 +806,11 @@ export class SimulatorOracle implements DBOracle {
       );
     }
 
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -827,8 +828,8 @@ export class SimulatorOracle implements DBOracle {
       getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       [], // empty scope as this call should not require access to private information
     );
   }

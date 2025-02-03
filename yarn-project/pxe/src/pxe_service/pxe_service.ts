@@ -750,19 +750,14 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing details of the contract call.
    * @returns An object containing the contract address, function artifact, and historical tree roots.
    */
-  async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+  #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionSelector =
       (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
-    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, functionSelector);
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, functionSelector);
 
     return {
       contractAddress,
-      functionArtifact: {
-        ...functionArtifact,
-        debug,
-      },
+      functionSelector,
     };
   }
 
@@ -772,11 +767,11 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(txRequest);
 
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender, scopes);
-      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
+      const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
+      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -796,12 +791,12 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall, scopes?: AztecAddress[]) {
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(execRequest);
 
     this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, scopes);
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionArtifact.name} completed`);
+      const result = await this.simulator.runUnconstrained(execRequest, contractAddress, functionSelector, scopes);
+      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
 
       return result;
     } catch (err) {
