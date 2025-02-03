@@ -14,9 +14,10 @@ using namespace bb::plonk;
 using namespace stdlib;
 using numeric::uint256_t;
 
-template <typename OuterBuilder> class RecursiveCircuit {
+class RecursiveCircuit {
     using InnerComposer = UltraComposer;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerBuilder = UltraCircuitBuilder;
+    using OuterBuilder = UltraCircuitBuilder;
 
     using inner_curve = bn254<InnerBuilder>;
     using outer_curve = bn254<OuterBuilder>;
@@ -65,11 +66,7 @@ template <typename OuterBuilder> class RecursiveCircuit {
     {
         ProverOfInnerCircuit prover;
         InnerComposer inner_composer;
-        if constexpr (is_ultra_to_ultra) {
-            prover = inner_composer.create_prover(inner_circuit);
-        } else {
-            prover = inner_composer.create_ultra_to_standard_prover(inner_circuit);
-        }
+        prover = inner_composer.create_prover(inner_circuit);
 
         const auto verification_key_native = inner_composer.compute_verification_key(inner_circuit);
         // Convert the verification key's elements into _circuit_ types, using the OUTER composer.
@@ -82,14 +79,10 @@ template <typename OuterBuilder> class RecursiveCircuit {
             // Native check is mainly for comparison vs circuit version of the verifier.
             VerifierOfInnerProof native_verifier;
 
-            if constexpr (is_ultra_to_ultra) {
-                native_verifier = inner_composer.create_verifier(inner_circuit);
-            } else {
-                native_verifier = inner_composer.create_ultra_to_standard_verifier(inner_circuit);
-            }
+            native_verifier = inner_composer.create_verifier(inner_circuit);
 
-            auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
-            if (native_result == false) {
+            bool native_result = native_verifier.verify_proof(proof_to_recursively_verify);
+            if (!native_result) {
                 throw_or_abort("Native verification failed");
             }
         }

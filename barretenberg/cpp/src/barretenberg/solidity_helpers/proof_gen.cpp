@@ -14,11 +14,11 @@
 using namespace bb::numeric;
 using numeric::uint256_t;
 
-template <typename Composer, template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
+template <typename Circuit> void generate_proof(uint256_t inputs[])
 {
-    auto builder = Circuit<typename Composer::CircuitBuilder>::generate(inputs);
+    UltraCircuitBuilder builder = Circuit::generate(inputs);
 
-    Composer composer;
+    UltraComposer composer;
     // @todo this only works for ultra! Why is ultra part of function name on ultra composer?
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
@@ -58,9 +58,9 @@ int main(int argc, char** argv)
     }
 
     const std::string plonk_flavor = args[1];
-    const std::string circuit_flavor = args[2];
-    const std::string srs_path = args[3];
-    const std::string string_input = args[4];
+    const std::string circuit_flavor = args[1];
+    const std::string srs_path = args[2];
+    const std::string string_input = args[3];
 
     bb::srs::init_crs_factory(srs_path);
 
@@ -85,13 +85,13 @@ int main(int argc, char** argv)
     }
 
     if (circuit_flavor == "blake") {
-        generate_proof<UltraComposer, BlakeCircuit>(inputs);
+        generate_proof<BlakeCircuit>(inputs);
     } else if (circuit_flavor == "add2") {
-        generate_proof<UltraComposer, Add2Circuit>(inputs);
+        generate_proof<Add2Circuit>(inputs);
     } else if (circuit_flavor == "ecdsa") {
-        generate_proof<UltraComposer, EcdsaCircuit>(inputs);
+        generate_proof<EcdsaCircuit>(inputs);
     } else if (circuit_flavor == "recursive") {
-        generate_proof<UltraComposer, RecursiveCircuit>(inputs);
+        generate_proof<RecursiveCircuit>(inputs);
     } else {
         info("Invalid circuit flavor: " + circuit_flavor);
         return 1;
