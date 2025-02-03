@@ -46,13 +46,6 @@ describe('spartan_upgrade_governance_proposer', () => {
     });
     ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
 
-    await startPortForward({
-      resource: `svc/metrics-grafana`,
-      namespace: 'metrics',
-      containerPort: config.CONTAINER_METRICS_PORT,
-      hostPort: config.HOST_METRICS_PORT,
-    });
-
     const PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
     nodeInfo = await pxe.getNodeInfo();
