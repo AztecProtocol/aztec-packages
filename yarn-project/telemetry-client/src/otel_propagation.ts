@@ -11,7 +11,7 @@ import {
 
 export function getOtelJsonRpcPropagationMiddleware(
   scope = 'JsonRpcServer',
-): (ctx: Koa.Context, next: () => Promise<void>) => void {
+): (ctx: Koa.Context, next: () => Promise<void>) => Promise<void> {
   return function otelJsonRpcPropagation(ctx: Koa.Context, next: () => Promise<void>) {
     const tracer = getTelemetryClient().getTracer(scope);
     const context = propagation.extract(ROOT_CONTEXT, ctx.request.headers);

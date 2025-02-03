@@ -28,10 +28,26 @@ jobs:
     uses: ./.github/workflows/network-deploy.yml
     with:
       ref: master
-      namespace: masternet
+      cluster: aztec-gke-private
+      namespace: master-rc-1
       values_file: rc-1.yaml
       aztec_docker_image: aztecprotocol/aztec@${{ needs.get-latest-commit.outputs.commit }}
-      deployment_mnemonic_secret_name: testnet-deployment-mnemonic
+      deployment_mnemonic_secret_name: junk-mnemonic
+      respect_tf_lock: "false"
+      run_terraform_destroy: "true"
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+  deploy-network-exp:
+    needs: get-latest-commit
+    uses: ./.github/workflows/network-deploy.yml
+    with:
+      ref: master
+      cluster: aztec-gke-private
+      namespace: master-exp-2
+      values_file: exp-2.yaml
+      aztec_docker_image: aztecprotocol/aztec@${{ needs.get-latest-commit.outputs.commit }}
+      deployment_mnemonic_secret_name: junk-mnemonic
       respect_tf_lock: "false"
       run_terraform_destroy: "true"
     secrets:

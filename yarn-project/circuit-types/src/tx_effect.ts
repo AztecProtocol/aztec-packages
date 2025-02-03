@@ -23,7 +23,6 @@ import {
 } from '@aztec/circuits.js';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { TX_EFFECT_PREFIX_BYTE_LENGTH, TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -43,6 +42,13 @@ import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
 export { RevertCodeEnum } from '@aztec/circuits.js';
+
+// This will appear as 0x74785f7374617274 in logs
+export const TX_START_PREFIX = 8392562855083340404n;
+// These are helper constants to decode tx effects from blob encoded fields
+export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
+// 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
+export const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
 
 export class TxEffect {
   constructor(

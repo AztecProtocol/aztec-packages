@@ -5,7 +5,7 @@ set -euo pipefail
 DIR_PATH=$(git rev-parse --show-toplevel)/spartan/aztec-network/eth-devnet
 
 ## Genesis configuration values are provided as environment variables
-NUMBER_OF_KEYS=${NUMBER_OF_KEYS:-16}
+PREFUNDED_MNEMONIC_INDICES=${PREFUNDED_MNEMONIC_INDICES:-"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"}
 MNEMONIC=${MNEMONIC:-"test test test test test test test test test test test junk"}
 BLOCK_TIME=${BLOCK_TIME:-"12"}
 GAS_LIMIT=${GAS_LIMIT:-"1000000000"}
@@ -21,7 +21,7 @@ fi
 
 # Function to create execution genesis
 # Updates genesis timestamp to current time, helps with triggering Consensus layer
-create_execution_genesis() {
+function create_execution_genesis {
   local execution_genesis_path="$1"
   local execution_genesis_output="$2"
   echo "Creating execution genesis..."
@@ -43,9 +43,11 @@ create_execution_genesis() {
   # If mnemonic is provided, add prefunded accounts
   if [[ -n "${MNEMONIC:-}" ]]; then
     echo "Prefunding accounts with mnemonic: $MNEMONIC"
-    echo "Number of keys: $NUMBER_OF_KEYS"
+    echo "Key indices: $PREFUNDED_MNEMONIC_INDICES"
 
-    updated_json=$(prefund_accounts "$updated_json" "$MNEMONIC" "$NUMBER_OF_KEYS")
+    updated_json=$(prefund_accounts "$updated_json" "$MNEMONIC" "$PREFUNDED_MNEMONIC_INDICES")
+  else
+    echo "No mnemonic provided, skipping prefunding"
   fi
 
   # Update the gas limit to the configured value
@@ -62,17 +64,19 @@ create_execution_genesis() {
   echo "Execution genesis created at $execution_genesis_output"
 }
 
-prefund_accounts() {
+function prefund_accounts {
   local genesis_json="$1"
   local mnemonic="$2"
-  local number_of_keys="$3"
+  local key_indices="$3"
   local updated_json="$genesis_json"
 
   # Initialize array to store addresses
   declare -a VALIDATOR_ADDRESSES_LIST
 
-  # Generate addresses from mnemonic
-  for i in $(seq 0 $(($number_of_keys - 1))); do
+  # Generate addresses from key indices from mnemonic
+  # Creates an array of key_indices
+  IFS=',' read -ra INDICES <<< "$key_indices"
+  for i in "${INDICES[@]}"; do
     # Get private key and address
     PRIVATE_KEY=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $i)
     ADDRESS=$(cast wallet address "$PRIVATE_KEY")
@@ -91,7 +95,7 @@ prefund_accounts() {
 # Function to create beacon genesis
 # Uses the eth2-testnet-generator to generate beacon genesis state (genesis.ssz file)
 # The selected eth1 block
-create_beacon_genesis() {
+function create_beacon_genesis {
   local execution_genesis_path="$1"
   local beacon_mnemonics_path="./config/mnemonics.yaml"
   local beacon_config_path="./config/config.yaml"
@@ -151,13 +155,13 @@ create_beacon_genesis() {
   echo "Beacon genesis created at $beacon_genesis_path"
 }
 
-create_deposit_contract_block() {
+function create_deposit_contract_block {
   echo 0 > "$DIR_PATH/out/deposit_contract_block.txt"
   echo "Deposit contract block created at $DIR_PATH/out/deposit_contract_block.txt"
 }
 
 ## The ssz file must be written in base64 in order for a config map to accept it
-write_ssz_file_base64() {
+function write_ssz_file_base64 {
   local ssz_file="$DIR_PATH/out/genesis.ssz"
   local output_file="$DIR_PATH/out/genesis-ssz"
   base64 -w 0 "$ssz_file" > "$output_file"

@@ -1,12 +1,11 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type Logger, type SentTx } from '@aztec/aztec.js';
-import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { CompleteAddress, type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
+import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
+import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
@@ -52,45 +51,11 @@ export const createPXEServiceAndSubmitTransactions = async (
   const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
   await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
-  const txs = await submitTxsTo(logger, pxeService, numTxs);
+  const txs = await submitTxsTo(pxeService, numTxs, logger);
   return {
     txs,
     account: completeAddress.address,
     pxeService,
     node,
   };
-};
-
-// submits a set of transactions to the provided Private eXecution Environment (PXE)
-const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
-  const provenTxs = [];
-  for (let i = 0; i < numTxs; i++) {
-    const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-    const deployMethod = await accountManager.getDeployMethod();
-    const tx = await deployMethod.prove({
-      contractAddressSalt: new Fr(accountManager.salt),
-      skipClassRegistration: true,
-      skipPublicDeployment: true,
-      universalDeploy: true,
-    });
-    provenTxs.push(tx);
-  }
-  const sentTxs = await Promise.all(
-    provenTxs.map(async provenTx => {
-      const tx = provenTx.send();
-      const txHash = await tx.getTxHash();
-
-      logger.info(`Tx sent with hash ${txHash}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
-      logger.info(`Receipt received for ${txHash}`);
-      return tx;
-    }),
-  );
-  return sentTxs;
 };

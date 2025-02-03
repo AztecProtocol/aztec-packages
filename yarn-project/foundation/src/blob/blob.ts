@@ -5,7 +5,8 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { BufferReader, serializeToBuffer } from '../serialize/index.js';
-import { deserializeEncodedBlobFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { BlobDeserializationError } from './errors.js';
 import { type BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
@@ -43,10 +44,18 @@ export class Blob {
    * @param blob - The buffer to create the Blob from.
    * @param multiBlobFieldsHash - The fields hash to use for the Blob.
    * @returns A Blob created from the buffer.
+   *
+   * @throws If unable to deserialize the blob.
    */
-  static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Blob {
-    const fields: Fr[] = deserializeEncodedBlobFields(blob);
-    return Blob.fromFields(fields, multiBlobFieldsHash);
+  static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Promise<Blob> {
+    try {
+      const fields: Fr[] = deserializeEncodedBlobToFields(blob);
+      return Blob.fromFields(fields, multiBlobFieldsHash);
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to create Blob from encoded blob buffer, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**
@@ -56,7 +65,7 @@ export class Blob {
    * @param multiBlobFieldsHash - The fields hash to use for the Blob.
    * @returns A Blob created from the array of fields.
    */
-  static fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Blob {
+  static async fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Promise<Blob> {
     if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
       throw new Error(
         `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
@@ -66,9 +75,9 @@ export class Blob {
     const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
-    const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
+    const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
     const commitment = Buffer.from(blobToKzgCommitment(data));
-    const challengeZ = poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
+    const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
     const res = computeKzgProof(data, challengeZ.toBuffer());
     if (!verifyKzgProof(commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
@@ -91,10 +100,10 @@ export class Blob {
    * @param json - The JSON object to create the Blob from.
    * @returns A Blob created from the JSON object.
    */
-  static fromJson(json: BlobJson): Blob {
+  static async fromJson(json: BlobJson): Promise<Blob> {
     const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
 
-    const blob = Blob.fromEncodedBlobBuffer(blobBuffer);
+    const blob = await Blob.fromEncodedBlobBuffer(blobBuffer);
 
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
       throw new Error('KZG commitment does not match');
@@ -141,9 +150,17 @@ export class Blob {
    * @dev This method takes into account trailing zeros
    *
    * @returns The encoded fields from the blob.
+   *
+   * @throws If unable to deserialize the blob.
    */
   toEncodedFields(): Fr[] {
-    return deserializeEncodedBlobFields(this.data);
+    try {
+      return deserializeEncodedBlobToFields(this.data);
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**
@@ -276,13 +293,13 @@ export class Blob {
 
   // Returns as many blobs as we require to broadcast the given fields
   // Assumes we share the fields hash between all blobs
-  static getBlobs(fields: Fr[]): Blob[] {
+  static async getBlobs(fields: Fr[]): Promise<Blob[]> {
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
-    const multiBlobFieldsHash = poseidon2Hash(fields);
+    const multiBlobFieldsHash = await poseidon2Hash(fields);
     const res = [];
     for (let i = 0; i < numBlobs; i++) {
       const end = fields.length < (i + 1) * FIELD_ELEMENTS_PER_BLOB ? fields.length : (i + 1) * FIELD_ELEMENTS_PER_BLOB;
-      res.push(Blob.fromFields(fields.slice(i * FIELD_ELEMENTS_PER_BLOB, end), multiBlobFieldsHash));
+      res.push(await Blob.fromFields(fields.slice(i * FIELD_ELEMENTS_PER_BLOB, end), multiBlobFieldsHash));
     }
     return res;
   }

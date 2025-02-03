@@ -25,12 +25,12 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 ## Working with AddressNote
 
-### Creating a new note 
+### Creating a new note
 
 Creating a new `AddressNote` takes the following args:
 
 - `address` (`AztecAddress`): the address to store in the AddressNote
-- `npk_m_hash` (`Field`): the master nullifier public key hash of the user
+- `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
 #include_code addressnote_new noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
 

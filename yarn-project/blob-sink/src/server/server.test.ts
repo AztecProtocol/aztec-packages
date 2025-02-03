@@ -27,11 +27,13 @@ describe('BlobSinkService', () => {
   });
 
   describe('should store and retrieve a blob sidecar', () => {
-    const blob = makeEncodedBlob(3);
-    const blob2 = makeEncodedBlob(3);
     const blockId = '0x1234';
+    let blob: Blob;
+    let blob2: Blob;
 
     beforeEach(async () => {
+      blob = await makeEncodedBlob(3);
+      blob2 = await makeEncodedBlob(3);
       // Post the blob
       const postResponse = await request(service.getApp())
         .post('/blob_sidecar')
@@ -61,8 +63,8 @@ describe('BlobSinkService', () => {
 
       // Convert the response blob back to a Blob object and verify it matches
       const retrievedBlobs = getResponse.body.data;
-      const retrievedBlob = Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
-      const retrievedBlob2 = Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
 
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
@@ -83,8 +85,8 @@ describe('BlobSinkService', () => {
       expect(getWithIndicies.body.data.length).toBe(2);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
-      const retrievedBlob2 = Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
       expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
@@ -101,7 +103,7 @@ describe('BlobSinkService', () => {
       expect(getWithIndicies.body.data.length).toBe(1);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
       expect(retrievedBlob.proof.toString('hex')).toBe(blob2.proof.toString('hex'));

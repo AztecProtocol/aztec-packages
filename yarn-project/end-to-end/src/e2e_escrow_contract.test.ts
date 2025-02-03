@@ -47,7 +47,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
-    await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
+    await pxe.registerAccount(escrowSecretKey, await computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send().deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
@@ -92,8 +92,8 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 
     await new BatchCall(wallet, [
-      token.methods.transfer(recipient, 10).request(),
-      escrowContract.methods.withdraw(token.address, 20, recipient).request(),
+      await token.methods.transfer(recipient, 10).request(),
+      await escrowContract.methods.withdraw(token.address, 20, recipient).request(),
     ])
       .send()
       .wait();

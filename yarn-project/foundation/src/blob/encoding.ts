@@ -42,7 +42,7 @@ export const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
  * @param blob - The blob buffer to deserialize.
  * @returns An array of field elements.
  */
-export function deserializeEncodedBlobFields(blob: BlobBuffer): Fr[] {
+export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
   // Convert blob buffer to array of field elements
   const reader = BufferReader.asReader(blob);
   const array = reader.readArray(blob.length >> 5, Fr); // >> 5 = / 32 (bytes per field)

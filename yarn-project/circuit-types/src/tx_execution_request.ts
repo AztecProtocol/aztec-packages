@@ -138,7 +138,7 @@ export class TxExecutionRequest {
       FunctionSelector.random(),
       Fr.random(),
       TxContext.empty(),
-      [HashedValues.random()],
+      [await HashedValues.random()],
       [AuthWitness.random()],
     );
   }

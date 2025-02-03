@@ -1,6 +1,9 @@
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
+import { viteStaticCopy } from "vite-plugin-static-copy";
+
+const nodeModulesPath = `${searchForWorkspaceRoot(process.cwd())}/node_modules`;
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -14,7 +17,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
           source,
         );
       if (m) {
-        return `../../node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+        return `${nodeModulesPath}/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
     },
   };
@@ -22,6 +25,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 
 // https://vite.dev/config/
 export default defineConfig({
+  logLevel: "error",
   server: {
     // Headers needed for bb WASM to work in multithreaded mode
     headers: {
@@ -29,8 +33,8 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
     // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts
-    // and noir WASMs.
+    // These are the protocol circuit artifacts and noir/bb WASMs.
+    // ONLY REQUIRED TO RUN FROM THE MONOREPO
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
@@ -43,20 +47,13 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
-  ],
-  build: {
-    // Needed to support bb.js top level await until
-    // https://github.com/Menci/vite-plugin-top-level-await/pull/63 is merged
-    // and we can use the plugin again (or we get rid of TLA)
-    target: "esnext",
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (id.includes("bb-prover")) {
-            return "@aztec/bb-prover";
-          }
+    viteStaticCopy({
+      targets: [
+        {
+          src: `${nodeModulesPath}/@aztec/aztec.js/dest/*.wasm.gz`,
+          dest: "./",
         },
-      },
-    },
-  },
+      ],
+    }),
+  ],
 });

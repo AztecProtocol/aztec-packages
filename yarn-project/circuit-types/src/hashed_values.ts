@@ -32,8 +32,8 @@ export class HashedValues {
     return HashedValues.fromValues([Fr.random(), Fr.random()]);
   }
 
-  static fromValues(values: Fr[]) {
-    return new HashedValues(values, computeVarArgsHash(values));
+  static async fromValues(values: Fr[]) {
+    return new HashedValues(values, await computeVarArgsHash(values));
   }
 
   toBuffer() {

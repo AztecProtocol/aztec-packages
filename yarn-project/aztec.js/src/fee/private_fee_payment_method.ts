@@ -94,9 +94,9 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
-        name: 'setup_refund',
-        args: [this.wallet.getAddress().toField(), ...maxFee.toFields(), nonce],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field,Field),Field)'),
+        name: 'transfer_to_public',
+        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),(Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),
@@ -108,7 +108,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_private((Field,Field),Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_private((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [...maxFee.toFields(), nonce],

@@ -28,16 +28,19 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
+  ForwarderContract,
   NULL_KEY,
+  createL1Clients,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -46,7 +49,7 @@ import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protoc
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
-import { TestL1Publisher } from '@aztec/sequencer-client/test';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -116,7 +119,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
+    vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
@@ -330,6 +333,7 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+    customForwarderContractAddress: EthAddress.ZERO,
   },
   pxeOpts: Partial<PXEServiceConfig> = {},
   chain: Chain = foundry,
@@ -471,13 +475,16 @@ export async function setup(
   const telemetry = getTelemetryClient(opts.telemetryConfig);
 
   const blobSinkClient = createBlobSinkClient(config);
-  const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
-    publisher,
     dateProvider,
     blobSinkClient,
   });
   const sequencer = aztecNode.getSequencer();
+
+  if (sequencer) {
+    const publisher = (sequencer as TestSequencerClient).sequencer.publisher;
+    publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+  }
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
@@ -553,16 +560,6 @@ export async function setup(
   };
 }
 
-/** Returns an L1 wallet client for anvil using a well-known private key based on the index. */
-export function getL1WalletClient(rpcUrl: string, index: number) {
-  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
-  return createWalletClient({
-    account: hdAccount,
-    chain: foundry,
-    transport: http(rpcUrl),
-  });
-}
-
 /**
  * Registers the contract class used for test accounts and publicly deploys the instances requested.
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
@@ -579,15 +576,19 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
       const address = account.getAddress();
       return {
         address,
-        deployed: await sender.isContractPubliclyDeployed(address),
+        deployed: (await sender.getContractMetadata(address)).isContractPubliclyDeployed,
       };
     }),
   );
-  const instances = await Promise.all(
-    accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
-  );
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
+  const instances = (
+    await Promise.all(
+      accountsAndAddresses
+        .filter(({ deployed }) => !deployed)
+        .map(({ address }) => sender.getContractMetadata(address)),
+    )
+  ).map(contractMetadata => contractMetadata.contractInstance);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
   const requests = await Promise.all(
@@ -746,14 +747,38 @@ export async function createAndSyncProverNode(
     txGatheringMaxParallelRequests: 100,
   };
 
-  // Use testing l1 publisher
-  const publisher = new TestL1Publisher(proverConfig, { blobSinkClient });
+  const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
 
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNodeWithoutStop,
     archiver: archiver as Archiver,
-    publisher,
+    l1TxUtils,
   });
   await proverNode.start();
   return proverNode;
+}
+
+function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+
+  const log = createLogger(logName);
+  const l1TxUtils = new DelayedTxUtils(publicClient, walletClient, log, aztecNodeConfig);
+  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
+  return l1TxUtils;
+}
+
+export async function createForwarderContract(
+  aztecNodeConfig: AztecNodeConfig,
+  privateKey: `0x${string}`,
+  rollupAddress: Hex,
+) {
+  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+  const forwarderContract = await ForwarderContract.create(
+    walletClient.account.address,
+    walletClient,
+    publicClient,
+    createLogger('forwarder'),
+    rollupAddress,
+  );
+  return forwarderContract;
 }

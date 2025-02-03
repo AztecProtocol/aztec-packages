@@ -2,7 +2,10 @@ import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   SimulationError,
+  type Tx,
   TxExecutionPhase,
+  UnencryptedFunctionL2Logs,
+  UnencryptedL2Log,
   mockTx,
 } from '@aztec/circuit-types';
 import {
@@ -20,16 +23,19 @@ import {
   PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataWrite,
+  REGISTERER_CONTRACT_ADDRESS,
   RevertCode,
+  ScopedLogHash,
   StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { fr } from '@aztec/circuits.js/testing';
+import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { bufferAsFields } from '@aztec/foundation/abi';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -76,7 +82,7 @@ describe('public_tx_simulator', () => {
     ) => Promise<AvmFinalizedCallResult>
   >;
 
-  const mockTxWithPublicCalls = ({
+  const mockTxWithPublicCalls = async ({
     numberOfSetupCalls = 0,
     numberOfAppLogicCalls = 0,
     hasPublicTeardownCall = false,
@@ -88,7 +94,7 @@ describe('public_tx_simulator', () => {
     feePayer?: AztecAddress;
   }) => {
     // seed with min nullifier to prevent insertion of a nullifier < min
-    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
+    const tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: numberOfSetupCalls,
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
@@ -117,8 +123,8 @@ describe('public_tx_simulator', () => {
 
   const setFeeBalance = async (feePayer: AztecAddress, balance: Fr) => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-    const balancePublicDataTreeLeafSlot = computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
+    const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
@@ -162,8 +168,45 @@ describe('public_tx_simulator', () => {
     }
   };
 
+  const mockContractClassForTx = async (tx: Tx, revertible = true) => {
+    const publicContractClass = await makeContractClassPublic(42);
+    const contractClassLogFields = [
+      REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
+      publicContractClass.id,
+      new Fr(publicContractClass.version),
+      publicContractClass.artifactHash,
+      publicContractClass.privateFunctionsRoot,
+      ...bufferAsFields(
+        publicContractClass.packedBytecode,
+        Math.ceil(publicContractClass.packedBytecode.length / 32) + 1,
+      ),
+    ];
+    const contractClassLogBuffer = Buffer.concat([
+      ...contractClassLogFields.map(f => f.toBuffer()),
+      publicContractClass.packedBytecode,
+      Buffer.alloc(32 - (publicContractClass.packedBytecode.length % 32)),
+    ]);
+    const contractClassLog = new UnencryptedFunctionL2Logs([
+      new UnencryptedL2Log(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), contractClassLogBuffer),
+    ]);
+    tx.contractClassLogs.addFunctionLogs([contractClassLog]);
+    const contractClassLogHash = ScopedLogHash.fromFields([
+      Fr.fromBuffer(contractClassLog.logs[0].hash()),
+      new Fr(7),
+      new Fr(contractClassLog.getKernelLength()),
+      new Fr(REGISTERER_CONTRACT_ADDRESS),
+    ]);
+    if (revertible) {
+      tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    } else {
+      tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    }
+
+    return publicContractClass.id;
+  };
+
   const checkNullifierRoot = async (txResult: PublicTxResult) => {
-    const siloedNullifiers = txResult.avmProvingRequest.inputs.output.accumulatedData.nullifiers;
+    const siloedNullifiers = txResult.avmProvingRequest.inputs.publicInputs.accumulatedData.nullifiers;
     // Loop helpful for debugging so you can see root progression
     //for (const nullifier of siloedNullifiers) {
     //  await db.batchInsert(
@@ -180,7 +223,7 @@ describe('public_tx_simulator', () => {
       NULLIFIER_SUBTREE_HEIGHT,
     );
     const expectedRoot = (await db.getStateReference()).partial.nullifierTree.root;
-    const gotRoot = txResult.avmProvingRequest.inputs.output.endTreeSnapshots.nullifierTree.root;
+    const gotRoot = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
   };
 
@@ -275,7 +318,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
     });
 
@@ -299,7 +342,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondSetup = availableGasForFirstSetup.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstSetup, availableGasForSecondSetup]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -311,7 +354,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in app logic phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfAppLogicCalls: 2,
     });
 
@@ -335,7 +378,7 @@ describe('public_tx_simulator', () => {
     const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
     expectAvailableGasForCalls([availableGasForFirstAppLogic, availableGasForSecondAppLogic]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
@@ -347,7 +390,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with enqueued public calls in teardown phase only', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       hasPublicTeardownCall: true,
     });
 
@@ -369,7 +412,7 @@ describe('public_tx_simulator', () => {
 
     expectAvailableGasForCalls([teardownGasLimits]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -381,7 +424,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('runs a tx with all phases', async () => {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 2,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -418,7 +461,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -430,7 +473,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('deduplicates public data writes', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -470,20 +513,20 @@ describe('public_tx_simulator', () => {
 
     expect(simulateInternal).toHaveBeenCalledTimes(3);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
-      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
     ]);
   });
 
   it('fails a transaction that reverts in setup', async function () {
     // seed with min nullifier to prevent insertion of a nullifier < min
-    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
+    const tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
       hasPublicTeardownCallRequest: true,
@@ -506,7 +549,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -567,7 +610,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
@@ -590,7 +633,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in teardown only', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -649,7 +692,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -671,7 +714,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -733,7 +776,7 @@ describe('public_tx_simulator', () => {
       teardownGasLimits,
     ]);
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
@@ -755,7 +798,7 @@ describe('public_tx_simulator', () => {
   });
 
   it('nullifier tree root is right', async function () {
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 2,
       hasPublicTeardownCall: true,
@@ -787,13 +830,66 @@ describe('public_tx_simulator', () => {
     await checkNullifierRoot(txResult);
   });
 
+  it.each([
+    [' not', 'revertible'],
+    ['', 'non-revertible'],
+  ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
+    const tx = await mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 2,
+      hasPublicTeardownCall: true,
+    });
+
+    const contractClassId = await mockContractClassForTx(tx, kind == 'revertible');
+    const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
+    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
+    mockPublicExecutor([
+      // SETUP
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+      },
+      // APP LOGIC
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+      },
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+        return Promise.resolve(appLogicFailure);
+      },
+      // TEARDOWN
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+      },
+    ]);
+
+    const txResult = await simulator.simulate(tx);
+
+    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+    // tx reports app logic failure
+    expect(txResult.revertReason).toBe(appLogicFailure);
+
+    // Note that we do not check tx.data.forPublic? since these are not mutated in the case of a revert.
+    // When contract class logs are fields and only stored here, they will be filtered after simulation
+    // in processed_tx.ts -> makeProcessedTxFromTxWithPublicCalls() like PrivateLogs.
+
+    const contractClass = await worldStateDB.getContractClass(contractClassId);
+    if (kind == 'revertible') {
+      expect(tx.contractClassLogs.unrollLogs().length).toEqual(0);
+      expect(contractClass).toBeUndefined();
+    } else {
+      expect(tx.contractClassLogs.unrollLogs().length).toEqual(1);
+      expect(contractClass).toBeDefined();
+    }
+  });
+
   it('runs a tx with non-empty priority fees', async () => {
     // gasFees = new GasFees(2, 3);
     maxPriorityFeesPerGas = new GasFees(5, 7);
     // The max fee is gasFee + priorityFee + 1.
     maxFeesPerGas = new GasFees(2 + 5 + 1, 3 + 7 + 1);
 
-    const tx = mockTxWithPublicCalls({
+    const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
       hasPublicTeardownCall: true,
@@ -811,7 +907,7 @@ describe('public_tx_simulator', () => {
       publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
 
-    const output = txResult.avmProvingRequest!.inputs.output;
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
@@ -826,7 +922,7 @@ describe('public_tx_simulator', () => {
       const feePayer = await AztecAddress.random();
       await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
 
-      const tx = mockTxWithPublicCalls({
+      const tx = await mockTxWithPublicCalls({
         numberOfSetupCalls: 1,
         numberOfAppLogicCalls: 1,
         hasPublicTeardownCall: true,
@@ -842,7 +938,7 @@ describe('public_tx_simulator', () => {
 
       await expect(
         simulator.simulate(
-          mockTxWithPublicCalls({
+          await mockTxWithPublicCalls({
             numberOfSetupCalls: 1,
             numberOfAppLogicCalls: 1,
             hasPublicTeardownCall: true,
@@ -857,7 +953,7 @@ describe('public_tx_simulator', () => {
       const feePayer = await AztecAddress.random();
 
       const txResult = await simulator.simulate(
-        mockTxWithPublicCalls({
+        await mockTxWithPublicCalls({
           numberOfSetupCalls: 1,
           numberOfAppLogicCalls: 1,
           hasPublicTeardownCall: true,

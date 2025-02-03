@@ -25,7 +25,7 @@ import {
   getDefaultInitializer,
   getInitializer,
 } from "@aztec/foundation/abi";
-import { AztecContext } from "../../home/home";
+import { AztecContext } from "../../../aztecEnv";
 import { parseAliasedBuffersAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
 import { GITHUB_TAG_PREFIX } from "../../../utils/constants";
@@ -51,8 +51,9 @@ export function DeployContractDialog({
   const [initializer, setInitializer] = useState<FunctionArtifact>(null);
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
-  const [aliasedAddresses, setAliasedAddresses] = useState([]);
-  const { walletDB, wallet } = useContext(AztecContext);
+  const [_aliasedAddresses, setAliasedAddresses] = useState([]);
+  const { walletDB, wallet, setLogsOpen, setDrawerOpen } =
+    useContext(AztecContext);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
@@ -78,6 +79,7 @@ export function DeployContractDialog({
 
   const deploy = async () => {
     setDeploying(true);
+    setLogsOpen(true);
 
     const nodeInfo = await wallet.getNodeInfo();
     const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
