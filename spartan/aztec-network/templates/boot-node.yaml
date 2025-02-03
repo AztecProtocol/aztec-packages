@@ -56,7 +56,7 @@ spec:
               mountPath: /shared/config
           env:
             - name: KEY_INDEX_START
-              value: {{ .Values.aztec.proverKeyIndexStart | quote }}
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: NUMBER_OF_VALIDATORS
@@ -87,10 +87,6 @@ spec:
               source /shared/config/validator-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-              # TODO(md): WORK out how to remove the validatorAddresses from this list? - we do not want to write them into the values files
-              # - they can be worked out in the step before - but this would require another silly reth container?
-
-              # we can just work them out in the step before based on keys and indexes
 
               /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
