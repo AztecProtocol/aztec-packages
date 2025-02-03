@@ -459,9 +459,14 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         element input = element::infinity();
 
-        fr scalar(fr(6));
+        // Get 128-bit scalar
+        uint256_t scalar_raw = fr::random_element();
+        scalar_raw.data[2] = 0ULL;
+        scalar_raw.data[3] = 0ULL;
+        fr scalar = fr(scalar_raw);
+        // Add skew
         if (uint256_t(scalar).get_bit(0)) {
-            scalar -= fr(1); // make sure to add skew
+            scalar -= fr(1);
         }
         element_ct P = element_ct::from_witness(&builder, input);
         scalar_ct x = scalar_ct::from_witness(&builder, scalar);
