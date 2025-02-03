@@ -7,7 +7,7 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 export NUMBER_OF_VALIDATOR_KEYS=$(./read_value.sh "validator.replicas" $value_yamls)
 export VALIDATOR_KEY_START_INDEX=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
 
-export EXTRA_ACCOUNTS=$(./read_value.sh "ethereum.extraAccounts" $value_yamls)
+export EXTRA_ACCOUNTS=$(./read_value.sh "aztec.extraAccounts" $value_yamls)
 export EXTRA_ACCOUNTS_START_INDEX=$(./read_value.sh "aztec.extraAccountsStartIndex" $value_yamls)
 
 export NUMBER_OF_PROVER_KEYS=$(./read_value.sh "proverNode.replicas" $value_yamls)

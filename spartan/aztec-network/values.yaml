@@ -50,9 +50,9 @@ aztec:
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 1000
 
-  ## TODO: update?
-  # The number of keys is equal to ethereum.extraAccounts
+  ## The number of extra accounts to prefund
   extraAccountsStartIndex: 2000
+  extraAccounts: 10
   l1Salt: "" # leave empty for random salt
 
 bootNode:
@@ -223,7 +223,6 @@ ethereum:
   replicas: 1
   chainId: 1337
   blockTime: 12
-  extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
