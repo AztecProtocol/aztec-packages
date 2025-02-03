@@ -13,7 +13,7 @@
 #include <sstream>
 
 using namespace bb;
-using numeric::uint256_t; // is this really
+using numeric::uint256_t;
 
 // Get rid of the inner typename
 template <template <typename> typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])

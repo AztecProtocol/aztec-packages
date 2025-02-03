@@ -30,7 +30,6 @@ contract EcdsaHonkTest is TestBaseHonk {
 
     function testFuzzProof() public {
         // NOTE we do not fuzz here yet
-        // "goblin"
         // 67 6f 62 6c 69 6e
         uint256[] memory inputs = new uint256[](6);
         inputs[0] = uint256(0x67);

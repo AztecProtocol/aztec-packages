@@ -16,6 +16,8 @@ import {
 import {MINUS_ONE, ONE, ZERO, MODULUS as P, Fr, FrLib} from "./Fr.sol";
 
 library RelationsLib {
+    Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
+
     function accumulateRelationEvaluations(
         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations,
         Honk.RelationParameters memory rp,
@@ -289,7 +291,7 @@ library RelationsLib {
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
         // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
-            Fr x_pow_4 = (y1_sqr + Fr.wrap(17)) * ep.x_1;
+            Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
             Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
             y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
             Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);

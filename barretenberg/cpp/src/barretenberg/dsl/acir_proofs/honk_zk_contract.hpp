@@ -609,10 +609,6 @@ library ZKTranscriptLib {
         (shplonkZ,) = splitChallenge(nextPreviousChallenge);
     }
 
-    // TODO: mod q proof points
-    // TODO: Preprocess all of the memory locations
-    // TODO: Adjust proof point serde away from poseidon forced field elements
-    // TODO: move this back to probably each instance to avoid dynamic init of arrays in the ZKTranscript Lib
     function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
@@ -1839,7 +1835,6 @@ interface IVerifier {
         check = mem.diff == ZERO;
     }
 
-    // This implementation is the same as above with different constants
     function batchMul(
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory base,
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory scalars
