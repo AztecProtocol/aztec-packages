@@ -52,7 +52,8 @@ export default {
     new CopyPlugin({
       patterns: [
         {
-          context: '../../barretenberg/ts/dest/browser',
+          // createRequire resolves the cjs version, so we need to go up one level
+          context: resolve(require.resolve('@aztec/bb.js'), '../../browser'),
           from: '*.gz',
         },
       ],

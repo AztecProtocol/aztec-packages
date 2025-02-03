@@ -5,7 +5,7 @@ mod public_key_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract SchnorrAccount {
+pub contract SchnorrAccount {
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},

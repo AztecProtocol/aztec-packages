@@ -2,7 +2,6 @@ import {
   type AvmNullifierReadTreeHint,
   type AvmPublicDataReadTreeHint,
   type ContractClassIdPreimage,
-  type Gas,
   type NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
@@ -11,10 +10,6 @@ import {
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -92,21 +87,5 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  toPublicEnqueuedCallExecutionResult(
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-  ): EnqueuedPublicCallExecutionResultWithSideEffects;
-  toPublicFunctionCallResult(
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-    /** Function name for logging */
-    functionName: string,
-  ): PublicFunctionCallResult;
   getPublicLogs(): PublicLog[];
 }

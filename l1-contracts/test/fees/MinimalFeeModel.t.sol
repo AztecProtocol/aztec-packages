@@ -11,7 +11,7 @@ import {
 } from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {SlotLib, Slot} from "@aztec/core/libraries/TimeMath.sol";
+import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
   MAX_PROVING_COST_MODIFIER,
   MAX_FEE_ASSET_PRICE_MODIFIER

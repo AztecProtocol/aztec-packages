@@ -100,10 +100,13 @@ export class PXEService implements PXE {
     private proofCreator: PrivateKernelProver,
     private simulationProvider: SimulationProvider,
     config: PXEServiceConfig,
-    logSuffix?: string,
+    loggerOrSuffix?: string | Logger,
   ) {
-    this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
-    this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
+    this.log =
+      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
+        ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
+        : loggerOrSuffix;
+    this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;

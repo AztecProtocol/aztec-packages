@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
