@@ -20,13 +20,19 @@ The first three pairs are embedded into the protocol while the signing key is ab
 
 Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`).
 
-To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app siloed nullifier secret key, the latter is derived using the nullifier master secret key. To compute the nullifier, the protocol checks that the app siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address.
+To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app-siloed nullifier secret key, the latter is derived using the nullifier master secret key. To compute the nullifier, the protocol checks that the app-siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address.
 
 ### Address keys
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract: `pre_address := poseidon2(public_keys_hash, partial_address)` where `partial_address := poseidon2(contract_class_id, salted_initialization_hash)` and `public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)`.
+Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract:
+
+```
+partial_address := poseidon2(contract_class_id, salted_initialization_hash)
+public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
+pre_address := poseidon2(public_keys_hash, partial_address)
+```
 
 :::note
 Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed.
@@ -48,7 +54,7 @@ When it comes to notes encryption and decryption:
 
 ### Signing keys
 
-Thanks to the native [account abstraction](../accounts#background/index.md), authorization logic can be implemented in an alternative way that is up to the developer (e.g. using Google authorization credentials, vanilla password logic or Face ID mechanism). In all these cases signing keys may not be relevant.
+Thanks to the native [account abstraction](../accounts#background/index.md), authorization logic can be implemented in an alternative way that is up to the developer (e.g. using Google authorization credentials, vanilla password logic or Face ID mechanism). In these cases, signing keys may not be relevant.
 
 However if one wants to implement authorization logic containing signatures (e.g. ECDSA or Shnorr) they will need signing keys. Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
 
@@ -62,11 +68,11 @@ Since signatures are fully abstracted, how the public key is stored in the contr
 
 #### Using a private note​
 
-Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key so the protocol circuits can be sure that the notes are not stale.
+Storing the signing public key in a private note makes it accessible from the `entrypoint` function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key so the protocol circuits can be sure that the notes are not stale. This incurs cost for every transaction.
 
 #### Using an immutable private note​
 
-Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers and commitments per transaction. However, it does not allow the user to rotate their key if they lose it.
+Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
 
 #include_code public_key noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
@@ -79,11 +85,9 @@ When it comes to storing the signing key in a private note, there are several de
 
 #### Using Shared Mutable state
 
-:::note
 By [Shared Mutable](../../../reference/developer_references/smart_contract_reference/storage/shared_state#sharedmutable) we mean privately readable publicly mutable state.
-:::
 
-To make public state accessible privately, there should be a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
+To make public state accessible privately, there is a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 #### Reusing some of the in-protocol keys
 
@@ -99,19 +103,19 @@ All key pairs (except for the signing keys) are generated in the [Private Execut
 
 ### Keys derivation
 
-All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md). Where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar.
+All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar.
 
-The address private key is an exception and derived in a way described above in the section “Address keys”.
+The address private key is an exception and derived in a way described above in the [Address keys](#address-keys) section.
 
 ### The special case of escrow contracts
 
 Typically, for account contracts the public keys will be non-zero and for non-account contracts zero.
 
-An exception (a non-account contract which would have some of the keys non-zero) is an escrow contract. Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a` Npk_m` registered and the notes contain this `Npk_m`.
+An exception (a non-account contract which would have some of the keys non-zero) is an escrow contract. Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a `Npk_m` registered and the notes contain this `Npk_m`.
 
 Participants in this escrow contract would then somehow get a hold of the escrow's `nsk_m` and nullify the notes based on the logic of the escrow. An example of an escrow contract is a betting contract. In this scenario, both parties involved in the bet would be aware of the escrow's `nsk_m`. The escrow would then release the reward only to the party that provides a "proof of winning".
 
-### App siloed keys
+### App-siloed keys
 
 All keys on Aztec (except for the signing keys) are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different.
 
