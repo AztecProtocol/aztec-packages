@@ -31,7 +31,7 @@ pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
-impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
+impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<N> for SharedMutable<T, INITIAL_DELAY, Context>
 where
     T: Packable<N>,
 {

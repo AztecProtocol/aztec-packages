@@ -249,7 +249,7 @@ export class SequencerPublisher {
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
   public canProposeAtNextEthBlock(tipArchive: Buffer) {
-    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer'];
+    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
       .catch(err => {
