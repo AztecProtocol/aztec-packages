@@ -1,6 +1,8 @@
 // A demonstration of inclusion and non-inclusion proofs.
 use dep::aztec::macros::aztec;
 
+mod test;
+
 #[aztec]
 pub contract InclusionProofs {
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
@@ -8,7 +10,7 @@ pub contract InclusionProofs {
 
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
-        note::note_getter_options::NoteStatus,
+        note::{note_getter_options::NoteStatus, note_viewer_options::NoteViewerOptions},
     };
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
@@ -39,6 +41,13 @@ pub contract InclusionProofs {
         ));
     }
     // docs:end:create_note
+
+    unconstrained fn get_note(owner: AztecAddress) -> ValueNote {
+        let options = NoteViewerOptions::new().set_limit(1);
+        let note = storage.private_values.at(owner).view_notes(options).get(0);
+
+        note
+    }
 
     #[private]
     fn test_note_inclusion(

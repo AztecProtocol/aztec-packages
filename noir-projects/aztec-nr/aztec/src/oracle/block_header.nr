@@ -26,6 +26,19 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
         // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
         let last_archive_block_number = historical_block_number - 1;
 
+        crate::oracle::debug_log::debug_log_format(
+            "historical header block nr {}",
+            [historical_block_number as Field],
+        );
+        crate::oracle::debug_log::debug_log_format(
+            "last archive block nr {}",
+            [last_archive_block_number as Field],
+        );
+        crate::oracle::debug_log::debug_log_format(
+            "getting block header block nr {}",
+            [block_number as Field],
+        );
+
         // 2) Check that the last archive block number is more than or equal to the block number we want to prove against
         // We could not perform the proof otherwise because the last archive root from the header would not "contain"
         // the header we want to prove against

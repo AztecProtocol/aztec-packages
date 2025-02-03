@@ -688,6 +688,8 @@ export class TXE implements TypedOracle {
       txEffect.nullifiers.unshift(this.getTxRequestHash());
     }
 
+    console.log('all nullifiers', txEffect.nullifiers);
+
     txEffect.publicDataWrites = this.publicDataWrites;
 
     const body = new Body([txEffect]);
