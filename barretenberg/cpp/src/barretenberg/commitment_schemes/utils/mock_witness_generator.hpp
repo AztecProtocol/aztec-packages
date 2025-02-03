@@ -45,7 +45,7 @@ template <typename Curve> struct MockClaimGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
-    static constexpr size_t k_magnitude = 5; // mock shift magnitude for right-shift-by-k
+    static constexpr size_t k_magnitude = 6; // mock shift magnitude for right-shift-by-k (assumed even)
 
     /**
      * @brief Construct claim data for a set of random polynomials with the specified type
@@ -108,11 +108,14 @@ template <typename Curve> struct MockClaimGenerator {
 
         polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
         polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted.polys));
+        polynomial_batcher.set_to_be_shifted_by_k(RefVector(to_be_right_shifted_by_k.polys), k_magnitude);
 
         claim_batcher =
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) },
-                          .shifted =
-                              ClaimBatch{ RefVector(to_be_shifted.commitments), RefVector(to_be_shifted.evals) } };
+                          .shifted = ClaimBatch{ RefVector(to_be_shifted.commitments), RefVector(to_be_shifted.evals) },
+                          .right_shifted_by_k = ClaimBatch{ RefVector(to_be_right_shifted_by_k.commitments),
+                                                            RefVector(to_be_right_shifted_by_k.evals) },
+                          .k_shift_magnitude = k_magnitude };
     }
 
     // Generate zero polynomials to test edge cases in PCS

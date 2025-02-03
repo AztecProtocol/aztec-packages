@@ -23,24 +23,31 @@ template <typename Curve> struct ClaimBatcher_ {
     struct Batch {
         RefVector<Commitment> commitments;
         RefVector<Fr> evaluations;
+        // // optionally specified shift magnitude for right-shift-by-k claims
+        // Fr k_shift_magnitude = 0;
         // scalar used for batching the claims, excluding the power of batching challenge \rho
         Fr scalar = 0;
     };
 
-    std::optional<Batch> unshifted; // commitments and evaluations of unshifted polynomials
-    std::optional<Batch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> unshifted;          // commitments and evaluations of unshifted polynomials
+    std::optional<Batch> shifted;            // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> right_shifted_by_k; // commitments of to-be-right-shifted-by-k polys, evals of their shifts
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
+    Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
+
+    Fr k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
     /**
      * @brief Compute scalars used to batch each set of claims, excluding contribution from batching challenge \rho
-     * @details Computes scalars s_0 and s_1 given by
+     * @details Computes scalars s_0, s_1, s_2 given by
      * \f[
      * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
-     * - s_1 = \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+     * - s_1 = \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+     * - s_2 = r^{k} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right)
      * \f]
      * where the scalars used to batch the claims are given by
      * \f[
@@ -48,9 +55,9 @@ template <typename Curve> struct ClaimBatcher_ {
      * - s_0,
      * \ldots,
      * - \rho^{i+k-1} \times s_0,
-     * - \rho^{i+k} \times \frac{1}{r} \times s_1,
+     * - \rho^{i+k} \times s_1,
      * \ldots,
-     * - \rho^{k+m-1} \times \frac{1}{r} \times s_1
+     * - \rho^{k+m-1} \times s_1
      * \right)
      * \f]
      *
@@ -72,6 +79,11 @@ template <typename Curve> struct ClaimBatcher_ {
             // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
             shifted->scalar =
                 r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
+        }
+        if (right_shifted_by_k) {
+            // r^k ⋅ (1/(z−r) + ν/(z+r))
+            right_shifted_by_k->scalar = r_challenge.pow(k_shift_magnitude) *
+                                         (inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg);
         }
     }
 
@@ -108,6 +120,9 @@ template <typename Curve> struct ClaimBatcher_ {
         }
         if (shifted) {
             aggregate_claim_data_and_update_batched_evaluation(*shifted, rho_power);
+        }
+        if (right_shifted_by_k) {
+            aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k, rho_power);
         }
     }
 };

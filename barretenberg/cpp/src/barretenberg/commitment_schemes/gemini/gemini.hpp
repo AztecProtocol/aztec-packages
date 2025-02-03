@@ -125,7 +125,7 @@ template <typename Curve> class GeminiProver_ {
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
         RefVector<Polynomial> to_be_shifted_by_k;   // set of polynomials to be right shifted by k
 
-        size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k
+        size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
@@ -181,25 +181,26 @@ template <typename Curve> class GeminiProver_ {
 
             // if necessary, add randomness to the full batched polynomial for ZK
             if (has_random_polynomial) {
-                full_batched += random_polynomial;
+                full_batched += random_polynomial; // A₀ += rand
             }
 
             // compute the linear combination F of the unshifted polynomials
             if (has_unshifted()) {
                 batch(batched_unshifted, unshifted);
-                full_batched += batched_unshifted; // A₀ = F
+                full_batched += batched_unshifted; // A₀ += F
             }
 
             // compute the linear combination G of the to-be-shifted polynomials
             if (has_to_be_shifted_by_one()) {
                 batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
-                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ = F + G/X
+                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ += G/X
             }
 
             // compute the linear combination H of the to-be-shifted-by-k polynomials
             if (has_to_be_shifted_by_k()) {
+                batched_to_be_shifted_by_k = Polynomial(full_batched_size - k_shift_magnitude, full_batched_size, 0);
                 batch(batched_to_be_shifted_by_k, to_be_shifted_by_k);
-                full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ = F + G/X + X^k*H
+                full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ += X^k * H
             }
 
             return full_batched;
@@ -323,6 +324,9 @@ template <typename Curve> class GeminiVerifier_ {
             batched_commitment_to_be_shifted += comm * batching_scalar;
             batching_scalar *= rho;
         }
+
+        // WORKTODO: need to decide if its worth updating Gemini to handle k-shifts here. Would basically only be for
+        // testing. Does it make life easier or is there a simple enough Shplem test?
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
         const std::vector<Commitment> commitments = get_fold_commitments(num_variables, transcript);
