@@ -30,7 +30,7 @@ unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
     }
 
     accumulator = accumulator.__invmod();
-    let mut T0: F = BigNum::new();
+    let mut T0: F = BigNum::zero();
     for i in 0..N {
         let idx = N - 1 - i;
         if (x[idx].__is_zero() == false) {
@@ -83,7 +83,7 @@ fn field_to_bignum(x: Field) -> F {
 }
 
 fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         blob[i] = field_to_bignum(blob_as_fields[i]);
     }
@@ -364,7 +364,7 @@ unconstrained fn __compute_fracs(
     ys: [F; FIELDS_PER_BLOB],
     unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut denoms = [BigNum::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
@@ -419,7 +419,7 @@ unconstrained fn __compute_partial_sums(
     //                    k=i*8 + 0
 
     // Need to split off the first iteration.
-    let mut partial_sum: F = BigNum::new();
+    let mut partial_sum: F = BigNum::zero();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
         let summand = unconstrained_roots[i].__mul(fracs[i]);
@@ -462,7 +462,7 @@ unconstrained fn __compute_sum(
     //                   /____       z - omega^i
     //                    i=0
 
-    let mut sum: F = BigNum::new();
+    let mut sum: F = BigNum::zero();
     for i in 0..FIELDS_PER_BLOB {
         // y_k * ( omega^k / (z - omega^k) )
         let summand = unconstrained_roots[i].__mul(fracs[i]);
@@ -481,7 +481,7 @@ mod tests {
             field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, F},
+        config::{D, D_INV, F, ROOTS},
     };
     use super::{__compute_partial_sums, __compute_sum};
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
@@ -667,7 +667,7 @@ mod tests {
         let z: F = BigNum { limbs: [2, 0, 0] };
 
         // many y's form a blob:
-        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
 
         ys[0] = BigNum { limbs: [0x1234, 0, 0] };
         ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
