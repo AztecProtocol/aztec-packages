@@ -5,7 +5,7 @@ set -euo pipefail
 cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 # Contracts name list (all assumed to be in l1-contracts).
-# This script writes into the src/ folder:
+# This script writes into the generated/ folder:
 # - index.ts: entrypoint
 # - {name}Abi.ts: contains the ABI
 # - {name}Bytecode.ts: contains the bytecode and link references
@@ -50,9 +50,9 @@ combined_errors_abi=$(
 )
 
 # Start from clean.
-rm -rf src && mkdir src
+rm -rf generated && mkdir generated
 
-echo "// Auto-generated module" >"src/index.ts"
+echo "// Auto-generated module" >"generated/index.ts"
 
 # Generate ErrorsAbi.ts
 (
@@ -62,10 +62,10 @@ echo "// Auto-generated module" >"src/index.ts"
   echo -n "export const ErrorsAbi = "
   echo -n "$combined_errors_abi"
   echo " as const;"
-) >"src/ErrorsAbi.ts"
+) >"generated/ErrorsAbi.ts"
 
 # Add Errors export to index.ts
-echo "export * from './ErrorsAbi.js';" >>"src/index.ts"
+echo "export * from './ErrorsAbi.js';" >>"generated/index.ts"
 
 for contract_name in "${contracts[@]}"; do
   # Generate <ContractName>Abi.ts
@@ -82,7 +82,7 @@ for contract_name in "${contracts[@]}"; do
     ' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) >"src/${contract_name}Abi.ts"
+  ) >"generated/${contract_name}Abi.ts"
 
   # Generate <ContractName>Bytecode.ts
   (
@@ -101,11 +101,11 @@ for contract_name in "${contracts[@]}"; do
     jq -j '.bytecode.linkReferences' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) >"src/${contract_name}Bytecode.ts"
+  ) >"generated/${contract_name}Bytecode.ts"
 
   # Update index.ts exports
-  echo "export * from './${contract_name}Abi.js';" >>"src/index.ts"
-  echo "export * from './${contract_name}Bytecode.js';" >>"src/index.ts"
+  echo "export * from './${contract_name}Abi.js';" >>"generated/index.ts"
+  echo "export * from './${contract_name}Bytecode.js';" >>"generated/index.ts"
 done
 
 echo "Successfully generated TS artifacts!"

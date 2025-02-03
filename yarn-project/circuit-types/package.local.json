@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "./scripts/copy-test-artifacts.sh",
+    "generate": "./scripts/copy-test-artifacts.sh && run -T prettier -w ./src/test/artifacts --loglevel warn",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/test/artifacts"
   },
   "files": ["dest", "src", "!*.test.*"]

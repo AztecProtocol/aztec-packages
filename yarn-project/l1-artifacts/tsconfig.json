@@ -2,9 +2,9 @@
   "extends": "..",
   "compilerOptions": {
     "outDir": "dest",
-    "rootDir": "src",
+    "rootDir": "generated",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "include": ["src"],
+  "include": ["generated"],
   "references": []
 }

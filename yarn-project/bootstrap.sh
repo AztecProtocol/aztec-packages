@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
 
 hash=$(cache_content_hash \
@@ -8,48 +9,22 @@ hash=$(cache_content_hash \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
-function compile_project {
-  # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
-  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
-}
-
 function build {
   echo_header "yarn-project build"
 
-  denoise "./bootstrap.sh clean-lite"
   denoise "yarn install"
 
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
 
-  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
+  for project in foundation l1-artifacts circuits.js; do
+    denoise "cd $project && yarn build"
+  done
+  denoise "yarn generate"
+  denoise "yarn tsc -b"
 
-  # This many projects have a generation stage now!?
-  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
-    accounts \
-    circuit-types \
-    circuits.js \
-    ivc-integration \
-    kv-store \
-    l1-artifacts \
-    native \
-    noir-contracts.js \
-    noir-protocol-circuits-types \
-    protocol-contracts \
-    pxe \
-    types
-  cat joblog.txt
-
-  dirname */src l1-artifacts/generated | grep -v scripts | compile_project
-
-  cmds=(
-    'cd aztec.js && yarn build:web'
-    'cd end-to-end && yarn build:web'
-  )
-  [ "${typecheck:-0}" -eq 1 ] && cmds+=('yarn tsc -b --emitDeclarationOnly')
-  parallel --line-buffered --tag denoise ::: "${cmds[@]}"
-  # parallel --line-buffered --tag denoise 'cd {} && yarn build:web' ::: aztec.js end-to-end
+  parallel --line-buffered --tag "denoise 'cd {}; yarn build:web'" ::: aztec.js end-to-end
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
   # Then one-off cases. If you've written into src, you need to update this.
@@ -64,15 +39,6 @@ function build {
     protocol-contracts/src/protocol_contract_data.ts
   echo
   echo -e "${green}Yarn project successfully built!${reset}"
-}
-
-function format {
-  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
-}
-
-function lint {
-  ls -d ./*/src | xargs dirname | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
 }
 
 function test_cmds {
@@ -105,7 +71,6 @@ function test {
 
 case "$cmd" in
   "clean")
-    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
   "clean-lite")
@@ -115,14 +80,15 @@ case "$cmd" in
       | xargs rm -rf || true
     ;;
   "ci")
-    typecheck=1 build
+    build
     test
     ;;
   ""|"fast")
     build
     ;;
   "full")
-    typecheck=1 build
+    git clean -fdx --exclude=node_modules --exclude=.yarn
+    build
     ;;
   "test")
     test
@@ -135,13 +101,6 @@ case "$cmd" in
     ;;
   "release")
     release
-    ;;
-  "compile")
-    shift
-    compile_project ::: "$@"
-    ;;
-  "format")
-    format
     ;;
   *)
     echo "Unknown command: $cmd"

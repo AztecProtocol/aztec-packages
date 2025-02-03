@@ -31,7 +31,6 @@ export default {
             loader: 'ts-loader',
             options: {
               configFile: 'tsconfig.dest.json',
-              transpileOnly: true,
             },
           },
         ],
