@@ -21,7 +21,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 # Main positional parameter
 test=$1
-values_file="${2:-default.yaml}"
+values_file="${2:-ci.yaml}"
 
 # Default values for environment variables
 namespace="${NAMESPACE:-test-kind}"
@@ -79,7 +79,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  ./deploy_kind.sh $namespace
+  ./deploy_kind.sh $namespace $values_file
 fi
 
 # Find 3 free ports between 9000 and 10000
