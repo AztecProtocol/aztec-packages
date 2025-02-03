@@ -112,7 +112,7 @@ case "$cmd" in
     git ls-files --ignored --others --exclude-standard \
       | grep -v '^node_modules/' \
       | grep -v '^\.yarn/' \
-      | xargs rm -rf
+      | xargs rm -rf || true
     ;;
   "ci")
     typecheck=1 build
