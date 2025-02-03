@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
 import {SlashPayload} from "./SlashPayload.sol";

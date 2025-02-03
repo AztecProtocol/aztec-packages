@@ -15,7 +15,7 @@ import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;

@@ -49,6 +49,7 @@ services:
       ETHEREUM_HOST: http://ethereum:8545
       L1_CHAIN_ID: 31337
       PXE_URL: http://aztec:8080
+      VITE_AZTEC_NODE_URL: http://aztec:8080
       BOX: ${BOX:-vanilla}
       CI: ${CI:-}
       BROWSER: ${BROWSER:-chromium}
