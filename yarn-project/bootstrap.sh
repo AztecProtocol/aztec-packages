@@ -153,8 +153,6 @@ case "$cmd" in
   "release")
     release
     ;;
-<<<<<<< HEAD
-=======
   "compile")
     if [ -n "${1:-}" ]; then
       compile_project ::: "$@"
@@ -168,7 +166,6 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
->>>>>>> origin/cl/ci3.3
   *)
     echo "Unknown command: $cmd"
     exit 1
