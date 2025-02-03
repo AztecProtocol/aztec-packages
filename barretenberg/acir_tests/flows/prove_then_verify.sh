@@ -35,7 +35,7 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --output_type bytes --oracle_hash ${HASH:-poseidon2} --ipa_accumulation ${ROLLUP:-false}"
+    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --output_type bytes --oracle_hash ${HASH:-poseidon2} -h $([[ "$ROLLUP" == true ]] && echo 2 || echo 0)"
     $BIN prove --output_content proof_and_vk $FLAGS $BFLAG
     $BIN verify $FLAGS
     # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs

@@ -255,7 +255,7 @@ function getArgs(flavor: UltraHonkFlavor) {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
     }
     case 'ultra_rollup_honk': {
-      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation', 'true'];
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--honk_recursion', '2'];
     }
   }
 }

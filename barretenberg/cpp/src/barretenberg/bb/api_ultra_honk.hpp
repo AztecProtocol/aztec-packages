@@ -176,7 +176,7 @@ class UltraHonkAPI : public API {
     }
 
     template <typename Flavor>
-    bool _verify(const bool ipa_accumulation,
+    bool _verify(const bool honk_recursion_2,
                  const std::filesystem::path& proof_path,
                  const std::filesystem::path& vk_path)
     {
@@ -190,7 +190,7 @@ class UltraHonkAPI : public API {
         vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
         std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
-        if (ipa_accumulation) {
+        if (honk_recursion_2) {
             init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
             ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         };
@@ -198,7 +198,7 @@ class UltraHonkAPI : public API {
         Verifier verifier{ vk, ipa_verification_key };
 
         bool verified;
-        if (ipa_accumulation) {
+        if (honk_recursion_2) {
             // Break up the tube proof into the honk portion and the ipa portion
             const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
             const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
@@ -229,8 +229,8 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& witness_path,
                 const std::filesystem::path& output_dir)
     {
-        if (flags.ipa_accumulation) {
-            info("proving with ipa_accumulation");
+        if (flags.honk_recursion == 2) {
+            info("proving with honk_recursion_2");
             write(
                 _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
@@ -290,18 +290,18 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override
     {
-        const bool ipa_accumulation = flags.ipa_accumulation;
-        if (ipa_accumulation) {
+        const bool honk_recursion_2 = flags.honk_recursion == 2;
+        if (honk_recursion_2) {
             info("verifying with ipa accumulation");
-            return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
+            return _verify<UltraRollupFlavor>(honk_recursion_2, proof_path, vk_path);
         }
         if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("verifying with poseidon2");
-            return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
+            return _verify<UltraFlavor>(honk_recursion_2, proof_path, vk_path);
         }
         if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("verifying with keccak");
-            return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
+            return _verify<UltraKeccakFlavor>(honk_recursion_2, proof_path, vk_path);
         }
         return false;
     };
@@ -395,17 +395,17 @@ class UltraHonkAPI : public API {
                                 const std::string& witness_path,
                                 const std::string& output_path) override
     {
-        const bool ipa_accumulation = flags.ipa_accumulation;
+        const bool honk_recursion_2 = flags.honk_recursion == 2;
         const auto write_toml = [&](auto&& prover_output) {
             // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
             std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
-                prover_output.proof, prover_output.key, ipa_accumulation);
+                prover_output.proof, prover_output.key, honk_recursion_2);
             // Write all components to the TOML file
             std::string toml_path = output_path + "/Prover.toml";
             write_file(toml_path, { toml_content.begin(), toml_content.end() });
         };
-        if (ipa_accumulation) {
-            info("proving with ipa_accumulation");
+        if (honk_recursion_2) {
+            info("proving with honk_recursion_2");
             write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
         } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("proving with poseidon2");

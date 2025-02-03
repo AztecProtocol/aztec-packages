@@ -30,14 +30,14 @@ class ProofSurgeon {
      */
     static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
                                                             const auto& verification_key,
-                                                            bool ipa_accumulation)
+                                                            bool honk_recursion_2)
     {
         // Convert verification key to fields
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
-        if (ipa_accumulation) {
+        if (honk_recursion_2) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }
         debug("proof size: ", proof.size());

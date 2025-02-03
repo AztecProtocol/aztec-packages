@@ -9,7 +9,7 @@ class API {
   public:
     struct Flags {
         bool recursive;
-        bool ipa_accumulation;
+        uint32_t honk_recursion;
         OracleHashType oracle_hash_type;
         OutputDataType output_data_type;
         InputType input_type;
@@ -19,7 +19,7 @@ class API {
         {
             os << "flags: [\n"
                << "  recursive: " << flags.recursive << "\n"
-               << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
+               << "  honk_recursion: " << flags.honk_recursion << "\n"
                << "  oracle_hash_type: " << to_string(flags.oracle_hash_type) << "\n"
                << "  output_type: " << to_string(flags.output_data_type) << "\n"
                << "  input_type: " << to_string(flags.input_type) << "\n"

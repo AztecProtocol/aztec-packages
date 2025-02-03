@@ -815,10 +815,10 @@ int main(int argc, char* argv[])
         const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
-        const API::Flags flags = [&args, &recursive]() {
+        const API::Flags flags = [&args, &recursive, &honk_recursion]() {
             return API::Flags{
                 .recursive = recursive,
-                .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
+                .honk_recursion = honk_recursion,
                 .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),
                 .output_data_type = parse_output_data_type(get_option(args, "--output_type", "fields_msgpack")),
                 .input_type = parse_input_type(get_option(args, "--input_type", "compiletime_stack")),
@@ -952,7 +952,7 @@ int main(int argc, char* argv[])
             auto tube_proof_path = output_path + "/proof";
             auto tube_vk_path = output_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            return api.verify({ .honk_recursion = 2 }, tube_proof_path, tube_vk_path) ? 0 : 1;
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;
