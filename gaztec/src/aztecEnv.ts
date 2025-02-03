@@ -18,7 +18,7 @@ import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { WASMSimulator } from "@aztec/simulator/client";
 import { debug } from "debug";
 import { createContext } from "react";
-import { WalletDB } from "./utils/storage";
+import { NetworkDB, WalletDB } from "./utils/storage";
 import { ContractFunctionInteractionTx } from "./utils/txs";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
@@ -143,6 +143,20 @@ export const AztecContext = createContext<{
 });
 
 export class AztecEnv {
+  static isNetworkStoreInitialized = false;
+
+  static async initNetworkStore() {
+    if (!AztecEnv.isNetworkStoreInitialized) {
+      AztecEnv.isNetworkStoreInitialized = true;
+      const networkStore = await createStore(`network`, {
+        dataDirectory: "network",
+        dataStoreMapSizeKB: 1e6,
+      });
+      const networkDB = NetworkDB.getInstance();
+      networkDB.init(networkStore);
+    }
+  }
+
   static async connectToNode(nodeURL: string): Promise<AztecNode> {
     const aztecNode = await createAztecNodeClient(nodeURL);
     return aztecNode;

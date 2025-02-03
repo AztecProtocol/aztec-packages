@@ -4,8 +4,8 @@
 
 template <typename Builder> class Add2Circuit {
   public:
-    typedef bb::stdlib::public_witness_t<Builder> public_witness_ct;
-    typedef bb::stdlib::field_t<Builder> field_ct;
+    using public_witness_ct = bb::stdlib::public_witness_t<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     // Three public inputs
     static Builder generate(uint256_t inputs[])

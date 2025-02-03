@@ -49,7 +49,7 @@ impl BlobPublicInputs {
 
 impl Empty for BlobPublicInputs {
     fn empty() -> Self {
-        Self { z: 0, y: BigNum::new(), kzg_commitment: BlobCommitment::empty() }
+        Self { z: 0, y: BigNum::zero(), kzg_commitment: BlobCommitment::empty() }
     }
 }
 
