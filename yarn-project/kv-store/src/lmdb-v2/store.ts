@@ -167,7 +167,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     }
     this.open = false;
     await this.writerQueue.cancel();
-    await this.sendMessage(LMDBMessageType.CLOSE, undefined);
+    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
   }
 
   public async sendMessage<T extends LMDBMessageType>(
