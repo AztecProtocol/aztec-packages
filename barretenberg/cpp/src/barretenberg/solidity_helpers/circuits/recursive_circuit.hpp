@@ -16,11 +16,10 @@ using numeric::uint256_t;
 
 class RecursiveCircuit {
     using InnerComposer = UltraComposer;
-    using InnerBuilder = UltraCircuitBuilder;
-    using OuterBuilder = UltraCircuitBuilder;
+    using Builder = UltraCircuitBuilder;
 
-    using inner_curve = bn254<InnerBuilder>;
-    using outer_curve = bn254<OuterBuilder>;
+    using inner_curve = bn254<Builder>;
+    using outer_curve = bn254<Builder>;
 
     using verification_key_pt = recursion::verification_key<outer_curve>;
     using recursive_settings = recursion::recursive_ultra_verifier_settings<outer_curve>;
@@ -35,7 +34,7 @@ class RecursiveCircuit {
     using inner_scalar_field = typename inner_curve::ScalarFieldNative;
     using outer_scalar_field = typename outer_curve::BaseFieldNative;
     using pairing_target_field = bb::fq12;
-    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterBuilder, bb::UltraCircuitBuilder>;
+    static constexpr bool is_ultra_to_ultra = std::is_same_v<Builder, bb::UltraCircuitBuilder>;
     using ProverOfInnerCircuit =
         std::conditional_t<is_ultra_to_ultra, plonk::UltraProver, plonk::UltraToStandardProver>;
     using VerifierOfInnerProof =
@@ -48,7 +47,7 @@ class RecursiveCircuit {
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
-    static void create_inner_circuit_no_tables(InnerBuilder& builder, uint256_t public_inputs[])
+    static void create_inner_circuit_no_tables(Builder& builder, uint256_t public_inputs[])
     {
         // A nice Pythagorean triples circuit example: "I know a & b s.t. a^2 + b^2 = c^2".
         inner_scalar_field_ct a(witness_ct(&builder, public_inputs[0]));
@@ -62,7 +61,7 @@ class RecursiveCircuit {
         c_sq.set_public();
     };
 
-    static circuit_outputs create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)
+    static circuit_outputs create_outer_circuit(Builder& inner_circuit, Builder& outer_builder)
     {
         ProverOfInnerCircuit prover;
         InnerComposer inner_composer;
@@ -95,7 +94,7 @@ class RecursiveCircuit {
         return { output, verification_key };
     };
 
-    static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
+    static bool check_pairing_point_accum_public_inputs(Builder& builder, const bb::pairing::miller_lines* lines)
     {
         if (builder.contains_pairing_point_accumulator &&
             builder.pairing_point_accumulator_public_input_indices.size() == 16) {
@@ -159,10 +158,10 @@ class RecursiveCircuit {
     }
 
   public:
-    static OuterBuilder generate(uint256_t inputs[])
+    static Builder generate(uint256_t inputs[])
     {
-        InnerBuilder inner_circuit;
-        OuterBuilder outer_circuit;
+        Builder inner_circuit;
+        Builder outer_circuit;
 
         create_inner_circuit_no_tables(inner_circuit, inputs);
 
