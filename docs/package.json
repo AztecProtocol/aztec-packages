@@ -45,10 +45,7 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.6.0",
-<<<<<<< HEAD
-=======
     "@docusaurus/tsconfig": "3.6.0",
->>>>>>> origin
     "@docusaurus/types": "3.6.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "@types/prop-types": "^15",
