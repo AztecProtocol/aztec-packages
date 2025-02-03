@@ -121,10 +121,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
+    # git clean -fdx --exclude=node_modules --exclude=.yarn
     git ls-files --ignored --others --exclude-standard \
-      | grep -v '^node_modules/' \
-      | grep -v '^\.yarn/' \
-      | xargs rm -rf
+      | grep -vE '^(node_modules/|\.yarn/)' || true \
+      | xargs --no-run-if-empty rm -rf
     ;;
   "ci")
     typecheck=1 build
@@ -150,7 +150,11 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    compile_project ::: "$@"
+    if [ -n "${1:-}" ]; then
+      compile_project ::: "$@"
+    else
+      get_projects | compile_project
+    fi
     ;;
   "format")
     format
