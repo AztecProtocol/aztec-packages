@@ -38,6 +38,7 @@
     { "path": "key-store/tsconfig.json" },
     { "path": "l1-artifacts/tsconfig.json" },
     { "path": "merkle-tree/tsconfig.json" },
+    { "path": "native/tsconfig.json" },
     { "path": "noir-contracts.js/tsconfig.json" },
     { "path": "builder/tsconfig.json" },
     { "path": "noir-protocol-circuits-types/tsconfig.json" },

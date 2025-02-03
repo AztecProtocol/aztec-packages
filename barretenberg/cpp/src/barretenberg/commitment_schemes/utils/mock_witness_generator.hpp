@@ -2,6 +2,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -19,6 +20,8 @@ template <typename Curve> struct MockWitnessGenerator {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
     using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
+    using ClaimBatcher = bb::ShpleminiVerifier_<Curve>::ClaimBatcher;
+    using ClaimBatch = bb::ShpleminiVerifier_<Curve>::ClaimBatch;
 
     std::shared_ptr<CommitmentKey> ck;
     std::vector<Polynomial> unshifted_polynomials = {};
@@ -29,6 +32,7 @@ template <typename Curve> struct MockWitnessGenerator {
     std::vector<Fr> unshifted_evals = {};
     std::vector<Fr> shifted_evals;
     PolynomialBatcher polynomial_batcher;
+    ClaimBatcher claim_batcher;
 
     // Containers for mock Sumcheck data
     std::vector<bb::Polynomial<Fr>> round_univariates;
@@ -85,6 +89,10 @@ template <typename Curve> struct MockWitnessGenerator {
 
         polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));
         polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
+
+        claim_batcher =
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) },
+                          .shifted = ClaimBatch{ RefVector(to_be_shifted_commitments), RefVector(shifted_evals) } };
     }
 
     // Generate zero polynomials to test edge cases in PCS

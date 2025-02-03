@@ -19,16 +19,13 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
 
-import {Slot, SlotLib, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 contract SlashingScenario is TestBase {
-  using SlotLib for Slot;
-
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;

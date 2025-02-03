@@ -100,6 +100,10 @@ function test_cmds {
   echo FLOW=sol_honk $run_test 1_mul
   echo FLOW=sol_honk $run_test slices
   echo FLOW=sol_honk $run_test verify_honk_proof
+  echo FLOW=sol_honk_zk $run_test assert_statement
+  echo FLOW=sol_honk_zk $run_test 1_mul
+  echo FLOW=sol_honk_zk $run_test slices
+  echo FLOW=sol_honk_zk $run_test verify_honk_proof
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.

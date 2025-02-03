@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
@@ -34,7 +35,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         info("SETTING honk_recursion to 2");
@@ -52,6 +53,13 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
 
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
+    size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
+    if constexpr (Flavor::HasZK) {
+        // Ensure there are enough points to commit to the libra polynomials required for zero-knowledge sumcheck
+        if (required_crs_size < curve::BN254::SUBGROUP_SIZE * 2) {
+            required_crs_size = curve::BN254::SUBGROUP_SIZE * 2;
+        }
+    }
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
 
     return prover;
@@ -153,10 +161,22 @@ class UltraHonkAPI : public API {
         return { proof, *ivc.previous_vk };
     }
 
-    ProofAndKey<UltraKeccakFlavor::VerificationKey> _prove_keccak(const bool vk_only,
-                                                                  const API::Flags& flags,
-                                                                  const std::filesystem::path& bytecode_path,
-                                                                  const std::filesystem::path& witness_path)
+    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak_zk(const bool vk_only,
+                                                                       const API::Flags& flags,
+                                                                       const std::filesystem::path& bytecode_path,
+                                                                       const std::filesystem::path& witness_path)
+    {
+        UltraKeccakZKProver prover =
+            compute_valid_prover<UltraKeccakZKFlavor>(bytecode_path, witness_path, flags.recursive);
+
+        return { vk_only ? HonkProof() : prover.construct_proof(),
+                 UltraKeccakZKFlavor::VerificationKey(prover.proving_key->proving_key) };
+    }
+
+    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak(const bool vk_only,
+                                                                    const API::Flags& flags,
+                                                                    const std::filesystem::path& bytecode_path,
+                                                                    const std::filesystem::path& witness_path)
     {
         UltraKeccakProver prover =
             compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, flags.recursive);
@@ -295,6 +315,10 @@ class UltraHonkAPI : public API {
             info("verifying with ipa accumulation");
             return _verify<UltraRollupFlavor>(honk_recursion_2, proof_path, vk_path);
         }
+        if (flags.zk) {
+            info("verifying with keccak and zk");
+            return _verify<UltraKeccakZKFlavor>(honk_recursion_2, proof_path, vk_path);
+        }
         if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
             info("verifying with poseidon2");
             return _verify<UltraFlavor>(honk_recursion_2, proof_path, vk_path);
@@ -379,7 +403,8 @@ class UltraHonkAPI : public API {
         // WOKTODO: not used?
         vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
         // WORKTODO: std::move pointless
-        std::string contract = get_honk_solidity_verifier(std::move(vk));
+        std::string contract =
+            flags.zk ? get_honk_zk_solidity_verifier(std::move(vk)) : get_honk_solidity_verifier(std::move(vk));
 
         if (output_path == "-") {
             write_string_to_stdout(contract);

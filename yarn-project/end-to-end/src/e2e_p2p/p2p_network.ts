@@ -217,7 +217,7 @@ export class P2PNetworkTest {
           hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
         });
 
-        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
         const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {

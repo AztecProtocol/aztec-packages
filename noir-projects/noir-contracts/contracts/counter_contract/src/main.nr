@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 mod test;
 
 #[aztec]
-contract Counter {
+pub contract Counter {
     // docs:end:setup
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private}, storage::storage};

@@ -813,10 +813,12 @@ int main(int argc, char* argv[])
 
         const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
         const bool recursive = flag_present(args, "--recursive");
+        const bool zk = flag_present(args, "--zk");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         const API::Flags flags = [&args, &recursive, &honk_recursion]() {
             return API::Flags{
+                .zk = zk,
                 .recursive = recursive,
                 .honk_recursion = honk_recursion,
                 .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),

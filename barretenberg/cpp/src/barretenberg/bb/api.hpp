@@ -8,6 +8,7 @@ namespace bb {
 class API {
   public:
     struct Flags {
+        bool zk;
         bool recursive;
         uint32_t honk_recursion;
         OracleHashType oracle_hash_type;
@@ -18,6 +19,7 @@ class API {
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
+               << "  zk: " << flags.zk << "\n"
                << "  recursive: " << flags.recursive << "\n"
                << "  honk_recursion: " << flags.honk_recursion << "\n"
                << "  oracle_hash_type: " << to_string(flags.oracle_hash_type) << "\n"
