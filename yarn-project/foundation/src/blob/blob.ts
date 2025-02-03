@@ -171,7 +171,7 @@ export class Blob {
    * @returns The encoded fields from the blobs.
    */
   static toEncodedFields(blobs: Blob[]): Fr[] {
-    return deserializeEncodedBlobFields(Buffer.concat(blobs.map(b => b.data)));
+    return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
   }
 
   /**
