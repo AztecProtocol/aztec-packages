@@ -51,6 +51,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 
 inline void write_file(const std::string& filename, std::vector<uint8_t> const& data)
 {
+    info("writing file to ", filename);
     struct stat st;
     if (stat(filename.c_str(), &st) == 0 && S_ISFIFO(st.st_mode)) {
         // Writing to a pipe or file descriptor

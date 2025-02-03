@@ -247,15 +247,16 @@ export async function computeVerificationKey(
 }
 
 function getArgs(flavor: UltraHonkFlavor) {
+  console.log(`flavor ${flavor} in getArgs`);
   switch (flavor) {
     case 'ultra_honk': {
-      return ['--oracle_hash', 'poseidon2'];
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2'];
     }
     case 'ultra_keccak_honk': {
-      return ['--oracle_hash', 'keccak'];
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
     }
     case 'ultra_rollup_honk': {
-      return ['--oracle_hash', 'poseidon2', '--ipa_accumulation', 'true'];
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation', 'true'];
     }
   }
 }
@@ -323,7 +324,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, `prove_${flavor}_output_all`, args, logFunction);
+    const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -606,7 +607,14 @@ export async function verifyProof(
   ultraHonkFlavor: UltraHonkFlavor,
   log: Logger,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, `verify_${ultraHonkFlavor}`, log);
+  return await verifyProofInternal(
+    pathToBB,
+    proofFullPath,
+    verificationKeyPath,
+    `verify`,
+    log,
+    getArgs(ultraHonkFlavor),
+  );
 }
 
 /**
@@ -709,7 +717,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'verify_ultra_rollup_honk' | 'verify_ultra_keccak_honk' | 'avm_verify' | 'avm2_verify',
+  command: 'verify' | 'avm_verify' | 'avm2_verify',
   logger: Logger,
   extraArgs: string[] = [],
 ): Promise<BBFailure | BBSuccess> {
@@ -722,7 +730,7 @@ async function verifyProofInternal(
   }
 
   const logFunction = (message: string) => {
-    logger.verbose(`AvmCircuit (verify) BB out - ${message}`);
+    logger.verbose(`bb-prover (verify) BB out - ${message}`);
   };
 
   try {

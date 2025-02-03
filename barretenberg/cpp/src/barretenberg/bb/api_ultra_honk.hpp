@@ -277,8 +277,8 @@ class UltraHonkAPI : public API {
                 if (output_to_stdout) {
                     write_string_to_stdout(proof_json);
                 } else {
-                    info("writing proof as fields to ", output_dir / "proof_as_fields.json");
-                    write_file(output_dir / "proof_as_fields.json", { proof_json.begin(), proof_json.end() });
+                    info("writing proof as fields to ", output_dir / "proof_fields.json");
+                    write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
                 }
                 break;
             }
@@ -288,8 +288,8 @@ class UltraHonkAPI : public API {
                 if (output_to_stdout) {
                     write_string_to_stdout(vk_json);
                 } else {
-                    info("writing vk as fields to ", output_dir / "vk_as_fields.json");
-                    write_file(output_dir / "vk_as_fields.json", { vk_json.begin(), vk_json.end() });
+                    info("writing vk as fields to ", output_dir / "vk_fields.json");
+                    write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
                 }
                 break;
             }

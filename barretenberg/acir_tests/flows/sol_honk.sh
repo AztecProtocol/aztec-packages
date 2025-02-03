@@ -12,7 +12,7 @@ trap "rm -rf $outdir" EXIT
 
 # Export the paths to the environment variables for the js test runner
 export PROOF="$outdir/proof"
-export PROOF_AS_FIELDS="$outdir/proof_as_fields.json"
+export PROOF_AS_FIELDS="$outdir/proof_fields.json"
 export VK="$outdir/vk"
 export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 
