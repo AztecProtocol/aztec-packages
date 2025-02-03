@@ -44,15 +44,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using CommitmentLabels = Flavor::CommitmentLabels;
     using Shplemini = ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = Shplemini::ClaimBatcher;
+    using ClaimBatch = Shplemini::ClaimBatch;
 
     RelationParameters<FF> relation_parameters;
 
     transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     if (circuit_size != key->circuit_size) {
@@ -61,7 +61,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Get commitments to VM wires
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -70,7 +70,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.gamma = gamm;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -88,7 +88,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (!output.verified.has_value() || !output.verified.value()) {
+    if (!output.verified) {
         vinfo("Sumcheck verification failed");
         return false;
     }
@@ -103,15 +103,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               output.claimed_evaluations.get_unshifted(),
-                                               output.claimed_evaluations.get_shifted(),
-                                               output.challenge,
-                                               Commitment::one(),
-                                               transcript);
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+    };
+    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
+        circuit_size, claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     const auto shplemini_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

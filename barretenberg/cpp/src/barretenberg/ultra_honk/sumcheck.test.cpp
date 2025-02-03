@@ -189,7 +189,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto verifier_output =
         sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges);
 
-    auto verified = verifier_output.verified.value();
+    auto verified = verifier_output.verified;
 
     ASSERT_TRUE(verified);
 }
