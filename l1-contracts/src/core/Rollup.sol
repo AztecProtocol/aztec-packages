@@ -434,7 +434,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
   }
 
   /**
-   * @notice  Validate blob transactions against given inputs.
+   * @notice  Validate blob transactions against given inputs
    * @dev     Only exists here for gas estimation.
    */
   function validateBlobs(bytes calldata _blobsInput)
