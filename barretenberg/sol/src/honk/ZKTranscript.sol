@@ -11,8 +11,6 @@ import {Fr, FrLib} from "./Fr.sol";
 
 import {bytesToG1ProofPoint, bytesToFr, logFr, logG} from "./utils.sol";
 
-import "forge-std/console.sol";
-
 // ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
 struct ZKTranscript {
     // Oink
@@ -388,84 +386,5 @@ library ZKTranscriptLib {
         boundary = boundary + 0x80;
         // KZG
         p.kzgQuotient = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-    }
-
-    function logZKProof(Honk.ZKProof memory proof) internal pure {
-        logG("w1", proof.w1);
-        logG("w2", proof.w2);
-        logG("w3", proof.w3);
-        logG("w4", proof.w4);
-        logG("lookupReadCounts", proof.lookupReadCounts);
-        logG("lookupReadTags", proof.lookupReadTags);
-        logG("lookupInverses", proof.lookupInverses);
-        logG("zPerm", proof.zPerm);
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
-                logFr("sumcheck univariate", proof.sumcheckUnivariates[i][j]);
-            }
-        }
-
-        for (uint256 i = 0; i < 3; i++) {
-            logG("libra commitment", proof.libraCommitments[i]);
-        }
-
-        logFr("libraSum", proof.libraSum);
-        logFr("libraEvaluation", proof.libraEvaluation);
-        logFr("geminiMaskingEval", proof.geminiMaskingEval);
-
-        logG("geminiMaskingPoly", proof.geminiMaskingPoly);
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            logG("geminiFoldComms", proof.geminiFoldComms[i]);
-        }
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("geminiAEvaluations", i, proof.geminiAEvaluations[i]);
-        }
-
-        for (uint256 i = 0; i < 4; i++) {
-            logFr("libraPolyEvals", i, proof.libraPolyEvals[i]);
-        }
-
-        logG("shplonkQ", proof.shplonkQ);
-        logG("kzgQuotient", proof.kzgQuotient);
-    }
-
-    function logTranscript(ZKTranscript memory transcript) internal pure {
-        // Log Oink-related fields
-        logFr("relationParameters.eta", transcript.relationParameters.eta);
-        logFr("relationParameters.etaTwo", transcript.relationParameters.etaTwo);
-        logFr("relationParameters.etaThree", transcript.relationParameters.etaThree);
-        logFr("relationParameters.beta", transcript.relationParameters.beta);
-        logFr("relationParameters.gamma", transcript.relationParameters.gamma);
-        logFr("relationParameters.publicInputsDelta", transcript.relationParameters.publicInputsDelta);
-
-        // Log alphas array
-        for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
-            logFr("alpha", i, transcript.alphas[i]);
-        }
-
-        // Log gateChallenges array
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("gate challenge", i, transcript.gateChallenges[i]);
-        }
-
-        // Log libraChallenge
-        logFr("libraChallenge", transcript.libraChallenge);
-
-        // Log sumCheckUChallenges array
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("sumCheckUChallenge", i, transcript.sumCheckUChallenges[i]);
-        }
-
-        // Log Gemini-related fields
-        logFr("rho", transcript.rho);
-        logFr("geminiR", transcript.geminiR);
-        logFr("shplonkNu", transcript.shplonkNu);
-        logFr("shplonkZ", transcript.shplonkZ);
-
-        // Log Derived field
-        logFr("publicInputsDelta", transcript.publicInputsDelta);
     }
 }
