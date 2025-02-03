@@ -3,7 +3,7 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
-# Remove the rebuild hash (first field) to leave the test command.
+# Remove the rebuild hash (first field) that is in front of the test command.
 test_cmd="${cmd#* }"
 key=$(hash_str "$cmd")
 
@@ -25,7 +25,11 @@ export VERBOSE=1
 set +e
 tmp_file=$(mktemp)
 trap "rm -f $tmp_file" EXIT
-timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
+if [[ "$test_cmd" = timeout* ]]; then
+  eval "$test_cmd" &> $tmp_file &
+else
+  timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
+fi
 timeout_pid=$!
 trap "kill -- -$timeout_pid" SIGTERM
 wait $timeout_pid

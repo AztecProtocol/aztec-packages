@@ -49,9 +49,10 @@ function gke {
 }
 
 function test_cmds {
-  echo "$hash ./bootstrap.sh test-kind-smoke"
-  echo "$hash ./bootstrap.sh test-kind-4epochs"
-  echo "$hash ./bootstrap.sh test-local"
+  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  # Note: commands that start with 'timeout ...' override the default timeout.
+  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
+  echo "$hash ./spartan/bootstrap.sh test-local"
 }
 
 function test {
