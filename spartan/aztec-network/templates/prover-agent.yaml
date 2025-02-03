@@ -17,7 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -105,6 +105,8 @@ spec:
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}

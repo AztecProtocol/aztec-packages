@@ -5,7 +5,6 @@
 #   COMPOSE_FILE (default: ./scripts/docker-compose-images.yml)
 #   LOG_LEVEL (default: "verbose")
 #   HARDWARE_CONCURRENCY (default: "")
-#   ENABLE_GAS (default: "")
 #   AZTEC_DOCKER_TAG (default: current git commit)
 
 set -eu

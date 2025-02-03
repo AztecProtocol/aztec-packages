@@ -6,19 +6,18 @@
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <exception>
@@ -284,7 +283,7 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,

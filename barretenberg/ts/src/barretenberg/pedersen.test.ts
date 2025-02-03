@@ -6,7 +6,7 @@ describe('pedersen sync', () => {
   let api: BarretenbergSync;
 
   beforeAll(async () => {
-    api = await BarretenbergSync.new();
+    api = await BarretenbergSync.initSingleton();
   });
 
   it('pedersenHash', () => {

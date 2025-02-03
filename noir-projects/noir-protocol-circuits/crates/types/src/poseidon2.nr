@@ -1,5 +1,7 @@
+use crate::constants::TWO_POW_64;
+
 // NB: This is a clone of noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr
-// It exists as we sometimes need to perform custom absorbtion, but the stdlib version
+// It exists as we sometimes need to perform custom absorption, but the stdlib version
 // has a private absorb() method (it's also designed to just be a hasher)
 // Can be removed when standalone noir poseidon lib exists: See noir#6679
 
@@ -66,8 +68,7 @@ impl Poseidon2Sponge {
         in_len: u32,
         is_variable_length: bool,
     ) -> Field {
-        let two_pow_64 = 18446744073709551616;
-        let iv: Field = (in_len as Field) * two_pow_64;
+        let iv: Field = (in_len as Field) * TWO_POW_64;
         let mut sponge = Poseidon2Sponge::new(iv);
         for i in 0..input.len() {
             if i < in_len {

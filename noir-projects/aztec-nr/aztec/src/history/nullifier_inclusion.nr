@@ -21,21 +21,21 @@ impl ProveNullifierInclusion for BlockHeader {
 
         // 2) First we prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be
         // the leaf that contains the nullifier we're proving inclusion for.
-        assert(
-            self.state.partial.nullifier_tree.root
-                == root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path)
-                ,
-                "Proving nullifier inclusion failed",
-            );
+        assert_eq(
+            self.state.partial.nullifier_tree.root,
+            root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path),
+            "Proving nullifier inclusion failed",
+        );
 
-            // 3) Then we simply check that the value in the leaf is the expected one. Note that we don't need to perform
-            // any checks on the rest of the values in the leaf preimage (the next index or next nullifier), since all we
-            // care about is showing that the tree contains an entry with the expected nullifier.
-            assert(
-                witness.leaf_preimage.nullifier == nullifier,
-                "Nullifier does not match value in witness",
-            );
-        }
+        // 3) Then we simply check that the value in the leaf is the expected one. Note that we don't need to perform
+        // any checks on the rest of the values in the leaf preimage (the next index or next nullifier), since all we
+        // care about is showing that the tree contains an entry with the expected nullifier.
+        assert_eq(
+            witness.leaf_preimage.nullifier,
+            nullifier,
+            "Nullifier does not match value in witness",
+        );
+    }
 }
 
 trait ProveNoteIsNullified {

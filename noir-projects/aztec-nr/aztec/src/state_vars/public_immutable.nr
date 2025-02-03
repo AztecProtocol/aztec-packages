@@ -1,11 +1,9 @@
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
+    history::public_storage::PublicStorageHistoricalRead,
     state_vars::storage::Storage,
 };
-use dep::protocol_types::{
-    constants::INITIALIZATION_SLOT_SEPARATOR,
-    traits::{Deserialize, Serialize},
-};
+use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Packable};
 
 /// Stores an immutable value in public state which can be read from public, private and unconstrained execution
 /// contexts.
@@ -16,9 +14,9 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PublicImmutable<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
+    T: Packable<N>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
@@ -38,9 +36,9 @@ impl<T, Context> PublicImmutable<T, Context> {
     // docs:end:public_immutable_struct_new
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PublicContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN>,
 {
     // docs:start:public_immutable_struct_write
     pub fn initialize(self, value: T) {
@@ -63,22 +61,22 @@ where
     // docs:end:public_immutable_struct_read
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN>,
 {
     pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN>,
 {
     pub fn read(self) -> T {
         let header = self.context.get_block_header();
-        let mut fields = [0; T_SERIALIZED_LEN];
+        let mut fields = [0; T_PACKED_LEN];
 
         for i in 0..fields.len() {
             fields[i] = header.public_storage_historical_read(
@@ -86,6 +84,6 @@ where
                 (*self.context).this_address(),
             );
         }
-        T::deserialize(fields)
+        T::unpack(fields)
     }
 }

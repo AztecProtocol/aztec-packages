@@ -12,8 +12,8 @@ import {
   GlobalVariables,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PublicCircuitPublicInputs,
   PublicDataWrite,
+  PublicLog,
   RevertCode,
   ScopedLogHash,
   TxConstantData,
@@ -30,7 +30,7 @@ import { type GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 
 /** Makes a bloated processed tx for testing purposes. */
-export function makeBloatedProcessedTx({
+export async function makeBloatedProcessedTx({
   seed = 1,
   header,
   db,
@@ -65,8 +65,8 @@ export function makeBloatedProcessedTx({
   txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const tx = !privateOnly
-    ? mockTx(seed)
-    : mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+    ? await mockTx(seed)
+    : await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
   tx.data.constants = txConstantData;
 
   // No side effects were created in mockTx. The default gasUsed is the tx overhead.
@@ -112,13 +112,7 @@ export function makeBloatedProcessedTx({
       seed + 0x2000,
     );
 
-    const avmCircuitInputs = new AvmCircuitInputs(
-      '',
-      [],
-      PublicCircuitPublicInputs.empty(),
-      AvmExecutionHints.empty(),
-      avmOutput,
-    );
+    const avmCircuitInputs = new AvmCircuitInputs('', [], AvmExecutionHints.empty(), avmOutput);
 
     const gasUsed = {
       totalGas: Gas.empty(),
@@ -140,7 +134,7 @@ export function makeBloatedProcessedTx({
 }
 
 // Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: { unencryptedLogsHashes?: ScopedLogHash[]; contractClassLogsHashes: ScopedLogHash[] }) {
-  data.unencryptedLogsHashes?.forEach((_, i) => (data.unencryptedLogsHashes![i] = ScopedLogHash.empty()));
+function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
+  data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
   data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

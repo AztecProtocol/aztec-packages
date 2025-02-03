@@ -49,12 +49,20 @@ export class BlockAttestation extends Gossipable {
       .transform(obj => new BlockAttestation(obj.payload, obj.signature));
   }
 
-  override p2pMessageIdentifier(): Buffer32 {
-    return new BlockAttestationHash(keccak256(this.signature.toBuffer()));
+  override p2pMessageIdentifier(): Promise<Buffer32> {
+    return Promise.resolve(new BlockAttestationHash(keccak256(this.signature.toBuffer())));
   }
 
   get archive(): Fr {
     return this.payload.archive;
+  }
+
+  get slotNumber(): Fr {
+    return this.payload.header.globalVariables.slotNumber;
+  }
+
+  get blockNumber(): Fr {
+    return this.payload.header.globalVariables.blockNumber;
   }
 
   /**Get sender
@@ -62,10 +70,13 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  getSender() {
+  async getSender(): Promise<EthAddress> {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockAttestation);
+      const hashed = await getHashedSignaturePayloadEthSignedMessage(
+        this.payload,
+        SignatureDomainSeparator.blockAttestation,
+      );
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -73,7 +84,7 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
-  getPayload(): Buffer {
+  getPayload(): Promise<Buffer> {
     return this.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
   }
 

@@ -2,8 +2,36 @@
 
 set -ex
 
+# Get load balancer IP for service
+function get_load_balancer_ip() {
+    local SERVICE_LABEL=$1
+    local PORT=$2
+    local MAX_RETRIES=30
+    local RETRY_INTERVAL=2
+    local attempt=1
+
+    # Check load balancer exists for service
+    while [ $attempt -le $MAX_RETRIES ]; do
+        LOAD_BALANCER_IP=$(kubectl get svc -n ${NAMESPACE} -l app=${SERVICE_LABEL} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+        if [ -n "$LOAD_BALANCER_IP" ]; then
+            break
+        fi
+        echo "Attempt $attempt: Waiting for ${SERVICE_LABEL} load balancer to be available..." >&2
+        sleep $RETRY_INTERVAL
+        attempt=$((attempt + 1))
+    done
+
+    if [ -z "$LOAD_BALANCER_IP" ]; then
+        echo "Error: Failed to get load balancer IP after $MAX_RETRIES attempts" >&2
+        return 1
+    fi
+
+    echo "Load balancer IP: ${LOAD_BALANCER_IP}" >&2
+    echo "http://${LOAD_BALANCER_IP}:${PORT}"
+}
+
 # Function to get pod and node details
-get_service_address() {
+function get_service_address() {
     local SERVICE_LABEL=$1
     local PORT=$2
     local MAX_RETRIES=30
@@ -52,13 +80,22 @@ get_service_address() {
     echo "http://${NODE_IP}:${PORT}"
 }
 
-# Configure Ethereum address
+# Configure Ethereum execution client address
 if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
     ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
-    ETHEREUM_ADDR=$(get_service_address "ethereum" "${ETHEREUM_PORT}")
+    ETHEREUM_ADDR=$(get_load_balancer_ip "eth-execution" "${ETHEREUM_PORT}")
 else
-    ETHEREUM_ADDR="http://${SERVICE_NAME}-ethereum.${NAMESPACE}:${ETHEREUM_PORT}"
+    ETHEREUM_ADDR="http://${SERVICE_NAME}-eth-execution.${NAMESPACE}:${ETHEREUM_PORT}"
+fi
+
+# Configure Ethereum Consensus address
+if [ "${EXTERNAL_ETHEREUM_CONSENSUS_HOST}" != "" ]; then
+    ETHEREUM_CONSENSUS_ADDR="${EXTERNAL_ETHEREUM_CONSENSUS_HOST}"
+elif [ "${NETWORK_PUBLIC}" = "true" ]; then
+    ETHEREUM_CONSENSUS_ADDR=$(get_load_balancer_ip "eth-beacon" "${ETHEREUM_CONSENSUS_PORT}")
+else
+    ETHEREUM_CONSENSUS_ADDR="http://${SERVICE_NAME}-eth-beacon.${NAMESPACE}:${ETHEREUM_CONSENSUS_PORT}"
 fi
 
 # Configure Boot Node address
@@ -93,6 +130,9 @@ fi
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_URL=${ETHEREUM_CONSENSUS_ADDR}" >> /shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY}" >> /shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses

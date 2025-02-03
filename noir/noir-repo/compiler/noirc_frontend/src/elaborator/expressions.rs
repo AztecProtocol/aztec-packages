@@ -29,7 +29,7 @@ use crate::{
     },
     node_interner::{DefinitionKind, ExprId, FuncId, InternedStatementKind, TraitMethodId},
     token::{FmtStrFragment, Tokens},
-    Kind, QuotedType, Shared, StructType, Type,
+    DataType, Kind, QuotedType, Shared, Type,
 };
 
 use super::{Elaborator, LambdaContext, UnsafeBlockStatus};
@@ -52,7 +52,7 @@ impl<'context> Elaborator<'context> {
             ExpressionKind::If(if_) => self.elaborate_if(*if_),
             ExpressionKind::Variable(variable) => return self.elaborate_variable(variable),
             ExpressionKind::Tuple(tuple) => self.elaborate_tuple(tuple),
-            ExpressionKind::Lambda(lambda) => self.elaborate_lambda(*lambda),
+            ExpressionKind::Lambda(lambda) => self.elaborate_lambda(*lambda, None),
             ExpressionKind::Parenthesized(expr) => return self.elaborate_expression(*expr),
             ExpressionKind::Quote(quote) => self.elaborate_quote(quote, expr.span),
             ExpressionKind::Comptime(comptime, _) => {
@@ -75,7 +75,10 @@ impl<'context> Elaborator<'context> {
                 self.push_err(ResolverError::UnquoteUsedOutsideQuote { span: expr.span });
                 (HirExpression::Error, Type::Error)
             }
-            ExpressionKind::AsTraitPath(_) => todo!("Implement AsTraitPath"),
+            ExpressionKind::AsTraitPath(_) => {
+                self.push_err(ResolverError::UnquoteUsedOutsideQuote { span: expr.span });
+                (HirExpression::Error, Type::Error)
+            }
             ExpressionKind::TypePath(path) => return self.elaborate_type_path(path),
         };
         let id = self.interner.push_expr(hir_expr);
@@ -387,16 +390,27 @@ impl<'context> Elaborator<'context> {
 
     fn elaborate_call(&mut self, call: CallExpression, span: Span) -> (HirExpression, Type) {
         let (func, func_type) = self.elaborate_expression(*call.func);
+        let func_arg_types =
+            if let Type::Function(args, _, _, _) = &func_type { Some(args) } else { None };
 
         let mut arguments = Vec::with_capacity(call.arguments.len());
-        let args = vecmap(call.arguments, |arg| {
+        let args = vecmap(call.arguments.into_iter().enumerate(), |(arg_index, arg)| {
             let span = arg.span;
+            let expected_type = func_arg_types.and_then(|args| args.get(arg_index));
 
             let (arg, typ) = if call.is_macro_call {
-                self.elaborate_in_comptime_context(|this| this.elaborate_expression(arg))
+                self.elaborate_in_comptime_context(|this| {
+                    this.elaborate_expression_with_type(arg, expected_type)
+                })
             } else {
-                self.elaborate_expression(arg)
+                self.elaborate_expression_with_type(arg, expected_type)
             };
+
+            // Try to unify this argument type against the function's argument type
+            // so that a potential lambda following this argument can have more concrete types.
+            if let Some(expected_type) = expected_type {
+                let _ = expected_type.unify(&typ);
+            }
 
             arguments.push(arg);
             (typ, arg, span)
@@ -458,6 +472,32 @@ impl<'context> Elaborator<'context> {
                     None
                 };
 
+                let call_span = Span::from(object_span.start()..method_name_span.end());
+                let location = Location::new(call_span, self.file);
+
+                let (function_id, function_name) = method_ref.clone().into_function_id_and_name(
+                    object_type.clone(),
+                    generics.clone(),
+                    location,
+                    self.interner,
+                );
+
+                let func_type =
+                    self.type_check_variable(function_name.clone(), function_id, generics.clone());
+                self.interner.push_expr_type(function_id, func_type.clone());
+
+                let func_arg_types =
+                    if let Type::Function(args, _, _, _) = &func_type { Some(args) } else { None };
+
+                // Try to unify the object type with the first argument of the function.
+                // The reason to do this is that many methods that take a lambda will yield `self` or part of `self`
+                // as a parameter. By unifying `self` with the first argument we'll potentially get more
+                // concrete types in the arguments that are function types, which will later be passed as
+                // lambda parameter hints.
+                if let Some(first_arg_type) = func_arg_types.and_then(|args| args.first()) {
+                    let _ = first_arg_type.unify(&object_type);
+                }
+
                 // These arguments will be given to the desugared function call.
                 // Compared to the method arguments, they also contain the object.
                 let mut function_args = Vec::with_capacity(method_call.arguments.len() + 1);
@@ -465,17 +505,22 @@ impl<'context> Elaborator<'context> {
 
                 function_args.push((object_type.clone(), object, object_span));
 
-                for arg in method_call.arguments {
+                for (arg_index, arg) in method_call.arguments.into_iter().enumerate() {
                     let span = arg.span;
-                    let (arg, typ) = self.elaborate_expression(arg);
+                    let expected_type = func_arg_types.and_then(|args| args.get(arg_index + 1));
+                    let (arg, typ) = self.elaborate_expression_with_type(arg, expected_type);
+
+                    // Try to unify this argument type against the function's argument type
+                    // so that a potential lambda following this argument can have more concrete types.
+                    if let Some(expected_type) = expected_type {
+                        let _ = expected_type.unify(&typ);
+                    }
+
                     arguments.push(arg);
                     function_args.push((typ, arg, span));
                 }
 
-                let call_span = Span::from(object_span.start()..method_name_span.end());
-                let location = Location::new(call_span, self.file);
                 let method = method_call.method_name;
-                let turbofish_generics = generics.clone();
                 let is_macro_call = method_call.is_macro_call;
                 let method_call =
                     HirMethodCallExpression { method, object, arguments, location, generics };
@@ -485,18 +530,9 @@ impl<'context> Elaborator<'context> {
                 // Desugar the method call into a normal, resolved function call
                 // so that the backend doesn't need to worry about methods
                 // TODO: update object_type here?
-                let ((function_id, function_name), function_call) = method_call.into_function_call(
-                    method_ref,
-                    object_type,
-                    is_macro_call,
-                    location,
-                    self.interner,
-                );
 
-                let func_type =
-                    self.type_check_variable(function_name, function_id, turbofish_generics);
-
-                self.interner.push_expr_type(function_id, func_type.clone());
+                let function_call =
+                    method_call.into_function_call(function_id, is_macro_call, location);
 
                 self.interner
                     .add_function_reference(func_id, Location::new(method_name_span, self.file));
@@ -518,6 +554,26 @@ impl<'context> Elaborator<'context> {
             }
             None => (HirExpression::Error, Type::Error),
         }
+    }
+
+    /// Elaborates an expression knowing that it has to match a given type.
+    fn elaborate_expression_with_type(
+        &mut self,
+        arg: Expression,
+        typ: Option<&Type>,
+    ) -> (ExprId, Type) {
+        let ExpressionKind::Lambda(lambda) = arg.kind else {
+            return self.elaborate_expression(arg);
+        };
+
+        let span = arg.span;
+        let type_hint =
+            if let Some(Type::Function(func_args, _, _, _)) = typ { Some(func_args) } else { None };
+        let (hir_expr, typ) = self.elaborate_lambda(*lambda, type_hint);
+        let id = self.interner.push_expr(hir_expr);
+        self.interner.push_expr_location(id, span, self.file);
+        self.interner.push_expr_type(id, typ.clone());
+        (id, typ)
     }
 
     fn check_method_call_visibility(&mut self, func_id: FuncId, object_type: &Type, name: &Ident) {
@@ -561,12 +617,14 @@ impl<'context> Elaborator<'context> {
         let is_self_type = last_segment.ident.is_self_type_name();
 
         let (r#type, struct_generics) = if let Some(struct_id) = constructor.struct_type {
-            let typ = self.interner.get_struct(struct_id);
+            let typ = self.interner.get_type(struct_id);
             let generics = typ.borrow().instantiate(self.interner);
             (typ, generics)
         } else {
             match self.lookup_type_or_error(path) {
-                Some(Type::Struct(r#type, struct_generics)) => (r#type, struct_generics),
+                Some(Type::DataType(r#type, struct_generics)) if r#type.borrow().is_struct() => {
+                    (r#type, struct_generics)
+                }
                 Some(typ) => {
                     self.push_err(ResolverError::NonStructUsedInConstructor {
                         typ: typ.to_string(),
@@ -593,7 +651,11 @@ impl<'context> Elaborator<'context> {
         let generics = struct_generics.clone();
 
         let fields = constructor.fields;
-        let field_types = r#type.borrow().get_fields_with_visibility(&struct_generics);
+        let field_types = r#type
+            .borrow()
+            .get_fields_with_visibility(&struct_generics)
+            .expect("This type should already be validated to be a struct");
+
         let fields =
             self.resolve_constructor_expr_fields(struct_type.clone(), field_types, fields, span);
         let expr = HirExpression::Constructor(HirConstructorExpression {
@@ -604,12 +666,12 @@ impl<'context> Elaborator<'context> {
 
         let struct_id = struct_type.borrow().id;
         let reference_location = Location::new(last_segment.ident.span(), self.file);
-        self.interner.add_struct_reference(struct_id, reference_location, is_self_type);
+        self.interner.add_type_reference(struct_id, reference_location, is_self_type);
 
-        (expr, Type::Struct(struct_type, generics))
+        (expr, Type::DataType(struct_type, generics))
     }
 
-    pub(super) fn mark_struct_as_constructed(&mut self, struct_type: Shared<StructType>) {
+    pub(super) fn mark_struct_as_constructed(&mut self, struct_type: Shared<DataType>) {
         let struct_type = struct_type.borrow();
         let parent_module_id = struct_type.id.parent_module_id(self.def_maps);
         self.usage_tracker.mark_as_used(parent_module_id, &struct_type.name);
@@ -620,14 +682,17 @@ impl<'context> Elaborator<'context> {
     /// are part of the struct.
     fn resolve_constructor_expr_fields(
         &mut self,
-        struct_type: Shared<StructType>,
+        struct_type: Shared<DataType>,
         field_types: Vec<(String, ItemVisibility, Type)>,
         fields: Vec<(Ident, Expression)>,
         span: Span,
     ) -> Vec<(Ident, ExprId)> {
         let mut ret = Vec::with_capacity(fields.len());
         let mut seen_fields = HashSet::default();
-        let mut unseen_fields = struct_type.borrow().field_names();
+        let mut unseen_fields = struct_type
+            .borrow()
+            .field_names()
+            .expect("This type should already be validated to be a struct");
 
         for (field_name, field) in fields {
             let expected_field_with_index = field_types
@@ -846,19 +911,38 @@ impl<'context> Elaborator<'context> {
         (HirExpression::Tuple(element_ids), Type::Tuple(element_types))
     }
 
-    fn elaborate_lambda(&mut self, lambda: Lambda) -> (HirExpression, Type) {
+    /// For elaborating a lambda we might get `parameters_type_hints`. These come from a potential
+    /// call that has this lambda as the argument.
+    /// The parameter type hints will be the types of the function type corresponding to the lambda argument.
+    fn elaborate_lambda(
+        &mut self,
+        lambda: Lambda,
+        parameters_type_hints: Option<&Vec<Type>>,
+    ) -> (HirExpression, Type) {
         self.push_scope();
         let scope_index = self.scopes.current_scope_index();
 
         self.lambda_stack.push(LambdaContext { captures: Vec::new(), scope_index });
 
         let mut arg_types = Vec::with_capacity(lambda.parameters.len());
-        let parameters = vecmap(lambda.parameters, |(pattern, typ)| {
-            let parameter = DefinitionKind::Local(None);
-            let typ = self.resolve_inferred_type(typ);
-            arg_types.push(typ.clone());
-            (self.elaborate_pattern(pattern, typ.clone(), parameter, true), typ)
-        });
+        let parameters =
+            vecmap(lambda.parameters.into_iter().enumerate(), |(index, (pattern, typ))| {
+                let parameter = DefinitionKind::Local(None);
+                let typ = if let UnresolvedTypeData::Unspecified = typ.typ {
+                    if let Some(parameter_type_hint) =
+                        parameters_type_hints.and_then(|hints| hints.get(index))
+                    {
+                        parameter_type_hint.clone()
+                    } else {
+                        self.interner.next_type_variable_with_kind(Kind::Any)
+                    }
+                } else {
+                    self.resolve_type(typ)
+                };
+
+                arg_types.push(typ.clone());
+                (self.elaborate_pattern(pattern, typ.clone(), parameter, true), typ)
+            });
 
         let return_type = self.resolve_inferred_type(lambda.return_type);
         let body_span = lambda.body.span;

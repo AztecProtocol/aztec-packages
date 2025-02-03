@@ -41,7 +41,7 @@ describe('blake2s sync', () => {
   let api: BarretenbergSync;
 
   beforeAll(async () => {
-    api = await BarretenbergSync.new();
+    api = await BarretenbergSync.initSingleton();
   });
 
   it('blake2s', () => {

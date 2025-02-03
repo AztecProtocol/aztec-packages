@@ -12,13 +12,6 @@ interface AztecBaseMap<K extends Key, V> {
   set(key: K, val: V): Promise<void>;
 
   /**
-   * Atomically swap the value at the given key
-   * @param key - The key to swap the value at
-   * @param fn - The function to swap the value with
-   */
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void>;
-
-  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set

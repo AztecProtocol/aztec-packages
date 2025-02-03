@@ -38,16 +38,14 @@ contract FPC {
     /// ## Overview
     /// Uses partial notes to implement a refund flow which works as follows:
     /// Setup Phase:
-    /// 1. This `setup_refund` function:
-    ///     - Calls the AA token contract, which:
-    ///         - subtracts the `max_fee` from the user's balance;
-    ///         - prepares a partial note for the user (which will be used to later refund the user any unspent fee);
-    ///         - sets a public teardown function (within the same AA token contract), where at the end of the tx
-    ///            a fee (denominated in AA) will be transferred to the FPC in public, and a partial note will be finalized
-    ///            with the refund amount (also denominated in AA).
-    ///     - Sets itself as the `fee_payer` of the tx; meaning this contract will be responsible for ultimately
-    ///        transferring the `tx_fee` -- denominated in fee juice -- to the protocol, during the later "teardown"
-    ///        phase of this tx.
+    /// 1. This `fee_entrypoint_private` function:
+    ///     - Transfers `max_fee` of AA from private balance of the user to the public balance of this contract,
+    ///     - prepares a partial note for the user (which will later on be used to refund the user any unspent fee),
+    ///     - sets a public teardown function, where at the end of the tx a partial note will be finalized
+    ///       with the refund amount (also denominated in AA),
+    ///     - sets itself as the `fee_payer` of the tx; meaning this contract will be responsible for ultimately
+    ///       transferring the `tx_fee` -- denominated in fee juice -- to the protocol, during the later "teardown"
+    ///       phase of this tx.
     ///
     /// Execution Phase:
     /// 2. Then the private and public functions of the tx get executed.
@@ -56,12 +54,10 @@ contract FPC {
     /// 3. By this point, the protocol has computed the `tx_fee` (denominated in "fee juice"). So now we can
     /// execute the "teardown function" which was lined-up during the earlier "setup phase".
     /// Within the teardown function, we:
-    ///     - compute how much of the `max_fee` (denominated in AA) the user needs to pay to the FPC,
-    ///       and how much of it will be refunded back to the user. Since the protocol-calculated `tx_fee` is
-    ///       denominated in fee juice, and not in this FPC's AA, an equivalent value of AA is computed based
-    ///       on an exchange rate between AA and fee juice.
-    ///     - finalize the refund note with a value of `max_fee - tx_fee` for the user;
-    ///     - send the tx fee to the FPC in public.
+    ///     - Compute how much of the `max_fee` (denominated in AA) will be refunded back to the user. Since
+    ///       the protocol-calculated `tx_fee` is denominated in fee juice, and not in this FPC's AA, an equivalent
+    ///       value of AA is computed based on the exchange rate between AA and fee juice,
+    ///     - finalize the refund note with a value of `max_fee - tx_fee` for the user.
     ///
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the protocol-calculated `tx_fee` (denominated in fee juice) from the `fee_payer`'s
@@ -69,25 +65,68 @@ contract FPC {
     /// "fee juice" contract.
     ///
     /// With this scheme a user has privately paid for the tx fee with an arbitrary AA (e.g. could be a stablecoin),
-    /// by paying this FPC. This FPC has in turn paid the protocol-mandated `tx_fee` (denominated in fee
-    /// juice).
+    /// by paying this FPC. This FPC has in turn paid the protocol-mandated `tx_fee` (denominated in fee juice).
     ///
     /// ***Note:***
     /// This flow allows us to pay for the tx with msg_sender's private balance of AA and hence msg_sender's identity
     /// is not revealed. We do, however, reveal:
-    /// - the `max_fee`;
-    /// - which FPC has been used to make the payment;
+    /// - the `max_fee`,
+    /// - which FPC has been used to make the payment,
     /// - the asset which was used to make the payment.
+    // docs:start:fee_entrypoint_private
     #[private]
-    fn fee_entrypoint_private(max_fee: Field, nonce: Field) {
+    fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
-        let config = storage.config.read();
+        let accepted_asset = storage.config.read().accepted_asset;
 
-        Token::at(config.accepted_asset).setup_refund(context.msg_sender(), max_fee, nonce).call(
-            &mut context,
+        let user = context.msg_sender();
+        let token = Token::at(accepted_asset);
+
+        // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
+        // fee juice/mana/gas limit. Currently the fee juice/AA exchange rate is fixed 1:1.
+
+        // Pull the max fee from the user's balance of the accepted asset to the public balance of this contract.
+        token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
+
+        // Prepare a partial note for the refund for the user.
+        let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
+
+        // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
+        let max_fee_serialized = max_fee.serialize();
+        context.set_public_teardown_function(
+            context.this_address(),
+            comptime {
+                FunctionSelector::from_signature("complete_refund((Field),Field,(Field,Field))")
+            },
+            [accepted_asset.to_field(), refund_slot, max_fee_serialized[0], max_fee_serialized[1]],
         );
+
+        // Set the FPC as the fee payer of the tx.
         context.set_as_fee_payer();
     }
+    // docs:end:fee_entrypoint_private
+
+    /// Executed as a public teardown function and is responsible for completing the refund in the private fee payment
+    /// flow.
+    // docs:start:complete_refund
+    #[public]
+    #[internal]
+    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
+        let tx_fee = U128::from_integer(context.transaction_fee());
+
+        // 1. Check that user funded the fee payer contract with at least the transaction fee.
+        // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
+        assert(max_fee >= tx_fee, "max fee not enough to cover tx fee");
+
+        // 2. Compute the refund amount as the difference between funded amount and the tx fee.
+        // TODO(#10805): Introduce a real exchange rate
+        let refund_amount = max_fee - tx_fee;
+
+        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, refund_slot).call(
+            &mut context,
+        );
+    }
+    // docs:end:complete_refund
 
     /// Pays for the tx fee with msg_sender's public balance of accepted asset (AA). The maximum fee a user is willing
     /// to pay is defined by `max_fee` and is denominated in AA.
@@ -110,7 +149,7 @@ contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
-    fn fee_entrypoint_public(max_fee: Field, nonce: Field) {
+    fn fee_entrypoint_public(max_fee: U128, nonce: Field) {
         // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
@@ -124,21 +163,29 @@ contract FPC {
         context.set_as_fee_payer();
         // TODO(#6277) for improving interface:
         // FPC::at(context.this_address()).pay_refund(...).set_public_teardown_function(&mut context);
+        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
-            [context.msg_sender().to_field(), max_fee, config.accepted_asset.to_field()],
+            comptime {
+                FunctionSelector::from_signature("pay_refund((Field),(Field,Field),(Field))")
+            },
+            [
+                context.msg_sender().to_field(),
+                max_fee_serialized[0],
+                max_fee_serialized[1],
+                config.accepted_asset.to_field(),
+            ],
         );
     }
 
-    /// Pays the refund to the `refund_recipient`. The refund is the difference between the `max_fee` and
-    /// the actual fee. `accepted_asset` is the asset in which the refund is paid. It's passed as an argument
-    /// to avoid the need for another read from public storage.
+    /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
+    /// between the `max_fee` and the actual fee. `accepted_asset` is the asset in which the refund is paid.
+    /// It's passed as an argument to avoid the need for another read from public storage.
     #[public]
     #[internal]
-    fn pay_refund(refund_recipient: AztecAddress, max_fee: Field, accepted_asset: AztecAddress) {
-        let actual_fee = context.transaction_fee();
-        assert(!max_fee.lt(actual_fee), "Max fee paid to the paymaster does not cover actual fee");
+    fn pay_refund(refund_recipient: AztecAddress, max_fee: U128, accepted_asset: AztecAddress) {
+        let actual_fee = U128::from_integer(context.transaction_fee());
+        assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
 

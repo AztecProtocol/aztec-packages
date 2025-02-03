@@ -56,7 +56,7 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
     return wv;
 }
 
-std::vector<uint8_t> decompress(uint8_t* bytes, size_t size)
+std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
     // initial size guess
@@ -103,17 +103,13 @@ class ClientIVCAPI : public API {
         }
 
         if (input_type == "runtime_stack") {
-            std::vector<std::string> gzipped_bincodes;
-            std::vector<std::string> witness_data;
-            gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
-            witness_data = unpack_from_file<std::vector<std::string>>(witness_path);
+            std::vector<std::string> gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
+            std::vector<std::string> witness_data = unpack_from_file<std::vector<std::string>>(witness_path);
             for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
                 // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a
                 // buffer in the future
-                std::vector<uint8_t> constraint_buf =
-                    decompress(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
-                std::vector<uint8_t> witness_buf =
-                    decompress(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
+                std::vector<uint8_t> constraint_buf = decompress(bincode.data(), bincode.size()); // NOLINT
+                std::vector<uint8_t> witness_buf = decompress(wit.data(), wit.size());            // NOLINT
 
                 AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
                 WitnessVector witness = witness_buf_to_witness_data(witness_buf);
@@ -164,8 +160,8 @@ class ClientIVCAPI : public API {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_bn254_crs(1 << CONST_PG_LOG_N);
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
@@ -203,7 +199,7 @@ class ClientIVCAPI : public API {
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
         init_bn254_crs(1);
-        init_grumpkin_crs(1 << 15);
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
         const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
@@ -227,8 +223,8 @@ class ClientIVCAPI : public API {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_bn254_crs(1 << CONST_PG_LOG_N);
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
@@ -256,8 +252,8 @@ class ClientIVCAPI : public API {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_bn254_crs(1 << CONST_PG_LOG_N);
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
         ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 

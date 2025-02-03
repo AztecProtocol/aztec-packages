@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 /**
  * Represents an individual unencrypted log entry.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class UnencryptedL2Log {
   constructor(
@@ -88,8 +89,8 @@ export class UnencryptedL2Log {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): UnencryptedL2Log {
-    const contractAddress = AztecAddress.random();
+  public static async random(): Promise<UnencryptedL2Log> {
+    const contractAddress = await AztecAddress.random();
     const dataLength = randomBytes(1)[0];
     const data = randomBytes(dataLength);
     return new UnencryptedL2Log(contractAddress, data);

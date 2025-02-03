@@ -11,7 +11,6 @@ import {
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
@@ -24,6 +23,7 @@ import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
   ConstantRollupData,
@@ -68,14 +68,12 @@ export class BlockProvingState {
   constructor(
     public readonly index: number,
     public readonly globalVariables: GlobalVariables,
-    public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    private readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    private readonly messageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
-    private readonly archiveTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    public readonly newL1ToL2Messages: Fr[],
+    private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
+    private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
-    private readonly previousBlockHash: Fr,
     private readonly parentEpoch: EpochProvingState,
   ) {
     this.baseParityProvingOutputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
@@ -166,21 +164,18 @@ export class BlockProvingState {
     return this.baseOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public async getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.baseOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+    return new MergeRollupInputs([await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)]);
   }
 
-  public getBlockRootRollupTypeAndInputs(proverId: Fr) {
-    if (this.totalNumTxs === 0) {
-      return {
-        rollupType: 'empty-block-root-rollup' satisfies CircuitName,
-        inputs: this.#getEmptyBlockRootInputs(proverId),
-      };
+  public async getBlockRootRollupTypeAndInputs(proverId: Fr) {
+    if (!this.rootParityProvingOutput) {
+      throw new Error('Root parity is not ready.');
     }
 
     const proofs = this.#getChildProofsForBlockRoot();
@@ -189,39 +184,86 @@ export class BlockProvingState {
       throw new Error('At lease one child is not ready for the block root.');
     }
 
-    const previousRollupData = nonEmptyProofs.map(p => this.#getPreviousRollupData(p!));
-    const data = this.#getBlockRootRollupData(proverId);
+    const data = await this.#getBlockRootRollupData(proverId);
+
+    if (this.totalNumTxs === 0) {
+      const constants = ConstantRollupData.from({
+        lastArchive: this.lastArchiveSnapshot,
+        globalVariables: this.globalVariables,
+        vkTreeRoot: await getVKTreeRoot(),
+        protocolContractTreeRoot,
+      });
+
+      return {
+        rollupType: 'empty-block-root-rollup' satisfies CircuitName,
+        inputs: EmptyBlockRootRollupInputs.from({
+          data,
+          constants,
+          isPadding: false,
+        }),
+      };
+    }
+
+    const previousRollupData = await Promise.all(nonEmptyProofs.map(p => this.#getPreviousRollupData(p!)));
+    const blobData = await this.#getBlockRootRollupBlobData();
 
     if (previousRollupData.length === 1) {
       return {
         rollupType: 'single-tx-block-root-rollup' satisfies CircuitName,
-        inputs: new SingleTxBlockRootRollupInputs(previousRollupData as [PreviousRollupData], data),
+        inputs: new SingleTxBlockRootRollupInputs(previousRollupData as [PreviousRollupData], data, blobData),
       };
     } else {
       return {
         rollupType: 'block-root-rollup' satisfies CircuitName,
-        inputs: new BlockRootRollupInputs(previousRollupData as [PreviousRollupData, PreviousRollupData], data),
+        inputs: new BlockRootRollupInputs(
+          previousRollupData as [PreviousRollupData, PreviousRollupData],
+          data,
+          blobData,
+        ),
       };
     }
   }
 
-  public getRootParityInputs() {
-    if (!this.baseParityProvingOutputs.every(p => !!p)) {
-      throw new Error('At lease one base parity is not ready.');
-    }
-
-    const children = this.baseParityProvingOutputs.map(p => this.#getRootParityInputFromProvingOutput(p!));
-    return new RootParityInputs(
-      children as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
-    );
-  }
-
-  public getL1ToL2Roots() {
+  public async getPaddingBlockRootInputs(proverId: Fr) {
     if (!this.rootParityProvingOutput) {
       throw new Error('Root parity is not ready.');
     }
 
-    return this.#getRootParityInputFromProvingOutput(this.rootParityProvingOutput);
+    // Use the new block header and archive of the current block as the previous header and archiver of the next padding block.
+    const newBlockHeader = await this.buildHeaderFromProvingOutputs();
+    const newArchive = this.blockRootProvingOutput!.inputs.newArchive;
+
+    const data = BlockRootRollupData.from({
+      l1ToL2Roots: await this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      newArchiveSiblingPath: this.newArchiveSiblingPath,
+      previousBlockHeader: newBlockHeader,
+      proverId,
+    });
+
+    const constants = ConstantRollupData.from({
+      lastArchive: newArchive,
+      globalVariables: this.globalVariables,
+      vkTreeRoot: await getVKTreeRoot(),
+      protocolContractTreeRoot,
+    });
+
+    return EmptyBlockRootRollupInputs.from({
+      data,
+      constants,
+      isPadding: true,
+    });
+  }
+
+  public async getRootParityInputs() {
+    if (!this.baseParityProvingOutputs.every(p => !!p)) {
+      throw new Error('At lease one base parity is not ready.');
+    }
+
+    const children = await Promise.all(this.baseParityProvingOutputs.map(p => this.#getRootParityData(p!)));
+    return new RootParityInputs(
+      children as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+    );
   }
 
   // Returns a specific transaction proving state
@@ -229,9 +271,11 @@ export class BlockProvingState {
     return this.txs[txIndex];
   }
 
-  public buildHeaderFromProvingOutputs(logger?: Logger) {
+  public async buildHeaderFromProvingOutputs(logger?: Logger) {
     const previousRollupData =
-      this.totalNumTxs === 0 ? [] : this.#getChildProofsForBlockRoot().map(p => this.#getPreviousRollupData(p!));
+      this.totalNumTxs === 0
+        ? []
+        : await Promise.all(this.#getChildProofsForBlockRoot().map(p => this.#getPreviousRollupData(p!)));
 
     let endPartialState = this.previousBlockHeader.state.partial;
     if (this.totalNumTxs !== 0) {
@@ -242,7 +286,7 @@ export class BlockProvingState {
       }
       endPartialState = lastRollup.inputs.end;
     }
-    const endState = new StateReference(this.messageTreeSnapshotAfterInsertion, endPartialState);
+    const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
 
     return buildHeaderFromCircuitOutputs(
       previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
@@ -268,6 +312,10 @@ export class BlockProvingState {
     return this.baseParityProvingOutputs.every(p => !!p);
   }
 
+  public isComplete() {
+    return !!this.blockRootProvingOutput;
+  }
+
   // Returns whether the proving state is still valid
   public verifyState() {
     return this.parentEpoch.verifyState();
@@ -278,38 +326,20 @@ export class BlockProvingState {
     this.parentEpoch.reject(reason);
   }
 
-  #getEmptyBlockRootInputs(proverId: Fr) {
-    const l1ToL2Roots = this.getL1ToL2Roots();
-    const constants = ConstantRollupData.from({
-      lastArchive: this.archiveTreeSnapshot,
-      globalVariables: this.globalVariables,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
-    });
-
-    return EmptyBlockRootRollupInputs.from({
-      l1ToL2Roots,
-      newL1ToL2MessageTreeRootSiblingPath: this.messageTreeRootSiblingPath,
-      startL1ToL2MessageTreeSnapshot: this.messageTreeSnapshot,
-      newArchiveSiblingPath: this.archiveTreeRootSiblingPath,
-      previousBlockHash: this.previousBlockHash,
-      previousPartialState: this.previousBlockHeader.state.partial,
-      constants,
+  async #getBlockRootRollupData(proverId: Fr) {
+    return BlockRootRollupData.from({
+      l1ToL2Roots: await this.#getRootParityData(this.rootParityProvingOutput!),
+      l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
+      newArchiveSiblingPath: this.newArchiveSiblingPath,
+      previousBlockHeader: this.previousBlockHeader,
       proverId,
-      isPadding: false,
     });
   }
 
-  #getBlockRootRollupData(proverId: Fr) {
+  async #getBlockRootRollupBlobData() {
     const txEffects = this.txs.map(txProvingState => txProvingState.processedTx.txEffect);
-    const { blobFields, blobCommitments, blobsHash } = buildBlobHints(txEffects);
-    return BlockRootRollupData.from({
-      l1ToL2Roots: this.getL1ToL2Roots(),
-      newL1ToL2MessageTreeRootSiblingPath: this.messageTreeRootSiblingPath,
-      startL1ToL2MessageTreeSnapshot: this.messageTreeSnapshot,
-      newArchiveSiblingPath: this.archiveTreeRootSiblingPath,
-      previousBlockHash: this.previousBlockHash,
-      proverId,
+    const { blobFields, blobCommitments, blobsHash } = await buildBlobHints(txEffects);
+    return BlockRootRollupBlobData.from({
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
       blobCommitments: padArrayEnd(blobCommitments, [Fr.ZERO, Fr.ZERO], BLOBS_PER_BLOCK),
       blobsHash,
@@ -328,29 +358,25 @@ export class BlockProvingState {
       : this.baseOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  #getPreviousRollupData({
+  async #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
   }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
-    const leafIndex = getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
     );
   }
 
-  #getRootParityInputFromProvingOutput({
-    inputs,
-    proof,
-    verificationKey,
-  }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+  async #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
     return new RootParityInput(
       proof,
       verificationKey.keyAsFields,
-      getVKSiblingPath(getVKIndex(verificationKey)),
+      await getVKSiblingPath(await getVKIndex(verificationKey)),
       inputs,
     );
   }

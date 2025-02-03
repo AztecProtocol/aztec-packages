@@ -15,9 +15,12 @@ import type * as chains from 'viem/chains';
  * block within the slot. And if so, it will time travel into the next slot.
  */
 export class AnvilTestWatcher {
+  private isSandbox: boolean = false;
+
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
 
   private filledRunningPromise?: RunningPromise;
+  private mineIfOutdatedPromise?: RunningPromise;
 
   private logger: Logger = createLogger(`aztecjs:utils:watcher`);
 
@@ -36,6 +39,10 @@ export class AnvilTestWatcher {
     this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }
 
+  setIsSandbox(isSandbox: boolean) {
+    this.isSandbox = isSandbox;
+  }
+
   async start() {
     if (this.filledRunningPromise) {
       throw new Error('Watcher already watching for filled slot');
@@ -48,8 +55,10 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), this.logger, 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
       this.filledRunningPromise.start();
+      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 1000);
+      this.mineIfOutdatedPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
       this.logger.info(`Watcher not started because not auto mining`);
@@ -58,25 +67,64 @@ export class AnvilTestWatcher {
 
   async stop() {
     await this.filledRunningPromise?.stop();
+    await this.mineIfOutdatedPromise?.stop();
   }
 
-  async mineIfSlotFilled() {
+  async mineIfOutdated() {
+    // this doesn't apply to the sandbox, because we don't have a date provider in the sandbox
+    if (!this.dateProvider) {
+      return;
+    }
+
+    const l1Time = (await this.cheatcodes.timestamp()) * 1000;
+    const wallTime = this.dateProvider.now();
+
+    // If the wall time is more than 24 seconds away from L1 time,
+    // mine a block and sync the clocks
+    if (Math.abs(wallTime - l1Time) > 24 * 1000) {
+      this.logger.warn(`Wall time is more than 24 seconds away from L1 time, mining a block and syncing clocks`);
+      await this.cheatcodes.evmMine();
+      const newL1Time = await this.cheatcodes.timestamp();
+      this.logger.info(`New L1 time: ${newL1Time}`);
+      this.dateProvider.setTime(newL1Time * 1000);
+    }
+  }
+
+  async warpTimeIfNeeded() {
     try {
       const currentSlot = await this.rollup.read.getCurrentSlot();
       const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
       const blockLog = await this.rollup.read.getBlock([pendingBlockNumber]);
+      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([currentSlot + 1n]));
 
       if (currentSlot === blockLog.slotNumber) {
         // We should jump to the next slot
-        const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
         try {
-          await this.cheatcodes.warp(Number(timestamp));
-          this.dateProvider?.setTime(Number(timestamp) * 1000);
+          await this.cheatcodes.warp(nextSlotTimestamp);
+          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
         } catch (e) {
-          this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
+          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
         }
 
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        return;
+      }
+
+      // If we are not in sandbox, we don't need to warp time
+      if (!this.isSandbox) {
+        return;
+      }
+
+      const currentTimestamp = this.dateProvider?.now() ?? Date.now();
+      if (currentTimestamp > nextSlotTimestamp * 1000) {
+        try {
+          await this.cheatcodes.warp(nextSlotTimestamp);
+          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
+        } catch (e) {
+          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
+        }
+
+        this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
       }
     } catch (err) {
       this.logger.error('mineIfSlotFilled failed');

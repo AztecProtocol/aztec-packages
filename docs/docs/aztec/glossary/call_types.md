@@ -112,7 +112,7 @@ Since the public call is made asynchronously, any return values or side effects 
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
-It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
+It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
