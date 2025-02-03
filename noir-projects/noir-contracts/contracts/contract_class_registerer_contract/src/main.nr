@@ -4,7 +4,7 @@ mod capsule;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractClassRegisterer {
+pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
         abis::log_hash::LogHash,
         constants::{

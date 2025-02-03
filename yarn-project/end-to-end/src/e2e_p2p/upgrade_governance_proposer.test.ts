@@ -192,9 +192,9 @@ describe('e2e_p2p_governance_proposer', () => {
     const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
-    t.logger.info(`Warpping to ${timeToActive + 1n}`);
+    t.logger.info(`Warping to ${timeToActive + 1n}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToActive + 1n));
-    t.logger.info(`Warpped to ${timeToActive + 1n}`);
+    t.logger.info(`Warped to ${timeToActive + 1n}`);
     await waitL1Block();
 
     t.logger.info(`Voting`);
@@ -203,9 +203,9 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info(`Voted`);
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-    t.logger.info(`Warpping to ${timeToExecutable}`);
+    t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));
-    t.logger.info(`Warpped to ${timeToExecutable}`);
+    t.logger.info(`Warped to ${timeToExecutable}`);
     await waitL1Block();
 
     t.logger.info(`Checking governance proposer`);

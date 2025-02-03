@@ -1,12 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
+import { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type Logger, type SentTx, TxStatus, type Wallet } from '@aztec/aztec.js';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
 import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
+import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
+import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
@@ -58,33 +58,10 @@ export const createPXEServiceAndSubmitTransactions = async (
   await account.register();
   const wallet = await account.getWallet();
 
-  const txs = await submitTxsTo(logger, pxeService, numTxs, wallet);
+  const txs = await submitTxsTo(pxeService, numTxs, wallet, logger);
   return {
     txs,
     pxeService,
     node,
   };
-};
-
-// submits a set of transactions to the provided Private eXecution Environment (PXE)
-const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number, wallet: Wallet) => {
-  const sentTxs = await Promise.all(
-    Array.from({ length: numTxs }).map(async () => {
-      const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-      const tx = accountManager.deploy({ deployWallet: wallet });
-      const txHash = await tx.getTxHash();
-
-      logger.info(`Tx sent with hash ${txHash}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
-      logger.info(`Receipt received for ${txHash}`);
-      return tx;
-    }),
-  );
-  return sentTxs;
 };

@@ -137,7 +137,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     );
 
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
-    const slotDuration = await rollupContract.read.SLOT_DURATION();
+    const slotDuration = await rollupContract.read.getSlotDuration();
 
     const proposers = [];
 

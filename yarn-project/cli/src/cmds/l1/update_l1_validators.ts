@@ -162,7 +162,7 @@ export async function fastForwardEpochs({
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
-  const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
+  const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {

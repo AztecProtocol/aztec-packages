@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Child {
+pub contract Child {
     use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{

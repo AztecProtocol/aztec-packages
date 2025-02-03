@@ -10,21 +10,17 @@ import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
-process.env = Object.keys(import.meta.env).reduce((acc, key) => {
-  acc[key.replace("VITE_", "")] = import.meta.env[key];
-  return acc;
-}, {});
-
 export class PrivateEnv {
   pxe;
 
-  constructor(private nodeURL: string) {}
+  constructor() {}
 
   async init() {
+    const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
-    config.proverEnabled = true;
-    const aztecNode = await createAztecNodeClient(this.nodeURL);
+    const aztecNode = await createAztecNodeClient(nodeURL);
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,
@@ -39,7 +35,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:indexeddb"),
+      createLogger("pxe:data:idb"),
     );
 
     const keyStore = new KeyStore(store);
@@ -70,7 +66,7 @@ export class PrivateEnv {
   }
 }
 
-export const deployerEnv = new PrivateEnv(process.env.AZTEC_NODE_URL);
+export const deployerEnv = new PrivateEnv();
 
 const IGNORE_FUNCTIONS = [
   "constructor",

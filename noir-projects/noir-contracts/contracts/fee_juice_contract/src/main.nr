@@ -3,7 +3,7 @@ mod lib;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract FeeJuice {
+pub contract FeeJuice {
     use dep::aztec::{
         macros::{functions::{internal, private, public, view}, storage::storage},
         protocol_types::address::{AztecAddress, EthAddress},

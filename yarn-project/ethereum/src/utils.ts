@@ -92,6 +92,30 @@ export function prettyLogViemErrorMsg(err: any) {
   return err?.message ?? err;
 }
 
+function getNestedErrorData(error: unknown): string | undefined {
+  // If nothing, bail
+  if (!error) {
+    return undefined;
+  }
+
+  // If it's an object with a `data` property, return it
+  // (Remember to check TS type-safely or cast as needed)
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const possibleData = (error as any).data;
+    if (typeof possibleData === 'string' && possibleData.startsWith('0x')) {
+      return possibleData;
+    }
+  }
+
+  // If it has a `cause`, recurse
+  if (typeof error === 'object' && error !== null && 'cause' in error) {
+    return getNestedErrorData((error as any).cause);
+  }
+
+  // Not found
+  return undefined;
+}
+
 /**
  * Formats a Viem error into a FormattedViemError instance.
  * @param error - The error to format.
@@ -106,11 +130,12 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // First try to decode as a custom error using the ABI
   try {
-    if (error?.data) {
+    const data = getNestedErrorData(error);
+    if (data) {
       // Try to decode the error data using the ABI
       const decoded = decodeErrorResult({
         abi,
-        data: error.data as Hex,
+        data: data as Hex,
       });
       if (decoded) {
         return new FormattedViemError(`${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`, error?.metaMessages);
@@ -120,6 +145,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     // If it's a BaseError, try to get the custom error through ContractFunctionRevertedError
     if (error instanceof BaseError) {
       const revertError = error.walk(err => err instanceof ContractFunctionRevertedError);
+
       if (revertError instanceof ContractFunctionRevertedError) {
         let errorName = revertError.data?.errorName;
         if (!errorName) {
@@ -138,7 +164,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return new FormattedViemError(error.message);
+    return error;
   }
 
   // Original formatting logic for non-custom errors

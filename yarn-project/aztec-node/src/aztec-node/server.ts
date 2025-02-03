@@ -872,7 +872,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     );
     const fork = await this.worldStateSynchronizer.fork();
 
-    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -885,7 +885,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 
