@@ -35,7 +35,7 @@ template <typename FF> class Graph_ {
 
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
-    std::vector<uint32_t> get_arithmetic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+    std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                                   size_t index);
     std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                                 size_t index);
@@ -98,6 +98,7 @@ template <typename FF> class Graph_ {
                                                 const std::unordered_set<uint32_t>& decompose_variables);
     void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                               std::unordered_set<uint32_t>& variables_in_on_gate);
+    void remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder);
     std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
 
     void remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
@@ -126,6 +127,7 @@ template <typename FF> class Graph_ {
         variables_degree; // we use this data structure to count, how many every variable have edges
     std::unordered_map<uint32_t, std::vector<size_t>> variables_gates;
     std::unordered_set<uint32_t> variables_in_one_gate;
+    std::unordered_set<uint32_t> fixed_variables;
 };
 
 using Graph = Graph_<bb::fr>;
