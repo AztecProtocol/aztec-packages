@@ -15,3 +15,8 @@ data:
     {{ .Files.Get "files/config/config-prover-env.sh" | nindent 4 }}
   deploy-l1-contracts.sh: |
     {{ .Files.Get "files/config/deploy-l1-contracts.sh" | nindent 4 }}
+  get-private-key.sh: |
+    {{ .Files.Get "files/config/get-private-key.sh" | nindent 4 }}
+  get-validator-addresses.sh: |
+    {{ .Files.Get "files/config/get-validator-addresses.sh" | nindent 4 }}
+
