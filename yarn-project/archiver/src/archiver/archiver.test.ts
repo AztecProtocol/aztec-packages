@@ -202,8 +202,6 @@ describe('Archiver', () => {
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobFromBlock(b)));
     blobsFromBlocks.forEach(blob => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([blob]));
 
-    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
-
     makeMessageSentEvent(98n, 1n, 0n);
     makeMessageSentEvent(99n, 1n, 1n);
     makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString(), [blobHashes[0]]);
