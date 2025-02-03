@@ -243,7 +243,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
 
     // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.read.EPOCH_DURATION();
+    const timeToJump = await rollup.read.getEpochDuration();
     await progressTimeBySlot(timeToJump);
   });
 

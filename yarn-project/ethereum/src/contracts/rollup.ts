@@ -93,7 +93,7 @@ export class RollupContract {
 
   @memoize
   getL1GenesisTime() {
-    return this.rollup.read.GENESIS_TIME();
+    return this.rollup.read.getGenesisTime();
   }
 
   @memoize
@@ -103,12 +103,12 @@ export class RollupContract {
 
   @memoize
   getEpochDuration() {
-    return this.rollup.read.EPOCH_DURATION();
+    return this.rollup.read.getEpochDuration();
   }
 
   @memoize
   getSlotDuration() {
-    return this.rollup.read.SLOT_DURATION();
+    return this.rollup.read.getSlotDuration();
   }
 
   @memoize
