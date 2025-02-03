@@ -403,7 +403,7 @@ export class SequencerPublisher {
       }
       return { payload: slashPayload, base: this.slashingProposerContract };
     }
-    throw new Error('Invalid vote type');
+    throw new Error('Unreachable: Invalid vote type');
   }
 
   /**
@@ -606,7 +606,7 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(RollupContract.checkBlobSlot, true),
+                slot: toHex(RollupContract.checkBlobStorageSlot, true),
                 value: toHex(0n, true),
               },
             ],

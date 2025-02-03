@@ -663,13 +663,7 @@ export class L1TxUtils {
       address: Hex;
     },
     blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
-    stateOverride: {
-      address: `0x${string}`;
-      stateDiff: {
-        slot: `0x${string}`;
-        value: `0x${string}`;
-      }[];
-    }[] = [],
+    stateOverride: StateOverride = [],
   ) {
     try {
       await this.publicClient.simulateContract({
@@ -677,7 +671,7 @@ export class L1TxUtils {
         account: this.walletClient.account,
         stateOverride,
       });
-      this.logger?.info('Simulated blob tx', { blobInputs });
+      this.logger?.trace('Simulated blob tx', { blobInputs });
       // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
@@ -696,9 +690,9 @@ export class L1TxUtils {
             to: args.address,
             data,
           };
-      this.logger?.info('Preparing tx', { request });
+      this.logger?.trace('Preparing tx', { request });
       await this.walletClient.prepareTransactionRequest(request);
-      this.logger?.info('Prepared tx');
+      this.logger?.trace('Prepared tx');
       return undefined;
     } catch (simulationErr: any) {
       // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.

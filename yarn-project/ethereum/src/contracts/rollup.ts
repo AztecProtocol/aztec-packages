@@ -45,10 +45,10 @@ export type EpochProofQuoteViemArgs = {
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 
-  static get checkBlobSlot(): bigint {
+  static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
     if (asString === undefined) {
-      throw new Error('checkBlobSlot not found');
+      throw new Error('checkBlobStorageSlot not found');
     }
     return BigInt(asString);
   }

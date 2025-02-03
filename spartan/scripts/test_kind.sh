@@ -86,10 +86,10 @@ fi
 free_ports=$(find_ports 4)
 
 # Extract the free ports from the list
-pxe_port=$(echo $free_ports | awk '{print $1}')
-anvil_port=$(echo $free_ports | awk '{print $2}')
-metrics_port=$(echo $free_ports | awk '{print $3}')
-node_port=$(echo $free_ports | awk '{print $4}')
+forwarded_pxe_port=$(echo $free_ports | awk '{print $1}')
+forwarded_anvil_port=$(echo $free_ports | awk '{print $2}')
+forwarded_metrics_port=$(echo $free_ports | awk '{print $3}')
+forwarded_node_port=$(echo $free_ports | awk '{print $4}')
 
 if [ "$install_metrics" = "true" ]; then
   grafana_password=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
@@ -115,13 +115,13 @@ if [ "$use_docker" = "true" ]; then
     -e INSTANCE_NAME="spartan" \
     -e SPARTAN_DIR="/usr/src/spartan" \
     -e NAMESPACE="$namespace" \
-    -e HOST_PXE_PORT=$pxe_port \
+    -e HOST_PXE_PORT=$forwarded_pxe_port \
     -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$anvil_port \
+    -e HOST_ETHEREUM_PORT=$forwarded_anvil_port \
     -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_NODE_PORT=$node_port \
+    -e HOST_NODE_PORT=$forwarded_node_port \
     -e CONTAINER_NODE_PORT=8080 \
-    -e HOST_METRICS_PORT=$metrics_port \
+    -e HOST_METRICS_PORT=$forwarded_metrics_port \
     -e CONTAINER_METRICS_PORT=80 \
     -e GRAFANA_PASSWORD=$grafana_password \
     -e DEBUG=${DEBUG:-""} \
@@ -139,13 +139,13 @@ else
   export INSTANCE_NAME="spartan"
   export SPARTAN_DIR="$(pwd)/.."
   export NAMESPACE="$namespace"
-  export HOST_PXE_PORT="$pxe_port"
+  export HOST_PXE_PORT="$forwarded_pxe_port"
   export CONTAINER_PXE_PORT="8081"
-  export HOST_ETHEREUM_PORT="$anvil_port"
+  export HOST_ETHEREUM_PORT="$forwarded_anvil_port"
   export CONTAINER_ETHEREUM_PORT="8545"
-  export HOST_NODE_PORT="$node_port"
+  export HOST_NODE_PORT="$forwarded_node_port"
   export CONTAINER_NODE_PORT="8080"
-  export HOST_METRICS_PORT="$metrics_port"
+  export HOST_METRICS_PORT="$forwarded_metrics_port"
   export CONTAINER_METRICS_PORT="80"
   export GRAFANA_PASSWORD="$grafana_password"
   export DEBUG="${DEBUG:-""}"

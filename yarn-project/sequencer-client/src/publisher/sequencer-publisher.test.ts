@@ -29,7 +29,6 @@ import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
-// const mockSlashingProposerAddress = EthAddress.random().toString();
 const mockForwarderAddress = EthAddress.random().toString();
 const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;

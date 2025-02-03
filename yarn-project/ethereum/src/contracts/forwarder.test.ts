@@ -33,13 +33,11 @@ describe('Forwarder', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  // let initialValidators: EthAddress[];
   let l2FeeJuiceAddress: AztecAddress;
   let walletClient: L1Clients['walletClient'];
   let publicClient: L1Clients['publicClient'];
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;
-  // let rollupAddress: EthAddress;
   let govProposerAddress: EthAddress;
   let tokenAddress: EthAddress;
   let tokenContract: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
@@ -49,7 +47,6 @@ describe('Forwarder', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    // initialValidators = times(3, EthAddress.random);
     l2FeeJuiceAddress = await AztecAddress.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
@@ -65,7 +62,6 @@ describe('Forwarder', () => {
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;
-    // rollupAddress = deployed.l1ContractAddresses.rollupAddress;
 
     forwarder = await ForwarderContract.create(
       privateKey.address,

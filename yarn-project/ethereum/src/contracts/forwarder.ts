@@ -117,7 +117,7 @@ export class ForwarderContract {
                 address: this.rollupAddress,
                 stateDiff: [
                   {
-                    slot: toHex(RollupContract.checkBlobSlot, true),
+                    slot: toHex(RollupContract.checkBlobStorageSlot, true),
                     value: toHex(0n, true),
                   },
                 ],

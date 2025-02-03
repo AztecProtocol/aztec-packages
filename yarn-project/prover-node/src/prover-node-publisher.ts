@@ -237,8 +237,8 @@ export class ProverNodePublisher {
           abi: RollupAbi,
           address: this.rollupContract.address,
         },
-        undefined,
-        [],
+        /*blobInputs*/ undefined,
+        /*stateOverride*/ [],
       );
       this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
