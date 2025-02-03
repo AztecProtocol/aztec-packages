@@ -121,11 +121,11 @@ Public state behaves as a key-value store, much like in the EVM. We can directly
 
 You can check the logs of events emitted by contracts. Contracts in Aztec can emit both encrypted and unencrypted events.
 
-#### Querying unencrypted logs
+#### Querying public logs
 
-We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Logs need to be unrolled and formatted as strings for consumption.
+We can query the PXE for the public logs emitted in the block where our transaction is mined.
 
-#include_code unencrypted-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code public-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ## Cheats
 
@@ -134,7 +134,7 @@ The [`CheatCodes`](../../reference/environment_reference/cheat_codes.md) class, 
 ### Set next block timestamp
 
 Since the rollup time is dependent on what "slot" the block is included in, time can be progressed by progressing slots.
-The duration of a slot is available by calling `SLOT_DURATION()` on the Rollup (code in Leonidas.sol).
+The duration of a slot is available by calling `getSlotDuration()` on the Rollup (code in Leonidas.sol).
 
 You can then use the `warp` function on the EthCheatCodes to progress the underlying chain.
 

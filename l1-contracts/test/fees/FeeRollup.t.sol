@@ -26,7 +26,7 @@ import {
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -46,9 +46,7 @@ import {
   ManaBaseFeeComponents as ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
-} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
@@ -159,7 +157,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
-    bytes32 blockHash = 0x267f79fe7e757b20e924fac9f78264a0d1c8c4b481fea21d0bbe74650d87a1f1;
+    bytes32 blockHash = bytes32(Constants.GENESIS_BLOCK_HASH);
 
     bytes32[] memory txHashes = new bytes32[](0);
     Signature[] memory signatures = new Signature[](0);

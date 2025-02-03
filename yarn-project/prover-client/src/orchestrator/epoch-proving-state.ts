@@ -4,33 +4,27 @@ import {
   type PublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
-  ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
+  type ARCHIVE_HEIGHT,
+  type AppendOnlyTreeSnapshot,
   type BlockHeader,
-  Fr,
+  type Fr,
   type GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
   PreviousRollupBlockData,
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
-import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { BlockProvingState } from './block-proving-state.js';
 
@@ -81,26 +75,22 @@ export class EpochProvingState {
   public startNewBlock(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
-    messageTreeSnapshot: AppendOnlyTreeSnapshot,
-    messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    messageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
-    archiveTreeSnapshot: AppendOnlyTreeSnapshot,
-    archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
+    lastArchiveSnapshot: AppendOnlyTreeSnapshot,
+    newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
-    previousBlockHash: Fr,
   ): BlockProvingState {
     const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
       globalVariables,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-      messageTreeSnapshot,
-      messageTreeRootSiblingPath,
-      messageTreeSnapshotAfterInsertion,
-      archiveTreeSnapshot,
-      archiveTreeRootSiblingPath,
+      l1ToL2Messages,
+      l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageTreeSnapshotAfterInsertion,
+      lastArchiveSnapshot,
+      newArchiveSiblingPath,
       previousBlockHeader,
-      previousBlockHash,
       this,
     );
     this.blocks[index] = block;
@@ -160,52 +150,36 @@ export class EpochProvingState {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public async getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+    return new BlockMergeRollupInputs([
+      await this.#getPreviousRollupData(left),
+      await this.#getPreviousRollupData(right),
+    ]);
   }
 
-  public getRootRollupInputs(proverId: Fr) {
+  public async getRootRollupInputs(proverId: Fr) {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
     return RootRollupInputs.from({
-      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
+      previousRollupData: [await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)],
       proverId,
     });
   }
 
   public getPaddingBlockRootInputs(proverId: Fr) {
-    const { block } = this.blocks[0] ?? {};
-    const l1ToL2Roots = this.blocks[0]?.getL1ToL2Roots();
-    if (!block || !l1ToL2Roots) {
+    if (!this.blocks[0]?.isComplete()) {
       throw new Error('Epoch needs one completed block in order to be padded.');
     }
 
-    const constants = ConstantRollupData.from({
-      lastArchive: block.archive,
-      globalVariables: block.header.globalVariables,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
-    });
-
-    return EmptyBlockRootRollupInputs.from({
-      l1ToL2Roots,
-      newL1ToL2MessageTreeRootSiblingPath: makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
-      startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot.zero(),
-      newArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, Fr.zero),
-      previousBlockHash: block.header.hash(),
-      previousPartialState: block.header.state.partial,
-      constants,
-      proverId,
-      isPadding: true,
-    });
+    return this.blocks[0].getPaddingBlockRootInputs(proverId);
   }
 
   // Returns a specific transaction proving state
@@ -267,7 +241,7 @@ export class EpochProvingState {
       : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  #getPreviousRollupData({
+  async #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
@@ -275,12 +249,12 @@ export class EpochProvingState {
     BlockRootOrBlockMergePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >) {
-    const leafIndex = getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupBlockData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
     );
   }
 }

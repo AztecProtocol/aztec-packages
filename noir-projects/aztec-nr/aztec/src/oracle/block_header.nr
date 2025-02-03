@@ -66,14 +66,16 @@ fn constrain_get_block_header_at_internal(
     let witness = unsafe { get_archive_membership_witness(last_archive_block_number, block_hash) };
 
     // 3) Check that the block is in the archive (i.e. the witness is valid)
-    assert(
-        last_archive_root == root_from_sibling_path(block_hash, witness.index, witness.path),
+    assert_eq(
+        last_archive_root,
+        root_from_sibling_path(block_hash, witness.index, witness.path),
         "Proving membership of a block in archive failed",
     );
 
     // 4) Check that the header hint has the same block number as the block number we are looking for, ensuring we are actually grabbing the header we specify
-    assert(
-        header_hint.global_variables.block_number as u32 == block_number,
+    assert_eq(
+        header_hint.global_variables.block_number as u32,
+        block_number,
         "Block number provided is not the same as the block number from the header hint",
     );
 }
@@ -86,12 +88,12 @@ mod test {
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(3);
+        env.advance_block_by(4);
 
         // We get our current header for the last archive values.
         let current_header = env.private().historical_header;
 
-        let target_block_number = 2;
+        let target_block_number = 3;
         let bad_header = get_block_header_at_internal(target_block_number - 1);
 
         // We pass in a different block number than the header received

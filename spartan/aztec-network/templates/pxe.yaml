@@ -16,6 +16,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
+      {{- end }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
@@ -105,6 +110,8 @@ spec:
               value: "{{ .Values.aztec.realProofs }}"
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}

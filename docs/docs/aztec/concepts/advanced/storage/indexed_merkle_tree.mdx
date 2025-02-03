@@ -75,7 +75,7 @@ The insertion protocol is described below:
 1. Look for a nullifier's corresponding low_nullifier where:
 
    $$
-   low\_nullifier_{\textsf{next\_value}} > v
+   low\_nullifier_{\textsf{next\_value}} > new\_nullifier
    $$
 
    > if $new\_nullifier$ is the largest use the leaf:
@@ -88,7 +88,7 @@ The insertion protocol is described below:
 3. Perform a range check on the low nullifier's value and next_value fields:
 
 $$
-new\_nullifier > low\_nullifier_{\textsf{value}} \: \&\&  \: ( new\_nullifier < low\_nullifier_{\textsf{next\_value}} \: \| \:  low\_nullifier_{\textsf{next\_value}} == 0 )
+new\_nullifier > low\_nullifier_{\textsf{value}} \: \&\&  \: ( new\_nullifier < low\_nullifier_{\textsf{next\_value}} \: || \:  low\_nullifier_{\textsf{next\_value}} == 0 )
 $$
 
 4. Update the low nullifier pointers
@@ -219,7 +219,7 @@ In the following example we insert a subtree of size 4 into our tree at step 4. 
 
 <Image img={require("/img/indexed-merkle-tree/subtree-insert-7.png")} />
 
-#### Performance gains from subtree insertion
+### Performance gains from subtree insertion
 
 Let's go back over the numbers:
 Insertions into a sparse nullifier tree involve 1 non membership check (254 hashes) and 1 insertion (254 hashes). If we were performing insertion for 4 values that would entail 2032 hashes.

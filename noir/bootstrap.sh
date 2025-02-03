@@ -12,7 +12,7 @@ function build {
     export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
     denoise ./scripts/bootstrap_native.sh
     denoise ./scripts/bootstrap_packages.sh
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm packages
+    cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm noir-repo/target/release/noir-profiler packages
   fi
   github_endgroup
 }

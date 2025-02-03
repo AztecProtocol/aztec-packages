@@ -109,7 +109,7 @@ In the following section we describe a few ways how an account contract could be
 
 #### Using a private note
 
-Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key. This has the side effect of enforcing a strict ordering across all transactions, since each transaction will refer the instantiation of the private note from the previous one.
+Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key. This has the side effect of enforcing a strict ordering across all transactions, since each transaction will refer to the instantiation of the private note from the previous one.
 
 #### Using an immutable private note
 
@@ -122,7 +122,7 @@ A compromise between the two solutions above is to use shared state. This would 
 #### Reusing some of the in-protocol keys
 
 It is possible to use some of the key pairs defined in protocol (e.g. incoming viewing keys) as the signing key.
-Since this key is part of the address preimage (more on this on the privacy master key section), it can be validated against the account contract address rather than having to store it.
+Since this key is part of the address preimage (more on this in the privacy master key section), it can be validated against the account contract address rather than having to store it.
 However, this approach is not recommended since it reduces the security of the user's account.
 
 #### Using a separate keystore

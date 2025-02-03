@@ -143,15 +143,16 @@ Those `G_x` are generators that generated [here](https://github.com/AztecProtoco
 
 We can see the complete implementation of creating and completing partial notes in an Aztec contract in the `setup_refund` and `complete_refund` functions.
 
-#### `setup_refund`
+#### `fee_entrypoint_private`
 
-#include_code setup_refund noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
 
-The `setup_refund` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`). This ensures that the partial notes will be completed and the fee payer will be paid and the user refund will be issued.
+The `fee_entrypoint_private` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`).
+This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-#include_code complete_refund noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code complete_refund noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
 
 ## Future work
 

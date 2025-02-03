@@ -17,14 +17,13 @@ import {
 } from '@aztec/circuit-types';
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
-import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -35,6 +34,7 @@ import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
+import { type ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
@@ -42,7 +42,7 @@ import { type QuoteSigner } from './quote-signer.js';
 describe('prover-node', () => {
   // Prover node dependencies
   let prover: MockProxy<EpochProverManager>;
-  let publisher: MockProxy<L1Publisher>;
+  let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
@@ -103,9 +103,9 @@ describe('prover-node', () => {
       config,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProverManager>();
-    publisher = mock<L1Publisher>();
+    publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
@@ -144,14 +144,16 @@ describe('prover-node', () => {
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
     // We create 3 fake blocks with 1 tx effect each
-    blocks = times(3, i => L2Block.random(i + 20, 1));
+    blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxByHash.mockImplementation(hash => Promise.resolve(mock<Tx>({ getTxHash: () => hash })));
+    mockCoordination.getTxByHash.mockImplementation(hash =>
+      Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) })),
+    );
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
@@ -399,7 +401,7 @@ describe('prover-node', () => {
       coordination = p2pClient;
 
       // But still mock getTxByHash
-      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => hash }));
+      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) }));
       jest.spyOn(p2pClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
       jest.spyOn(otherP2PClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
 

@@ -46,9 +46,7 @@ function generateImportFunction() {
     })
     .map(artifactName => {
       return `case '${artifactName}': {
-        const { default: compiledCircuit } = await import(\`../artifacts/${artifactName}.json\`, {
-          assert: { type: 'json' },
-        });
+        const { default: compiledCircuit } = await import(\"../artifacts/${artifactName}.json\");
         return compiledCircuit as NoirCompiledCircuit;
       }`;
     });

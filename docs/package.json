@@ -27,10 +27,10 @@
     "@mdx-js/react": "^3.0.1",
     "@slorber/react-ideal-image": "^0.0.12",
     "axios": "^1.4.0",
-    "clsx": "^1.1.1",
+    "clsx": "^2.0.0",
     "docusaurus-theme-search-typesense": "0.23.0-0",
     "hast-util-is-element": "1.1.0",
-    "prism-react-renderer": "^2.1.0",
+    "prism-react-renderer": "^2.3.0",
     "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -45,14 +45,20 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.6.0",
+<<<<<<< HEAD
+=======
+    "@docusaurus/tsconfig": "3.6.0",
+>>>>>>> origin
     "@docusaurus/types": "3.6.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "@types/prop-types": "^15",
+    "@types/react": "^18.0.0",
     "concurrently": "^8.0.1",
     "docusaurus-plugin-typedoc": "^0.20.2",
     "dotenv": "^16.3.1",
     "netlify-cli": "^17.23.0",
     "nodemon": "^3.0.1",
+    "react-waypoint": "^10.3.0",
     "typedoc": "^0.25.1",
     "typedoc-plugin-markdown": "^3.16.0",
     "typescript": "^5.0.4"
@@ -68,5 +74,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }

@@ -15,20 +15,17 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
 
-import {Slot, SlotLib, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 contract SlashingScenario is TestBase {
-  using SlotLib for Slot;
-
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
@@ -77,7 +74,7 @@ contract SlashingScenario is TestBase {
     });
     slasher = rollup.SLASHER();
     slashingProposer = slasher.PROPOSER();
-    slashFactory = new SlashFactory(ILeonidas(address(rollup)));
+    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);

@@ -43,7 +43,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
     .action(async (functionSignature: string) => {
       const { computeSelector } = await import('./compute_selector.js');
-      computeSelector(functionSignature, log);
+      await computeSelector(functionSignature, log);
     });
 
   program

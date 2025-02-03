@@ -359,7 +359,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                          const std::vector<uint32_t>& public_inputs,
                          size_t varnum,
                          bool recursive = false)
-        : CircuitBuilderBase<FF>(size_hint)
+        : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
 
@@ -393,7 +393,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         , memory_write_records(other.memory_write_records)
         , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
         , circuit_finalized(other.circuit_finalized)
-        , ipa_proof(other.ipa_proof){};
+        , ipa_proof(other.ipa_proof) {};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {
@@ -693,9 +693,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     {
         ASSERT(circuit_finalized);
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        info("minimum_circuit_size: ", minimum_circuit_size);
         auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
-        info("num_filled_gates: ", num_filled_gates);
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 

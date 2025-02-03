@@ -68,26 +68,29 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve();
   }
 
-  public getPendingTxHashes(): TxHash[] {
-    return this.getAllTxs()
-      .sort((tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)))
-      .map(tx => tx.getTxHash())
-      .filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
+  public async getPendingTxHashes(): Promise<TxHash[]> {
+    const txs = (await this.getAllTxs()).sort(
+      (tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    return txHashes.filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
   }
 
-  public getMinedTxHashes(): [TxHash, number][] {
-    return Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]);
+  public getMinedTxHashes(): Promise<[TxHash, number][]> {
+    return Promise.resolve(
+      Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]),
+    );
   }
 
-  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
     const key = txHash.toBigInt();
     if (this.pendingTxs.has(key)) {
-      return 'pending';
+      return Promise.resolve('pending');
     }
     if (this.minedTxs.has(key)) {
-      return 'mined';
+      return Promise.resolve('mined');
     }
-    return undefined;
+    return Promise.resolve(undefined);
   }
 
   /**
@@ -95,13 +98,13 @@ export class InMemoryTxPool implements TxPool {
    * @param txHash - The generated tx hash.
    * @returns The transaction, if found, 'undefined' otherwise.
    */
-  public getTxByHash(txHash: TxHash): Tx | undefined {
+  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const result = this.txs.get(txHash.toBigInt());
-    return result === undefined ? undefined : Tx.clone(result);
+    return Promise.resolve(result === undefined ? undefined : Tx.clone(result));
   }
 
-  public getArchivedTxByHash(): Tx | undefined {
-    return undefined;
+  public getArchivedTxByHash(): Promise<Tx | undefined> {
+    return Promise.resolve(undefined);
   }
 
   /**
@@ -109,13 +112,13 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<void> {
     let pending = 0;
     for (const tx of txs) {
-      const txHash = tx.getTxHash();
+      const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
         eventName: 'tx-added-to-pool',
-        ...tx.getStats(),
+        ...(await tx.getStats()),
       } satisfies TxAddedToPoolStats);
 
       const key = txHash.toBigInt();
@@ -128,7 +131,7 @@ export class InMemoryTxPool implements TxPool {
     }
 
     this.metrics.recordAddedObjects(pending, 'pending');
-    return Promise.resolve();
+    return;
   }
 
   /**
@@ -157,15 +160,15 @@ export class InMemoryTxPool implements TxPool {
    * Gets all the transactions stored in the pool.
    * @returns Array of tx objects in the order they were added to the pool.
    */
-  public getAllTxs(): Tx[] {
-    return Array.from(this.txs.values()).map(x => Tx.clone(x));
+  public getAllTxs(): Promise<Tx[]> {
+    return Promise.resolve(Array.from(this.txs.values()).map(x => Tx.clone(x)));
   }
 
   /**
    * Gets the hashes of all transactions currently in the tx pool.
    * @returns An array of transaction hashes found in the tx pool.
    */
-  public getAllTxHashes(): TxHash[] {
-    return Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x));
+  public getAllTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
   }
 }

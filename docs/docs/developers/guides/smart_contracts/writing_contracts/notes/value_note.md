@@ -21,7 +21,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#inc
 
 ### In your contract
 
-#include_code import_valuenote noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code import_valuenote noir-projects/noir-contracts/contracts/child_contract/src/main.nr rust
 
 ## Working with ValueNote
 
@@ -30,11 +30,9 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#inc
 Creating a new `ValueNote` takes the following args:
 
 - `value` (`Field`): the value of the ValueNote
-- `npk_m_hash` (`Field`): the master nullifier public key hash of the user
+- `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-#include_code valuenote_new noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
-
-In this example, `amount` is the `value` and the `npk_m_hash` of the donor was computed earlier.
+#include_code valuenote_new noir-projects/noir-contracts/contracts/child_contract/src/main.nr rust
 
 ### Getting a balance
 

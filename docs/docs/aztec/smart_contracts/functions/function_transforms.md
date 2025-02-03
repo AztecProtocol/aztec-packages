@@ -156,10 +156,10 @@ The function is automatically generated based on the note types defined in the c
    ```rust
    if (note_type_id == NoteType::get_note_type_id()) {
        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-           NoteType::deserialize_content,
+           NoteType::unpack_content,
            note_header,
            compute_nullifier,
-           serialized_note
+           packed_note_content
        )
    }
    ```

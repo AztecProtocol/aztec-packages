@@ -9,7 +9,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { protocolContractNames } from '@aztec/protocol-contracts';
@@ -41,7 +41,7 @@ export async function createArchiver(
 async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
-    const contract = getCanonicalProtocolContract(name);
+    const contract = await getCanonicalProtocolContract(name);
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],
@@ -53,7 +53,7 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
     await store.registerContractFunctionSignatures(contract.address, publicFunctionSignatures);
-    const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
+    const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
   }
@@ -67,11 +67,13 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
 async function registerCommonContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   const artifacts = [TokenBridgeContractArtifact, TokenContractArtifact];
-  const classes = artifacts.map(artifact => ({
-    ...getContractClassFromArtifact(artifact),
-    privateFunctions: [],
-    unconstrainedFunctions: [],
-  }));
-  const bytecodeCommitments = classes.map(x => computePublicBytecodeCommitment(x.packedBytecode));
+  const classes = await Promise.all(
+    artifacts.map(async artifact => ({
+      ...(await getContractClassFromArtifact(artifact)),
+      privateFunctions: [],
+      unconstrainedFunctions: [],
+    })),
+  );
+  const bytecodeCommitments = await Promise.all(classes.map(x => computePublicBytecodeCommitment(x.packedBytecode)));
   await store.addContractClasses(classes, bytecodeCommitments, blockNumber);
 }
