@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 hash=$(cache_content_hash \
   ../noir/.rebuild_patterns \
@@ -23,7 +24,7 @@ function format {
 }
 
 function lint {
-  get_projects | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
 }
 export -f format lint get_projects
 
@@ -149,7 +150,6 @@ case "$cmd" in
     release
     ;;
   "compile")
-    shift
     if [ -n "${1:-}" ]; then
       compile_project ::: "$@"
     else
@@ -160,7 +160,7 @@ case "$cmd" in
     format
     ;;
   "lint")
-    lint
+    lint "$@"
     ;;
   *)
     echo "Unknown command: $cmd"

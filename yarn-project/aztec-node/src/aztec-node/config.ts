@@ -12,7 +12,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-export { sequencerClientConfigMappings, SequencerClientConfig };
+export { sequencerClientConfigMappings, type SequencerClientConfig };
 
 /**
  * The configuration the aztec node.

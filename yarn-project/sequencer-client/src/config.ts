@@ -23,7 +23,7 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
+export type { SequencerConfig };
 
 /** Chain configuration. */
 type ChainConfig = {
