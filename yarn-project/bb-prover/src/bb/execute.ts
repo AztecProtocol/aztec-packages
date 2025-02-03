@@ -247,7 +247,6 @@ export async function computeVerificationKey(
 }
 
 function getArgs(flavor: UltraHonkFlavor) {
-  console.log(`flavor ${flavor} in getArgs`);
   switch (flavor) {
     case 'ultra_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2'];
