@@ -2,16 +2,16 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.4;
 
-import {TestBaseUltra} from "./TestBaseUltra.sol";
-import {EcdsaUltraVerifier} from "../../src/ultra/instance/EcdsaUltraVerifier.sol";
+import {TestBaseHonkZK} from "./TestBaseHonkZK.sol";
+import {EcdsaHonkZKVerifier} from "../../src/honk/instance/EcdsaHonkZK.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
-contract EcdsaUltraTest is TestBaseUltra {
-    function setUp() public override(TestBaseUltra) {
+contract EcdsaHonkZKTest is TestBaseHonkZK {
+    function setUp() public override(TestBaseHonkZK) {
         super.setUp();
 
-        verifier = IVerifier(address(new EcdsaUltraVerifier()));
+        verifier = IVerifier(address(new EcdsaHonkZKVerifier()));
         fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Ecdsa);
 
         PUBLIC_INPUT_COUNT = 6;
@@ -30,7 +30,6 @@ contract EcdsaUltraTest is TestBaseUltra {
 
     function testFuzzProof() public {
         // NOTE we do not fuzz here yet
-        // "goblin"
         // 67 6f 62 6c 69 6e
         uint256[] memory inputs = new uint256[](6);
         inputs[0] = uint256(0x67);
@@ -42,7 +41,7 @@ contract EcdsaUltraTest is TestBaseUltra {
 
         // Construct Ecdsa siganture
         bytes memory proofData = fuzzer.with_inputs(inputs).generate_proof();
-        (bytes32[] memory publicInputs, bytes memory proof) = splitProof(proofData, PUBLIC_INPUT_COUNT);
+        (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
 
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
     }

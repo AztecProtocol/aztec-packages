@@ -3,7 +3,7 @@
 
 pragma solidity >=0.8.4;
 
-import {HonkVerifier} from "./Verifier.sol";
+import {HonkVerifier} from "./ZKVerifier.sol";
 
 contract Test {
     HonkVerifier verifier;

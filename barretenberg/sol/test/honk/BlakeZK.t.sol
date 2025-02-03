@@ -2,20 +2,20 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-import {TestBaseHonk} from "./TestBaseHonk.sol";
+import {TestBaseHonkZK} from "./TestBaseHonkZK.sol";
 
 // TODO(md): need to generalize the verifier instances
-import {BlakeHonkVerifier} from "../../src/honk/instance/BlakeHonk.sol";
+import {BlakeHonkZKVerifier} from "../../src/honk/instance/BlakeHonkZK.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
 import "forge-std/console.sol";
 
-contract BlakeHonkTest is TestBaseHonk {
-    function setUp() public override(TestBaseHonk) {
+contract BlakeHonZKTest is TestBaseHonkZK {
+    function setUp() public override(TestBaseHonkZK) {
         super.setUp();
 
-        verifier = IVerifier(address(new BlakeHonkVerifier()));
+        verifier = IVerifier(address(new BlakeHonkZKVerifier()));
         fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Blake);
 
         PUBLIC_INPUT_COUNT = 4;

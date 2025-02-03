@@ -2,20 +2,20 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-import {TestBaseHonk} from "./TestBaseHonk.sol";
+import {TestBaseHonkZK} from "./TestBaseHonkZK.sol";
 
 // TODO(md): need to generalize the verifier instances
-import {Add2HonkVerifier} from "../../src/honk/instance/Add2Honk.sol";
+import {Add2HonkZKVerifier} from "../../src/honk/instance/Add2HonkZK.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
 import "forge-std/console.sol";
 
-contract Add2HonkTest is TestBaseHonk {
-    function setUp() public override(TestBaseHonk) {
+contract Add2HonkZKTest is TestBaseHonkZK {
+    function setUp() public override(TestBaseHonkZK) {
         super.setUp();
 
-        verifier = IVerifier(address(new Add2HonkVerifier()));
+        verifier = IVerifier(address(new Add2HonkZKVerifier()));
         fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Add2);
 
         PUBLIC_INPUT_COUNT = 3;
@@ -40,6 +40,7 @@ contract Add2HonkTest is TestBaseHonk {
         (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
 
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
+
         console.log("Proof verified");
     }
 }
