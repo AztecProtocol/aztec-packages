@@ -726,11 +726,10 @@ mod tests {
             fields[i] = field_to_bignum(i as Field);
         }
         unsafe {
-
             let partial_sums = __compute_partial_sums(fields, ROOTS);
             let sum = __compute_sum(fields, ROOTS);
 
-            assert_eq(partial_sums[FIELDS_PER_BLOB/8 - 1], sum);
+            assert_eq(partial_sums[FIELDS_PER_BLOB / 8 - 1], sum);
         }
     }
 }
