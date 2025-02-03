@@ -1298,6 +1298,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1326,6 +1327,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1354,6 +1356,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1383,6 +1386,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1412,6 +1416,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1446,6 +1451,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1481,6 +1487,7 @@ mod test {
         ";
 
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1522,6 +1529,7 @@ mod test {
         ";
 
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
