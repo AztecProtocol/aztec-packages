@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
 
 hash=$(cache_content_hash \
@@ -9,46 +8,76 @@ hash=$(cache_content_hash \
   ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
   ../barretenberg/*/.rebuild_patterns)
 
+function compile_project {
+  # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
+  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
+}
+
+function get_projects {
+  dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+}
+
+function format {
+  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+}
+
+function lint {
+  get_projects | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
+}
+export -f format lint get_projects
+
 function build {
   echo_header "yarn-project build"
 
-  # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
-
-  # Fast build does not delete everything first.
-  # It regenerates all generated code, then performs an incremental tsc build.
-  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
+  denoise "$0 clean-lite"
   denoise "yarn install"
 
-  # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash.tar.gz
-
-  if cache_download $tar_file; then
-    yarn install
+  if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
 
-  case "${1:-}" in
-    "fast")
-      denoise "yarn build:fast"
-      ;;
-    "full")
-      denoise "yarn build"
-      ;;
-    *)
-      if ! yarn build:fast; then
-        echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
-        yarn build
-      fi
-  esac
+  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
-  denoise 'cd end-to-end && yarn build:web'
+  # This many projects have a generation stage now!?
+  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
+    accounts \
+    circuit-types \
+    circuits.js \
+    ivc-integration \
+    kv-store \
+    l1-artifacts \
+    native \
+    noir-contracts.js \
+    noir-protocol-circuits-types \
+    protocol-contracts \
+    pxe \
+    types
+  cat joblog.txt
+
+  get_projects | compile_project
+
+  cmds=(
+    format
+    'cd aztec.js && yarn build:web'
+    'cd end-to-end && yarn build:web'
+  )
+  if [ "${typecheck:-0}" -eq 1 ]; then
+    cmds+=(
+      'yarn tsc -b --emitDeclarationOnly'
+      lint
+    )
+  fi
+  parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
+  cat joblog.txt
+  # parallel --line-buffered --tag denoise 'cd {} && yarn build:web' ::: aztec.js end-to-end
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
   # Then one-off cases. If you've written into src, you need to update this.
-  cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+  cache_upload yarn-project-$hash.tar.gz \
+    */{dest,fixtures,build,artifacts,generated} \
     circuit-types/src/test/artifacts \
-    end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
+    end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz} \
     ivc-integration/src/types/ \
     noir-contracts.js/{codegenCache.json,src/} \
     noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
@@ -88,14 +117,24 @@ function test {
 
 case "$cmd" in
   "clean")
+    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
+  "clean-lite")
+    git ls-files --ignored --others --exclude-standard \
+      | grep -v '^node_modules/' \
+      | grep -v '^\.yarn/' \
+      | xargs rm -rf
+    ;;
   "ci")
-    build
+    typecheck=1 build
     test
     ;;
-  ""|"fast"|"full")
-    build $cmd
+  ""|"fast")
+    build
+    ;;
+  "full")
+    typecheck=1 build
     ;;
   "test")
     test
@@ -108,6 +147,16 @@ case "$cmd" in
     ;;
   "release")
     release
+    ;;
+  "compile")
+    shift
+    compile_project ::: "$@"
+    ;;
+  "format")
+    format
+    ;;
+  "lint")
+    lint
     ;;
   *)
     echo "Unknown command: $cmd"

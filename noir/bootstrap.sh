@@ -31,9 +31,9 @@ function build_native {
   fi
   parallel --tag --line-buffer --halt now,fail=1 ::: \
     "cargo fmt --all --check" \
-    "cargo build --locked --release --target-dir target/build" \
+    "cargo build --locked --release --target-dir target" \
     "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cache_upload noir-$hash.tar.gz target/build/release/nargo target/build/release/acvm target/build/release/noir-profiler
+  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
 }
 
 # Builds js packages.

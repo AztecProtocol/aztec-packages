@@ -49,6 +49,7 @@ jobs:
       yarn-project: ${{ steps.filter.outputs['yarn-project'] }}
       non-docs: ${{ steps.filter.outputs['non-docs'] }}
       non-bb: ${{ steps.filter.outputs['non-bb'] }}
+      helm-charts: ${{ steps.filter.outputs['helm-chart'] }}
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
       e2e-list: ${{ steps.e2e_list.outputs['e2e-list'] }}
@@ -100,6 +101,8 @@ jobs:
               - 'noir-projects/**'
             yarn-project:
               - 'yarn-project/**'
+            helm-charts:
+              - 'spartan/**'
             non-bb:
               - '!(barretenberg/cpp/**)'
               - barretenberg/cpp/pil/**
@@ -299,7 +302,7 @@ jobs:
 
   kind-network-smoke:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true' || needs.configure.outputs.helm-charts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

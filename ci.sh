@@ -1,5 +1,6 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}

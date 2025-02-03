@@ -1,5 +1,6 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_refname
 
 cmd=${1:-"./bootstrap.sh ci"}
 arch=${ARCH:-amd64}
@@ -64,7 +65,7 @@ if [ -t 1 ]; then
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd+=" 2>&1 | ci3/add_timestamps | ci3/cache_log \\\"CI run\\\" ${LOG_ID:-}"
+  cmd="set -euo pipefail; $cmd 2>&1 | ci3/add_timestamps | ci3/cache_log \\\"CI run\\\" ${LOG_ID:-}"
 fi
 
 container_script=$(cat <<EOF
@@ -96,6 +97,7 @@ EOF
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
+set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
@@ -119,10 +121,15 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e GITHUB_REF=${GITHUB_REF:-} \
+    -e GITHUB_REF_HEAD=${GITHUB_REF_HEAD:-} \
+    -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+    -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
+    -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c '$container_script'
 "
 code=$?
+set -e
 echo "SSH exited with code: $code"
 
 # If we were spot evicted, try again using on-demand.
