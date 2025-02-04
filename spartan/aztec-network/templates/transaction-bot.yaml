@@ -32,9 +32,9 @@ spec:
         effect: "NoSchedule"
       {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       volumes:
         - name: config
           emptyDir: {}
