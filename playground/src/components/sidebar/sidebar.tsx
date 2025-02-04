@@ -244,7 +244,7 @@ export function SidebarComponent() {
       <div css={header}>
         <Typography
           variant="h1"
-          sx={{ fontSize: "65px", padding: 0, marginTop: "0.5rem" }}
+          sx={{ fontSize: "50px", padding: 0, marginTop: "0.5rem" }}
         >
           Playground
         </Typography>
