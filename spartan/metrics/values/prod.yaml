@@ -3,7 +3,7 @@ opentelemetry-collector:
   resources:
     requests:
       memory: 14Gi
-      cpu: 1.5
+      cpu: "1.5"
   nodeSelector:
     node-type: infra
     pool: spot
@@ -48,7 +48,7 @@ prometheus:
     resources:
       requests:
         memory: 14Gi
-        cpu: 1.5
+        cpu: "1.5"
     nodeSelector:
       node-type: infra
       pool: spot
