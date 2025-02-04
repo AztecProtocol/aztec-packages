@@ -59,7 +59,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
             required_crs_size = curve::BN254::SUBGROUP_SIZE * 2;
         }
     }
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    init_bn254_crs(required_crs_size);
 
     return prover;
 }
@@ -260,10 +260,17 @@ class UltraHonkAPI : public API {
                   output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("proving with keccak");
-            write(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
-                  output_data_type,
-                  output_content_type,
-                  output_dir);
+            if (flags.zk) {
+                write(_prove_keccak_zk(vk_only, flags, bytecode_path, witness_path),
+                      output_data_type,
+                      output_content_type,
+                      output_dir);
+            } else {
+                write(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
+                      output_data_type,
+                      output_content_type,
+                      output_dir);
+            }
         } else {
             info(flags);
             ASSERT("Invalid proving options specified");

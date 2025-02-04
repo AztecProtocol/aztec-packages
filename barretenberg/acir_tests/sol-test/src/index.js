@@ -58,6 +58,7 @@ const [test, verifier] = await Promise.all([
 // If testing honk is set, then we compile the honk test suite
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+console.log(`hasZK: ${hasZK}`);
 
 const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
 console.log(verifierContract);
