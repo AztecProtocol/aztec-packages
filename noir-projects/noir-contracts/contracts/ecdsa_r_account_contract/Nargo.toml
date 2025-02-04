@@ -8,4 +8,4 @@ type = "contract"
 aztec = { path = "../../../aztec-nr/aztec" }
 authwit = { path = "../../../aztec-nr/authwit" }
 ecdsa_public_key_note = { path = "../ecdsa_public_key_note" }
-sha256 = { tag = "tf/unconstrained-optimized-version", git = "https://github.com/noir-lang/sha256" }
+sha256 = { tag = "v0.1.1", git = "https://github.com/noir-lang/sha256" }
