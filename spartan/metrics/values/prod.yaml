@@ -2,7 +2,7 @@ opentelemetry-collector:
   replicaCount: 4
   resources:
     requests:
-      memory: 13Gi
+      memory: 12Gi
       cpu: "1.5"
   nodeSelector:
     node-type: infra
