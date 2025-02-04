@@ -66,7 +66,7 @@ where
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");
         } else {
             // The hash slot can only hold a zero if it is uninitialized. Therefore, the hints must then be zero
-            // as well.
+            // (i.e. the default value for public storage) as well.
             assert_eq(
                 hint.get_value(),
                 T::unpack(std::mem::zeroed()),
