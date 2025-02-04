@@ -37,7 +37,7 @@ template <typename Curve> struct ClaimBatcher_ {
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
 
-    Fr k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
+    size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
