@@ -134,6 +134,37 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/vite@workspace:boxes/vite":
+  version: 0.0.0-use.local
+  resolution: "@aztec/vite@workspace:boxes/vite"
+  dependencies:
+    "@aztec/accounts": "npm:latest"
+    "@aztec/aztec.js": "npm:latest"
+    "@aztec/bb-prover": "npm:latest"
+    "@aztec/circuit-types": "npm:latest"
+    "@aztec/key-store": "npm:latest"
+    "@aztec/kv-store": "npm:latest"
+    "@aztec/pxe": "npm:latest"
+    "@aztec/simulator": "npm:latest"
+    "@eslint/js": "npm:^9.13.0"
+    "@types/react": "npm:^18.3.12"
+    "@types/react-dom": "npm:^18.3.1"
+    "@vitejs/plugin-react-swc": "npm:^3.7.2"
+    eslint: "npm:^9.13.0"
+    eslint-plugin-react-hooks: "npm:^5.1.0"
+    eslint-plugin-react-refresh: "npm:^0.4.16"
+    globals: "npm:^15.11.0"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    react-toastify: "npm:^10.0.6"
+    typescript: "npm:~5.6.2"
+    typescript-eslint: "npm:^8.11.0"
+    vite: "npm:^6.0.3"
+    vite-plugin-node-polyfills: "npm:^0.23.0"
+    vite-plugin-static-copy: "npm:^2.2.0"
+  languageName: unknown
+  linkType: soft
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.12.13, @babel/code-frame@npm:^7.25.9":
   version: 7.26.2
   resolution: "@babel/code-frame@npm:7.26.2"
@@ -12291,37 +12322,6 @@ __metadata:
   checksum: 10c0/764ebed14770426a638575b23a51127c630ace873999ab896b0184484d8107e7255cdf64cfb36c65c1ef1d583e44b70a1d14c0f05b89612e834a5806e3964475
   languageName: node
   linkType: hard
-
-"vite@workspace:boxes/vite":
-  version: 0.0.0-use.local
-  resolution: "vite@workspace:boxes/vite"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@aztec/bb-prover": "npm:latest"
-    "@aztec/circuit-types": "npm:latest"
-    "@aztec/key-store": "npm:latest"
-    "@aztec/kv-store": "npm:latest"
-    "@aztec/pxe": "npm:latest"
-    "@aztec/simulator": "npm:latest"
-    "@eslint/js": "npm:^9.13.0"
-    "@types/react": "npm:^18.3.12"
-    "@types/react-dom": "npm:^18.3.1"
-    "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    eslint: "npm:^9.13.0"
-    eslint-plugin-react-hooks: "npm:^5.1.0"
-    eslint-plugin-react-refresh: "npm:^0.4.16"
-    globals: "npm:^15.11.0"
-    react: "npm:^18.3.1"
-    react-dom: "npm:^18.3.1"
-    react-toastify: "npm:^10.0.6"
-    typescript: "npm:~5.6.2"
-    typescript-eslint: "npm:^8.11.0"
-    vite: "npm:^6.0.3"
-    vite-plugin-node-polyfills: "npm:^0.23.0"
-    vite-plugin-static-copy: "npm:^2.2.0"
-  languageName: unknown
-  linkType: soft
 
 "vitest@npm:^2.0.5":
   version: 2.0.5

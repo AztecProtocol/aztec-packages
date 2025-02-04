@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract InitiateWithdrawTest is StakingBase {
   function test_WhenAttesterIsNotRegistered() external {

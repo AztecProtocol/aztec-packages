@@ -4,7 +4,7 @@ mod capsule;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractClassRegisterer {
+pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
         constants::{
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,

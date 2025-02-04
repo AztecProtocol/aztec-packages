@@ -1,5 +1,5 @@
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { generateKeyPair, marshalPrivateKey } from '@libp2p/crypto/keys';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
@@ -19,13 +19,13 @@ describe('p2p utils', () => {
       expect(reconstructedPeerId.publicKey).toEqual(peerId.publicKey);
     });
 
-    const readFromSingleton = async (store: AztecKVStore) => {
+    const readFromSingleton = async (store: AztecAsyncKVStore) => {
       const peerIdPrivateKeySingleton = store.openSingleton('peerIdPrivateKey');
-      return await peerIdPrivateKeySingleton.get();
+      return await peerIdPrivateKeySingleton.getAsync();
     };
 
     it('If nothing is provided, it should create a new peer id private key, and persist it', async () => {
-      const store = openTmpStore();
+      const store = await openTmpStore('test');
 
       const config = {} as P2PConfig;
       const peerIdPrivateKey = await getPeerIdPrivateKey(config, store);
@@ -45,7 +45,7 @@ describe('p2p utils', () => {
     });
 
     it('If a value is provided in the config, it should use and persist that value', async () => {
-      const store = openTmpStore();
+      const store = await openTmpStore('test');
 
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
       const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');

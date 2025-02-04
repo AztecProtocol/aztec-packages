@@ -229,12 +229,17 @@ export class ProverNodePublisher {
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
-      const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(data, {
-        args: [...txArgs],
-        functionName: 'submitEpochRootProof',
-        abi: RollupAbi,
-        address: this.rollupContract.address,
-      });
+      const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
+        data,
+        {
+          args: [...txArgs],
+          functionName: 'submitEpochRootProof',
+          abi: RollupAbi,
+          address: this.rollupContract.address,
+        },
+        /*blobInputs*/ undefined,
+        /*stateOverride*/ [],
+      );
       this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }

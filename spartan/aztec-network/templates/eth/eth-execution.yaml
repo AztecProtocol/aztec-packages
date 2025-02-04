@@ -50,7 +50,7 @@ spec:
             - name: entrypoint-scripts
               mountPath: /entrypoints
           resources:
-            {{- toYaml .Values.ethereum.resources | nindent 12 }}
+            {{- toYaml .Values.ethereum.execution.resources | nindent 12 }}
       volumes:
         - name: shared-volume
           persistentVolumeClaim:

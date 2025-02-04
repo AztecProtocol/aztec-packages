@@ -1,5 +1,6 @@
 {
-  "name": "vite",
+  "name": "gaztec",
+  "packageManager": "yarn@4.5.2",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -26,6 +27,7 @@
     "@mui/icons-material": "^6.3.1",
     "@mui/material": "^6.3.1",
     "@mui/styles": "^6.3.1",
+    "nosleep.js": "^0.12.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5"
@@ -42,8 +44,8 @@
     "globals": "^15.14.0",
     "typescript": "~5.7.3",
     "typescript-eslint": "^8.11.0",
-    "vite": "^6.0.7",
-    "vite-plugin-node-polyfills": "^0.22.0",
+    "vite": "^6.0.11",
+    "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-static-copy": "^2.2.0"
   }
 }

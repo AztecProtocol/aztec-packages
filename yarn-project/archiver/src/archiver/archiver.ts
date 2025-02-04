@@ -167,7 +167,7 @@ export class Archiver implements ArchiveSource, Traceable {
 
     const [l1StartBlock, l1GenesisTime] = await Promise.all([
       rollup.read.L1_BLOCK_AT_GENESIS(),
-      rollup.read.GENESIS_TIME(),
+      rollup.read.getGenesisTime(),
     ] as const);
 
     const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;

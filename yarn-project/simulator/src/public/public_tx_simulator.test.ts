@@ -36,7 +36,7 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -275,8 +275,7 @@ describe('public_tx_simulator', () => {
   };
 
   beforeEach(async () => {
-    const tmp = openTmpStore();
-    db = await (await MerkleTrees.new(tmp)).fork();
+    db = await (await NativeWorldStateService.tmp()).fork();
     worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
 
     treeStore = openTmpStore();

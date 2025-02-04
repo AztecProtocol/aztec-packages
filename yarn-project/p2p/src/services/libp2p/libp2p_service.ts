@@ -584,7 +584,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }
 
   private async processTxFromPeer(tx: Tx): Promise<void> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
     await this.mempools.txPool.addTxs([tx]);
