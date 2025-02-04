@@ -59,7 +59,6 @@ where
             },
         );
 
-        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let hash = header.public_storage_historical_read(storage_slot + N as Field, address);
 
         if hash != 0 {
