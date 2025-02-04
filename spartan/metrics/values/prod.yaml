@@ -54,7 +54,7 @@ prometheus:
     persistentVolume:
       enabled: true
       size: 100Gi
-    replicaCount: 12
+    replicaCount: 6
     statefulSet:
       enabled: true
   alertmanager:
