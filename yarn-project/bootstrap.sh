@@ -113,7 +113,7 @@ function test_cmds {
 function test {
   echo_header "yarn-project test"
   local num_cpus=$(get_num_cpus)
-  test_cmds | parallelise $((num_cpus / 2))
+  test_cmds | filter_test_cmds | parallelise $((num_cpus / 2))
 }
 
 case "$cmd" in

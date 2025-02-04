@@ -100,7 +100,7 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
