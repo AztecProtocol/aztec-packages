@@ -1,12 +1,12 @@
 import { css } from "@emotion/react";
 import { ContractComponent } from "../contract/contract";
 import { SidebarComponent } from "../sidebar/sidebar";
-import { useState } from "react";
-import { AztecContext } from "../../aztecEnv";
+import { useEffect, useState } from "react";
+import { AztecContext, AztecEnv } from "../../aztecEnv";
 import NoSleep from "nosleep.js";
 import { LogPanel } from "../logPanel/logPanel";
 import logoURL from "../../assets/Aztec_logo.png";
-import { Box, Drawer } from "@mui/material";
+import { CircularProgress, Drawer, LinearProgress } from "@mui/material";
 
 const layout = css({
   display: "flex",
@@ -26,17 +26,6 @@ const collapsedDrawer = css({
   overflow: "hidden",
 });
 
-const noSleep = new NoSleep();
-
-function enableNoSleep() {
-  noSleep.enable();
-  document.removeEventListener("touchstart", enableNoSleep, false);
-}
-
-// Enable wake lock.
-// (must be wrapped in a user input event handler e.g. a mouse or touch handler)
-document.addEventListener("touchstart", enableNoSleep, false);
-
 export default function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -51,6 +40,17 @@ export default function Home() {
   const [logs, setLogs] = useState([]);
   const [logsOpen, setLogsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [isNetworkStoreInitialized, setIsNetworkStoreInitialized] =
+    useState(false);
+
+  useEffect(() => {
+    const initNetworkStore = async () => {
+      await AztecEnv.initNetworkStore();
+      setIsNetworkStoreInitialized(true);
+    };
+    initNetworkStore();
+  }, []);
 
   const AztecContextInitialValue = {
     pxe,
@@ -94,11 +94,18 @@ export default function Home() {
               width: "340px",
             },
           }}
+          ModalProps={{
+            keepMounted: true,
+          }}
           onClose={() => setDrawerOpen(false)}
           variant="temporary"
           open={drawerOpen}
         >
-          <SidebarComponent />
+          {isNetworkStoreInitialized ? (
+            <SidebarComponent />
+          ) : (
+            <LinearProgress />
+          )}
         </Drawer>
         <LogPanel />
         <ContractComponent />

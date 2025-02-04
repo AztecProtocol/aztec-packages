@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract StaticParent {
+pub contract StaticParent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public, view}};
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::static_child_contract::StaticChild;

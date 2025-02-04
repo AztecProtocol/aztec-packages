@@ -86,11 +86,11 @@ inline MultiTable get_uint32_xor_table(const MultiTableId id = UINT32_XOR)
 
     // 32 = 5 * 6 + 2
     // all remaining bits
-    const size_t LAST_BIT_SIZE = 32 - TABLE_BIT_SIZE * num_entries;
-    const size_t LAST_SLICE_SIZE = 1 << LAST_BIT_SIZE;
-    table.slice_sizes.emplace_back(base);
+    const size_t LAST_TABLE_BIT_SIZE = 32 - TABLE_BIT_SIZE * num_entries;
+    const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
+    table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
     table.basic_table_ids.emplace_back(UINT_XOR_SLICE_2_ROTATE_0);
-    table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<LAST_SLICE_SIZE, 0>);
+    table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
     return table;
 }
 

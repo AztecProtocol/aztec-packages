@@ -8,7 +8,7 @@ import {
 import { type EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -263,7 +263,7 @@ export async function createBootstrapNode(
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
   // Open an ephemeral store that will only exist in memory
-  const store = openTmpStore(true);
+  const store = await openTmpStore('bootstrap-node', true);
   const bootstrapNode = new BootstrapNode(store, telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
