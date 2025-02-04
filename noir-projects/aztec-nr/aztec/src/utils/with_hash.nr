@@ -151,7 +151,46 @@ mod test {
         assert_eq(result, expected);
     }
 
-    // Test getting a bad hint for an uninitialized value
+    #[test]
+    unconstrained fn test_reading_initialized_value() {
+        let mut env = TestEnvironment::new();
+
+        env.advance_block_to(6);
+
+        let value = MockStruct { a: 5, b: 3 };
+        let value_packed = value.pack();
+
+        let block_header = env.private().historical_header;
+        let address = env.contract_address();
+
+        // Mock the oracle to return a non-zero hint/packed value
+        let _ = OracleMock::mock("storageRead")
+            .with_params((
+                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                value_packed.len(),
+            ))
+            .returns(value_packed)
+            .times(1);
+
+        // Now we mock the oracle to return an incorrect hash
+        let hash_len = 1;
+        let _ = OracleMock::mock("storageRead")
+            .with_params((
+                address.to_field(), storage_slot + (value_packed.len() as Field),
+                block_header.global_variables.block_number as u32, hash_len,
+            ))
+            .returns(poseidon2_hash(value_packed))
+            .times(1);
+
+        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+            block_header,
+            address,
+            storage_slot,
+        );
+
+        assert_eq(result, value);
+    }
+
     #[test(should_fail_with = "Non-zero hint for zero hash")]
     unconstrained fn test_bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
@@ -179,8 +218,7 @@ mod test {
         );
     }
 
-    // Test getting a bad hint for an initialized value
-    #[test(should_fail_with = "Non-zero hint for zero hash")]
+    #[test(should_fail_with = "Hint values do not match hash")]
     unconstrained fn test_bad_hint_initialized_value() {
         let mut env = TestEnvironment::new();
 
@@ -205,7 +243,7 @@ mod test {
         let random_hash = random();
         let _ = OracleMock::mock("storageRead")
             .with_params((
-                address.to_field(), storage_slot + 2,
+                address.to_field(), storage_slot + (value_packed.len() as Field),
                 block_header.global_variables.block_number as u32, hash_len,
             ))
             .returns(random_hash)
