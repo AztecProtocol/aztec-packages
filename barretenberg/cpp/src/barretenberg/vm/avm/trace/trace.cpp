@@ -208,11 +208,12 @@ void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, 
     // update_preimage is validated, now validate the contract class id
     FF expected_current_class_id;
     const FF prev_value = instance.update_preimage[0];
-    const uint32_t block_of_change = static_cast<uint32_t>(instance.update_preimage[1]);
-    const FF next_value = instance.update_preimage[2];
+    const FF next_value = instance.update_preimage[1];
+    const uint32_t block_of_change = static_cast<uint32_t>(instance.update_preimage[2]);
+
     // Fourth item is related to update delays which we don't care.
-    if (public_inputs.global_variables.block_number < block_of_change) {
-        // original class id was validated agains the address
+    if (static_cast<uint32_t>(public_inputs.global_variables.block_number) < block_of_change) {
+        // original class id was validated against the address
         expected_current_class_id = prev_value == 0 ? instance.original_contract_class_id : prev_value;
     } else {
         expected_current_class_id = next_value == 0 ? instance.original_contract_class_id : next_value;
@@ -268,6 +269,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
                 throw std::runtime_error("Limit reached for contract calls to unique class id.");
             }
             contract_class_id_cache.insert(instance_hint.current_contract_class_id);
+            validate_contract_instance_current_class_id(clk, instance_hint);
             return get_bytecode_from_hints(contract_class_id);
         } else {
             // This was a non-membership proof!
@@ -275,8 +277,6 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(nullifier_read_hint.low_leaf_preimage,
                                                                              contract_address_nullifier);
         }
-
-        validate_contract_instance_current_class_id(clk, instance_hint);
     }
 
     if (exists) {

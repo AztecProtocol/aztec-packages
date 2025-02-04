@@ -53,4 +53,9 @@ export class ScheduledDelayChange {
     const delaySlot = await this.computeSlot(sharedMutableSlot);
     return ScheduledDelayChange.fromField(await reader(delaySlot));
   }
+
+  async writeToTree(sharedMutableSlot: Fr, writer: (storageSlot: Fr, value: Fr) => Promise<void>) {
+    const delaySlot = await ScheduledDelayChange.computeSlot(sharedMutableSlot);
+    await writer(delaySlot, this.toField());
+  }
 }

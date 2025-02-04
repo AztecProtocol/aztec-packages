@@ -1333,6 +1333,7 @@ export async function makeContractInstanceFromClassId(
     deployer?: AztecAddress;
     initializationHash?: Fr;
     publicKeys?: PublicKeys;
+    currentClassId?: Fr;
   },
 ): Promise<ContractInstanceWithAddress> {
   const salt = new Fr(seed);
@@ -1353,7 +1354,7 @@ export async function makeContractInstanceFromClassId(
     version: 1,
     salt,
     deployer,
-    currentContractClassId: classId,
+    currentContractClassId: overrides?.currentClassId ?? classId,
     originalContractClassId: classId,
     initializationHash,
     publicKeys,

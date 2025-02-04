@@ -46,6 +46,14 @@ export class ScheduledValueChange {
     return ScheduledValueChange.fromFields(fields);
   }
 
+  async writeToTree(sharedMutableSlot: Fr, writer: (storageSlot: Fr, value: Fr) => Promise<void>) {
+    const baseValueSlot = await ScheduledValueChange.computeSlot(sharedMutableSlot);
+    const fields = this.toFields();
+    for (let i = 0; i < 3; i++) {
+      await writer(baseValueSlot.add(new Fr(i)), fields[i]);
+    }
+  }
+
   getCurrentAt(blockNumber: number) {
     if (blockNumber < this.blockOfChange) {
       return this.previous;
