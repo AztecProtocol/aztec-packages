@@ -80,7 +80,7 @@ The latter is doable, but means encoding some maximum number of txs, `N`, to loo
 
 Instead, we manage state in the vein of `PartialStateReference`, where we provide a `start` and `end` state in each base and subsequent merge rollup circuits check that they follow on from one another. The base circuits themselves simply prove that adding the data of its tx indeed moves the state from `start` to `end`.
 
-To encompass all the tx effects, we use a `poseidon2` sponge and absorb each field. We also track the number of fields added to ensure we don't overflow the blob (4096 BLS fields, which *can* fit 4112 BN254 fields, but adding the mapping between these is complex). Given that this struct is a sponge used for a blob, I have named it:
+To encompass all the tx effects, we use a `poseidon2` sponge and absorb each field. We also track the number of fields added to ensure we don't overflow the blobs (4096 BLS fields per blob, with configurable `BLOBS_PER_BLOCK`). Given that this struct is a sponge used for a blob, I have named it:
 
 ```rs
 global IV: Field = (FIELDS_PER_BLOB as Field) * 18446744073709551616;
@@ -125,11 +125,15 @@ The current route is to inline the blob functionality inside the block root circ
 
 First, we must gather all our tx effects ($d_i$ s). These will be injected as private inputs to the circuit and checked against the `SpongeBlob`s from the pair of `BaseOrMergeRollupPublicInputs` that we know contain all the effects in the block's txs. Like the merge circuit, the block root checks that the `left`'s `end` `SpongeBlob` == the `right`'s `start` `SpongeBlob`.
 
-It then calls `squeeze()` on the `right`'s `end` `SpongeBlob` to produce the hash of all effects that will be in the blob. Let's call this `h`. The raw injected tx effects are `poseidon2` hashed and we check that the result matches `h`. We now have our set of $d_i$ s.
+It then calls `squeeze()` on the `right`'s `end` `SpongeBlob` to produce the hash of all effects that will be in the block. Let's call this `h`. The raw injected tx effects are `poseidon2` hashed and we check that the result matches `h`. We now have our set of $d_i$ s.
 
 We now need to produce a challenge point `z`. This value must encompass the two 'commitments' used to represent the blob data: $C$ and `h` (see [here](https://notes.ethereum.org/@vbuterin/proto_danksharding_faq#Moderate-approach-works-with-any-ZK-SNARK) for more on the method). We simply provide $C$ as a public input to the block root circuit, and compute `z = poseidon2(h, C)`.
 
+Note that with multiple blobs per block, each blob uses the same `h` but has a unique `C`. Since `h` does encompass all fields in the blob (plus some more) and the uniqueness of `C` ensures the uniqueness of `z`, this is acceptable.
+
 The block root now has all the inputs required to call the blob functionality described above. Along with the usual `BlockRootOrBlockMergePublicInputs`, we also have `BlobPublicInputs`: $C$, $z$, and $y$.
+
+Each blob in the block has its own set of `BlobPublicInputs`. Currently, each are propagated up to the Root circuit and verified on L1 against each blob. In future, we want to combine each insteance of `BlobPublicInputs` so the contract only has to call the precompile once per block.
 
 <!-- TODO(Miranda): Add details of block merge and root here once we know how they will look with batching -->
 
@@ -155,26 +159,40 @@ The function `propose()` takes in these `BlobPublicInputs` and a ts generated `k
         require(success, "Point evaluation precompile failed");
 ```
 
-We have now linked the `BlobPublicInputs` ($C$, $z$, and $y$) to a published EVM blob. We still need to show that these inputs were generated in our rollup circuits corresponding to the blocks we claim. For each proposed block, we store them:
+We have now linked the `BlobPublicInputs` ($C$, $z$, and $y$) to a published EVM blob. We still need to show that these inputs were generated in our rollup circuits corresponding to the blocks we claim. To avoid storing `BLOBS_PER_BLOCK * 4` fields per block, we hash all the `BlobPublicInputs` to `blobPublicInputsHash`.
+For each proposed block, we store them:
 
 ```solidity
-blobPublicInputs[blockNumber] = BlobPublicInputs({
-    z,
-    y,
-    c,
-});
+rollupStore.blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
 ```
 
-Then, when the epoch proof is submitted in `submitEpochRootProof()`, we access these to verify the ZKP:
+Then, when the epoch proof is submitted in `submitEpochRootProof()`, we inject the raw `BlobPublicInputs`, hash them, and check this matches each block's `blobPublicInputsHash`. We use these to verify the ZKP:
 
 ```solidity
     // blob_public_inputs
+    uint256 blobOffset = 0;
     for (uint256 i = 0; i < _epochSize; i++) {
-      uint256 j = currentIndex + i;
-      publicInputs[j] = blobPublicInputs[previousBlockNumber + i + 1].z;
-      publicInputs[j + 1] = blobPublicInputs[previousBlockNumber + i + 1].y;
-      publicInputs[j + 2] = blobPublicInputs[previousBlockNumber + i + 1].c;
+      uint8 blobsInBlock = uint8(_blobPublicInputs[blobOffset++]);
+      for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
+        if (j < blobsInBlock) {
+          // z
+          publicInputs[offset++] = bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
+          // y
+          (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
+            bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
+          // c[0]
+          publicInputs[offset++] =
+            bytes32(uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31]))));
+          // c[1]
+          publicInputs[offset++] =
+            bytes32(uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17]))));
+        } else {
+          offset += Constants.BLOB_PUBLIC_INPUTS;
+        }
+      }
     }
 ```
+
+Notice that if a block needs less than `BLOBS_PER_BLOCK` blobs, we don't waste gas on calling the precompile or assigning public inputs for the unused blobs. If we incorrectly claim that (e.g.) the block used 2 blobs, when it actually used 3, the proof would not verify because `BlobPublicInputs` would exist for the third blob but they would not have been assigned in the above loop (see `offset += Constants.BLOB_PUBLIC_INPUTS`).
 
 Note that we do not need to check that our $C$ matches the `blobhash` - the precompile does this for us.
