@@ -114,7 +114,10 @@ where
 mod test {
     use crate::{
         oracle::random::random,
-        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+        test::{
+            helpers::{cheatcodes, test_environment::TestEnvironment},
+            mocks::mock_struct::MockStruct,
+        },
         utils::with_hash::WithHash,
     };
     use dep::protocol_types::hash::poseidon2_hash;
@@ -147,6 +150,7 @@ mod test {
             storage_slot,
         );
 
+        // We should get zeroed value
         let expected: MockStruct = mem::zeroed();
         assert_eq(result, expected);
     }
@@ -155,36 +159,22 @@ mod test {
     unconstrained fn test_reading_initialized_value() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(6);
-
         let value = MockStruct { a: 5, b: 3 };
-        let value_packed = value.pack();
+        let value_with_hash = WithHash::new(value);
 
-        let block_header = env.private().historical_header;
-        let address = env.contract_address();
+        // We write the value with hash to storage
+        cheatcodes::direct_storage_write(
+            env.contract_address(),
+            storage_slot,
+            value_with_hash.pack(),
+        );
 
-        // Mock the oracle to return a non-zero hint/packed value
-        let _ = OracleMock::mock("storageRead")
-            .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
-                value_packed.len(),
-            ))
-            .returns(value_packed)
-            .times(1);
-
-        // Now we mock the oracle to return an incorrect hash
-        let hash_len = 1;
-        let _ = OracleMock::mock("storageRead")
-            .with_params((
-                address.to_field(), storage_slot + (value_packed.len() as Field),
-                block_header.global_variables.block_number as u32, hash_len,
-            ))
-            .returns(poseidon2_hash(value_packed))
-            .times(1);
+        // We advance block by 1 because env.private() currently returns context at latest_block - 1
+        env.advance_block_by(1);
 
         let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
-            block_header,
-            address,
+            env.private().historical_header,
+            env.contract_address(),
             storage_slot,
         );
 
@@ -211,6 +201,7 @@ mod test {
             .returns(value_packed)
             .times(1);
 
+        // This should revert because the hint value is non-zero and the hash is zero (default value of storage)
         let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
             block_header,
             address,
@@ -222,36 +213,26 @@ mod test {
     unconstrained fn test_bad_hint_initialized_value() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(6);
-
         let value_packed = MockStruct { a: 5, b: 3 }.pack();
 
-        let block_header = env.private().historical_header;
-        let address = env.contract_address();
+        // We write the value to storage
+        cheatcodes::direct_storage_write(env.contract_address(), storage_slot, value_packed);
 
-        // Mock the oracle to return a non-zero hint/packed value
-        let _ = OracleMock::mock("storageRead")
-            .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
-                value_packed.len(),
-            ))
-            .returns(value_packed)
-            .times(1);
+        // Now we write incorrect hash to the hash storage slot
+        let incorrect_hash = random();
+        let hash_storage_slot = storage_slot + (value_packed.len() as Field);
+        cheatcodes::direct_storage_write(
+            env.contract_address(),
+            hash_storage_slot,
+            [incorrect_hash],
+        );
 
-        // Now we mock the oracle to return an incorrect hash
-        let hash_len = 1;
-        let random_hash = random();
-        let _ = OracleMock::mock("storageRead")
-            .with_params((
-                address.to_field(), storage_slot + (value_packed.len() as Field),
-                block_header.global_variables.block_number as u32, hash_len,
-            ))
-            .returns(random_hash)
-            .times(1);
+        // We advance block by 1 because env.private() currently returns context at latest_block - 1
+        env.advance_block_by(1);
 
-        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
-            block_header,
-            address,
+        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+            env.private().historical_header,
+            env.contract_address(),
             storage_slot,
         );
     }
