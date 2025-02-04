@@ -84,7 +84,6 @@ pub fn accumulate_blocks_fees(
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
     array_merge(left.fees, right.fees)
 }
 
@@ -101,7 +100,7 @@ pub fn accumulate_blob_public_inputs(
         left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
     );
-    // NB: For some reason, the below is around 150k gates cheaper than array_merge
+    // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
     let mut add_from_left = true;
     let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
     for i in 0..result.len() {
