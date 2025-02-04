@@ -325,9 +325,6 @@ template <typename Curve> class GeminiVerifier_ {
             batching_scalar *= rho;
         }
 
-        // WORKTODO: need to decide if its worth updating Gemini to handle k-shifts here. Would basically only be for
-        // testing. Does it make life easier or is there a simple enough Shplem test?
-
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
         const std::vector<Commitment> commitments = get_fold_commitments(num_variables, transcript);
 

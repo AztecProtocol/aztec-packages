@@ -125,16 +125,6 @@ TYPED_TEST(GeminiTest, SingleShift)
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
-TYPED_TEST(GeminiTest, SingleRightShiftByK)
-{
-    auto u = this->random_evaluation_point(this->log_n);
-
-    MockClaimGenerator mock_claims(
-        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 1, u, this->ck);
-
-    this->execute_gemini_and_verify_claims(u, mock_claims);
-}
-
 TYPED_TEST(GeminiTest, Double)
 {
 
