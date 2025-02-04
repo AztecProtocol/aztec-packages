@@ -17,7 +17,9 @@ spec:
         app: setup-l2-contracts
     spec:
       restartPolicy: OnFailure
+      {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       volumes:
         - name: scripts
           configMap:
