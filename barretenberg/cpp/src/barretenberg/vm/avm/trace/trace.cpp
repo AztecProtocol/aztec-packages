@@ -230,7 +230,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
 
     bool exists = true;
     if (check_membership && !is_canonical(contract_address)) {
-        if (bytecode_membership_cache.find(contract_address) != bytecode_membership_cache.end()) {
+        if (contract_instance_membership_cache.find(contract_address) != contract_instance_membership_cache.end()) {
             // If we have already seen the contract address, we can skip the membership check and used the cached
             // membership proof
             vinfo("Found bytecode for contract address in cache: ", contract_address);
@@ -256,7 +256,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             // This was a membership proof!
             // Assert that the hint's exists flag matches. The flag isn't really necessary...
             ASSERT(instance_hint.exists);
-            bytecode_membership_cache.insert(contract_address);
+            contract_instance_membership_cache.insert(contract_address);
 
             // The cache contains all the unique contract class ids we have seen so far
             // If this bytecode retrievals have reached the number of unique contract class IDs, can't make
@@ -3553,8 +3553,9 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         // Read the contract instance hint
         ContractInstanceHint instance = execution_hints.contract_instance_hints.at(contract_address);
 
-        if (is_canonical(contract_address)) {
-            // skip membership check for canonical contracts
+        if (is_canonical(contract_address) ||
+            (contract_instance_membership_cache.find(contract_address) != contract_instance_membership_cache.end())) {
+            // skip membership check for canonical contracts and contracts already verified
             exists = true;
         } else {
             // nullifier read hint for the contract address
@@ -3586,6 +3587,8 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
                         contract_address_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
             }
             validate_contract_instance_current_class_id(clk, instance);
+
+            contract_instance_membership_cache.insert(contract_address);
         }
 
         if (exists) {
