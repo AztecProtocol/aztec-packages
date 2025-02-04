@@ -344,7 +344,7 @@ unconstrained fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let _ = state_var.get_current_value();
 }
 
-#[test(should_fail_with = "Non-zero delay change for zero hash")]
+#[test(should_fail_with = "Non-zero value change for zero hash")]
 unconstrained fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     let mut env = setup();
 
