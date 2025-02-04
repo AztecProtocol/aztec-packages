@@ -1,5 +1,5 @@
 opentelemetry-collector:
-  replicaCount: 2
+  replicaCount: 3
   resources:
     requests:
       memory: 12Gi
@@ -54,7 +54,7 @@ prometheus:
     persistentVolume:
       enabled: true
       size: 100Gi
-    replicaCount: 2
+    replicaCount: 3
     statefulSet:
       enabled: true
   alertmanager:
@@ -75,6 +75,10 @@ tempo:
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  resources:
+    requests:
+      memory: 5Gi
+      cpu: "1.5"
   nodeSelector:
     node-type: infra
   service:
