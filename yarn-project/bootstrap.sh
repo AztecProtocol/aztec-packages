@@ -31,7 +31,7 @@ export -f format lint get_projects
 function build {
   echo_header "yarn-project build"
 
-  denoise "$0 clean-lite"
+  denoise "./bootstrap.sh clean-lite"
   denoise "yarn install"
 
   if cache_download yarn-project-$hash.tar.gz; then
@@ -63,7 +63,7 @@ function build {
     'cd aztec.js && yarn build:web'
     'cd end-to-end && yarn build:web'
   )
-  if [ "${typecheck:-0}" -eq 1 ]; then
+  if [ "${typecheck:-0}" -eq 1 ] || [ "$CI" -eq 1 ]; then
     cmds+=(
       'yarn tsc -b --emitDeclarationOnly'
       lint
@@ -126,7 +126,7 @@ case "$cmd" in
     fi
     ;;
   "ci")
-    typecheck=1 build
+    build
     test
     ;;
   ""|"fast")
