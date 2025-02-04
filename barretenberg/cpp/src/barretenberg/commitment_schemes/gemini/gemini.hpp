@@ -109,7 +109,7 @@ template <typename Curve> class GeminiProver_ {
      * polynomials by F, G, and H respectively, then A₀ = F + G/X + X^k*H. This polynomial is "folded" in Gemini to
      * produce d-1 univariate polynomials Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated
      * batched polynomials A₀₊ = F + G/r + r^K*H, and A₀₋ = F - G/r + r^K*H. These are required in order to prove the
-     * opening of shifted polynomials G_i/X X^k*H_i and from the commitments to their unshifted counterparts G_i and
+     * opening of shifted polynomials G_i/X, X^k*H_i and from the commitments to their unshifted counterparts G_i and
      * H_i.
      * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein that
      * could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of clarity.
