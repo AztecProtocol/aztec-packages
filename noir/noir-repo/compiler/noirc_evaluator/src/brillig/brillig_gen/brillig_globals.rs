@@ -182,20 +182,11 @@ impl BrilligGlobals {
         &self,
         brillig_function_id: FunctionId,
     ) -> SsaToBrilligGlobals {
-        let mut globals_allocations = HashMap::default();
-
-        // First check whether the `brillig_function_id` is itself an entry point,
-        // if so we can fetch the global allocations directly from `self.entry_point_globals_map`.
-        if let Some(globals) = self.entry_point_globals_map.get(&brillig_function_id) {
-            globals_allocations.extend(globals);
-            return globals_allocations;
-        }
-
-        // If the Brillig function we are compiling is not an entry point, we should search
-        // for the entry point which triggers the given function.
         let entry_points = self.inner_call_to_entry_point.get(&brillig_function_id);
+
+        let mut globals_allocations = HashMap::default();
         if let Some(entry_points) = entry_points {
-            // A Brillig function can be used by multiple entry points. Fetch both globals allocations
+            // A Brillig function is used by multiple entry points. Fetch both globals allocations
             // in case one is used by the internal call.
             let entry_point_allocations = entry_points
                 .iter()
@@ -204,6 +195,11 @@ impl BrilligGlobals {
             for map in entry_point_allocations {
                 globals_allocations.extend(map);
             }
+        } else if let Some(globals) = self.entry_point_globals_map.get(&brillig_function_id) {
+            // If there is no mapping from an inner call to an entry point, that means `brillig_function_id`
+            // is itself an entry point and we can fetch the global allocations directly from `self.entry_point_globals_map`.
+            // vec![globals]
+            globals_allocations.extend(globals);
         } else {
             unreachable!(
                 "ICE: Expected global allocation to be set for function {brillig_function_id}"
