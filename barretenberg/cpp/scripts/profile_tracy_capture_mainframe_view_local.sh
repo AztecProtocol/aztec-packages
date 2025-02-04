@@ -7,7 +7,7 @@
 # on local machine run:
 # export USER=...
 # export PRESET=...tracy for memory or tracy-gates for circuit gates...
-# ssh $USER-box "cat ~/aztec-packages/barretenberg/cpp/scripts/profile_tracy_capture_mainframe_view_local.sh" | bash /dev/stdin $USER
+# ssh $USER-box "cat ~/aztec-packages/barretenberg/cpp/scripts/benchmark_tracy.sh" | bash /dev/stdin $USER
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
@@ -21,7 +21,7 @@ ssh $BOX "
 	set -eux ;
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
 	cd ~/tracy/capture ;
-        git checkout 3ac95e6902e79a5082894fca398ad19893e452f7 ;
+        git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 ;
 	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev libtbb-dev libfreetype-dev ;
 	mkdir -p build && cd build && cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
@@ -36,7 +36,7 @@ ssh $BOX "
 wait # TODO(AD) hack - not sure why needed
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
 cd ~/tracy
-git checkout 3ac95e6902e79a5082894fca398ad19893e452f7
+git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 # release 0.11.0
 cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning -B profiler/build -S profiler -DCMAKE_BUILD_TYPE=Release
 cmake --build profiler/build --parallel
 scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$BENCHMARK .
