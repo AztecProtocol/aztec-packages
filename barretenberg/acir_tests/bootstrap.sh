@@ -22,8 +22,8 @@ function prepare_tests {
   local bb=$(realpath ../cpp/build/bin/bb)
   (cd ./acir_tests/assert_statement && \
     # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
-    $bb write_recursion_inputs --scheme ultra_honk -h 1 -b ./target/program.json -o ../verify_honk_proof --recursive && \
-    $bb write_recursion_inputs --scheme ultra_honk -h 2 -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+    $bb write_recursion_inputs --scheme ultra_honk -h 1 -b ./target/program.json -o ../verify_honk_proof && \
+    $bb write_recursion_inputs --scheme ultra_honk -h 2 -b ./target/program.json -o ../verify_rollup_honk_proof)
 
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"

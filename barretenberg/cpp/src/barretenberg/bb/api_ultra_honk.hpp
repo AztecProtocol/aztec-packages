@@ -38,7 +38,6 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        info("SETTING honk_recursion to 2");
         honk_recursion = 2;
     }
 
