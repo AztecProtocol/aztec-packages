@@ -60,6 +60,9 @@ function release {
 }
 
 case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
   ""|"full")
     build
     release_preview
