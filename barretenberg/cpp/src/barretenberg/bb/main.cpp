@@ -823,7 +823,7 @@ int main(int argc, char* argv[])
                 .honk_recursion = honk_recursion,
                 .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),
                 .output_data_type = parse_output_data_type(get_option(args, "--output_type", "fields_msgpack")),
-                .input_type = parse_input_type(get_option(args, "--input_type", "compiletime_stack")),
+                .input_type = parse_input_type(get_option(args, "--input_type", "single_circuit")),
                 .output_content_type = parse_output_content_type(get_option(args, "--output_content", "proof")),
             };
         }();

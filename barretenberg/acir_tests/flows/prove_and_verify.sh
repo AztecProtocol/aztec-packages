@@ -15,7 +15,7 @@ case ${SYS:-} in
     ;;
   "ultra_honk")
     cmd=prove_and_verify
-    flags+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
+    flags+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-single_circuit}"
     ;;
   *)
     cmd=prove_and_verify_$SYS

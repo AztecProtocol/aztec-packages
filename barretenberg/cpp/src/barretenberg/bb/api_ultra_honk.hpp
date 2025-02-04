@@ -141,9 +141,9 @@ class UltraHonkAPI : public API {
         return stack;
     };
 
-    ProofAndKey<UltraFlavor::VerificationKey> _prove_poseidon2(const API::Flags& flags,
-                                                               const std::filesystem::path& bytecode_path,
-                                                               const std::filesystem::path& witness_path)
+    ProofAndKey<UltraFlavor::VerificationKey> _prove_stack(const API::Flags& flags,
+                                                           const std::filesystem::path& bytecode_path,
+                                                           const std::filesystem::path& witness_path)
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         static constexpr size_t PROVER_SRS_LOG_SIZE = 23;
@@ -160,38 +160,16 @@ class UltraHonkAPI : public API {
         return { proof, *ivc.previous_vk };
     }
 
-    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak_zk(const bool vk_only,
-                                                                       const API::Flags& flags,
-                                                                       const std::filesystem::path& bytecode_path,
-                                                                       const std::filesystem::path& witness_path)
+    template <typename Flavor>
+    ProofAndKey<typename Flavor::VerificationKey> _prove_single(const bool vk_only,
+                                                                const API::Flags& flags,
+                                                                const std::filesystem::path& bytecode_path,
+                                                                const std::filesystem::path& witness_path)
     {
-        UltraKeccakZKProver prover =
-            compute_valid_prover<UltraKeccakZKFlavor>(bytecode_path, witness_path, flags.recursive);
+        auto prover = compute_valid_prover<Flavor>(bytecode_path, witness_path, flags.recursive);
 
         return { vk_only ? HonkProof() : prover.construct_proof(),
-                 UltraKeccakZKFlavor::VerificationKey(prover.proving_key->proving_key) };
-    }
-
-    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak(const bool vk_only,
-                                                                    const API::Flags& flags,
-                                                                    const std::filesystem::path& bytecode_path,
-                                                                    const std::filesystem::path& witness_path)
-    {
-        UltraKeccakProver prover =
-            compute_valid_prover<UltraKeccakFlavor>(bytecode_path, witness_path, flags.recursive);
-
-        return { vk_only ? HonkProof() : prover.construct_proof(),
-                 UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
-    }
-
-    ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const bool vk_only,
-                                                                  const std::filesystem::path& bytecode_path,
-                                                                  const std::filesystem::path& witness_path)
-    {
-        UltraProver_<UltraRollupFlavor> prover =
-            compute_valid_prover<UltraRollupFlavor>(bytecode_path, witness_path, true);
-        return { vk_only ? HonkProof() : prover.construct_proof(),
-                 UltraRollupFlavor::VerificationKey(prover.proving_key->proving_key) };
+                 typename Flavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
     template <typename Flavor>
@@ -248,25 +226,32 @@ class UltraHonkAPI : public API {
                 const std::filesystem::path& witness_path,
                 const std::filesystem::path& output_dir)
     {
+        if (flags.input_type == InputType::COMPILETIME_STACK) {
+            info("proving stack with poseidon2");
+            write(_prove_stack(flags, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
+        }
+
         if (flags.honk_recursion == 2) {
             info("proving with honk_recursion_2");
-            write(
-                _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
+            write(_prove_single<UltraRollupFlavor>(vk_only, flags, bytecode_path, witness_path),
+                  output_data_type,
+                  output_content_type,
+                  output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
-            info("proving with poseidon2");
-            write(_prove_poseidon2(flags, bytecode_path, witness_path),
+            info("proving single circuit with poseidon2");
+            write(_prove_single<UltraFlavor>(vk_only, flags, bytecode_path, witness_path),
                   output_data_type,
                   output_content_type,
                   output_dir);
         } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
             info("proving with keccak");
             if (flags.zk) {
-                write(_prove_keccak_zk(vk_only, flags, bytecode_path, witness_path),
+                write(_prove_single<UltraKeccakZKFlavor>(vk_only, flags, bytecode_path, witness_path),
                       output_data_type,
                       output_content_type,
                       output_dir);
             } else {
-                write(_prove_keccak(vk_only, flags, bytecode_path, witness_path),
+                write(_prove_single<UltraKeccakFlavor>(vk_only, flags, bytecode_path, witness_path),
                       output_data_type,
                       output_content_type,
                       output_dir);
@@ -436,14 +421,14 @@ class UltraHonkAPI : public API {
             write_file(toml_path, { toml_content.begin(), toml_content.end() });
         };
         if (honk_recursion_2) {
-            info("proving with honk_recursion_2");
-            write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
+            info("writing recursion inputs with honk_recursion_2");
+            write_toml(_prove_single<UltraRollupFlavor>(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
-            info("proving with poseidon2");
-            write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
+            info("writing recursion inputs with poseidon2");
+            write_toml(_prove_single<UltraFlavor>(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
-            info("proving with keccak");
-            write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
+            info("writing recursion inputs with keccak");
+            write_toml(_prove_single<UltraKeccakFlavor>(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else {
             info(flags);
             ASSERT("Invalid proving options specified");
