@@ -51,6 +51,8 @@ export function prettyPrintReqRespStatus(status: ReqRespStatus) {
       return 'SUCCESS';
     case ReqRespStatus.RATE_LIMIT_EXCEEDED:
       return 'RATE_LIMIT_EXCEEDED';
+    case ReqRespStatus.BADLY_FORMED_REQUEST:
+      return 'BADLY_FORMED_REQUEST';
     case ReqRespStatus.UNKNOWN:
       return 'UNKNOWN';
   }
