@@ -5,13 +5,10 @@ import {
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   type PrivateFunction,
-  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
 } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-
-import chunk from 'lodash.chunk';
+import { type Fr } from '@aztec/foundation/fields';
+import { FieldReader, type Tuple } from '@aztec/foundation/serialize';
 
 import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 
@@ -33,39 +30,28 @@ export class PrivateFunctionBroadcastedEvent {
   }
 
   static fromLog(log: ContractClassLog) {
-    const asBuffer = log.toBuffer();
-    const expectedLength =
-      32 *
-      (MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS +
-        REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS);
-    // TODO(MW): check
-    if (asBuffer.length !== expectedLength) {
-      throw new Error(
-        `Unexpected PrivateFunctionBroadcastedEvent log length: got ${asBuffer.length} but expected ${expectedLength}`,
-      );
-    }
-
-    const reader = new BufferReader(asBuffer.subarray(32));
-    const event = PrivateFunctionBroadcastedEvent.fromBuffer(reader);
-    if (!reader.isEmpty()) {
-      throw new Error(
-        `Unexpected data after parsing PrivateFunctionBroadcastedEvent: ${reader.readToEnd().toString('hex')}`,
-      );
+    const reader = new FieldReader(log.fields.slice(1));
+    const event = PrivateFunctionBroadcastedEvent.fromFields(reader);
+    while (!reader.isFinished()) {
+      const field = reader.readField();
+      if (!field.isZero()) {
+        throw new Error(`Unexpected data after parsing PrivateFunctionBroadcastedEvent: ${field.toString()}`);
+      }
     }
 
     return event;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    const contractClassId = reader.readObject(Fr);
-    const artifactMetadataHash = reader.readObject(Fr);
-    const unconstrainedFunctionsArtifactTreeRoot = reader.readObject(Fr);
-    const privateFunctionTreeSiblingPath = reader.readArray(FUNCTION_TREE_HEIGHT, Fr);
-    const privateFunctionTreeLeafIndex = reader.readObject(Fr).toNumber();
-    const artifactFunctionTreeSiblingPath = reader.readArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, Fr);
-    const artifactFunctionTreeLeafIndex = reader.readObject(Fr).toNumber();
-    const privateFunction = BroadcastedPrivateFunction.fromBuffer(reader);
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const contractClassId = reader.readField();
+    const artifactMetadataHash = reader.readField();
+    const unconstrainedFunctionsArtifactTreeRoot = reader.readField();
+    const privateFunctionTreeSiblingPath = reader.readFieldArray(FUNCTION_TREE_HEIGHT);
+    const privateFunctionTreeLeafIndex = reader.readField().toNumber();
+    const artifactFunctionTreeSiblingPath = reader.readFieldArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT);
+    const artifactFunctionTreeLeafIndex = reader.readField().toNumber();
+    const privateFunction = BroadcastedPrivateFunction.fromFields(reader);
 
     return new PrivateFunctionBroadcastedEvent(
       contractClassId,
@@ -106,13 +92,14 @@ export class BroadcastedPrivateFunction implements PrivateFunction {
     public readonly bytecode: Buffer,
   ) {}
 
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    const selector = FunctionSelector.fromField(reader.readObject(Fr));
-    const metadataHash = reader.readObject(Fr);
-    const vkHash = reader.readObject(Fr);
-    const encodedBytecode = reader.readBytes(MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS * 32);
-    const bytecode = bufferFromFields(chunk(encodedBytecode, Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer));
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const selector = FunctionSelector.fromField(reader.readField());
+    const metadataHash = reader.readField();
+    const vkHash = reader.readField();
+    // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
+    const encodedBytecode = reader.readFieldArray(MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS * 1);
+    const bytecode = bufferFromFields(encodedBytecode);
     return new BroadcastedPrivateFunction(selector, metadataHash, vkHash, bytecode);
   }
 }

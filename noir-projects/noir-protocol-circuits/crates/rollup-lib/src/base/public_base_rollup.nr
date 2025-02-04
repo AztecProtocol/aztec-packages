@@ -27,7 +27,8 @@ use dep::types::{
         tube::PublicTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
     },
     hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::{
@@ -57,7 +58,7 @@ impl PublicBaseRollupInputs {
         self,
         reverted: bool,
         combined_constant_data: CombinedConstantData,
-    ) -> TxEffect {
+    ) -> (TxEffect, [u32; MAX_CONTRACT_CLASS_LOGS_PER_TX]) {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
         let revert_code = if reverted { 1 } else { 0 };
@@ -88,19 +89,23 @@ impl PublicBaseRollupInputs {
         let siloed_contract_class_logs = contract_class_logs.map(
             |log: Scoped<ContractClassLogData>| silo_contract_class_log(log),
         );
+        // These lengths have been constrained in the kernels to be correct.
+        let contract_class_logs_lengths = contract_class_logs.map(|l| l.inner.log_size);
 
-        TxEffect {
-            tx_hash: self.tube_data.public_inputs.hash(),
-            revert_code,
-            transaction_fee: from_public.transaction_fee,
-            note_hashes: from_public.accumulated_data.note_hashes,
-            nullifiers: from_public.accumulated_data.nullifiers,
-            l2_to_l1_msgs: siloed_l2_to_l1_msgs,
-            public_data_writes: from_public.accumulated_data.public_data_writes,
-            private_logs,
-            public_logs: from_public.accumulated_data.public_logs,
-            contract_class_logs: siloed_contract_class_logs,
-        }
+        (
+            TxEffect {
+                tx_hash: self.tube_data.public_inputs.hash(),
+                revert_code,
+                transaction_fee: from_public.transaction_fee,
+                note_hashes: from_public.accumulated_data.note_hashes,
+                nullifiers: from_public.accumulated_data.nullifiers,
+                l2_to_l1_msgs: siloed_l2_to_l1_msgs,
+                public_data_writes: from_public.accumulated_data.public_data_writes,
+                private_logs,
+                public_logs: from_public.accumulated_data.public_logs,
+                contract_class_logs: siloed_contract_class_logs,
+            }, contract_class_logs_lengths,
+        )
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
@@ -141,7 +146,8 @@ impl PublicBaseRollupInputs {
             );
         }
 
-        let tx_effect = self.generate_tx_effect(reverted, combined_constant_data);
+        let (tx_effect, contract_class_logs_lengths) =
+            self.generate_tx_effect(reverted, combined_constant_data);
 
         let commitments_tree_subroot = calculate_subtree_root(tx_effect.note_hashes);
 
@@ -165,20 +171,6 @@ impl PublicBaseRollupInputs {
         // Append the tx effects for blob(s)
 
         let out_hash = compute_kernel_out_hash(tx_effect.l2_to_l1_msgs);
-
-        // These lengths have been constrained in the kernels to be correct.
-        // TODO(MW): avoid duplicating if reverted statement
-        let contract_class_logs_lengths = if reverted {
-            self.tube_data.public_inputs.non_revertible_accumulated_data.contract_class_logs.map(
-                |l| l.inner.log_size,
-            )
-        } else {
-            contract_class_log_array_merge(
-                self.tube_data.public_inputs.non_revertible_accumulated_data.contract_class_logs,
-                self.tube_data.public_inputs.revertible_accumulated_data.contract_class_logs,
-            )
-                .map(|l| l.inner.log_size)
-        };
 
         let end_sponge_blob = append_tx_effects_for_blob(
             tx_effect,

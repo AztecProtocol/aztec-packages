@@ -101,7 +101,6 @@ export class ScopedContractClassLogData {
   }
 
   getEmittedLength() {
-    // TODO(MW): This doesn't work if we have valid 0s inside contract class logs
     return this.inner.log.getEmittedLength();
   }
 

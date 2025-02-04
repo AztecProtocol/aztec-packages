@@ -223,7 +223,6 @@ export class Tx extends Gossipable {
       this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES +
-      // TODO(MW): This doesn't work if we have valid 0s inside contract class logs
       this.data.getNonEmptyContractClassLogsLength() * Fr.SIZE_IN_BYTES
     );
   }

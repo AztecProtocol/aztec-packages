@@ -186,6 +186,7 @@ describe('public_tx_simulator', () => {
         new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
       ),
       new Fr(7),
+      new Fr(contractClassLogFields.length),
       new Fr(REGISTERER_CONTRACT_ADDRESS),
     ]);
     if (revertible) {

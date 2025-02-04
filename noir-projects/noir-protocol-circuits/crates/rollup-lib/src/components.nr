@@ -226,7 +226,6 @@ fn get_tx_effects_hash_input(
 
     let mut offset = 0;
     let mut array_len = 0;
-    let mut check_elt = true;
 
     // NB: for publishing fields of blob data we use the first element of the blob to encode:
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
@@ -248,6 +247,7 @@ fn get_tx_effects_hash_input(
     // NOTE HASHES
     array_len = array_length(note_hashes);
     if array_len != 0 {
+        let mut check_elt = true;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], notes_prefix);
         offset += 1;
@@ -263,8 +263,8 @@ fn get_tx_effects_hash_input(
 
     // NULLIFIERS
     array_len = array_length(nullifiers);
-    check_elt = true;
     if array_len != 0 {
+        let mut check_elt = true;
         let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], nullifiers_prefix);
         offset += 1;
@@ -280,8 +280,8 @@ fn get_tx_effects_hash_input(
 
     // L2 TO L1 MESSAGES
     array_len = array_length(tx_effect.l2_to_l1_msgs);
-    check_elt = true;
     if array_len != 0 {
+        let mut check_elt = true;
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], l2_to_l1_msgs_prefix);
         offset += 1;
@@ -297,8 +297,8 @@ fn get_tx_effects_hash_input(
 
     // PUBLIC DATA UPDATE REQUESTS
     array_len = array_length(public_data_update_requests);
-    check_elt = true;
     if array_len != 0 {
+        let mut check_elt = true;
         let public_data_update_requests_prefix =
             encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
         assert_eq(tx_effects_hash_input[offset], public_data_update_requests_prefix);
@@ -322,8 +322,8 @@ fn get_tx_effects_hash_input(
     // TODO(Miranda): squash 0s in a nested loop and add len prefix?
     // PRIVATE_LOGS
     array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
-    check_elt = true;
     if array_len != 0 {
+        let mut check_elt = true;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], private_logs_prefix);
         offset += 1;
@@ -342,8 +342,8 @@ fn get_tx_effects_hash_input(
 
     // PUBLIC LOGS
     array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
-    check_elt = true;
     if array_len != 0 {
+        let mut check_elt = true;
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
         offset += 1;
@@ -365,9 +365,8 @@ fn get_tx_effects_hash_input(
     // the log is empty, and the logs are constrained to be sorted L to R.
     // This is cheaper because array_length uses is_empty, which is expensive for the log.
     array_len = array_length(contract_class_logs_lengths);
-    check_elt = true;
     if array_len != 0 {
-        // TODO(MW): this is just an inefficient way of removing trailing zeros to get it to run for now. I know it sucks.
+        let mut check_elt = true;
         let prefix_index = offset;
         let mut total_cc_log_len = 0;
 
@@ -535,7 +534,6 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // CONTRACT CLASS LOGS
     let num_cc_logs = array_length(contract_class_logs);
     if num_cc_logs != 0 {
-        // TODO(MW): this is just an inefficient way of removing trailing zeros to get it to run for now. I know it sucks.
         let prefix_index = offset;
         let mut total_cc_log_len = 0;
 

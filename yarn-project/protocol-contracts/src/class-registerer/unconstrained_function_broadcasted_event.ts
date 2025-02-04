@@ -8,9 +8,7 @@ import {
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-
-import chunk from 'lodash.chunk';
+import { FieldReader, type Tuple } from '@aztec/foundation/serialize';
 
 import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 
@@ -30,36 +28,26 @@ export class UnconstrainedFunctionBroadcastedEvent {
   }
 
   static fromLog(log: ContractClassLog) {
-    // TODO(MW): not sure what this is checking since test values are mostly 0s anyway
-    // const expectedLength = (MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS +
-    //   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS);
-    // if (log.length !== expectedLength) {
-    //   throw new Error(
-    //     `Unexpected UnconstrainedFunctionBroadcastedEvent log length: got ${log.length} but expected ${expectedLength}`,
-    //   );
-    // }
-
-    const reader = new BufferReader(log.toBuffer().subarray(32));
-    const event = UnconstrainedFunctionBroadcastedEvent.fromBuffer(reader);
-    if (!reader.isEmpty()) {
-      // TODO(MW): check
-      const data = reader.readToEnd();
-      if (data.find(b => b !== 0)) {
-        throw new Error(`Unexpected data after parsing UnconstrainedFunctionBroadcastedEvent: ${data.toString('hex')}`);
+    const reader = new FieldReader(log.fields.slice(1));
+    const event = UnconstrainedFunctionBroadcastedEvent.fromFields(reader);
+    while (!reader.isFinished()) {
+      const field = reader.readField();
+      if (!field.isZero()) {
+        throw new Error(`Unexpected data after parsing UnconstrainedFunctionBroadcastedEvent: ${field.toString()}`);
       }
     }
 
     return event;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    const contractClassId = reader.readObject(Fr);
-    const artifactMetadataHash = reader.readObject(Fr);
-    const privateFunctionsArtifactTreeRoot = reader.readObject(Fr);
-    const artifactFunctionTreeSiblingPath = reader.readArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, Fr);
-    const artifactFunctionTreeLeafIndex = reader.readObject(Fr).toNumber();
-    const unconstrainedFunction = BroadcastedUnconstrainedFunction.fromBuffer(reader);
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const contractClassId = reader.readField();
+    const artifactMetadataHash = reader.readField();
+    const privateFunctionsArtifactTreeRoot = reader.readField();
+    const artifactFunctionTreeSiblingPath = reader.readFieldArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT);
+    const artifactFunctionTreeLeafIndex = reader.readField().toNumber();
+    const unconstrainedFunction = BroadcastedUnconstrainedFunction.fromFields(reader);
 
     return new UnconstrainedFunctionBroadcastedEvent(
       contractClassId,
@@ -99,12 +87,13 @@ export class BroadcastedUnconstrainedFunction implements UnconstrainedFunction {
     public readonly bytecode: Buffer,
   ) {}
 
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    const selector = FunctionSelector.fromField(reader.readObject(Fr));
-    const metadataHash = reader.readObject(Fr);
-    const encodedBytecode = reader.readBytes(MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS * 32);
-    const bytecode = bufferFromFields(chunk(encodedBytecode, Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer));
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const selector = FunctionSelector.fromField(reader.readField());
+    const metadataHash = reader.readField();
+    // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
+    const encodedBytecode = reader.readFieldArray(MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS * 1);
+    const bytecode = bufferFromFields(encodedBytecode);
     return new BroadcastedUnconstrainedFunction(selector, metadataHash, bytecode);
   }
 }
