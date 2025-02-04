@@ -9,9 +9,9 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ### TBD
 
 ### [Aztec.nr] Introduction of `WithHash<T>
-`WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
+`WithHash<T>` is a struct that allows for efficient reading of value T from public storage in private.
 This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
-This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
+This results in in a fewer tree inclusion proofs for values T that are packed into more than a single field.
 
 `WithHash<T>` is leveraged by state variables like `PublicImmutable`.
 This is a breaking change because now we require values stored in `PublicImmutable` and `SharedMutable` to implement the `Eq` trait.
