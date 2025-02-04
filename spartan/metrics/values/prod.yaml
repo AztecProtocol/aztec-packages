@@ -1,5 +1,5 @@
 opentelemetry-collector:
-  replicaCount: 4
+  replicaCount: 2
   resources:
     requests:
       memory: 12Gi
@@ -54,7 +54,7 @@ prometheus:
     persistentVolume:
       enabled: true
       size: 100Gi
-    replicaCount: 6
+    replicaCount: 2
     statefulSet:
       enabled: true
   alertmanager:
