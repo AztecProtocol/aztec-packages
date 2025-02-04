@@ -23,8 +23,6 @@ template <typename Curve> struct ClaimBatcher_ {
     struct Batch {
         RefVector<Commitment> commitments;
         RefVector<Fr> evaluations;
-        // // optionally specified shift magnitude for right-shift-by-k claims
-        // Fr k_shift_magnitude = 0;
         // scalar used for batching the claims, excluding the power of batching challenge \rho
         Fr scalar = 0;
     };

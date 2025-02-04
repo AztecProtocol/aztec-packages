@@ -154,8 +154,6 @@ template <typename Fr> class Polynomial {
 
     bool is_empty() const { return coefficients_.size() == 0; }
 
-    Polynomial identity() const { return *this; };
-
     /**
      * @brief Returns a Polynomial the left-shift of self.
      *
@@ -166,7 +164,7 @@ template <typename Fr> class Polynomial {
 
     /**
      * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
-     *
+     * @note Resulting Polynomial shares the memory of that used to generate it
      */
     Polynomial right_shifted(const size_t magnitude) const;
 
