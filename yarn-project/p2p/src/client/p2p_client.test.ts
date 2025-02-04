@@ -201,8 +201,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    // TODO(#10737) flake cc Maddiaa0
-    it.skip('moves the tips on a chain reorg', async () => {
+    it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
