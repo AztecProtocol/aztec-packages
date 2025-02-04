@@ -93,6 +93,7 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        constants::REGISTERER_CONTRACT_ADDRESS,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
         transaction::tx_request::TxRequest,
     };
@@ -115,7 +116,7 @@ mod tests {
                 tx_request: self.tx_request,
                 private_call,
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
-                protocol_contract_tree_root: 0,
+                protocol_contract_tree_root: self.private_call.protocol_contract_tree_root,
                 is_private_only: false,
                 first_nullifier_hint: 0,
             }
@@ -144,5 +145,23 @@ mod tests {
             public_inputs.end.private_logs,
             [private_logs[0], private_logs[1]],
         );
+    }
+
+    #[test]
+    fn private_kernel_init_contract_class_log_output_as_expected() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+        let log_fields = [1, 2, 3];
+
+        builder.private_call.add_contract_class_log(log_fields);
+        let registerer_index = REGISTERER_CONTRACT_ADDRESS.inner as u32;
+        let _ = builder.private_call.use_protocol_contract(registerer_index);
+        // edit the log_size to be incorrect
+        let mut log = builder.private_call.contract_class_logs.get_unchecked(0);
+        log.inner.log_size = log_fields.len() + 1;
+        builder.private_call.contract_class_logs.set_unchecked(0, log);
+        builder.tx_request = builder.private_call.build_tx_request();
+        // the output builder should set the correct log_size
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.end.contract_class_logs[0].inner.log_size, log_fields.len());
     }
 }

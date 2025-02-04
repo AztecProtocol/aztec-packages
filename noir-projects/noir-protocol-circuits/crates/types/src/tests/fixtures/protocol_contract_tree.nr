@@ -5,12 +5,18 @@ use crate::{
 
 global PROTOCOL_CONTRACT_TREE_WIDTH: u32 = 1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8;
 
-pub fn get_protocol_contract_tree() -> MerkleTree<PROTOCOL_CONTRACT_TREE_WIDTH> {
+pub fn get_protocol_contract_tree(contract_index: u32) -> MerkleTree<PROTOCOL_CONTRACT_TREE_WIDTH> {
+    assert(contract_index < PROTOCOL_CONTRACT_TREE_WIDTH, "protocol contract does not exist");
     let mut leaves = [0; PROTOCOL_CONTRACT_TREE_WIDTH];
 
     // Fake protocol contract addresses for testing purposes.
-    leaves[1] = get_protocol_contract(1).address.to_field();
-    leaves[2] = 12341234;
+    for i in 0..PROTOCOL_CONTRACT_TREE_WIDTH {
+        if i == contract_index {
+            leaves[i] = get_protocol_contract(contract_index).address.to_field();
+        } else {
+            leaves[i] = 12345 + i as Field;
+        }
+    }
 
     MerkleTree::new(leaves)
 }

@@ -227,14 +227,12 @@ impl FixtureBuilder {
     }
 
     pub fn set_protocol_contract_root(&mut self) {
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree(0);
         self.protocol_contract_tree_root = tree.get_root();
     }
 
-    pub fn use_protocol_contract(&mut self) -> Self {
-        let contract_index = 1;
-
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+    pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree(contract_index);
         self.protocol_contract_tree_root = tree.get_root();
         self.protocol_contract_sibling_path = tree.get_sibling_path(contract_index);
 
@@ -892,6 +890,7 @@ impl FixtureBuilder {
         let log = ContractClassLogData {
             log: Log { fields: log_fields },
             counter: self.next_counter(),
+            log_size: N,
         }
             .scope(self.contract_address);
         self.contract_class_logs.push(log);
