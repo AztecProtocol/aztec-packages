@@ -116,9 +116,9 @@ done
   echo -n "export const RollupStorage = "
   jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
   echo " as const;"
-) >"generated/RollupStorage.ts"
+) >"src/RollupStorage.ts"
 
 # Update index.ts exports
-echo "export * from './RollupStorage.js';" >>"generated/index.ts"
+echo "export * from './RollupStorage.js';" >>"src/index.ts"
 
 echo "Successfully generated TS artifacts!"
