@@ -7,13 +7,6 @@ opentelemetry-collector:
   nodeSelector:
     node-type: infra
     pool: spot
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: cloud.google.com/gke-spot
-                operator: Exists
   tolerations:
     - key: "cloud.google.com/gke-spot"
       operator: "Equal"
