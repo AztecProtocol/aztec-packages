@@ -78,7 +78,7 @@ where
             assert_eq(
                 hint.get_value(),
                 T::unpack(std::mem::zeroed()),
-                "Non-zero value change for zero hash",
+                "Non-zero hint for zero hash",
             );
         };
 
@@ -112,9 +112,15 @@ where
 }
 
 mod test {
-    use crate::test::mocks::mock_struct::MockStruct;
-    use crate::utils::with_hash::WithHash;
+    use crate::{
+        oracle::random::random,
+        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+        utils::with_hash::WithHash,
+    };
     use dep::protocol_types::hash::poseidon2_hash;
+    use dep::std::{mem, test::OracleMock};
+
+    global storage_slot: Field = 47;
 
     #[test]
     unconstrained fn create_and_recover() {
@@ -125,5 +131,90 @@ mod test {
         assert_eq(recovered.value, value);
         assert_eq(recovered.packed, value.pack());
         assert_eq(recovered.hash, poseidon2_hash(value.pack()));
+    }
+
+    // Test reading an uninitialized value
+    #[test]
+    unconstrained fn test_reading_uninitialized_value() {
+        let mut env = TestEnvironment::new();
+
+        let block_header = env.private_at(6).historical_header;
+        let address = env.contract_address();
+
+        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+            block_header,
+            address,
+            storage_slot,
+        );
+
+        let expected: MockStruct = mem::zeroed();
+        assert_eq(result, expected);
+    }
+
+    // Test getting a bad hint for an uninitialized value
+    #[test(should_fail_with = "Non-zero hint for zero hash")]
+    unconstrained fn test_bad_hint_uninitialized_value() {
+        let mut env = TestEnvironment::new();
+
+        env.advance_block_to(6);
+
+        let value_packed = MockStruct { a: 1, b: 1 }.pack();
+
+        let block_header = env.private().historical_header;
+        let address = env.contract_address();
+
+        // Mock the oracle to return a non-zero hint/packed value
+        let _ = OracleMock::mock("storageRead")
+            .with_params((
+                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                value_packed.len(),
+            ))
+            .returns(value_packed)
+            .times(1);
+
+        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
+            block_header,
+            address,
+            storage_slot,
+        );
+    }
+
+    // Test getting a bad hint for an initialized value
+    #[test(should_fail_with = "Non-zero hint for zero hash")]
+    unconstrained fn test_bad_hint_initialized_value() {
+        let mut env = TestEnvironment::new();
+
+        env.advance_block_to(6);
+
+        let value_packed = MockStruct { a: 5, b: 3 }.pack();
+
+        let block_header = env.private().historical_header;
+        let address = env.contract_address();
+
+        // Mock the oracle to return a non-zero hint/packed value
+        let _ = OracleMock::mock("storageRead")
+            .with_params((
+                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                value_packed.len(),
+            ))
+            .returns(value_packed)
+            .times(1);
+
+        // Now we mock the oracle to return an incorrect hash
+        let hash_len = 1;
+        let random_hash = random();
+        let _ = OracleMock::mock("storageRead")
+            .with_params((
+                address.to_field(), storage_slot + 2,
+                block_header.global_variables.block_number as u32, hash_len,
+            ))
+            .returns(random_hash)
+            .times(1);
+
+        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
+            block_header,
+            address,
+            storage_slot,
+        );
     }
 }
