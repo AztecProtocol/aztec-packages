@@ -246,7 +246,7 @@ export function SidebarComponent() {
           variant="h1"
           sx={{ fontSize: "65px", padding: 0, marginTop: "0.5rem" }}
         >
-          GAztec
+          Playground
         </Typography>
       </div>
       <Typography variant="overline">Connect</Typography>
