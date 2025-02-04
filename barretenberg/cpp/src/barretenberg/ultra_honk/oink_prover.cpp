@@ -99,9 +99,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_l, commitment_labels.w_l);
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_r, commitment_labels.w_r);
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_o, commitment_labels.w_o);
+        auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
+                                                              : CommitmentKey::CommitType::Default;
+
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_l, commitment_labels.w_l, commit_type);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_r, commitment_labels.w_r, commit_type);
+        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_o, commitment_labels.w_o, commit_type);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -111,7 +114,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
              zip_view(proving_key->proving_key.polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
-                commit_to_witness_polynomial(polynomial, label);
+                transcript->send_to_verifier(domain_separator + label,
+                                             proving_key->proving_key.commitment_key->commit(polynomial));
             };
         }
 
@@ -146,10 +150,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     {
         PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
         commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_counts,
-                                     commitment_labels.lookup_read_counts);
+                                     commitment_labels.lookup_read_counts,
+                                     CommitmentKey::CommitType::Sparse);
 
         commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_tags,
-                                     commitment_labels.lookup_read_tags);
+                                     commitment_labels.lookup_read_tags,
+                                     CommitmentKey::CommitType::Sparse);
     }
     {
         PROFILE_THIS_NAME("COMMIT::wires");
@@ -225,6 +231,43 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
     }
     alphas = transcript->template get_challenges<FF>(args);
     return alphas;
+}
+
+/**
+ * @brief We mask the commitment to a witness, its evaluation at the Sumcheck challenge and, if needed, the
+ * evaluation of its shift.
+ */
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::mask_witness_polynomial(Polynomial<FF>& polynomial)
+{
+    const size_t circuit_size = polynomial.virtual_size();
+    for (size_t idx = 1; idx < MASKING_OFFSET; idx++) {
+        polynomial.at(circuit_size - idx) = FF::random_element();
+    }
+}
+
+/**
+ * @brief A uniform method to mask, commit, and send the corresponding commitment to the verifier.
+ *
+ * @param polynomial
+ * @param label
+ * @param type
+ */
+template <IsUltraFlavor Flavor>
+void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
+                                                      const std::string& label,
+                                                      const CommitmentKey::CommitType type)
+{
+    // Mask if needed
+    if constexpr (Flavor::HasZK) {
+        mask_witness_polynomial(polynomial);
+    };
+
+    typename Flavor::Commitment commitment;
+
+    commitment = proving_key->proving_key.commitment_key->commit_with_type(
+        polynomial, type, proving_key->proving_key.active_region_data.get_ranges());
+    // Send the commitment to the verifier
+    transcript->send_to_verifier(domain_separator + label, commitment);
 }
 
 template class OinkProver<UltraFlavor>;

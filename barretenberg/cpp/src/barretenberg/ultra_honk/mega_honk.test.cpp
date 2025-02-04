@@ -114,7 +114,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 {
     using Flavor = TypeParam;
 
-    // MegaZKFlavor is only used to prove the Hiding Circuit.
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'BasicStructured' test for MegaZKFlavor.";
     }
@@ -149,7 +150,8 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 {
     using Flavor = TypeParam;
 
-    // MegaZKFlavor is only used to prove the Hiding Circuit.
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for MegaZKFlavor.";
     }
@@ -392,8 +394,8 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
-
-    // MegaZKFlavor is only used to prove the Hiding Circuit.
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'PolySwap' test for MegaZKFlavor.";
     }
