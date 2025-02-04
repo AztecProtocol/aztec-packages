@@ -274,9 +274,9 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   }
 }
 
-# Create 2 core high memory spot instance node pool with autoscaling, used for metrics
-resource "google_container_node_pool" "spot_nodes_2core-highmem" {
-  name     = "${var.cluster_name}-2core-highmem-spot"
+# Create 4 core high memory spot instance node pool with autoscaling, used for metrics
+resource "google_container_node_pool" "spot_nodes_4core-highmem" {
+  name     = "${var.cluster_name}-4core-highmem-spot"
   location = var.zone
   cluster  = var.cluster_name
   version  = var.node_version
@@ -288,7 +288,7 @@ resource "google_container_node_pool" "spot_nodes_2core-highmem" {
 
   # Node configuration
   node_config {
-    machine_type = "n2-highmem-2"
+    machine_type = "n2-highmem-4"
     spot         = true
 
     service_account = var.service_account
