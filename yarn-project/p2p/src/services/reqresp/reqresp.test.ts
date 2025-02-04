@@ -22,6 +22,7 @@ import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
+import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
 
@@ -58,6 +59,7 @@ describe('ReqResp', () => {
     await sleep(500);
 
     const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
+    logger.info(`Res: ${res?.toBuffer().toString('utf-8')}`);
 
     await sleep(500);
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
@@ -126,9 +128,20 @@ describe('ReqResp', () => {
     await sleep(500);
 
     // Default rate is set at 1 every 200 ms; so this should fire a few times
+    const responses = [];
     for (let i = 0; i < 10; i++) {
-      await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, Buffer.from('ping'));
+      // Response object contains the status (error flags) and data
+      const response = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.PING,
+        Buffer.from('ping'),
+      );
+      responses.push(response);
     }
+
+    // Check that one of the responses gets a rate limit response
+    const rateLimitResponse = responses.find(response => response?.status === ReqRespStatus.RATE_LIMIT_EXCEEDED);
+    expect(rateLimitResponse).toBeDefined();
 
     // Make sure the error message is logged
     const errorMessage = `Rate limit exceeded for ${ReqRespSubProtocol.PING} from ${nodes[0].p2p.peerId.toString()}`;
@@ -343,7 +356,8 @@ describe('ReqResp', () => {
       );
 
       // Expect the response to be a buffer of length 1
-      expect(response).toEqual(Buffer.from([0x0]));
+      expect(response?.status).toEqual(ReqRespStatus.SUCCESS);
+      expect(response?.data).toEqual(Buffer.from([0x0]));
     });
   });
 
@@ -413,6 +427,8 @@ describe('ReqResp', () => {
       const batchSize = 12;
       nodes = await createNodes(peerScoring, 3);
 
+      const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
+
       await startNodes(nodes);
       await sleep(500);
       await connectToPeers(nodes);
@@ -426,6 +442,11 @@ describe('ReqResp', () => {
 
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
       expect(res).toEqual(expectResponses);
+
+      // Check that we did detect hitting a rate limit
+      expect(requesterLoggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`${prettyPrintReqRespStatus(ReqRespStatus.RATE_LIMIT_EXCEEDED)}`),
+      );
     });
   });
 });

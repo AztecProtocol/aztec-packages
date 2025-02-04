@@ -22,7 +22,8 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  type ReqRespSubProtocol,
+  ReqRespResponse,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
@@ -30,6 +31,7 @@ import {
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
+import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
 
 /**
  * The Request Response Service
@@ -190,13 +192,21 @@ export class ReqResp {
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
+        if (response && response.status !== ReqRespStatus.SUCCESS) {
+          this.logger.debug(
+            `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(response.status)}`,
+          );
+          continue;
+        }
+
         // If we get a response, return it, otherwise we iterate onto the next peer
         // We do not consider it a success if we have an empty buffer
-        if (response && response.length > 0) {
-          const object = subProtocolMap[subProtocol].response.fromBuffer(response);
+        if (response && response.data.length > 0) {
+          const object = subProtocolMap[subProtocol].response.fromBuffer(response.data);
           // The response validator handles peer punishment within
           const isValid = await responseValidator(request, object, peer);
           if (!isValid) {
+            // TODO(md): return the invalid response message!
             throw new InvalidResponseError();
           }
           return object;
@@ -311,8 +321,22 @@ export class ReqResp {
               for (const index of indices) {
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
-                if (response && response.length > 0) {
-                  const object = subProtocolMap[subProtocol].response.fromBuffer(response);
+                // Check the status of the response buffer
+                if (response && response.status !== ReqRespStatus.SUCCESS) {
+                  this.logger.debug(
+                    `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(
+                      response.status,
+                    )}`,
+                  );
+
+                  // If we hit a rate limit or some failure, we remove the peer and return the results,
+                  // they will be split among remaining peers and the new sampled peer
+                  batchSampler.removePeerAndReplace(peer);
+                  return { peer, results: peerResults };
+                }
+
+                if (response && response.data.length > 0) {
+                  const object = subProtocolMap[subProtocol].response.fromBuffer(response.data);
                   const isValid = await responseValidator(requests[index], object, peer);
 
                   if (isValid) {
@@ -394,7 +418,7 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-  ): Promise<Buffer | undefined> {
+  ): Promise<ReqRespResponse | undefined> {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
@@ -402,8 +426,8 @@ export class ReqResp {
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
 
       // Open the stream with a timeout
-      const result = await executeTimeout<Buffer>(
-        (): Promise<Buffer> => pipe([payload], stream!, this.readMessage.bind(this)),
+      const result = await executeTimeout<ReqRespResponse>(
+        (): Promise<ReqRespResponse> => pipe([payload], stream!, this.readMessage.bind(this)),
         this.individualRequestTimeoutMs,
         () => new IndividualReqRespTimeoutError(),
       );
@@ -448,6 +472,14 @@ export class ReqResp {
    */
   private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
     // Non pubishable errors
+    if (subProtocol === ReqRespSubProtocol.GOODBYE) {
+      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', {
+        peerId: peerId.toString(),
+        subProtocol,
+      });
+      return undefined;
+    }
+
     // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
     const logTags = {
       peerId: peerId.toString(),
@@ -493,13 +525,35 @@ export class ReqResp {
   /**
    * Read a message returned from a stream into a single buffer
    */
-  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<Buffer> {
+  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
+    let statusBuffer: ReqRespStatus | undefined;
+
     const chunks: Uint8Array[] = [];
-    for await (const chunk of source) {
-      chunks.push(chunk.subarray());
+    try {
+      for await (const chunk of source) {
+        if (statusBuffer === undefined) {
+          const firstChunkBuffer = chunk.subarray();
+          statusBuffer = firstChunkBuffer[0];
+          this.logger.info(`First chunk: ${statusBuffer}`);
+        } else {
+          chunks.push(chunk.subarray());
+        }
+      }
+
+      const messageData = Buffer.concat(chunks);
+      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
+
+      return {
+        status: statusBuffer ?? ReqRespStatus.UNKNOWN,
+        data: message,
+      };
+    } catch (e: any) {
+      this.logger.error(`Reading message failed: ${e.message}`);
+      return {
+        status: ReqRespStatus.UNKNOWN,
+        data: Buffer.from([]),
+      };
     }
-    const messageData = Buffer.concat(chunks);
-    return this.snappyTransform.inboundTransformNoTopic(messageData);
   }
 
   /**
@@ -525,25 +579,38 @@ export class ReqResp {
   private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     this.metrics.recordRequestReceived(protocol);
 
-    // Store a reference to from this for the async generator
-    if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
-      this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
-
-      // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
-      await stream.close();
-      return;
-    }
-
-    const handler = this.subProtocolHandlers[protocol];
-    const transform = this.snappyTransform;
-
     try {
+      // Store a reference to from this for the async generator
+      if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
+        this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
+
+        // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
+
+        // TODO(md): make a generic error response chunk
+        throw new Error('Rate limit exceeded');
+
+        // await stream.close();
+        // return;
+      }
+
+      const handler = this.subProtocolHandlers[protocol];
+      const transform = this.snappyTransform;
+      const logger = this.logger;
+
       await pipe(
         stream,
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(connection.remotePeer, msg);
+
+            // Send success code first, then the response
+            const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
+            logger.info(`Success chunk: ${successChunk.toString('hex')}`);
+            yield new Uint8Array(successChunk);
+
+            logger.info(`Response: ${response.toString('hex')}`);
+
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },
@@ -552,8 +619,24 @@ export class ReqResp {
     } catch (e: any) {
       this.logger.warn(e);
       this.metrics.recordResponseError(protocol);
+
+      const sendErrorChunk = this.sendErrorChunk(ReqRespStatus.RATE_LIMIT_EXCEEDED);
+
+      // Return and yield the response chunk
+      await pipe(
+        stream,
+        async function* (_source: any) {
+          yield* sendErrorChunk;
+        },
+        stream,
+      );
     } finally {
       await stream.close();
     }
+  }
+
+  private async *sendErrorChunk(error: ReqRespStatus): AsyncIterable<Uint8Array> {
+    const errorChunk = Buffer.from([error]);
+    yield new Uint8Array(errorChunk);
   }
 }
