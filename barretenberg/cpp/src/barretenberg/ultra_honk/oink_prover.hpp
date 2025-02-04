@@ -43,7 +43,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::string domain_separator;
     ExecutionTraceUsageTracker trace_usage_tracker;
 
-    typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
