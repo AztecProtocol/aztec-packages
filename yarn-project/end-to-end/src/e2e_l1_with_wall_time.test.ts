@@ -1,4 +1,4 @@
-import { type Logger, type PXE, Wallet } from '@aztec/aztec.js';
+import { type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type PXEService } from '@aztec/pxe';

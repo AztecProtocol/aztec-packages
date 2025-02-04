@@ -175,6 +175,14 @@ export abstract class BaseContractInteraction {
   }
 
   /**
+   * Add data passed to the oracle calls during this contract interaction.
+   * @param capsules - Data passed to oracle calls.
+   */
+  public addCapsules(capsules: Fr[][]) {
+    this.capsules.push(...capsules);
+  }
+
+  /**
    * Return all capsules added for this function interaction.
    */
   public getCapsules() {

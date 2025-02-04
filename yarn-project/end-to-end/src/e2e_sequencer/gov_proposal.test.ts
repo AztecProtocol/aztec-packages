@@ -1,4 +1,4 @@
-import { type AztecNode, type CheatCodes, type Logger, type PXE, Wallet } from '@aztec/aztec.js';
+import { type AztecNode, type CheatCodes, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import {
   type DeployL1Contracts,

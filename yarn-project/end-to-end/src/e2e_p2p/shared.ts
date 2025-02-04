@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
 import { type SpamContract } from '@aztec/noir-contracts.js/Spam';

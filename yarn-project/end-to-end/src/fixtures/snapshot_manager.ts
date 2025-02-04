@@ -7,7 +7,9 @@ import {
   BatchCall,
   CheatCodes,
   type CompleteAddress,
+  type ContractFunctionInteraction,
   type DeployL1Contracts,
+  type Fr,
   type FunctionCall,
   type Logger,
   type PXE,
@@ -600,16 +602,14 @@ export async function publicDeployAccounts(
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
-  const calls: FunctionCall[] = [];
-  if (!alreadyRegistered) {
-    const registerContractCall = await registerContractClass(sender, SchnorrAccountContractArtifact);
-    calls.push(await registerContractCall.request());
-  }
-  const requests = await Promise.all(
-    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
-  );
-  calls.push(...requests);
+  const fns: ContractFunctionInteraction[] = await Promise.all([
+    ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
+    ...instances.map(instance => deployInstance(sender, instance!)),
+  ]);
+  const calls: FunctionCall[] = await Promise.all(fns.map(fn => fn.request()));
+  const capsules: Fr[][] = fns.map(fn => fn.getCapsules()).flat();
 
   const batch = new BatchCall(sender, calls);
+  batch.addCapsules(capsules);
   await batch.send().wait({ proven: waitUntilProven });
 }

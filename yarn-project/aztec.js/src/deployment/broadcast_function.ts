@@ -70,7 +70,7 @@ export async function broadcastPrivateFunction(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  await fn.addCapsule(bytecode);
+  fn.addCapsule(bytecode);
 
   return fn;
 }
