@@ -9,10 +9,10 @@ contract Test {
     HonkVerifier verifier;
 
     constructor() {
-       verifier = new HonkVerifier(); 
+        verifier = new HonkVerifier();
     }
 
-    function test(bytes calldata proof, bytes32[] calldata publicInputs) view public returns(bool) {
+    function test(bytes calldata proof, bytes32[] calldata publicInputs) public view returns (bool) {
         return verifier.verify(proof, publicInputs);
     }
 }

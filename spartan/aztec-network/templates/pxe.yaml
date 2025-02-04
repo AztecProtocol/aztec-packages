@@ -1,3 +1,4 @@
+{{ if .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,8 +22,8 @@ spec:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
@@ -176,4 +177,5 @@ spec:
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
 ---
+{{ end }}
 {{ end }}

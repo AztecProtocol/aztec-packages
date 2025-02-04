@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Parent {
+pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     // Private function to call another private function in the target_contract using the provided selector

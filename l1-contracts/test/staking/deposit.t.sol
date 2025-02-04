@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Staking, IStaking, Status, ValidatorInfo} from "@aztec/core/staking/Staking.sol";
+import {IStaking, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract DepositTest is StakingBase {
   uint256 internal depositAmount;

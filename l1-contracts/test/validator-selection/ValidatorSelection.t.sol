@@ -25,7 +25,7 @@ import {
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, Epoch, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
@@ -40,7 +40,6 @@ import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
  */
 contract ValidatorSelectionTest is DecoderBase {
   using MessageHashUtils for bytes32;
-  using SlotLib for Slot;
   using EpochLib for Epoch;
 
   struct StructToAvoidDeepStacks {
@@ -83,7 +82,7 @@ contract ValidatorSelectionTest is DecoderBase {
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
-        - slotNumber * validatorSelection.SLOT_DURATION();
+        - slotNumber * validatorSelection.getSlotDuration();
       vm.warp(initialTime);
     }
 
@@ -127,7 +126,7 @@ contract ValidatorSelectionTest is DecoderBase {
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     });
-    slasher = rollup.SLASHER();
+    slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
@@ -168,7 +167,8 @@ contract ValidatorSelectionTest is DecoderBase {
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
-      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
+      block.timestamp
+        + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration()
     );
     Epoch post = rollup.getCurrentEpoch();
     assertEq(pre + Epoch.wrap(_epochsToJump), post, "Invalid epoch");
@@ -310,6 +310,8 @@ contract ValidatorSelectionTest is DecoderBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
+        emit log("We do be reverting?");
+
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -319,6 +321,8 @@ contract ValidatorSelectionTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
+
+      emit log("Time to propose");
       vm.prank(ree.proposer);
       rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 

@@ -6,7 +6,7 @@ import Select, { SelectChangeEvent } from "@mui/material/Select";
 import { AztecEnv, AztecContext, WebLogger } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { AccountWalletWithSecretKey, Fr, AztecAddress } from "@aztec/aztec.js";
-import { WalletDB } from "../../utils/storage";
+import { NetworkDB, WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
@@ -21,6 +21,7 @@ import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
 import { deriveSigningKey } from "@aztec/circuits.js/keys";
 import { TxsPanel } from "./components/txsPanel";
+import { AddNetworksDialog } from "./components/addNetworkDialog";
 
 const container = css({
   display: "flex",
@@ -49,13 +50,13 @@ const header = css({
   marginBottom: "1rem",
 });
 
-const NETWORKS = [
+type Network = { nodeURL: string; name: string };
+
+const NETWORKS: Network[] = [
   {
     nodeURL: "http://localhost:8080",
     name: "Local",
   },
-  { nodeURL: "http://34.145.98.34:8080", name: "Devnet" },
-  { nodeURL: "http://35.197.121.62:8080", name: "Masternet" },
 ];
 
 export function SidebarComponent() {
@@ -78,6 +79,8 @@ export function SidebarComponent() {
   const [changingNetworks, setChangingNetworks] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [contracts, setContracts] = useState([]);
+  const [networks, setNetworks] = useState(NETWORKS);
+  const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
 
@@ -100,6 +103,22 @@ export function SidebarComponent() {
     });
     return { ourAccounts, senders };
   };
+
+  useEffect(() => {
+    const refreshNetworks = async () => {
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map((network) => ({
+          nodeURL: network.value,
+          name: network.key,
+        })),
+      ];
+      setNetworks(networks);
+    };
+    refreshNetworks();
+  }, []);
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
     setChangingNetworks(true);
@@ -203,6 +222,23 @@ export function SidebarComponent() {
     setOpenAddSendersDialog(false);
   };
 
+  const handleNetworkAdded = async (network?: string, alias?: string) => {
+    if (network && alias) {
+      await NetworkDB.getInstance().storeNetwork(alias, network);
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map((network) => ({
+          nodeURL: network.value,
+          name: network.key,
+        })),
+      ];
+      setNetworks(networks);
+    }
+    setOpenAddNetworksDialog(false);
+  };
+
   return (
     <div css={container}>
       <div css={header}>
@@ -223,13 +259,25 @@ export function SidebarComponent() {
           disabled={changingNetworks}
           onChange={handleNetworkChange}
         >
-          {NETWORKS.map((network) => (
+          {networks.map((network) => (
             <MenuItem key={network.name} value={network.nodeURL}>
               {network.name} ({network.nodeURL})
             </MenuItem>
           ))}
+          <MenuItem
+            key="create"
+            value=""
+            onClick={() => setOpenAddNetworksDialog(true)}
+          >
+            <AddIcon />
+            &nbsp;Create
+          </MenuItem>
         </Select>
       </FormControl>
+      <AddNetworksDialog
+        open={openAddNetworksDialog}
+        onClose={handleNetworkAdded}
+      />
       {pxe && isPXEInitialized ? (
         <>
           <FormControl css={select}>

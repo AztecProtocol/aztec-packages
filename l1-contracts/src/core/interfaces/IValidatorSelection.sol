@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @notice  The data structure for an epoch
@@ -49,4 +49,8 @@ interface IValidatorSelection {
   function getEpochAt(Timestamp _ts) external view returns (Epoch);
   function getSlotAt(Timestamp _ts) external view returns (Slot);
   function getEpochAtSlot(Slot _slotNumber) external view returns (Epoch);
+
+  function getGenesisTime() external view returns (Timestamp);
+  function getSlotDuration() external view returns (uint256);
+  function getEpochDuration() external view returns (uint256);
 }
