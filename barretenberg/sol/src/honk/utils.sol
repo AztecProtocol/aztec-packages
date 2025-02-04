@@ -8,7 +8,7 @@ uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
 
-function bytes32ToString(bytes32 value) pure returns (string memory) {
+function bytes32ToString(bytes32 value) pure returns (string memory result) {
     bytes memory alphabet = "0123456789abcdef";
 
     bytes memory str = new bytes(66);
@@ -18,21 +18,12 @@ function bytes32ToString(bytes32 value) pure returns (string memory) {
         str[2 + i * 2] = alphabet[uint8(value[i] >> 4)];
         str[3 + i * 2] = alphabet[uint8(value[i] & 0x0f)];
     }
-    return string(str);
+    result = string(str);
 }
 
-function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
-    // TODO: convert both to hex before printing to line up with cpp
-    string memory x_0 = bytes32ToString(bytes32(point.x_0));
-    string memory x_1 = bytes32ToString(bytes32(point.x_1));
-    string memory y_0 = bytes32ToString(bytes32(point.y_0));
-    string memory y_1 = bytes32ToString(bytes32(point.y_1));
+function logG(string memory name, Honk.G1ProofPoint memory p) pure {
+    Honk.G1Point memory point = convertProofPoint(p);
 
-    string memory message = string(abi.encodePacked(name, " x: ", x_0, x_1, " y: ", y_0, y_1));
-    console2.log(message);
-}
-
-function logG(string memory name, Honk.G1Point memory point) pure {
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
@@ -79,8 +70,8 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 
 // EC Point utilities
 
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
-    return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
+function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory point) {
+    point = Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
 
 function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1ProofPoint memory point) {
@@ -93,41 +84,12 @@ function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1P
     });
 }
 
-function ecMul(Honk.G1Point memory point, Fr scalar) view returns (Honk.G1Point memory) {
-    bytes memory input = abi.encodePacked(point.x, point.y, Fr.unwrap(scalar));
-    (bool success, bytes memory result) = address(0x07).staticcall(input);
-    require(success, "ecMul failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
-function ecAdd(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
-    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, point1.y);
-    (bool success, bytes memory result) = address(0x06).staticcall(input);
-    require(success, "ecAdd failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
-function ecSub(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
-    // We negate the second point
-    uint256 negativePoint1Y = (Q - point1.y) % Q;
-    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, negativePoint1Y);
-    (bool success, bytes memory result) = address(0x06).staticcall(input);
-    require(success, "ecAdd failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
 function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
     point.y = (Q - point.y) % Q;
     return point;
 }
 
-function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool) {
+function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
     bytes memory input = abi.encodePacked(
         rhs.x,
         rhs.y,
@@ -146,6 +108,5 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
     );
 
     (bool success, bytes memory result) = address(0x08).staticcall(input);
-    bool decodedResult = abi.decode(result, (bool));
-    return success && decodedResult;
+    decodedResult = success && abi.decode(result, (bool));
 }
