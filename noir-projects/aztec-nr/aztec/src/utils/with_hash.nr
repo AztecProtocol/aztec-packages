@@ -7,6 +7,14 @@ use dep::protocol_types::{
     address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
 };
 
+/// A struct that allows for efficient reading of value T from public storage in private. This is
+/// achieved by storing the value with its hash, then obtaining the values via an oracle and
+/// verifying them against the hash. This results in in a fewer tree inclusion proofs for values T
+/// that are packed into more than a single field.
+///
+/// # Type Parameters
+/// - `T`: The underlying type being wrapped, must implement `Packable<N>`
+/// - `N`: The number of field elements required to pack values of type T
 pub struct WithHash<T, let N: u32> {
     value: T,
     packed: [Field; N],
