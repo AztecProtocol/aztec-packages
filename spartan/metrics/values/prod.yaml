@@ -40,7 +40,7 @@ prometheus:
   server:
     resources:
       requests:
-        memory: 28Gi
+        memory: 27Gi
         cpu: "3.5"
     nodeSelector:
       node-type: infra
