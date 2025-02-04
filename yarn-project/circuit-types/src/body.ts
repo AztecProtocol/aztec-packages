@@ -64,8 +64,6 @@ export class Body {
 
   /**
    * Decodes a block from blob fields.
-   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
-   * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
   static fromBlobFields(fields: Fr[]) {
     const txEffectsFields: Fr[][] = [];

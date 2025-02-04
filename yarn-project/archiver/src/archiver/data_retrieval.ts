@@ -216,8 +216,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  // TODO(#9101): 'bodyHex' will be removed from below
-  const [decodedArgs, , bodyHex, blobInputs] = rollupArgs! as readonly [
+  const [decodedArgs, , blobInputs] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -230,7 +229,6 @@ async function getBlockFromRollupTx(
     },
     ViemSignature[],
     Hex,
-    Hex,
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
@@ -239,8 +237,6 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
-  // TODO(#9101): Once calldata is removed, we can remove this field encoding and update
-  // Body.fromBlobFields to accept blob buffers directly
   let blockFields: Fr[];
   try {
     blockFields = Blob.toEncodedFields(blobBodies);
@@ -253,22 +249,10 @@ async function getBlockFromRollupTx(
     throw err;
   }
 
-  // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
-  // either a beacon chain client or link to some blob store. Web2 is ok because we will
-  // verify the block body vs the blob as below.
-  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+  // The blob source gives us blockFields, and we must construct the body from them:
+  const blockBody = Body.fromBlobFields(blockFields);
 
-  // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
-  // The blob source will give us blockFields, and we must construct the body from them:
-  // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
-  const reconstructedBlock = Body.fromBlobFields(blockFields);
-
-  if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
-    // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
-    throw new Error(`Block reconstructed from blob fields does not match`);
-  }
-
-  // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
+  // TODO: Will this ever throw now that we do not get blocks from calldata at all?
   const blobCheck = await Blob.getBlobs(blockFields);
   if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
     // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs

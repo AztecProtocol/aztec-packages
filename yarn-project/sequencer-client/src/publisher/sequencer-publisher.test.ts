@@ -47,7 +47,6 @@ describe('SequencerPublisher', () => {
   let header: Buffer;
   let archive: Buffer;
   let blockHash: Buffer;
-  let body: Buffer;
 
   let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
@@ -228,7 +227,6 @@ describe('SequencerPublisher', () => {
         txHashes: [],
       },
       [],
-      `0x${body.toString('hex')}`,
       blobInput,
     ] as const;
     expect(forwarder.forward).toHaveBeenCalledWith(

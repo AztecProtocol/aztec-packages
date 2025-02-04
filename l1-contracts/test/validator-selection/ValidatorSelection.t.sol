@@ -320,14 +320,14 @@ contract ValidatorSelectionTest is DecoderBase {
         ree.shouldRevert = true;
       }
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

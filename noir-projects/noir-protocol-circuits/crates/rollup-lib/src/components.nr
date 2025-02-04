@@ -149,7 +149,6 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
 // MAX_L2_TO_L1_MSGS_PER_TX for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-// TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
 // MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
 // MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS fields for public logs
 // MAX_CONTRACT_CLASS_LOGS_PER_TX * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS fields for contract class logs

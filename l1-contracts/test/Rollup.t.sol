@@ -308,7 +308,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
 
     quote.epochToProve = Epoch.wrap(1);
     quote.validUntilSlot = Epoch.wrap(2).toSlots();
@@ -474,7 +474,6 @@ contract RollupTest is DecoderBase {
   function testRevertProveTwice() public setUpFor("mixed_block_1") {
     DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
-    bytes memory body = data.body;
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -489,7 +488,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
 
     BlockLog memory blockLog = rollup.getBlock(0);
     _submitEpochProof(
@@ -545,7 +544,7 @@ contract RollupTest is DecoderBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -573,7 +572,7 @@ contract RollupTest is DecoderBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.body, blobInput);
+    rollup.propose(args, signatures, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -693,7 +692,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testNonZeroL2Fee() public setUpFor("mixed_block_1") {
@@ -720,7 +719,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testBlockFee() public setUpFor("mixed_block_1") {
@@ -757,7 +756,7 @@ contract RollupTest is DecoderBase {
         oracleInput: OracleInput(0, 0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.body, data.blobInputs);
+      rollup.propose(args, signatures, data.blobInputs);
       assertEq(
         testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
         0,
@@ -963,7 +962,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data2.body, data2.blobInputs);
+    rollup.propose(args, signatures, data2.blobInputs);
 
     // Skips proving of block 1
     BlockLog memory blockLog = rollup.getBlock(0);
@@ -1007,7 +1006,6 @@ contract RollupTest is DecoderBase {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -1023,14 +1021,13 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -1045,14 +1042,13 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -1067,14 +1063,13 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     uint256 realTs = data.decodedHeader.globalVariables.timestamp;
@@ -1094,7 +1089,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, new bytes(144));
+    rollup.propose(args, signatures, new bytes(144));
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
@@ -1285,7 +1280,7 @@ contract RollupTest is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, full.block.body, blobInputs);
+    rollup.propose(args, signatures, blobInputs);
 
     if (_submitProof) {
       uint256 pre = rollup.getProvenBlockNumber();

@@ -934,8 +934,6 @@ mod tests {
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
         let mut tx_effects = [0; 54];
-        // TODO(#8954): This test uses 50 notes and 4 extra absorbed fields
-        // This may change when logs are deconstructed
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // The first 4 are: i=0 init field, i=1: tx hash, i=2: tx fee, i=3: note prefix
         tx_effects[0] = field_from_bytes(

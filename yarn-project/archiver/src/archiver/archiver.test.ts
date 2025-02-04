@@ -569,7 +569,6 @@ describe('Archiver', () => {
  */
 async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
-  const body = toHex(l2Block.body.toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex((await l2Block.header.hash()).toBuffer());
@@ -579,7 +578,6 @@ async function makeRollupTx(l2Block: L2Block) {
     args: [
       { header, archive, blockHash, oracleInput: { provingCostModifier: 0n, feeAssetPriceModifier: 0n }, txHashes: [] },
       [],
-      body,
       blobInput,
     ],
   });

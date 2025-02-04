@@ -382,7 +382,6 @@ export class TxEffect {
 
   /**
    * Decodes a flat packed array of prefixed fields to TxEffect
-   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields as below
    */
   static fromBlobFields(fields: Fr[] | FieldReader) {
     const ensureEmpty = <T>(arr: Array<T>) => {

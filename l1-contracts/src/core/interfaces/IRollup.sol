@@ -98,14 +98,12 @@ interface IRollup {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _body,
     bytes calldata _blobInput
   ) external;
 
   function proposeAndClaim(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _body,
     bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
   ) external;

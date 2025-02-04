@@ -234,18 +234,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
    *
    * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
-   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
-   * @param _body - The body of the L2 block
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function proposeAndClaim(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _body,
     bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
-    propose(_args, _signatures, _body, _blobInput);
+    propose(_args, _signatures, _blobInput);
     claimEpochProofRight(_quote);
   }
 
@@ -493,15 +490,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
    *
    * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
-   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
-   * @param  - The body of the L2 block
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata,
     bytes calldata _blobInput
   ) public override(IRollup) {
     if (canPrune()) {
