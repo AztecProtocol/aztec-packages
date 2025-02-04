@@ -23,9 +23,11 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     static constexpr size_t n = 32;
     static constexpr size_t log_n = 5;
     // Total number of random polynomials in each test
-    static constexpr size_t num_polynomials = 5;
+    static constexpr size_t num_polynomials = 7;
     // Number of shiftable polynomials
     static constexpr size_t num_shiftable = 2;
+    // Number of polynomials to be right shifted by k
+    static constexpr size_t num_right_shiftable_by_k = 2;
 
     // The length of the mock sumcheck univariates.
     static constexpr size_t sumcheck_univariate_length = 24;
@@ -96,7 +98,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ 1,
+                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -201,7 +203,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ 0,
+                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -308,7 +310,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ 0,
+                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
