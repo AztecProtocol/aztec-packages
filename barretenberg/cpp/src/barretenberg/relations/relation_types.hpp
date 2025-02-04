@@ -139,9 +139,6 @@ template <typename RelationImpl> class Relation : public RelationImpl {
 
     static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> SUBRELATION_TOTAL_LENGTHS =
         compute_total_subrelation_lengths<RelationImpl>();
-    // Compute the subrelation partial lengths adjusted to ZK
-    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> ZK_PARTIAL_LENGTHS =
-        compute_zk_partial_subrelation_lengths<RelationImpl>();
 
     static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
                                                                 RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
