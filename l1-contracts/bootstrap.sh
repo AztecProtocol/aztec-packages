@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns)
+export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns)
 
 function build {
   github_group "l1-contracts build"
