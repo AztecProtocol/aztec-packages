@@ -685,7 +685,6 @@ library ZKTranscriptLib {
     }
 }
 
-
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
     scalar = FrLib.fromBytes32(bytes32(proofSection));
 }
@@ -1578,13 +1577,13 @@ interface IVerifier {
             proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
 
-         Fr evaluation = ONE;
-         for (uint256 i = 2; i < LOG_N; i++) {
-             evaluation = evaluation * tp.sumCheckUChallenges[i];
-         }
+        Fr evaluation = ONE;
+        for (uint256 i = 2; i < LOG_N; i++) {
+            evaluation = evaluation * tp.sumCheckUChallenges[i];
+        }
 
-         grandHonkRelationSum = grandHonkRelationSum * (ONE - evaluation) + proof.libraEvaluation * tp.libraChallenge;
-         verified = (grandHonkRelationSum == roundTargetSum);
+        grandHonkRelationSum = grandHonkRelationSum * (ONE - evaluation) + proof.libraEvaluation * tp.libraChallenge;
+        verified = (grandHonkRelationSum == roundTargetSum);
     }
 
     // Return the new target sum for the next sumcheck round

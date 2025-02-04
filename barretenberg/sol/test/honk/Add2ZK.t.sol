@@ -34,7 +34,7 @@ contract Add2HonkZKTest is TestBaseHonkZK {
         inputs[0] = uint256(input1);
         inputs[1] = uint256(input2);
         inputs[2] = inputs[0] + inputs[1];
-        console.log("here");
+
         bytes memory proofData = fuzzer.with_inputs(inputs).generate_proof();
 
         (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
