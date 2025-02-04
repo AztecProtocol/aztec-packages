@@ -19,8 +19,7 @@ namespace bb {
 
 template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Flavor::Curve> {
   public:
-    // Size of the test polynomials
-    static constexpr size_t n = 32;
+    static constexpr size_t n = 64;
     static constexpr size_t log_n = 5;
     // Total number of random polynomials in each test
     static constexpr size_t num_polynomials = 5;
@@ -359,6 +358,83 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                                                     &consistency_checked,
                                                                                     libra_commitments,
                                                                                     libra_evaluation);
+    // Verify claim using KZG or IPA
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        auto result =
+            IPA<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, true);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
+}
+
+TYPED_TEST(ShpleminiTest, MultiShplemini)
+{
+    using Curve = TypeParam::Curve;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using Fr = typename Curve::ScalarField;
+    using CK = typename TypeParam::CommitmentKey;
+
+    // Initialize transcript and commitment key
+    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+
+    //
+    static constexpr size_t num_polys_in_group = 16;
+
+    // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+    std::shared_ptr<CK> ck = create_commitment_key<CK>(this->n * num_polys_in_group);
+
+    // Generate multivariate challenge of size CONST_PROOF_SIZE_LOG_N
+    std::vector<Fr> const_size_mle_opening_point = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
+    // Truncate the multivariate challenge to evaluate prover polynomials (As in Sumcheck)
+    std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
+                                      const_size_mle_opening_point.begin() + this->log_n);
+
+    // Thanks to const proof size, we could simply re-use some of dummy challenges for the opening of the concatenation.
+    std::vector<Fr> extra_challenges(num_polys_in_group);
+
+    // Get  4 = log(16) extra challenges
+    for (size_t idx = this->log_n; idx < this->log_n + num_polys_in_group; idx++) {
+        extra_challenges[idx] = const_size_mle_opening_point[idx];
+    }
+
+    // Generate random prover polynomials, compute their evaluations and commitments
+    // 64 = number of short unshifted polynomials, they are be concatenated into 4 polys
+    // 16 = number of short to-be-shifted polynomials, they are concatenated into a single poly
+    auto pcs_instance_witness =
+        MultiWitnessGenerator<Curve>(num_polys_in_group, this->n, 64, 16, mle_opening_point, ck);
+
+    // The interface here is unchanged
+    const auto opening_claim = ShpleminiProver::prove(this->n,
+                                                      RefVector(pcs_instance_witness.unshifted_polynomials),
+                                                      RefVector(pcs_instance_witness.to_be_shifted_polynomials),
+                                                      const_size_mle_opening_point,
+                                                      ck,
+                                                      prover_transcript);
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        IPA<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
+    }
+
+    // Initialize verifier's transcript
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    // Run Shplemini
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(this->n,
+                                                       RefVector(pcs_instance_witness.unshifted_commitments),
+                                                       RefVector(pcs_instance_witness.to_be_shifted_commitments),
+                                                       RefVector(pcs_instance_witness.unshifted_combined_evals),
+                                                       RefVector(pcs_instance_witness.shifted_combined_evals),
+                                                       const_size_mle_opening_point,
+                                                       this->vk()->get_g1_identity(),
+                                                       verifier_transcript);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
