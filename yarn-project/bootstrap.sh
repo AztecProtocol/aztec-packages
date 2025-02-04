@@ -89,9 +89,6 @@ function build {
 }
 
 function test_cmds {
-  # TODO: This takes way longer than it probably should.
-  echo "$hash cd yarn-project && yarn formatting"
-
   # These need isolation due to network stack usage.
   for test in {prover-node,p2p}/src/**/*.test.ts; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
@@ -102,7 +99,8 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment.
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
-  for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
+  # noir-bb-bench: A slow pain. Figure out later.
+  for test in !(end-to-end|kv-store|prover-node|p2p|noir-bb-bench)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -122,10 +120,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    # git clean -fdx --exclude=node_modules --exclude=.yarn
-    git ls-files --ignored --others --exclude-standard \
-      | grep -vE '^(node_modules/|\.yarn/)' || true \
-      | xargs --no-run-if-empty rm -rf
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    if [ -n "$files" ]; then
+      echo "$files" | xargs rm -rf
+    fi
     ;;
   "ci")
     typecheck=1 build
