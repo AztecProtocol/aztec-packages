@@ -14,6 +14,16 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
+/// Implements Storage<N> for PublicImmutable by leveraging WithHash<T> to enable efficient
+/// private reads of public storage. This approach stores both the packed value (using N fields)
+/// and its hash (1 field), requiring M = N + 1 total fields.
+///
+/// The WithHash wrapper allows for efficient reads by verifying large values through a single
+/// hash check and then proving inclusion only of the hash in the public storage. This reduces
+/// the number of required tree inclusion proofs from O(M) to O(1).
+///
+/// This is valuable when T packs to multiple fields, as it maintains "almost constant"
+/// verification overhead regardless of the original data size.
 impl<T, Context, let M: u32, let N: u32> Storage<N> for PublicImmutable<T, Context>
 where
     WithHash<T, M>: Packable<N>,
