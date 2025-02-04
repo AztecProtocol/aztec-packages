@@ -244,7 +244,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(700),
   },
   gossipsubD: {
     env: 'P2P_GOSSIPSUB_D',
@@ -264,7 +264,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(5),
+    ...numberConfigHelper(6),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',

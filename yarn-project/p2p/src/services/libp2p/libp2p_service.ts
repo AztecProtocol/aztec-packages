@@ -34,6 +34,7 @@ import {
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
+import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
@@ -211,14 +212,18 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
           floodPublish: false,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
+          Dlazy: 6,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
+          gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -226,6 +231,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
+          batchPublish: true,
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
