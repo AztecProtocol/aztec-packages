@@ -4,12 +4,40 @@
 export enum ReqRespStatus {
   SUCCESS = 0,
   RATE_LIMIT_EXCEEDED = 1,
+  BADLY_FORMED_REQUEST = 2,
+  UNKNOWN = 127,
+}
 
-  // TODO: update the below errors
-  COLLECTIVE_TIMEOUT = 2,
-  INDIVIDUAL_TIMEOUT = 3,
-  INVALID_RESPONSE = 4,
-  UNKNOWN = 5,
+export class ReqRespStatusError extends Error {
+  /**
+   * The status code
+   */
+  status: ReqRespStatus;
+
+  constructor(status: ReqRespStatus) {
+    super(`ReqResp Error: ${prettyPrintReqRespStatus(status)}`);
+    this.status = status;
+  }
+}
+
+/**
+ * Parse the status chunk
+ * @param chunk
+ * @returns
+ *
+ * @throws ReqRespStatusError if the chunk is not valid
+ */
+export function parseStatusChunk(chunk: Uint8Array): ReqRespStatus {
+  if (chunk.length !== 1) {
+    throw new ReqRespStatusError(ReqRespStatus.UNKNOWN);
+  }
+
+  const status = chunk[0];
+  // Check if status is a valid ReqRespStatus value
+  if (!(status in ReqRespStatus)) {
+    throw new ReqRespStatusError(ReqRespStatus.UNKNOWN);
+  }
+  return status as ReqRespStatus;
 }
 
 /**
@@ -23,12 +51,6 @@ export function prettyPrintReqRespStatus(status: ReqRespStatus) {
       return 'SUCCESS';
     case ReqRespStatus.RATE_LIMIT_EXCEEDED:
       return 'RATE_LIMIT_EXCEEDED';
-    case ReqRespStatus.COLLECTIVE_TIMEOUT:
-      return 'COLLECTIVE_TIMEOUT';
-    case ReqRespStatus.INDIVIDUAL_TIMEOUT:
-      return 'INDIVIDUAL_TIMEOUT';
-    case ReqRespStatus.INVALID_RESPONSE:
-      return 'INVALID_RESPONSE';
     case ReqRespStatus.UNKNOWN:
       return 'UNKNOWN';
   }

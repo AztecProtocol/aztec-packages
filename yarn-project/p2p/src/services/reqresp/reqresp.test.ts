@@ -59,7 +59,6 @@ describe('ReqResp', () => {
     await sleep(500);
 
     const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
-    logger.info(`Res: ${res?.toBuffer().toString('utf-8')}`);
 
     await sleep(500);
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');

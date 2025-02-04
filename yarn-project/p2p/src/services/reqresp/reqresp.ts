@@ -22,7 +22,7 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  ReqRespResponse,
+  type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
@@ -31,7 +31,7 @@ import {
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
-import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
+import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
 
 /**
  * The Request Response Service
@@ -206,7 +206,6 @@ export class ReqResp {
           // The response validator handles peer punishment within
           const isValid = await responseValidator(request, object, peer);
           if (!isValid) {
-            // TODO(md): return the invalid response message!
             throw new InvalidResponseError();
           }
           return object;
@@ -471,7 +470,7 @@ export class ReqResp {
    * Categorize the error and log it.
    */
   private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
-    // Non pubishable errors
+    // Non punishable errors - we do not expect a response for goodbye messages
     if (subProtocol === ReqRespSubProtocol.GOODBYE) {
       this.logger.debug('Error encountered on goodbye sub protocol, no penalty', {
         peerId: peerId.toString(),
@@ -524,17 +523,20 @@ export class ReqResp {
 
   /**
    * Read a message returned from a stream into a single buffer
+   *
+   * The message is split into two components
+   * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
+   * - The second chunk should contain the response data
    */
   private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
     let statusBuffer: ReqRespStatus | undefined;
-
     const chunks: Uint8Array[] = [];
+
     try {
       for await (const chunk of source) {
         if (statusBuffer === undefined) {
           const firstChunkBuffer = chunk.subarray();
-          statusBuffer = firstChunkBuffer[0];
-          this.logger.info(`First chunk: ${statusBuffer}`);
+          statusBuffer = parseStatusChunk(firstChunkBuffer);
         } else {
           chunks.push(chunk.subarray());
         }
@@ -548,9 +550,15 @@ export class ReqResp {
         data: message,
       };
     } catch (e: any) {
-      this.logger.error(`Reading message failed: ${e.message}`);
+      this.logger.debug(`Reading message failed: ${e.message}`);
+
+      let status = ReqRespStatus.UNKNOWN;
+      if (e instanceof ReqRespStatusError) {
+        status = e.status;
+      }
+
       return {
-        status: ReqRespStatus.UNKNOWN,
+        status,
         data: Buffer.from([]),
       };
     }
@@ -584,18 +592,11 @@ export class ReqResp {
       if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
         this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
 
-        // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
-
-        // TODO(md): make a generic error response chunk
-        throw new Error('Rate limit exceeded');
-
-        // await stream.close();
-        // return;
+        throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
       }
 
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
-      const logger = this.logger;
 
       await pipe(
         stream,
@@ -606,10 +607,7 @@ export class ReqResp {
 
             // Send success code first, then the response
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
-            logger.info(`Success chunk: ${successChunk.toString('hex')}`);
             yield new Uint8Array(successChunk);
-
-            logger.info(`Response: ${response.toString('hex')}`);
 
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
@@ -620,7 +618,13 @@ export class ReqResp {
       this.logger.warn(e);
       this.metrics.recordResponseError(protocol);
 
-      const sendErrorChunk = this.sendErrorChunk(ReqRespStatus.RATE_LIMIT_EXCEEDED);
+      // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
+      let errorStatus = ReqRespStatus.UNKNOWN;
+      if (e instanceof ReqRespStatusError) {
+        errorStatus = e.status;
+      }
+
+      const sendErrorChunk = this.sendErrorChunk(errorStatus);
 
       // Return and yield the response chunk
       await pipe(
