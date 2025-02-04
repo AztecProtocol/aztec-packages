@@ -33,12 +33,17 @@ library BlobLib {
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     internal
     view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+    returns (
+      // All of the blob hashes included in this blob
+      bytes32[] memory blobHashes,
+      bytes32 blobsHashesCommitment,
+      bytes32 blobPublicInputsHash
+    )
   {
     // We cannot input the incorrect number of blobs below, as the blobsHash
     // and epoch proof verification will fail.
     uint8 numBlobs = uint8(_blobsInput[0]);
-    bytes32[] memory blobHashes = new bytes32[](numBlobs);
+    blobHashes = new bytes32[](numBlobs);
     bytes memory blobPublicInputs;
     for (uint256 i = 0; i < numBlobs; i++) {
       // Add 1 for the numBlobs prefix
@@ -59,7 +64,7 @@ library BlobLib {
     // Return the hash of all z, y, and Cs, so we can use them in proof verification later
     blobPublicInputsHash = sha256(blobPublicInputs);
     // Hash the EVM blob hashes for the block header
-    blobsHash = Hash.sha256ToField(abi.encodePacked(blobHashes));
+    blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 
   /**

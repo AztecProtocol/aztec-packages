@@ -24,11 +24,11 @@ const { NAMESPACE, HOST_PXE_PORT, HOST_ETHEREUM_PORT, CONTAINER_PXE_PORT, CONTAI
 const debugLogger = createLogger('e2e:spartan-test:reorg');
 
 async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
-  testWallets.wallets.forEach(async w => {
+  for (const w of testWallets.wallets) {
     expect(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate()).toBe(
       mintAmount - totalAmountTransferred,
     );
-  });
+  }
 
   expect(
     await testWallets.tokenAdminWallet.methods.balance_of_public(testWallets.recipientWallet.getAddress()).simulate(),
@@ -54,7 +54,7 @@ describe('reorg test', () => {
       hostPort: HOST_PXE_PORT,
     });
     await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
       hostPort: HOST_ETHEREUM_PORT,

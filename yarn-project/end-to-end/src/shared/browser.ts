@@ -8,9 +8,6 @@ import { contractArtifactToBuffer } from '@aztec/types/abi';
 
 import getPort from 'get-port';
 import { type Server } from 'http';
-import Koa from 'koa';
-import serve from 'koa-static';
-import path, { dirname } from 'path';
 import { type Browser, type Page, launch } from 'puppeteer-core';
 
 declare global {
@@ -27,9 +24,6 @@ declare global {
       typeof AztecAccountsSchnorr;
   }
 }
-
-const __filename = AztecJs.fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const privKey = AztecJs.GrumpkinScalar.random();
 
@@ -60,7 +54,6 @@ export const browserTestSuite = (
 
     let contractAddress: AztecJs.AztecAddress;
 
-    let app: Koa;
     let testClient: AztecJs.PXE;
     let server: Server;
     let webServerURL: string;
@@ -74,9 +67,6 @@ export const browserTestSuite = (
       ({ server, pxeURL, pxeServer, webServerURL } = await setup());
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
-
-      app = new Koa();
-      app.use(serve(path.resolve(__dirname, './web')));
 
       const debuggingPort = await getPort({ port: 9222 });
       browser = await launch({
@@ -99,6 +89,7 @@ export const browserTestSuite = (
       page.on('pageerror', err => {
         pageLogger.error(`Error on web page`, err);
       });
+
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger.verbose('Waiting for window.AztecJs...');
@@ -126,9 +117,9 @@ export const browserTestSuite = (
           const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const secretKey = Fr.fromHexString(secretKeyString);
-          const account = getUnsafeSchnorrAccount(pxe, secretKey);
+          const account = await getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
-          const completeAddress = account.getCompleteAddress();
+          const completeAddress = await account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
           console.log(`Created Account: ${addressString}`);
           return addressString;
@@ -146,8 +137,8 @@ export const browserTestSuite = (
     });
 
     it('Can access CompleteAddress class in browser', async () => {
-      const result: string = await page.evaluate(() => {
-        const completeAddress = window.AztecJs.CompleteAddress.fromString(
+      const result: string = await page.evaluate(async () => {
+        const completeAddress = await window.AztecJs.CompleteAddress.fromString(
           '0x2401bfdad7ac9282bd612e8a6bb0f6ce125b08e317e24dc04ddbba24694ac2e7261249d8b3ad8ad9ed075257eede1dcd8356bfd55e1518f07717c47609194b6500c926582f07fda6a53e3600251f2aa1401c0cd377cef064f3f59045222194541acc5f62d8907a6dc98b85e32f8097a152c3c795bb3981c64e576b014f23005e0891d109aa087560cf8720ae94098827aa009a0bcee09f98fd2a05a7cbc6185402a53516a379d7856d26e3bb5542f1fe57f1ee5a0e4c60f7a463205aa19e2f8e00bce110b9a89857b79e3f70777e38a262b04cf80c56bd833a3c4b58dde7dbdc25c807c4012229e08651fd0d48cf9d966d9ab18826692f48a4cf934bef78614023e9cb95711f532786c7c78e72c3752f03f2a4cafc1846ad9df47324e2b7683f0faaa2e6fe44f3ff68646ce7d8538cb6935ce25472c4c75a244ab0c5d2e3b74d',
         );
         // NOTE: browser does not know how to serialize CompleteAddress for return, so return a string
@@ -194,7 +185,8 @@ export const browserTestSuite = (
             getUnsafeSchnorrAccount,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random()).waitSetup();
+          const newReceiverAccountManager = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random());
+          const newReceiverAccount = await newReceiverAccountManager.waitSetup();
           const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
@@ -226,7 +218,7 @@ export const browserTestSuite = (
             contractArtifactFromBuffer,
           } = window.AztecJs;
           // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
-          const TokenContractArtifact = contractArtifactFromBuffer(
+          const TokenContractArtifact = await contractArtifactFromBuffer(
             Buffer.from(serializedTokenContractArtifact, 'base64'),
           );
           const pxe = createPXEClient(rpcUrl!);
@@ -234,12 +226,13 @@ export const browserTestSuite = (
           // we need to ensure that a known account is present in order to create a wallet
           const knownAccounts = await getDeployedTestAccountsWallets(pxe);
           if (!knownAccounts.length) {
-            const newAccount = await getSchnorrAccount(
+            const newAccountManager = await getSchnorrAccount(
               pxe,
               INITIAL_TEST_SECRET_KEYS[0],
               INITIAL_TEST_SIGNING_KEYS[0],
               INITIAL_TEST_ACCOUNT_SALTS[0],
-            ).waitSetup();
+            );
+            const newAccount = await newAccountManager.waitSetup();
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];

@@ -149,6 +149,16 @@ export class MSMPointNotOnCurveError extends AvmExecutionError {
 }
 
 /**
+ * Error is thrown when some inputs of ToRadixBE are not valid.
+ */
+export class InvalidToRadixInputsError extends AvmExecutionError {
+  constructor(errorString: string) {
+    super(errorString);
+    this.name = 'InvalidToRadixInputsError';
+  }
+}
+
+/**
  * Error is thrown when a static call attempts to alter some state
  */
 export class StaticCallAlterationError extends InstructionExecutionError {

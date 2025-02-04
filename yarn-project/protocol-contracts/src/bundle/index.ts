@@ -11,13 +11,13 @@ import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSal
 import { RouterArtifact } from '../router/index.js';
 
 /** Returns the canonical deployment a given artifact. */
-export function getCanonicalProtocolContract(name: ProtocolContractName): ProtocolContract {
+export async function getCanonicalProtocolContract(name: ProtocolContractName): Promise<ProtocolContract> {
   const artifact = ProtocolContractArtifact[name];
   const address = ProtocolContractAddress[name];
   const salt = ProtocolContractSalt[name];
   // TODO(@spalladino): This computes the contract class from the artifact twice.
-  const contractClass = getContractClassFromArtifact(artifact);
-  const instance = getContractInstanceFromDeployParams(artifact, { salt });
+  const contractClass = await getContractClassFromArtifact(artifact);
+  const instance = await getContractInstanceFromDeployParams(artifact, { salt });
   return {
     instance: { ...instance, address },
     contractClass,

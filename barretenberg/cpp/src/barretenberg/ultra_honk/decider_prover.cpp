@@ -62,26 +62,26 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto& ck = proving_key->proving_key.commitment_key;
     ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
 
+    PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
+    polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_shifted_by_one(proving_key->proving_key.polynomials.get_to_be_shifted());
+
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                              sumcheck_output.challenge,
-                                                              ck,
-                                                              transcript);
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(
+            proving_key->proving_key.circuit_size, polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              polynomial_batcher,
                                                               sumcheck_output.challenge,
                                                               ck,
                                                               transcript,
@@ -103,12 +103,10 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
     PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
-    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS
-    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

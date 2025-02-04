@@ -9,17 +9,18 @@ contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_unconstrained;
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::{
+        event::encode_and_encrypt_event_unconstrained, note::encode_and_encrypt_note,
+    };
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
+        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
         PrivateImmutable, PrivateSet,
     };
 
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::Serialize,
+        traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
     };
 
@@ -60,10 +61,24 @@ contract Test {
         value4: Field,
     }
 
+    #[derive(Packable)]
+    struct ExampleStruct {
+        value0: Field,
+        value1: Field,
+        value2: Field,
+        value3: Field,
+        value4: Field,
+    }
+
+    // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
+    // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
         example_constant: PrivateImmutable<TestNote, Context>,
         example_set: PrivateSet<TestNote, Context>,
+        example_struct: PrivateImmutable<ExampleStruct, Context>,
+        example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
 
     #[private]
@@ -344,18 +359,18 @@ contract Test {
     // docs:end:is-time-equal
 
     #[public]
-    fn emit_unencrypted(value: Field) {
-        // docs:start:emit_unencrypted
-        context.emit_unencrypted_log(/*message=*/ value);
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
-        // docs:end:emit_unencrypted
+    fn emit_public(value: Field) {
+        // docs:start:emit_public
+        context.emit_public_log(/*message=*/ value);
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
+        // docs:end:emit_public
     }
 
     #[public]
     fn consume_mint_to_public_message(
         to: AztecAddress,
-        amount: Field,
+        amount: U128,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
@@ -367,7 +382,7 @@ contract Test {
 
     #[private]
     fn consume_mint_to_private_message(
-        amount: Field,
+        amount: U128,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
@@ -481,6 +496,7 @@ contract Test {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
 
+    #[derive(Serialize)]
     pub struct DummyNote {
         amount: Field,
         secret_hash: Field,
@@ -493,12 +509,6 @@ contract Test {
 
         fn get_commitment(self) -> Field {
             pedersen_hash([self.amount, self.secret_hash], 0)
-        }
-    }
-
-    impl Serialize<2> for DummyNote {
-        fn serialize(self) -> [Field; 2] {
-            [self.amount, self.secret_hash]
         }
     }
 

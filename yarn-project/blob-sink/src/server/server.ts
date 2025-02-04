@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';
 import { type BlobSinkConfig } from './config.js';
@@ -47,8 +48,30 @@ export class BlobSinkServer {
   }
 
   private setupRoutes() {
+    // TODO(md): needed?
+    this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
+  }
+
+  // TODO(md): needed?
+  /**
+   * This is a placeholder for the block header endpoint.
+   * It is not supported by the blob sink.
+   *
+   * The blob sink http client will ping this endpoint to check if it is talking to a beacon node
+   * or a blob sink
+   *
+   * @param _req - The request object
+   * @param res - The response object
+   */
+  private handleGetBlockHeader(_req: Request, res: Response) {
+    res.status(400).json({
+      error: 'Not Supported',
+    });
+    return;
   }
 
   private async handleGetBlobSidecar(req: Request, res: Response) {
@@ -130,8 +153,23 @@ export class BlobSinkServer {
     }
   }
 
+  /**
+   * Parse the blob data
+   *
+   * The blob sink http client will compress the blobs it sends
+   *
+   * @param blobs - The blob data
+   * @returns The parsed blob data
+   */
   private parseBlobData(blobs: PostBlobSidecarRequest['blobs']): BlobWithIndex[] {
-    return blobs.map(({ index, blob }) => new BlobWithIndex(Blob.fromBuffer(Buffer.from(blob.data)), index));
+    return blobs.map(
+      ({ index, blob }) =>
+        new BlobWithIndex(
+          // Snappy decompress the blob buffer
+          Blob.fromBuffer(inboundTransform(Buffer.from(blob.data))),
+          index,
+        ),
+    );
   }
 
   public start(): Promise<void> {

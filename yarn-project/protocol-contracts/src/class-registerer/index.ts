@@ -16,10 +16,10 @@ export const ContractClassRegistererArtifact = loadContractArtifact(
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export function getCanonicalClassRegisterer(): ProtocolContract {
+export async function getCanonicalClassRegisterer(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const artifact = ContractClassRegistererArtifact;
-    protocolContract = makeProtocolContract('ContractClassRegisterer', artifact);
+    protocolContract = await makeProtocolContract('ContractClassRegisterer', artifact);
   }
   return protocolContract;
 }

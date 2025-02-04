@@ -7,14 +7,14 @@ import { fetchCode } from './fetch_code/index.js';
 
 const debug = createDebug('bb.js:wasm');
 
-export async function fetchModuleAndThreads(desiredThreads = 32) {
+export async function fetchModuleAndThreads(desiredThreads = 32, wasmPath?: string) {
   const shared = getSharedMemoryAvailable();
 
   const availableThreads = shared ? await getAvailableThreads() : 1;
   // We limit the number of threads to 32 as we do not benefit from greater numbers.
   const limitedThreads = Math.min(desiredThreads, availableThreads, 32);
 
-  const code = await fetchCode(shared);
+  const code = await fetchCode(shared, wasmPath);
   const module = await WebAssembly.compile(code);
   return { module, threads: limitedThreads };
 }
@@ -38,10 +38,10 @@ export class BarretenbergWasm extends BarretenbergWasmMain {
    * Construct and initialize BarretenbergWasm within a Worker. Return both the worker and the wasm proxy.
    * Used when running in the browser, because we can't block the main thread.
    */
-  public static async new(desiredThreads?: number) {
+  public static async new(desiredThreads?: number, wasmPath?: string) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(desiredThreads);
+    const { module, threads } = await fetchModuleAndThreads(desiredThreads, wasmPath);
     await wasm.init(module, threads, proxy(debug));
     return { worker, wasm };
   }

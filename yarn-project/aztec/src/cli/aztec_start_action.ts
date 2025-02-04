@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -25,13 +26,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   if (options.sandbox) {
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
+    const nodeOptions = extractNamespacedOptions(options, 'node');
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
     const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-      enableGas: sandboxOptions.enableGas,
       l1Mnemonic: options.l1Mnemonic,
       l1RpcUrl: options.l1RpcUrl,
+      l1Salt: nodeOptions.deployAztecContractsSalt,
     });
 
     // Deploy test accounts by default
@@ -102,7 +104,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
 
   if (Object.entries(services).length > 0) {
-    const rpcServer = createNamespacedSafeJsonRpcServer(services, { http200OnError: false, log: debugLogger });
+    const rpcServer = createNamespacedSafeJsonRpcServer(services, {
+      http200OnError: false,
+      log: debugLogger,
+      middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`);
   }

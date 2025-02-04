@@ -170,7 +170,7 @@ export class ServerWorldStateSynchronizer
   /** Returns the L2 block hash for a given number. Used by the L2BlockStream for detecting reorgs. */
   public async getL2BlockHash(number: number): Promise<string | undefined> {
     if (number === 0) {
-      return Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString());
+      return (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     }
     if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
       this.latestBlockHashQuery = {
@@ -257,7 +257,7 @@ export class ServerWorldStateSynchronizer
     // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
     // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
     // tree uses pedersen and we don't have access to the converted root.
-    this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
+    await this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
@@ -311,14 +311,14 @@ export class ServerWorldStateSynchronizer
    * @param inHash - The inHash of the block.
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
-  protected verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
-    const treeCalculator = new MerkleTreeCalculator(
+  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+    const treeCalculator = await MerkleTreeCalculator.create(
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
       Buffer.alloc(32),
-      new SHA256Trunc().hash,
+      (lhs, rhs) => Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
     );
 
-    const root = treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const root = await treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
 
     if (!root.equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');

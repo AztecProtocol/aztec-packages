@@ -27,6 +27,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
+  PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
@@ -38,6 +39,7 @@ import {
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
+import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
@@ -329,7 +331,7 @@ export class SimulatorOracle implements DBOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
@@ -356,10 +358,12 @@ export class SimulatorOracle implements DBOracle {
     const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = senders.map(contact => {
-      const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    });
+    const appTaggingSecrets = await Promise.all(
+      senders.map(async contact => {
+        const sharedSecret = await computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
+        return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+      }),
+    );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
@@ -390,7 +394,7 @@ export class SimulatorOracle implements DBOracle {
     let [numConsecutiveEmptyLogs, currentIndex] = [0, oldIndex];
     do {
       // We compute the tags for the current window of indexes
-      const currentTags = [...new Array(WINDOW_SIZE)].map((_, i) => {
+      const currentTags = await timesParallel(WINDOW_SIZE, i => {
         const indexedAppTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, currentIndex + i);
         return indexedAppTaggingSecret.computeSiloedTag(recipient, contractAddress);
       });
@@ -486,8 +490,8 @@ export class SimulatorOracle implements DBOracle {
 
       while (secretsAndWindows.length > 0) {
         const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
-        const tagsForTheWholeWindow = secretsForTheWholeWindow.map(secret =>
-          secret.computeSiloedTag(recipient, contractAddress),
+        const tagsForTheWholeWindow = await Promise.all(
+          secretsForTheWholeWindow.map(secret => secret.computeSiloedTag(recipient, contractAddress)),
         );
 
         // We store the new largest indexes we find in the iteration in the following map to later on construct
@@ -499,15 +503,31 @@ export class SimulatorOracle implements DBOracle {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
+            // Check that public logs have the correct contract address
+            const checkedLogsbyTag = logsByTag.filter(
+              l => !l.isFromPublic || PublicLog.fromBuffer(l.logData).contractAddress.equals(contractAddress),
+            );
+            if (checkedLogsbyTag.length < logsByTag.length) {
+              const discarded = logsByTag.filter(
+                log => checkedLogsbyTag.find(filteredLog => filteredLog.equals(log)) === undefined,
+              );
+              this.log.warn(
+                `Discarded ${
+                  logsByTag.length - checkedLogsbyTag.length
+                } public logs with mismatched contract address ${contractAddress}:`,
+                discarded.map(l => PublicLog.fromBuffer(l.logData)),
+              );
+            }
+
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...logsByTag);
+            logsForRecipient.push(...checkedLogsbyTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${logsByTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${checkedLogsbyTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -588,7 +608,7 @@ export class SimulatorOracle implements DBOracle {
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
-    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
@@ -597,8 +617,8 @@ export class SimulatorOracle implements DBOracle {
 
     for (const scopedLog of scopedLogs) {
       const payload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
-        : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
+        ? await L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
+        : await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {
         this.log.verbose('Unable to decrypt log');
@@ -703,7 +723,7 @@ export class SimulatorOracle implements DBOracle {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
+      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, await recipient.toAddressPoint());
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
@@ -724,21 +744,30 @@ export class SimulatorOracle implements DBOracle {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<NoteDao> {
+    // We need to validate that the note does indeed exist in the world state to avoid adding notes that are then
+    // impossible to prove.
+
     const receipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
     if (receipt === undefined) {
       throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
-    const { blockNumber, blockHash } = receipt;
 
-    const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(contractAddress, noteHash));
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    // Siloed and unique hashes are computed by us instead of relying on values sent by the contract to make sure
+    // we're not e.g. storing notes that belong to some other contract, which would constitute a security breach.
+    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
+    // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
+    // note existence in said tree. Note that while this is technically a historical query, we perform it at the latest
+    // locally synced block number which *should* be recent enough to be available. We avoid querying at 'latest' since
+    // we want to avoid accidentally processing notes that only exist ahead in time of the locally synced state.
+    const syncedBlockNumber = await this.db.getBlockNumber();
     const uniqueNoteHashTreeIndex = (
-      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
+      await this.aztecNode.findLeavesIndexes(syncedBlockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
     )[0];
     if (uniqueNoteHashTreeIndex === undefined) {
       throw new Error(
-        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
+        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
     }
 
@@ -750,10 +779,10 @@ export class SimulatorOracle implements DBOracle {
       noteHash,
       siloedNullifier,
       new TxHash(txHash),
-      blockNumber!,
-      blockHash!.toString(),
+      receipt.blockNumber!,
+      receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
-      recipient.toAddressPoint(),
+      await recipient.toAddressPoint(),
       NoteSelector.empty(), // todo: remove
     );
   }
@@ -780,7 +809,7 @@ export class SimulatorOracle implements DBOracle {
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: FunctionSelector.fromNameAndParameters(artifact),
+      selector: await FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [

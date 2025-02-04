@@ -19,12 +19,12 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
     // Ditch this tx if it has repeated nullifiers
     const uniqueNullifiers = new Set(nullifiers);
     if (uniqueNullifiers.size !== nullifiers.length) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for emitting duplicate nullifiers`);
+      this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} for emitting duplicate nullifiers`);
       return { result: 'invalid', reason: ['Duplicate nullifier in tx'] };
     }
 
     if ((await this.#nullifierSource.nullifiersExist(nullifiers.map(n => n.toBuffer()))).some(Boolean)) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating a nullifier`);
+      this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} for repeating a nullifier`);
       return { result: 'invalid', reason: ['Existing nullifier'] };
     }
 
