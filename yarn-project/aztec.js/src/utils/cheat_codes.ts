@@ -96,8 +96,8 @@ export class RollupCheatCodes {
     /** Slot duration */ slotDuration: bigint;
   }> {
     const [epochDuration, slotDuration] = await Promise.all([
-      this.rollup.read.EPOCH_DURATION(),
-      this.rollup.read.SLOT_DURATION(),
+      this.rollup.read.getEpochDuration(),
+      this.rollup.read.getSlotDuration(),
     ]);
     return { epochDuration, slotDuration };
   }
@@ -128,7 +128,7 @@ export class RollupCheatCodes {
    */
   public async advanceSlots(howMany: number) {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
-    const slotDuration = await this.rollup.read.SLOT_DURATION();
+    const slotDuration = await this.rollup.read.getSlotDuration();
     const timeToWarp = BigInt(howMany) * slotDuration;
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, true);
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);

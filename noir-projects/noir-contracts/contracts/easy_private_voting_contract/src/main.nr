@@ -3,7 +3,7 @@ mod test;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract EasyPrivateVoting {
+pub contract EasyPrivateVoting {
     // docs:end:declaration
     // docs:start:imports
     use dep::aztec::{

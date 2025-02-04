@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./native": "./dest/native/index.js",
+    "./test": "./dest/test/index.js",
     "./config": "./dest/synchronizer/config.js"
   },
   "typedocOptions": {

@@ -14,25 +14,28 @@ import {
   FormattedViemError,
   type ForwarderContract,
   type GasPrice,
+  type GovernanceProposerContract,
+  type IEmpireBase,
   type L1BlobInputs,
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
   type L1TxUtilsWithBlobs,
-  type RollupContract,
+  RollupContract,
+  type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
 import { type Signature } from '@aztec/foundation/eth-signature';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, getAddress, getContract } from 'viem';
+import { type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -106,6 +109,8 @@ export class SequencerPublisher {
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
+  public govProposerContract: GovernanceProposerContract;
+  public slashingProposerContract: SlashingProposerContract;
 
   protected requests: RequestWithExpiry[] = [];
 
@@ -117,15 +122,14 @@ export class SequencerPublisher {
       forwarderContract: ForwarderContract;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
+      slashingProposerContract: SlashingProposerContract;
+      governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
 
-    if (config.l1Contracts.governanceProposerAddress) {
-      this.governanceProposerAddress = EthAddress.fromString(config.l1Contracts.governanceProposerAddress.toString());
-    }
     this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -134,6 +138,9 @@ export class SequencerPublisher {
 
     this.rollupContract = deps.rollupContract;
     this.forwarderContract = deps.forwarderContract;
+
+    this.govProposerContract = deps.governanceProposerContract;
+    this.slashingProposerContract = deps.slashingProposerContract;
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -221,12 +228,13 @@ export class SequencerPublisher {
         this.l1TxUtils,
         gasConfig,
         blobConfig,
+        this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
       return result;
     } catch (err) {
-      const { message, metaMessages } = formatViemError(err);
-      this.log.error(`Failed to publish bundled transactions`, message, { metaMessages });
+      const viemError = formatViemError(err);
+      this.log.error(`Failed to publish bundled transactions`, viemError);
       return undefined;
     }
   }
@@ -249,7 +257,7 @@ export class SequencerPublisher {
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
   public canProposeAtNextEthBlock(tipArchive: Buffer) {
-    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer'];
+    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
       .catch(err => {
@@ -335,6 +343,69 @@ export class SequencerPublisher {
     return committee.map(EthAddress.fromString);
   }
 
+  private async enqueueCastVoteHelper(
+    slotNumber: bigint,
+    timestamp: bigint,
+    voteType: VoteType,
+    payload: EthAddress,
+    base: IEmpireBase,
+  ): Promise<boolean> {
+    if (this.myLastVotes[voteType] >= slotNumber) {
+      return false;
+    }
+    if (payload.equals(EthAddress.ZERO)) {
+      return false;
+    }
+    const round = await base.computeRound(slotNumber);
+    const [proposer, roundInfo] = await Promise.all([
+      this.rollupContract.getProposerAt(timestamp),
+      base.getRoundInfo(this.rollupContract.address, round),
+    ]);
+
+    if (proposer.toLowerCase() !== this.getForwarderAddress().toString().toLowerCase()) {
+      return false;
+    }
+    if (roundInfo.lastVote >= slotNumber) {
+      return false;
+    }
+
+    const cachedLastVote = this.myLastVotes[voteType];
+    this.myLastVotes[voteType] = slotNumber;
+
+    this.addRequest({
+      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
+      request: base.createVoteRequest(payload.toString()),
+      lastValidL2Slot: slotNumber,
+      onResult: (_request, result) => {
+        if (!result || result.receipt.status !== 'success') {
+          this.myLastVotes[voteType] = cachedLastVote;
+        } else {
+          this.log.info(`Cast [${voteType}] vote for slot ${slotNumber}`);
+        }
+      },
+    });
+    return true;
+  }
+
+  private async getVoteConfig(
+    slotNumber: bigint,
+    voteType: VoteType,
+  ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
+    if (voteType === VoteType.GOVERNANCE) {
+      return { payload: this.governancePayload, base: this.govProposerContract };
+    } else if (voteType === VoteType.SLASHING) {
+      if (!this.getSlashPayload) {
+        return undefined;
+      }
+      const slashPayload = await this.getSlashPayload(slotNumber);
+      if (!slashPayload) {
+        return undefined;
+      }
+      return { payload: slashPayload, base: this.slashingProposerContract };
+    }
+    throw new Error('Unreachable: Invalid vote type');
+  }
+
   /**
    * Enqueues a castVote transaction to cast a vote for a given slot number.
    * @param slotNumber - The slot number to cast a vote for.
@@ -343,104 +414,12 @@ export class SequencerPublisher {
    * @returns True if the vote was successfully enqueued, false otherwise.
    */
   public async enqueueCastVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType): Promise<boolean> {
-    // @todo This function can be optimized by doing some of the computations locally instead of calling the L1 contracts
-    if (this.myLastVotes[voteType] >= slotNumber) {
+    const voteConfig = await this.getVoteConfig(slotNumber, voteType);
+    if (!voteConfig) {
       return false;
     }
-
-    const voteConfig = async (): Promise<
-      { payload: EthAddress; voteContractAddress: EthAddress; logger: Logger } | undefined
-    > => {
-      if (voteType === VoteType.GOVERNANCE) {
-        if (this.governancePayload.equals(EthAddress.ZERO)) {
-          return undefined;
-        }
-        if (!this.governanceProposerAddress) {
-          return undefined;
-        }
-        return {
-          payload: this.governancePayload,
-          voteContractAddress: this.governanceProposerAddress,
-          logger: this.governanceLog,
-        };
-      } else if (voteType === VoteType.SLASHING) {
-        if (!this.getSlashPayload) {
-          return undefined;
-        }
-        const slashingProposerAddress = await this.rollupContract.getSlashingProposerAddress();
-        if (!slashingProposerAddress) {
-          return undefined;
-        }
-
-        const slashPayload = await this.getSlashPayload(slotNumber);
-
-        if (!slashPayload) {
-          return undefined;
-        }
-
-        return {
-          payload: slashPayload,
-          voteContractAddress: slashingProposerAddress,
-          logger: this.slashingLog,
-        };
-      } else {
-        throw new Error('Invalid vote type');
-      }
-    };
-
-    const vConfig = await voteConfig();
-
-    if (!vConfig) {
-      return false;
-    }
-
-    const { payload, voteContractAddress } = vConfig;
-
-    const voteContract = getContract({
-      address: getAddress(voteContractAddress.toString()),
-      abi: EmpireBaseAbi,
-      client: this.l1TxUtils.walletClient,
-    });
-
-    const [proposer, roundNumber] = await Promise.all([
-      this.rollupContract.getProposerAt(timestamp),
-      voteContract.read.computeRound([slotNumber]),
-    ]);
-
-    if (proposer.toLowerCase() !== this.getForwarderAddress().toString().toLowerCase()) {
-      return false;
-    }
-
-    const [slotForLastVote] = await voteContract.read.rounds([this.rollupContract.address, roundNumber]);
-
-    if (slotForLastVote >= slotNumber) {
-      return false;
-    }
-
-    const cachedLastVote = this.myLastVotes[voteType];
-
-    this.myLastVotes[voteType] = slotNumber;
-
-    this.addRequest({
-      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
-      request: {
-        to: voteContractAddress.toString(),
-        data: encodeFunctionData({
-          abi: EmpireBaseAbi,
-          functionName: 'vote',
-          args: [payload.toString()],
-        }),
-      },
-      lastValidL2Slot: slotNumber,
-      onResult: (_request, result) => {
-        if (!result || result.receipt.status !== 'success') {
-          this.myLastVotes[voteType] = cachedLastVote;
-        } else {
-          this.log.info(`Cast ${voteType} vote for slot ${slotNumber}`);
-        }
-      },
-    });
-    return true;
+    const { payload, base } = voteConfig;
+    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base);
   }
 
   /**
@@ -627,7 +606,7 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(9n, true),
+                slot: toHex(RollupContract.checkBlobStorageSlot, true),
                 value: toHex(0n, true),
               },
             ],
@@ -657,6 +636,7 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
+    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -708,7 +688,7 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash: block.hash().toString(),
+            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

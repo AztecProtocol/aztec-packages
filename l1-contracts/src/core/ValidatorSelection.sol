@@ -11,8 +11,8 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
-} from "@aztec/core/libraries/TimeMath.sol";
+  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
+} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {Staking} from "@aztec/core/staking/Staking.sol";
@@ -27,18 +27,18 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
  *          It is a reference implementation, it is not optimized for gas.
  *
  */
-contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
+contract ValidatorSelection is Staking, IValidatorSelection {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   using SlotLib for Slot;
   using EpochLib for Epoch;
+  using TimeLib for Timestamp;
+  using TimeLib for Slot;
+  using TimeLib for Epoch;
 
   // The target number of validators in a committee
   // @todo #8021
   uint256 public immutable TARGET_COMMITTEE_SIZE;
-
-  // The time that the contract was deployed
-  Timestamp public immutable GENESIS_TIME;
 
   ValidatorSelectionStorage private validatorSelectionStore;
 
@@ -50,14 +50,22 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     uint256 _slotDuration,
     uint256 _epochDuration,
     uint256 _targetCommitteeSize
-  )
-    Staking(_stakingAsset, _minimumStake, _slashingQuorum, _roundSize)
-    TimeFns(_slotDuration, _epochDuration)
-  {
-    GENESIS_TIME = Timestamp.wrap(block.timestamp);
-    SLOT_DURATION = _slotDuration;
-    EPOCH_DURATION = _epochDuration;
+  ) Staking(_stakingAsset, _minimumStake, _slashingQuorum, _roundSize) {
     TARGET_COMMITTEE_SIZE = _targetCommitteeSize;
+
+    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
+  }
+
+  function getGenesisTime() external view override(IValidatorSelection) returns (Timestamp) {
+    return Timestamp.wrap(TimeLib.getStorage().genesisTime);
+  }
+
+  function getSlotDuration() external view override(IValidatorSelection) returns (uint256) {
+    return TimeLib.getStorage().slotDuration;
+  }
+
+  function getEpochDuration() external view override(IValidatorSelection) returns (uint256) {
+    return TimeLib.getStorage().epochDuration;
   }
 
   /**
@@ -224,7 +232,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     override(IValidatorSelection)
     returns (Timestamp)
   {
-    return GENESIS_TIME + toTimestamp(_slotNumber);
+    return _slotNumber.toTimestamp();
   }
 
   /**
@@ -275,7 +283,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    * @return The computed epoch
    */
   function getEpochAt(Timestamp _ts) public view override(IValidatorSelection) returns (Epoch) {
-    return _ts < GENESIS_TIME ? Epoch.wrap(0) : epochFromTimestamp(_ts - GENESIS_TIME);
+    return _ts.epochFromTimestamp();
   }
 
   /**
@@ -286,7 +294,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
    * @return The computed slot
    */
   function getSlotAt(Timestamp _ts) public view override(IValidatorSelection) returns (Slot) {
-    return _ts < GENESIS_TIME ? Slot.wrap(0) : slotFromTimestamp(_ts - GENESIS_TIME);
+    return _ts.slotFromTimestamp();
   }
 
   /**
@@ -302,7 +310,7 @@ contract ValidatorSelection is Staking, TimeFns, IValidatorSelection {
     override(IValidatorSelection)
     returns (Epoch)
   {
-    return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
+    return _slotNumber.epochFromSlot();
   }
 
   // Can be used to add validators without setting up the epoch, useful for the initial set.

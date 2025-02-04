@@ -33,6 +33,9 @@ function build {
     # Step 1: Build everything in src.
     forge build $(find src test -name '*.sol')
 
+    # Step 1.5: Output storage information for the rollup contract.
+    forge inspect src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
       --optimize \

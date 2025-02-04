@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @title Errors Library
