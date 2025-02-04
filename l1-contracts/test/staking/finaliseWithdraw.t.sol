@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {
+  Timestamp, Status, ValidatorInfo, Exit, IStaking
+} from "@aztec/core/interfaces/IStaking.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {
@@ -44,7 +45,7 @@ contract FinaliseWithdrawTest is StakingBase {
       abi.encodeWithSelector(
         Errors.Staking__WithdrawalNotUnlockedYet.selector,
         Timestamp.wrap(block.timestamp),
-        Timestamp.wrap(block.timestamp) + staking.EXIT_DELAY()
+        Timestamp.wrap(block.timestamp) + staking.getExitDelay()
       )
     );
     staking.finaliseWithdraw(ATTESTER);
@@ -58,7 +59,7 @@ contract FinaliseWithdrawTest is StakingBase {
 
     Exit memory exit = staking.getExit(ATTESTER);
     assertEq(exit.recipient, RECIPIENT);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.EXIT_DELAY());
+    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     ValidatorInfo memory info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
 
