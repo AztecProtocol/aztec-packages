@@ -1,6 +1,11 @@
 telemetry:
   enabled: true
 
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: true
+
 network:
   setupL2Contracts: false
 
@@ -38,10 +43,15 @@ proverBroker:
       cpu: "1"
 
 proverAgent:
+  replicas: 2
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "1"
+      memory: "116Gi"
+      cpu: "31"
 
 ethereum:
   execution:
@@ -59,3 +69,7 @@ ethereum:
       requests:
         memory: "1Gi"
         cpu: "0.5"
+
+jobs:
+  deployL1Verifier:
+    enable: true
