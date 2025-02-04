@@ -114,6 +114,14 @@ function test {
   test_cmds | parallelise $((num_cpus / 2))
 }
 
+function release {
+  export DRY_RUN=1
+  packages=$(yarn workspaces foreach --topological-dev -A --exclude @aztec/aztec3-packages exec 'basename $(pwd)' | cat | grep -v "Done")
+  for package in $packages; do
+    deploy_npm $package
+  done
+}
+
 case "$cmd" in
   "clean")
     [ -n "${2:-}" ] && cd $2
@@ -159,6 +167,9 @@ case "$cmd" in
     ;;
   "lint")
     lint "$@"
+    ;;
+  "release")
+    release
     ;;
   *)
     echo "Unknown command: $cmd"
