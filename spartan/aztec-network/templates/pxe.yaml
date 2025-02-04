@@ -1,3 +1,4 @@
+{{ if .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -176,4 +177,5 @@ spec:
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
 ---
+{{ end }}
 {{ end }}
