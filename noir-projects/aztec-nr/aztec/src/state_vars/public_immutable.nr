@@ -7,6 +7,13 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Pack
 
 /// Stores an immutable value in public state which can be read from public, private and unconstrained execution
 /// contexts.
+///
+/// Leverages `WithHash<T>` to enable efficient private reads of public storage. `WithHash` wrapper allows for
+/// efficient reads by verifying large values through a single hash check and then proving inclusion only of the hash
+/// in the public storage. This reduces the number of required tree inclusion proofs from O(M) to O(1).
+///
+/// This is valuable when T packs to multiple fields, as it maintains "almost constant" verification overhead
+/// regardless of the original data size.
 // docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,
@@ -14,16 +21,8 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-/// Implements Storage<N> for PublicImmutable by leveraging WithHash<T> to enable efficient
-/// private reads of public storage. This approach stores both the packed value (using N fields)
-/// and its hash (1 field), requiring M = N + 1 total fields.
-///
-/// The WithHash wrapper allows for efficient reads by verifying large values through a single
-/// hash check and then proving inclusion only of the hash in the public storage. This reduces
-/// the number of required tree inclusion proofs from O(M) to O(1).
-///
-/// This is valuable when T packs to multiple fields, as it maintains "almost constant"
-/// verification overhead regardless of the original data size.
+/// `WithHash<T>` stores both the packed value (using N fields) and its hash (1 field), requiring N = M + 1 total
+/// fields.
 impl<T, Context, let M: u32, let N: u32> Storage<N> for PublicImmutable<T, Context>
 where
     WithHash<T, M>: Packable<N>,
