@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
 title: Slashing
+draft: true
 ---
 
 We need to make sure that the chain is always (eventually) finalizing new blocks. 

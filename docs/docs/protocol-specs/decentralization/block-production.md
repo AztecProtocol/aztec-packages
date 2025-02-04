@@ -1,4 +1,8 @@
-# Aztec Block Production
+---
+title: Block Production
+draft: true
+---
+
 
 :::info
 This document aims to be the latest source of truth for the Fernet sequencer selection protocol, and reflect the decision to implement the [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428) proving coordination protocol. Notably, this is written within the context of the first instance or deployment of Aztec. The definitions and protocol may evolve over time with each version.
@@ -88,8 +92,6 @@ What is Aztec's economic security needs? Please clarify.
 
 Currently, Provers don't need to register but must commit a bond during the `prover commitment phase` articulated below. This ensures economic guarantees for timely proof generation, and therefore short-term liveness. If the prover is unable or unwilling to produce a proof for which they committed to in the allotted time their bond will be slashed.
 
-Future updates may introduce a registration process for Provers, possibly leading to a smaller, more consistent group, but this is currently not suggested to be required.
-
 ```mermaid
 sequenceDiagram
 
@@ -98,7 +100,7 @@ participant Contract as Aztec L1 Contract
 participant Network as Aztec Network
 
 Anyone ->> Contract: register as a sequencer
-Anyone --> Anyone: Wait 7 days
+Anyone --> Anyone: Wait epoch
 Anyone ->> Network: eligible as a sequencer
 ```
 
@@ -295,7 +297,7 @@ participant Sequencers
 participant Provers
 
 Anyone ->> Contract: register()
-Anyone --> Anyone: Wait 7 days
+Anyone --> Anyone: Wait epoch
 Anyone ->> Network: eligible as a sequencer
 loop Happy Path Block Production
     Sequencers --> Sequencers: Generate random hashes and rank them
@@ -313,7 +315,7 @@ loop Happy Path Block Production
     Note right of Contract: "block confirmed!"
 end
 Sequencers ->> Contract: exit()
-Sequencers --> Sequencers: wait 7 days
+Sequencers --> Sequencers: wait epoch
 ```
 
 ### Voting on upgrades
