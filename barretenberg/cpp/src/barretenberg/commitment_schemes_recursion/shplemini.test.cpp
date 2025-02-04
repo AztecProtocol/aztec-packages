@@ -40,6 +40,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Polynomial = bb::Polynomial<NativeFr>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using PolynomialBatcher = GeminiProver_<NativeCurve>::PolynomialBatcher;
+    using ClaimBatcher = ShpleminiVerifier::ClaimBatcher;
+    using ClaimBatch = ShpleminiVerifier::ClaimBatch;
 
     srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
@@ -82,10 +85,14 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             g_commitments.emplace_back(f_commitments[i]);
         }
 
+        PolynomialBatcher polynomial_batcher(N);
+        polynomial_batcher.set_unshifted(RefVector(f_polynomials));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector(g_polynomials));
+
         // Initialize an empty NativeTranscript
         auto prover_transcript = NativeTranscript::prover_init_empty();
-        auto prover_opening_claims = ShpleminiProver::prove(
-            N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
+        auto prover_opening_claims =
+            ShpleminiProver::prove(N, polynomial_batcher, u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
         StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
@@ -130,11 +137,13 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             return zero;
         });
 
+        ClaimBatcher claim_batcher{
+            .unshifted = ClaimBatch{ RefVector(stdlib_f_commitments), RefVector(stdlib_v_evaluations) },
+            .shifted = ClaimBatch{ RefVector(stdlib_g_commitments), RefVector(stdlib_w_evaluations) }
+        };
+
         const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
-                                                                                  RefVector(stdlib_f_commitments),
-                                                                                  RefVector(stdlib_g_commitments),
-                                                                                  RefVector(stdlib_v_evaluations),
-                                                                                  RefVector(stdlib_w_evaluations),
+                                                                                  claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),
                                                                                   stdlib_verifier_transcript);

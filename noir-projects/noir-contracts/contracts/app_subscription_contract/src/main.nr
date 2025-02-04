@@ -4,12 +4,12 @@ mod dapp_payload;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AppSubscription {
+pub contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::constants::MAX_FIELD_VALUE,
@@ -23,7 +23,7 @@ contract AppSubscription {
         target_address: PublicImmutable<AztecAddress, Context>,
         subscription_token_address: PublicImmutable<AztecAddress, Context>,
         subscription_recipient_address: PublicImmutable<AztecAddress, Context>,
-        subscription_price: PublicImmutable<Field, Context>,
+        subscription_price: PublicImmutable<U128, Context>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
         fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
@@ -68,7 +68,7 @@ contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: Field,
+        subscription_price: U128,
         fee_juice_limit_per_tx: Field,
     ) {
         storage.target_address.initialize(target_address);

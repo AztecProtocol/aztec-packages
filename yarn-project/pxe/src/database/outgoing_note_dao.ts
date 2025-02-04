@@ -99,9 +99,9 @@ export class OutgoingNoteDao {
     return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 2 + TxHash.SIZE + Point.SIZE_IN_BYTES;
   }
 
-  static random({
+  static async random({
     note = Note.random(),
-    contractAddress = AztecAddress.random(),
+    contractAddress = undefined,
     txHash = randomTxHash(),
     storageSlot = Fr.random(),
     noteTypeId = NoteSelector.random(),
@@ -110,11 +110,11 @@ export class OutgoingNoteDao {
     l2BlockHash = Fr.random().toString(),
     noteHash = Fr.random(),
     index = Fr.random().toBigInt(),
-    ovpkM = Point.random(),
+    ovpkM = undefined,
   }: Partial<OutgoingNoteDao> = {}) {
     return new OutgoingNoteDao(
       note,
-      contractAddress,
+      contractAddress ?? (await AztecAddress.random()),
       storageSlot,
       noteTypeId,
       txHash,
@@ -123,7 +123,7 @@ export class OutgoingNoteDao {
       nonce,
       noteHash,
       index,
-      ovpkM,
+      ovpkM ?? (await Point.random()),
     );
   }
 }

@@ -18,6 +18,10 @@ spec:
         app: faucet
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -86,6 +90,8 @@ spec:
               value: faucet
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}

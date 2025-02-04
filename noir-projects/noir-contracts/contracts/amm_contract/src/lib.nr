@@ -21,7 +21,7 @@ pub fn get_amount_in(amount_out: U128, balance_in: U128, balance_out: U128) -> U
     assert((balance_in > U128::zero()) & (balance_out > U128::zero()), "INSUFFICIENT_LIQUIDITY");
 
     // The expression below is:
-    //    (balance_in * amount_out * 1000) / (balance_out - amout_out * 997) + 1
+    //    (balance_in * amount_out * 1000) / (balance_out - amount_out * 997) + 1
     // which is equivalent to:
     //    balance_in * (amount_out / (balance_in + amount_in)) *  1/0.997 + 1
     // resulting in an implicit 0.3% fee on the amount in, as the fee tokens are not taken into consideration. The +1

@@ -1,27 +1,9 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
-
-pub struct Note {
-    a: Field,
-    b: Field,
-}
-
-impl Serialize<2> for Note {
-    fn serialize(self) -> [Field; 2] {
-        [self.a, self.b]
-    }
-}
-
-impl Deserialize<2> for Note {
-    fn deserialize(wire: [Field; 2]) -> Note {
-        Note { a: wire[0], b: wire[1] }
-    }
-}
-
+mod note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AvmTest {
-    use crate::Note;
+pub contract AvmTest {
+    use crate::note::Note;
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
@@ -334,7 +316,7 @@ contract AvmTest {
 
     #[public]
     fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::digest(data)
     }
 
     #[public]
@@ -463,12 +445,12 @@ contract AvmTest {
     }
 
     #[public]
-    fn emit_unencrypted_log() {
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
+    fn emit_public_log() {
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ s);
     }
 
     #[public]
@@ -517,9 +499,9 @@ contract AvmTest {
     }
 
     #[public]
-    fn n_new_unencrypted_logs(num: u32) {
+    fn n_new_public_logs(num: u32) {
         for i in 0..num {
-            context.emit_unencrypted_log(/*message=*/ [i as Field]);
+            context.emit_public_log(/*message=*/ [i as Field]);
         }
     }
 
@@ -659,7 +641,14 @@ contract AvmTest {
      * be optimized away.
      ************************************************************************/
     #[public]
-    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+    fn bulk_testing(
+        args_field: [Field; 10],
+        args_u8: [u8; 10],
+        get_instance_for_address: AztecAddress,
+        expected_deployer: AztecAddress,
+        expected_class_id: ContractClassId,
+        expected_initialization_hash: Field,
+    ) {
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");
@@ -681,9 +670,12 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        // address should match yarn-project/simulator/src/public/fixtures/index.ts's
-        // MockedAvmTestContractDataSource.otherContractInstance
-        test_get_contract_instance(AztecAddress::from_field(0x4444));
+        test_get_contract_instance_matches(
+            get_instance_for_address,
+            expected_deployer,
+            expected_class_id,
+            expected_initialization_hash,
+        );
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
@@ -706,8 +698,8 @@ contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        let _ = emit_unencrypted_log();
+        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+        let _ = emit_public_log();
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");

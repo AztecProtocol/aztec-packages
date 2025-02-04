@@ -22,12 +22,12 @@ export async function addContract(
     version: 1,
     salt,
     initializationHash,
-    contractClassId: getContractClassFromArtifact(artifact).id,
+    contractClassId: (await getContractClassFromArtifact(artifact)).id,
     publicKeys: publicKeys ?? PublicKeys.default(),
     address,
     deployer: deployer ?? AztecAddress.ZERO,
   };
-  const computed = computeContractAddressFromInstance(instance);
+  const computed = await computeContractAddressFromInstance(instance);
   if (!computed.equals(address)) {
     throw new Error(`Contract address ${address.toString()} does not match computed address ${computed.toString()}`);
   }

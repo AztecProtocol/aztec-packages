@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 
 #include <array>
@@ -81,11 +82,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     static constexpr size_t BATCHED_POLYNOMIAL_LENGTH = 2 * SUBGROUP_SIZE + 2;
     // Size of Q(X)
     static constexpr size_t QUOTIENT_LENGTH = SUBGROUP_SIZE + 2;
-    // The length of a random polynomial to mask Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
+    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
     // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
     // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
     // required length from 23 to 3.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
@@ -191,7 +192,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
      * - Store these coefficients in `coeffs_lagrange_basis`.
      * More explicitly,
      * \f$ F = (1 , 1 , u_0, \ldots, u_0^{LIBRA_UNIVARIATES_LENGTH-1}, \ldots, 1, u_{D-1}, \ldots,
-     * u_{D-1}^{LIBRA_UNVIARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
+     * u_{D-1}^{LIBRA_UNIVARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
      *
      * ### Monomial Basis
      * If the curve is not `BN254`, the monomial polynomial is constructed directly using un-optimized Lagrange
@@ -418,7 +419,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
+    // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
+    // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
+    // required length from 23 to 3.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
 
   public:
     /*!
@@ -452,8 +457,6 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
                                               const FF& inner_product_eval_claim)
     {
 
-        const FF subgroup_generator_inverse = Curve::subgroup_generator_inverse;
-
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
@@ -474,11 +477,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         // Compute the evaluations of the challenge polynomial, Lagrange first, and Lagrange last for the fixed small
         // subgroup
-        auto [challenge_poly, lagrange_first, lagrange_last] =
-            compute_batched_barycentric_evaluations(challenge_polynomial_lagrange,
-                                                    gemini_evaluation_challenge,
-                                                    subgroup_generator_inverse,
-                                                    vanishing_poly_eval);
+        auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
+            challenge_polynomial_lagrange, gemini_evaluation_challenge, vanishing_poly_eval);
 
         const FF& concatenated_at_r = libra_evaluations[0];
         const FF& big_sum_shifted_eval = libra_evaluations[1];
@@ -488,11 +488,16 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Compute the evaluation of
         // L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) - Z_H(X) * Q(X)
         FF diff = lagrange_first * big_sum_eval;
-        diff += (gemini_evaluation_challenge - subgroup_generator_inverse) *
+        diff += (gemini_evaluation_challenge - Curve::subgroup_generator_inverse) *
                 (big_sum_shifted_eval - big_sum_eval - concatenated_at_r * challenge_poly);
         diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
         if constexpr (Curve::is_stdlib_type) {
+            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
+                diff.self_reduce();
+            }
+            diff.assert_equal(FF(0));
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
             return (diff.get_value() == FF(0).get_value());
         } else {
@@ -516,14 +521,15 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         challenge_polynomial_lagrange[0] = FF{ 1 };
 
         // Populate the vector with the powers of the challenges
-        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
-            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly;
+        size_t round_idx = 0;
+        for (auto challenge : multivariate_challenge) {
+            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * round_idx; // Compute the current index into the vector
             challenge_polynomial_lagrange[current_idx] = FF(1);
-            for (size_t idx = 1; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
-                // Recursively compute the powers of the challenge
-                challenge_polynomial_lagrange[current_idx + idx] =
-                    challenge_polynomial_lagrange[current_idx + idx - 1] * multivariate_challenge[idx_poly];
+            for (size_t idx = current_idx + 1; idx < current_idx + LIBRA_UNIVARIATES_LENGTH; idx++) {
+                // Recursively compute the powers of the challenge up to the length of libra univariates
+                challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
             }
+            round_idx++;
         }
         return challenge_polynomial_lagrange;
     }
@@ -537,51 +543,40 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * interpolation domain is given by \f$ (1, g, g^2, \ldots, g^{|H| -1 } )\f$
      *
      * @param coeffs Coefficients of the polynomial to be evaluated, in our case it is the challenge polynomial
-     * @param z Evaluation point, we are using the Gemini evaluation challenge
+     * @param r Evaluation point, we are using the Gemini evaluation challenge
      * @param inverse_root_of_unity Inverse of the generator of the subgroup H
      * @return std::array<FF, 3>
      */
     static std::array<FF, 3> compute_batched_barycentric_evaluations(const std::vector<FF>& coeffs,
                                                                      const FF& r,
-                                                                     const FF& inverse_root_of_unity,
                                                                      const FF& vanishing_poly_eval)
     {
-        std::array<FF, SUBGROUP_SIZE> denominators;
         FF one = FF{ 1 };
-        FF numerator = vanishing_poly_eval;
 
-        numerator *= one / FF(SUBGROUP_SIZE); // (r^n - 1) / n
-
-        denominators[0] = r - one;
-        FF work_root = inverse_root_of_unity; // g^{-1}
-                                              //
-        // Compute the denominators of the Lagrange polynomials evaluated at r
-        for (size_t i = 1; i < SUBGROUP_SIZE; ++i) {
-            denominators[i] = work_root * r;
-            denominators[i] -= one; // r * g^{-i} - 1
-            work_root *= inverse_root_of_unity;
+        // Construct the denominators of the Lagrange polynomials evaluated at r
+        std::array<FF, SUBGROUP_SIZE> denominators;
+        FF running_power = one;
+        for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+            denominators[i] = running_power * r - one; // r * g^{-i} - 1
+            running_power *= Curve::subgroup_generator_inverse;
         }
 
         // Invert/Batch invert denominators
         if constexpr (Curve::is_stdlib_type) {
-            for (FF& denominator : denominators) {
-                denominator = one / denominator;
-            }
+            std::transform(
+                denominators.begin(), denominators.end(), denominators.begin(), [](FF& d) { return d.invert(); });
         } else {
             FF::batch_invert(&denominators[0], SUBGROUP_SIZE);
         }
-        std::array<FF, 3> result;
 
-        // Accumulate the evaluation of the polynomials given by `coeffs` vector
-        result[0] = FF{ 0 };
-        for (const auto& [coeff, denominator] : zip_view(coeffs, denominators)) {
-            result[0] += coeff * denominator; // + coeffs_i * 1/(r * g^{-i}  - 1)
-        }
-
-        result[0] = result[0] * numerator;       // The evaluation of the polynomials given by its evaluations over H
-        result[1] = denominators[0] * numerator; // Lagrange first evaluated at r
-        result[2] = denominators[SUBGROUP_SIZE - 1] * numerator; // Lagrange last evaluated at r
-
+        // Construct the evaluation of the polynomial using its evaluations over H, Lagrange first evaluated at r,
+        // Lagrange last evaluated at r
+        FF numerator = vanishing_poly_eval * FF(SUBGROUP_SIZE).invert(); // (r^n - 1) / n
+        std::array<FF, 3> result{ std::inner_product(coeffs.begin(), coeffs.end(), denominators.begin(), FF(0)),
+                                  denominators[0],
+                                  denominators[SUBGROUP_SIZE - 1] };
+        std::transform(
+            result.begin(), result.end(), result.begin(), [&](FF& denominator) { return denominator * numerator; });
         return result;
     }
 };

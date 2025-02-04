@@ -4,8 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BlobWithIndex, BlobsWithIndexes } from './blob_with_index.js';
 
 describe('BlobWithIndex Serde', () => {
-  it('should serialize and deserialize', () => {
-    const blob = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+  it('should serialize and deserialize', async () => {
+    const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobWithIndex = new BlobWithIndex(blob, 0);
     const serialized = blobWithIndex.toBuffer();
 
@@ -16,11 +16,11 @@ describe('BlobWithIndex Serde', () => {
 });
 
 describe('BlobsWithIndexes Serde', () => {
-  it('should serialize and deserialize', () => {
-    const blobs = [
-      new BlobWithIndex(Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]), 0),
-      new BlobWithIndex(Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]), 1),
-    ];
+  it('should serialize and deserialize', async () => {
+    const blobs = await Promise.all([
+      new BlobWithIndex(await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]), 0),
+      new BlobWithIndex(await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]), 1),
+    ]);
     const blobsWithIndexes = new BlobsWithIndexes(blobs);
 
     const serialized = blobsWithIndexes.toBuffer();

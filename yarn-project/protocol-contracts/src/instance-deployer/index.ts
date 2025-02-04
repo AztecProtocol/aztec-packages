@@ -14,9 +14,9 @@ export const ContractInstanceDeployerArtifact = loadContractArtifact(
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export function getCanonicalInstanceDeployer(): ProtocolContract {
+export async function getCanonicalInstanceDeployer(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = makeProtocolContract('ContractInstanceDeployer', ContractInstanceDeployerArtifact);
+    protocolContract = await makeProtocolContract('ContractInstanceDeployer', ContractInstanceDeployerArtifact);
   }
   return protocolContract;
 }

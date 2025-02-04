@@ -25,3 +25,4 @@
 ^noir/noir-repo/tooling/noir_js
 ^noir/noir-repo/tooling/noir_js_types
 ^noir/noir-repo/tooling/noirc_abi_wasm
+^noir/bootstrap.sh

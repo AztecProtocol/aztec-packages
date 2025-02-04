@@ -52,16 +52,16 @@ export class TxProvingState {
     return this.processedTx.avmProvingRequest!.inputs;
   }
 
-  public getBaseRollupTypeAndInputs() {
+  public async getBaseRollupTypeAndInputs() {
     if (this.requireAvmProof) {
       return {
         rollupType: 'public-base-rollup' satisfies CircuitName,
-        inputs: this.#getPublicBaseInputs(),
+        inputs: await this.#getPublicBaseInputs(),
       };
     } else {
       return {
         rollupType: 'private-base-rollup' satisfies CircuitName,
-        inputs: this.#getPrivateBaseInputs(),
+        inputs: await this.#getPrivateBaseInputs(),
       };
     }
   }
@@ -74,12 +74,12 @@ export class TxProvingState {
     this.avm = avmProofAndVk;
   }
 
-  #getPrivateBaseInputs() {
+  async #getPrivateBaseInputs() {
     if (!this.tube) {
       throw new Error('Tx not ready for proving base rollup.');
     }
 
-    const vkData = this.#getTubeVkData();
+    const vkData = await this.#getTubeVkData();
     const tubeData = new PrivateTubeData(
       this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
       this.tube.proof,
@@ -92,7 +92,7 @@ export class TxProvingState {
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
-  #getPublicBaseInputs() {
+  async #getPublicBaseInputs() {
     if (!this.processedTx.avmProvingRequest) {
       throw new Error('Should create private base rollup for a tx not requiring avm proof.');
     }
@@ -106,13 +106,13 @@ export class TxProvingState {
     const tubeData = new PublicTubeData(
       this.processedTx.data.toPrivateToPublicKernelCircuitPublicInputs(),
       this.tube.proof,
-      this.#getTubeVkData(),
+      await this.#getTubeVkData(),
     );
 
     const avmProofData = new AvmProofData(
-      this.processedTx.avmProvingRequest.inputs.output,
+      this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
-      this.#getAvmVkData(),
+      await this.#getAvmVkData(),
     );
 
     if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
@@ -122,21 +122,21 @@ export class TxProvingState {
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  #getTubeVkData() {
+  async #getTubeVkData() {
     let vkIndex = TUBE_VK_INDEX;
     try {
-      vkIndex = getVKIndex(this.tube!.verificationKey);
+      vkIndex = await getVKIndex(this.tube!.verificationKey);
     } catch (_ignored) {
       // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
     }
-    const vkPath = getVKSiblingPath(vkIndex);
+    const vkPath = await getVKSiblingPath(vkIndex);
 
     return new VkWitnessData(this.tube!.verificationKey, vkIndex, vkPath);
   }
 
-  #getAvmVkData() {
+  async #getAvmVkData() {
     const vkIndex = AVM_VK_INDEX;
-    const vkPath = getVKSiblingPath(vkIndex);
+    const vkPath = await getVKSiblingPath(vkIndex);
     return new VkWitnessData(this.avm!.verificationKey, AVM_VK_INDEX, vkPath);
   }
 }

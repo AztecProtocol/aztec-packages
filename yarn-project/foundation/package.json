@@ -15,6 +15,7 @@
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
+    "./crypto/sync": "./dest/crypto/sync/index.js",
     "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
@@ -51,7 +52,8 @@
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
-    "./string": "./dest/string/index.js"
+    "./string": "./dest/string/index.js",
+    "./message": "./dest/message/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -160,7 +162,7 @@
     "supertest": "^6.3.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",

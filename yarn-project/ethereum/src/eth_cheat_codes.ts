@@ -126,7 +126,7 @@ export class EthCheatCodes {
    * Set the next block base fee per gas
    * @param baseFee - The base fee to set
    */
-  public async setNextBlockBaseFeePerGas(baseFee: bigint): Promise<void> {
+  public async setNextBlockBaseFeePerGas(baseFee: bigint | number): Promise<void> {
     const res = await this.rpcCall('anvil_setNextBlockBaseFeePerGas', [baseFee.toString()]);
     if (res.error) {
       throw new Error(`Error setting next block base fee per gas: ${res.error.message}`);

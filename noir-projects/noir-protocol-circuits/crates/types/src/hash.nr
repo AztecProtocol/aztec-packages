@@ -22,7 +22,7 @@ use crate::{
 use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = std::hash::sha256(bytes_to_hash);
+    let sha256_hashed = sha256::digest(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -117,15 +117,15 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_contract_class_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
-pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
+pub fn silo_contract_class_log_hash(log_hash: ScopedLogHash) -> Field {
     if log_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_unencrypted_log_hash(log_hash.contract_address, log_hash.value())
+        compute_siloed_contract_class_log_hash(log_hash.contract_address, log_hash.value())
     }
 }
 
@@ -502,10 +502,10 @@ fn existing_sponge_poseidon_chunks_matches_fixed() {
 fn poseidon_chunks_empty_inputs() {
     let in_len = 0;
     let mut input: [Field; 4096] = [0; 4096];
-    let mut contructed_empty_sponge = poseidon2_absorb_chunks(input, in_len, true);
+    let mut constructed_empty_sponge = poseidon2_absorb_chunks(input, in_len, true);
     let mut first_sponge =
-        poseidon2_absorb_chunks_existing_sponge(contructed_empty_sponge, input, in_len, true);
-    assert(first_sponge.squeeze() == contructed_empty_sponge.squeeze());
+        poseidon2_absorb_chunks_existing_sponge(constructed_empty_sponge, input, in_len, true);
+    assert(first_sponge.squeeze() == constructed_empty_sponge.squeeze());
 }
 
 #[test]
@@ -525,7 +525,7 @@ fn smoke_sha256_to_field() {
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
-    let result_bytes = std::hash::sha256(full_buffer);
+    let result_bytes = sha256::digest(full_buffer);
     let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
     assert(truncated_field == result);
     let mod_res = result + (result_bytes[31] as Field);

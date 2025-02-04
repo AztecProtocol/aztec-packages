@@ -11,10 +11,10 @@ mod types;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TokenBlacklist {
+pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::{
+        encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
         hash::compute_secret_hash,
