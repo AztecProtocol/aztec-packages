@@ -4,7 +4,7 @@ mod game;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract CardGame {
+pub contract CardGame {
     use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
     use dep::aztec::protocol_types::address::AztecAddress;
 

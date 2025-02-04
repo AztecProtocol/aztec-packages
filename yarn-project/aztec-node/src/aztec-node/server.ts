@@ -449,7 +449,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    if (this.p2pClient.getTxStatus(txHash) === 'pending') {
+    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
@@ -863,7 +863,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     );
     const fork = await this.worldStateSynchronizer.fork();
 
-    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -876,7 +876,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 

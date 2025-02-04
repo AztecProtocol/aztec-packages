@@ -8,7 +8,7 @@ import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Errors} from "./../Errors.sol";
-import {Timestamp, Slot, Epoch} from "./../TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "./../TimeLib.sol";
 import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {Header} from "./HeaderLib.sol";
 
