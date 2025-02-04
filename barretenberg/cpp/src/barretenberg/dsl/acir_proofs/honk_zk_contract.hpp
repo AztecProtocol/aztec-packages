@@ -685,6 +685,7 @@ library ZKTranscriptLib {
     }
 }
 
+
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
     scalar = FrLib.fromBytes32(bytes32(proofSection));
 }
@@ -1489,13 +1490,21 @@ interface IVerifier {
 
 
     // Errors
+    error ProofLengthWrong();
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
+    uint256 constant PROOF_SIZE = 494;
+
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool verified) {
+      // Check the received proof is the expected size where each field element is 32 bytes
+        if (proof.length != PROOF_SIZE * 32) {
+            revert ProofLengthWrong();
+        }
+
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
 
@@ -1569,13 +1578,13 @@ interface IVerifier {
             proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
 
-        Fr evaluation = ONE;
-        for (uint256 i = 2; i < LOG_N; i++) {
-            evaluation = evaluation * tp.sumCheckUChallenges[i];
-        }
+         Fr evaluation = ONE;
+         for (uint256 i = 2; i < LOG_N; i++) {
+             evaluation = evaluation * tp.sumCheckUChallenges[i];
+         }
 
-        grandHonkRelationSum = grandHonkRelationSum * (ONE - evaluation) + proof.libraEvaluation * tp.libraChallenge;
-        verified = (grandHonkRelationSum == roundTargetSum);
+         grandHonkRelationSum = grandHonkRelationSum * (ONE - evaluation) + proof.libraEvaluation * tp.libraChallenge;
+         verified = (grandHonkRelationSum == roundTargetSum);
     }
 
     // Return the new target sum for the next sumcheck round

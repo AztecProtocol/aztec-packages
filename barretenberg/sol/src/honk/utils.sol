@@ -8,6 +8,8 @@ uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
 
+error ProofLengthWrong();
+
 function bytes32ToString(bytes32 value) pure returns (string memory result) {
     bytes memory alphabet = "0123456789abcdef";
 
@@ -64,7 +66,6 @@ function logFr(string memory name, uint256 i, Fr value) pure {
 // Fr utility
 
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
-    require(proofSection.length == 0x20, "invalid number of bytes to construct Fr scalar");
     scalar = FrLib.fromBytes32(bytes32(proofSection));
 }
 
@@ -75,7 +76,6 @@ function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1
 }
 
 function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1ProofPoint memory point) {
-    require(proofSection.length == 0x80, "invalid number of bytes to construct a G1 point");
     point = Honk.G1ProofPoint({
         x_0: uint256(bytes32(proofSection[0x00:0x20])),
         x_1: uint256(bytes32(proofSection[0x20:0x40])),
