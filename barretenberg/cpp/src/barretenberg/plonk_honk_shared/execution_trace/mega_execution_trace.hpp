@@ -321,7 +321,7 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
  * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
  */
 static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1000,
-                                                         .busread = 6000,
+                                                         .busread = 5000,
                                                          .lookup = 14000,
                                                          .pub_inputs = 4000,
                                                          .arithmetic = 40000,
