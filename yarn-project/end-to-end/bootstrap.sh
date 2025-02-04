@@ -17,7 +17,7 @@ function test_cmds {
   fi
 
   # These are best ordered by longest running first as they're scheduled in order.
-  echo "$prefix simple e2e_block_building"
+  echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
   echo "$prefix simple e2e_authwit"
