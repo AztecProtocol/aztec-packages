@@ -290,6 +290,7 @@ export function mapContractClassLogDataToNoir(data: ContractClassLogData): Contr
   return {
     log: mapContractClassLogToNoir(data.log),
     counter: mapNumberToNoir(data.counter),
+    log_size: mapNumberToNoir(data.log.getEmittedLength()),
   };
 }
 
