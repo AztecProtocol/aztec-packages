@@ -295,7 +295,11 @@ export function mapContractClassLogDataToNoir(data: ContractClassLogData): Contr
 }
 
 export function mapContractClassLogDataFromNoir(data: ContractClassLogDataNoir) {
-  return new ContractClassLogData(mapContractClassLogFromNoir(data.log), mapNumberFromNoir(data.counter));
+  return new ContractClassLogData(
+    mapContractClassLogFromNoir(data.log),
+    mapNumberFromNoir(data.counter),
+    mapNumberFromNoir(data.log_size),
+  );
 }
 
 export function mapScopedContractClassLogDataToNoir(

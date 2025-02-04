@@ -10,19 +10,19 @@ import { ContractClassLog } from './contract_class_log.js';
 import { type UInt32 } from './shared.js';
 
 export class ContractClassLogData {
-  constructor(public log: ContractClassLog, public counter: UInt32) {}
+  constructor(public log: ContractClassLog, public counter: UInt32, public logSize: UInt32) {}
 
   static from(fields: FieldsOf<ContractClassLogData>): ContractClassLogData {
     return new ContractClassLogData(...ContractClassLogData.getFields(fields));
   }
 
   static getFields(fields: FieldsOf<ContractClassLogData>) {
-    return [fields.log, fields.counter] as const;
+    return [fields.log, fields.counter, fields.logSize] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader): ContractClassLogData {
     const reader = FieldReader.asReader(fields);
-    return new ContractClassLogData(reader.readObject(ContractClassLog), reader.readU32());
+    return new ContractClassLogData(reader.readObject(ContractClassLog), reader.readU32(), reader.readU32());
   }
 
   toFields(): Fr[] {
@@ -37,7 +37,7 @@ export class ContractClassLogData {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractClassLogData(reader.readObject(ContractClassLog), reader.readNumber());
+    return new ContractClassLogData(reader.readObject(ContractClassLog), reader.readNumber(), reader.readNumber());
   }
 
   toBuffer() {
@@ -45,7 +45,7 @@ export class ContractClassLogData {
   }
 
   static empty() {
-    return new ContractClassLogData(ContractClassLog.empty(), 0);
+    return new ContractClassLogData(ContractClassLog.empty(), 0, 0);
   }
 
   isEmpty(): boolean {

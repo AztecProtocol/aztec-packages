@@ -202,7 +202,8 @@ function makeContractClassLog(seed: number) {
 }
 
 function makeContractClassLogData(seed: number) {
-  return new ContractClassLogData(makeContractClassLog(seed + 0x100), seed);
+  const log = makeContractClassLog(seed + 0x100);
+  return new ContractClassLogData(log, seed, log.getEmittedLength());
 }
 
 function makeScopedContractClassLogData(seed: number) {
