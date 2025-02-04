@@ -12,7 +12,23 @@ export default {
   mode: 'production',
   devtool: false,
   entry: {
-    main: './src/index.ts',
+    index: './src/index.ts',
+    'interfaces/pxe': './src/api/interfaces/pxe.ts',
+    abi: './src/api/abi.ts',
+    account: './src/api/account.ts',
+    addresses: './src/api/addresses.ts',
+    contracts: './src/contract/index.ts',
+    deployment: './src/api/deployment.ts',
+    entrypoint: './src/api/entrypoint.ts',
+    eth_address: './src/api/eth_address.ts',
+    ethereum: './src/api/ethereum/index.ts',
+    fee: './src/api/fee.ts',
+    fields: './src/api/fields.ts',
+    log_id: './src/api/log_id.ts',
+    rpc: './src/rpc_clients/index.ts',
+    tx_hash: './src/api/tx_hash.ts',
+    wallet: './src/api/wallet.ts',
+    utils: './src/utils/index.ts',
   },
   module: {
     rules: [
@@ -30,7 +46,8 @@ export default {
           {
             loader: 'ts-loader',
             options: {
-              configFile: 'tsconfig.dest.json',
+              configFile: 'tsconfig.browser.json',
+              onlyCompileBundledFiles: true,
             },
           },
         ],
@@ -38,15 +55,42 @@ export default {
     ],
   },
   output: {
-    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest'),
-    filename: 'main.js',
+    filename: '[name].js',
+    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
     library: {
       type: 'module',
     },
     chunkFormat: 'module',
+    chunkFilename: '[name].chunk.js',
   },
   experiments: {
     outputModule: true,
+  },
+  optimization: {
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        bb: {
+          test: /[\\/](bb\.js|barretenberg)[\\/]/,
+          chunks: 'all',
+          name: 'bb',
+          reuseExistingChunk: true,
+        },
+        vendor: {
+          test: /[\\/]node_modules[\\/](!viem)[\\/]/,
+          chunks: 'all',
+          name: 'vendor',
+          reuseExistingChunk: true,
+        },
+        'vendor-viem': {
+          test: /[\\/]node_modules[\\/](viem)[\\/]/,
+          chunks: 'all',
+          name: 'vendor-viem',
+          reuseExistingChunk: true,
+        },
+      },
+    },
   },
   plugins: [
     new CopyPlugin({
@@ -84,5 +128,10 @@ export default {
       util: require.resolve('util/'),
       stream: require.resolve('stream-browserify'),
     },
+  },
+  performance: {
+    hints: 'error',
+    maxAssetSize: 2.7 * 1024 * 1024, // 2.7MB
+    maxEntrypointSize: 2.9 * 1024 * 1024, // 2.9MB
   },
 };

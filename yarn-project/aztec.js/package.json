@@ -4,28 +4,78 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
-    "./abi": "./dest/api/abi.js",
-    "./account": "./dest/api/account.js",
-    "./addresses": "./dest/api/addresses.js",
-    "./contracts": "./dest/contract/index.js",
-    "./deployment": "./dest/api/deployment.js",
-    "./entrypoint": "./dest/api/entrypoint.js",
-    "./eth_address": "./dest/api/eth_address.js",
-    "./ethereum": "./dest/api/ethereum.js",
-    "./fee": "./dest/api/fee.js",
-    "./fields": "./dest/api/fields.js",
-    "./init": "./dest/api/init.js",
-    "./log_id": "./dest/api/log_id.js",
-    "./rpc": "./dest/rpc_clients/index.js",
-    "./tx_hash": "./dest/api/tx_hash.js",
-    "./wallet": "./dest/api/wallet.js",
-    "./utils": "./dest/utils/index.js"
+    ".": {
+      "default": "./dest/node/index.js",
+      "browser": "./dest/browser/index.js"
+    },
+    "./interfaces/pxe": {
+      "default": "./dest/node/api/interfaces/pxe.js",
+      "browser": "./dest/browser/interfaces/pxe.js"
+    },
+    "./abi": {
+      "default": "./dest/node/api/abi.js",
+      "browser": "./dest/browser/abi.js"
+    },
+    "./account": {
+      "default": "./dest/node/api/account.js",
+      "browser": "./dest/browser/account.js"
+    },
+    "./addresses": {
+      "default": "./dest/node/api/addresses.js",
+      "browser": "./dest/browser/addresses.js"
+    },
+    "./contracts": {
+      "default": "./dest/node/contract/index.js",
+      "browser": "./dest/browser/contracts.js"
+    },
+    "./deployment": {
+      "default": "./dest/node/api/deployment.js",
+      "browser": "./dest/browser/deployment.js"
+    },
+    "./entrypoint": {
+      "default": "./dest/node/api/entrypoint.js",
+      "browser": "./dest/browser/entrypoint.js"
+    },
+    "./eth_address": {
+      "default": "./dest/node/api/eth_address.js",
+      "browser": "./dest/browser/eth_address.js"
+    },
+    "./ethereum": {
+      "default": "./dest/node/api/ethereum/index.js",
+      "browser": "./dest/browser/ethereum.js"
+    },
+    "./fee": {
+      "default": "./dest/node/api/fee.js",
+      "browser": "./dest/browser/fee.js"
+    },
+    "./fields": {
+      "default": "./dest/node/api/fields.js",
+      "browser": "./dest/browser/fields.js"
+    },
+    "./log_id": {
+      "default": "./dest/node/api/log_id.js",
+      "browser": "./dest/browser/log_id.js"
+    },
+    "./rpc": {
+      "default": "./dest/node/rpc_clients/index.js",
+      "browser": "./dest/browser/rpc.js"
+    },
+    "./tx_hash": {
+      "default": "./dest/node/api/tx_hash.js",
+      "browser": "./dest/browser/tx_hash.js"
+    },
+    "./wallet": {
+      "default": "./dest/node/api/wallet.js",
+      "browser": "./dest/browser/wallet.js"
+    },
+    "./utils": {
+      "default": "./dest/node/utils/index.js",
+      "browser": "./dest/browser/utils.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/node/index.ts"
     ],
     "name": "Aztec.js",
     "tsconfig": "./tsconfig.json"

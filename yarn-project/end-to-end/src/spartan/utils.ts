@@ -7,7 +7,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
+import type { RollupCheatCodes } from '../../../aztec.js/src/api/ethereum/cheat_codes.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
