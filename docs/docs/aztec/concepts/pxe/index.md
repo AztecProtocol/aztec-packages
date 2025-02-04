@@ -52,7 +52,7 @@ Until there are simulated simulations ([#9133](https://github.com/AztecProtocol/
 
 ### Proof Generation
 
-After simulation, the wallet calls `proveTx` on the PXE with all of the data generated during simulation and any [authentication witnesses](../accounts/authwit.md) (for allowing contracts to act on behalf of the users' account contract).
+After simulation, the wallet calls `proveTx` on the PXE with all of the data generated during simulation and any [authentication witnesses](../advanced/authwit.md) (for allowing contracts to act on behalf of the users' account contract).
 
 Once proven, the wallet sends the transaction to the network and sends the transaction hash back to the application.
 
