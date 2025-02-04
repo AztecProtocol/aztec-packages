@@ -116,9 +116,14 @@ function test {
 
 function release {
   export DRY_RUN=1
-  packages=$(yarn workspaces foreach --topological-dev -A --exclude @aztec/aztec3-packages exec 'basename $(pwd)' | cat | grep -v "Done")
+  local packages=$(yarn workspaces foreach --topological-dev -A --exclude @aztec/aztec3-packages exec 'basename $(pwd)' | cat | grep -v "Done")
+
+  local nightly_date=$(date +%Y%m%d)
+  local current_version=$(jq -r '."."' ../.release-please-manifest.json)
+  local version="v$current_version-$DIST_TAG.$nightly_date"
+
   for package in $packages; do
-    deploy_npm $package
+    (cd $package && deploy_npm $DIST_TAG $version)
   done
 }
 
