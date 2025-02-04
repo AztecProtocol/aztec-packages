@@ -17,9 +17,11 @@ import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  GovernanceProposerContract,
   type L1ContractAddresses,
   L1TxUtilsWithBlobs,
   RollupContract,
+  SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
@@ -189,7 +191,20 @@ describe('L1Publisher integration', () => {
     );
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerPublicClient, sequencerWalletClient, logger, config);
     const rollupContract = new RollupContract(sequencerPublicClient, l1ContractAddresses.rollupAddress.toString());
-    const forwarderContract = await createForwarderContract(config, sequencerPK);
+    const forwarderContract = await createForwarderContract(
+      config,
+      sequencerPK,
+      l1ContractAddresses.rollupAddress.toString(),
+    );
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(
+      sequencerPublicClient,
+      slashingProposerAddress.toString(),
+    );
+    const governanceProposerContract = new GovernanceProposerContract(
+      sequencerPublicClient,
+      l1ContractAddresses.governanceProposerAddress.toString(),
+    );
     const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });
@@ -211,6 +226,8 @@ describe('L1Publisher integration', () => {
         rollupContract,
         forwarderContract,
         epochCache,
+        governanceProposerContract,
+        slashingProposerContract,
       },
     );
 
@@ -226,7 +243,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
 
     // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.read.EPOCH_DURATION();
+    const timeToJump = await rollup.read.getEpochDuration();
     await progressTimeBySlot(timeToJump);
   });
 
@@ -566,26 +583,44 @@ describe('L1Publisher integration', () => {
       await expect(publisher.enqueueProposeL2Block(block)).resolves.toEqual(true);
 
       await expect(publisher.sendRequests()).resolves.toMatchObject({
-        errorMsg: expect.stringContaining('Rollup__InvalidBlobHash'),
+        errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
       });
 
       // Test for both calls
       // NOTE: First error is from the simulate fn, which isn't supported by anvil
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
-
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(1, 'Bundled [propose] transaction [failed]');
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
 
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        1,
+        'Forwarder transaction failed',
+        undefined,
+        expect.objectContaining({
+          receipt: expect.objectContaining({
+            type: 'eip4844',
+            blockHash: expect.any(String),
+            blockNumber: expect.any(BigInt),
+            transactionHash: expect.any(String),
+          }),
+        }),
+      );
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
+        expect.stringContaining('Bundled [propose] transaction [failed]'),
+      );
+
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        3,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidBlobHash/i,
+          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({
-          blockHash: expect.any(String),
+          blockHash: expect.any(Fr),
           blockNumber: expect.any(Number),
           slotNumber: expect.any(BigInt),
           txHash: expect.any(String),
+          txCount: expect.any(Number),
+          blockTimestamp: expect.any(Number),
         }),
       );
     });

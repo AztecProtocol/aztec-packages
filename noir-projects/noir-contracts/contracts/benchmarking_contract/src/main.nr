@@ -6,7 +6,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Benchmarking {
+pub contract Benchmarking {
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
     use dep::value_note::{utils::increment, value_note::ValueNote};
 

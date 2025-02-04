@@ -10,10 +10,10 @@ resource "google_container_cluster" "primary" {
 
   # Kubernetes version
   min_master_version = var.node_version
-  release_channel {
-    channel = "STABLE"
-  }
 
+  release_channel {
+    channel = "UNSPECIFIED"
+  }
 
   # Network configuration
   network    = "default"
@@ -37,7 +37,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 256
+    max_node_count = 512
   }
 
   # Node configuration
@@ -59,6 +59,11 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
 
     }
     tags = ["aztec-gke-node", "aztec"]
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = false
   }
 }
 
@@ -94,7 +99,7 @@ resource "google_container_node_pool" "aztec_nodes-2core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -130,7 +135,7 @@ resource "google_container_node_pool" "aztec_non_network_nodes" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -175,7 +180,7 @@ resource "google_container_node_pool" "spot_nodes_32core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -220,7 +225,7 @@ resource "google_container_node_pool" "spot_nodes_8core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -265,6 +270,6 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }

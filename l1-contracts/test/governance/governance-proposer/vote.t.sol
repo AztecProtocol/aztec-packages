@@ -6,7 +6,7 @@ import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernancePropo
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {ValidatorSelection} from "../../harnesses/ValidatorSelection.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract VoteTest is GovernanceProposerBase {
   using SlotLib for Slot;

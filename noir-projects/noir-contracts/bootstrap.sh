@@ -109,7 +109,7 @@ function compile {
 
   local contract=$1
   # Calculate filename because nargo...
-  contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 }')
+  contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)

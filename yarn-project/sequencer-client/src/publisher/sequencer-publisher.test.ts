@@ -6,10 +6,12 @@ import { type EpochCache } from '@aztec/epoch-cache';
 import {
   type ForwarderContract,
   type GasPrice,
+  type GovernanceProposerContract,
   type L1ContractsConfig,
   type L1TxUtilsConfig,
   type L1TxUtilsWithBlobs,
   type RollupContract,
+  type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
@@ -23,7 +25,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
-import { SequencerPublisher } from './sequencer-publisher.js';
+import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -34,6 +36,8 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
   let forwarder: MockProxy<ForwarderContract>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
+  let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
 
   let proposeTxHash: `0x${string}`;
@@ -67,6 +71,7 @@ describe('SequencerPublisher', () => {
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
     proposeTxReceipt = {
+      blockNumber: 1n,
       transactionHash: proposeTxHash,
       status: 'success',
       logs: [],
@@ -105,6 +110,9 @@ describe('SequencerPublisher', () => {
       errorMsg: undefined,
     });
 
+    slashingProposerContract = mock<SlashingProposerContract>();
+    governanceProposerContract = mock<GovernanceProposerContract>();
+
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
 
@@ -114,6 +122,8 @@ describe('SequencerPublisher', () => {
       l1TxUtils,
       forwarderContract: forwarder,
       epochCache,
+      slashingProposerContract,
+      governanceProposerContract,
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -187,15 +197,23 @@ describe('SequencerPublisher', () => {
     await runBlobSinkServer(expectedBlobs);
 
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
-    // TODO
-    // const govPayload = EthAddress.random();
-    // publisher.setGovernancePayload(govPayload);
-    // rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
-    // expect(await publisher.enqueueCastVote(1n, 1n, VoteType.GOVERNANCE)).toEqual(true);
+    const govPayload = EthAddress.random();
+    publisher.setGovernancePayload(govPayload);
+    governanceProposerContract.getRoundInfo.mockResolvedValue({
+      lastVote: 1n,
+      leader: govPayload.toString(),
+      executed: false,
+    });
+    governanceProposerContract.createVoteRequest.mockReturnValue({
+      to: mockGovernanceProposerAddress,
+      data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+    });
+    rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
+    expect(await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE)).toEqual(true);
     // expect(await publisher.enqueueCastVote(0n, 0n, VoteType.SLASHING)).toEqual(true);
 
     await publisher.sendRequests();
-
+    expect(forwarder.forward).toHaveBeenCalledTimes(1);
     const blobInput = Blob.getEthBlobEvaluationInputs(expectedBlobs);
 
     const args = [
@@ -219,15 +237,16 @@ describe('SequencerPublisher', () => {
           to: mockRollupAddress,
           data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
         },
-        // {
-        //   to: mockGovernanceProposerAddress,
-        //   data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
-        // },
+        {
+          to: mockGovernanceProposerAddress,
+          data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+        },
       ],
       l1TxUtils,
       // val + (val * 20n) / 100n
       { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
       { blobs: expectedBlobs.map(b => b.data), kzg },
+      expect.anything(), // the logger
     );
   });
 
