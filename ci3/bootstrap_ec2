@@ -80,6 +80,7 @@ container_script=$(cat <<EOF
   git remote add origin https://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
+  git checkout -b $REF_NAME
   ci3/aws_handle_evict "$cmd"
 EOF
 )
@@ -120,8 +121,6 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-    -e GITHUB_REF=${GITHUB_REF:-} \
-    -e GITHUB_REF_HEAD=${GITHUB_REF_HEAD:-} \
     -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \

@@ -104,7 +104,7 @@ function install_hooks {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir spartan
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
@@ -175,6 +175,33 @@ function release {
   done
 }
 
+function release_nightly {
+  # Compute today's nightly tag.
+  local nightly_date=$(date +%Y-%m-%d)
+  local nightly_tag=nightly-$nightly_date
+
+  # Compute yesterday's nightly tag.
+  local yesterday_tag=nightly-$(date --date="yesterday" +%Y-%m-%d)
+  local repo=$(gh repo view --json nameWithOwner --jq ".nameWithOwner")
+
+  # Add an easy link for comparing to previous release.
+  local compare_link=""
+  if gh release view "$yesterday_tag" &>/dev/null; then
+    compare_link=$(echo -e "\n\nSee changes: https://github.com/$repo/compare/${yesterday_tag}...${nightly_tag}")
+  fi
+
+  # Ensure we have a nightly release.
+  if ! gh release view "$nightly_tag" &>/dev/null; then
+    gh release create "$nightly_tag" \
+      --title "Nightly Release $nightly_date" \
+      --notes "Nightly release for $nightly_date.${compare_link}"
+  fi
+
+  # Override our ref name for the build.
+  export REF_NAME="$nightly_tag"
+  ./barretenberg/cpp/bootstrap.sh release
+}
+
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -213,8 +240,8 @@ case "$cmd" in
     test
     release
     ;;
-  "release")
-    release
+  "release-nightly")
+    release_nightly
     ;;
   *)
     echo "Unknown command: $cmd"
