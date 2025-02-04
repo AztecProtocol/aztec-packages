@@ -1,6 +1,7 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateAccumulatedData, public_call_request::PublicCallRequest,
+        accumulated_data::PrivateAccumulatedData,
+        contract_class_log::contract_class_log_array_length, public_call_request::PublicCallRequest,
         tx_constant_data::TxConstantData, validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
@@ -38,7 +39,9 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             nullifiers: array_length(public_inputs.end.nullifiers),
             l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
             private_logs: array_length(public_inputs.end.private_logs),
-            contract_class_logs: array_length(public_inputs.end.contract_class_logs),
+            contract_class_logs: contract_class_log_array_length(
+                public_inputs.end.contract_class_logs,
+            ),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
             private_call_stack: array_length(public_inputs.end.private_call_stack),
         }

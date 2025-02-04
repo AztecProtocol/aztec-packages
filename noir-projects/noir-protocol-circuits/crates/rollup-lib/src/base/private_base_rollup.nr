@@ -114,6 +114,9 @@ impl PrivateBaseRollupInputs {
         let siloed_contract_class_logs = self.tube_data.public_inputs.end.contract_class_logs.map(
             |log: Scoped<ContractClassLogData>| silo_contract_class_log(log),
         );
+        // These lengths have been constrained in the kernels to be correct.
+        let contract_class_logs_lengths =
+            self.tube_data.public_inputs.end.contract_class_logs.map(|l| l.inner.log_size);
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effect = TxEffect {
@@ -128,7 +131,11 @@ impl PrivateBaseRollupInputs {
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
             contract_class_logs: siloed_contract_class_logs,
         };
-        let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
+        let end_sponge_blob = append_tx_effects_for_blob(
+            tx_effect,
+            self.start_sponge_blob,
+            contract_class_logs_lengths,
+        );
 
         // Perform membership checks that the notes provided exist within the historical trees data
         perform_archive_membership_check(
@@ -236,13 +243,14 @@ mod tests {
         address::{AztecAddress, EthAddress},
         constants::{
             ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-            MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
-            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS,
-            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
-            TX_FEE_PREFIX, TX_START_PREFIX,
+            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
+            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
+            PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
+            TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{silo_contract_class_log, silo_l2_to_l1_message},
@@ -256,7 +264,7 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, is_empty},
         utils::{
-            arrays::{array_concat, find_index_hint_from_end, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -576,6 +584,7 @@ mod tests {
             let start_sponge_blob = append_tx_effects_for_blob(
                 pre_existing_tx_effects,
                 SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
+                [0; MAX_CONTRACT_CLASS_LOGS_PER_TX],
             );
 
             let state_diff_hints = PrivateBaseStateDiffHints {
@@ -943,7 +952,7 @@ mod tests {
         for i in 0..NUM_CC_LOGS {
             let siloed_log =
                 silo_contract_class_log(builder.tube_data.contract_class_logs.storage()[i]);
-            let log_len = find_index_hint_from_end(siloed_log.fields, |f| f == 0);
+            let log_len = builder.tube_data.contract_class_logs.storage()[i].inner.log_size;
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;

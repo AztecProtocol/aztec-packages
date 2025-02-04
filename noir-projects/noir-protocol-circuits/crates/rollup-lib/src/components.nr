@@ -20,7 +20,7 @@ use dep::types::{
     hash::accumulate_sha256,
     merkle_tree::VariableMerkleTree,
     traits::{Empty, is_empty, Serialize},
-    utils::arrays::{array_length, array_merge, find_index_hint_from_end},
+    utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -170,8 +170,10 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
 pub(crate) fn append_tx_effects_for_blob(
     tx_effect: TxEffect,
     start_sponge_blob: SpongeBlob,
+    contract_class_logs_lengths: [u32; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> SpongeBlob {
-    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(tx_effect);
+    let (mut tx_effects_hash_input, offset) =
+        get_tx_effects_hash_input(tx_effect, contract_class_logs_lengths);
 
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
@@ -188,6 +190,7 @@ pub(crate) fn append_tx_effects_for_blob(
 
 fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
+    contract_class_logs_lengths: [u32; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
     tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
     let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
@@ -217,6 +220,7 @@ fn get_tx_effects_hash_input(
             private_logs,
             public_logs,
             contract_class_logs,
+            contract_class_logs_lengths,
             tx_effect.revert_code as Field,
         )
     };
@@ -358,7 +362,10 @@ fn get_tx_effects_hash_input(
     }
 
     // CONTRACT CLASS LOGS
-    array_len = array_length(contract_class_logs);
+    // Note: we can use contract_class_logs_lengths here as they are constrained in the kernels to be zero if
+    // the log is empty, and the logs are constrained to be sorted L to R.
+    // This is cheaper because array_length uses is_empty, which is expensive for the log.
+    array_len = array_length(contract_class_logs_lengths);
     check_elt = true;
     if array_len != 0 {
         // TODO(MW): this is just an inefficient way of removing trailing zeros to get it to run for now. I know it sucks.
@@ -368,9 +375,8 @@ fn get_tx_effects_hash_input(
         offset += 1;
 
         for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            /// Safety: we constrain below that after log_len each elt is zero
-            let log_len =
-                unsafe { find_index_hint_from_end(contract_class_logs[j].fields, |f| f == 0) };
+            // These lengths have been constrained in the kernels to be correct.
+            let log_len = contract_class_logs_lengths[j];
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
@@ -380,8 +386,6 @@ fn get_tx_effects_hash_input(
                 check_elt &= k != log_len;
                 if check_elt {
                     assert_eq(tx_effects_hash_input[offset + k], contract_class_logs[j].fields[k]);
-                } else {
-                    assert_eq(0, contract_class_logs[j].fields[k]);
                 }
             }
             offset += log_len;
@@ -422,6 +426,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    contract_class_logs_lengths: [u32; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     revert_code: Field,
 ) -> [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS] {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
@@ -538,7 +543,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
         offset += 1;
 
         for j in 0..num_cc_logs {
-            let log_len = find_index_hint_from_end(contract_class_logs[j].fields, |f| f == 0);
+            let log_len = contract_class_logs_lengths[j];
             // prefix this log with its field length
             tx_effects_hash_input[offset] = log_len as Field;
             offset += 1;

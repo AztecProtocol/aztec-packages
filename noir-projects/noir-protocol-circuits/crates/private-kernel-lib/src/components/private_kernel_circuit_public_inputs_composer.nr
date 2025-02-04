@@ -274,7 +274,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..contract_class_logs.len() {
             let log = contract_class_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.contract_class_logs.push(log.scope(
+                self.public_inputs.end.contract_class_logs.push(log.with_log_size_hint().scope(
                     private_call.call_context.contract_address,
                 ));
             }

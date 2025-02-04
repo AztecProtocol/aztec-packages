@@ -325,7 +325,8 @@ impl PrivateContext {
 
     pub fn emit_contract_class_log(&mut self, log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) {
         let counter = self.next_counter();
-        let contract_class_log = ContractClassLogData { log: Log::new(log), counter };
+        // log_size is added and constrained in the kernels
+        let contract_class_log = ContractClassLogData { log: Log::new(log), counter, log_size: 0 };
         self.contract_class_logs.push(contract_class_log);
     }
 

@@ -1,14 +1,16 @@
 use dep::types::{
     abis::{
         accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
-        contract_class_log::ContractClassLogData, gas::Gas, side_effect::scoped::Scoped,
+        contract_class_log::{contract_class_log_array_length, ContractClassLogData},
+        gas::Gas,
+        side_effect::scoped::Scoped,
     },
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    utils::arrays::{array_length, find_index_hint_from_end},
+    utils::arrays::array_length,
 };
 
 pub fn meter_gas_used(data: PrivateToRollupAccumulatedData) -> Gas {
@@ -31,15 +33,13 @@ pub fn meter_gas_used(data: PrivateToRollupAccumulatedData) -> Gas {
     metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
-    let num_contract_class_logs = array_length(data.contract_class_logs);
+    let num_contract_class_logs = contract_class_log_array_length(data.contract_class_logs);
     // TODO: adding num_contract_class_logs * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS overflows gas limits,
     // and is not accurate anyway, because we no longer pay gas in terms of bytes but of blob fields.
     let contract_class_log_emitted_fields = data.contract_class_logs.fold(
         0,
-        |len, l: Scoped<ContractClassLogData>| {
-            /// Safety: Not constraining until we have a final approach to measuring gas for logs inside blobs.
-            len + unsafe { find_index_hint_from_end(l.inner.log.fields, |f| f == 0) }
-        },
+        // Note: log_size is constrained to be correct in log.validate_log_size_hint(), called by each init and inner
+        |len, l: Scoped<ContractClassLogData>| len + l.inner.log_size,
     );
     metered_da_fields += contract_class_log_emitted_fields;
     metered_l2_gas += num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;

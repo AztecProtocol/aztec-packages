@@ -1,9 +1,15 @@
 use crate::{
     abis::{
-        call_context::CallContext, contract_class_log::ContractClassLogData,
-        max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
-        private_call_request::PrivateCallRequest, private_log::PrivateLogData,
-        public_call_request::PublicCallRequest, read_request::ReadRequest, side_effect::Counted,
+        call_context::CallContext,
+        contract_class_log::{ContractClassLogData, validate_contract_class_log_array},
+        max_block_number::MaxBlockNumber,
+        note_hash::NoteHash,
+        nullifier::Nullifier,
+        private_call_request::PrivateCallRequest,
+        private_log::PrivateLogData,
+        public_call_request::PublicCallRequest,
+        read_request::ReadRequest,
+        side_effect::Counted,
         validation_requests::KeyValidationRequestAndGenerator,
     },
     block_header::BlockHeader,
@@ -48,7 +54,9 @@ impl PrivateCircuitPublicInputsArrayLengths {
             private_call_requests: validate_array(public_inputs.private_call_requests),
             public_call_requests: validate_array(public_inputs.public_call_requests),
             private_logs: validate_array(public_inputs.private_logs),
-            contract_class_logs: validate_array(public_inputs.contract_class_logs),
+            contract_class_logs: validate_contract_class_log_array(
+                public_inputs.contract_class_logs,
+            ),
         }
     }
 }

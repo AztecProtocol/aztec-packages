@@ -1,6 +1,7 @@
 use crate::components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier;
 use dep::types::{
     abis::{
+        contract_class_log::assert_contract_class_logs_appended_and_scoped,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
         },
@@ -334,7 +335,7 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.private_logs,
             contract_address,
         );
-        assert_array_appended_and_scoped(
+        assert_contract_class_logs_appended_and_scoped(
             self.output.end.contract_class_logs,
             private_call.contract_class_logs,
             array_lengths.contract_class_logs,
