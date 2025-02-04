@@ -20,11 +20,11 @@ export class ScheduledDelayChange {
 
   toField(): Fr {
     // high bits [ pre_is_some: u1 |  post_is_some: u1 | block_of_change: u32 | pre_inner: u32 | post_inner: u32 ] low bits
-    let result = this.post || 0;
-    result |= (this.previous || 0) << 32;
-    result |= this.blockOfChange << 64;
-    result |= this.post === undefined ? 0 : 1 << 96;
-    result |= this.previous === undefined ? 0 : 1 << 97;
+    let result = BigInt(this.post || 0);
+    result |= BigInt(this.previous || 0) << 32n;
+    result |= BigInt(this.blockOfChange) << 64n;
+    result |= this.post === undefined ? 0n : 1n << 96n;
+    result |= this.previous === undefined ? 0n : 1n << 97n;
     return new Fr(result);
   }
 

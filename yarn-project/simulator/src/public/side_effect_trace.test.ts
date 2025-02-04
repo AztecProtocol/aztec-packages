@@ -23,6 +23,7 @@ import {
   PublicDataUpdateRequest,
   PublicLog,
   SerializableContractInstance,
+  Vector,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -163,10 +164,32 @@ describe('Public Side Effect Trace', () => {
   it('Should trace get contract instance', async () => {
     const instance = await SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
-    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
-    const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
+    const initializationLowLeafPreimage = new NullifierLeafPreimage(
+      /*siloedNullifier=*/ address.toField(),
+      Fr.ZERO,
+      0n,
+    );
+    const initializationMembershipHint = new AvmNullifierReadTreeHint(
+      initializationLowLeafPreimage,
+      lowLeafIndex,
+      lowLeafSiblingPath,
+    );
+    const updateSlot = Fr.random();
+    const updateMembershipHint = new AvmPublicDataReadTreeHint(
+      new PublicDataTreeLeafPreimage(updateSlot, Fr.ZERO, Fr.ZERO, updateSlot.add(new Fr(10n)).toBigInt()),
+      new Fr(1),
+      [],
+    );
+    const updatePreimage = [new Fr(1), new Fr(2), new Fr(3), new Fr(4)];
     const exists = true;
-    trace.traceGetContractInstance(address, exists, instance, nullifierMembership);
+    trace.traceGetContractInstance(
+      address,
+      exists,
+      instance,
+      initializationMembershipHint,
+      updateMembershipHint,
+      updatePreimage,
+    );
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
@@ -174,7 +197,9 @@ describe('Public Side Effect Trace', () => {
         address,
         exists,
         ...instanceWithoutVersion,
-        nullifierMembership,
+        initializationMembershipHint,
+        updateMembershipHint,
+        updatePreimage: new Vector(updatePreimage),
       },
     ]);
   });
@@ -187,10 +212,34 @@ describe('Public Side Effect Trace', () => {
       publicBytecodeCommitment: Fr.random(),
     };
     const { version: _, ...instanceWithoutVersion } = instance;
-    const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
-    const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
+    const initializationLowLeafPreimage = new NullifierLeafPreimage(
+      /*siloedNullifier=*/ address.toField(),
+      Fr.ZERO,
+      0n,
+    );
+    const initializationMembership = new AvmNullifierReadTreeHint(
+      initializationLowLeafPreimage,
+      lowLeafIndex,
+      lowLeafSiblingPath,
+    );
+    const updateSlot = Fr.random();
+    const updateMembershipHint = new AvmPublicDataReadTreeHint(
+      new PublicDataTreeLeafPreimage(updateSlot, Fr.ZERO, Fr.ZERO, updateSlot.add(new Fr(10n)).toBigInt()),
+      new Fr(1),
+      [],
+    );
+    const updatePreimage = [new Fr(1), new Fr(2), new Fr(3), new Fr(4)];
     const exists = true;
-    trace.traceGetBytecode(address, exists, bytecode, instance, contractClass, nullifierMembership);
+    trace.traceGetBytecode(
+      address,
+      exists,
+      bytecode,
+      instance,
+      contractClass,
+      initializationMembership,
+      updateMembershipHint,
+      updatePreimage,
+    );
 
     expect(Array.from(trace.getAvmCircuitHints().contractBytecodeHints.values())).toEqual([
       {
@@ -199,7 +248,9 @@ describe('Public Side Effect Trace', () => {
           address,
           exists,
           ...instanceWithoutVersion,
-          membershipHint: { ...nullifierMembership },
+          initializationMembershipHint: { ...initializationMembership },
+          updateMembershipHint,
+          updatePreimage: new Vector(updatePreimage),
         },
         contractClassHint: contractClass,
       },
