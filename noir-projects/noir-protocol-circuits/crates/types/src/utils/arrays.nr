@@ -142,9 +142,12 @@ where
 {
     /// Safety: we constrain this array below
     let result = unsafe { array_merge_helper(array1, array2) };
+    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
     let array1_len = array_length(array1);
+    let mut add_from_left = true;
     for i in 0..N {
-        if !is_empty(array1[i]) {
+        add_from_left &= i != array1_len;
+        if add_from_left {
             assert_eq(result[i], array1[i]);
         } else {
             assert_eq(result[i], array2[i - array1_len]);
