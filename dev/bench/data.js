@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738667968784,
+  "lastUpdate": 1738669312152,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5eb3e8f498093ae52b8a29939051cd8c66aed3c1",
-          "message": "fix: verify start state of a block (#11290)\n\nCheck the start state of the first tx in a block, in block root rollup\r\ncircuit, to make sure that it matches the state in the previous block\r\nheader, whose hash is the last leaf in the last archive. Otherwise, it\r\ncould be whatever and that allows adding fake data by changing the tree\r\nroots in the start state.",
-          "timestamp": "2025-01-17T17:44:00Z",
-          "tree_id": "22f05b2c061d8b51ce04a470660b5e9d8afb80f8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5eb3e8f498093ae52b8a29939051cd8c66aed3c1"
-        },
-        "date": 1737137392031,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18988.931595,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16153.054796999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21459.59732199998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18795.854 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4050.7235069999865,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3735.9792829999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73381.475143,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73381475000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14561.037115000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14561037000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3247769086,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3247769086 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136750966,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136750966 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 132317828,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132317828 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aee14208a42f9b5b7f9aef4b6e0d92e303a265c1",
+          "message": "refactor: ensure new kv-store is used on the server (#11662)\n\nThis PR refactors the last few stores (other than PXE and old merkle\ntrees) to the new async store interface",
+          "timestamp": "2025-02-04T11:17:29Z",
+          "tree_id": "40f07b6530e708c8234209b0ad3cd80670f09352",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1"
+        },
+        "date": 1738669302974,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19118.79109399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16332.479119999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20749.381434999974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18520.836228 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4050.380407000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3794.5928759999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73937.08689899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73937087000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14340.037348000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14340039000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2615769720,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2615769720 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132240330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132240330 ns\nthreads: 1"
           }
         ]
       }
