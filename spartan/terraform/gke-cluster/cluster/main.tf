@@ -274,6 +274,51 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   }
 }
 
+# Create 2 core high memory spot instance node pool with autoscaling, used for metrics
+resource "google_container_node_pool" "spot_nodes_2core-highmem" {
+  name     = "${var.cluster_name}-2core-highmem-spot"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 8
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2-highmem-2"
+    spot         = true
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      pool      = "spot"
+      local-ssd = "false"
+      node-type = "infra"
+    }
+    tags = ["aztec-gke-node", "spot"]
+
+    # Spot instance termination handler
+    taint {
+      key    = "cloud.google.com/gke-spot"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
 # Create 4 core high memory spot instance node pool with autoscaling, used for metrics
 resource "google_container_node_pool" "spot_nodes_4core-highmem" {
   name     = "${var.cluster_name}-4core-highmem-spot"
@@ -283,7 +328,7 @@ resource "google_container_node_pool" "spot_nodes_4core-highmem" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 16
+    max_node_count = 8
   }
 
   # Node configuration
