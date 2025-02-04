@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Staking, IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {
+  IStaking, Status, ValidatorInfo, Exit, Timestamp
+} from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal constant DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
