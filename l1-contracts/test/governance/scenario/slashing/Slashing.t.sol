@@ -18,8 +18,6 @@ import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
 
@@ -72,7 +70,7 @@ contract SlashingScenario is TestBase {
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     });
-    slasher = rollup.SLASHER();
+    slasher = Slasher(rollup.getSlasher());
     slashingProposer = slasher.PROPOSER();
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
