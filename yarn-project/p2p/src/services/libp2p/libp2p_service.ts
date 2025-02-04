@@ -201,7 +201,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       ],
       datastore,
-      streamMuxers: [yamux(), mplex()],
+      streamMuxers: [mplex({ maxInboundStreams: 256 })],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: minPeerCount,
