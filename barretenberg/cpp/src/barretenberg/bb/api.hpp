@@ -8,6 +8,7 @@ namespace bb {
 class API {
   public:
     struct Flags {
+        bool zk;
         bool initialize_pairing_point_accumulator;
         bool ipa_accumulation;
         OracleHashType oracle_hash_type;
@@ -18,6 +19,7 @@ class API {
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
+               << "  zk: " << flags.zk << "\n"
                << "  initialize_pairing_point_accumulator: " << flags.initialize_pairing_point_accumulator << "\n"
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  oracle_hash_type: " << to_string(flags.oracle_hash_type) << "\n"
