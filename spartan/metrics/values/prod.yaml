@@ -1,6 +1,24 @@
 opentelemetry-collector:
+  replicaCount: 4
+  resources:
+    requests:
+      memory: 14Gi
+      cpu: 1.5
   nodeSelector:
     node-type: infra
+    pool: spot
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
   ports:
     jaeger-compact:
       enabled: false
@@ -29,14 +47,28 @@ prometheus:
   server:
     resources:
       requests:
-        memory: 7Gi
+        memory: 14Gi
         cpu: 1.5
     nodeSelector:
       node-type: infra
+      pool: spot
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: Exists
+    tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
     persistentVolume:
       enabled: true
       size: 100Gi
-    replicaCount: 10
+    replicaCount: 12
     statefulSet:
       enabled: true
   alertmanager:
