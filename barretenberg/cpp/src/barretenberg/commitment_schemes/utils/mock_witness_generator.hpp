@@ -148,6 +148,9 @@ template <typename Curve> struct MultiWitnessGenerator {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
+    using ClaimBatcher = bb::ShpleminiVerifier_<Curve>::ClaimBatcher;
+    using ClaimBatch = bb::ShpleminiVerifier_<Curve>::ClaimBatch;
+    using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
 
     std::shared_ptr<CommitmentKey> ck;
     std::vector<Polynomial> unshifted_polynomials;
@@ -157,6 +160,8 @@ template <typename Curve> struct MultiWitnessGenerator {
     std::vector<Commitment> to_be_shifted_commitments;
     std::vector<Fr> unshifted_evals;
     std::vector<Fr> shifted_evals;
+    ClaimBatcher claim_batcher;
+    PolynomialBatcher polynomial_batcher;
 
     Polynomial random_poly;
 
@@ -170,18 +175,20 @@ template <typename Curve> struct MultiWitnessGenerator {
                           const size_t num_polynomials,
                           const size_t num_shiftable,
                           std::vector<Fr>& mle_opening_point,
-                          //  std::vector<Fr>& extra_challenges,
-                          std::shared_ptr<CommitmentKey>& commitment_key)
-        : ck(commitment_key)
+                          std::vector<Fr>& extra_challenges)
+        : ck(create_commitment_key<CommitmentKey>(num_polys_in_group * n))
         , unshifted_polynomials(num_polynomials / num_polys_in_group)
         , to_be_shifted_polynomials(num_shiftable / num_polys_in_group)
-        , random_poly(Polynomial(n * num_polys_in_group)) // Initialize the commitment key
+        , polynomial_batcher(n * num_polys_in_group)
+        , random_poly(n * num_polys_in_group) // Initialize the commitment key
 
     {
-        // auto lagrange_coeffs = populate_lagrange_coeffs(extra_challenges);
+        auto lagrange_coeffs = populate_lagrange_coeffs(extra_challenges);
 
         construct_multi_instance_and_witnesses(
             num_polynomials, num_shiftable, num_polys_in_group, n, mle_opening_point);
+        // info(shifted_evals[0]);
+        // info(unshifted_polynomials[0].evaluate_mle());
     }
 
     void construct_multi_instance_and_witnesses(const size_t num_polys,
@@ -198,8 +205,9 @@ template <typename Curve> struct MultiWitnessGenerator {
             for (size_t idx = 0; idx < num_polys_in_group * n; idx++) {
                 random_poly.at(idx) = Fr::random_element();
             }
-            unshifted_polynomials.push_back(std::move(random_poly));
-            unshifted_commitments.push_back(ck->commit(random_poly));
+            unshifted_polynomials.push_back(random_poly);
+            const auto comm = ck->commit(random_poly);
+            unshifted_commitments.push_back(comm);
             // We are proving the evaluations of chunks!
             evaluate_chunks(random_poly, mle_opening_point, num_polys_in_group, n);
         }
@@ -219,6 +227,13 @@ template <typename Curve> struct MultiWitnessGenerator {
             // We are proving the evaluations of chunks! Evaluate each chunk and its shift
             evaluate_chunks(unshifted_polynomials[idx], mle_opening_point, num_polys_in_group, n, true);
         }
+
+        polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));
+        polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
+
+        claim_batcher =
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) },
+                          .shifted = ClaimBatch{ RefVector(to_be_shifted_commitments), RefVector(shifted_evals) } };
     }
 
     void evaluate_chunks(PolynomialSpan<Fr> poly,
@@ -229,6 +244,7 @@ template <typename Curve> struct MultiWitnessGenerator {
     {
 
         for (size_t idx = 0; idx < num_polys_in_group; idx++) {
+            info("maybe here?");
             size_t start_idx = idx * n;
             std::span<Fr> chunk = poly.subspan(start_idx, n).span;
             // Create a redundant poly, because evaluate_mle is static in Polynomial class
