@@ -1,6 +1,6 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import {
+  EthCheatCodes,
   createEthereumChain,
   getExpectedAddress,
   getL1ContractsConfigEnvVars,

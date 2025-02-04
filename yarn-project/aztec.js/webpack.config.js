@@ -132,6 +132,6 @@ export default {
   performance: {
     hints: 'error',
     maxAssetSize: 2.7 * 1024 * 1024, // 2.7MB
-    maxEntrypointSize: 2.9 * 1024 * 1024, // 2.9MB
+    maxEntrypointSize: 3 * 1024 * 1024, // 3MB
   },
 };

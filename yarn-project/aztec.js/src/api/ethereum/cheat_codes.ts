@@ -18,32 +18,6 @@ import {
 } from 'viem';
 import { foundry } from 'viem/chains';
 
-/**
- * A class that provides utility functions for interacting with the chain.
- */
-export class CheatCodes {
-  constructor(
-    /** Cheat codes for L1.*/
-    public eth: EthCheatCodes,
-    /** Cheat codes for the Aztec Rollup contract on L1. */
-    public rollup: RollupCheatCodes,
-  ) {}
-
-  static async create(rpcUrl: string, pxe: PXE): Promise<CheatCodes> {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    const rollupCheatCodes = new RollupCheatCodes(
-      ethCheatCodes,
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
-    );
-    return new CheatCodes(ethCheatCodes, rollupCheatCodes);
-  }
-
-  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    return new RollupCheatCodes(ethCheatCodes, addresses);
-  }
-}
-
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
   private client: WalletClient & PublicClient;

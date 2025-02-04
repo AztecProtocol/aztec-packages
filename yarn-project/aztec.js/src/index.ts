@@ -140,6 +140,7 @@ export { fileURLToPath } from '@aztec/foundation/url';
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
+export * from './api/cheat_codes.js';
 export * from './api/fee.js';
 export * from './api/addresses.js';
 export * from './api/ethereum/index.js';

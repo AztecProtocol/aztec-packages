@@ -5,72 +5,76 @@
   "type": "module",
   "exports": {
     ".": {
-      "default": "./dest/node/index.js",
-      "browser": "./dest/browser/index.js"
+      "browser": "./dest/browser/index.js",
+      "default": "./dest/node/index.js"
     },
     "./interfaces/pxe": {
-      "default": "./dest/node/api/interfaces/pxe.js",
-      "browser": "./dest/browser/interfaces/pxe.js"
+      "browser": "./dest/browser/interfaces/pxe.js",
+      "default": "./dest/node/api/interfaces/pxe.js"
     },
     "./abi": {
-      "default": "./dest/node/api/abi.js",
-      "browser": "./dest/browser/abi.js"
+      "browser": "./dest/browser/abi.js",
+      "default": "./dest/node/api/abi.js"
     },
     "./account": {
-      "default": "./dest/node/api/account.js",
-      "browser": "./dest/browser/account.js"
+      "browser": "./dest/browser/account.js",
+      "default": "./dest/node/api/account.js"
     },
     "./addresses": {
-      "default": "./dest/node/api/addresses.js",
-      "browser": "./dest/browser/addresses.js"
+      "browser": "./dest/browser/addresses.js",
+      "default": "./dest/node/api/addresses.js"
+    },
+    "./cheatcodes": {
+      "browser": "./dest/browser/api/cheatcodes.js",
+      "default": "./dest/node/api/cheatcodes.js"
     },
     "./contracts": {
-      "default": "./dest/node/contract/index.js",
-      "browser": "./dest/browser/contracts.js"
+      "browser": "./dest/browser/contracts.js",
+      "default": "./dest/node/contract/index.js"
     },
     "./deployment": {
-      "default": "./dest/node/api/deployment.js",
-      "browser": "./dest/browser/deployment.js"
+      "browser": "./dest/browser/deployment.js",
+      "default": "./dest/node/api/deployment.js"
     },
     "./entrypoint": {
-      "default": "./dest/node/api/entrypoint.js",
-      "browser": "./dest/browser/entrypoint.js"
+      "browser": "./dest/browser/entrypoint.js",
+      "default": "./dest/node/api/entrypoint.js"
     },
     "./eth_address": {
-      "default": "./dest/node/api/eth_address.js",
-      "browser": "./dest/browser/eth_address.js"
+      "browser": "./dest/browser/eth_address.js",
+      "default": "./dest/node/api/eth_address.js"
     },
     "./ethereum": {
-      "default": "./dest/node/api/ethereum/index.js",
-      "browser": "./dest/browser/ethereum.js"
+      "browser": "./dest/browser/ethereum.js",
+      "default": "./dest/node/api/ethereum/index.js"
     },
     "./fee": {
-      "default": "./dest/node/api/fee.js",
-      "browser": "./dest/browser/fee.js"
+      "browser": "./dest/browser/fee.js",
+      "default": "./dest/node/api/fee.js"
     },
     "./fields": {
-      "default": "./dest/node/api/fields.js",
-      "browser": "./dest/browser/fields.js"
+      "browser": "./dest/browser/fields.js",
+      "default": "./dest/node/api/fields.js"
     },
     "./log_id": {
-      "default": "./dest/node/api/log_id.js",
-      "browser": "./dest/browser/log_id.js"
+      "browser": "./dest/browser/log_id.js",
+      "default": "./dest/node/api/log_id.js"
     },
     "./rpc": {
-      "default": "./dest/node/rpc_clients/index.js",
-      "browser": "./dest/browser/rpc.js"
+      "browser": "./dest/browser/rpc.js",
+      "default": "./dest/node/rpc_clients/index.js"
     },
     "./tx_hash": {
-      "default": "./dest/node/api/tx_hash.js",
-      "browser": "./dest/browser/tx_hash.js"
+      "browser": "./dest/browser/tx_hash.js",
+      "default": "./dest/node/api/tx_hash.js"
     },
     "./wallet": {
-      "default": "./dest/node/api/wallet.js",
-      "browser": "./dest/browser/wallet.js"
+      "browser": "./dest/browser/wallet.js",
+      "default": "./dest/node/api/wallet.js"
     },
     "./utils": {
-      "default": "./dest/node/utils/index.js",
-      "browser": "./dest/browser/utils.js"
+      "browser": "./dest/browser/utils.js",
+      "default": "./dest/node/utils/index.js"
     }
   },
   "typedocOptions": {
