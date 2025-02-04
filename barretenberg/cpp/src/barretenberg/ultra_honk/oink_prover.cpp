@@ -109,7 +109,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
-        // Commit to Goblin ECC op wires. Currently, they are not masked in MegaZKFlavor
+        // Commit to Goblin ECC op wires.
+        // To avoid possible issues with the current work on the merge protocol, they are not
+        // masked in MegaZKFlavor
         for (auto [polynomial, label] :
              zip_view(proving_key->proving_key.polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
