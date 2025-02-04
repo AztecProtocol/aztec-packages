@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.73.0...aztec-package-v0.74.0) (2025-02-04)
+
+
+### Miscellaneous
+
+* Ensure new kv-store is used on the server ([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662)) ([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))
+
 ## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.72.1...aztec-package-v0.73.0) (2025-02-01)
 
 

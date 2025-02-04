@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.73.0...aztec-packages-v0.74.0) (2025-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* staking library ([#11559](https://github.com/AztecProtocol/aztec-packages/issues/11559))
+* time library ([#11542](https://github.com/AztecProtocol/aztec-packages/issues/11542))
+
+### Features
+
+* `u128.ts` accepting string on input ([#11664](https://github.com/AztecProtocol/aztec-packages/issues/11664)) ([bb25992](https://github.com/AztecProtocol/aztec-packages/commit/bb2599240f8cea20c111c1533cff457372e5d458))
+* Add network, better drawer performance ([#11694](https://github.com/AztecProtocol/aztec-packages/issues/11694)) ([1f61822](https://github.com/AztecProtocol/aztec-packages/commit/1f61822e731b6d1cd7295772f54afda54b646514))
+* Skip calculation of partial sums when simulating blobs ([#11257](https://github.com/AztecProtocol/aztec-packages/issues/11257)) ([aca66f7](https://github.com/AztecProtocol/aztec-packages/commit/aca66f7611be2eba774b9d204d732801853cc6a2))
+* Staking library ([#11559](https://github.com/AztecProtocol/aztec-packages/issues/11559)) ([c050320](https://github.com/AztecProtocol/aztec-packages/commit/c0503201f5d25bc559462926222d2ad6bc93479d))
+* Time library ([#11542](https://github.com/AztecProtocol/aztec-packages/issues/11542)) ([3b463f9](https://github.com/AztecProtocol/aztec-packages/commit/3b463f9f9376393c5f781cf2495c6db379308aca)), closes [#11520](https://github.com/AztecProtocol/aztec-packages/issues/11520)
+* UltraHonkZK contract ([#11553](https://github.com/AztecProtocol/aztec-packages/issues/11553)) ([a68369f](https://github.com/AztecProtocol/aztec-packages/commit/a68369fd1f12d00e037a2626b2bbc17375054883))
+
+
+### Bug Fixes
+
+* Add bootstrap.sh to rebuild_patterns ([#11683](https://github.com/AztecProtocol/aztec-packages/issues/11683)) ([e84a81a](https://github.com/AztecProtocol/aztec-packages/commit/e84a81a556b2059be843e06a7e814cd4fb7f99eb))
+* **archiver:** Do not attempt to decode blob before filtering ([#11668](https://github.com/AztecProtocol/aztec-packages/issues/11668)) ([961cbdd](https://github.com/AztecProtocol/aztec-packages/commit/961cbdd9ee33ce85f9509e690c346988e1a3bccf))
+* Barretenber/stdlib/logic bugs ([#11651](https://github.com/AztecProtocol/aztec-packages/issues/11651)) ([dddab22](https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193))
+* Barretenberg/stdlib/logic bugs (redo) ([#11691](https://github.com/AztecProtocol/aztec-packages/issues/11691)) ([6d0bad7](https://github.com/AztecProtocol/aztec-packages/commit/6d0bad77b2ffdc966462cc333faa9cea4b21f4dc))
+* **docs:** Keys docs update ([#11665](https://github.com/AztecProtocol/aztec-packages/issues/11665)) ([ce3d92c](https://github.com/AztecProtocol/aztec-packages/commit/ce3d92c966cbdd68cc1c8e1e34e1831db5080a34))
+* Remove avm test that was split ([#11719](https://github.com/AztecProtocol/aztec-packages/issues/11719)) ([9dc8158](https://github.com/AztecProtocol/aztec-packages/commit/9dc8158715e69e772b5b08a6556124e1786e9810))
+* Revert "barretenberg/stdlib/logic bugs" ([#11689](https://github.com/AztecProtocol/aztec-packages/issues/11689)) ([b99570d](https://github.com/AztecProtocol/aztec-packages/commit/b99570d416f4c4c59f38e47a8677b476c5c06f0b))
+* Solidity verifier caching ([#11712](https://github.com/AztecProtocol/aztec-packages/issues/11712)) ([2ba1e71](https://github.com/AztecProtocol/aztec-packages/commit/2ba1e7112c4d8052967603ab78c1213cc70b8038))
+* Use eth-execution label ([#11713](https://github.com/AztecProtocol/aztec-packages/issues/11713)) ([d3c31d8](https://github.com/AztecProtocol/aztec-packages/commit/d3c31d887b696865f3df41611fae534e1d89460f))
+
+
+### Miscellaneous
+
+* Add tests for gov proposer ([#11633](https://github.com/AztecProtocol/aztec-packages/issues/11633)) ([5c6a48a](https://github.com/AztecProtocol/aztec-packages/commit/5c6a48a251ff4ef25a2efdf90891241df05e8652)), closes [#11681](https://github.com/AztecProtocol/aztec-packages/issues/11681)
+* **bb-prover:** Avm test skip and split ([#11717](https://github.com/AztecProtocol/aztec-packages/issues/11717)) ([1778867](https://github.com/AztecProtocol/aztec-packages/commit/177886764a23b9437fdc767726cc7c8533c27f08))
+* Benchmark sha256 number of instructions executed in AVM ([#11253](https://github.com/AztecProtocol/aztec-packages/issues/11253)) ([aaf0d8c](https://github.com/AztecProtocol/aztec-packages/commit/aaf0d8c02b99eb1c037745d54c0859553492c088))
+* Delete MerkleTrees implementation in JS ([#11697](https://github.com/AztecProtocol/aztec-packages/issues/11697)) ([1db7b78](https://github.com/AztecProtocol/aztec-packages/commit/1db7b7845405e1c877da71185566b8495c9469e7))
+* Ensure new kv-store is used on the server ([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662)) ([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))
+* Field encoding should use `fromString` instead of `fromHexString` ([#11585](https://github.com/AztecProtocol/aztec-packages/issues/11585)) ([43fdbb1](https://github.com/AztecProtocol/aztec-packages/commit/43fdbb17361c3c2e7ab8b2cb79f0c91932a0d56e)), closes [#10331](https://github.com/AztecProtocol/aztec-packages/issues/10331)
+* Improve boxes ([#11656](https://github.com/AztecProtocol/aztec-packages/issues/11656)) ([46a3e85](https://github.com/AztecProtocol/aztec-packages/commit/46a3e85c08c930aa2dacb6b20483de1f7926c0ff))
+* Increase node pool count and don't use a release channel ([#11687](https://github.com/AztecProtocol/aztec-packages/issues/11687)) ([65a3f11](https://github.com/AztecProtocol/aztec-packages/commit/65a3f11944975c8cb990a72c8b87df3ed224323c))
+* Mark contracts as pub ([#11241](https://github.com/AztecProtocol/aztec-packages/issues/11241)) ([b168601](https://github.com/AztecProtocol/aztec-packages/commit/b1686016dd91d559cc81a2e250228698e7ff925e))
+* No rbac on kind ([#11714](https://github.com/AztecProtocol/aztec-packages/issues/11714)) ([7a142af](https://github.com/AztecProtocol/aztec-packages/commit/7a142afe387995a40b77d0072987fa6864effd82))
+* Reduce memory requests on prover node ([#11678](https://github.com/AztecProtocol/aztec-packages/issues/11678)) ([a720151](https://github.com/AztecProtocol/aztec-packages/commit/a720151115471722fa46f4f4f8d6a08408659107))
+* Remove profiler cache fallback ([#11680](https://github.com/AztecProtocol/aztec-packages/issues/11680)) ([a305aef](https://github.com/AztecProtocol/aztec-packages/commit/a305aefb8caa0e462f3f7ee535a6dbcadef871da))
+* Remove some templates in templates ([#11698](https://github.com/AztecProtocol/aztec-packages/issues/11698)) ([61614b1](https://github.com/AztecProtocol/aztec-packages/commit/61614b1a0fa4a766b1ad5090a29f92a122511806))
+* Remove unused functions from public side effect trace ([#11600](https://github.com/AztecProtocol/aztec-packages/issues/11600)) ([54e9602](https://github.com/AztecProtocol/aztec-packages/commit/54e960255e43c103170d7caee716fb6a0253f6f4))
+* Replace relative paths to noir-protocol-circuits ([739151e](https://github.com/AztecProtocol/aztec-packages/commit/739151ead0f5e6a9aa421567e9e6329fa7774c13))
+* Replace relative paths to noir-protocol-circuits ([bbd526c](https://github.com/AztecProtocol/aztec-packages/commit/bbd526ce0f53e227f40e9a4ef3c068796aff447b))
+* **sequencer:** Add InvalidArchive to canProposeAtNextEthBlock ignored errors ([#11682](https://github.com/AztecProtocol/aztec-packages/issues/11682)) ([eea4bd3](https://github.com/AztecProtocol/aztec-packages/commit/eea4bd3db21858e67e730324d0610f7c90a12023))
+* **spartan:** Remove hardcoded keys and addresses - derive all from mnemonic ([#11672](https://github.com/AztecProtocol/aztec-packages/issues/11672)) ([65f0e48](https://github.com/AztecProtocol/aztec-packages/commit/65f0e484513734a73e88d78ff490d8c939005eea))
+* Turn off auto-upgrade in node-pools ([#11679](https://github.com/AztecProtocol/aztec-packages/issues/11679)) ([09f98a9](https://github.com/AztecProtocol/aztec-packages/commit/09f98a9f10f18fd48895af40981b670c015f7aa3))
+* Turn on masking in ultra and mega zk + oink clean-up ([#11693](https://github.com/AztecProtocol/aztec-packages/issues/11693)) ([08e96fe](https://github.com/AztecProtocol/aztec-packages/commit/08e96fee292c53afa645a00a8d2689d01e8136d5))
+* Zombienet yaml ([#11705](https://github.com/AztecProtocol/aztec-packages/issues/11705)) ([5e9f12e](https://github.com/AztecProtocol/aztec-packages/commit/5e9f12ebf35d9b26f2aa72c7a89d3d1ddd1f5f24))
+
+
+### Documentation
+
+* Update mig notes release version ([#11685](https://github.com/AztecProtocol/aztec-packages/issues/11685)) ([46a30b5](https://github.com/AztecProtocol/aztec-packages/commit/46a30b5a7438b23c64336bc217dcc1686e94b7c4))
+
 ## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.72.1...aztec-packages-v0.73.0) (2025-02-01)
 
 

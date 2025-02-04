@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.73.0...barretenberg-v0.74.0) (2025-02-04)
+
+
+### Features
+
+* UltraHonkZK contract ([#11553](https://github.com/AztecProtocol/aztec-packages/issues/11553)) ([a68369f](https://github.com/AztecProtocol/aztec-packages/commit/a68369fd1f12d00e037a2626b2bbc17375054883))
+
+
+### Bug Fixes
+
+* Barretenber/stdlib/logic bugs ([#11651](https://github.com/AztecProtocol/aztec-packages/issues/11651)) ([dddab22](https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193))
+* Barretenberg/stdlib/logic bugs (redo) ([#11691](https://github.com/AztecProtocol/aztec-packages/issues/11691)) ([6d0bad7](https://github.com/AztecProtocol/aztec-packages/commit/6d0bad77b2ffdc966462cc333faa9cea4b21f4dc))
+* Revert "barretenberg/stdlib/logic bugs" ([#11689](https://github.com/AztecProtocol/aztec-packages/issues/11689)) ([b99570d](https://github.com/AztecProtocol/aztec-packages/commit/b99570d416f4c4c59f38e47a8677b476c5c06f0b))
+
+
+### Miscellaneous
+
+* Ensure new kv-store is used on the server ([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662)) ([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))
+* Remove some templates in templates ([#11698](https://github.com/AztecProtocol/aztec-packages/issues/11698)) ([61614b1](https://github.com/AztecProtocol/aztec-packages/commit/61614b1a0fa4a766b1ad5090a29f92a122511806))
+* Turn on masking in ultra and mega zk + oink clean-up ([#11693](https://github.com/AztecProtocol/aztec-packages/issues/11693)) ([08e96fe](https://github.com/AztecProtocol/aztec-packages/commit/08e96fee292c53afa645a00a8d2689d01e8136d5))
+
 ## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.72.1...barretenberg-v0.73.0) (2025-02-01)
 
 
