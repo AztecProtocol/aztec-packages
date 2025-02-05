@@ -76,15 +76,12 @@ case ${1:-} in
     fi
     ;;
   flamegraph)
-    # TODO: Fix. Totally clobbered my branch so can't deal with it now.
-    # docker run -it \
-    #   --entrypoint /usr/bin/flamegraph.sh \
-    #   --env PROFILER_PATH=/usr/bin/noir-profiler \
-    #   --env BACKEND_PATH=/usr/bin/bb \
-    #   --env SERVE=${SERVE:-0} \
-    #   $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
-    #   -v $(realpath $(dirname $2))/:/tmp \
-    #   aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
+    docker run -it \
+      --entrypoint /usr/src/noir-projects/noir-contracts/scripts/flamegraph.sh \
+      --env SERVE=${SERVE:-0} \
+      $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
+      -v $(realpath $(dirname $2))/:/tmp \
+      aztecprotocol/aztec /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
