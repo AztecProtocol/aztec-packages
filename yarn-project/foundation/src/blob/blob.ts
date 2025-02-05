@@ -5,7 +5,8 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { BufferReader, serializeToBuffer } from '../serialize/index.js';
-import { deserializeEncodedBlobFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { BlobDeserializationError } from './errors.js';
 import { type BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
@@ -43,10 +44,18 @@ export class Blob {
    * @param blob - The buffer to create the Blob from.
    * @param multiBlobFieldsHash - The fields hash to use for the Blob.
    * @returns A Blob created from the buffer.
+   *
+   * @throws If unable to deserialize the blob.
    */
   static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Promise<Blob> {
-    const fields: Fr[] = deserializeEncodedBlobFields(blob);
-    return Blob.fromFields(fields, multiBlobFieldsHash);
+    try {
+      const fields: Fr[] = deserializeEncodedBlobToFields(blob);
+      return Blob.fromFields(fields, multiBlobFieldsHash);
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to create Blob from encoded blob buffer, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**
@@ -141,9 +150,17 @@ export class Blob {
    * @dev This method takes into account trailing zeros
    *
    * @returns The encoded fields from the blob.
+   *
+   * @throws If unable to deserialize the blob.
    */
   toEncodedFields(): Fr[] {
-    return deserializeEncodedBlobFields(this.data);
+    try {
+      return deserializeEncodedBlobToFields(this.data);
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**

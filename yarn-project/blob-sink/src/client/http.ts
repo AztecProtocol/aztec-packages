@@ -1,4 +1,4 @@
-import { Blob, type BlobJson } from '@aztec/foundation/blob';
+import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
@@ -15,13 +15,20 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     this.config = config ?? getBlobSinkConfigFromEnv();
     this.log = createLogger('aztec:blob-sink-client');
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
-      return await retry(() => fetch(...args), `Fetching ${args[0]}`, makeBackoff([1, 1, 3]), this.log);
+      return await retry(
+        () => fetch(...args),
+        `Fetching ${args[0]}`,
+        makeBackoff([1, 1, 3]),
+        this.log,
+        /*failSilently=*/ true,
+      );
     };
   }
 
   public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
     // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
+    // Right now we fetch everything, then filter out the blobs that we don't want
     if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return false;
@@ -49,7 +56,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.error('Failed to send blobs to blob sink', res.status);
       return false;
     } catch (err) {
-      this.log.error(`Error sending blobs to blob sink`, err);
+      this.log.warn(`Blob sink url configured, but unable to send blobs`, {
+        blobSinkUrl: this.config.blobSinkUrl,
+        blockHash,
+      });
       return false;
     }
   }
@@ -72,10 +82,14 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    */
   public async getBlobSidecar(blockHash: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
     let blobs: Blob[] = [];
+
     if (this.config.blobSinkUrl) {
       this.log.debug('Getting blob sidecar from blob sink');
-      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
+      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, blobHashes, indices);
       this.log.debug(`Got ${blobs.length} blobs from blob sink`);
+      if (blobs.length > 0) {
+        return blobs;
+      }
     }
 
     if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
@@ -86,16 +100,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       });
       const slotNumber = await this.getSlotNumber(blockHash);
       if (slotNumber) {
-        const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
+        const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, blobHashes, indices);
         this.log.debug(`Got ${blobs.length} blobs from consensus host`);
         if (blobs.length > 0) {
           return blobs;
         }
       }
-    }
-
-    if (blobs.length > 0) {
-      return filterRelevantBlobs(blobs, blobHashes);
     }
 
     this.log.verbose('No blob sources available');
@@ -105,9 +115,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   public async getBlobSidecarFrom(
     hostUrl: string,
     blockHashOrSlot: string | number,
+    blobHashes: Buffer[],
     indices?: number[],
   ): Promise<Blob[]> {
-    // TODO(md): right now we assume all blobs are ours, this will not yet work on sepolia
     try {
       let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
       if (indices && indices.length > 0) {
@@ -122,14 +132,42 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        const blobs = await Promise.all(body.data.map((b: BlobJson) => Blob.fromJson(b)));
-        return blobs;
+        const preFilteredBlobsPromise = body.data
+          // Filter out blobs that did not come from our rollup
+          .filter((b: BlobJson) => {
+            const committment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
+            const blobHash = Blob.getEthVersionedBlobHash(committment);
+            return blobHashes.some(hash => hash.equals(blobHash));
+          })
+          // Attempt to deserialise the blob
+          // If we cannot decode it, then it is malicious and we should not use it
+          .map(async (b: BlobJson): Promise<Blob | undefined> => {
+            try {
+              return await Blob.fromJson(b);
+            } catch (err) {
+              if (err instanceof BlobDeserializationError) {
+                this.log.warn(`Failed to deserialise blob`, { commitment: b.kzg_commitment });
+                return undefined;
+              }
+              throw err;
+            }
+          });
+
+        // Second map is async, so we need to await it
+        const preFilteredBlobs = await Promise.all(preFilteredBlobsPromise);
+
+        // Filter out blobs that did not deserialise
+        const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
+          return b !== undefined;
+        });
+
+        return filteredBlobs;
       }
 
       this.log.debug(`Unable to get blob sidecar`, res.status);
       return [];
     } catch (err: any) {
-      this.log.error(`Unable to get blob sidecar`, err.message);
+      this.log.warn(`Unable to get blob sidecar from ${hostUrl}`, err.message);
       return [];
     }
   }
@@ -208,19 +246,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     return undefined;
   }
-}
-
-/**
- * Filter blobs based on a list of blob hashes
- * @param blobs
- * @param blobHashes
- * @returns
- */
-function filterRelevantBlobs(blobs: Blob[], blobHashes: Buffer[]): Blob[] {
-  return blobs.filter(blob => {
-    const blobHash = blob.getEthVersionedBlobHash();
-    return blobHashes.some(hash => hash.equals(blobHash));
-  });
 }
 
 function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {

@@ -7,10 +7,13 @@ import solc from "solc";
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 494;
 
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
 const SUMCHECK_FAILED = "0x9fc3a218";
 const SHPLEMINI_FAILED = "0xa5d82e8a";
+const CONSISTENCY_FAILED = "0xa2a2ac83";
+const GEMINI_CHALLENGE_IN_SUBGROUP = "0x835eb8f7";
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -52,13 +55,19 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
+// If testing honk is set, then we compile the honk test suite
+const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
+const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+
+const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
+console.log(verifierContract);
 export const compilationInput = {
   language: "Solidity",
   sources: {
     "Test.sol": {
       content: test,
     },
-    "Verifier.sol": {
+    [verifierContract]: {
       content: verifier,
     },
   },
@@ -76,10 +85,10 @@ export const compilationInput = {
   },
 };
 
-// If testing honk is set, then we compile the honk test suite
-const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
-  ? NUMBER_OF_FIELDS_IN_HONK_PROOF
+  ? hasZK
+    ? NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF
+    : NUMBER_OF_FIELDS_IN_HONK_PROOF
   : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
 if (!testingHonk) {
   const keyPath = getEnvVar("KEY_PATH");
@@ -98,9 +107,16 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-if (output.errors.some((e) => e.severity == "error")) {
-  throw new Error(JSON.stringify(output.errors, null, 2));
-}
+
+output.errors.forEach((e) => {
+  // Stop execution if the contract exceeded the allowed bytecode size
+  if (e.errorCode == "5574") throw new Error(JSON.stringify(e));
+  // Throw if there are compilation errors
+  if (e.severity == "error") {
+    throw new Error(JSON.stringify(output.errors, null, 2));
+  }
+});
+
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
@@ -250,6 +266,10 @@ try {
         throw new Error("Sumcheck round failed");
       case SHPLEMINI_FAILED:
         throw new Error("PCS round failed");
+      case CONSISTENCY_FAILED:
+        throw new Error("ZK contract: Subgroup IPA consistency check error");
+      case GEMINI_CHALLENGE_IN_SUBGROUP:
+        throw new Error("ZK contract: Gemini challenge error");
       default:
         throw e;
     }

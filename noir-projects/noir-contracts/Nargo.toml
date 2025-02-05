@@ -5,6 +5,7 @@ members = [
     "contracts/auth_contract",
     "contracts/auth_registry_contract",
     "contracts/auth_wit_test_contract",
+    "contracts/avm_gadgets_test_contract",
     "contracts/avm_initializer_test_contract",
     "contracts/avm_test_contract",
     "contracts/fpc_contract",

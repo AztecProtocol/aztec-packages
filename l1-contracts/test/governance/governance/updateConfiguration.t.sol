@@ -3,11 +3,10 @@ pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract UpdateConfigurationTest is GovernanceBase {
   using ConfigurationLib for DataStructures.Configuration;

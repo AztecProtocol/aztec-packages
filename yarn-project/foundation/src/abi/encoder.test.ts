@@ -180,7 +180,7 @@ describe('abi/encoder', () => {
     };
     const args = ['garbage'];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid hex-encoded string: "garbage"');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Tried to create a Fr from an invalid string');
   });
 
   it('throws when passing string argument as integer', () => {

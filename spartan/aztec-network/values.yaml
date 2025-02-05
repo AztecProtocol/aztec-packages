@@ -49,10 +49,17 @@ aztec:
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  # The derivation path of the calcualted private keys
+  # Starting from this index, the number of keys is equal to the number of replicas for the given service
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 1000
+
+  ## The number of extra accounts to prefund
+  extraAccountsStartIndex: 2000
+  extraAccounts: 10
   l1Salt: "" # leave empty for random salt
 
 bootNode:
-  seqPublisherPrivateKey: ""
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
@@ -100,10 +107,6 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
-  validatorKeys:
-    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-  validatorAddresses:
-    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
@@ -141,7 +144,6 @@ validator:
   l1GasLimitBufferPercentage: ""
 
 proverNode:
-  proverPublisherPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
   externalHost: ""
   replicas: 1
   p2pEnabled: true
@@ -177,6 +179,7 @@ proverNode:
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
 
 pxe:
+  enabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -228,7 +231,6 @@ ethereum:
   replicas: 1
   chainId: 1337
   blockTime: 12
-  extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
@@ -269,11 +271,6 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
-      cpu: "1.5"
-  storageSize: "80Gi"
   deployL1ContractsPrivateKey:
 
 proverAgent:
@@ -317,6 +314,7 @@ jobs:
     enable: false
 
 faucet:
+  enabled: true
   replicas: 1
   service:
     nodePort: 8085

@@ -8,7 +8,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TokenBridge {
+pub contract TokenBridge {
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicImmutable};
 
     use dep::token_portal_content_hash_lib::{

@@ -32,6 +32,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
@@ -45,6 +46,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.mnemonicIndex,
         options.salt,
         options.json,
         initialValidators,

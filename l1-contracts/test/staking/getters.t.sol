@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {OperatorInfo} from "@aztec/core/staking/Staking.sol";
+import {OperatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract GettersTest is StakingBase {
   function setUp() public override {

@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {
+  Timestamp, Status, ValidatorInfo, Exit, IStaking
+} from "@aztec/core/interfaces/IStaking.sol";
 
 contract InitiateWithdrawTest is StakingBase {
   function test_WhenAttesterIsNotRegistered() external {
@@ -112,7 +113,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.EXIT_DELAY());
+    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     assertEq(exit.recipient, RECIPIENT);
     info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
@@ -145,7 +146,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     exit = staking.getExit(ATTESTER);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.EXIT_DELAY());
+    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     assertEq(exit.recipient, RECIPIENT);
     info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
