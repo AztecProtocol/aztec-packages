@@ -145,13 +145,6 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             sponge.absorb(input[i]);
         }
 
-        // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-        // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-        // fixed-length and variable-length hashes do not collide)
-        if constexpr (is_variable_length) {
-            sponge.absorb(1);
-        }
-
         std::array<field_t, out_len> output;
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
