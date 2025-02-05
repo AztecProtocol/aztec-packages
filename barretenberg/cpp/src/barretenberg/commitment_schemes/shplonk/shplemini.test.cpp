@@ -381,7 +381,6 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     // Initialize transcript and commitment key
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
@@ -396,10 +395,10 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
                                       const_size_mle_opening_point.begin() + this->log_n);
 
     // Thanks to const proof size, we could simply re-use some of dummy challenges for the opening of the concatenation.
-    std::vector<Fr> extra_challenges(num_polys_in_group);
+    std::vector<Fr> extra_challenges(4);
 
     // Get  4 = log(16) extra challenges
-    for (size_t idx = this->log_n; idx < this->log_n + num_polys_in_group; idx++) {
+    for (size_t idx = this->log_n; idx < this->log_n + 4; idx++) {
         extra_challenges[idx] = const_size_mle_opening_point[idx];
     }
 
@@ -410,12 +409,12 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     MultiWitnessGenerator<Curve> pcs_instance_witness(
         num_polys_in_group, this->n, 64, 16, mle_opening_point, extra_challenges);
 
-    PolynomialBatcher polynomial_batcher(this->n * num_polys_in_group);
-    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
-    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
     // The interface here is unchanged
-    const auto opening_claim = ShpleminiProver::prove(
-        this->n * num_polys_in_group, polynomial_batcher, const_size_mle_opening_point, this->ck, prover_transcript);
+    const auto opening_claim = ShpleminiProver::prove(this->n * num_polys_in_group,
+                                                      pcs_instance_witness.polynomial_batcher,
+                                                      const_size_mle_opening_point,
+                                                      this->ck,
+                                                      prover_transcript);
 
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         IPA<Curve>::compute_opening_proof(this->ck, opening_claim, prover_transcript);

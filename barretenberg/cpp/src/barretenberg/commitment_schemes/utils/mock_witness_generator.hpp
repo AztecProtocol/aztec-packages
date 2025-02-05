@@ -169,6 +169,7 @@ template <typename Curve> struct MultiWitnessGenerator {
     std::vector<Fr> shifted_combined_evals;
 
     std::vector<Fr> extra_challenges;
+    std::vector<Fr> lagrange_coeffs;
 
     MultiWitnessGenerator(const size_t num_polys_in_group,
                           const size_t n,
@@ -179,16 +180,17 @@ template <typename Curve> struct MultiWitnessGenerator {
         : ck(create_commitment_key<CommitmentKey>(num_polys_in_group * n))
         , unshifted_polynomials(num_polynomials / num_polys_in_group)
         , to_be_shifted_polynomials(num_shiftable / num_polys_in_group)
+        , unshifted_evals(num_polynomials / num_polys_in_group)
+        , shifted_evals(num_shiftable / num_polys_in_group)
         , polynomial_batcher(n * num_polys_in_group)
         , random_poly(n * num_polys_in_group) // Initialize the commitment key
-
+        , extra_challenges(extra_challenges)
+        , lagrange_coeffs(populate_lagrange_coeffs(extra_challenges))
     {
         auto lagrange_coeffs = populate_lagrange_coeffs(extra_challenges);
 
         construct_multi_instance_and_witnesses(
             num_polynomials, num_shiftable, num_polys_in_group, n, mle_opening_point);
-        // info(shifted_evals[0]);
-        // info(unshifted_polynomials[0].evaluate_mle());
     }
 
     void construct_multi_instance_and_witnesses(const size_t num_polys,
@@ -199,17 +201,26 @@ template <typename Curve> struct MultiWitnessGenerator {
     {
 
         const size_t num_unshifted = (num_polys - num_shiftable) / num_polys_in_group;
+        ///// test test
+
+        std::vector<Fr> test = mle_opening_point;
+        for (auto challenge : extra_challenges) {
+            test.push_back(challenge);
+            info(challenge);
+        }
+        info(test.size());
+        /////
 
         // Constructs polynomials that are not shifted
         for (size_t idx = 0; idx < num_unshifted; idx++) {
-            for (size_t idx = 0; idx < num_polys_in_group * n; idx++) {
-                random_poly.at(idx) = Fr::random_element();
-            }
-            unshifted_polynomials.push_back(random_poly);
-            const auto comm = ck->commit(random_poly);
+            unshifted_polynomials[idx] = Polynomial::random(num_polys_in_group * n);
+            info(unshifted_polynomials[idx].evaluate_mle(test));
+            const auto comm = ck->commit(unshifted_polynomials[idx]);
             unshifted_commitments.push_back(comm);
             // We are proving the evaluations of chunks!
-            evaluate_chunks(random_poly, mle_opening_point, num_polys_in_group, n);
+            info(" ===== ");
+
+            evaluate_chunks(unshifted_polynomials[idx], mle_opening_point, num_polys_in_group, n);
         }
 
         // Constructs polynomials that are being shifted
@@ -218,22 +229,30 @@ template <typename Curve> struct MultiWitnessGenerator {
         for (size_t idx = start_idx; idx < num_shiftable / num_polys_in_group; idx++) {
             // Generate a big random polynomial to be treated as a concatenation of its chunks of size n, we assume that
             // both shifted and unshifted evaluation of a shiftable polynomial a being proved.
-            unshifted_polynomials.push_back(Polynomial::random(n * num_polys_in_group, /*shiftable*/ 1));
-            to_be_shifted_polynomials.push_back(unshifted_polynomials[idx]);
+            Polynomial random_shifted_poly = Polynomial::random(n * num_polys_in_group, /*shiftable*/ 1);
+            to_be_shifted_polynomials.push_back(random_shifted_poly);
 
-            const Commitment comm = this->ck->commit(unshifted_polynomials[idx]);
+            const Commitment comm = this->ck->commit(random_shifted_poly);
             unshifted_commitments.push_back(comm);
             to_be_shifted_commitments.push_back(comm);
             // We are proving the evaluations of chunks! Evaluate each chunk and its shift
-            evaluate_chunks(unshifted_polynomials[idx], mle_opening_point, num_polys_in_group, n, true);
+            evaluate_chunks(random_shifted_poly, mle_opening_point, num_polys_in_group, n, true);
         }
 
         polynomial_batcher.set_unshifted(RefVector(unshifted_polynomials));
         polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
 
-        claim_batcher =
-            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) },
-                          .shifted = ClaimBatch{ RefVector(to_be_shifted_commitments), RefVector(shifted_evals) } };
+        verifier_combine_from_chunks(num_polys_in_group, lagrange_coeffs);
+        size_t counter = 0;
+        for (auto eval : unshifted_combined_evals) {
+            info(counter, "   ", eval);
+            counter++;
+        }
+
+        claim_batcher = ClaimBatcher{
+            .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_combined_evals) },
+            .shifted = ClaimBatch{ RefVector(to_be_shifted_commitments), RefVector(shifted_combined_evals) }
+        };
     }
 
     void evaluate_chunks(PolynomialSpan<Fr> poly,
@@ -244,12 +263,16 @@ template <typename Curve> struct MultiWitnessGenerator {
     {
 
         for (size_t idx = 0; idx < num_polys_in_group; idx++) {
-            info("maybe here?");
             size_t start_idx = idx * n;
             std::span<Fr> chunk = poly.subspan(start_idx, n).span;
             // Create a redundant poly, because evaluate_mle is static in Polynomial class
             Polynomial chunk_poly = Polynomial(chunk);
-            unshifted_evals.push_back(chunk_poly.evaluate_mle(mle_opening_point));
+            info(chunk_poly.size());
+            info(mle_opening_point.size());
+            info(poly.size());
+            auto unshifted_eval = chunk_poly.evaluate_mle(mle_opening_point);
+            unshifted_evals.push_back(unshifted_eval);
+            info(unshifted_eval);
             if (shifted) {
                 shifted_evals.push_back(chunk_poly.evaluate_mle(mle_opening_point, shifted));
             }
@@ -260,10 +283,11 @@ template <typename Curve> struct MultiWitnessGenerator {
     {
         size_t num_unshifted_evals = unshifted_evals.size();
 
-        for (size_t group_idx = 0; group_idx < num_unshifted_evals; group_idx++) {
+        for (size_t group_idx = 0; group_idx < num_unshifted_evals / num_polys_in_group; group_idx++) {
             Fr combined_eval = Fr{ 0 };
             for (size_t chunk_idx = 0; chunk_idx < num_polys_in_group; chunk_idx++) {
-                combined_eval += unshifted_evals[chunk_idx * group_idx] * lagrange_coeffs[chunk_idx];
+                combined_eval +=
+                    unshifted_evals[chunk_idx + num_polys_in_group * group_idx] * lagrange_coeffs[chunk_idx];
             }
 
             unshifted_combined_evals.push_back(combined_eval);
@@ -271,10 +295,11 @@ template <typename Curve> struct MultiWitnessGenerator {
 
         size_t num_shifted_evals = shifted_evals.size();
 
-        for (size_t group_idx = 0; group_idx < num_shifted_evals; group_idx++) {
+        for (size_t group_idx = 0; group_idx < num_shifted_evals / num_polys_in_group; group_idx++) {
             Fr combined_eval = Fr{ 0 };
             for (size_t chunk_idx = 0; chunk_idx < num_polys_in_group; chunk_idx++) {
-                combined_eval += unshifted_evals[chunk_idx * group_idx] * lagrange_coeffs[chunk_idx];
+                combined_eval +=
+                    unshifted_evals[chunk_idx + num_polys_in_group * group_idx] * lagrange_coeffs[chunk_idx];
             }
 
             unshifted_combined_evals.push_back(combined_eval);
