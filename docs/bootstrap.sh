@@ -35,7 +35,7 @@ function release_preview {
   echo_header "docs release preview"
 
   # Deploy and capture exit code and output.
-  if ! deploy_output=$(yarn netlify deploy --dir . --site aztec-docs-dev 2>&1); then
+  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev 2>&1); then
     echo "Netlify deploy failed with error:"
     echo "$deploy_output"
     exit 1
@@ -61,7 +61,7 @@ function release_preview {
 
 function release {
   echo_header "docs release"
-  yarn netlify deploy --dir . --site aztec-docs-dev --prod
+  yarn netlify deploy --site aztec-docs-dev --prod
 }
 
 case "$cmd" in
@@ -74,7 +74,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release_preview")
+  "release-preview")
     release_preview
     ;;
   "release")

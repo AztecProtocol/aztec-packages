@@ -49,6 +49,7 @@ if [[ -n "$existing_comment_id" && "$existing_comment_id" != "null" ]]; then
   # Update existing comment
   echo "Updating existing docs-preview comment (ID: $existing_comment_id)."
   curl -sf -X PATCH \
+    -o /dev/null \
     -H "Authorization: Bearer $github_token" \
     -H "Accept: application/vnd.github+json" \
     -H "User-Agent: $owner" \
@@ -59,6 +60,7 @@ else
   # Create a new comment
   echo "Creating new docs-preview comment."
   curl -sf -X POST \
+    -o /dev/null \
     -H "Authorization: Bearer $github_token" \
     -H "Accept: application/vnd.github+json" \
     -H "User-Agent: $owner" \
@@ -66,5 +68,3 @@ else
     -d "$body_json" \
     "${api_url}/repos/${owner}/${repo}/issues/${pr_number}/comments"
 fi
-
-echo "Docs-preview comment operation completed successfully."
