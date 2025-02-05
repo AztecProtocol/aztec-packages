@@ -948,7 +948,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('allows disabling fee balance checks for fee estimation', async () => {
-      simulator = createSimulator({ skipFeeEnforcement: false });
+      simulator = createSimulator({ skipFeeEnforcement: true });
       const feePayer = await AztecAddress.random();
 
       const txResult = await simulator.simulate(

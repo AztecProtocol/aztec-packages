@@ -12,7 +12,7 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
@@ -54,7 +54,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     setupCalls: TestEnqueuedCall[] = [],
     appCalls: TestEnqueuedCall[] = [],
     teardownCall?: TestEnqueuedCall,
-    feePayer: AztecAddress = AztecAddress.zero(),
+    feePayer: AztecAddress = sender,
   ): Promise<PublicTxResult> {
     const globals = GlobalVariables.empty();
     globals.timestamp = TIMESTAMP;
@@ -62,6 +62,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     const worldStateDB = new WorldStateDB(this.merkleTrees, this.contractDataSource);
     const simulator = new PublicTxSimulator(this.merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
+
+    await this.setFeePayerBalance(feePayer);
 
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
