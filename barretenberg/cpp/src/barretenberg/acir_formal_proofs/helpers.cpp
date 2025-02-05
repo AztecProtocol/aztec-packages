@@ -54,14 +54,14 @@ smt_circuit::STerm truncate(smt_circuit::STerm v0, uint32_t bit_size, smt_solver
 smt_circuit::STerm shl64(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    auto res = truncate(shifted, 64, solver);
+    auto res = shifted.truncate(63);
     return res;
 }
 
 smt_circuit::STerm shl32(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    auto res = truncate(shifted, 32, solver);
+    auto res = shifted.truncate(31);
     return res;
 }
 
@@ -71,11 +71,16 @@ smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t b
     smt_circuit::STerm exponent = smt_terms::BVConst(std::to_string(bit_size), solver, 10);
     // because pow(2, 0) == 1
     auto mask_abs_value = pow2_8(exponent - 1, solver);
+    /*
     auto sign_bit_v0 = v0 & mask_abs_value;
     auto sign_bit_v1 = v1 & mask_abs_value;
+    */
+    auto sign_bit_v0 = v0.extract_bit(bit_size - 1);
+    auto sign_bit_v1 = v1.extract_bit(bit_size - 1);
     auto res_sign_bit = sign_bit_v0 ^ sign_bit_v1;
-    auto abs_value_v0 = truncate(v0, bit_size - 1, solver);
-    auto abs_value_v1 = truncate(v1, bit_size - 1, solver);
+    res_sign_bit <<= bit_size - 1;
+    auto abs_value_v0 = v0.truncate(bit_size - 2);
+    auto abs_value_v1 = v1.truncate(bit_size - 2);
     auto abs_res = abs_value_v0 / abs_value_v1;
 
     // if abs_value_v0 == 0 then res = 0

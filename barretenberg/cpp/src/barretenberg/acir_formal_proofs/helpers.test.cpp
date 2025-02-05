@@ -90,3 +90,88 @@ TEST(helpers, pow2)
     // z == 2048 in binary
     EXPECT_TRUE(vals["z"] == "00000000000000000000100000000000");
 }
+
+TEST(helpers, signed_div)
+{
+    // using smt solver i found that 1879048194 >> 16 == 0
+    // its strange...
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    STerm x = BVVar("x", &s);
+    STerm y = BVVar("y", &s);
+    STerm z = idiv(x, y, 2, &s);
+    // 00 == 0
+    x == 0;
+    // 11 == -1
+    y == 3;
+    s.check();
+    std::unordered_map<std::string, cvc5::Term> terms({ { "x", x }, { "y", y }, { "z", z } });
+    std::unordered_map<std::string, std::string> vals = s.model(terms);
+    info("x = ", vals["x"]);
+    info("y = ", vals["y"]);
+    info("z = ", vals["z"]);
+    EXPECT_TRUE(vals["z"] == "00000000000000000000000000000000");
+}
+
+TEST(helpers, signed_div_1)
+{
+    // using smt solver i found that 1879048194 >> 16 == 0
+    // its strange...
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    STerm x = BVVar("x", &s);
+    STerm y = BVVar("y", &s);
+    STerm z = idiv(x, y, 2, &s);
+    // 00 == 0
+    x == 1;
+    // 11 == -1
+    y == 3;
+    s.check();
+    std::unordered_map<std::string, cvc5::Term> terms({ { "x", x }, { "y", y }, { "z", z } });
+    std::unordered_map<std::string, std::string> vals = s.model(terms);
+    info("x = ", vals["x"]);
+    info("y = ", vals["y"]);
+    info("z = ", vals["z"]);
+    EXPECT_TRUE(vals["z"] == "00000000000000000000000000000011");
+}
+
+TEST(helpers, signed_div_2)
+{
+    // using smt solver i found that 1879048194 >> 16 == 0
+    // its strange...
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    STerm x = BVVar("x", &s);
+    STerm y = BVVar("y", &s);
+    STerm z = idiv(x, y, 4, &s);
+    // 0111 == 7
+    x == 7;
+    // 0010 == 2
+    y == 2;
+    s.check();
+    std::unordered_map<std::string, cvc5::Term> terms({ { "x", x }, { "y", y }, { "z", z } });
+    std::unordered_map<std::string, std::string> vals = s.model(terms);
+    info("x = ", vals["x"]);
+    info("y = ", vals["y"]);
+    info("z = ", vals["z"]);
+    EXPECT_TRUE(vals["z"] == "00000000000000000000000000000011");
+}
+
+TEST(helpers, shl_overflow)
+{
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    STerm x = BVVar("x", &s);
+    STerm y = BVVar("y", &s);
+    STerm z = shl32(x, y, &s);
+    x == 1;
+    y == 50;
+    s.check();
+    std::unordered_map<std::string, cvc5::Term> terms({ { "x", x }, { "y", y }, { "z", z } });
+    std::unordered_map<std::string, std::string> vals = s.model(terms);
+    info("x = ", vals["x"]);
+    info("y = ", vals["y"]);
+    info("z = ", vals["z"]);
+    // z == 1010 in binary
+    EXPECT_TRUE(vals["z"] == "00000000000000000000000000000000");
+}
