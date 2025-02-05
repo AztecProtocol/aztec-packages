@@ -24,15 +24,6 @@ The act of "deleting" a private state variable can be represented by adding an a
 
 Modification of state variables can be emulated by nullifying the state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure and this must be represented in the language semantics of manipulating private state.
 
-### Abstracting UTXO's from App's / Users
-
-The goal of the Aztec.nr smart contract library is to abstract the UTXO model away from an app user / developer, contract developers are the only actor who should have to think about UTXO's.
-
-This is achieved with two main features:
-
-1. Users sign over transactions, not over specific UTXO's
-2. Aztec.nr contracts support developer defined `unconstrained` getter functions to help dApp's make sense of UTXO's. e.g `getBalance()`. These functions can be called outside of a transaction context to read private state.
-
 ## Further reading
 
 Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../developers/reference/smart_contract_reference/storage/index.md).
