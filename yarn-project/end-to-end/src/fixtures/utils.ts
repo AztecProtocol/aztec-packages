@@ -716,6 +716,7 @@ export async function createAndSyncProverNode(
   const aztecNodeWithoutStop = {
     addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
     getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
   };
 
