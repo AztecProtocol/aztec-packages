@@ -84,10 +84,15 @@ class AsyncMessageProcessor {
         return deferred->Promise();
     }
 
+    void close() { open = false; }
+
+  private:
+    bb::messaging::MessageDispatcher dispatcher;
     bool open = true;
 
     template <typename P, typename R>
     void _register_handler(uint32_t msgType, const std::function<R(const P&, const msgpack::object&)>& fn)
+    {
         dispatcher.registerTarget(msgType, [=](msgpack::object& obj, msgpack::sbuffer& buffer) {
             P req_msg;
             obj.convert(req_msg);
@@ -100,7 +105,7 @@ class AsyncMessageProcessor {
 
             return true;
         });
-}
+    }
 };
 
 } // namespace bb::nodejs
