@@ -35,7 +35,9 @@ contracts=(
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
+  "StakingLib"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
@@ -106,5 +108,18 @@ for contract_name in "${contracts[@]}"; do
   echo "export * from './${contract_name}Abi.js';" >>"generated/index.ts"
   echo "export * from './${contract_name}Bytecode.js';" >>"generated/index.ts"
 done
+
+# Generate RollupStorage.ts
+(
+  echo "/**"
+  echo " * Rollup storage."
+  echo " */"
+  echo -n "export const RollupStorage = "
+  jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
+  echo " as const;"
+) >"generated/RollupStorage.ts"
+
+# Update index.ts exports
+echo "export * from './RollupStorage.js';" >>"generated/index.ts"
 
 echo "Successfully generated TS artifacts!"

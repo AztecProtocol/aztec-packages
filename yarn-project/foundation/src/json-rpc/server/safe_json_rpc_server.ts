@@ -151,6 +151,7 @@ export class SafeJsonRpcServer {
       throw new Error('Server is already listening');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.httpServer = http.createServer(this.getApp(prefix).callback());
     this.httpServer.listen(port);
   }
@@ -355,6 +356,7 @@ export async function startHttpRpcServer(
   const statusRouter = createStatusRouter(rpcServer.isHealthy.bind(rpcServer), options.apiPrefix);
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   if (options.timeoutMs) {
     httpServer.timeout = options.timeoutMs;

@@ -18,7 +18,7 @@ import {
 } from '@aztec/circuits.js/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
 
@@ -26,15 +26,15 @@ import { type BlockStore } from './block_store.js';
  * A store for logs
  */
 export class LogStore {
-  #logsByTag: AztecMap<string, Buffer[]>;
-  #logTagsByBlock: AztecMap<number, string[]>;
-  #privateLogsByBlock: AztecMap<number, Buffer>;
-  #publicLogsByBlock: AztecMap<number, Buffer>;
-  #contractClassLogsByBlock: AztecMap<number, Buffer>;
+  #logsByTag: AztecAsyncMap<string, Buffer[]>;
+  #logTagsByBlock: AztecAsyncMap<number, string[]>;
+  #privateLogsByBlock: AztecAsyncMap<number, Buffer>;
+  #publicLogsByBlock: AztecAsyncMap<number, Buffer>;
+  #contractClassLogsByBlock: AztecAsyncMap<number, Buffer>;
   #logsMaxPageSize: number;
   #log = createLogger('archiver:log_store');
 
-  constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
+  constructor(private db: AztecAsyncKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
     this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
     this.#privateLogsByBlock = db.openMap('archiver_private_logs_by_block');
@@ -126,7 +126,7 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  async addLogs(blocks: L2Block[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     const taggedLogsToAdd = blocks
       .flatMap(block => [this.#extractTaggedLogsFromPrivate(block), this.#extractTaggedLogsFromPublic(block)])
       .reduce((acc, val) => {
@@ -137,31 +137,32 @@ export class LogStore {
         return acc;
       });
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
-    const currentTaggedLogs = await this.db.transaction(() =>
-      tagsToUpdate.map(tag => ({ tag, logBuffers: this.#logsByTag.get(tag) })),
-    );
-    currentTaggedLogs.forEach(taggedLogBuffer => {
-      if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
-        taggedLogsToAdd.set(
-          taggedLogBuffer.tag,
-          taggedLogBuffer.logBuffers!.concat(taggedLogsToAdd.get(taggedLogBuffer.tag)!),
-        );
-      }
-    });
-    return this.db.transaction(() => {
-      blocks.forEach(block => {
+
+    return this.db.transactionAsync(async () => {
+      const currentTaggedLogs = await Promise.all(
+        tagsToUpdate.map(async tag => ({ tag, logBuffers: await this.#logsByTag.getAsync(tag) })),
+      );
+      currentTaggedLogs.forEach(taggedLogBuffer => {
+        if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
+          taggedLogsToAdd.set(
+            taggedLogBuffer.tag,
+            taggedLogBuffer.logBuffers!.concat(taggedLogsToAdd.get(taggedLogBuffer.tag)!),
+          );
+        }
+      });
+      for (const block of blocks) {
         const tagsInBlock = [];
         for (const [tag, logs] of taggedLogsToAdd.entries()) {
-          void this.#logsByTag.set(tag, logs);
+          await this.#logsByTag.set(tag, logs);
           tagsInBlock.push(tag);
         }
-        void this.#logTagsByBlock.set(block.number, tagsInBlock);
+        await this.#logTagsByBlock.set(block.number, tagsInBlock);
 
         const privateLogsInBlock = block.body.txEffects
           .map(txEffect => txEffect.privateLogs)
           .flat()
           .map(log => log.toBuffer());
-        void this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
+        await this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
 
         const publicLogsInBlock = block.body.txEffects
           .map((txEffect, txIndex) =>
@@ -173,29 +174,36 @@ export class LogStore {
           )
           .flat();
 
-        void this.#publicLogsByBlock.set(block.number, Buffer.concat(publicLogsInBlock));
-        void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
-      });
+        await this.#publicLogsByBlock.set(block.number, Buffer.concat(publicLogsInBlock));
+        await this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
+      }
 
       return true;
     });
   }
 
-  async deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const tagsToDelete = await this.db.transaction(() => {
-      return blocks.flatMap(block => this.#logTagsByBlock.get(block.number)?.map(tag => tag.toString()) ?? []);
-    });
-    return this.db.transaction(() => {
-      blocks.forEach(block => {
-        void this.#privateLogsByBlock.delete(block.number);
-        void this.#publicLogsByBlock.delete(block.number);
-        void this.#logTagsByBlock.delete(block.number);
-      });
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    return this.db.transactionAsync(async () => {
+      const tagsToDelete = (
+        await Promise.all(
+          blocks.map(async block => {
+            const tags = await this.#logTagsByBlock.getAsync(block.number);
+            return tags ?? [];
+          }),
+        )
+      ).flat();
 
-      tagsToDelete.forEach(tag => {
-        void this.#logsByTag.delete(tag.toString());
-      });
+      await Promise.all(
+        blocks.map(block =>
+          Promise.all([
+            this.#privateLogsByBlock.delete(block.number),
+            this.#publicLogsByBlock.delete(block.number),
+            this.#logTagsByBlock.delete(block.number),
+          ]),
+        ),
+      );
 
+      await Promise.all(tagsToDelete.map(tag => this.#logsByTag.delete(tag.toString())));
       return true;
     });
   }
@@ -206,9 +214,9 @@ export class LogStore {
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  getPrivateLogs(start: number, limit: number) {
+  async getPrivateLogs(start: number, limit: number): Promise<PrivateLog[]> {
     const logs = [];
-    for (const buffer of this.#privateLogsByBlock.values({ start, limit })) {
+    for await (const buffer of this.#privateLogsByBlock.valuesAsync({ start, limit })) {
       const reader = new BufferReader(buffer);
       while (reader.remainingBytes() > 0) {
         logs.push(reader.readObject(PrivateLog));
@@ -223,11 +231,10 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.db.transaction(() =>
-      tags
-        .map(tag => this.#logsByTag.get(tag.toString()))
-        .map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const logs = await Promise.all(tags.map(tag => this.#logsByTag.getAsync(tag.toString())));
+    return logs.map(
+      noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? [],
     );
   }
 
@@ -236,7 +243,7 @@ export class LogStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getPublicLogs(filter: LogFilter): GetPublicLogsResponse {
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     if (filter.afterLog) {
       return this.#filterPublicLogsBetweenBlocks(filter);
     } else if (filter.txHash) {
@@ -246,17 +253,17 @@ export class LogStore {
     }
   }
 
-  #filterPublicLogsOfTx(filter: LogFilter): GetPublicLogsResponse {
+  async #filterPublicLogsOfTx(filter: LogFilter): Promise<GetPublicLogsResponse> {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = (await this.blockStore.getTxLocation(filter.txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
 
-    const buffer = this.#publicLogsByBlock.get(blockNumber) ?? Buffer.alloc(0);
+    const buffer = (await this.#publicLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
     const publicLogsInBlock: [PublicLog[]] = [[]];
     const reader = new BufferReader(buffer);
     while (reader.remainingBytes() > 0) {
@@ -276,7 +283,7 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #filterPublicLogsBetweenBlocks(filter: LogFilter): GetPublicLogsResponse {
+  async #filterPublicLogsBetweenBlocks(filter: LogFilter): Promise<GetPublicLogsResponse> {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -291,7 +298,7 @@ export class LogStore {
     const logs: ExtendedPublicLog[] = [];
 
     let maxLogsHit = false;
-    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#publicLogsByBlock.entries({ start, end })) {
+    loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#publicLogsByBlock.entriesAsync({ start, end })) {
       const publicLogsInBlock: [PublicLog[]] = [[]];
       const reader = new BufferReader(logBuffer);
       while (reader.remainingBytes() > 0) {
@@ -320,7 +327,7 @@ export class LogStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): GetContractClassLogsResponse {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     if (filter.afterLog) {
       return this.#filterContractClassLogsBetweenBlocks(filter);
     } else if (filter.txHash) {
@@ -330,16 +337,16 @@ export class LogStore {
     }
   }
 
-  #filterContractClassLogsOfTx(filter: LogFilter): GetContractClassLogsResponse {
+  async #filterContractClassLogsOfTx(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = (await this.blockStore.getTxLocation(filter.txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
-    const contractClassLogsBuffer = this.#contractClassLogsByBlock.get(blockNumber);
+    const contractClassLogsBuffer = await this.#contractClassLogsByBlock.getAsync(blockNumber);
     const contractClassLogsInBlock = contractClassLogsBuffer
       ? ContractClass2BlockL2Logs.fromBuffer(contractClassLogsBuffer)
       : new ContractClass2BlockL2Logs([]);
@@ -351,7 +358,7 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetContractClassLogsResponse {
+  async #filterContractClassLogsBetweenBlocks(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -366,7 +373,10 @@ export class LogStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     let maxLogsHit = false;
-    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entries({ start, end })) {
+    loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#contractClassLogsByBlock.entriesAsync({
+      start,
+      end,
+    })) {
       const contractClassLogsInBlock = ContractClass2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = contractClassLogsInBlock.txLogs[txIndex].unrollLogs();

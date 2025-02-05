@@ -15,13 +15,14 @@ export default {
     main: './src/index.ts',
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
       {
-        test: /\.gz$/,
+        test: /\.wasm\.gz$/,
         type: 'asset/resource',
+        generator: {
+          filename: '[base]',
+          publicPath: '/',
+        },
       },
       {
         test: /\.tsx?$/,
@@ -51,7 +52,8 @@ export default {
     new CopyPlugin({
       patterns: [
         {
-          context: '../../barretenberg/ts/dest/browser',
+          // createRequire resolves the cjs version, so we need to go up one level
+          context: resolve(require.resolve('@aztec/bb.js'), '../../browser'),
           from: '*.gz',
         },
       ],

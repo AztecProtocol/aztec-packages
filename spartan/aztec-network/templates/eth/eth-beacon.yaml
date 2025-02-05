@@ -17,6 +17,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: eth-beacon
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
@@ -61,6 +65,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-eth-beacon
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: eth-beacon
 spec:
   {{- if .Values.network.public}}
   type: LoadBalancer

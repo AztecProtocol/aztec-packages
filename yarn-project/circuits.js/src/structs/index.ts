@@ -58,7 +58,6 @@ export * from './private_validation_requests.js';
 export * from './proof.js';
 export * from './public_call_request.js';
 export * from './public_call_stack_item_compressed.js';
-export * from './public_circuit_public_inputs.js';
 export * from './public_data_hint.js';
 export * from './public_data_read.js';
 export * from './public_data_update_request.js';

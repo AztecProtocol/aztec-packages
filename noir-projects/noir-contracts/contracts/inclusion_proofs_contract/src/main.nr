@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract InclusionProofs {
+pub contract InclusionProofs {
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
 

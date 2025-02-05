@@ -208,6 +208,9 @@ impl<'a> Parser<'a> {
         if self.eat_keyword(Keyword::StructDefinition) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::StructDefinition));
         }
+        if self.eat_keyword(Keyword::EnumDefinition) {
+            return Some(UnresolvedTypeData::Quoted(QuotedType::EnumDefinition));
+        }
         if self.eat_keyword(Keyword::TraitConstraint) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::TraitConstraint));
         }
@@ -313,7 +316,7 @@ impl<'a> Parser<'a> {
         Some(UnresolvedTypeData::AsTraitPath(Box::new(as_trait_path)))
     }
 
-    fn parse_resolved_type(&mut self) -> Option<UnresolvedTypeData> {
+    pub(super) fn parse_resolved_type(&mut self) -> Option<UnresolvedTypeData> {
         if let Some(token) = self.eat_kind(TokenKind::QuotedType) {
             match token.into_token() {
                 Token::QuotedType(id) => {

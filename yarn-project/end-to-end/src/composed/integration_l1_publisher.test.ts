@@ -15,19 +15,29 @@ import {
 } from '@aztec/circuits.js';
 import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
-import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { EpochCache } from '@aztec/epoch-cache';
+import {
+  GovernanceProposerContract,
+  type L1ContractAddresses,
+  L1TxUtilsWithBlobs,
+  RollupContract,
+  SlashingProposerContract,
+  createEthereumChain,
+  createL1Clients,
+} from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
-import { L1Publisher } from '@aztec/sequencer-client';
+import { SequencerPublisher } from '@aztec/sequencer-client';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -52,9 +62,10 @@ import {
   getContract,
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import { setupL1Contracts } from '../fixtures/utils.js';
+import { createForwarderContract, setupL1Contracts } from '../fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -70,6 +81,8 @@ const numberOfConsecutiveBlocks = 2;
 const BLOB_SINK_PORT = 5052;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
+jest.setTimeout(1000000);
+
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -82,7 +95,7 @@ describe('L1Publisher integration', () => {
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
-  let publisher: L1Publisher;
+  let publisher: SequencerPublisher;
 
   let builderDb: MerkleTreeAdminDatabase;
 
@@ -171,17 +184,52 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
-    publisher = new L1Publisher({
-      l1RpcUrl: config.l1RpcUrl,
-      requiredConfirmations: 1,
-      l1Contracts: l1ContractAddresses,
-      publisherPrivateKey: sequencerPK,
-      l1PublishRetryIntervalMS: 100,
-      l1ChainId: 31337,
-      viemPollingIntervalMS: 100,
-      ethereumSlotDuration: config.ethereumSlotDuration,
-      blobSinkUrl: BLOB_SINK_URL,
+    const { walletClient: sequencerWalletClient, publicClient: sequencerPublicClient } = createL1Clients(
+      config.l1RpcUrl,
+      sequencerPK,
+      foundry,
+    );
+    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerPublicClient, sequencerWalletClient, logger, config);
+    const rollupContract = new RollupContract(sequencerPublicClient, l1ContractAddresses.rollupAddress.toString());
+    const forwarderContract = await createForwarderContract(
+      config,
+      sequencerPK,
+      l1ContractAddresses.rollupAddress.toString(),
+    );
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(
+      sequencerPublicClient,
+      slashingProposerAddress.toString(),
+    );
+    const governanceProposerContract = new GovernanceProposerContract(
+      sequencerPublicClient,
+      l1ContractAddresses.governanceProposerAddress.toString(),
+    );
+    const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
+      dateProvider: new TestDateProvider(),
     });
+    publisher = new SequencerPublisher(
+      {
+        l1RpcUrl: config.l1RpcUrl,
+        requiredConfirmations: 1,
+        l1Contracts: l1ContractAddresses,
+        publisherPrivateKey: sequencerPK,
+        l1PublishRetryIntervalMS: 100,
+        l1ChainId: 31337,
+        viemPollingIntervalMS: 100,
+        ethereumSlotDuration: config.ethereumSlotDuration,
+        blobSinkUrl: BLOB_SINK_URL,
+        customForwarderContractAddress: EthAddress.ZERO,
+      },
+      {
+        l1TxUtils,
+        rollupContract,
+        forwarderContract,
+        epochCache,
+        governanceProposerContract,
+        slashingProposerContract,
+      },
+    );
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || (await AztecAddress.random());
@@ -195,7 +243,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
 
     // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.read.EPOCH_DURATION();
+    const timeToJump = await rollup.read.getEpochDuration();
     await progressTimeBySlot(timeToJump);
   });
 
@@ -413,7 +461,8 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        await publisher.proposeL2Block(block);
+        await publisher.enqueueProposeL2Block(block);
+        await publisher.sendRequests();
         blocks.push(block);
 
         const logs = await publicClient.getLogs({
@@ -435,7 +484,7 @@ describe('L1Publisher integration', () => {
         const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
         expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 
-        const expectedData = encodeFunctionData({
+        const expectedRollupData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
           args: [
@@ -454,6 +503,11 @@ describe('L1Publisher integration', () => {
             `0x${block.body.toBuffer().toString('hex')}`,
             Blob.getEthBlobEvaluationInputs(blobs),
           ],
+        });
+        const expectedData = encodeFunctionData({
+          abi: ForwarderAbi,
+          functionName: 'forward',
+          args: [[rollupAddress], [expectedRollupData]],
         });
         expect(ethTx.input).toEqual(expectedData);
 
@@ -501,7 +555,7 @@ describe('L1Publisher integration', () => {
 
       // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
       // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
-      // a Rollup__InvalidInHash that is not caught by validateHeader before.
+      // a Rollup__BlobHash that is not caught by validateHeader before.
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
 
       const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
@@ -526,30 +580,47 @@ describe('L1Publisher integration', () => {
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
 
       // Expect the tx to revert
-      await expect(publisher.proposeL2Block(block)).resolves.toEqual(false);
+      await expect(publisher.enqueueProposeL2Block(block)).resolves.toEqual(true);
+
+      await expect(publisher.sendRequests()).resolves.toMatchObject({
+        errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
+      });
 
       // Test for both calls
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
+      // NOTE: First error is from the simulate fn, which isn't supported by anvil
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
 
-      // Test first call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
-        expect.stringMatching(/^L1 transaction 0x[a-f0-9]{64} reverted$/i),
-        expect.anything(),
+        'Forwarder transaction failed',
+        undefined,
+        expect.objectContaining({
+          receipt: expect.objectContaining({
+            type: 'eip4844',
+            blockHash: expect.any(String),
+            blockNumber: expect.any(BigInt),
+            transactionHash: expect.any(String),
+          }),
+        }),
       );
-
-      // Test second call
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
+        expect.stringContaining('Bundled [propose] transaction [failed]'),
+      );
+
+      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
+        3,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "propose" reverted\. Error: Rollup__InvalidInHash/i,
+          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({
-          blockHash: expect.any(String),
+          blockHash: expect.any(Fr),
           blockNumber: expect.any(Number),
           slotNumber: expect.any(BigInt),
           txHash: expect.any(String),
+          txCount: expect.any(Number),
+          blockTimestamp: expect.any(Number),
         }),
       );
     });

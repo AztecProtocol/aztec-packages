@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Claim {
+pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
@@ -11,6 +11,7 @@ contract Claim {
     use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
+    // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
     struct Storage<Context> {
         // Address of a contract based on whose notes we distribute the rewards

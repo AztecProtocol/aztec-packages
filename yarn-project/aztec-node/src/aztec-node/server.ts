@@ -59,6 +59,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -68,8 +69,8 @@ import { type P2P, createP2PClient } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   GlobalVariableBuilder,
-  type L1Publisher,
   SequencerClient,
+  type SequencerPublisher,
   createSlasherClient,
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
@@ -144,7 +145,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     deps: {
       telemetry?: TelemetryClient;
       logger?: Logger;
-      publisher?: L1Publisher;
+      publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
     } = {},
@@ -449,7 +450,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    if (this.p2pClient.getTxStatus(txHash) === 'pending') {
+    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
@@ -498,6 +499,15 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public getTxByHash(txHash: TxHash) {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalised chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]) {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
   /**
@@ -863,7 +873,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     );
     const fork = await this.worldStateSynchronizer.fork();
 
-    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -876,7 +886,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 

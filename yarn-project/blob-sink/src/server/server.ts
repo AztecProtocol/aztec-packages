@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import express, { type Express, type Request, type Response, json } from 'express';
@@ -32,7 +32,7 @@ export class BlobSinkServer {
   private metrics: BlobSinkMetrics;
   private log: Logger = createLogger('aztec:blob-sink');
 
-  constructor(config?: BlobSinkConfig, store?: AztecKVStore, telemetry: TelemetryClient = getTelemetryClient()) {
+  constructor(config?: BlobSinkConfig, store?: AztecAsyncKVStore, telemetry: TelemetryClient = getTelemetryClient()) {
     this.port = config?.port ?? 5052; // 5052 is beacon chain default http port
     this.app = express();
 
@@ -50,7 +50,9 @@ export class BlobSinkServer {
   private setupRoutes() {
     // TODO(md): needed?
     this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
   }
 

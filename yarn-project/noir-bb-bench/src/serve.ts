@@ -117,8 +117,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const button = document.createElement('button');
   button.innerText = 'Run Test';
-  button.addEventListener('click', async () => {
-    const _ = await proveThenVerifyStack();
-  });
+  button.addEventListener('click', () => void proveThenVerifyStack());
   document.body.appendChild(button);
 });

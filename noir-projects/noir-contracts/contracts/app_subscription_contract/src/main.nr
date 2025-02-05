@@ -4,7 +4,7 @@ mod dapp_payload;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AppSubscription {
+pub contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use authwit::auth::assert_current_call_valid_authwit;
@@ -18,6 +18,7 @@ contract AppSubscription {
     use router::utils::privately_check_block_number;
     use token::Token;
 
+    // TODO: This can be optimized by storing the values in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
     struct Storage<Context> {
         target_address: PublicImmutable<AztecAddress, Context>,
