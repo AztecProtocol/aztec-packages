@@ -1120,6 +1120,7 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@google-cloud/storage": "npm:^7.15.0"
+    "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
     "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": "npm:^29.5.0"
