@@ -134,7 +134,7 @@ The [`CheatCodes`](../../../reference/developer_references/sandbox_reference/che
 ### Set next block timestamp
 
 Since the rollup time is dependent on what "slot" the block is included in, time can be progressed by progressing slots.
-The duration of a slot is available by calling `getSlotDuration()` on the Rollup (code in Leonidas.sol).
+The duration of a slot is available by calling `getSlotDuration()` on the Rollup (code in Rollup.sol).
 
 You can then use the `warp` function on the EthCheatCodes to progress the underlying chain.
 

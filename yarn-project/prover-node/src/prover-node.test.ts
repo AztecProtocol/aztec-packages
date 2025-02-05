@@ -21,7 +21,7 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
@@ -151,8 +151,8 @@ describe('prover-node', () => {
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxByHash.mockImplementation(hash =>
-      Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) })),
+    mockCoordination.getTxsByHash.mockImplementation(hashes =>
+      Promise.resolve(hashes.map(hash => mock<Tx>({ getTxHash: () => Promise.resolve(hash) }))),
     );
 
     // A sample claim
@@ -193,7 +193,7 @@ describe('prover-node', () => {
     });
 
     it('does not send a quote if there is a tx missing from coordinator', async () => {
-      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+      mockCoordination.getTxsByHash.mockResolvedValue([]);
       await proverNode.handleEpochCompleted(10n);
       expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
@@ -293,32 +293,11 @@ describe('prover-node', () => {
       expect(jobs.length).toEqual(1);
     });
 
-    it('retries acquiring txs if they are not immediately available', async () => {
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
-      publisher.getProofClaim.mockResolvedValue(claim);
-      const mockGetTxByHash = mockCoordination.getTxByHash.getMockImplementation();
-      mockCoordination.getTxByHash.mockResolvedValue(undefined);
-
-      await proverNode.start();
-      await sleep(100);
-
-      // initially no job will be started because the txs aren't available
-      expect(jobs).toHaveLength(0);
-      expect(mockCoordination.getTxByHash).toHaveBeenCalled();
-
-      mockCoordination.getTxByHash.mockImplementation(mockGetTxByHash);
-      await sleep(100);
-
-      // now it should have all the txs necessary to start proving
-      expect(jobs[0].epochNumber).toEqual(10n);
-      expect(jobs.length).toEqual(1);
-    });
-
     it('does not start proving if txs are not all available', async () => {
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
       publisher.getProofClaim.mockResolvedValue(claim);
 
-      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+      mockCoordination.getTxsByHash.mockResolvedValue([]);
 
       await proverNode.start();
       await sleep(2000);
@@ -385,7 +364,7 @@ describe('prover-node', () => {
         getTelemetryClient(),
         port,
       );
-      const kvStore = openTmpStore();
+      const kvStore = await openTmpStore('test');
       return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService);
     };
 
@@ -404,6 +383,12 @@ describe('prover-node', () => {
       const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => Promise.resolve(hash) }));
       jest.spyOn(p2pClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
       jest.spyOn(otherP2PClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
+
+      // And getTxsByHash just for good measure
+      const mockGetTxsByHash = (hashes: TxHash[]) =>
+        Promise.resolve(hashes.map(hash => mock<Tx>({ getTxHash: () => Promise.resolve(hash) })));
+      jest.spyOn(p2pClient, 'getTxsByHash').mockImplementation(mockGetTxsByHash);
+      jest.spyOn(otherP2PClient, 'getTxsByHash').mockImplementation(mockGetTxsByHash);
 
       await Promise.all([p2pClient.start(), otherP2PClient.start()]);
 

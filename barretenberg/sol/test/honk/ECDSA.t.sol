@@ -12,7 +12,7 @@ contract EcdsaHonkTest is TestBaseHonk {
         super.setUp();
 
         verifier = IVerifier(address(new EcdsaHonkVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Ecdsa);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Ecdsa);
 
         PUBLIC_INPUT_COUNT = 6;
 
@@ -30,7 +30,6 @@ contract EcdsaHonkTest is TestBaseHonk {
 
     function testFuzzProof() public {
         // NOTE we do not fuzz here yet
-        // "goblin"
         // 67 6f 62 6c 69 6e
         uint256[] memory inputs = new uint256[](6);
         inputs[0] = uint256(0x67);

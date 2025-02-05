@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Crowdfunding {
+pub contract Crowdfunding {
     // docs:end:empty-contract
 
     // docs:start:all-deps

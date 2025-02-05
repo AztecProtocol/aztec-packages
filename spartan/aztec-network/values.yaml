@@ -179,6 +179,7 @@ proverNode:
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
 
 pxe:
+  enabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -326,6 +327,7 @@ blobSink:
     dataStoreMapSize: "134217728" # 128 GB
 
 faucet:
+  enabled: true
   replicas: 1
   service:
     nodePort: 8085
