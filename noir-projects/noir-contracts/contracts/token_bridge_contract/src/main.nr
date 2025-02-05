@@ -24,6 +24,7 @@ pub contract TokenBridge {
     };
     // docs:end:token_bridge_imports
 
+    // TODO: This can be optimized by storing the values in Config struct in 1 PublicImmutable (less merkle proofs).
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
