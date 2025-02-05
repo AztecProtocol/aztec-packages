@@ -141,5 +141,5 @@ pub contract TokenBridge {
         // Burn tokens
         Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
     }
-    /// docs:end:exit_to_l1_private
+    // docs:end:exit_to_l1_private
 }
