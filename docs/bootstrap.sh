@@ -23,15 +23,14 @@ function build {
     docs/reference/developer_references/smart_contract_reference/aztec-nr
   denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
   cache_upload docs-$hash.tar.gz build
-}
-
-# If we're a amd64 CI run and have a PR, do a preview release.
-function release_preview {
-  if [ -z "${GITHUB_TOKEN:-}" ] || [ "$CI" -eq 0 ] || [ "$(arch)" != "amd64" ]; then
+  release_preview
+  if [ "$CI" -eq 0 ] || [ "$(arch)" != "amd64" ]; then
     return
   fi
+}
 
-  export GH_TOKEN=$GITHUB_TOKEN
+# If we're an AMD64 CI run and have a PR, do a preview release.
+function release_preview {
   pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
 
   if [ -n "$pr_number" ]; then
@@ -39,18 +38,25 @@ function release_preview {
 
     # Deploy and capture exit code and output.
     if ! deploy_output=$(yarn netlify deploy --dir . --site aztec-docs-dev 2>&1); then
-        echo "Netlify deploy failed with error:"
-        echo "$deploy_output"
-        exit 1
+      echo "Netlify deploy failed with error:"
+      echo "$deploy_output"
+      exit 1
     fi
 
     # Extract preview URL.
     docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
     if [ -z "$docs_preview_url" ]; then
-        echo "Failed to extract preview URL from Netlify output."
+      echo "Failed to extract preview URL from Netlify output."
     else
       echo "Docs preview URL: ${docs_preview_url}"
     fi
+  fi
+
+  if [ -n "$PR_NUMBER" ]; then
+    AZTEC_BOT_COMMENTER_GITHUB_TOKEN="$AZTEC_BOT_COMMENTER_GITHUB_TOKEN" \
+      PR_NUMBER="$PR_NUMBER" \
+      DOCS_PREVIEW_URL="$DOCS_PREVIEW_URL" \
+      yarn --cwd ../yarn-project/scripts docs-preview-comment
   fi
 }
 
@@ -65,10 +71,12 @@ case "$cmd" in
     ;;
   ""|"full")
     build
-    release_preview
     ;;
   "hash")
     echo "$hash"
+    ;;
+  "release_preview")
+    release
     ;;
   "release")
     release
