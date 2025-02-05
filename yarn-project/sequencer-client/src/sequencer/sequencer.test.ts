@@ -560,6 +560,11 @@ describe('sequencer', () => {
 
       l2BlockSource.getBlock.mockResolvedValue(L2Block.random(blockNumber - 1));
       l2BlockSource.getBlockNumber.mockResolvedValue(blockNumber - 1);
+      l2BlockSource.getL2Tips.mockResolvedValue({
+        latest: { number: blockNumber - 1, hash },
+        proven: { number: 0, hash: undefined },
+        finalized: { number: 0, hash: undefined },
+      });
 
       l1ToL2MessageSource.getBlockNumber.mockResolvedValue(blockNumber - 1);
 

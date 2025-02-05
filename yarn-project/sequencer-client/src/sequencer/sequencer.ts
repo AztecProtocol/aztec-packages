@@ -766,7 +766,7 @@ export class Sequencer {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
-      this.p2pClient.getStatus(),
+      this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),
     ] as const);
 
@@ -781,7 +781,7 @@ export class Sequencer {
       // this should change to hashes once p2p client handles reorgs
       // and once we stop pretending that the l1tol2message source is not
       // just the archiver under a different name
-      (!l2BlockSource.hash || p2p.syncedToL2Block.hash === l2BlockSource.hash) &&
+      (!l2BlockSource.hash || p2p.hash === l2BlockSource.hash) &&
       l1ToL2MessageSource === l2BlockSource.number;
 
     this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
@@ -789,7 +789,8 @@ export class Sequencer {
       worldStateHash: worldState.hash,
       l2BlockSourceNumber: l2BlockSource.number,
       l2BlockSourceHash: l2BlockSource.hash,
-      p2pNumber: p2p,
+      p2pNumber: p2p.number,
+      p2pHash: p2p.hash,
       l1ToL2MessageSourceNumber: l1ToL2MessageSource,
     });
 
