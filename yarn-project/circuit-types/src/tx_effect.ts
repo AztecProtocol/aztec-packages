@@ -91,7 +91,7 @@ export class TxEffect {
      */
     public publicLogs: PublicLog[],
     /**
-     * The private logs.
+     * The contract class logs.
      */
     public contractClassLogs: ContractClassLog[],
   ) {
@@ -365,7 +365,7 @@ export class TxEffect {
     }
     if (this.contractClassLogs.length) {
       const totalLogLen = this.contractClassLogs.reduce(
-        (total, log) => (total + log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
+        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
         0,
       );
       flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, totalLogLen));

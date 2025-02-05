@@ -254,13 +254,7 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   getNonEmptyContractClassLogsLength() {
-    const contractClassLogs = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.contractClassLogs,
-          this.forPublic.revertibleAccumulatedData.contractClassLogs,
-        )
-      : this.forRollup!.end.contractClassLogs;
-    return contractClassLogs.reduce((total, log) => total + log.getEmittedLength(), 0);
+    return this.getNonEmptyContractClassLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

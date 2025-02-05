@@ -151,7 +151,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 // MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
 // MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS fields for public logs
-// MAX_CONTRACT_CLASS_LOGS_PER_TX * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS fields for contract class logs
+// MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1) fields for contract class logs
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
@@ -162,7 +162,7 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
     + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
     + MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS
-    + MAX_CONTRACT_CLASS_LOGS_PER_TX * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
+    + MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1)
     + 7;
 
 pub(crate) fn append_tx_effects_for_blob(
@@ -377,6 +377,8 @@ fn get_tx_effects_hash_input(
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
+                // plus one for prefix
+                total_cc_log_len += log_len + 1;
                 check_elt = true;
             }
             for k in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
@@ -386,8 +388,6 @@ fn get_tx_effects_hash_input(
                 }
             }
             offset += log_len;
-            // plus one for prefix
-            total_cc_log_len += log_len + 1;
         }
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_cc_log_len);
