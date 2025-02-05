@@ -855,6 +855,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
     workers_->enqueue(job);
 }
 
+// TODO(PhilWindle): One possible optimisation is for the following 3 functions
+// checkpoint, commit_checkpoint and revert_checkpoint to not use the thread pool
+// It is not stricly necessary for these operations to use it. The balance is whether
+// the cost of using it outweighs the benefit or checkpointing/reverting all tree concurrently
+
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)
 {
