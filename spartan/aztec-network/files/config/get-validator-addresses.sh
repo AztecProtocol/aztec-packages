@@ -20,7 +20,7 @@ echo "First two words of mnemonic: $first_two"
 VALIDATOR_ADDRESSES_LIST=""
 
 i=$KEY_INDEX_START
-while [ $i -lt $NUMBER_OF_VALIDATORS ]; do
+while [ $i -lt $((KEY_INDEX_START + NUMBER_OF_VALIDATORS)) ]; do
   # Get the private key from the mnemonic
   private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $i)
   address=$(cast wallet address "$private_key")
