@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738750240660,
+  "lastUpdate": 1738759438544,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "miranda@aztecprotocol.com",
-            "name": "Miranda Wood",
-            "username": "MirandaWood"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4725d2237c6e9c6b7b17248f8c33343cb9ea7f1",
-          "message": "feat!: public logs (#11091)\n\n## Public Logs\r\n\r\n---\r\n\r\nUnencrypted logs -> public logs #9589\r\n\r\nLike `private_logs`, public logs are introduced in this PR and replace\r\nunencrypted logs. They:\r\n\r\n- Are no longer treated as bytes in ts/sol\r\n- Are no longer treated as log hashes in kernels/rollups\r\n- Are treated as arrays of fields (with contract address) everywhere\r\n\r\nAVM team: I've made some limited changes with help from Ilyas (tyvm)\r\njust so we have tests passing and logs being emitted, this is not\r\ncomplete! I've added #11124 to help track where changes need to be made\r\nin areas of the code I have no familiarity with. I didn't want to touch\r\ntoo many areas so I haven't fully renamed unencrypted -> public. Ofc I'm\r\nhappy to help anywhere that's needed.\r\n\r\nAztec-nr/Noir-contracts: This PR also addresses #9835. I don't know much\r\nabout how partial notes work or should work, so I tried to touch the\r\nleast I could to convert these logs to fields. One big change is that\r\nthe first field now contains the length of private fields and ciphertext\r\nbytes along with the public fields. This is because now we don't emit\r\nlogs as an array of bytes with a set length to ts, there isn't a way to\r\ntell when a log 'ends'. We also can't just discard zero values, because\r\nin many cases zeros are emitted as real log values.\r\n\r\n---\r\n\r\n~TODO:~ Completed\r\n\r\n- ~Some more renaming (e.g. `UnencryptedLogsResponse`, prefixes, public\r\ncontext, noir contracts)~\r\n- ~`MAX_UNENCRYPTED_LOGS_PER_CALL` -> `MAX_PUBLIC_LOGS_PER_CALL` (not\r\ndone yet, because `PublicCircuitPublicInputs` is linked to\r\n`AvmCircuitInputs` which goes into bb)~\r\n- ~Test and cleanup anything touching partial notes~\r\n\r\n---\r\n\r\nTODO in follow-up PRS:\r\n- Tightly pack individual logs when adding to blob: This is relatively\r\ncomplex because of the hacks we have in place (#10323) and the\r\nrequirement to overhaul blob field decoding, to avoid bloating this PR\r\nI'll make a new one.\r\n- Rename `emit_unencrypted`: This will touch a lot of files and just\r\nmake it difficult to review, so I'll add a follow up PR with just this\r\nrenaming.\r\n- Convert contract class logs to fields: Note that some classes like\r\n`UnencryptedL2Log` still exist. This is solely for contract class logs\r\nwhich have thousands of fields and so are still hashed to a single value\r\nin the kernels/rollups/ts. In a follow up PR I'll separately convert\r\nthese to fields to benchmark the effects.",
-          "timestamp": "2025-01-20T17:08:27Z",
-          "tree_id": "621fc5a782a806294a4112380fd273991a779590",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f4725d2237c6e9c6b7b17248f8c33343cb9ea7f1"
-        },
-        "date": 1737393883402,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18870.99690400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15899.221079 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21421.552335,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18859.180383 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4052.0196079999664,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3720.9719689999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73733.164267,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73733165000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14507.938086999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14507938000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3557581850,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3557581850 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146190272,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146190272 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 140680761,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140680761 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a83cd26f7f8c4163d538f942677dcea7f2bc8dc",
+          "message": "feat: report wrong proof length in the verifier contract (#11728)\n\nMake the error explicit when we test the deployed honk verifier\r\ncontracts with the wrong proof length by looking at the length member of\r\nthe calldata proof received as input.",
+          "timestamp": "2025-02-05T12:26:46Z",
+          "tree_id": "85da8d57d3b229ee1d2cf34f1b3bbdb07ef2d17e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a83cd26f7f8c4163d538f942677dcea7f2bc8dc"
+        },
+        "date": 1738759431003,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19340.18554000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16676.547506 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 22732.52264499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18907.644507 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4090.2754399999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3788.413685 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 82474.95643,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 82474956000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14529.683263000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14529684000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3335265706,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3335265706 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 163568694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 163568694 ns\nthreads: 1"
           }
         ]
       }
