@@ -14,7 +14,7 @@ pub contract Test {
     };
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateSet,
+        PrivateImmutable, PrivateSet, PublicImmutable,
     };
 
     use dep::aztec::protocol_types::{
@@ -77,6 +77,7 @@ pub contract Test {
         example_constant: PrivateImmutable<TestNote, Context>,
         example_set: PrivateSet<TestNote, Context>,
         example_struct: PrivateImmutable<ExampleStruct, Context>,
+        example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
         another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
