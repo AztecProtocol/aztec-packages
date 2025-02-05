@@ -4,78 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": {
-      "browser": "./dest/browser/index.js",
-      "default": "./dest/node/index.js"
-    },
-    "./interfaces/pxe": {
-      "browser": "./dest/browser/interfaces/pxe.js",
-      "default": "./dest/node/api/interfaces/pxe.js"
-    },
-    "./abi": {
-      "browser": "./dest/browser/abi.js",
-      "default": "./dest/node/api/abi.js"
-    },
-    "./account": {
-      "browser": "./dest/browser/account.js",
-      "default": "./dest/node/api/account.js"
-    },
-    "./addresses": {
-      "browser": "./dest/browser/addresses.js",
-      "default": "./dest/node/api/addresses.js"
-    },
-    "./cheatcodes": {
-      "browser": "./dest/browser/api/cheatcodes.js",
-      "default": "./dest/node/api/cheatcodes.js"
-    },
-    "./contracts": {
-      "browser": "./dest/browser/contracts.js",
-      "default": "./dest/node/contract/index.js"
-    },
-    "./deployment": {
-      "browser": "./dest/browser/deployment.js",
-      "default": "./dest/node/api/deployment.js"
-    },
-    "./entrypoint": {
-      "browser": "./dest/browser/entrypoint.js",
-      "default": "./dest/node/api/entrypoint.js"
-    },
-    "./eth_address": {
-      "browser": "./dest/browser/eth_address.js",
-      "default": "./dest/node/api/eth_address.js"
-    },
-    "./ethereum": {
-      "browser": "./dest/browser/ethereum.js",
-      "default": "./dest/node/api/ethereum/index.js"
-    },
-    "./fee": {
-      "browser": "./dest/browser/fee.js",
-      "default": "./dest/node/api/fee.js"
-    },
-    "./fields": {
-      "browser": "./dest/browser/fields.js",
-      "default": "./dest/node/api/fields.js"
-    },
-    "./log_id": {
-      "browser": "./dest/browser/log_id.js",
-      "default": "./dest/node/api/log_id.js"
-    },
-    "./rpc": {
-      "browser": "./dest/browser/rpc.js",
-      "default": "./dest/node/rpc_clients/index.js"
-    },
-    "./tx_hash": {
-      "browser": "./dest/browser/tx_hash.js",
-      "default": "./dest/node/api/tx_hash.js"
-    },
-    "./wallet": {
-      "browser": "./dest/browser/wallet.js",
-      "default": "./dest/node/api/wallet.js"
-    },
-    "./utils": {
-      "browser": "./dest/browser/utils.js",
-      "default": "./dest/node/utils/index.js"
-    }
+    ".": "./dest/node/index.js",
+    "./interfaces/pxe": "./dest/node/api/interfaces/pxe.js",
+    "./abi": "./dest/node/api/abi.js",
+    "./account": "./dest/node/api/account.js",
+    "./addresses": "./dest/node/api/addresses.js",
+    "./cheatcodes": "./dest/node/api/cheatcodes.js",
+    "./contracts": "./dest/node/contract/index.js",
+    "./deployment": "./dest/node/api/deployment.js",
+    "./entrypoint": "./dest/node/api/entrypoint.js",
+    "./eth_address": "./dest/node/api/eth_address.js",
+    "./ethereum": "./dest/node/api/ethereum/index.js",
+    "./fee": "./dest/node/api/fee.js",
+    "./fields": "./dest/node/api/fields.js",
+    "./log_id": "./dest/node/api/log_id.js",
+    "./rpc": "./dest/node/rpc_clients/index.js",
+    "./tx_hash": "./dest/node/api/tx_hash.js",
+    "./wallet": "./dest/node/api/wallet.js",
+    "./utils": "./dest/node/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -85,8 +31,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
-    "build:web": "webpack",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",

@@ -2,7 +2,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  CheatCodes,
+  type CheatCodes,
   type Logger,
   MerkleTreeId,
   type Wallet,

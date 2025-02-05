@@ -1,6 +1,5 @@
-import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { type EpochProofClaim } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
@@ -17,6 +16,8 @@ import {
   publicActions,
 } from 'viem';
 import { foundry } from 'viem/chains';
+
+export { EthCheatCodes };
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {

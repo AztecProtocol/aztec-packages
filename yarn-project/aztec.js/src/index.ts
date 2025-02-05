@@ -22,24 +22,6 @@
 
 export { ContractDeployer } from './deployment/index.js';
 
-export {
-  computeAuthWitMessageHash,
-  computeInnerAuthWitHash,
-  computeInnerAuthWitHashFromAction,
-  generatePublicKey,
-  readFieldCompressedString,
-  waitForPXE,
-  waitForNode,
-  type IntentAction,
-  type AztecAddressLike,
-  type EthAddressLike,
-  type EventSelectorLike,
-  type FieldLike,
-  type FunctionSelectorLike,
-  type U128Like,
-  type WrappedFieldLike,
-} from './utils/index.js';
-
 export { NoteSelector } from '@aztec/foundation/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
@@ -110,12 +92,10 @@ export {
   TxStatus,
   UnencryptedL2Log,
   UniqueNote,
-  createAztecNodeClient,
   getTimestampRangeForEpoch,
   merkleTreeIds,
   mockEpochProofQuote,
   mockTx,
-  type AztecNode,
   type LogFilter,
   type PXE,
   type PartialAddress,
@@ -147,3 +127,4 @@ export * from './api/ethereum/index.js';
 export * from './api/log.js';
 // Granular export, even if not in the api folder
 export * from './contract/index.js';
+export * from './utils/index.js';
