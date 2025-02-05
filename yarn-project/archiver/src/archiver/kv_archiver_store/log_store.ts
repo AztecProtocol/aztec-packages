@@ -133,6 +133,7 @@ export class LogStore {
           const currentLogs = acc.get(tag) ?? [];
           acc.set(tag, currentLogs.concat(logs));
         }
+        return acc;
       });
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
 

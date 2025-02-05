@@ -127,7 +127,6 @@ export function describeArchiverDataStore(
       });
 
       it("returns the most recently added block's number", async () => {
-        console.log('HERE');
         await store.addBlocks(blocks);
         await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.data.number);
       });
