@@ -568,6 +568,10 @@ export class TXENode implements AztecNode {
     throw new Error('TXE Node method getTxByHash not implemented');
   }
 
+  getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
+    throw new Error('TXE Node method getTxByHash not implemented');
+  }
+
   /**
    * Gets the storage value at the given contract storage slot.
    *
