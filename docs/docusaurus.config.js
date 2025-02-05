@@ -343,12 +343,6 @@ const config = {
               },
             ],
           },
-          {
-            type: "doc",
-            docId: "try_testnet",
-            position: "right",
-            label: "Try Testnet",
-          },
         ],
       },
       footer: {

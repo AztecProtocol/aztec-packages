@@ -7,6 +7,6 @@ tags: [sandbox, testnet]
 
 This is a guide for developers who have started building on the sandbox and wish to move their application to testnet.
 
-## Deploying onto Testnet
+## Deploy to testnet
 
-## Connecting your PXE to Testnet
+## Connect your PXE to Testnet
