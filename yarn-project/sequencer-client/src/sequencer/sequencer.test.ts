@@ -488,6 +488,45 @@ describe('sequencer', () => {
     expectPublisherProposeL2Block(postFlushTxHashes);
   });
 
+  it('settles on the chain tip before it starts building a block', async () => {
+    // this test simulates a synch happening right after the sequencer starts building a bloxk
+    // simulate every component being synched
+    const firstBlock = await L2Block.random(1);
+    const currentTip = firstBlock;
+    const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
+    worldState.status.mockImplementation(() =>
+      Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block }),
+    );
+    p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
+    l2BlockSource.getL2Tips.mockImplementation(() =>
+      Promise.resolve({
+        latest: syncedToL2Block,
+        proven: { number: 0, hash: undefined },
+        finalized: { number: 0, hash: undefined },
+      }),
+    );
+    l1ToL2MessageSource.getBlockNumber.mockImplementation(() => Promise.resolve(currentTip.number));
+
+    // simulate a synch happening right after
+    l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);
+    l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number + 1);
+    // now the new tip is actually block 2
+    l2BlockSource.getBlock.mockImplementation(n =>
+      n === -1
+        ? L2Block.random(currentTip.number + 1)
+        : n === currentTip.number
+        ? Promise.resolve(currentTip)
+        : Promise.resolve(undefined),
+    );
+
+    publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
+    await sequencer.doRealWork();
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+    // even though the chain tip moved, the sequencer should still have tried to build a block against the old archive
+    // this should get caught by the rollup
+    expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalledWith(currentTip.archive.root.toBuffer());
+  });
+
   it('aborts building a block if the chain moves underneath it', async () => {
     const tx = await makeTx();
     mockPendingTxs([tx]);
