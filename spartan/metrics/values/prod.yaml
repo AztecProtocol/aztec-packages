@@ -1,6 +1,17 @@
 opentelemetry-collector:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: 12Gi
+      cpu: "1.5"
   nodeSelector:
     node-type: infra
+    pool: spot
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
   ports:
     jaeger-compact:
       enabled: false
@@ -29,14 +40,21 @@ prometheus:
   server:
     resources:
       requests:
-        memory: 7Gi
-        cpu: 1.5
+        memory: 26Gi
+        cpu: "3.5"
     nodeSelector:
       node-type: infra
+      pool: spot
+    tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
     persistentVolume:
       enabled: true
       size: 100Gi
-    replicaCount: 10
+    replicaCount: 3
     statefulSet:
       enabled: true
   alertmanager:
@@ -57,6 +75,10 @@ tempo:
 
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  resources:
+    requests:
+      memory: 5Gi
+      cpu: "1.5"
   nodeSelector:
     node-type: infra
   service:

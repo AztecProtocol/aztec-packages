@@ -66,7 +66,7 @@ export async function sequencers(opts: {
     log(`Adding ${who} as sequencer`);
 
     const stakingAsset = getContract({
-      address: await rollup.read.STAKING_ASSET(),
+      address: await rollup.read.getStakingAsset(),
       abi: TestERC20Abi,
       client: walletClient,
     });
