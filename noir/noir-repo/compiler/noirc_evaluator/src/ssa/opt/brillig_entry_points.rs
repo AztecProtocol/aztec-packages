@@ -14,8 +14,21 @@ use crate::{
 
 impl Ssa {
     pub(crate) fn duplicate_reused_entry_points(mut self) -> Ssa {
+        if self.main().runtime().is_brillig() {
+            return self;
+        }
+
         let brillig_entry_points = get_brillig_entry_points(&self.functions);
         let entry_points = brillig_entry_points.keys().copied().collect::<HashSet<_>>();
+
+        // Determine the number of times a function is called in different Brillig entry points
+        let entry_point_call_counts = brillig_entry_points
+            .values()
+            .flat_map(|set| set.iter())
+            .fold(HashMap::default(), |mut counts, &function_id| {
+                *counts.entry(function_id).or_insert(0) += 1;
+                counts
+            });
 
         let mut calls_to_update: HashMap<FunctionId, FunctionId> = HashMap::default();
         let mut functions_to_update: HashSet<FunctionId> = HashSet::default();
@@ -33,16 +46,28 @@ impl Ssa {
                     let func_value = &function.dfg[*func_id];
                     let Value::Function(called_func_id) = func_value else { continue };
 
+                    // let mut should_clone = (function.dfg.runtime().is_brillig() && *called_func_id != function.id())
                     if function.dfg.runtime().is_brillig()
-                        && entry_points.contains(called_func_id)
+                        // && entry_points.contains(called_func_id)
                         && *called_func_id != function.id()
                     {
-                        let cloned_function =
-                            Function::clone_no_id(&self.functions[called_func_id]);
-                        functions_to_clone_map
-                            .entry(*entry_point)
-                            .or_default()
-                            .push((cloned_function, *called_func_id));
+                        if entry_points.contains(called_func_id) {
+                            let cloned_function =
+                                Function::clone_no_id(&self.functions[called_func_id]);
+                            functions_to_clone_map
+                                .entry(*entry_point)
+                                .or_default()
+                                .push((cloned_function, *called_func_id));
+                        } else if let Some(count) = entry_point_call_counts.get(called_func_id) {
+                            if *count > 1 {
+                                let cloned_function =
+                                    Function::clone_no_id(&self.functions[called_func_id]);
+                                functions_to_clone_map
+                                    .entry(*entry_point)
+                                    .or_default()
+                                    .push((cloned_function, *called_func_id));
+                            }
+                        }
                     }
                 }
             }
@@ -50,6 +75,8 @@ impl Ssa {
 
         for (entry_point, functions_to_clone) in functions_to_clone_map {
             for (mut cloned_function, old_id) in functions_to_clone {
+                // dbg!(entry_point);
+                // dbg!(old_id);
                 if calls_to_update.get(&old_id).is_some() {
                     continue;
                 }
@@ -64,6 +91,9 @@ impl Ssa {
                 });
             }
         }
+
+        // dbg!(calls_to_update.clone());
+        // dbg!(functions_to_update.clone());
 
         for func_id in functions_to_update {
             let function = self.functions.get_mut(&func_id).expect("ICE: Function does not exist");
