@@ -178,8 +178,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
                 (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
 
             for (size_t k = offset; k < end; ++k) {
-                acc[k] *= lagranges[0];
-                acc[k] += key[k] * lagranges[1];
+                acc[k] += (key[k] - acc[k]) * combiner_challenge;
             }
         }
     });
