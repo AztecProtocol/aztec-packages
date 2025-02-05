@@ -8,7 +8,7 @@ import {
   Exit,
   Timestamp,
   StakingStorage,
-  IStakingInner
+  IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -53,7 +53,7 @@ library StakingLib {
 
     store.stakingAsset.transfer(recipient, amount);
 
-    emit IStakingInner.WithdrawFinalised(_attester, recipient, amount);
+    emit IStakingCore.WithdrawFinalised(_attester, recipient, amount);
   }
 
   function slash(address _attester, uint256 _amount) external {
@@ -81,7 +81,7 @@ library StakingLib {
       validator.status = Status.LIVING;
     }
 
-    emit IStakingInner.Slashed(_attester, _amount);
+    emit IStakingCore.Slashed(_attester, _amount);
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
@@ -110,7 +110,7 @@ library StakingLib {
       status: Status.VALIDATING
     });
 
-    emit IStakingInner.Deposit(_attester, _proposer, _withdrawer, _amount);
+    emit IStakingCore.Deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
@@ -135,7 +135,7 @@ library StakingLib {
       Exit({exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay, recipient: _recipient});
     validator.status = Status.EXITING;
 
-    emit IStakingInner.WithdrawInitiated(_attester, _recipient, validator.stake);
+    emit IStakingCore.WithdrawInitiated(_attester, _recipient, validator.stake);
 
     return true;
   }

@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {
-  IRollupInner,
+  IRollupCore,
   ITestRollup,
   CheatDepositArgs,
   FeeHeader,
@@ -16,8 +16,8 @@ import {
   L1FeeData,
   SubmitEpochRootProofArgs
 } from "@aztec/core/interfaces/IRollup.sol";
-import {IStakingInner} from "@aztec/core/interfaces/IStaking.sol";
-import {IValidatorSelectionInner} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -66,12 +66,12 @@ struct Config {
  * not giving a damn about gas costs.
  * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
-abstract contract RollupCore is
+contract RollupCore is
   EIP712("Aztec Rollup", "1"),
   Ownable,
-  IStakingInner,
-  IValidatorSelectionInner,
-  IRollupInner,
+  IStakingCore,
+  IValidatorSelectionCore,
+  IRollupCore,
   ITestRollup
 {
   using ProposeLib for ProposeArgs;
@@ -174,7 +174,7 @@ abstract contract RollupCore is
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
     external
-    override(IStakingInner)
+    override(IStakingCore)
   {
     setupEpoch();
     StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
@@ -182,7 +182,7 @@ abstract contract RollupCore is
 
   function initiateWithdraw(address _attester, address _recipient)
     external
-    override(IStakingInner)
+    override(IStakingCore)
     returns (bool)
   {
     // @note The attester might be chosen for the epoch, so the delay must be long enough
@@ -191,11 +191,11 @@ abstract contract RollupCore is
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 
-  function finaliseWithdraw(address _attester) external override(IStakingInner) {
+  function finaliseWithdraw(address _attester) external override(IStakingCore) {
     StakingLib.finaliseWithdraw(_attester);
   }
 
-  function slash(address _attester, uint256 _amount) external override(IStakingInner) {
+  function slash(address _attester, uint256 _amount) external override(IStakingCore) {
     StakingLib.slash(_attester, _amount);
   }
 
@@ -215,7 +215,7 @@ abstract contract RollupCore is
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
-  function prune() external override(IRollupInner) {
+  function prune() external override(IRollupCore) {
     require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
@@ -286,7 +286,7 @@ abstract contract RollupCore is
     bytes calldata _body,
     bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
-  ) external override(IRollupInner) {
+  ) external override(IRollupCore) {
     propose(_args, _signatures, _body, _blobInput);
     claimEpochProofRight(_quote);
   }
@@ -315,7 +315,7 @@ abstract contract RollupCore is
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args)
     external
-    override(IRollupInner)
+    override(IRollupCore)
   {
     if (canPrune()) {
       _prune();
@@ -347,14 +347,11 @@ abstract contract RollupCore is
     emit L2ProofVerified(endBlockNumber, _args.args[6]);
   }
 
-  function setupEpoch() public override(IValidatorSelectionInner) {
+  function setupEpoch() public override(IValidatorSelectionCore) {
     ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
   }
 
-  function claimEpochProofRight(SignedEpochProofQuote calldata _quote)
-    public
-    override(IRollupInner)
-  {
+  function claimEpochProofRight(SignedEpochProofQuote calldata _quote) public override(IRollupCore) {
     validateEpochProofRightClaimAtTime(Timestamp.wrap(block.timestamp), _quote);
 
     Slot currentSlot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
@@ -394,7 +391,7 @@ abstract contract RollupCore is
     // TODO(#9101): Extract blobs from beacon chain => remove below body input
     bytes calldata,
     bytes calldata _blobInput
-  ) public override(IRollupInner) {
+  ) public override(IRollupCore) {
     if (canPrune()) {
       _prune();
     }
@@ -471,7 +468,7 @@ abstract contract RollupCore is
    * @notice  Updates the l1 gas fee oracle
    * @dev     This function is called by the `propose` function
    */
-  function updateL1GasFeeOracle() public override(IRollupInner) {
+  function updateL1GasFeeOracle() public override(IRollupCore) {
     Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
     // The slot where we find a new queued value acceptable
     Slot acceptableSlot = rollupStore.l1GasOracleValues.slotOfChange + (LIFETIME - LAG);
@@ -491,7 +488,7 @@ abstract contract RollupCore is
    *
    * @return The fee asset price
    */
-  function getFeeAssetPrice() public view override(IRollupInner) returns (uint256) {
+  function getFeeAssetPrice() public view override(IRollupCore) returns (uint256) {
     return IntRollupLib.feeAssetPriceModifier(
       rollupStore.blocks[rollupStore.tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
     );
@@ -500,7 +497,7 @@ abstract contract RollupCore is
   function getL1FeesAt(Timestamp _timestamp)
     public
     view
-    override(IRollupInner)
+    override(IRollupCore)
     returns (L1FeeData memory)
   {
     return _timestamp.slotFromTimestamp() < rollupStore.l1GasOracleValues.slotOfChange
@@ -542,7 +539,7 @@ abstract contract RollupCore is
   function quoteToDigest(EpochProofQuote memory _quote)
     public
     view
-    override(IRollupInner)
+    override(IRollupCore)
     returns (bytes32)
   {
     return _hashTypedDataV4(IntRollupLib.computeQuoteHash(_quote));
@@ -551,7 +548,7 @@ abstract contract RollupCore is
   function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
     public
     view
-    override(IRollupInner)
+    override(IRollupCore)
   {
     Slot currentSlot = _ts.slotFromTimestamp();
     address currentProposer = ValidatorSelectionLib.getProposerAt(
@@ -575,12 +572,7 @@ abstract contract RollupCore is
     );
   }
 
-  function getEpochForBlock(uint256 _blockNumber)
-    public
-    view
-    override(IRollupInner)
-    returns (Epoch)
-  {
+  function getEpochForBlock(uint256 _blockNumber) public view override(IRollupCore) returns (Epoch) {
     require(
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
@@ -597,7 +589,7 @@ abstract contract RollupCore is
    *
    * @return uint256 - The epoch to prove
    */
-  function getEpochToProve() public view override(IRollupInner) returns (Epoch) {
+  function getEpochToProve() public view override(IRollupCore) returns (Epoch) {
     require(
       rollupStore.tips.provenBlockNumber != rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__NoEpochToProve()
@@ -605,11 +597,11 @@ abstract contract RollupCore is
     return getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
   }
 
-  function canPrune() public view override(IRollupInner) returns (bool) {
+  function canPrune() public view override(IRollupCore) returns (bool) {
     return canPruneAtTime(Timestamp.wrap(block.timestamp));
   }
 
-  function canPruneAtTime(Timestamp _ts) public view override(IRollupInner) returns (bool) {
+  function canPruneAtTime(Timestamp _ts) public view override(IRollupCore) returns (bool) {
     if (
       rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber
         || rollupStore.tips.pendingBlockNumber <= assumeProvenThroughBlockNumber

@@ -24,11 +24,11 @@ struct ValidatorSelectionStorage {
   uint256 targetCommitteeSize;
 }
 
-interface IValidatorSelectionInner {
+interface IValidatorSelectionCore {
   function setupEpoch() external;
 }
 
-interface IValidatorSelection is IValidatorSelectionInner {
+interface IValidatorSelection is IValidatorSelectionCore {
   // Likely changing to optimize in Pleistarchus
   function getCurrentProposer() external view returns (address);
   function getProposerAt(Timestamp _ts) external view returns (address);

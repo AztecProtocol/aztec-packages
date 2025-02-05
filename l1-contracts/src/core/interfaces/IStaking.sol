@@ -45,7 +45,7 @@ struct StakingStorage {
   mapping(address attester => Exit) exits;
 }
 
-interface IStakingInner {
+interface IStakingCore {
   event Deposit(
     address indexed attester, address indexed proposer, address indexed withdrawer, uint256 amount
   );
@@ -60,7 +60,7 @@ interface IStakingInner {
   function slash(address _attester, uint256 _amount) external;
 }
 
-interface IStaking is IStakingInner {
+interface IStaking is IStakingCore {
   function getInfo(address _attester) external view returns (ValidatorInfo memory);
   function getExit(address _attester) external view returns (Exit memory);
   function getActiveAttesterCount() external view returns (uint256);

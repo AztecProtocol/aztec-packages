@@ -76,7 +76,7 @@ interface ITestRollup {
     returns (ManaBaseFeeComponents memory);
 }
 
-interface IRollupInner {
+interface IRollupCore {
   event L2BlockProposed(
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
@@ -136,7 +136,7 @@ interface IRollupInner {
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
 }
 
-interface IRollup is IRollupInner {
+interface IRollup is IRollupCore {
   function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
