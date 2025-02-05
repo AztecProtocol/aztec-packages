@@ -143,7 +143,7 @@ mod test {
         let block_header = env.private().historical_header;
         let address = env.contract_address();
 
-        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+        let result = WithHash::<MockStruct, _>::historical_public_storage_read(
             block_header,
             address,
             storage_slot,
@@ -171,7 +171,7 @@ mod test {
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
         env.advance_block_by(1);
 
-        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+        let result = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,
             env.contract_address(),
             storage_slot,
@@ -201,7 +201,7 @@ mod test {
             .times(1);
 
         // This should revert because the hint value is non-zero and the hash is zero (default value of storage)
-        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
+        let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
             block_header,
             address,
             storage_slot,
@@ -229,7 +229,7 @@ mod test {
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
         env.advance_block_by(1);
 
-        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
+        let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,
             env.contract_address(),
             storage_slot,
