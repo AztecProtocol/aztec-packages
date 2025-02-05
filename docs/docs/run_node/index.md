@@ -6,7 +6,6 @@ title: Run a node
 
 In this section, you can explore how governance works on Aztec, the types of nodes that can be run, and how to contribute to decentralization on the Aztec Testnet.
 
-
 ## Learn about governance on Aztec
 
 <div className="card-container full-width">
@@ -31,6 +30,7 @@ In this section, you can explore how governance works on Aztec, the types of nod
       How sequencers propose and produce blocks
     </CardBody>
   </Card>
+</div>
 
 ## Run a node
 
