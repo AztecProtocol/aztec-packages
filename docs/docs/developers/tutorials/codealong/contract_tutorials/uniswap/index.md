@@ -15,7 +15,7 @@ The flow will be:
 2. We create an L2 → L1 message to swap on L1
 3. On L1, the user gets their input tokens, consumes the swap message, and executes the swap
 4. The user deposits the “output” tokens to the output token portal so it can be deposited into L2
-5. We will assume that token portals and token bridges for the input and output tokens must exist. These are what we built in the [token bridge tutorial](../token_bridge/index.md).
+5. We will assume that token portals and token bridges for the input and output tokens must exist. These are what we built in the [token bridge tutorial](../token_bridge.md).
 
 The execution of swap on L1 should be designed such that any 3rd party can execute the swap on behalf of the user. This helps maintain user privacy by not requiring links between L1 and L2 activity.
 

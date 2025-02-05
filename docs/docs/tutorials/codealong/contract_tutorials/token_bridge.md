@@ -116,7 +116,7 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 
 ### Prerequisites
 
-Same prerequisites as the [getting started guide](../../../guides/getting_started.md#prerequisites) and the sandbox.
+Same prerequisites as the [getting started guide](../../../developers/getting_started.md#prerequisites) and the sandbox.
 
 ### ProjectSetup
 
