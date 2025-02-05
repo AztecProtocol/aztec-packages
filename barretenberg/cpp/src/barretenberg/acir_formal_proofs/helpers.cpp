@@ -54,9 +54,6 @@ smt_circuit::STerm truncate(smt_circuit::STerm v0, uint32_t bit_size, smt_solver
 smt_circuit::STerm shl64(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    // 2^64 - 1
-    /*auto mask = smt_terms::BVConst("18446744073709551615", solver, 10);
-    auto res = shifted & mask;*/
     auto res = truncate(shifted, 64, solver);
     return res;
 }

@@ -46,9 +46,7 @@ import {
   ManaBaseFeeComponents as ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
-} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
