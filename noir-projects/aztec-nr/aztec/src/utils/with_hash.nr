@@ -140,7 +140,7 @@ mod test {
     unconstrained fn read_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
-        let block_header = env.private_at(6).historical_header;
+        let block_header = env.private().historical_header;
         let address = env.contract_address();
 
         let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
