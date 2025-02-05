@@ -493,11 +493,9 @@ unconstrained fn get_tx_effects_hash_input_helper(
 
         for j in 0..num_private_logs {
             let log_len = find_index_hint_from_end(private_logs[j].fields, |f| f == 0);
-            if log_len != 0 {
-                tx_effects_hash_input[offset] = log_len as Field;
-                offset += 1;
-                array_len += log_len + 1;
-            }
+            tx_effects_hash_input[offset] = log_len as Field;
+            offset += 1;
+            array_len += log_len + 1;
             for k in 0..log_len {
                 tx_effects_hash_input[offset + k] = private_logs[j].fields[k];
             }
@@ -517,11 +515,9 @@ unconstrained fn get_tx_effects_hash_input_helper(
         for j in 0..num_public_logs {
             let log = public_logs[j].serialize();
             let log_len = find_index_hint_from_end(log, |f| f == 0);
-            if log_len != 0 {
-                tx_effects_hash_input[offset] = log_len as Field;
-                offset += 1;
-                array_len += log_len + 1;
-            }
+            tx_effects_hash_input[offset] = log_len as Field;
+            offset += 1;
+            array_len += log_len + 1;
             for k in 0..log_len {
                 tx_effects_hash_input[offset + k] = log[k];
             }
