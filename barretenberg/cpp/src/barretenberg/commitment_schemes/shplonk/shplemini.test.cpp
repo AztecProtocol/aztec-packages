@@ -398,8 +398,8 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     std::vector<Fr> extra_challenges(4);
 
     // Get  4 = log(16) extra challenges
-    for (size_t idx = this->log_n; idx < this->log_n + 4; idx++) {
-        extra_challenges[idx] = const_size_mle_opening_point[idx];
+    for (size_t idx = 0; idx < 4; idx++) {
+        extra_challenges[idx] = const_size_mle_opening_point[idx + this->log_n];
     }
 
     // Generate random prover polynomials, compute their evaluations and commitments
