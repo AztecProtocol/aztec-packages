@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    tests::utils::assert_array_eq, traits::is_empty,
+    constants::DEFAULT_UPDATE_DELAY, tests::utils::assert_array_eq, traits::is_empty,
 };
 
 #[test]
@@ -25,8 +25,18 @@ fn propagate_from_private_call_empty_data_succeeds() {
     assert_eq(array_lengths, expected_array_lengths);
 
     assert_eq(output.min_revertible_side_effect_counter, 0);
-    assert(is_empty(output.validation_requests));
-    assert(output.validation_requests.for_rollup.max_block_number.is_none());
+    assert(is_empty(output.validation_requests.note_hash_read_requests));
+    assert(is_empty(output.validation_requests.nullifier_read_requests));
+    assert(
+        is_empty(
+            output.validation_requests.scoped_key_validation_requests_and_generators,
+        ),
+    );
+    assert(is_empty(output.validation_requests.split_counter));
+    assert_eq(
+        output.validation_requests.for_rollup.max_block_number.unwrap_unchecked(),
+        DEFAULT_UPDATE_DELAY,
+    );
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));
 }

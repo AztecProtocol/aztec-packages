@@ -1,7 +1,7 @@
 use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    tests::utils::assert_array_eq, traits::is_empty,
+    constants::DEFAULT_UPDATE_DELAY, tests::utils::assert_array_eq, traits::is_empty,
 };
 
 #[test]
@@ -14,7 +14,10 @@ fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
     let expected_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::empty();
     assert_eq(array_lengths, expected_array_lengths);
 
-    assert(output.validation_requests.for_rollup.max_block_number.is_none());
+    assert_eq(
+        output.validation_requests.for_rollup.max_block_number.unwrap_unchecked(),
+        DEFAULT_UPDATE_DELAY,
+    );
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));
 }
