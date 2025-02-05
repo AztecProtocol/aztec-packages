@@ -17,4 +17,3 @@ export {
 export { waitForPXE } from './pxe.js';
 export { waitForNode, createAztecNodeClient, AztecNode } from './node.js';
 export { readFieldCompressedString } from './field_compressed_string.js';
-export { createLogger, type Logger } from '@aztec/foundation/log';

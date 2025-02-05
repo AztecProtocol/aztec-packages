@@ -1,7 +1,5 @@
-import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
-import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 
@@ -17,10 +15,6 @@ export default {
   module: {
     rules: [
       {
-        test: /\.gz$/,
-        type: 'asset/resource',
-      },
-      {
         test: /\.tsx?$/,
         use: [
           {
@@ -35,7 +29,7 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './src/web'),
-    filename: 'main.js',
+    publicPath: '/',
     library: {
       type: 'module',
     },
@@ -53,12 +47,7 @@ export default {
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
   ],
   resolve: {
-    plugins: [new ResolveTypeScriptPlugin()],
-    alias: {
-      // All node specific code, wherever it's located, should be imported as below.
-      // Provides a clean and simple way to always strip out the node code for the web build.
-      './node/index.js': false,
-    },
+    extensions: ['.tsx', '.ts', '.js'],
     fallback: {
       crypto: false,
       os: false,
