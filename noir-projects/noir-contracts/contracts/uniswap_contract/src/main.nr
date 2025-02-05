@@ -58,7 +58,11 @@ pub contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = TokenBridge::at(input_asset_bridge).get_token().view(&mut context);
+        let input_asset_bridge_config = TokenBridge::at(input_asset_bridge).get_config_public().view(&mut context);
+
+        let input_asset = input_asset_bridge_config.token;
+        let input_asset_bridge_portal_address = input_asset_bridge_config.portal;
+
 
         // Transfer funds to this contract
         Token::at(input_asset)
@@ -80,10 +84,8 @@ pub contract Uniswap {
             .call(&mut context);
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address =
-            TokenBridge::at(input_asset_bridge).get_portal_address_public().view(&mut context);
         let output_asset_bridge_portal_address =
-            TokenBridge::at(output_asset_bridge).get_portal_address_public().view(&mut context);
+            TokenBridge::at(output_asset_bridge).get_config_public().view(&mut context).portal;
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(),
@@ -124,11 +126,15 @@ pub contract Uniswap {
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
+        let input_asset_bridge_config = TokenBridge::at(input_asset_bridge).get_config_private().view(&mut context);
+        let output_asset_bridge_config = TokenBridge::at(output_asset_bridge).get_config_private().view(&mut context);
+
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        Uniswap::at(context.this_address())
-            ._assert_token_is_same(input_asset, input_asset_bridge)
-            .enqueue_view(&mut context);
+        assert(
+            input_asset.eq(input_asset_bridge_config.token),
+            "input_asset address is not the same as seen in the bridge contract",
+        );
 
         // Transfer funds to this contract
         Token::at(input_asset)
@@ -151,25 +157,22 @@ pub contract Uniswap {
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address =
-            TokenBridge::at(input_asset_bridge).get_portal_address().view(&mut context);
-        let output_asset_bridge_portal_address =
-            TokenBridge::at(output_asset_bridge).get_portal_address().view(&mut context);
+
         // ensure portal exists - else funds might be lost
         assert(
-            !input_asset_bridge_portal_address.is_zero(),
+            !input_asset_bridge_config.portal.is_zero(),
             "L1 portal address of input_asset's bridge is 0",
         );
         assert(
-            !output_asset_bridge_portal_address.is_zero(),
+            !output_asset_bridge_config.portal.is_zero(),
             "L1 portal address of output_asset's bridge is 0",
         );
 
         let content_hash = compute_swap_private_content_hash(
-            input_asset_bridge_portal_address,
+            input_asset_bridge_config.portal,
             input_amount,
             uniswap_fee_tier,
-            output_asset_bridge_portal_address,
+            output_asset_bridge_config.portal,
             minimum_output_amount,
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
@@ -216,16 +219,4 @@ pub contract Uniswap {
             .call(&mut context)
     }
     // docs:end:authwit_uniswap_set
-
-    // docs:start:assert_token_is_same
-    #[public]
-    #[internal]
-    #[view]
-    fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
-        assert(
-            token.eq(TokenBridge::at(token_bridge).get_token().view(&mut context)),
-            "input_asset address is not the same as seen in the bridge contract",
-        );
-    }
-    // docs:end:assert_token_is_same
 }

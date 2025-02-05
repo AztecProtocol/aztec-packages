@@ -41,13 +41,13 @@ pub contract TokenBridge {
     // docs:end:token_bridge_storage_and_constructor
 
     #[private]
-    fn get_portal() -> EthAddress {
-        storage.config.read().portal
+    fn get_config_private() -> Config {
+        storage.config.read()
     }
 
     #[public]
-    fn get_portal_public() -> EthAddress {
-        storage.config.read().portal
+    fn get_config_public() -> Config {
+        storage.config.read()
     }
 
     // docs:start:claim_public
@@ -142,12 +142,4 @@ pub contract TokenBridge {
         Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
     }
     /// docs:end:exit_to_l1_private
-
-    // docs:start:get_token
-    #[public]
-    #[view]
-    fn get_token() -> AztecAddress {
-        storage.config.read().token
-    }
-    // docs:end:get_token
 }
