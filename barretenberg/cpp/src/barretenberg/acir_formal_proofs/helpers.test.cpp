@@ -93,8 +93,6 @@ TEST(helpers, pow2)
 
 TEST(helpers, signed_div)
 {
-    // using smt solver i found that 1879048194 >> 16 == 0
-    // its strange...
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
 
     STerm x = BVVar("x", &s);
@@ -122,7 +120,7 @@ TEST(helpers, signed_div_1)
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
     STerm z = idiv(x, y, 2, &s);
-    // 00 == 0
+    // 01 == 1
     x == 1;
     // 11 == -1
     y == 3;
