@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class perm_rng_non_ff_cmp_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_RNG_NON_FF_CMP";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 2;
 
@@ -55,7 +57,7 @@ class perm_rng_non_ff_cmp_permutation_settings {
 template <typename FF_>
 class perm_rng_non_ff_cmp_relation : public GenericPermutationRelation<perm_rng_non_ff_cmp_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_RNG_NON_FF_CMP";
+    static constexpr std::string_view NAME = perm_rng_non_ff_cmp_permutation_settings::NAME;
 };
 template <typename FF_> using perm_rng_non_ff_cmp = GenericPermutation<perm_rng_non_ff_cmp_permutation_settings, FF_>;
 
@@ -63,6 +65,8 @@ template <typename FF_> using perm_rng_non_ff_cmp = GenericPermutation<perm_rng_
 
 class perm_rng_cmp_lo_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_RNG_CMP_LO";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 2;
 
@@ -104,7 +108,7 @@ class perm_rng_cmp_lo_permutation_settings {
 template <typename FF_>
 class perm_rng_cmp_lo_relation : public GenericPermutationRelation<perm_rng_cmp_lo_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_RNG_CMP_LO";
+    static constexpr std::string_view NAME = perm_rng_cmp_lo_permutation_settings::NAME;
 };
 template <typename FF_> using perm_rng_cmp_lo = GenericPermutation<perm_rng_cmp_lo_permutation_settings, FF_>;
 
@@ -112,6 +116,8 @@ template <typename FF_> using perm_rng_cmp_lo = GenericPermutation<perm_rng_cmp_
 
 class perm_rng_cmp_hi_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_RNG_CMP_HI";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 2;
 
@@ -153,7 +159,7 @@ class perm_rng_cmp_hi_permutation_settings {
 template <typename FF_>
 class perm_rng_cmp_hi_relation : public GenericPermutationRelation<perm_rng_cmp_hi_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_RNG_CMP_HI";
+    static constexpr std::string_view NAME = perm_rng_cmp_hi_permutation_settings::NAME;
 };
 template <typename FF_> using perm_rng_cmp_hi = GenericPermutation<perm_rng_cmp_hi_permutation_settings, FF_>;
 
