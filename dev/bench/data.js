@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738759438544,
+  "lastUpdate": 1738761070724,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4a9c0724e3dd6fa3ea8753fc17a090c33c307d01",
-          "message": "feat(avm): bytecode manager changes (#11347)\n\n* We don't need the bytecode hash when simulating, since tracegen should\r\nrecompute it anyways. This should save ~25ms per bytecode.\r\n* Use `bytecode_id` instead of `class_id`.\r\n* Add bytecode retrieval events.",
-          "timestamp": "2025-01-21T08:40:58Z",
-          "tree_id": "441c65a1c28099f899f9df57a5f5c8fafb7fc4ee",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a9c0724e3dd6fa3ea8753fc17a090c33c307d01"
-        },
-        "date": 1737450397337,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19318.682417999982,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16497.570429 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21894.544296999982,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19314.204303 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4135.295727999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3803.7697100000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75709.889634,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75709889000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14808.398434,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14808399000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3124544064,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3124544064 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135510641,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135510641 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 163568694,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163568694 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "511abe50c77b91bfd0d29c209720663c33debc61",
+          "message": "feat: k-shifts (#11663)\n\nAdds logic to the Shplemini PCS to open right-shift-by-k polynomials\nfrom their unshifted counterparts. As a result of prior PRs in this\nseries, the logic for doing this is isolated to sub classes\n`PolynomialBatcher` and `ClaimBatcher`.\n\nNote: the mechanism is tested in the commitment_schemes_tests suite but\nnot yet used in any real protocols.",
+          "timestamp": "2025-02-05T12:45:20Z",
+          "tree_id": "a2a3b65688e80714a3fccf67585f60b31615c156",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/511abe50c77b91bfd0d29c209720663c33debc61"
+        },
+        "date": 1738761062832,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19852.644344999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17001.061112 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21803.18771100002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19300.99086 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4214.942121000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3907.7355700000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75573.87557,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75573875000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14705.656345000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14705658000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2737314647,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2737314647 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 137863623,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 137863623 ns\nthreads: 1"
           }
         ]
       }
