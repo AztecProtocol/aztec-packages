@@ -378,6 +378,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
 
+        // RECURSIVE2
         this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;

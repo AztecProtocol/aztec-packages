@@ -60,7 +60,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         if constexpr (HasIPAAccumulator<Flavor>) {
-            for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
+            for (size_t i = 0; i < IPA_ACCUMULATOR_NUM_LIMBS; i++) {
                 manifest_expected.add_entry(round, "public_input_" + std::to_string(i + 1), frs_per_Fr);
             }
         }

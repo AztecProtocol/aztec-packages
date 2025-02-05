@@ -18,7 +18,7 @@ struct verification_key_data {
     uint32_t num_public_inputs;
     std::map<std::string, bb::g1::affine_element> commitments;
     bool contains_pairing_point_accumulator = false;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices;
     bool is_recursive_circuit = false;
 
     // for serialization: update with any new fields
@@ -99,7 +99,7 @@ struct verification_key {
     bb::fr z_pow_n; // ʓ^n (ʓ being the 'evaluation challenge')
 
     bool contains_pairing_point_accumulator = false;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices;
 
     bool is_recursive_circuit = false;
 

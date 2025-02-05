@@ -96,7 +96,7 @@ class UltraFlavor {
 
     // Proof length formula:
     // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
-    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 2. KZG_ACCUMULATOR_NUM_LIMBS public inputs for pairing point accumulator
     // 3. NUM_WITNESS_ENTITIES commitments
     // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
     // 5. NUM_ALL_ENTITIES sumcheck evaluations
@@ -388,7 +388,7 @@ class UltraFlavor {
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const KZGAccumulatorIndicesInPublicInputs& pairing_point_accumulator_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,

@@ -239,23 +239,30 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 
 template <typename FF_>
 void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
-    const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
+    const KZGAccumulatorWitnessIndices& pairing_point_accum_witness_indices)
 {
+    // RECURSIVE5 This flag does a bit more in Plonk
     if (contains_pairing_point_accumulator) {
         failure("added pairing point accumulator when one already exists");
         ASSERT(0);
     }
+    // RECURSIVE4
     contains_pairing_point_accumulator = true;
 
+    // WORKTODO: zip
     size_t i = 0;
     for (const auto& idx : pairing_point_accum_witness_indices) {
+        // try to add the indicies to the vector of public input indices
         set_public_input(idx);
+        // record the position of those public inputs in the vector of public input indices
+        // WORKTODO: rename
         pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
         ++i;
     }
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices)
+template <typename FF_>
+void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAAccumulatorWitnessIndices& ipa_claim_witness_indices)
 {
     if (contains_ipa_claim) {
         failure("added IPA claim when one already exists");

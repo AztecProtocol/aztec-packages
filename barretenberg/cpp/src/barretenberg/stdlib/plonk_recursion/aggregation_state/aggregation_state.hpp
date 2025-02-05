@@ -33,9 +33,9 @@ template <typename Curve> struct aggregation_state {
         P1 += other[1] * recursion_separator;
     }
 
-    PairingPointAccumulatorIndices get_witness_indices()
+    KZGAccumulatorWitnessIndices get_witness_indices()
     {
-        PairingPointAccumulatorIndices witness_indices = {
+        KZGAccumulatorWitnessIndices witness_indices = {
             P0.x.binary_basis_limbs[0].element.normalize().witness_index,
             P0.x.binary_basis_limbs[1].element.normalize().witness_index,
             P0.x.binary_basis_limbs[2].element.normalize().witness_index,
@@ -59,7 +59,7 @@ template <typename Curve> struct aggregation_state {
     {
         P0 = P0.reduce();
         P1 = P1.reduce();
-        PairingPointAccumulatorIndices proof_witness_indices = get_witness_indices();
+        KZGAccumulatorWitnessIndices proof_witness_indices = get_witness_indices();
 
         auto* context = P0.get_context();
 
@@ -105,7 +105,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_s
  */
 template <typename Builder, typename Curve>
 aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
-                                                            const PairingPointAccumulatorIndices& witness_indices)
+                                                            const KZGAccumulatorWitnessIndices& witness_indices)
 {
     std::array<typename Curve::BaseField, 4> aggregation_elements;
     for (size_t i = 0; i < 4; ++i) {
@@ -127,9 +127,9 @@ aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
  *
  * @tparam Builder
  * @param builder
- * @return PairingPointAccumulatorIndices
+ * @return KZGAccumulatorWitnessIndices
  */
-template <typename Builder> PairingPointAccumulatorIndices init_default_agg_obj_indices(Builder& builder)
+template <typename Builder> KZGAccumulatorWitnessIndices init_default_agg_obj_indices(Builder& builder)
 {
     constexpr uint32_t NUM_LIMBS = 4;
     constexpr uint32_t NUM_LIMB_BITS = 68;
@@ -137,12 +137,19 @@ template <typename Builder> PairingPointAccumulatorIndices init_default_agg_obj_
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
     // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-    PairingPointAccumulatorIndices agg_obj_indices = {};
+    // WORKTODO: try to fix this
+    KZGAccumulatorWitnessIndices agg_obj_indices = {};
     fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
     fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
     fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
     fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
     std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+
+    // WORKTODO: make this a zip
+    // WORKTODO: This: computes the bigfield limbs of the four field elements, adds them to the builder, and returns the
+    // indices of those limbs
+    // Alternative: We don't need to create a valid object. We need to just initialize the indices to something
+    // remarkable (e.g. all 0xffffffff...s) and then if we detect that object overwrite it
     size_t agg_obj_indices_idx = 0;
     for (fq val : aggregation_object_fq_values) {
         const uint256_t x = val;
@@ -169,7 +176,7 @@ template <typename Builder, typename Curve>
 aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     requires(!IsSimulator<Builder>)
 {
-    PairingPointAccumulatorIndices agg_obj_indices = init_default_agg_obj_indices(builder);
+    KZGAccumulatorWitnessIndices agg_obj_indices = init_default_agg_obj_indices(builder);
     return convert_witness_indices_to_agg_obj<Builder, Curve>(builder, agg_obj_indices);
 }
 

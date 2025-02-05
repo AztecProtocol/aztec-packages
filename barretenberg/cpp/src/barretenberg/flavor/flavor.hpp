@@ -133,7 +133,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
     bool contains_pairing_point_accumulator;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -174,7 +174,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     bool contains_pairing_point_accumulator = false;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;

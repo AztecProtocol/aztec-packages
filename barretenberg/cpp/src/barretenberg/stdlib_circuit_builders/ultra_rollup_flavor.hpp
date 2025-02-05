@@ -8,8 +8,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
   public:
     // Proof length formula:
     // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
-    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
-    // 3. IPA_CLAIM_SIZE public inputs for IPA claim
+    // 2. KZG_ACCUMULATOR_NUM_LIMBS public inputs for pairing point accumulator
+    // 3. IPA_ACCUMULATOR_NUM_LIMBS public inputs for IPA claim
     // 4. NUM_WITNESS_ENTITIES commitments
     // 5. CONST_PROOF_SIZE_LOG_N sumcheck univariates
     // 6. NUM_ALL_ENTITIES sumcheck evaluations
@@ -26,7 +26,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
       public:
         using UltraFlavor::ProvingKey::ProvingKey;
         bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        IPAAccumulatorIndicesInPublicInputs ipa_claim_public_input_indices;
         HonkProof ipa_proof;
     };
 
@@ -42,7 +42,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
       public:
         virtual ~VerificationKey() = default;
         bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        IPAAccumulatorIndicesInPublicInputs ipa_claim_public_input_indices;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -108,9 +108,9 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
                         const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const KZGAccumulatorIndicesInPublicInputs& pairing_point_accumulator_public_input_indices,
                         const bool contains_ipa_claim,
-                        const IPAClaimPubInputIndices& ipa_claim_public_input_indices,
+                        const IPAAccumulatorIndicesInPublicInputs& ipa_claim_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,

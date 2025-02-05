@@ -39,11 +39,11 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
 
     // Public input indices which contain the output IPA opening claim
-    IPAClaimPubInputIndices ipa_claim_public_input_indices;
+    IPAAccumulatorIndicesInPublicInputs ipa_claim_public_input_indices;
     bool contains_ipa_claim = false;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
@@ -212,9 +212,9 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
+    void add_pairing_point_accumulator(const KZGAccumulatorWitnessIndices& pairing_point_accum_witness_indices);
 
-    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
+    void add_ipa_claim(const IPAAccumulatorWitnessIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;

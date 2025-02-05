@@ -53,7 +53,7 @@ template <typename Curve> class OpeningClaim {
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    IPAClaimIndices get_witness_indices() const
+    IPAAccumulatorWitnessIndices get_witness_indices() const
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
         return { opening_pair.challenge.binary_basis_limbs[0].element.normalize().witness_index,

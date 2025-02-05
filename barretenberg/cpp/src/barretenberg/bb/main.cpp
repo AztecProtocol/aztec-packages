@@ -91,6 +91,7 @@ bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
+    // RECURSIVE0
     acir_composer.create_finalized_circuit(constraint_system, recursive, witness);
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
@@ -234,7 +235,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
     auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
-    num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
+    num_inner_public_inputs -= bb::KZG_ACCUMULATOR_NUM_LIMBS; // don't add the agg object
 
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
@@ -244,7 +245,7 @@ void prove_tube(const std::string& output_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    PairingPointAccumulatorIndices current_aggregation_object =
+    KZGAccumulatorWitnessIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
@@ -284,7 +285,7 @@ void prove_tube(const std::string& output_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + KZG_ACCUMULATOR_NUM_LIMBS + IPA_ACCUMULATOR_NUM_LIMBS;
     // The extra calculation is for the IPA proof length.
     ASSERT(tube_proof.size() == HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs);
     // split out the ipa proof

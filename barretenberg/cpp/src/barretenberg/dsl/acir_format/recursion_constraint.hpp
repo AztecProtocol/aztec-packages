@@ -64,11 +64,11 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
-bb::PairingPointAccumulatorIndices create_recursion_constraints(
+bb::KZGAccumulatorWitnessIndices create_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    const bb::PairingPointAccumulatorIndices& input_aggregation_object,
-    const bb::PairingPointAccumulatorIndices& nested_aggregation_object,
+    const bb::KZGAccumulatorWitnessIndices& input_aggregation_object,
+    const bb::KZGAccumulatorWitnessIndices& nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);

@@ -12,7 +12,7 @@ using Builder = bb::UltraCircuitBuilder;
 using namespace bb;
 
 struct HonkRecursionConstraintOutput {
-    PairingPointAccumulatorIndices agg_obj_indices;
+    KZGAccumulatorWitnessIndices agg_obj_indices;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };
@@ -20,7 +20,7 @@ struct HonkRecursionConstraintOutput {
 template <typename Flavor>
 HonkRecursionConstraintOutput create_honk_recursion_constraints(Builder& builder,
                                                                 const RecursionConstraint& input,
-                                                                PairingPointAccumulatorIndices input_aggregation_object,
+                                                                KZGAccumulatorWitnessIndices input_aggregation_object,
                                                                 bool has_valid_witness_assignments = false);
 
 } // namespace acir_format

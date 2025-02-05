@@ -23,7 +23,7 @@ template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    PairingPointAccumulatorIndices agg_obj_indices;
+    KZGAccumulatorWitnessIndices agg_obj_indices;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
     HonkProof ipa_proof;
 };
@@ -247,7 +247,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        PairingPointAccumulatorIndices current_aggregation_object =
+        KZGAccumulatorWitnessIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
         HonkRecursionConstraintsOutput<Builder> output =
             process_honk_recursion_constraints(builder,
@@ -269,6 +269,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             ASSERT(metadata.honk_recursion != 0);
             builder.add_pairing_point_accumulator(current_aggregation_object);
         } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
+            // RECURSIVE3
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
@@ -295,12 +296,8 @@ void process_plonk_recursion_constraints(Builder& builder,
     // TODO(maxim): input_aggregation_object to be non-zero.
     // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
     // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
-    PairingPointAccumulatorIndices current_input_aggregation_object = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-    PairingPointAccumulatorIndices current_output_aggregation_object = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
+    KZGAccumulatorWitnessIndices current_input_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    KZGAccumulatorWitnessIndices current_output_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     // Get the size of proof with no public inputs prepended to it
     // This is used while processing recursion constraints to determine whether
@@ -318,21 +315,21 @@ void process_plonk_recursion_constraints(Builder& builder,
         // they want these constants set by keeping the nested aggregation object attached to
         // the proof as public inputs. As this is the only object that can prepended to the
         // proof if the proof is above the expected size (with public inputs stripped)
-        PairingPointAccumulatorPubInputIndices nested_aggregation_object = {};
+        KZGAccumulatorIndicesInPublicInputs nested_aggregation_object = {};
         // If the proof has public inputs attached to it, we should handle setting the nested
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
             // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINT_ACCUMULATOR_SIZE) {
+            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::KZG_ACCUMULATOR_NUM_LIMBS) {
                 auto error_string = format("Public inputs are always stripped from proofs "
                                            "unless we have a recursive proof.\n"
                                            "Thus, public inputs attached to a proof must match "
                                            "the recursive aggregation object in size "
                                            "which is ",
-                                           bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+                                           bb::KZG_ACCUMULATOR_NUM_LIMBS);
                 throw_or_abort(error_string);
             }
-            for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+            for (size_t i = 0; i < bb::KZG_ACCUMULATOR_NUM_LIMBS; ++i) {
                 // Set the nested aggregation object indices to the current size of the public
                 // inputs This way we know that the nested aggregation object indices will
                 // always be the last indices of the public inputs
@@ -345,7 +342,7 @@ void process_plonk_recursion_constraints(Builder& builder,
             // in the way that the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin(),
                                    constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(bb::PAIRING_POINT_ACCUMULATOR_SIZE));
+                                       static_cast<std::ptrdiff_t>(bb::KZG_ACCUMULATOR_NUM_LIMBS));
         }
 
         current_output_aggregation_object = create_recursion_constraints(builder,
@@ -373,7 +370,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    PairingPointAccumulatorIndices current_aggregation_object,
+    KZGAccumulatorWitnessIndices current_aggregation_object,
     uint32_t honk_recursion)
 {
     HonkRecursionConstraintsOutput<Builder> output;
@@ -512,12 +509,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 }
 
 #ifndef DISABLE_AZTEC_VM
-PairingPointAccumulatorIndices process_avm_recursion_constraints(
-    Builder& builder,
-    AcirFormat& constraint_system,
-    bool has_valid_witness_assignments,
-    GateCounter<Builder>& gate_counter,
-    PairingPointAccumulatorIndices current_aggregation_object)
+KZGAccumulatorWitnessIndices process_avm_recursion_constraints(Builder& builder,
+                                                               AcirFormat& constraint_system,
+                                                               bool has_valid_witness_assignments,
+                                                               GateCounter<Builder>& gate_counter,
+                                                               KZGAccumulatorWitnessIndices current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;
@@ -592,6 +588,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
+    // RECURSIVE1
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
     AcirProgram program{ constraint_system, witness };
@@ -599,6 +596,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                     .honk_recursion = honk_recursion,
                                     .collect_gates_per_opcode = collect_gates_per_opcode,
                                     .size_hint = size_hint };
+
     build_constraints(builder, program, metadata);
 
     vinfo("created circuit");
