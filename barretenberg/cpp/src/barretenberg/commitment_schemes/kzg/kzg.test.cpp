@@ -105,7 +105,12 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
-    auto instance_witness = MockWitnessGenerator(n, 2, 1, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 1,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -115,7 +120,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -133,12 +138,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point,
-                                            RefVector(instance_witness.unshifted_evals),
-                                            RefVector(instance_witness.shifted_evals),
-                                            RefVector(instance_witness.unshifted_commitments),
-                                            RefVector(instance_witness.to_be_shifted_commitments),
-                                            verifier_transcript);
+        GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
 
     // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
     const auto shplonk_verifier_claim =
@@ -159,7 +159,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // point.
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
 
-    auto instance_witness = MockWitnessGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -169,7 +174,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -187,7 +192,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        n, instance_witness.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
+        n, mock_claims.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
@@ -200,7 +205,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto instance_witness = MockWitnessGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
         generate_concatenation_inputs<Curve>(mle_opening_point, /*num_concatenated=*/3, /*concatenation_index=*/2, ck);
@@ -213,7 +223,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     const auto prover_opening_claims = GeminiProver::prove(n,
-                                                           instance_witness.polynomial_batcher,
+                                                           mock_claims.polynomial_batcher,
                                                            mle_opening_point,
                                                            ck,
                                                            prover_transcript,
@@ -237,7 +247,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     const auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       instance_witness.claim_batcher,
+                                                       mock_claims.claim_batcher,
                                                        mle_opening_point,
                                                        vk->get_g1_identity(),
                                                        verifier_transcript,
@@ -260,7 +270,12 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto instance_witness = MockWitnessGenerator(n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -270,7 +285,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     const auto prover_opening_claims =
-        GeminiProver::prove(n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -301,7 +316,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                                                    instance_witness.claim_batcher,
+                                                                                    mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk->get_g1_identity(),
                                                                                     verifier_transcript,
