@@ -12,6 +12,10 @@ using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
 
 using namespace smt_terms;
 
+/**
+ * @brief Test left shift operation
+ * Tests that 5 << 1 = 10 using SMT solver
+ */
 TEST(helpers, shl)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
@@ -32,6 +36,10 @@ TEST(helpers, shl)
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000001010");
 }
 
+/**
+ * @brief Test right shift operation
+ * Tests that 5 >> 1 = 2 using SMT solver
+ */
 TEST(helpers, shr)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
@@ -52,6 +60,10 @@ TEST(helpers, shr)
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000010");
 }
 
+/**
+ * @brief Test edge case for right shift operation
+ * Tests that 1879048194 >> 16 = 28672 using SMT solver
+ */
 TEST(helpers, buggy_shr)
 {
     // using smt solver i found that 1879048194 >> 16 == 0
@@ -74,6 +86,10 @@ TEST(helpers, buggy_shr)
     EXPECT_TRUE(vals["z"] == "00000000000000000111000000000000");
 }
 
+/**
+ * @brief Test power of 2 calculation
+ * Tests that 2^11 = 2048 using SMT solver
+ */
 TEST(helpers, pow2)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
@@ -91,6 +107,10 @@ TEST(helpers, pow2)
     EXPECT_TRUE(vals["z"] == "00000000000000000000100000000000");
 }
 
+/**
+ * @brief Test signed division with zero dividend
+ * Tests that 0 / -1 = 0 using SMT solver
+ */
 TEST(helpers, signed_div)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
@@ -111,10 +131,12 @@ TEST(helpers, signed_div)
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000000");
 }
 
+/**
+ * @brief Test signed division with positive dividend and negative divisor
+ * Tests that 1 / -1 = -1 using SMT solver
+ */
 TEST(helpers, signed_div_1)
 {
-    // using smt solver i found that 1879048194 >> 16 == 0
-    // its strange...
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
 
     STerm x = BVVar("x", &s);
@@ -133,10 +155,12 @@ TEST(helpers, signed_div_1)
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000011");
 }
 
+/**
+ * @brief Test signed division with positive numbers
+ * Tests that 7 / 2 = 3 using SMT solver
+ */
 TEST(helpers, signed_div_2)
 {
-    // using smt solver i found that 1879048194 >> 16 == 0
-    // its strange...
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
 
     STerm x = BVVar("x", &s);
@@ -155,6 +179,10 @@ TEST(helpers, signed_div_2)
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000011");
 }
 
+/**
+ * @brief Test left shift overflow behavior
+ * Tests that 1 << 50 = 0 (due to overflow) using SMT solver
+ */
 TEST(helpers, shl_overflow)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
