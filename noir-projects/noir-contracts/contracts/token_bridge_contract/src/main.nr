@@ -40,11 +40,13 @@ pub contract TokenBridge {
     }
     // docs:end:token_bridge_storage_and_constructor
 
+    // docs:start:get_config
     #[private]
     #[view]
     fn get_config() -> Config {
         storage.config.read()
     }
+    // docs:end:get_config
 
     #[public]
     #[view]
@@ -131,10 +133,12 @@ pub contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
+        // docs:start:assert_token_is_same
         let config = storage.config.read();
 
         // Assert that user provided token address is same as seen in storage.
         assert_eq(config.token, token, "Token address is not the same as seen in storage");
+        // docs:end:assert_token_is_same
 
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
