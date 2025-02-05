@@ -65,3 +65,14 @@ title: Build
   </CardBody>
 </Card>
 
+## Get inspired
+
+<div className="card-container">
+  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
+    <CardHeader>
+      <h3>What to build on Aztec</h3>
+    </CardHeader>
+    <CardBody>
+      Find requests for applications, potential designs, and existing ecosystem projects
+    </CardBody>
+  </Card>
