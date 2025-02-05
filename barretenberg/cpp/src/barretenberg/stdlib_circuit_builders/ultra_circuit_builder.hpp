@@ -441,6 +441,18 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
+    uint32_t add_public_variable(const FF& in) override
+    {
+        const uint32_t index = this->add_variable(in);
+        blocks.pub_inputs.populate_wires(index, index, this->zero_idx, this->zero_idx);
+
+        for (auto& selector : blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+
+        return index;
+    }
+
     void create_add_gate(const add_triple_<FF>& in) override;
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);

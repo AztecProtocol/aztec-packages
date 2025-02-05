@@ -89,10 +89,10 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // Complete the public inputs execution trace block from builder.public_inputs
-        populate_public_inputs_block(builder);
-    }
+    // if constexpr (IsPlonkFlavor<Flavor>) {
+    //     // Complete the public inputs execution trace block from builder.public_inputs
+    //     populate_public_inputs_block(builder);
+    // }
 
     TraceData trace_data{ builder, proving_key };
 

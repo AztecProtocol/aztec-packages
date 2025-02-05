@@ -81,9 +81,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
              ". Log dyadic circuit size: ",
              numeric::get_msb(dyadic_circuit_size),
              ".");
-
-        // Complete the public inputs execution trace block from circuit.public_inputs
-        Trace::populate_public_inputs_block(circuit);
+        // WORKTODO: is there a more natural place to do this now that pub inputs block is handled like the rest?
+        // Trace::populate_public_inputs_block(circuit);
         circuit.blocks.compute_offsets(is_structured);
 
         // Find index of last non-trivial wire value in the trace
