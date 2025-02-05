@@ -76,7 +76,6 @@ pub contract FPC {
     // docs:start:fee_entrypoint_private
     #[private]
     fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
-        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let accepted_asset = storage.config.read().accepted_asset;
 
         let user = context.msg_sender();
@@ -150,7 +149,6 @@ pub contract FPC {
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
     fn fee_entrypoint_public(max_fee: U128, nonce: Field) {
-        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
@@ -198,7 +196,6 @@ pub contract FPC {
     /// this function.
     #[public]
     fn pull_funds(to: AztecAddress) {
-        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let config = storage.config.read();
 
         assert(context.msg_sender() == config.admin, "Only admin can pull funds");
