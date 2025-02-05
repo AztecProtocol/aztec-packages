@@ -22,7 +22,7 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  type ReqRespSubProtocol,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
@@ -544,13 +544,20 @@ export class ReqResp {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(connection.remotePeer, msg);
+
+            if (protocol === ReqRespSubProtocol.GOODBYE) {
+              // Don't respond
+              await stream.close();
+              return;
+            }
+
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },
         stream,
       );
     } catch (e: any) {
-      this.logger.warn(e);
+      this.logger.warn('Reqresp Response error: ', e);
       this.metrics.recordResponseError(protocol);
     } finally {
       await stream.close();

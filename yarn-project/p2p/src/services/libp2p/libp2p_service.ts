@@ -66,6 +66,7 @@ import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } fro
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
+import { createLibp2pComponentLogger } from './libp2p_logger.js';
 
 interface MessageValidator {
   validator: {
@@ -128,7 +129,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerDiscoveryService,
       config,
       telemetry,
-      logger,
+      createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
     );
@@ -170,6 +171,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecAsyncKVStore,
     telemetry: TelemetryClient,
+    logger = createLogger('p2p:libp2p_service'),
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -201,7 +203,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       ],
       datastore,
-      streamMuxers: [mplex({ maxInboundStreams: 256 })],
+      // TODO transiently removed setting: { maxInboundStreams: 256 }
+      streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: minPeerCount,
@@ -212,18 +215,20 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
           floodPublish: false,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
-          Dlazy: 6,
+          // TODO: reactivate
+          // Dlazy: 6,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
-          gossipsubIWantFollowupMs: 12 * 1000,
+          // gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -231,7 +236,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
-          batchPublish: true,
+          // batchPublish: true,
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -261,6 +266,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           connectionManager: components.connectionManager,
         }),
       },
+      logger: createLibp2pComponentLogger(logger.module),
     });
 
     return new LibP2PService(
@@ -274,6 +280,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
+      logger,
     );
   }
 
@@ -326,9 +333,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
       [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
     };
-    for (const [topic, validator] of Object.entries(topicValidators)) {
-      this.node.services.pubsub.topicValidators.set(topic, validator);
-    }
+    // Temp: disable topic validators for testing
+    // for (const [topic, validator] of Object.entries(topicValidators)) {
+    //   this.node.services.pubsub.topicValidators.set(topic, validator);
+    // }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
