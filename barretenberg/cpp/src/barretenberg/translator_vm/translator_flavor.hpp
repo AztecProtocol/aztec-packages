@@ -723,11 +723,6 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief A container for easier mapping of polynomials
-     */
-    using ProverPolynomialIds = AllEntities<size_t>;
-
-    /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
