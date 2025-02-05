@@ -10,6 +10,7 @@ import {
   type P2PApi,
   type P2PClientType,
   type PeerInfo,
+  type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
@@ -62,130 +63,131 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
-  /**
-   * Broadcasts a block proposal to other peers.
-   *
-   * @param proposal - the block proposal
-   */
-  broadcastProposal(proposal: BlockProposal): void;
+export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordination &
+  P2PApi<T> & {
+    /**
+     * Broadcasts a block proposal to other peers.
+     *
+     * @param proposal - the block proposal
+     */
+    broadcastProposal(proposal: BlockProposal): void;
 
-  /**
-   * Queries the EpochProofQuote pool for quotes for the given epoch
-   *
-   * @param epoch  - the epoch to query
-   * @returns EpochProofQuotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+    /**
+     * Queries the EpochProofQuote pool for quotes for the given epoch
+     *
+     * @param epoch  - the epoch to query
+     * @returns EpochProofQuotes
+     */
+    getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 
-  /**
-   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
-   *
-   * @param quote - the quote to broadcast
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
+    /**
+     * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
+     *
+     * @param quote - the quote to broadcast
+     */
+    addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 
-  /**
-   * Registers a callback from the validator client that determines how to behave when
-   * foreign block proposals are received
-   *
-   * @param handler - A function taking a received block proposal and producing an attestation
-   */
-  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-  // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+    /**
+     * Registers a callback from the validator client that determines how to behave when
+     * foreign block proposals are received
+     *
+     * @param handler - A function taking a received block proposal and producing an attestation
+     */
+    // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
+    // ^ This pattern is not my favorite (md)
+    registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
-  /**
-   * Request a list of transactions from another peer by their tx hashes.
-   * @param txHashes - Hashes of the txs to query.
-   * @returns A list of transactions or undefined if the transactions are not found.
-   */
-  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+    /**
+     * Request a list of transactions from another peer by their tx hashes.
+     * @param txHashes - Hashes of the txs to query.
+     * @returns A list of transactions or undefined if the transactions are not found.
+     */
+    requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
-  /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Request a transaction from another peer by its tx hash.
+     * @param txHash - Hash of the tx to query.
+     */
+    requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
-   * @param tx - The transaction.
-   **/
-  sendTx(tx: Tx): Promise<void>;
+    /**
+     * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
+     * @param tx - The transaction.
+     **/
+    sendTx(tx: Tx): Promise<void>;
 
-  /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
-   **/
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+    /**
+     * Deletes 'txs' from the pool, given hashes.
+     * NOT used if we use sendTx as reconcileTxPool will handle this.
+     * @param txHashes - Hashes to check.
+     **/
+    deleteTxs(txHashes: TxHash[]): Promise<void>;
 
-  /**
-   * Returns a transaction in the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Returns a transaction in the transaction pool by its hash.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Returns an archived transaction from the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Returns an archived transaction from the transaction pool by its hash.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Returns whether the given tx hash is flagged as pending or mined.
-   * @param txHash - Hash of the tx to query.
-   * @returns Pending or mined depending on its status, or undefined if not found.
-   */
-  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+    /**
+     * Returns whether the given tx hash is flagged as pending or mined.
+     * @param txHash - Hash of the tx to query.
+     * @returns Pending or mined depending on its status, or undefined if not found.
+     */
+    getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
-  /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterableIterator<Tx>;
+    /** Returns an iterator over pending txs on the mempool. */
+    iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
-  /** Returns the number of pending txs in the mempool. */
-  getPendingTxCount(): Promise<number>;
+    /** Returns the number of pending txs in the mempool. */
+    getPendingTxCount(): Promise<number>;
 
-  /**
-   * Starts the p2p client.
-   * @returns A promise signalling the completion of the block sync.
-   */
-  start(): Promise<void>;
+    /**
+     * Starts the p2p client.
+     * @returns A promise signalling the completion of the block sync.
+     */
+    start(): Promise<void>;
 
-  /**
-   * Stops the p2p client.
-   * @returns A promise signalling the completion of the stop process.
-   */
-  stop(): Promise<void>;
+    /**
+     * Stops the p2p client.
+     * @returns A promise signalling the completion of the stop process.
+     */
+    stop(): Promise<void>;
 
-  /**
-   * Indicates if the p2p client is ready for transaction submission.
-   * @returns A boolean flag indicating readiness.
-   */
-  isReady(): boolean;
+    /**
+     * Indicates if the p2p client is ready for transaction submission.
+     * @returns A boolean flag indicating readiness.
+     */
+    isReady(): boolean;
 
-  /**
-   * Returns the current status of the p2p client.
-   */
-  getStatus(): Promise<P2PSyncState>;
+    /**
+     * Returns the current status of the p2p client.
+     */
+    getStatus(): Promise<P2PSyncState>;
 
-  /**
-   * Returns the ENR of this node, if any.
-   */
-  getEnr(): ENR | undefined;
+    /**
+     * Returns the ENR of this node, if any.
+     */
+    getEnr(): ENR | undefined;
 
-  /** Identifies a p2p client. */
-  isP2PClient(): true;
-};
+    /** Identifies a p2p client. */
+    isP2PClient(): true;
+  };
 
 /**
  * The P2P client implementation.
@@ -467,6 +469,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return tx;
   }
 
+  /**
+   * Uses the batched Request Response protocol to request a set of transactions from the network.
+   */
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
+    await this.txPool.addTxs(txs);
+    const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
+    this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
+    return txs as Tx[];
+  }
+
   public getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve(this.getTxs('pending'));
   }
@@ -527,6 +540,27 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return tx;
     }
     return this.requestTxByHash(txHash);
+  }
+
+  /**
+   * Returns transactions in the transaction pool by hash.
+   * If a transaction is not in the pool, it will be requested from the network.
+   * @param txHashes - Hashes of the transactions to look for.
+   * @returns The txs found, not necessarily on the same order as the hashes.
+   */
+  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    const missingTxHashes = txs
+      .map((tx, index) => [tx, index] as const)
+      .filter(([tx, _index]) => !tx)
+      .map(([_tx, index]) => txHashes[index]);
+
+    if (missingTxHashes.length === 0) {
+      return txs as Tx[];
+    }
+
+    const missingTxs = await this.requestTxsByHash(missingTxHashes);
+    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
   }
 
   /**
@@ -662,7 +696,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
     );
     await this.synchedLatestBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to latest block ${lastBlockNum}`);
+    this.log.verbose(`Synched to latest block ${lastBlockNum}`);
     await this.startServiceIfSynched();
   }
 
