@@ -15,9 +15,9 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Pack
 /// This is valuable when T packs to multiple fields, as it maintains "almost constant" verification overhead
 /// regardless of the original data size.
 ///
-/// # Optimizing number of reads
-/// Given that reading T from public immutable has "almost constant" constraints cost for different sizes of T
-/// it is recommended to group multiple values into a single struct when they are being read together. This can
+/// # Optimizing private reads in your contract
+/// Given that reading T from public immutable in private has "almost constant" constraints cost for different sizes
+/// of T it is recommended to group multiple values into a single struct when they are being read together. This can
 /// typically be some kind of configuration set up during contract initialization. E.g.:
 ///
 /// ```noir
