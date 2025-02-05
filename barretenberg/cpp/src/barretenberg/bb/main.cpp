@@ -162,6 +162,7 @@ bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, c
 
     // Populate the acir constraint system and witness from gzipped data
     acir_format::AcirProgram program;
+    // HONK_RECURSION0
     program.constraints = get_constraint_system(bytecodePath, metadata.honk_recursion);
     program.witness = get_witness(witnessPath);
 
@@ -920,6 +921,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
+    // HONK_RECURSION0
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
     auto prover = Prover{ builder };
     size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
@@ -1083,6 +1085,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
     const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
                                                ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
+
+    // HONK_RECURSION0
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Add public inputs corresponding to pairing point accumulator

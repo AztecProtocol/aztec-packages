@@ -249,6 +249,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         KZGAccumulatorWitnessIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        // HONK_RECURSION1
         HonkRecursionConstraintsOutput<Builder> output =
             process_honk_recursion_constraints(builder,
                                                constraint_system,
@@ -269,11 +270,13 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             ASSERT(metadata.honk_recursion != 0);
             builder.add_pairing_point_accumulator(current_aggregation_object);
         } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
+            // HONK_RECURSION1
             // RECURSIVE3
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
         }
+        // WORKTODO: is this the only ==2? morally speaking?
         // If we are proving with UltraRollupFlavor, the IPA proof should have nonzero size.
         ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
@@ -371,7 +374,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
     KZGAccumulatorWitnessIndices current_aggregation_object,
-    uint32_t honk_recursion)
+    uint32_t honk_recursion) // WORKTODO: could be replaced by a boolean named eg `init_ipa_accumulator`
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
@@ -436,6 +439,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     } else if (nested_ipa_claims.size() > 2) {
         throw_or_abort("Too many nested IPA claims to accumulate");
     } else {
+        // HONK_RECURSION2
         if (honk_recursion == 2) {
             info("Proving with UltraRollupHonk but no IPA claims exist.");
             auto [stdlib_opening_claim, ipa_proof] =

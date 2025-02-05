@@ -13,6 +13,7 @@ acir_format::WitnessVector get_witness(std::string const& witness_path)
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
 
+// HONK_RECURSION1
 acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path, uint32_t honk_recursion)
 {
     auto bytecode = get_bytecode(bytecode_path);
@@ -25,6 +26,7 @@ acir_format::WitnessVectorStack get_witness_stack(std::string const& witness_pat
     return acir_format::witness_buf_to_witness_stack(witness_data);
 }
 
+// HONK_RECURSION1
 std::vector<acir_format::AcirFormat> get_constraint_systems(std::string const& bytecode_path, uint32_t honk_recursion)
 {
     auto bytecode = get_bytecode(bytecode_path);
