@@ -48,12 +48,8 @@ This page covers requests for apps on Aztec, designs that some teams are explori
 
 ### Infrastructure & Tooling
 
-- Transaction History Viewer
-- Testnet Dashboard
-- Testnet Analytics
 - Privacy-Preserving Oracle Systems
 - Privacy-Preserving RPC Proxies
-- Indexing Services
 
 There are countless other ideas. Join the [developer Discord](https://discord.com/invite/aztec) if you're interested in building any of these or more.
 
