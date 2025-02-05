@@ -3,8 +3,8 @@ aztec:
   epochDuration: 4
   realProofs: false
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 3
+  validatorKeyIndexStart: 49
+  proverKeyIndexStart: 52
 
 # ethereum:
 #   chainId: "11155111"
