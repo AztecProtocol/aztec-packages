@@ -18,8 +18,11 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
 import { multiaddr } from '@multiformats/multiaddr';
+import { fork } from 'child_process';
 import getPort from 'get-port';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { createP2PClient } from '../client/index.js';
@@ -300,44 +303,110 @@ describe('p2p client integration', () => {
       'Should propagate a tx to all peers with a throttled degree and large node set',
       async () => {
         // No network partition, all nodes should receive
-        const numberOfClients = 12;
-        const clients = await createClients(numberOfClients, {
-          p2pConfigOverrides: {
+        const numberOfClients = 30;
+
+        const __dirname = path.dirname(fileURLToPath(import.meta.url));
+        const workerPath = path.join(__dirname, '../../dest/client/p2p_gossipsub_worker.js');
+
+        // Setup clients in separate processes
+        const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
+        const ports = await getPorts(numberOfClients);
+        const peerEnrs = await Promise.all(
+          peerIdPrivateKeys.map(async (pk, i) => {
+            const peerId = await createLibP2PPeerIdFromPrivateKey(pk);
+            const enr = SignableENR.createFromPeerId(peerId);
+
+            const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
+            const tcpAnnounceAddress = `127.0.0.1:${ports[i]}`;
+            const udpPublicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
+            const tcpPublicAddr = multiaddr(convertToMultiaddr(tcpAnnounceAddress, 'tcp'));
+
+            enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+            enr.setLocationMultiaddr(udpPublicAddr);
+            enr.setLocationMultiaddr(tcpPublicAddr);
+
+            return enr.encodeTxt();
+          }),
+        );
+
+        const processes = [];
+        for (let i = 0; i < numberOfClients; i++) {
+          logger.info(`\n\n\n\n\n\n\nCreating client ${i}\n\n\n\n\n\n\n`);
+          const addr = `127.0.0.1:${ports[i]}`;
+          const listenAddr = `0.0.0.0:${ports[i]}`;
+          const otherNodes = peerEnrs.filter((_, ind) => ind < i);
+
+          const config = {
+            ...getP2PDefaultConfig(),
+            p2pEnabled: true,
+            peerIdPrivateKey: peerIdPrivateKeys[i],
+            tcpListenAddress: listenAddr,
+            udpListenAddress: listenAddr,
+            tcpAnnounceAddress: addr,
+            udpAnnounceAddress: addr,
+            bootstrapNodes: [...otherNodes],
             minPeerCount: 0,
             maxPeerCount: numberOfClients,
             gossipsubInterval: 700,
-            // Throttle the degree of the gossipsub system
             gossipsubD: 1,
             gossipsubDlo: 1,
             gossipsubDhi: 1,
-            peerCheckIntervalMS: 2500, // less log pollution
-          },
-        });
+            peerCheckIntervalMS: 2500,
+          };
+
+          const childProcess = fork(workerPath);
+          childProcess.send({ type: 'START', config, clientIndex: i });
+
+          // Wait for ready signal
+          await new Promise((resolve, reject) => {
+            childProcess.once('message', (msg: any) => {
+              if (msg.type === 'READY') resolve(undefined);
+              if (msg.type === 'ERROR') reject(new Error(msg.error));
+            });
+          });
+
+          processes.push(childProcess);
+        }
 
         await sleep(4000);
 
-        // Create spies to monitor gossip message handling for each client
-        const gossipSpies = clients.map(client => jest.spyOn((client as any).p2pService, 'handleNewGossipMessage'));
+        // Track gossip message counts from all processes
+        const gossipCounts = new Map<number, number>();
+        processes.forEach((proc, i) => {
+          proc.on('message', (msg: any) => {
+            if (msg.type === 'GOSSIP_RECEIVED') {
+              gossipCounts.set(i, msg.count);
+            }
+          });
+        });
 
-        // Send a message from the first client
-        logger.info(`\n\n\n\n\n\n\nSending tx from client 0\n\n\n\n\n\n\n`);
+        // Send tx from client 3
         const tx = await mockTx();
-        await clients[3].sendTx(tx);
+        processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
 
         // Give time for message propagation
         await sleep(5000);
         logger.info(`\n\n\n\n\n\n\nWoke up\n\n\n\n\n\n\n`);
 
-        // Verify that most clients received the message
-        const spiesTriggered = gossipSpies.filter(spy => spy.mock.calls.length > 0).length;
+        // Count how many processes received the message
+        const spiesTriggered = Array.from(gossipCounts.values()).filter(count => count > 0).length;
         console.log('spiesTriggered', spiesTriggered);
+
+        // Cleanup
+        await Promise.all(
+          processes.map(
+            proc =>
+              new Promise<void>(resolve => {
+                proc.once('exit', () => resolve());
+                proc.send({ type: 'STOP' });
+              }),
+          ),
+        );
+
         // Note:
         // - 10 nodes, 1 does not get the message
         // - is it due to identify having too low allowed streams
         expect(spiesTriggered).toEqual(numberOfClients - 1); // All nodes apart from the one that sent it
-
-        // Cleanup
-        await shutdown(clients);
       },
       TEST_TIMEOUT * 100,
     );

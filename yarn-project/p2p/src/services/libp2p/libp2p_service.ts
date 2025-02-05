@@ -19,7 +19,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -113,7 +113,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
@@ -166,7 +166,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     peerId: PeerId,
     mempools: MemPools<T>,
     l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecAsyncKVStore,

@@ -579,7 +579,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    **/
   public async sendTx(tx: Tx): Promise<void> {
     this.#assertIsReady();
+    this.log.info(`\n\n\n\n\n\n\n INSIDE tx from client\n\n\n\n\n\n\n`);
     await this.txPool.addTxs([tx]);
+    this.log.info(`\n\n\n\n\n\n\n OUTSIDE tx from client\n\n\n\n\n\n\n`);
     this.p2pService.propagate(tx);
   }
 
