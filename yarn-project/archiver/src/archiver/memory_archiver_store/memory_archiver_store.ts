@@ -283,9 +283,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
         // The first elt stores lengths => tag is in fields[1]
         const tag = log.log[1];
-
         this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
-
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,

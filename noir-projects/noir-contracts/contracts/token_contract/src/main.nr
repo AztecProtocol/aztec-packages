@@ -448,10 +448,10 @@ pub contract Token {
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
 
-        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        // so a malicious sender could use non-random values to make the note less private. But they already know
-        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        // information. We can therefore assume that the sender will cooperate in the random value generation.
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let note_randomness = unsafe { random() };
         let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
 
@@ -469,7 +469,6 @@ pub contract Token {
         // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
         // in our state variables we derive slots using a different hash function from multi scalar multiplication
         // (MSM).
-
         let hiding_point_slot = note_setup_payload.hiding_point.x;
 
         // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`

@@ -104,7 +104,6 @@ export class LogStore {
         const tag = log.log[1];
 
         this.#log.debug(`Found tagged public log with tag ${tag.toString()} in block ${block.number}`);
-
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(
           new TxScopedL2Log(
