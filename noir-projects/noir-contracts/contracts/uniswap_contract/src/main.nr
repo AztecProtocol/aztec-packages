@@ -16,10 +16,7 @@ pub contract Uniswap {
     };
 
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
-    use dep::aztec::macros::{
-        functions::{initializer, internal, private, public, view},
-        storage::storage,
-    };
+    use dep::aztec::macros::{functions::{initializer, internal, private, public}, storage::storage};
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
 
@@ -58,11 +55,11 @@ pub contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset_bridge_config = TokenBridge::at(input_asset_bridge).get_config_public().view(&mut context);
+        let input_asset_bridge_config =
+            TokenBridge::at(input_asset_bridge).get_config_public().view(&mut context);
 
         let input_asset = input_asset_bridge_config.token;
         let input_asset_bridge_portal_address = input_asset_bridge_config.portal;
-
 
         // Transfer funds to this contract
         Token::at(input_asset)
@@ -126,8 +123,10 @@ pub contract Uniswap {
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
-        let input_asset_bridge_config = TokenBridge::at(input_asset_bridge).get_config_private().view(&mut context);
-        let output_asset_bridge_config = TokenBridge::at(output_asset_bridge).get_config_private().view(&mut context);
+        let input_asset_bridge_config =
+            TokenBridge::at(input_asset_bridge).get_config_private().view(&mut context);
+        let output_asset_bridge_config =
+            TokenBridge::at(output_asset_bridge).get_config_private().view(&mut context);
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
