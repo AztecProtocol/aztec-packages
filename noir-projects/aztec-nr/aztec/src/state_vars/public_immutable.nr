@@ -25,12 +25,13 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Pack
 /// use std::meta::derive;
 ///
 /// #[derive(Eq, Packable)]
-/// pub struct Config {
+/// pub struct Config \{
 ///     pub address_1: AztecAddress,
 ///     pub value_1: U128,
 ///     pub value_2: u64,
 ///     ...
 /// }
+/// ```
 ///
 // docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
