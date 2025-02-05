@@ -277,9 +277,6 @@ void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values, bool
     Signal signal;
     auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& response) -> void {
         EXPECT_EQ(response.success, expectedSuccess);
-        if (!response.success) {
-            std::cout << response.message << std::endl;
-        }
         signal.signal_level();
     };
 
