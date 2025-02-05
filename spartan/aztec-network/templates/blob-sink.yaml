@@ -32,7 +32,6 @@ spec:
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
-      initContainers:
       containers:
         - name: blob-sink
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -95,8 +94,6 @@ spec:
           resources:
             {{- toYaml .Values.blobSink.resources | nindent 12 }}
       volumes:
-        - name: blob-sink-data
-          emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: blob-sink-data
           emptyDir: {}
