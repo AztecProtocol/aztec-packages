@@ -13,12 +13,14 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key };
     auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    info("num gates after eccvm verifier ", builder->num_gates);
 
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
     translator_verifier.verify_proof(proof.translator_proof);
+    info("num gates after translator verifier ", builder->num_gates);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
@@ -33,9 +35,11 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
 
         };
     translator_verifier.verify_translation(translation_evaluations);
+    info("num gates after translation evals ", builder->num_gates);
 
     MergeVerifier merge_verifier{ builder };
     merge_verifier.verify_proof(proof.merge_proof);
+    info("num gates after merge verification ", builder->num_gates);
     return { opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

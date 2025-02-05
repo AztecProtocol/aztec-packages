@@ -11,15 +11,18 @@ namespace bb::stdlib::recursion::honk {
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
     // Construct stdlib Mega verification key
+    info("num gates before making mega vk ", builder->num_gates);
     auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
-
+    info("num gates after making mega vk ", builder->num_gates);
     // Dummy aggregation object until we do proper aggregation
     aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
         init_default_aggregation_state<Builder, typename RecursiveFlavor::Curve>(*builder);
+    info("num gates after default agg state ", builder->num_gates);
 
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk };
     verifier.verify_proof(proof.mega_proof, agg_obj);
+    info("num gates after mega verifier ", builder->num_gates);
 
     // Perform Goblin recursive verification
     GoblinVerifierInput goblin_verification_key{ ivc_verification_key.eccvm, ivc_verification_key.translator };
