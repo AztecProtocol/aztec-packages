@@ -146,29 +146,14 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
 
     ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
 
-    // for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
-    //     for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
-    //                                               keys[key_idx]->proving_key.polynomials.get_unshifted())) {
-
-    //         ASSERT(acc_poly.start_index() <= key_poly.start_index());
-    //         ASSERT(acc_poly.end_index() >= key_poly.end_index());
-    //         const size_t num_threads = calculate_num_threads(key_poly.size());
-    //         const size_t range_per_thread = key_poly.size() / num_threads;
-    //         const size_t leftovers = key_poly.size() - (range_per_thread * num_threads);
-    //         parallel_for(num_threads, [&](size_t j) {
-    //             const size_t offset = j * range_per_thread + key_poly.start_index();
-    //             const size_t end =
-    //                 (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-    //             for (size_t i = offset; i < end; ++i) {
-    //                 acc_poly.at(i) += (key_poly.at(i) - acc_poly.at(i)) * combiner_challenge;
-    //             }
-    //         });
-    //     }
-    // }
-
     auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
     auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
 
+    // instead of iterating the polynomial set and multithreading each inner polynomial,
+    // we only want to spin up threads to cover the whole polynomial set
+    // e.g. say we have 50 polys all of size 100k and have 10 threads
+    //      we want each thread to iterate over 50 polys and iterate over a 10k range
+    //      (and not spin up 500 threads where each thread iterates over a 10k range for 1 poly)
     const size_t num_polys = key_polys.size();
     size_t max_size = 0;
     for (size_t i = 0; i < num_polys; ++i) {
@@ -176,6 +161,8 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     }
     const size_t num_threads = calculate_num_threads(max_size);
 
+    // convert the polynomials into spans to remove boundary checks and if checks that normally apply when calling
+    // getter/setters in Polynomial (see SharedShiftedVirtualZeroesArray::get)
     std::vector<PolynomialSpan<FF>> acc_spans;
     std::vector<PolynomialSpan<FF>> key_spans;
     acc_spans.reserve(num_polys);
@@ -184,9 +171,10 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
         key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
     }
+
+    // multithread the next part which computes the folded polynomials
     parallel_for(num_threads, [&](size_t j) {
         for (size_t i = 0; i < num_polys; ++i) {
-
             auto& acc = acc_spans[i];
             auto& key = key_spans[i];
             ASSERT(acc.start_index <= key.start_index);
@@ -198,6 +186,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
             const size_t end =
                 (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
 
+            // for each polynomial, we fold by computing acc = acc * lagranges[0] + key * lagranges[1]
+            // which is equivalent to acc * (1 - gamma) + key * gamma
+            // which is equivalent to acc + (key - acc) * gamma
             for (size_t k = offset; k < end; ++k) {
                 acc[k] += (key[k] - acc[k]) * combiner_challenge;
             }
