@@ -2606,8 +2606,6 @@ __metadata:
   checksum: 10c0/d8680ee1e5fcd4c197e4ac33b2b4dce03c71f4d91717292785703db200f5c21f977c568d28061226f9b5900cbcd2c84463646134fd5337e7925e0942bc3f46d5
   languageName: node
   linkType: hard
-
-"gaztec@workspace:.":
   version: 0.0.0-use.local
   resolution: "gaztec@workspace:."
   dependencies:
