@@ -18,10 +18,9 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "./harnesses/Rollup.sol";
-import {IRollup, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollupCore, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -54,7 +53,6 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
-  ValidatorSelection internal leo;
   MerkleTestUtil internal merkleTestUtil;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
@@ -86,15 +84,6 @@ contract RollupTest is DecoderBase {
     {
       testERC20 = new TestERC20("test", "TEST", address(this));
 
-      leo = new ValidatorSelection(
-        testERC20,
-        TestConstants.AZTEC_MINIMUM_STAKE,
-        TestConstants.AZTEC_SLASHING_QUORUM,
-        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION,
-        TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
-      );
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime =
@@ -280,7 +269,7 @@ contract RollupTest is DecoderBase {
     _testBlock("mixed_block_1", false, 1);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollup.ProofRightClaimed(
+    emit IRollupCore.ProofRightClaimed(
       quote.epochToProve, quote.prover, address(this), quote.bondAmount, Slot.wrap(1)
     );
     rollup.claimEpochProofRight(signedQuote);
@@ -462,7 +451,7 @@ contract RollupTest is DecoderBase {
     signedQuote = _quoteToSignedQuote(quote);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollup.ProofRightClaimed(
+    emit IRollupCore.ProofRightClaimed(
       quote.epochToProve, quote.prover, address(this), quote.bondAmount, Epoch.wrap(3).toSlots()
     );
     rollup.claimEpochProofRight(signedQuote);

@@ -60,6 +60,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -507,6 +508,15 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public getTxByHash(txHash: TxHash) {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalised chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]) {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
   /**

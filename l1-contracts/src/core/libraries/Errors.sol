@@ -109,6 +109,7 @@ library Errors {
   error Staking__AlreadyRegistered(address); // 0x18047699
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
+  error Staking__InvalidDeposit(address attester, address proposer); // 0xf33fe8c6
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0

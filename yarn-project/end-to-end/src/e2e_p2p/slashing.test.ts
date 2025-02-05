@@ -67,7 +67,7 @@ describe('e2e_p2p_slashing', () => {
     });
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.read.SLASHER()),
+      address: getAddress(await rollup.read.getSlasher()),
       abi: SlasherAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
@@ -221,11 +221,7 @@ describe('e2e_p2p_slashing', () => {
     const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
       account: t.ctx.deployL1ContractsValues.walletClient.account,
     });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    const receipt = await t.ctx.deployL1ContractsValues.publicClient.getTransactionReceipt({
+    const receipt = await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: tx,
     });
 
