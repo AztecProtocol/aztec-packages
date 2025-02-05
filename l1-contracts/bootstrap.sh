@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns)
+export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns)
 
 function build {
   github_group "l1-contracts build"
@@ -32,6 +32,9 @@ function build {
     # Compile contracts
     # Step 1: Build everything in src.
     forge build $(find src test -name '*.sol')
+
+    # Step 1.5: Output storage information for the rollup contract.
+    forge inspect src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \

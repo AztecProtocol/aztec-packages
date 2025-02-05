@@ -3,8 +3,8 @@ import { L2Block, P2PClientType, mockEpochProofQuote, mockTx } from '@aztec/circ
 import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -22,15 +22,15 @@ describe('In-Memory P2P Client', () => {
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
   let p2pService: MockProxy<P2PService>;
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let client: P2PClient;
 
   beforeEach(async () => {
     txPool = mock<TxPool>();
-    txPool.getAllTxs.mockReturnValue([]);
-    txPool.getPendingTxHashes.mockReturnValue(Promise.resolve([]));
-    txPool.getMinedTxHashes.mockReturnValue([]);
-    txPool.getAllTxHashes.mockReturnValue([]);
+    txPool.getAllTxs.mockResolvedValue([]);
+    txPool.getPendingTxHashes.mockResolvedValue([]);
+    txPool.getMinedTxHashes.mockResolvedValue([]);
+    txPool.getAllTxHashes.mockResolvedValue([]);
 
     p2pService = mock<P2PService>();
 
@@ -48,19 +48,18 @@ describe('In-Memory P2P Client', () => {
       epochProofQuotePool,
     };
 
-    kvStore = openTmpStore();
+    kvStore = await openTmpStore('test');
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+  });
+
+  afterEach(async () => {
+    await kvStore.close();
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     blockSource.setProvenEpochNumber(provenEpochNumber);
-    await retryUntil(
-      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
-      'synced',
-      10,
-      0.1,
-    );
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
@@ -106,10 +105,11 @@ describe('In-Memory P2P Client', () => {
 
   it('restores the previous block number it was at', async () => {
     await client.start();
+    const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
     const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
-    expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
+    await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
   it('deletes txs once block is proven', async () => {
@@ -201,8 +201,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    // TODO(#10737) flake cc Maddiaa0
-    it.skip('moves the tips on a chain reorg', async () => {
+    it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -253,7 +252,7 @@ describe('In-Memory P2P Client', () => {
       const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
+      txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
       blockSource.removeBlocks(10);
       await sleep(150);
@@ -280,8 +279,8 @@ describe('In-Memory P2P Client', () => {
       const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
-      txPool.getMinedTxHashes.mockReturnValue([
+      txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
+      txPool.getMinedTxHashes.mockResolvedValue([
         [await goodButOldTx.getTxHash(), 90],
         [await goodTx.getTxHash(), 91],
       ]);

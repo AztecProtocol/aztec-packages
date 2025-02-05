@@ -10,21 +10,23 @@ import {
   L1_GAS_PER_EPOCH_VERIFIED,
   MINIMUM_CONGESTION_MULTIPLIER
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {Timestamp, TimeFns, Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
   ManaBaseFeeComponents, L1Fees, L1GasOracleValues, FeeHeader
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
+import {Timestamp, TimeLib, Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
 // is simpler to compare etc.
 
-contract MinimalFeeModel is TimeFns {
+contract MinimalFeeModel {
   using FeeMath for OracleInput;
   using FeeMath for uint256;
   using SlotLib for Slot;
+  using TimeLib for Timestamp;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -35,15 +37,13 @@ contract MinimalFeeModel is TimeFns {
 
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
-  Timestamp public immutable GENESIS_TIMESTAMP;
 
   uint256 public populatedThrough = 0;
   mapping(uint256 slotNumber => FeeHeader feeHeader) public feeHeaders;
 
   L1GasOracleValues public l1BaseFees;
 
-  constructor(uint256 _slotDuration, uint256 _epochDuration) TimeFns(_slotDuration, _epochDuration) {
-    GENESIS_TIMESTAMP = Timestamp.wrap(block.timestamp);
+  constructor(uint256 _slotDuration, uint256 _epochDuration) {
     feeHeaders[0] = FeeHeader({
       excess_mana: 0,
       fee_asset_price_numerator: 0,
@@ -54,6 +54,8 @@ contract MinimalFeeModel is TimeFns {
     l1BaseFees.pre = L1Fees({base_fee: 1 gwei, blob_fee: 1});
     l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
     l1BaseFees.slot_of_change = LIFETIME.unwrap();
+
+    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
   }
 
   function getL1GasOracleValues() public view returns (L1GasOracleValues memory) {
@@ -70,7 +72,7 @@ contract MinimalFeeModel is TimeFns {
     uint256 dataCost =
       Math.mulDiv(_blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, MANA_TARGET, Math.Rounding.Ceil);
     uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
-      + L1_GAS_PER_EPOCH_VERIFIED / EPOCH_DURATION;
+      + L1_GAS_PER_EPOCH_VERIFIED / TimeLib.getStorage().epochDuration;
     uint256 gasCost = Math.mulDiv(gasUsed, fees.base_fee, MANA_TARGET, Math.Rounding.Ceil);
     uint256 provingCost = getProvingCost();
 
@@ -161,8 +163,7 @@ contract MinimalFeeModel is TimeFns {
   }
 
   function getCurrentSlot() public view returns (Slot) {
-    Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    return TimeFns.slotFromTimestamp(currentTime - GENESIS_TIMESTAMP);
+    return Timestamp.wrap(block.timestamp).slotFromTimestamp();
   }
 
   function _getBlobBaseFee() internal view returns (uint256) {

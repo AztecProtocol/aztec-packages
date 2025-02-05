@@ -716,6 +716,7 @@ export async function createAndSyncProverNode(
   const aztecNodeWithoutStop = {
     addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
     getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
   };
 
@@ -767,13 +768,18 @@ function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0
   return l1TxUtils;
 }
 
-export async function createForwarderContract(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`) {
+export async function createForwarderContract(
+  aztecNodeConfig: AztecNodeConfig,
+  privateKey: `0x${string}`,
+  rollupAddress: Hex,
+) {
   const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
   const forwarderContract = await ForwarderContract.create(
     walletClient.account.address,
     walletClient,
     publicClient,
     createLogger('forwarder'),
+    rollupAddress,
   );
   return forwarderContract;
 }
