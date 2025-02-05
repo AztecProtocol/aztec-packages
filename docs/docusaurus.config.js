@@ -214,12 +214,6 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      // docs: {
-      //   sidebar: {
-      //     hideable: true,
-      //     autoCollapseCategories: false,
-      //   },
-      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
@@ -234,7 +228,7 @@ const config = {
             position: "left",
             label: "Learn",
           },
-          
+
           {
             type: "docSidebar",
             sidebarId: "buildSidebar",
@@ -344,12 +338,6 @@ const config = {
               },
             ],
           },
-
-          // {
-          //   to: "/developers/guides/sandbox_to_testnet",
-          //   label: "Migrating to Testnet",
-          //   position: "right",
-          // },
         ],
       },
       footer: {

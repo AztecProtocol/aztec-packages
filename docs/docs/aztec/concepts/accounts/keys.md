@@ -54,7 +54,7 @@ When it comes to notes encryption and decryption:
 
 ### Signing keys
 
-Thanks to the native [account abstraction](../accounts#background/index.md), authorization logic can be implemented in an alternative way that is up to the developer (e.g. using Google authorization credentials, vanilla password logic or Face ID mechanism). In these cases, signing keys may not be relevant.
+Thanks to the native [account abstraction](../accounts/index.md), authorization logic can be implemented in an alternative way that is up to the developer (e.g. using Google authorization credentials, vanilla password logic or Face ID mechanism). In these cases, signing keys may not be relevant.
 
 However if one wants to implement authorization logic containing signatures (e.g. ECDSA or Shnorr) they will need signing keys. Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
 

@@ -104,7 +104,7 @@ While [private and public state](../../../../../aztec/concepts/storage/index.md)
 #include_code showPublicBalances yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
 :::info
-Since this we are working with public balances, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../../../aztec/concepts/accounts/keys.md#public-keys-retrieval).
+Since this we are working with public balances, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../../../aztec/concepts/accounts/keys.md#keys-generation).
 :::
 
 Here, since the token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero.
