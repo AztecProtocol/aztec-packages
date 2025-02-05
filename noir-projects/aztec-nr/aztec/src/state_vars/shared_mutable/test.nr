@@ -1,12 +1,12 @@
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
     state_vars::shared_mutable::SharedMutable,
-    test::helpers::test_environment::TestEnvironment,
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
 };
 
 use dep::std::mem::zeroed;
 
-global new_value: Field = 17;
+global new_value: MockStruct = MockStruct { a: 17, b: 42 };
 
 global new_delay: u32 = 20;
 
@@ -20,20 +20,20 @@ unconstrained fn setup() -> TestEnvironment {
 
 unconstrained fn in_public(
     env: TestEnvironment,
-) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext> {
+) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
     SharedMutable::new(&mut env.public(), storage_slot)
 }
 
 unconstrained fn in_private(
     env: &mut TestEnvironment,
     historical_block_number: u32,
-) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
+) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
     SharedMutable::new(&mut env.private_at(historical_block_number), storage_slot)
 }
 
 unconstrained fn in_unconstrained(
     env: TestEnvironment,
-) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
+) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, UnconstrainedContext> {
     SharedMutable::new(env.unkonstrained(), storage_slot)
 }
 
@@ -194,7 +194,7 @@ unconstrained fn test_get_current_value_in_private_before_change() {
     let schedule_block_number = env.block_number();
 
     let private_state_var = in_private(&mut env, schedule_block_number);
-    assert_eq(private_state_var.get_current_value(), 0);
+    assert_eq(private_state_var.get_current_value(), MockStruct::empty());
     assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
 }
 
@@ -211,7 +211,7 @@ unconstrained fn test_get_current_value_in_private_immediately_before_change() {
 
     // Note that this transaction would never be valid since the max block number is the same as the historical block
     // used to built the proof, i.e. in the past.
-    assert_eq(private_state_var.get_current_value(), 0);
+    assert_eq(private_state_var.get_current_value(), MockStruct::empty());
     assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
 }
 
