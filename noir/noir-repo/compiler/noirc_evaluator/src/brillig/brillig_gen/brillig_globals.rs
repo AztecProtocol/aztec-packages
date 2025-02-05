@@ -92,6 +92,13 @@ impl BrilligGlobals {
             );
         }
 
+        // NB: Temporary fix to override entry point analysis
+        let merged_set =
+            used_globals.values().flat_map(|set| set.iter().copied()).collect::<HashSet<_>>();
+        for set in used_globals.values_mut() {
+            *set = merged_set.clone();
+        }
+
         Self { used_globals, brillig_entry_points, ..Default::default() }
     }
 
