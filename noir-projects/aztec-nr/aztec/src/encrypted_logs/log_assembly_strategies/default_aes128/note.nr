@@ -247,7 +247,7 @@ where
     plaintext_bytes
 }
 
-pub fn compute_log<Note, let N: u32>(
+fn compute_log<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
     recipient: AztecAddress,

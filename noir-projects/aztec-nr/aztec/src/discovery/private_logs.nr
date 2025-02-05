@@ -8,7 +8,7 @@ use dep::protocol_types::{
     debug_log::{debug_log, debug_log_format},
 };
 
-use crate::note::discovery::{
+use crate::discovery::{
     ComputeNoteHashAndNullifier,
     MAX_NOTE_PACKED_LEN,
     nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},

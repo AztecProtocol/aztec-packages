@@ -115,7 +115,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates a contract library method called `_compute_note_hash_and_optionally_a_nullifier` which is used for note
-/// discovery (to create the `aztec::note::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// discovery (to create the `aztec::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let notes = NOTES.entries();
@@ -178,7 +178,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
             storage_slot: Field,
             note_type_id: Field,
             compute_nullifier: bool,
-            packed_note_content: BoundedVec<Field, aztec::note::discovery::MAX_NOTE_PACKED_LEN>,
+            packed_note_content: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
         ) -> pub [Field; 4] {
             $body
         }
@@ -192,7 +192,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     // library method `_compute_note_hash...` is affected by this.
     // TODO(#11638): In the future we might remove these things as we rely less and less on this function, and then
     // change the `_compute_note_hash...` contract library method to be of type
-    // `aztec::note::discovery::ComputeNoteHashAndNullifier`, simplifying other macros by removing the need to create
+    // `aztec::discovery::ComputeNoteHashAndNullifier`, simplifying other macros by removing the need to create
     // intermediate lambdas that adapt their interfaces.
 
     let max_note_packed_length = NOTES.entries().fold(
@@ -219,10 +219,10 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 comptime fn generate_process_log() -> Quoted {
     // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
     // and perform note discovery of either private notes or partial notes.
-    // The bulk of the work of this function is done by aztec::note::discovery::do_process_log, so all we need to do
-    // is call that function. We use the contract library method injected by
+    // The bulk of the work of this function is done by aztec::discovery::do_process_log, so all we need to do is call
+    // that function. We use the contract library method injected by
     // `generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier` in order to create the required
-    // `aztec::note::discovery::ComputeNoteHashAndNullifier` function.
+    // `aztec::discovery::ComputeNoteHashAndNullifier` function.
 
     // We'll produce the entire body of the function in one go and then insert it into the function.
     let notes = NOTES.entries();
@@ -240,7 +240,7 @@ comptime fn generate_process_log() -> Quoted {
             // TODO(#10727): allow other contracts to process logs and deliver notes
             let contract_address = context.this_address();
 
-            aztec::note::discovery::private_logs::do_process_log(
+            aztec::discovery::private_logs::do_process_log(
                 contract_address,
                 log_plaintext,
                 tx_hash,
@@ -251,7 +251,7 @@ comptime fn generate_process_log() -> Quoted {
                     let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
 
                     Option::some(
-                        aztec::note::discovery::NoteHashAndNullifier {
+                        aztec::discovery::NoteHashAndNullifier {
                             note_hash: hashes[0],
                             inner_nullifier: hashes[3],
                         },

@@ -1,5 +1,5 @@
 use crate::{
-    note::discovery::{
+    discovery::{
         ComputeNoteHashAndNullifier,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
         private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,

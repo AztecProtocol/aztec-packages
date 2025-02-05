@@ -84,21 +84,21 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::note::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
 /// available for the current execution.
 comptime fn create_note_discovery_call() -> Quoted {
     quote {
         /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
         /// safe to call.
         unsafe {
-            dep::aztec::note::discovery::discover_new_notes(
+            dep::aztec::discovery::discover_new_notes(
                 context.this_address(),
                 |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
                     // _compute_note_hash_and_optionally_a_nullifier is a contract library method injected by `generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier`
                     let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
 
                     Option::some(
-                        aztec::note::discovery::NoteHashAndNullifier {
+                        aztec::discovery::NoteHashAndNullifier {
                             note_hash: hashes[0],
                             inner_nullifier: hashes[3],
                         },

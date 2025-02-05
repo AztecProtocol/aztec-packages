@@ -1,4 +1,4 @@
-use crate::{note::discovery::{MAX_NOTE_PACKED_LEN, NoteHashAndNullifier}, utils::array};
+use crate::{discovery::{MAX_NOTE_PACKED_LEN, NoteHashAndNullifier}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,

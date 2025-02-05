@@ -1,4 +1,4 @@
-use crate::note::discovery::MAX_NOTE_PACKED_LEN;
+use crate::discovery::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{address::AztecAddress, log_with_tx_data::LogWithTxData};
 
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
