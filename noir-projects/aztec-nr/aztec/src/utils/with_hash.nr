@@ -136,9 +136,8 @@ mod test {
         assert_eq(recovered.hash, poseidon2_hash(value.pack()));
     }
 
-    // Test reading an uninitialized value
     #[test]
-    unconstrained fn test_reading_uninitialized_value() {
+    unconstrained fn read_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
         let block_header = env.private_at(6).historical_header;
