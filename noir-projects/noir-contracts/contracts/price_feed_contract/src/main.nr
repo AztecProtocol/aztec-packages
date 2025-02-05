@@ -3,7 +3,7 @@ mod asset;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract PriceFeed {
+pub contract PriceFeed {
     use crate::asset::Asset;
     use dep::aztec::prelude::{Map, PublicMutable};
 

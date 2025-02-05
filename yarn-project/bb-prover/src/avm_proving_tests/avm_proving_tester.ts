@@ -1,8 +1,7 @@
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import { type AvmCircuitInputs, AztecAddress, VerificationKeyData } from '@aztec/circuits.js';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -37,7 +36,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     return new AvmProvingTester(
       bbWorkingDirectory,
       checkCircuitOnly,
@@ -122,7 +121,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees, skipContractDeployments);
   }
 

@@ -3,38 +3,31 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
-import { AztecEnv, AztecContext } from "../../aztecEnv";
+import { AztecEnv, AztecContext, WebLogger } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
-import {
-  AccountWalletWithSecretKey,
-  Fr,
-  TxHash,
-  createLogger,
-  AztecAddress,
-} from "@aztec/aztec.js";
-import { WalletDB } from "../../utils/storage";
+import { AccountWalletWithSecretKey, Fr, AztecAddress } from "@aztec/aztec.js";
+import { NetworkDB, WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import AddIcon from "@mui/icons-material/Add";
-import logoURL from "../../assets/Aztec_logo.png";
 import { Button, Divider, Typography } from "@mui/material";
 import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from "../../utils/conversion";
-import { convertFromUTF8BufferAsString } from "../../utils/conversion";
-import { ContractFunctionInteractionTx } from "../../utils/txs";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
 import { deriveSigningKey } from "@aztec/circuits.js/keys";
+import { TxsPanel } from "./components/txsPanel";
+import { AddNetworksDialog } from "./components/addNetworkDialog";
 
 const container = css({
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  width: "25vw",
+  width: "100%",
   backgroundColor: "var(--mui-palette-primary-light)",
   overflow: "hidden",
   padding: "0 0.5rem",
@@ -57,37 +50,13 @@ const header = css({
   marginBottom: "1rem",
 });
 
-const logo = css({
-  height: "90%",
-  margin: "0.5rem 1rem 0rem 0rem",
-});
+type Network = { nodeURL: string; name: string };
 
-const txPanel = css({
-  marginBottom: "0.5rem",
-  width: "100%",
-  backgroundColor: "var(--mui-palette-primary-main)",
-  maxHeight: "30vh",
-  overflowY: "auto",
-  borderRadius: "0.5rem",
-});
-
-const txData = css({
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  padding: "0.5rem",
-  backgroundColor: "var(--mui-palette-primary-light)",
-  borderRadius: "0.5rem",
-  margin: "0.5rem",
-});
-
-const NETWORKS = [
+const NETWORKS: Network[] = [
   {
     nodeURL: "http://localhost:8080",
     name: "Local",
   },
-  { nodeURL: "http://34.145.98.34:8080", name: "Devnet" },
-  { nodeURL: "http://35.197.121.62:8080", name: "Masternet" },
 ];
 
 export function SidebarComponent() {
@@ -99,7 +68,7 @@ export function SidebarComponent() {
     setWallet,
     setCurrentContractAddress,
     setAztecNode,
-    currentTx,
+    setLogs,
     currentContractAddress,
     wallet,
     walletDB,
@@ -107,9 +76,11 @@ export function SidebarComponent() {
     isPXEInitialized,
     pxe,
   } = useContext(AztecContext);
+  const [changingNetworks, setChangingNetworks] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [contracts, setContracts] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [networks, setNetworks] = useState(NETWORKS);
+  const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
 
@@ -133,16 +104,34 @@ export function SidebarComponent() {
     return { ourAccounts, senders };
   };
 
+  useEffect(() => {
+    const refreshNetworks = async () => {
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map((network) => ({
+          nodeURL: network.value,
+          name: network.key,
+        })),
+      ];
+      setNetworks(networks);
+    };
+    refreshNetworks();
+  }, []);
+
   const handleNetworkChange = async (event: SelectChangeEvent) => {
+    setChangingNetworks(true);
     setPXEInitialized(false);
     const nodeURL = event.target.value;
     setNodeURL(nodeURL);
     const node = await AztecEnv.connectToNode(nodeURL);
     setAztecNode(node);
-    const pxe = await AztecEnv.initPXE(node);
+    const pxe = await AztecEnv.initPXE(node, setLogs);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses
       .rollupAddress;
-    const walletLogger = createLogger("wallet:data:indexeddb");
+    const walletLogger =
+      WebLogger.getInstance().createLogger("wallet:data:idb");
     const walletDBStore = await createStore(
       `wallet-${rollupAddress}`,
       { dataDirectory: "wallet", dataStoreMapSizeKB: 2e10 },
@@ -153,6 +142,7 @@ export function SidebarComponent() {
     setPXE(pxe);
     setWalletDB(walletDB);
     setPXEInitialized(true);
+    setChangingNetworks(false);
   };
 
   useEffect(() => {
@@ -174,44 +164,6 @@ export function SidebarComponent() {
       refreshAccounts();
     }
   }, [wallet, walletDB, pxe]);
-
-  useEffect(() => {
-    const refreshTransactions = async () => {
-      const txsPerContract = await walletDB.retrieveTxsPerContract(
-        currentContractAddress
-      );
-      const txHashes = txsPerContract.map((txHash) =>
-        TxHash.fromString(convertFromUTF8BufferAsString(txHash))
-      );
-      const txs: ContractFunctionInteractionTx[] = await Promise.all(
-        txHashes.map(async (txHash) => {
-          const txData = await walletDB.retrieveTxData(txHash);
-          return {
-            contractAddress: currentContractAddress,
-            txHash: txData.txHash,
-            status: convertFromUTF8BufferAsString(txData.status),
-            fnName: convertFromUTF8BufferAsString(txData.fnName),
-            date: parseInt(convertFromUTF8BufferAsString(txData.date)),
-          } as ContractFunctionInteractionTx;
-        })
-      );
-      txs.sort((a, b) => (b.date >= a.date ? -1 : 1));
-      if (
-        currentTx &&
-        currentTx.contractAddress === currentContractAddress &&
-        (!currentTx.txHash ||
-          !txs.find((tx) => tx.txHash.equals(currentTx.txHash)))
-      ) {
-        txs.unshift(currentTx);
-      }
-      setTransactions(txs);
-    };
-    if (currentContractAddress && walletDB) {
-      refreshTransactions();
-    } else {
-      setTransactions([]);
-    }
-  }, [currentContractAddress, currentTx]);
 
   const handleAccountChange = async (event: SelectChangeEvent) => {
     if (event.target.value == "") {
@@ -270,10 +222,26 @@ export function SidebarComponent() {
     setOpenAddSendersDialog(false);
   };
 
+  const handleNetworkAdded = async (network?: string, alias?: string) => {
+    if (network && alias) {
+      await NetworkDB.getInstance().storeNetwork(alias, network);
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map((network) => ({
+          nodeURL: network.value,
+          name: network.key,
+        })),
+      ];
+      setNetworks(networks);
+    }
+    setOpenAddNetworksDialog(false);
+  };
+
   return (
     <div css={container}>
       <div css={header}>
-        <img css={logo} src={logoURL} />
         <Typography
           variant="h1"
           sx={{ fontSize: "65px", padding: 0, marginTop: "0.5rem" }}
@@ -288,15 +256,28 @@ export function SidebarComponent() {
           fullWidth
           value={nodeURL}
           label="Network"
+          disabled={changingNetworks}
           onChange={handleNetworkChange}
         >
-          {NETWORKS.map((network) => (
+          {networks.map((network) => (
             <MenuItem key={network.name} value={network.nodeURL}>
               {network.name} ({network.nodeURL})
             </MenuItem>
           ))}
+          <MenuItem
+            key="create"
+            value=""
+            onClick={() => setOpenAddNetworksDialog(true)}
+          >
+            <AddIcon />
+            &nbsp;Create
+          </MenuItem>
         </Select>
       </FormControl>
+      <AddNetworksDialog
+        open={openAddNetworksDialog}
+        onClose={handleNetworkAdded}
+      />
       {pxe && isPXEInitialized ? (
         <>
           <FormControl css={select}>
@@ -373,30 +354,7 @@ export function SidebarComponent() {
       <div css={{ flex: "1 0 auto", margin: "auto" }} />
       <Typography variant="overline">Transactions</Typography>
       <Divider />
-      <div css={txPanel}>
-        {transactions.map((tx) => (
-          <div css={txData} key={tx.txHash ?? ""}>
-            <div css={{ display: "flex" }}>
-              <Typography variant="body2">
-                {tx.txHash ? formatFrAsString(tx.txHash.toString()) : "()"}
-                &nbsp;-&nbsp;
-              </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                {tx.receipt
-                  ? tx.receipt.status.toUpperCase()
-                  : tx.status.toUpperCase()}
-                &nbsp;
-                {tx.receipt && tx.receipt.status === "error"
-                  ? tx.receipt.error
-                  : tx.error}
-              </Typography>
-            </div>
-            <Typography variant="body2">
-              {tx.fnName}@{formatFrAsString(tx.contractAddress.toString())}
-            </Typography>
-          </div>
-        ))}
-      </div>
+      <TxsPanel />
       <CreateAccountDialog
         open={openCreateAccountDialog}
         onClose={handleAccountCreation}

@@ -179,6 +179,7 @@ proverNode:
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
 
 pxe:
+  enabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -270,11 +271,7 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
-      cpu: "1.5"
-  storageSize: "80Gi"
+  deployL1ContractsPrivateKey:
 
 proverAgent:
   service:
@@ -317,6 +314,7 @@ jobs:
     enable: false
 
 faucet:
+  enabled: true
   replicas: 1
   service:
     nodePort: 8085

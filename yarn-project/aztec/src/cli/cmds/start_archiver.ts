@@ -10,7 +10,7 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { ArchiverApiSchema } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

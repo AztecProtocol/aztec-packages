@@ -113,6 +113,12 @@ TYPED_TEST(MegaHonkTests, Basic)
 TYPED_TEST(MegaHonkTests, BasicStructured)
 {
     using Flavor = TypeParam;
+
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+        GTEST_SKIP() << "Skipping 'BasicStructured' test for MegaZKFlavor.";
+    }
     typename Flavor::CircuitBuilder builder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -143,6 +149,12 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 {
     using Flavor = TypeParam;
+
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+        GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for MegaZKFlavor.";
+    }
     typename Flavor::CircuitBuilder builder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -382,6 +394,11 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+        GTEST_SKIP() << "Skipping 'PolySwap' test for MegaZKFlavor.";
+    }
     using Builder = Flavor::CircuitBuilder;
 
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };

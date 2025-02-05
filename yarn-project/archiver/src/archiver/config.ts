@@ -1,3 +1,4 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,
@@ -39,9 +40,11 @@ export type ArchiverConfig = {
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 } & L1ReaderConfig &
-  L1ContractsConfig;
+  L1ContractsConfig &
+  BlobSinkConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  ...blobSinkConfigMapping,
   archiverUrl: {
     env: 'ARCHIVER_URL',
     description:

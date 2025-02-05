@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AvmInitializerTest {
+pub contract AvmInitializerTest {
     // Libs
     use dep::aztec::{
         macros::{functions::{initializer, public}, storage::storage},

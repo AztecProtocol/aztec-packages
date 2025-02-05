@@ -5,6 +5,10 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: true
+  # TODO: Will need to change these as zombienet will be using them
+  l1DeploymentMnemonic: ""
+  validatorKeyIndexStart: 4
+  proverKeyIndexStart: 52
 
 images:
   aztec:
@@ -36,13 +40,9 @@ validator:
     disabled: false
 
 bootNode:
-  seqPublisherPrivateKey:
   validator:
     disabled: true
   storageSize: "100Gi"
-
-proverNode:
-  proverPublisherPrivateKey:
 
 proverAgent:
   replicas: 60

@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Claim {
+pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,

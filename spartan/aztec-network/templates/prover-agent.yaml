@@ -31,10 +31,10 @@ spec:
         value: "true"
         effect: "NoSchedule"
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- end }}
       volumes:
         - name: config

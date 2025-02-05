@@ -14,7 +14,7 @@ mod types;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract DocsExample {
+pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,

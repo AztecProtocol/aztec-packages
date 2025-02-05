@@ -42,7 +42,7 @@ import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
 const container = css({
   display: "flex",
   height: "100vh",
-  width: "75vw",
+  width: "100%",
   overflow: "hidden",
   justifyContent: "center",
   alignItems: "center",
@@ -53,9 +53,9 @@ const dropZoneContainer = css({
   flexDirection: "column",
   width: "100%",
   height: "80%",
-  border: "5px dashed black",
+  border: "3px dashed black",
   borderRadius: "15px",
-  margin: "5rem",
+  margin: "0rem 2rem 2rem 2rem",
 });
 
 const contractFnContainer = css({
@@ -66,11 +66,40 @@ const contractFnContainer = css({
   height: "100%",
 });
 
+const headerContainer = css({
+  display: "flex",
+  flexDirection: "column",
+  flexGrow: 1,
+  flexWrap: "wrap",
+  margin: "0 0.5rem",
+  padding: "0.1rem",
+  overflow: "hidden",
+  justifyContent: "stretch",
+  marginBottom: "0.5rem",
+});
+
 const header = css({
   display: "flex",
+  width: "100%",
   alignItems: "center",
-  margin: "0 1rem",
-  padding: "1rem",
+  justifyContent: "space-between",
+});
+
+const search = css({
+  display: "flex",
+  overflow: "hidden",
+  "@media (width <= 800px)": {
+    width: "100%",
+  },
+  "@media (width > 800px)": {
+    maxWidth: "500px",
+  },
+});
+
+const contractActions = css({
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
 });
 
 const simulationContainer = css({
@@ -81,6 +110,7 @@ const simulationContainer = css({
 
 const checkBoxLabel = css({
   height: "1.5rem",
+  marginLeft: "-10px",
 });
 
 const loadingArtifactContainer = css({
@@ -323,125 +353,135 @@ export function ContractComponent() {
         )
       ) : (
         <div css={contractFnContainer}>
-          <div css={header}>
-            <Typography variant="h2" css={{ marginRight: "4rem" }}>
-              {contractArtifact.name}
-            </Typography>
-
-            <FormGroup>
-              <Input
-                type="text"
-                placeholder="Search function"
-                value={filters.searchTerm}
-                onChange={(e) =>
-                  setFilters({ ...filters, searchTerm: e.target.value })
-                }
-                endAdornment={
-                  <InputAdornment position="end">
-                    <FindInPageIcon />
-                  </InputAdornment>
-                }
-              />
-              <div
-                css={{
-                  display: "flex",
-                  flexDirection: "row",
-                  marginTop: "0.5rem",
-                }}
-              >
-                <FormControlLabel
-                  css={checkBoxLabel}
-                  control={
-                    <Checkbox
-                      checked={filters.private}
-                      onChange={(e) =>
-                        setFilters({ ...filters, private: e.target.checked })
-                      }
-                    />
+          <div css={headerContainer}>
+            <div css={header}>
+              <Typography variant="h3" css={{ marginRight: "0.5rem" }}>
+                {contractArtifact.name}
+              </Typography>
+              {!currentContract && wallet && (
+                <div css={contractActions}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    css={{ marginRight: "0.5rem" }}
+                    onClick={() => setOpenDeployContractDialog(true)}
+                  >
+                    Deploy
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => setOpenRegisterContractDialog(true)}
+                  >
+                    Register
+                  </Button>
+                  <DeployContractDialog
+                    contractArtifact={contractArtifact}
+                    open={openDeployContractDialog}
+                    onClose={handleContractCreation}
+                  />
+                  <RegisterContractDialog
+                    contractArtifact={contractArtifact}
+                    open={openRegisterContractDialog}
+                    onClose={handleContractCreation}
+                  />
+                </div>
+              )}
+              {currentContract && (
+                <div css={contractActions}>
+                  <Typography color="text.secondary">
+                    {formatFrAsString(currentContract.address.toString())}
+                  </Typography>
+                  <CopyToClipboardButton
+                    disabled={false}
+                    data={currentContract.address.toString()}
+                  />
+                  <IconButton
+                    onClick={(e) => {
+                      setCurrentContractAddress(null);
+                      setCurrentContract(null);
+                      setContractArtifact(null);
+                    }}
+                  >
+                    <ClearIcon />
+                  </IconButton>
+                </div>
+              )}
+            </div>
+            <div css={search}>
+              <FormGroup sx={{ width: "100%" }}>
+                <Input
+                  type="text"
+                  fullWidth
+                  placeholder="Search function"
+                  value={filters.searchTerm}
+                  onChange={(e) =>
+                    setFilters({ ...filters, searchTerm: e.target.value })
                   }
-                  label="Private"
-                />
-                <FormControlLabel
-                  css={checkBoxLabel}
-                  control={
-                    <Checkbox
-                      checked={filters.public}
-                      onChange={(e) =>
-                        setFilters({ ...filters, public: e.target.checked })
-                      }
-                    />
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <FindInPageIcon />
+                    </InputAdornment>
                   }
-                  label="Public"
                 />
-                <FormControlLabel
-                  css={checkBoxLabel}
-                  control={
-                    <Checkbox
-                      checked={filters.unconstrained}
-                      onChange={(e) =>
-                        setFilters({
-                          ...filters,
-                          unconstrained: e.target.checked,
-                        })
-                      }
-                    />
-                  }
-                  label="Unconstrained"
-                />
-              </div>
-            </FormGroup>
-            <div css={{ flexGrow: 1 }}></div>
-            {!currentContract && wallet && (
-              <>
-                <Button
-                  variant="contained"
-                  css={{ marginRight: "1rem" }}
-                  onClick={() => setOpenDeployContractDialog(true)}
-                >
-                  Deploy
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => setOpenRegisterContractDialog(true)}
-                >
-                  Register
-                </Button>
-                <DeployContractDialog
-                  contractArtifact={contractArtifact}
-                  open={openDeployContractDialog}
-                  onClose={handleContractCreation}
-                />
-                <RegisterContractDialog
-                  contractArtifact={contractArtifact}
-                  open={openRegisterContractDialog}
-                  onClose={handleContractCreation}
-                />
-              </>
-            )}
-            {currentContract && (
-              <>
-                <Typography color="text.secondary">
-                  {formatFrAsString(currentContract.address.toString())}
-                </Typography>
-                <CopyToClipboardButton
-                  disabled={false}
-                  data={currentContract.address.toString()}
-                />
-                <IconButton
-                  onClick={(e) => {
-                    setCurrentContractAddress(null);
-                    setCurrentContract(null);
-                    setContractArtifact(null);
+                <div
+                  css={{
+                    display: "flex",
+                    flexDirection: "row",
+                    marginTop: "0.5rem",
+                    width: "100%",
                   }}
                 >
-                  <ClearIcon />
-                </IconButton>
-              </>
-            )}
+                  <FormControlLabel
+                    css={checkBoxLabel}
+                    control={
+                      <Checkbox
+                        sx={{ paddingRight: 0 }}
+                        checked={filters.private}
+                        onChange={(e) =>
+                          setFilters({ ...filters, private: e.target.checked })
+                        }
+                      />
+                    }
+                    label="Private"
+                  />
+                  <FormControlLabel
+                    css={checkBoxLabel}
+                    control={
+                      <Checkbox
+                        sx={{ padding: 0 }}
+                        checked={filters.public}
+                        onChange={(e) =>
+                          setFilters({ ...filters, public: e.target.checked })
+                        }
+                      />
+                    }
+                    label="Public"
+                  />
+                  <FormControlLabel
+                    css={checkBoxLabel}
+                    control={
+                      <Checkbox
+                        sx={{ padding: 0 }}
+                        checked={filters.unconstrained}
+                        onChange={(e) =>
+                          setFilters({
+                            ...filters,
+                            unconstrained: e.target.checked,
+                          })
+                        }
+                      />
+                    }
+                    label="Unconstrained"
+                  />
+                </div>
+              </FormGroup>
+            </div>
           </div>
           {contractArtifact.functions
             .filter(
               (fn) =>
+                !fn.isInternal &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                 ((filters.private && fn.functionType === "private") ||
                   (filters.public && fn.functionType === "public") ||
@@ -456,7 +496,8 @@ export function ContractComponent() {
                 variant="outlined"
                 sx={{
                   backgroundColor: "primary.light",
-                  margin: "1rem",
+                  margin: "0.5rem",
+                  overflow: "hidden",
                 }}
               >
                 <CardContent sx={{ textAlign: "left" }}>
@@ -520,6 +561,7 @@ export function ContractComponent() {
                     disabled={!wallet || !currentContract || isWorking}
                     color="secondary"
                     variant="contained"
+                    size="small"
                     onClick={() => simulate(fn.name)}
                     endIcon={<PsychologyIcon />}
                   >
@@ -532,6 +574,7 @@ export function ContractComponent() {
                       isWorking ||
                       fn.functionType === "unconstrained"
                     }
+                    size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() => send(fn.name)}
@@ -546,6 +589,7 @@ export function ContractComponent() {
                       isWorking ||
                       fn.functionType === "unconstrained"
                     }
+                    size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() =>
@@ -557,7 +601,7 @@ export function ContractComponent() {
                     }
                     endIcon={<VpnKeyIcon />}
                   >
-                    Create authwit
+                    Authwit
                   </Button>
                 </CardActions>
               </Card>

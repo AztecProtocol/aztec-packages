@@ -11,6 +11,11 @@ set -eu
 # - NUMBER_OF_VALIDATORS
 # source /scripts/get-validator-addresses.sh
 
+echo "Getting validator addresses for $NUMBER_OF_VALIDATORS validators starting at index $KEY_INDEX_START"
+# Echo first 2 words of mnemonic
+first_two=$(echo "$MNEMONIC" | cut -d' ' -f1-2)
+echo "First two words of mnemonic: $first_two"
+
 # Initialize empty string for validator addresses
 VALIDATOR_ADDRESSES_LIST=""
 
