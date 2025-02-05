@@ -23,6 +23,6 @@ contract StakingBase is TestBase {
     stakingAsset = new TestERC20("test", "TEST", address(this));
     staking = new StakingCheater(stakingAsset, MINIMUM_STAKE, 1, 1);
 
-    SLASHER = address(staking.SLASHER());
+    SLASHER = staking.getSlasher();
   }
 }

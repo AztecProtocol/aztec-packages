@@ -3,8 +3,8 @@ import { L2Block, P2PClientType, mockEpochProofQuote, mockTx } from '@aztec/circ
 import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -22,15 +22,15 @@ describe('In-Memory P2P Client', () => {
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
   let p2pService: MockProxy<P2PService>;
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let client: P2PClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txPool = mock<TxPool>();
-    txPool.getAllTxs.mockReturnValue([]);
-    txPool.getPendingTxHashes.mockReturnValue([]);
-    txPool.getMinedTxHashes.mockReturnValue([]);
-    txPool.getAllTxHashes.mockReturnValue([]);
+    txPool.getAllTxs.mockResolvedValue([]);
+    txPool.getPendingTxHashes.mockResolvedValue([]);
+    txPool.getMinedTxHashes.mockResolvedValue([]);
+    txPool.getAllTxHashes.mockResolvedValue([]);
 
     p2pService = mock<P2PService>();
 
@@ -40,7 +40,7 @@ describe('In-Memory P2P Client', () => {
     epochProofQuotePool.getQuotes.mockReturnValue([]);
 
     blockSource = new MockL2BlockSource();
-    blockSource.createBlocks(100);
+    await blockSource.createBlocks(100);
 
     mempools = {
       txPool,
@@ -48,19 +48,18 @@ describe('In-Memory P2P Client', () => {
       epochProofQuotePool,
     };
 
-    kvStore = openTmpStore();
+    kvStore = await openTmpStore('test');
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+  });
+
+  afterEach(async () => {
+    await kvStore.close();
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     blockSource.setProvenEpochNumber(provenEpochNumber);
-    await retryUntil(
-      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
-      'synced',
-      10,
-      0.1,
-    );
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
@@ -81,8 +80,8 @@ describe('In-Memory P2P Client', () => {
 
   it('adds txs to pool', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
@@ -92,24 +91,25 @@ describe('In-Memory P2P Client', () => {
 
   it('rejects txs after being stopped', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
     await client.stop();
-    const tx3 = mockTx();
+    const tx3 = await mockTx();
     await expect(client.sendTx(tx3)).rejects.toThrow();
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 
   it('restores the previous block number it was at', async () => {
     await client.start();
+    const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
     const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
-    expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
+    await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
   it('deletes txs once block is proven', async () => {
@@ -201,8 +201,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    // TODO(#10737) flake cc Maddiaa0
-    it.skip('moves the tips on a chain reorg', async () => {
+    it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -225,7 +224,7 @@ describe('In-Memory P2P Client', () => {
         finalized: { number: 90, hash: expect.any(String) },
       });
 
-      blockSource.addBlocks([L2Block.random(91), L2Block.random(92)]);
+      blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
       await sleep(100);
@@ -247,17 +246,17 @@ describe('In-Memory P2P Client', () => {
       // add two txs to the pool. One build against block 90, one against block 95
       // then prune the chain back to block 90
       // only one tx should be deleted
-      const goodTx = mockTx();
+      const goodTx = await mockTx();
       goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
-      const badTx = mockTx();
+      const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
+      txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
       blockSource.removeBlocks(10);
       await sleep(150);
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
       await client.stop();
     });
 
@@ -271,26 +270,26 @@ describe('In-Memory P2P Client', () => {
       // add three txs to the pool built against different blocks
       // then prune the chain back to block 90
       // only one tx should be deleted
-      const goodButOldTx = mockTx();
+      const goodButOldTx = await mockTx();
       goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
 
-      const goodTx = mockTx();
+      const goodTx = await mockTx();
       goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
-      const badTx = mockTx();
+      const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
-      txPool.getMinedTxHashes.mockReturnValue([
-        [goodButOldTx.getTxHash(), 90],
-        [goodTx.getTxHash(), 91],
+      txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
+      txPool.getMinedTxHashes.mockResolvedValue([
+        [await goodButOldTx.getTxHash(), 90],
+        [await goodTx.getTxHash(), 91],
       ]);
 
       blockSource.removeBlocks(10);
       await sleep(150);
-      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
       await sleep(150);
-      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()]);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([await goodTx.getTxHash()]);
       await client.stop();
     });
   });

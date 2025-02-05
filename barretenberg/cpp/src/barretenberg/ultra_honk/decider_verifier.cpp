@@ -40,6 +40,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
@@ -60,17 +62,18 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     }
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
+    if (!sumcheck_output.verified) {
         info("Sumcheck verification failed.");
         return false;
     }
     bool consistency_checked = true;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
@@ -81,7 +84,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified.value() && verified && consistency_checked;
+    return sumcheck_output.verified && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;

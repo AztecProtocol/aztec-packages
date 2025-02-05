@@ -76,12 +76,12 @@ export type FailedTx = {
   error: Error;
 };
 
-export function makeProcessedTxFromPrivateOnlyTx(
+export async function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
   feePaymentPublicDataWrite: PublicDataWrite | undefined,
   globalVariables: GlobalVariables,
-): ProcessedTx {
+): Promise<ProcessedTx> {
   const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
 
   const publicDataWrites = feePaymentPublicDataWrite ? [feePaymentPublicDataWrite] : [];
@@ -89,7 +89,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
-    tx.getTxHash(),
+    await tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
@@ -98,9 +98,8 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .filter(h => !h.isZero()),
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
-    Fr.ZERO,
+    [],
     data.end.contractClassLogPreimagesLength,
-    tx.unencryptedLogs,
     tx.contractClassLogs,
   );
 
@@ -128,42 +127,39 @@ export function toNumBlobFields(txs: ProcessedTx[]): number {
   }, 0);
 }
 
-export function makeProcessedTxFromTxWithPublicCalls(
+export async function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
-): ProcessedTx {
-  const avmOutput = avmProvingRequest.inputs.output;
+): Promise<ProcessedTx> {
+  const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
-  const constants = CombinedConstantData.combine(tx.data.constants, avmOutput.globalVariables);
+  const constants = CombinedConstantData.combine(tx.data.constants, avmPublicInputs.globalVariables);
 
-  const publicDataWrites = avmOutput.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
+  const publicDataWrites = avmPublicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
 
   const privateLogs = [
     ...tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs,
     ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
   ].filter(l => !l.isEmpty());
 
-  // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
-  const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
   const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
 
   const txEffect = new TxEffect(
     revertCode,
-    tx.getTxHash(),
-    avmOutput.transactionFee,
-    avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
-    avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
-    avmOutput.accumulatedData.l2ToL1Msgs
+    await tx.getTxHash(),
+    avmPublicInputs.transactionFee,
+    avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
+    avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),
+    avmPublicInputs.accumulatedData.l2ToL1Msgs
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
     publicDataWrites,
     privateLogs,
-    new Fr(unencryptedLogPreimagesLength),
+    avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
     new Fr(contractClassLogPreimagesLength),
-    tx.unencryptedLogs,
     tx.contractClassLogs,
   );
 

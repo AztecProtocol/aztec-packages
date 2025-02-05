@@ -13,6 +13,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/macros.hpp"
 #include "columns.hpp"
 #include "flavor_settings.hpp"
 
@@ -34,64 +35,36 @@
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
-#include "relations/incl_main_tag_err.hpp"
-#include "relations/incl_mem_tag_err.hpp"
-#include "relations/lookup_byte_lengths.hpp"
-#include "relations/lookup_byte_operations.hpp"
-#include "relations/lookup_cd_value.hpp"
-#include "relations/lookup_da_gas_rng_chk_0.hpp"
-#include "relations/lookup_da_gas_rng_chk_1.hpp"
-#include "relations/lookup_l2_gas_rng_chk_0.hpp"
-#include "relations/lookup_l2_gas_rng_chk_1.hpp"
-#include "relations/lookup_mem_rng_chk_0.hpp"
-#include "relations/lookup_mem_rng_chk_1.hpp"
-#include "relations/lookup_mem_rng_chk_2.hpp"
-#include "relations/lookup_opcode_gas.hpp"
-#include "relations/lookup_pow_2_0.hpp"
-#include "relations/lookup_pow_2_1.hpp"
-#include "relations/lookup_ret_value.hpp"
-#include "relations/lookup_rng_chk_0.hpp"
-#include "relations/lookup_rng_chk_1.hpp"
-#include "relations/lookup_rng_chk_2.hpp"
-#include "relations/lookup_rng_chk_3.hpp"
-#include "relations/lookup_rng_chk_4.hpp"
-#include "relations/lookup_rng_chk_5.hpp"
-#include "relations/lookup_rng_chk_6.hpp"
-#include "relations/lookup_rng_chk_7.hpp"
-#include "relations/lookup_rng_chk_diff.hpp"
-#include "relations/lookup_rng_chk_pow_2.hpp"
-#include "relations/perm_cmp_alu.hpp"
-#include "relations/perm_main_alu.hpp"
-#include "relations/perm_main_bin.hpp"
-#include "relations/perm_main_conv.hpp"
-#include "relations/perm_main_mem_a.hpp"
-#include "relations/perm_main_mem_b.hpp"
-#include "relations/perm_main_mem_c.hpp"
-#include "relations/perm_main_mem_d.hpp"
-#include "relations/perm_main_mem_ind_addr_a.hpp"
-#include "relations/perm_main_mem_ind_addr_b.hpp"
-#include "relations/perm_main_mem_ind_addr_c.hpp"
-#include "relations/perm_main_mem_ind_addr_d.hpp"
-#include "relations/perm_main_pos2_perm.hpp"
-#include "relations/perm_main_sha256.hpp"
-#include "relations/perm_merkle_poseidon2.hpp"
-#include "relations/perm_pos2_fixed_pos2_perm.hpp"
-#include "relations/perm_pos_mem_read_a.hpp"
-#include "relations/perm_pos_mem_read_b.hpp"
-#include "relations/perm_pos_mem_read_c.hpp"
-#include "relations/perm_pos_mem_read_d.hpp"
-#include "relations/perm_pos_mem_write_a.hpp"
-#include "relations/perm_pos_mem_write_b.hpp"
-#include "relations/perm_pos_mem_write_c.hpp"
-#include "relations/perm_pos_mem_write_d.hpp"
-#include "relations/perm_rng_alu.hpp"
-#include "relations/perm_rng_cmp_hi.hpp"
-#include "relations/perm_rng_cmp_lo.hpp"
-#include "relations/perm_rng_non_ff_cmp.hpp"
-#include "relations/perm_slice_mem.hpp"
+#include "relations/lookups_alu.hpp"
+#include "relations/lookups_binary.hpp"
+#include "relations/lookups_gas.hpp"
+#include "relations/lookups_main.hpp"
+#include "relations/lookups_mem.hpp"
+#include "relations/lookups_mem_slice.hpp"
+#include "relations/lookups_range_check.hpp"
+#include "relations/perms_alu.hpp"
+#include "relations/perms_cmp.hpp"
+#include "relations/perms_main.hpp"
+#include "relations/perms_mem_slice.hpp"
+#include "relations/perms_merkle_tree.hpp"
+#include "relations/perms_poseidon2.hpp"
+#include "relations/perms_poseidon2_full.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
+
+// clang-format off
+// These getters are used to speedup logderivative inverses.
+// See https://github.com/AztecProtocol/aztec-packages/pull/11605/ for a full explanation.
+#define DEFAULT_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return ENTITY; } \
+    inline auto& _##ENTITY() const { return ENTITY; }
+#define ROW_PROXY_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return pp.ENTITY[row_idx]; } \
+    inline auto& _##ENTITY() const { return pp.ENTITY[row_idx]; }
+#define DEFINE_GETTERS(GETTER_MACRO, ENTITIES) \
+    FOR_EACH(GETTER_MACRO, ENTITIES)
+// clang-format on
 
 namespace bb::avm {
 
@@ -124,8 +97,6 @@ class AvmFlavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 813;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -251,32 +222,29 @@ class AvmFlavor {
                   "AVM circuit. In this case, modify AVM_VERIFICATION_LENGTH_IN_FIELDS \n"
                   "in constants.nr accordingly.");
 
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        using DataType = DataType_;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_PRECOMPUTED_ENTITIES)
-
-        RefVector<DataType> get_selectors() { return get_all(); }
-        RefVector<DataType> get_sigma_polynomials() { return {}; }
-        RefVector<DataType> get_id_polynomials() { return {}; }
-        RefVector<DataType> get_table_polynomials() { return {}; }
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_PRECOMPUTED_ENTITIES)
     };
 
   private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_WIRE_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_DERIVED_WITNESS_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_SHIFTED_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -291,8 +259,9 @@ class AvmFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         auto get_wires() { return WireEntities<DataType>::get_all(); }
+        static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
-        auto get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
+        static const auto& get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
 
     template <typename DataType>
@@ -307,9 +276,11 @@ class AvmFlavor {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
 
-        auto get_unshifted_labels()
+        static const auto& get_unshifted_labels()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
+            static const auto labels =
+                concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
+            return labels;
         }
 
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
@@ -320,6 +291,7 @@ class AvmFlavor {
     class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
       public:
         using FF = typename Polynomial::FF;
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>);
 
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
@@ -335,17 +307,10 @@ class AvmFlavor {
         // folded element by element.
         std::vector<FF> public_inputs;
 
-        std::vector<std::string> get_labels() const
-        {
-            return concatenate(PrecomputedEntities<Polynomial>::get_labels(),
-                               WitnessEntities<Polynomial>::get_labels());
-        }
         auto get_witness_polynomials() { return WitnessEntities<Polynomial>::get_all(); }
         auto get_precomputed_polynomials() { return PrecomputedEntities<Polynomial>::get_all(); }
         auto get_selectors() { return PrecomputedEntities<Polynomial>::get_all(); }
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
-        // This order matters! must match get_unshifted in entity classes
-        auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
     };
 
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
@@ -385,14 +350,26 @@ class AvmFlavor {
         using Base::Base;
     };
 
+    // Only used by VM1 check_circuit. Remove.
     class AllConstRefValues {
       public:
         using BaseDataType = const FF;
         using DataType = BaseDataType&;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_ALL_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_ALL_ENTITIES)
+    };
 
-        AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
+    template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
+      public:
+        PolynomialEntitiesAtFixedRow(const size_t row_idx, const Polynomials& pp)
+            : row_idx(row_idx)
+            , pp(pp)
+        {}
+        DEFINE_GETTERS(ROW_PROXY_GETTERS, AVM_ALL_ENTITIES)
+
+      private:
+        const size_t row_idx;
+        const Polynomials& pp;
     };
 
     /**
@@ -410,12 +387,15 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        [[nodiscard]] size_t get_polynomial_size() const { return main_kernel_inputs.size(); }
-        /**
-         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
-         * represents one row in the execution trace.
-         */
-        [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const;
+        size_t get_polynomial_size() const { return main_kernel_inputs.size(); }
+        // This is only used in VM1 check_circuit. Remove.
+        AllConstRefValues get_standard_row(size_t row_idx) const
+        {
+            return [row_idx](auto&... entities) -> AllConstRefValues {
+                return { entities[row_idx]... };
+            }(AVM_ALL_ENTITIES);
+        }
+        auto get_row(size_t row_idx) const { return PolynomialEntitiesAtFixedRow<ProverPolynomials>(row_idx, *this); }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
@@ -448,14 +428,6 @@ class AvmFlavor {
      *
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
-
-    class CommitmentLabels : public AllEntities<std::string> {
-      private:
-        using Base = AllEntities<std::string>;
-
-      public:
-        CommitmentLabels();
-    };
 
     // Templated for use in recursive verifier
     template <typename Commitment_, typename VerificationKey>

@@ -25,6 +25,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
 
@@ -80,8 +82,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto [multivariate_challenge, claimed_evaluations, claimed_libra_evaluation, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -89,20 +90,23 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
     bool consistency_checked = true;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               claimed_libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               sumcheck_output.round_univariate_commitments,
+                                               sumcheck_output.round_univariate_evaluations);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -148,7 +152,6 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    ASSERT(sumcheck_verified);
     return { batch_opening_claim, ipa_transcript };
 }
 

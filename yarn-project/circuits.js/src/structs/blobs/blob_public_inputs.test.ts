@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/foundation/blob';
+import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 
 import { BLOBS_PER_BLOCK, BLOB_PUBLIC_INPUTS } from '../../constants.gen.js';
@@ -19,8 +20,8 @@ describe('BlobPublicInputs', () => {
     expect(res).toEqual(blobPI);
   });
 
-  it('converts correctly from Blob class', () => {
-    const blob = Blob.fromFields(Array(400).fill(new Fr(3)));
+  it('converts correctly from Blob class', async () => {
+    const blob = await Blob.fromFields(Array(400).fill(new Fr(3)));
     const converted = BlobPublicInputs.fromBlob(blob);
     expect(converted.z).toEqual(blob.challengeZ);
     expect(Buffer.from(converted.y.toString(16), 'hex')).toEqual(blob.evaluationY);
@@ -54,8 +55,8 @@ describe('BlockBlobPublicInputs', () => {
     expect(res).toEqual(blobPI);
   });
 
-  it('converts correctly from Blob class', () => {
-    const blobs = Array.from({ length: BLOBS_PER_BLOCK }, (_, i) => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
+  it('converts correctly from Blob class', async () => {
+    const blobs = await timesParallel(BLOBS_PER_BLOCK, i => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
     const converted = BlockBlobPublicInputs.fromBlobs(blobs);
     converted.inner.forEach((blobPI, i) => {
       expect(blobPI.z).toEqual(blobs[i].challengeZ);

@@ -49,17 +49,18 @@ describe('Data generation for noir tests', () => {
 
   const format = (obj: object) => JSON.stringify(obj, null, 2).replaceAll('"', '');
 
-  test.each(contracts)('Computes contract info for %s', contract => {
+  test.each(contracts)('Computes contract info for %s', async contract => {
     const contractClass: ContractClass = { ...contract, publicFunctions: [], version: 1 };
-    const contractClassId = computeContractClassId(contractClass);
-    const initializationHash = computeInitializationHashFromEncodedArgs(constructorSelector, []);
-    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
-      computeContractClassIdPreimage(contractClass);
+    const contractClassId = await computeContractClassId(contractClass);
+    const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);
+    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = await computeContractClassIdPreimage(
+      contractClass,
+    );
     const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
-    const address = computeContractAddressFromInstance(instance);
-    const saltedInitializationHash = computeSaltedInitializationHash(instance);
-    const partialAddress = computePartialAddress(instance);
+    const address = await computeContractAddressFromInstance(instance);
+    const saltedInitializationHash = await computeSaltedInitializationHash(instance);
+    const partialAddress = await computePartialAddress(instance);
 
     /* eslint-disable camelcase */
     expect(
@@ -79,8 +80,8 @@ describe('Data generation for noir tests', () => {
     /* eslint-enable camelcase */
   });
 
-  test.each(contracts)('Computes function tree for %s', contract => {
-    const tree = computePrivateFunctionsTree(contract.privateFunctions);
+  test.each(contracts)('Computes function tree for %s', async contract => {
+    const tree = await computePrivateFunctionsTree(contract.privateFunctions);
     expect(
       tree.leaves.map((leaf, index) => ({
         index,

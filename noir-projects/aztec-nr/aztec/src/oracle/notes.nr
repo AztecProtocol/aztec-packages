@@ -10,7 +10,7 @@ use dep::protocol_types::{
 pub fn notify_created_note<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
@@ -20,7 +20,7 @@ pub fn notify_created_note<let N: u32>(
         notify_created_note_oracle_wrapper(
             storage_slot,
             note_type_id,
-            serialized_note,
+            packed_note_content,
             note_hash,
             counter,
         )
@@ -45,14 +45,14 @@ pub fn notify_created_nullifier(nullifier: Field) {
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
     let _ = notify_created_note_oracle(
         storage_slot,
         note_type_id,
-        serialized_note,
+        packed_note_content,
         note_hash,
         counter,
     );
@@ -62,7 +62,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
-    _serialized_note: [Field; N],
+    _packed_note_content: [Field; N],
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
@@ -200,7 +200,7 @@ where
             let note_hash_counter = fields[read_offset + 1] as u32;
             let note_content = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::deserialize_content(note_content);
+            let mut note = Note::unpack_content(note_content);
             note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
 
             placeholder_opt_notes[i] = Option::some(note);

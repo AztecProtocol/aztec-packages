@@ -1,4 +1,4 @@
-// import CopyWebpackPlugin from 'copy-webpack-plugin';
+import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
@@ -16,6 +16,14 @@ export default {
   },
   module: {
     rules: [
+      {
+        test: /\.wasm\.gz$/,
+        type: 'asset/resource',
+        generator: {
+          filename: '[base]',
+          publicPath: '/',
+        },
+      },
       {
         test: /\.tsx?$/,
         use: [
@@ -41,6 +49,15 @@ export default {
     outputModule: true,
   },
   plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          // createRequire resolves the cjs version, so we need to go up one level
+          context: resolve(require.resolve('@aztec/bb.js'), '../../browser'),
+          from: '*.gz',
+        },
+      ],
+    }),
     new webpack.DefinePlugin({
       'process.env': {
         NODE_ENV: JSON.stringify('production'),

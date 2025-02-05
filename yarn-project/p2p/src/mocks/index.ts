@@ -6,8 +6,9 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -26,7 +27,7 @@ import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerManager } from '../services/peer_manager.js';
+import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
@@ -34,8 +35,7 @@ import {
   type ReqRespSubProtocolValidators,
   noopValidator,
 } from '../services/reqresp/interface.js';
-import { pingHandler } from '../services/reqresp/protocols/ping.js';
-import { statusHandler } from '../services/reqresp/protocols/status.js';
+import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
@@ -153,6 +153,8 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.PING]: pingHandler,
   [ReqRespSubProtocol.STATUS]: statusHandler,
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
+  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
 };
 
 // By default, all requests are valid
@@ -161,14 +163,16 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.PING]: noopValidator,
   [ReqRespSubProtocol.STATUS]: noopValidator,
   [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
+  [ReqRespSubProtocol.BLOCK]: noopValidator,
 };
 
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (peerManager: PeerManager, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
+export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
 };
 
 export const startNodes = async (
@@ -182,22 +186,18 @@ export const startNodes = async (
 };
 
 export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
-  const stopPromises = [];
-  for (const node of nodes) {
-    stopPromises.push(node.req.stop());
-    stopPromises.push(node.p2p.stop());
-  }
+  const stopPromises = nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]);
   await Promise.all(stopPromises);
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerManager: PeerManager): Promise<ReqRespNode> => {
+export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerManager);
+  const req = new ReqResp(config, p2p, peerScoring);
   return {
     p2p,
     req,
@@ -263,7 +263,7 @@ export async function createBootstrapNode(
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
   // Open an ephemeral store that will only exist in memory
-  const store = openTmpStore(true);
+  const store = await openTmpStore('bootstrap-node', true);
   const bootstrapNode = new BootstrapNode(store, telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;

@@ -38,13 +38,14 @@ function build {
         fi
     esac
 
+    denoise 'cd aztec.js && yarn build:web'
     denoise 'cd end-to-end && yarn build:web'
 
     # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
     # Then one-off cases. If you've written into src, you need to update this.
     cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
       circuit-types/src/test/artifacts \
-      end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
+      end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz} \
       ivc-integration/src/types/ \
       noir-contracts.js/{codegenCache.json,src/} \
       noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \

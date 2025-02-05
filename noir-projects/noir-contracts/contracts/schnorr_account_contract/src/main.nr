@@ -5,14 +5,14 @@ mod public_key_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract SchnorrAccount {
+pub contract SchnorrAccount {
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
         auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
         functions::{initializer, noinitcheck, private, view},
@@ -25,7 +25,9 @@ contract SchnorrAccount {
 
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_key
         signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        // docs:end:public_key
     }
 
     // Constructs the contract

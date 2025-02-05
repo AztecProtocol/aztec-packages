@@ -43,7 +43,7 @@ impl SpongeBlob {
     // Add fields to the sponge
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
         // We skip the 0 check below, as most use cases (e.g. base rollup) constrain that the input array
-        // is contructed from i=0->in_len from an empty array, so no need to check.
+        // is constructed from i=0->in_len from an empty array, so no need to check.
         self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, true);
         self.fields += in_len;
     }

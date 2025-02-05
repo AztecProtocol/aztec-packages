@@ -16,10 +16,8 @@ export type L2BlockStats = {
   txCount: number;
   /** Number of the L2 block. */
   blockNumber: number;
-  /** Number of unencrypted logs. */
-  unencryptedLogCount?: number;
-  /** Serialized size of unencrypted logs. */
-  unencryptedLogSize?: number;
+  /** Number of public logs. */
+  publicLogCount?: number;
 };
 
 /** Stats logged for each L1 publish tx.*/
@@ -40,6 +38,10 @@ export type L1PublishStats = {
   blobDataGas: bigint;
   /** Amount of blob gas used. */
   blobGasUsed: bigint;
+  /** Number of blobs in the tx */
+  blobCount?: number;
+  /** Number of L1 blocks between tx submission and inclusion */
+  inclusionBlocks?: number;
 };
 
 /** Stats logged for each L1 rollup publish tx.*/
@@ -212,10 +214,6 @@ export type TxStats = {
   size: number;
   /** Size of the proof. */
   proofSize: number;
-  /** Number of unencrypted logs. */
-  unencryptedLogCount: number;
-  /** Serialized size of unencrypted logs. */
-  unencryptedLogSize: number;
   /** Number of note hashes */
   noteHashCount: number;
   /** Number of nullifiers */

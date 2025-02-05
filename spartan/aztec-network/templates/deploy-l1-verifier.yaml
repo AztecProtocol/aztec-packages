@@ -18,7 +18,9 @@ spec:
         app: deploy-l1-verifier
     spec:
       restartPolicy: OnFailure
+      {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       volumes:
         - name: config
           emptyDir: {}
@@ -99,9 +101,9 @@ spec:
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
             - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.externalHost }}"
+              value: "{{ .Values.ethereum.execution.externalHost }}"
             - name: ETHEREUM_PORT
-              value: "{{ .Values.ethereum.service.port }}"
+              value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST
               value: "{{ .Values.bootNode.externalHost }}"
             - name: BOOT_NODE_PORT

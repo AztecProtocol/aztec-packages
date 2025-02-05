@@ -93,13 +93,20 @@ check_docker() {
         return 0
     else
         echo -e "${RED}Docker or Docker Compose not found${NC}"
-        read -p "Would you like to install Docker? [Y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-            install_docker
-            return $?
+        # If macOS
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            echo -e "${YELLOW}macOS detected. Please install Docker Desktop for Mac:${NC}"
+            echo "https://www.docker.com/products/docker-desktop"
+            return 1
+        else
+            read -p "Would you like to install Docker? [Y/n] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                install_docker
+                return $?
+            fi
+            return 1
         fi
-        return 1
     fi
 }
 
@@ -220,13 +227,18 @@ configure_environment() {
     COINBASE="$CLI_COINBASE"
     else
         while true; do
-            read -p "Validator Address (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
-            COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
-            if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
-                break
+            read -p "Validator Address (Coinbase): " COINBASE
+
+            if [ -z "$COINBASE" ]; then
+                echo -e "${RED}Error: Validator Address (Coinbase) is required${NC}"
             else
-                echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+                if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+                    break
+                else
+                    echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+                fi
             fi
+
         done
     fi
 
@@ -295,6 +307,7 @@ P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 DATA_DIRECTORY=/var/lib/aztec
 PEER_ID_PRIVATE_KEY=${PEER_ID_PRIVATE_KEY}
+COINBASE=${COINBASE}
 EOF
 
     # Generate docker-compose.yml
@@ -406,4 +419,3 @@ case "$1" in
         exit 1
         ;;
 esac
-

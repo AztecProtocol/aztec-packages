@@ -18,10 +18,9 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "./harnesses/Rollup.sol";
-import {IRollup, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollupCore, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -33,8 +32,8 @@ import {
 } from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 
 import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeFns
-} from "@aztec/core/libraries/TimeMath.sol";
+  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
+} from "@aztec/core/libraries/TimeLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -42,16 +41,18 @@ import {
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
-contract RollupTest is DecoderBase, TimeFns {
+contract RollupTest is DecoderBase {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
+  using TimeLib for Timestamp;
+  using TimeLib for Slot;
+  using TimeLib for Epoch;
 
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
-  Leonidas internal leo;
   MerkleTestUtil internal merkleTestUtil;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
@@ -65,7 +66,16 @@ contract RollupTest is DecoderBase, TimeFns {
   uint256 internal privateKey;
   address internal signer;
 
-  constructor() TimeFns(TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION) {}
+  uint256 internal SLOT_DURATION;
+  uint256 internal EPOCH_DURATION;
+
+  constructor() {
+    TimeLib.initialize(
+      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+    );
+    SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
+    EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+  }
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -74,15 +84,6 @@ contract RollupTest is DecoderBase, TimeFns {
     {
       testERC20 = new TestERC20("test", "TEST", address(this));
 
-      leo = new Leonidas(
-        testERC20,
-        TestConstants.AZTEC_MINIMUM_STAKE,
-        TestConstants.AZTEC_SLASHING_QUORUM,
-        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION,
-        TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
-      );
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime =
@@ -261,7 +262,7 @@ contract RollupTest is DecoderBase, TimeFns {
     _testBlock("mixed_block_1", false, 1);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollup.ProofRightClaimed(
+    emit IRollupCore.ProofRightClaimed(
       quote.epochToProve, quote.prover, address(this), quote.bondAmount, Slot.wrap(1)
     );
     rollup.claimEpochProofRight(signedQuote);
@@ -299,7 +300,7 @@ contract RollupTest is DecoderBase, TimeFns {
     rollup.propose(args, signatures, data.body, data.blobInputs);
 
     quote.epochToProve = Epoch.wrap(1);
-    quote.validUntilSlot = toSlots(Epoch.wrap(2));
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
     rollup.claimEpochProofRight(signedQuote);
     BlockLog memory blockLog = rollup.getBlock(0);
@@ -327,7 +328,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testMissingProofSlashesBond(uint256 _slotToHit) public setUpFor("mixed_block_1") {
     Slot lower = rollup.getCurrentSlot() + Slot.wrap(2 * EPOCH_DURATION);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(rollup.GENESIS_TIME())) / rollup.SLOT_DURATION()
+      (type(uint256).max - Timestamp.unwrap(rollup.getGenesisTime())) / rollup.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
 
@@ -344,7 +345,7 @@ contract RollupTest is DecoderBase, TimeFns {
 
   function testClaimTwice() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
-    quote.validUntilSlot = toSlots(Epoch.wrap(1e9));
+    quote.validUntilSlot = Epoch.wrap(1e9).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
 
     rollup.claimEpochProofRight(signedQuote);
@@ -371,7 +372,7 @@ contract RollupTest is DecoderBase, TimeFns {
 
   function testClaimOutsideClaimPhase() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
-    quote.validUntilSlot = toSlots(Epoch.wrap(1e9));
+    quote.validUntilSlot = Epoch.wrap(1e9).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
     warpToL2Slot(EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
 
@@ -388,7 +389,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testNoPruneWhenClaimExists() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
 
-    quote.validUntilSlot = toSlots(Epoch.wrap(2));
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
 
     warpToL2Slot(EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
@@ -404,7 +405,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testPruneWhenClaimExpires() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
 
-    quote.validUntilSlot = toSlots(Epoch.wrap(2));
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
 
     warpToL2Slot(EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
@@ -426,7 +427,7 @@ contract RollupTest is DecoderBase, TimeFns {
   function testClaimAfterPrune() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
 
-    quote.validUntilSlot = toSlots(Epoch.wrap(3));
+    quote.validUntilSlot = Epoch.wrap(3).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
 
     warpToL2Slot(EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
@@ -437,14 +438,14 @@ contract RollupTest is DecoderBase, TimeFns {
 
     rollup.prune();
 
-    _testBlock("mixed_block_1", false, toSlots(Epoch.wrap(3)).unwrap());
+    _testBlock("mixed_block_1", false, Epoch.wrap(3).toSlots().unwrap());
 
     quote.epochToProve = Epoch.wrap(3);
     signedQuote = _quoteToSignedQuote(quote);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollup.ProofRightClaimed(
-      quote.epochToProve, quote.prover, address(this), quote.bondAmount, toSlots(Epoch.wrap(3))
+    emit IRollupCore.ProofRightClaimed(
+      quote.epochToProve, quote.prover, address(this), quote.bondAmount, Epoch.wrap(3).toSlots()
     );
     rollup.claimEpochProofRight(signedQuote);
   }
@@ -584,7 +585,7 @@ contract RollupTest is DecoderBase, TimeFns {
     bytes32 inboxRoot2 = inbox.getRoot(2);
 
     BlockLog memory blockLog = rollup.getBlock(1);
-    Slot prunableAt = blockLog.slotNumber + toSlots(Epoch.wrap(2));
+    Slot prunableAt = blockLog.slotNumber + Epoch.wrap(2).toSlots();
 
     Timestamp timeOfPrune = rollup.getTimestampForSlot(prunableAt);
     vm.warp(Timestamp.unwrap(timeOfPrune));
@@ -651,7 +652,7 @@ contract RollupTest is DecoderBase, TimeFns {
     _testBlock("mixed_block_1", false, 1);
     assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
     warpToL2Slot(EPOCH_DURATION * 2);
-    _testBlock("mixed_block_1", false, toSlots(Epoch.wrap(2)).unwrap());
+    _testBlock("mixed_block_1", false, Epoch.wrap(2).toSlots().unwrap());
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -756,7 +757,7 @@ contract RollupTest is DecoderBase, TimeFns {
     BlockLog memory blockLog = rollup.getBlock(0);
 
     quote.epochToProve = Epoch.wrap(1);
-    quote.validUntilSlot = toSlots(Epoch.wrap(2));
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
     signedQuote = _quoteToSignedQuote(quote);
 
     warpToL2Slot(EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);

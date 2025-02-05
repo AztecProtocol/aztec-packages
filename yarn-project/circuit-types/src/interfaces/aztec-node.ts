@@ -16,7 +16,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -28,8 +28,10 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
-  type GetUnencryptedLogsResponse,
-  GetUnencryptedLogsResponseSchema,
+  type GetContractClassLogsResponse,
+  GetContractClassLogsResponseSchema,
+  type GetPublicLogsResponse,
+  GetPublicLogsResponseSchema,
   type LogFilter,
   LogFilterSchema,
   TxScopedL2Log,
@@ -51,7 +53,7 @@ import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
+import { type ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.
@@ -304,18 +306,18 @@ export interface AztecNode
   getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -368,6 +370,13 @@ export interface AztecNode
    * @returns The pending tx if it exists.
    */
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
+   * Method to retrieve multiple pending txs.
+   * @param txHash - The transaction hashes to return.
+   * @returns The pending txs if exist.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -451,9 +460,8 @@ export interface AztecNode
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  ...ProverCoordinationApiSchema,
-
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
@@ -544,9 +552,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
-  getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
 
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
   getLogsByTags: z
     .function()
@@ -564,6 +572,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getPendingTxCount: z.function().returns(z.number()),
 
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+
+  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 

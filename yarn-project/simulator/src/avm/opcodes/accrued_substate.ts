@@ -70,7 +70,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.address, noteHash);
+    await context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
   }
@@ -201,6 +201,7 @@ export class L1ToL2MessageExists extends Instruction {
 }
 
 export class EmitUnencryptedLog extends Instruction {
+  // TODO(#11124): rename unencrypted -> public
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -228,7 +229,7 @@ export class EmitUnencryptedLog extends Instruction {
 
     context.machineState.consumeGas(this.gasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
-    context.persistableState.writeUnencryptedLog(contractAddress, log);
+    context.persistableState.writePublicLog(contractAddress, log);
 
     memory.assert({ reads: 1 + logSize, addressing });
   }

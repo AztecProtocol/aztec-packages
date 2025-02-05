@@ -11,9 +11,9 @@ import {
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -38,7 +38,7 @@ function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   const peerIdPrivateKeys: string[] = [];
   for (let i = 0; i < numberOfPeers; i++) {
     // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
-    peerIdPrivateKeys.push('08021220' + generatePrivateKey().substr(2, 66));
+    peerIdPrivateKeys.push('08021220' + generatePrivateKey().slice(2, 68));
   }
   return peerIdPrivateKeys;
 }
@@ -51,7 +51,7 @@ describe('Req Resp p2p client integration', () => {
   let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
   let epochCache: MockProxy<EpochCache>;
   let l2BlockSource: MockL2BlockSource;
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
   const logger = createLogger('p2p:test:client-integration');
@@ -63,7 +63,7 @@ describe('Req Resp p2p client integration', () => {
     epochCache = mock<EpochCache>();
 
     txPool.getAllTxs.mockImplementation(() => {
-      return [] as Tx[];
+      return Promise.resolve([] as Tx[]);
     });
   });
 
@@ -117,10 +117,10 @@ describe('Req Resp p2p client integration', () => {
       } as P2PConfig & DataStoreConfig;
 
       l2BlockSource = new MockL2BlockSource();
-      l2BlockSource.createBlocks(100);
+      await l2BlockSource.createBlocks(100);
 
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
-      kvStore = openTmpStore();
+      kvStore = await openTmpStore('test');
       const deps = {
         txPool: txPool as unknown as TxPool,
         attestationPool: attestationPool as unknown as AttestationPool,
@@ -167,8 +167,8 @@ describe('Req Resp p2p client integration', () => {
       await sleep(2000);
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       const requestedTx = await client1.requestTxByHash(txHash);
       expect(requestedTx).toBeUndefined();
@@ -190,10 +190,10 @@ describe('Req Resp p2p client integration', () => {
       await sleep(6000);
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
       // Mock the tx pool to return the tx we are looking for
-      txPool.getTxByHash.mockImplementationOnce(() => tx);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
       const requestedTx = await client1.requestTxByHash(txHash);
 
@@ -219,11 +219,11 @@ describe('Req Resp p2p client integration', () => {
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
 
       // Return the correct tx with an invalid proof -> active attack
-      txPool.getTxByHash.mockImplementationOnce(() => tx);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
       const requestedTx = await client1.requestTxByHash(txHash);
       // Even though we got a response, the proof was deemed invalid
@@ -251,12 +251,12 @@ describe('Req Resp p2p client integration', () => {
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
       // Perform a get tx request from client 1
-      const tx = mockTx();
-      const txHash = tx.getTxHash();
-      const tx2 = mockTx(420);
+      const tx = await mockTx();
+      const txHash = await tx.getTxHash();
+      const tx2 = await mockTx(420);
 
       // Return an invalid tx
-      txPool.getTxByHash.mockImplementationOnce(() => tx2);
+      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
       const requestedTx = await client1.requestTxByHash(txHash);
       // Even though we got a response, the proof was deemed invalid

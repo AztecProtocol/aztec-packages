@@ -9,14 +9,14 @@ import {
   ExtRollupLibBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
+  ForwarderAbi,
+  ForwarderBytecode,
   GovernanceAbi,
   GovernanceBytecode,
   GovernanceProposerAbi,
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
-  LeonidasLibAbi,
-  LeonidasLibBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -28,18 +28,27 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
+  StakingLibAbi,
+  StakingLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
+  ValidatorSelectionLibAbi,
+  ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
 import {
   type Account,
   type Chain,
+  type Client,
   type Hex,
   type HttpTransport,
+  type PublicActions,
   type PublicClient,
+  type PublicRpcSchema,
+  type WalletActions,
   type WalletClient,
+  type WalletRpcSchema,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -50,14 +59,17 @@ import {
   http,
   numberToHex,
   padHex,
+  publicActions,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
-import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils } from './l1_tx_utils.js';
+
+export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 /**
  * Return type of the deployL1Contract function.
@@ -128,13 +140,17 @@ export const l1Artifacts = {
     libraries: {
       linkReferences: RollupLinkReferences,
       libraryCode: {
-        LeonidasLib: {
-          contractAbi: LeonidasLibAbi,
-          contractBytecode: LeonidasLibBytecode as Hex,
+        ValidatorSelectionLib: {
+          contractAbi: ValidatorSelectionLibAbi,
+          contractBytecode: ValidatorSelectionLibBytecode as Hex,
         },
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
+        },
+        StakingLib: {
+          contractAbi: StakingLibAbi,
+          contractBytecode: StakingLibBytecode as Hex,
         },
       },
     },
@@ -190,7 +206,13 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 
 export type L1Clients = {
   publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: Client<
+    HttpTransport,
+    Chain,
+    PrivateKeyAccount,
+    [...WalletRpcSchema, ...PublicRpcSchema],
+    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
+  >;
 };
 
 /**
@@ -212,18 +234,25 @@ export function createL1Clients(
         : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
       : mnemonicOrPrivateKeyOrHdAccount;
 
+  // From what I can see, this is the difference between the HDAccount and the PrivateKeyAccount
+  // and we don't need it for anything. This lets us use the same type for both.
+  // eslint-disable-next-line camelcase
+  hdAccount.experimental_signAuthorization ??= () => {
+    throw new Error('experimental_signAuthorization not implemented for HDAccount');
+  };
+
   const walletClient = createWalletClient({
     account: hdAccount,
     chain,
     transport: http(rpcUrl),
-  });
+  }).extend(publicActions);
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
     pollingInterval: 100,
   });
 
-  return { walletClient, publicClient };
+  return { walletClient, publicClient } as L1Clients;
 }
 
 /**
@@ -346,6 +375,8 @@ export const deployL1Contracts = async (
     account.address.toString(),
     rollupConfigArgs,
   ];
+  await deployer.waitForDeployments();
+
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
@@ -412,18 +443,18 @@ export const deployL1Contracts = async (
         ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
       );
 
-      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([
-        newValidatorsAddresses.map(v => ({
-          attester: v,
-          proposer: v,
-          withdrawer: v,
-          amount: args.minimumStake,
-        })),
-      ]);
+      const validators = newValidatorsAddresses.map(v => ({
+        attester: v,
+        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
+        withdrawer: v,
+        amount: args.minimumStake,
+      }));
+      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
       txHashes.push(initiateValidatorSetTxHash);
-      logger.info(
-        `Initialized validator set (${newValidatorsAddresses.join(', ')}) in tx ${initiateValidatorSetTxHash}`,
-      );
+      logger.info(`Initialized validator set`, {
+        validators,
+        txHash: initiateValidatorSetTxHash,
+      });
     }
   }
 
@@ -431,7 +462,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000n;
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
   const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
@@ -579,50 +610,6 @@ class L1Deployer {
   }
 }
 
-/**
- * Compiles a contract source code using the provided solc compiler.
- * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
- * @param contractName - Contract name within the file (eg HonkVerifier)
- * @param source - Source code to compile
- * @param solc - Solc instance
- * @returns ABI and bytecode of the compiled contract
- */
-export function compileContract(
-  fileName: string,
-  contractName: string,
-  source: string,
-  solc: { compile: (source: string) => string },
-): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [fileName]: {
-        content: source,
-      },
-    },
-    settings: {
-      // we require the optimizer
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      evmVersion: 'cancun',
-      outputSelection: {
-        '*': {
-          '*': ['evm.bytecode.object', 'abi'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-  const abi = output.contracts[fileName][contractName].abi;
-  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
-
-  return { abi, bytecode };
-}
-
 // docs:start:deployL1Contract
 /**
  * Helper function to deploy ETH contracts.
@@ -705,15 +692,12 @@ export async function deployL1Contract(
   }
 
   if (maybeSalt) {
-    const salt = padHex(maybeSalt, { size: 32 });
-    const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
-    const calldata = encodeDeployData({ abi, bytecode, args });
-    resultingAddress = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, maybeSalt);
+    resultingAddress = address;
     const existing = await publicClient.getBytecode({ address: resultingAddress });
-
     if (existing === undefined || existing === '0x') {
       const res = await l1TxUtils.sendTransaction({
-        to: deployer,
+        to: DEPLOYER_ADDRESS,
         data: concatHex([salt, calldata]),
       });
       txHash = res.txHash;
@@ -743,4 +727,26 @@ export async function deployL1Contract(
 
   return { address: EthAddress.fromString(resultingAddress!), txHash };
 }
+
+export function getExpectedAddress(
+  abi: Narrow<Abi | readonly unknown[]>,
+  bytecode: Hex,
+  args: readonly unknown[],
+  salt: Hex,
+) {
+  const paddedSalt = padHex(salt, { size: 32 });
+  const calldata = encodeDeployData({ abi, bytecode, args });
+  const address = getContractAddress({
+    from: DEPLOYER_ADDRESS,
+    salt: paddedSalt,
+    bytecode: calldata,
+    opcode: 'CREATE2',
+  });
+  return {
+    address,
+    paddedSalt,
+    calldata,
+  };
+}
+
 // docs:end:deployL1Contract

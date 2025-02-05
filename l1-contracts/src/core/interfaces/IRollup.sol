@@ -15,7 +15,7 @@ import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 epochSize;
@@ -76,8 +76,10 @@ interface ITestRollup {
     returns (ManaBaseFeeComponents memory);
 }
 
-interface IRollup {
-  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive);
+interface IRollupCore {
+  event L2BlockProposed(
+    uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
+  );
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event ProofRightClaimed(
@@ -110,17 +112,6 @@ interface IRollup {
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
-
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view;
-
   // solhint-disable-next-line func-name-mixedcase
   function INBOX() external view returns (IInbox);
 
@@ -130,7 +121,22 @@ interface IRollup {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function getProofClaim() external view returns (DataStructures.EpochProofClaim memory);
+  function quoteToDigest(EpochProofQuote memory _quote) external view returns (bytes32);
+
+  function getFeeAssetPrice() external view returns (uint256);
+  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
+
+  function canPrune() external view returns (bool);
+  function canPruneAtTime(Timestamp _ts) external view returns (bool);
+  function getEpochToProve() external view returns (Epoch);
+
+  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
+    external
+    view;
+  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
+}
+
+interface IRollup is IRollupCore {
   function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
@@ -145,25 +151,8 @@ interface IRollup {
       Epoch provenEpochNumber
     );
 
-  function quoteToDigest(EpochProofQuote memory _quote) external view returns (bytes32);
-  function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
-  function getFeeAssetPrice() external view returns (uint256);
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
-  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
+  function getProofClaim() external view returns (DataStructures.EpochProofClaim memory);
 
-  function archive() external view returns (bytes32);
-  function archiveAt(uint256 _blockNumber) external view returns (bytes32);
-  function canPrune() external view returns (bool);
-  function canPruneAtTime(Timestamp _ts) external view returns (bool);
-  function getProvenBlockNumber() external view returns (uint256);
-  function getPendingBlockNumber() external view returns (uint256);
-  function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
-  function getEpochToProve() external view returns (Epoch);
-  function getClaimableEpoch() external view returns (Epoch);
-  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
-    external
-    view;
-  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
@@ -171,5 +160,31 @@ interface IRollup {
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-  function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32, bytes32);
+
+  function getClaimableEpoch() external view returns (Epoch);
+
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    DataStructures.ExecutionFlags memory _flags
+  ) external view;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
+
+  function validateBlobs(bytes calldata _blobsInputs)
+    external
+    view
+    returns (bytes32[] memory, bytes32, bytes32);
+
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
+
+  function archive() external view returns (bytes32);
+  function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function getProvenBlockNumber() external view returns (uint256);
+  function getPendingBlockNumber() external view returns (uint256);
+  function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
+  function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
 }
