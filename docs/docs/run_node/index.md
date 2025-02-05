@@ -28,19 +28,9 @@ In this section, you can explore how governance works on Aztec, the types of nod
       <h3>Sequencers</h3>
     </CardHeader>
     <CardBody>
-      How sequencers propose and produce blocks 
+      How sequencers propose and produce blocks
     </CardBody>
   </Card>
-
-  <Card shadow='tl' link='run_node/concepts/provers-and-sequencers/proving_coordination_workflow'>
-    <CardHeader>
-      <h3>Provers</h3>
-    </CardHeader>
-    <CardBody>
-     How proving is coordinated
-    </CardBody>
-  </Card>
-</div>
 
 ## Run a node
 
@@ -49,13 +39,13 @@ In this section, you can explore how governance works on Aztec, the types of nod
     <CardHeader>
       <h3>Run a validator node (sequencer)</h3>
     </CardHeader>
-  
+
   </Card>
 
   <Card shadow='tl' link='run_node/guides/run_nodes/how_to_run_prover'>
     <CardHeader>
       <h3>Run a prover node</h3>
     </CardHeader>
-   
+
   </Card>
 </div>
