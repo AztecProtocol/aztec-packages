@@ -66,7 +66,7 @@ Many of these are not official resources, may be outdated, or are works in progr
 
 ## Contract examples
 
-Explore the [tutorials section](../tutorials/codealong/contract_tutorials/counter_contract.md) for some contract and full-stack project examples.
+Explore the [tutorials section](../developers/tutorials/codealong/contract_tutorials/counter_contract.md) for some contract and full-stack project examples.
 
 There is also a list of up-to-date contract examples in the [aztec-packages Github repo](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts). 
 
@@ -86,7 +86,6 @@ Many of these are outdated.
 - [Aztec private oracle](https://github.com/defi-wonderland/aztec-private-oracle)
 - [Zybil](https://github.com/mach-34/zybil)
 - [Aztec poker](https://github.com/zobront/aztec-poker/)
-
 - [Alpha Build winners](https://aztec.network/blog/shaping-the-future-of-payments-meet-the-winners-of-alpha-build-one)
 
 ### Noir
