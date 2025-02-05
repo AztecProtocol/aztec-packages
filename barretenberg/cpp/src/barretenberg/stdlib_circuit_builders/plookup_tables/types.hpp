@@ -199,7 +199,7 @@ struct MultiTable {
         init_step_sizes();
     }
 
-    MultiTable() {};
+    MultiTable(){};
     MultiTable(const MultiTable& other) = default;
     MultiTable(MultiTable&& other) = default;
 
