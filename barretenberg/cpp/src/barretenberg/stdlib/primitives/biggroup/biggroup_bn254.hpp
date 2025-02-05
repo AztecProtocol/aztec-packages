@@ -226,7 +226,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
                                                                   const std::vector<Fr>& small_scalars,
                                                                   const size_t max_num_small_bits)
 {
-    ASSERT(max_num_small_bits >= 128);
+
+    ASSERT(max_num_small_bits % 2 == 0);
+
     const size_t num_big_points = big_points.size();
     const size_t num_small_points = small_points.size();
     C* ctx = nullptr;
@@ -372,6 +374,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     for (size_t i = 1; i < num_rounds / 2; ++i) {
         // `nafs` tracks the naf value for each point for the current round
         std::vector<bool_ct> nafs;
+        info("nafs size ", naf_entries[0].size());
         for (size_t j = 0; j < points.size(); ++j) {
             nafs.emplace_back(naf_entries[j][i * 2 - 1]);
         }

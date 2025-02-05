@@ -417,18 +417,21 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul()
     {
         Builder builder;
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
+        const size_t max_num_bits = 254;
+
+        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        for (size_t i = 2; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
-            // Get 128-bit scalar
-            uint256_t scalar_raw = fr::random_element();
-            scalar_raw.data[2] = 0ULL;
-            scalar_raw.data[3] = 0ULL;
+            // Get a short scalar
+            uint256_t scalar_raw = engine.get_random_uint256();
+            scalar_raw = scalar_raw >> (256 - i);
             fr scalar = fr(scalar_raw);
-            // Add skew
-            if (uint256_t(scalar).get_bit(0)) {
-                scalar -= fr(1);
-            }
+
+            // Avoid multiplication by 0 that may occur when `i` is small
+            if (scalar == fr(0)) {
+                scalar += 1;
+            };
+
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
@@ -437,7 +440,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             P.set_origin_tag(submitted_value_origin_tag);
 
             std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            element_ct c = P.template scalar_mul<128>(x);
+            // Multiply using specified scalar length
+            element_ct c = P.scalar_mul(x, i);
             std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
@@ -445,7 +449,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             fq c_x_result(c.x.get_value().lo);
             fq c_y_result(c.y.get_value().lo);
-
+            if (c_x_result != c_expected.x) {
+                info("failed ", i);
+            };
             EXPECT_EQ(c_x_result, c_expected.x);
 
             EXPECT_EQ(c_y_result, c_expected.y);
@@ -464,10 +470,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         scalar_raw.data[2] = 0ULL;
         scalar_raw.data[3] = 0ULL;
         fr scalar = fr(scalar_raw);
-        // Add skew
-        if (uint256_t(scalar).get_bit(0)) {
-            scalar -= fr(1);
-        }
+
         element_ct P = element_ct::from_witness(&builder, input);
         scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
@@ -476,7 +479,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         P.set_origin_tag(submitted_value_origin_tag);
 
         std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-        element_ct c = P.template scalar_mul<128>(x);
+        element_ct c = P.scalar_mul(x, 128);
         std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
         // Check the result of the multiplication has a tag that's the union of inputs' tags
@@ -1023,37 +1026,39 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_compute_naf()
     {
         Builder builder = Builder();
-        std::vector<size_t> bit_lengths = { 254, 128 };
+        size_t max_num_bits = 254;
+        // Our design of NAF and the way it is used assumes the even length of scalars.
+        for (size_t length = 2; length < max_num_bits; length += 2) {
 
-        for (auto max_num_bits : bit_lengths) {
-            size_t num_repetitions(32);
-            for (size_t i = 0; i < num_repetitions; i++) {
-                fr scalar_val = fr::random_element();
-                if (max_num_bits == 128) {
-                    uint256_t scalar_raw = fr::random_element();
-                    scalar_raw.data[2] = 0ULL;
-                    scalar_raw.data[3] = 0ULL;
-                    scalar_val = fr(scalar_raw);
-                }
-                scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-                // Set tag for scalar
-                scalar.set_origin_tag(submitted_value_origin_tag);
-                auto naf = element_ct::compute_naf(scalar, max_num_bits);
+            fr scalar_val;
 
-                for (const auto& bit : naf) {
-                    // Check that the tag is propagated to bits
-                    EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-                }
-                // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
-                fr reconstructed_val(0);
-                for (size_t i = 0; i < max_num_bits; i++) {
-                    reconstructed_val +=
-                        (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (max_num_bits - 1 - i));
-                };
-                reconstructed_val -= fr(naf[max_num_bits].witness_bool);
-                EXPECT_EQ(scalar_val, reconstructed_val);
+            uint256_t scalar_raw = engine.get_random_uint256();
+            scalar_raw = scalar_raw >> (256 - length);
+
+            scalar_val = fr(scalar_raw);
+
+            // NAF with short scalars doesn't handle 0
+            if (scalar_val == fr(0)) {
+                scalar_val += 1;
+            };
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+            // Set tag for scalar
+            scalar.set_origin_tag(submitted_value_origin_tag);
+            auto naf = element_ct::compute_naf(scalar, length);
+
+            for (const auto& bit : naf) {
+                // Check that the tag is propagated to bits
+                EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
             }
+            // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
+            fr reconstructed_val(0);
+            for (size_t i = 0; i < length; i++) {
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (length - 1 - i));
+            };
+            reconstructed_val -= fr(naf[length].witness_bool);
+            EXPECT_EQ(scalar_val, reconstructed_val);
         }
+
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 

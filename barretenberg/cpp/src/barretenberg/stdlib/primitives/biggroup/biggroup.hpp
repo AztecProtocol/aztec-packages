@@ -143,7 +143,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         result.y.assert_is_in_field();
         return result;
     }
-    template <size_t max_num_bits> element scalar_mul(const Fr& scalar) const;
+    element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;
 
     element reduce() const
     {

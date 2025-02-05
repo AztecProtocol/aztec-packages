@@ -843,7 +843,7 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
 {
     // Use `scalar_mul` method without specifying the length of `scalar`.
-    return scalar_mul<0>(scalar);
+    return scalar_mul(scalar);
 }
 
 /**
@@ -852,8 +852,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
  * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
  **/
 template <typename C, class Fq, class Fr, class G>
-template <size_t max_num_bits>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {
     /**
      *
@@ -886,7 +885,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar) const
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
     element result;
-    if constexpr (max_num_bits != 0) {
+    if (max_num_bits != 0) {
         // The case of short scalars
         result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
     } else {
