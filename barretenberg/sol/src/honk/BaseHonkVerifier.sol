@@ -39,13 +39,22 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 
     // Errors
+    error ProofLengthWrong();
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
 
+    // Number of field elements in a ultra honk  proof
+    uint256 constant PROOF_SIZE = 443;
+
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+        // Check the received proof is the expected size where each field element is 32 bytes
+        if (proof.length != PROOF_SIZE * 32) {
+            revert ProofLengthWrong();
+        }
+
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
         if (publicInputs.length != vk.publicInputsSize) {

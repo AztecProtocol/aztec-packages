@@ -31,6 +31,7 @@ pub contract Crowdfunding {
         amount: U128,
     }
 
+    // TODO: This can be optimized by storing the values in Config struct in 1 PublicImmutable (less merkle proofs).
     // docs:start:storage
     #[storage]
     struct Storage<Context> {

@@ -45,8 +45,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using Shplemini = ShpleminiVerifier_<Curve>;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
 

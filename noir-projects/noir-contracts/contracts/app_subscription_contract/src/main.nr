@@ -18,6 +18,7 @@ pub contract AppSubscription {
     use router::utils::privately_check_block_number;
     use token::Token;
 
+    // TODO: This can be optimized by storing the values in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
     struct Storage<Context> {
         target_address: PublicImmutable<AztecAddress, Context>,

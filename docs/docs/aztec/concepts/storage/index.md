@@ -1,7 +1,7 @@
 ---
 title: Storage
 description: How are storage slots derived for public and private state
-sidebar_position: 2
+sidebar_position: 0
 tags: [protocol, storage]
 ---
 
