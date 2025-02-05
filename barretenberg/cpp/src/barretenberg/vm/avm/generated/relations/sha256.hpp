@@ -23,7 +23,7 @@ template <typename FF_> class sha256Impl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.sha256_sel_sha256_compression * (FF(1) - new_term.sha256_sel_sha256_compression));
+            auto tmp = new_term.sha256_sel_sha256_compression * (FF(1) - new_term.sha256_sel_sha256_compression);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

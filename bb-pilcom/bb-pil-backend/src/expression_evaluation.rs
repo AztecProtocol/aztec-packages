@@ -48,9 +48,72 @@ pub fn get_alias_expression_and_degree<F: FieldElement>(
     alias_name: &str,
     aliases: &HashMap<&String, &AlgebraicExpression<F>>,
 ) -> (u64, String) {
-    let (degree, expression, _) =
-        recurse_expression(aliases.get(&alias_name.to_owned()).unwrap(), aliases, false);
+    let (degree, expression, _) = recurse_expression(
+        aliases.get(&alias_name.to_owned()).unwrap(),
+        aliases,
+        false,
+        None,
+    );
     (degree, expression)
+}
+
+// Return true:
+// - if parent is pow
+// - if parent is mul and child expression is not mul nor pow.
+// - if parent is sub and child is add
+fn has_parent_priority<F: FieldElement>(
+    parent_expr: Option<&AlgebraicExpression<F>>,
+    child_expr: &AlgebraicExpression<F>,
+) -> bool {
+    match parent_expr {
+        Some(AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+            left: _,
+            op,
+            right: _,
+        })) => match op {
+            AlgebraicBinaryOperator::Pow => true,
+            AlgebraicBinaryOperator::Mul => match child_expr {
+                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+                    left: _,
+                    op,
+                    right: _,
+                }) => match op {
+                    AlgebraicBinaryOperator::Pow | AlgebraicBinaryOperator::Mul => false,
+                    _ => true,
+                },
+                _ => true,
+            },
+            AlgebraicBinaryOperator::Sub => match child_expr {
+                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+                    left: _,
+                    op,
+                    right: _,
+                }) => match op {
+                    AlgebraicBinaryOperator::Add => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        },
+        Some(AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation {
+            op: operator,
+            expr: _,
+        })) => match operator {
+            AlgebraicUnaryOperator::Minus => match child_expr {
+                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+                    left: _,
+                    op,
+                    right: _,
+                }) => match op {
+                    AlgebraicBinaryOperator::Add => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+        },
+        _ => false,
+    }
 }
 
 // Returns (degree, expression, transitive aliases)
@@ -60,14 +123,16 @@ pub fn recurse_expression<F: FieldElement>(
     top_expr: &AlgebraicExpression<F>,
     aliases: &HashMap<&String, &AlgebraicExpression<F>>,
     inline_aliases: bool,
+    parent_expr: Option<&AlgebraicExpression<F>>,
 ) -> (u64, String, HashSet<String>) {
+    let has_parent_priority = has_parent_priority(parent_expr, top_expr);
     match top_expr {
         AlgebraicExpression::Number(n) => (0, format_field(n), HashSet::new()),
         AlgebraicExpression::Reference(polyref) => {
             if aliases.contains_key(&polyref.name) {
                 let alias_expr = aliases.get(&polyref.name).unwrap();
                 let (d, expr, mut rec_aliases) =
-                    recurse_expression(alias_expr, aliases, inline_aliases);
+                    recurse_expression(alias_expr, aliases, inline_aliases, None);
                 let sanitized_name = sanitize_name(&polyref.name);
                 rec_aliases.insert(sanitized_name.clone());
                 if inline_aliases {
@@ -88,16 +153,22 @@ pub fn recurse_expression<F: FieldElement>(
             op,
             right: rhe,
         }) => {
-            let (ld, lhs, lhs_aliases) = recurse_expression(lhe, aliases, inline_aliases);
-            let (rd, rhs, rhs_aliases) = recurse_expression(rhe, aliases, inline_aliases);
+            let (ld, lhs, lhs_aliases) =
+                recurse_expression(lhe, aliases, inline_aliases, Some(top_expr));
+            let (rd, rhs, rhs_aliases) =
+                recurse_expression(rhe, aliases, inline_aliases, Some(top_expr));
             let joined_aliases = lhs_aliases.union(&rhs_aliases).cloned().collect();
 
             match op {
-                AlgebraicBinaryOperator::Add => (
-                    std::cmp::max(ld, rd),
-                    format!("({} + {})", lhs, rhs),
-                    joined_aliases,
-                ),
+                AlgebraicBinaryOperator::Add => {
+                    let output: String;
+                    if has_parent_priority {
+                        output = format!("({} + {})", lhs, rhs);
+                    } else {
+                        output = format!("{} + {}", lhs, rhs);
+                    }
+                    (std::cmp::max(ld, rd), output, joined_aliases)
+                }
                 AlgebraicBinaryOperator::Sub =>
                 // There seem to be many cases where the rhs is a 0, try to avoid it.
                 {
@@ -112,7 +183,13 @@ pub fn recurse_expression<F: FieldElement>(
                     }
                 }
                 AlgebraicBinaryOperator::Mul => {
-                    (ld + rd, format!("({} * {})", lhs, rhs), joined_aliases)
+                    let output: String;
+                    if has_parent_priority {
+                        output = format!("({} * {})", lhs, rhs);
+                    } else {
+                        output = format!("{} * {}", lhs, rhs);
+                    }
+                    (ld + rd, output, joined_aliases)
                 }
                 _ => unimplemented!("{:?}", op),
             }
@@ -122,7 +199,8 @@ pub fn recurse_expression<F: FieldElement>(
             expr: rec_expr,
         }) => match operator {
             AlgebraicUnaryOperator::Minus => {
-                let (d, e, rec_aliases) = recurse_expression(rec_expr, aliases, inline_aliases);
+                let (d, e, rec_aliases) =
+                    recurse_expression(rec_expr, aliases, inline_aliases, None);
                 (d, format!("-{}", e), rec_aliases)
             }
         },
