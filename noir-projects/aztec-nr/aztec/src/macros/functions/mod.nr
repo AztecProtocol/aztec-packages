@@ -93,9 +93,9 @@ comptime fn create_note_discovery_call() -> Quoted {
         unsafe {
             dep::aztec::note::discovery::discover_new_notes(
                 context.this_address(),
-                |serialized_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+                |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
                     // _compute_note_hash_and_optionally_a_nullifier is a contract library method injected by `generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier`
-                    let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, serialized_note_content);
+                    let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
 
                     Option::some(
                         aztec::note::discovery::NoteHashAndNullifier {

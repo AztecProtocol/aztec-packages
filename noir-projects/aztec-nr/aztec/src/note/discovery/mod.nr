@@ -48,7 +48,7 @@ pub struct NoteHashAndNullifier {
 ///     } else if note_type_id == MyOtherNoteType::get_note_type_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack_content
 ///     } else {
-///         Option::none() // Uknown note type ID
+///         Option::none() // Unknown note type ID
 ///     };
 /// }
 /// ```

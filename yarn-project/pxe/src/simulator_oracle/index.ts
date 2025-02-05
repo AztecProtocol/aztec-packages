@@ -727,7 +727,7 @@ export class SimulatorOracle implements DBOracle {
 
     const log = logsForTag[0];
 
-    // getLogsByTag doesn't have all of the information that we need (notable note hashes and the first nullifier), so
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
     // we need to make a second call to the node for `getTxEffect`.
     // TODO(#9789): bundle this information in the `getLogsByTag` call.
     const txEffect = await this.aztecNode.getTxEffect(log.txHash);

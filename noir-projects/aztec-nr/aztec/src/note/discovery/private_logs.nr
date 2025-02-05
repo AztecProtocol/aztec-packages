@@ -25,8 +25,8 @@ pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
     MAX_NOTE_PACKED_LEN - PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
-/// are stored in the PXE DB to so that `fetch_and_process_public_partial_note_completion_logs` can later search for
-/// public logs that will complete them.
+/// are stored in the PXE DB so that `fetch_and_process_public_partial_note_completion_logs` can later search for public
+/// logs that will complete them.
 pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     _contract_address: AztecAddress,
     _compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
@@ -124,7 +124,7 @@ unconstrained fn process_private_note_log<Env>(
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     storage_slot: Field,
     note_type_id: Field,
-    serialized_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) {
     let discovered_notes = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
@@ -133,7 +133,7 @@ unconstrained fn process_private_note_log<Env>(
         contract_address,
         storage_slot,
         note_type_id,
-        serialized_note_content,
+        packed_note_content,
     );
 
     debug_log_format(
@@ -151,7 +151,7 @@ unconstrained fn process_private_note_log<Env>(
                     contract_address,
                     storage_slot,
                     discovered_note.nonce,
-                    serialized_note_content,
+                    packed_note_content,
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     tx_hash,

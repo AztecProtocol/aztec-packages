@@ -67,7 +67,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
             if maybe_log.is_none() {
                 debug_log_format(
-                    "Found nocompletion logs for partial note #{}",
+                    "Found no completion logs for partial note #{}",
                     [(*i) as Field],
                 );
                 *i += 1 as u32;
@@ -115,8 +115,8 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 array::for_each_in_bounded_vec(
                     discovered_notes,
                     |discovered_note: DiscoveredNoteInfo, _| {
-                        // TODO:(#10728): decide handle notes that fail delivery. This could be due to e.g. a temporary
-                        // node connectivity issue - is simply throwing good enough here?
+                        // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
+                        // temporary node connectivity issue - is simply throwing good enough here?
                         assert(
                             deliver_note(
                                 contract_address,
@@ -133,7 +133,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                     },
                 );
 
-                // Because we there is only a single log for a given tag, once we've processed the tagged log then we
+                // Because there is only a single log for a given tag, once we've processed the tagged log then we
                 // simply delete the pending work entry, regardless of whether it was actually completed or not.
                 // TODO(#11627): only remove the pending entry if we actually process a log that results in the note
                 // being completed.
