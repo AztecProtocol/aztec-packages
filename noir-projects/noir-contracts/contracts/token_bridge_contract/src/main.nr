@@ -41,11 +41,13 @@ pub contract TokenBridge {
     // docs:end:token_bridge_storage_and_constructor
 
     #[private]
-    fn get_config_private() -> Config {
+    #[view]
+    fn get_config() -> Config {
         storage.config.read()
     }
 
     #[public]
+    #[view]
     fn get_config_public() -> Config {
         storage.config.read()
     }

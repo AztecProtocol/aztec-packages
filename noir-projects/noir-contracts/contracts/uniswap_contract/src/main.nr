@@ -124,9 +124,9 @@ pub contract Uniswap {
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
         let input_asset_bridge_config =
-            TokenBridge::at(input_asset_bridge).get_config_private().view(&mut context);
+            TokenBridge::at(input_asset_bridge).get_config().view(&mut context);
         let output_asset_bridge_config =
-            TokenBridge::at(output_asset_bridge).get_config_private().view(&mut context);
+            TokenBridge::at(output_asset_bridge).get_config().view(&mut context);
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
