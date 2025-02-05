@@ -60,8 +60,11 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
+            gas::Gas,
+            kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+            private_log::{get_emitted_private_log_fields_len, PrivateLogData},
             side_effect::scoped::Scoped,
         },
         address::{AztecAddress, EthAddress},
@@ -72,7 +75,6 @@ mod tests {
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
         L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -384,8 +386,14 @@ mod tests {
 
         let public_inputs = builder.execute();
 
+        let total_num_private_log_fields = get_emitted_private_log_fields_len(builder
+            .previous_kernel
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
+
         let num_private_logs = 3;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let num_da_fields = 1 /* nullifier */ + total_num_private_log_fields;
         let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS

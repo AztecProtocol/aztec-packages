@@ -235,7 +235,7 @@ export class Tx extends Gossipable {
       this.contractClassLogs.getSerializedLength() +
       this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES
+      this.data.getNonEmptyPrivateLogsLength() * PrivateLog.SIZE_IN_BYTES
     );
   }
 
