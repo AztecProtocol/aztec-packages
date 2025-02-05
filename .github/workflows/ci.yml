@@ -415,7 +415,7 @@ jobs:
             timeout: 40
           - name: "4epochs-with-blob-sink"
             test: 4epochs.test.ts
-            values: ci
+            values: ci.yaml
             overrides: "blobSink.enabled=true"
             runner_type: 16core-tester-x86
             timeout: 40
