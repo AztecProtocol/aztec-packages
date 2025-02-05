@@ -144,16 +144,42 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         std::swap(result.accumulator->proving_key.log_circuit_size, keys[1]->proving_key.log_circuit_size);
     }
 
-    // Fold the proving key polynomials
-    for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
-        poly *= lagranges[0];
-    }
-    for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
-        for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
-                                                  keys[key_idx]->proving_key.polynomials.get_unshifted())) {
-            acc_poly.add_scaled(key_poly, lagranges[key_idx]);
+    ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
+    auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
+    auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
+    std::cout << "acc size = " << accumulator_polys.size() << std::endl;
+    std::cout << "key size = " << key_polys.size() << std::endl;
+    for (size_t i = 0; i < accumulator_polys.size(); ++i) {
+        PolynomialSpan<FF> acc = static_cast<PolynomialSpan<FF>>(accumulator_polys[i]);
+        PolynomialSpan<FF> key = static_cast<PolynomialSpan<FF>>(key_polys[i]);
+
+        // acc *= lagranges[0];
+        // acc.add_scaled(key, lagranges[1]);
+
+        // *= calls coefficients_.data()
+        // add_scaled calls at() which calls coefficients_::operator[] which does not have bounds checks
+        std::cout << "acc poly size = " << acc.size() << std::endl;
+        std::cout << "key poly size = " << key.size() << std::endl;
+        std::cout << "acc start index " << acc.start_index << std::endl;
+        std::cout << "key start index " << key.start_index << std::endl;
+        const size_t size = std::min(acc.size() - acc.start_index, key.size() - key.start_index);
+        for (size_t j = 0; j < size; ++j) {
+            acc[j + acc.start_index] *= lagranges[0];
+            acc[j + acc.start_index] += key[j + key.start_index] * lagranges[1];
         }
     }
+    // // Fold the proving key polynomials
+    // for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
+    //     poly *= lagranges[0];
+    // }
+
+    // // acc poly = acc[i] * lagranges[0] + key[i] * lagranges[1]
+    // for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
+    //     for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
+    //                                               keys[key_idx]->proving_key.polynomials.get_unshifted())) {
+    //         acc_poly.add_scaled(key_poly, lagranges[key_idx]);
+    //     }
+    // }
 
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}

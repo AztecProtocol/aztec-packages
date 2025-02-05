@@ -394,7 +394,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                         TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+                                        AvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                        AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 

@@ -1,3 +1,3 @@
 if(NOT DISABLE_AZTEC_VM)
-  barretenberg_module(vm sumcheck stdlib_honk_verifier)
+  barretenberg_module(vm sumcheck stdlib_circuit_builders stdlib_honk_verifier stdlib_eccvm_verifier stdlib_translator_vm_verifier stdlib_honk_verifier goblin stdlib_goblin_verifier)
 endif()

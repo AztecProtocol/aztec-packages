@@ -46,10 +46,12 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
+    std::cout << "XA" << std::endl;
     transcript = std::make_shared<Transcript>(proof);
     auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);
     OinkVerifier oink_verifier{ builder, verification_key, transcript };
     oink_verifier.verify();
+    std::cout << "XB" << std::endl;
 
     VerifierCommitments commitments{ key, verification_key->witness_commitments };
 
@@ -61,14 +63,21 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
     AggregationObject nested_agg_obj;
     size_t idx = 0;
+
     std::array<typename Curve::Group, 2> nested_pairing_points;
     for (size_t i = 0; i < 2; i++) {
         std::array<typename Curve::BaseField, 2> base_field_vals;
         for (size_t j = 0; j < 2; j++) {
             std::array<FF, 4> bigfield_limbs;
             for (size_t k = 0; k < 4; k++) {
+                std::cout << "k = " << k << std::endl;
+                std::cout << "ultra recursive verifier public input indices [" << idx
+                          << "] = " << key->pairing_point_accumulator_public_input_indices[idx] << std::endl;
+                std::cout << "x" << std::endl;
+                std::cout << "vkey pub inputs size = " << verification_key->public_inputs.size() << std::endl;
                 bigfield_limbs[k] =
                     verification_key->public_inputs[key->pairing_point_accumulator_public_input_indices[idx]];
+                std::cout << "y" << std::endl;
                 idx++;
             }
             base_field_vals[j] = Curve::BaseField::construct_from_limbs(
@@ -106,6 +115,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (Flavor::HasZK) {
         libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
     }
+    std::cout << "XC" << std::endl;
 
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     const BatchOpeningClaim<Curve> opening_claim =
@@ -129,6 +139,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     agg_obj.aggregate(pairing_points, recursion_separator);
     Output output;
     output.agg_obj = std::move(agg_obj);
+    std::cout << "XD" << std::endl;
 
     // Extract the IPA claim from the public inputs
     // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
@@ -165,6 +176,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
             output.ipa_opening_claim = std::move(ipa_claim);
         }
     }
+    std::cout << "XE" << std::endl;
 
     return output;
 }
