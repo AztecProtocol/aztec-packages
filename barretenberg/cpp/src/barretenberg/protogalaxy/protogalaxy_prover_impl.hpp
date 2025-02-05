@@ -146,63 +146,63 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
 
     ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
 
-    for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
-        for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
-                                                  keys[key_idx]->proving_key.polynomials.get_unshifted())) {
+    // for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
+    //     for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
+    //                                               keys[key_idx]->proving_key.polynomials.get_unshifted())) {
 
-            ASSERT(acc_poly.start_index() <= key_poly.start_index());
-            ASSERT(acc_poly.end_index() >= key_poly.end_index());
-            const size_t num_threads = calculate_num_threads(key_poly.size());
-            const size_t range_per_thread = key_poly.size() / num_threads;
-            const size_t leftovers = key_poly.size() - (range_per_thread * num_threads);
-            parallel_for(num_threads, [&](size_t j) {
-                const size_t offset = j * range_per_thread + key_poly.start_index();
-                const size_t end =
-                    (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-                for (size_t i = offset; i < end; ++i) {
-                    acc_poly.at(i) += (key_poly.at(i) - acc_poly.at(i)) * combiner_challenge;
-                }
-            });
-        }
-    }
-
-    // auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
-    // auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
-
-    // const size_t num_polys = key_polys.size();
-    // size_t max_size = 0;
-    // for (size_t i = 0; i < num_polys; ++i) {
-    //     max_size = std::max(max_size, key_polys[i].size());
-    // }
-    // const size_t num_threads = calculate_num_threads(max_size);
-
-    // std::vector<PolynomialSpan<FF>> acc_spans;
-    // std::vector<PolynomialSpan<FF>> key_spans;
-    // acc_spans.reserve(num_polys);
-    // key_spans.reserve(num_polys);
-    // for (size_t i = 0; i < num_polys; ++i) {
-    //     acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
-    //     key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
-    // }
-    // parallel_for(num_threads, [&](size_t j) {
-    //     for (size_t i = 0; i < num_polys; ++i) {
-
-    //         auto& acc = acc_spans[i];
-    //         auto& key = key_spans[i];
-    //         ASSERT(acc.start_index <= key.start_index);
-    //         ASSERT(acc.end_index() >= key.end_index());
-    //         const size_t range_per_thread = key.size() / num_threads;
-    //         const size_t leftovers = key.size() - (range_per_thread * num_threads);
-
-    //         const size_t offset = j * range_per_thread + key.start_index;
-    //         const size_t end =
-    //             (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-
-    //         for (size_t k = offset; k < end; ++k) {
-    //             acc[k] += (key[k] - acc[k]) * combiner_challenge;
-    //         }
+    //         ASSERT(acc_poly.start_index() <= key_poly.start_index());
+    //         ASSERT(acc_poly.end_index() >= key_poly.end_index());
+    //         const size_t num_threads = calculate_num_threads(key_poly.size());
+    //         const size_t range_per_thread = key_poly.size() / num_threads;
+    //         const size_t leftovers = key_poly.size() - (range_per_thread * num_threads);
+    //         parallel_for(num_threads, [&](size_t j) {
+    //             const size_t offset = j * range_per_thread + key_poly.start_index();
+    //             const size_t end =
+    //                 (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+    //             for (size_t i = offset; i < end; ++i) {
+    //                 acc_poly.at(i) += (key_poly.at(i) - acc_poly.at(i)) * combiner_challenge;
+    //             }
+    //         });
     //     }
-    // });
+    // }
+
+    auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
+    auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
+
+    const size_t num_polys = key_polys.size();
+    size_t max_size = 0;
+    for (size_t i = 0; i < num_polys; ++i) {
+        max_size = std::max(max_size, key_polys[i].size());
+    }
+    const size_t num_threads = calculate_num_threads(max_size);
+
+    std::vector<PolynomialSpan<FF>> acc_spans;
+    std::vector<PolynomialSpan<FF>> key_spans;
+    acc_spans.reserve(num_polys);
+    key_spans.reserve(num_polys);
+    for (size_t i = 0; i < num_polys; ++i) {
+        acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
+        key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
+    }
+    parallel_for(num_threads, [&](size_t j) {
+        for (size_t i = 0; i < num_polys; ++i) {
+
+            auto& acc = acc_spans[i];
+            auto& key = key_spans[i];
+            ASSERT(acc.start_index <= key.start_index);
+            ASSERT(acc.end_index() >= key.end_index());
+            const size_t range_per_thread = key.size() / num_threads;
+            const size_t leftovers = key.size() - (range_per_thread * num_threads);
+
+            const size_t offset = j * range_per_thread + key.start_index;
+            const size_t end =
+                (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+
+            for (size_t k = offset; k < end; ++k) {
+                acc[k] += (key[k] - acc[k]) * combiner_challenge;
+            }
+        }
+    });
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
     for (auto [folded_alpha, key_alpha] : zip_view(result.accumulator->alphas, alphas)) {
