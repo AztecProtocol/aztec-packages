@@ -11,7 +11,7 @@ hash=$(cache_content_hash \
     awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
-function build {
+function build_and_preview {
   echo_header "build docs"
   if cache_download docs-$hash.tar.gz; then
     return
@@ -23,40 +23,39 @@ function build {
     docs/reference/developer_references/smart_contract_reference/aztec-nr
   denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
   cache_upload docs-$hash.tar.gz build
-  release_preview
   if [ "$CI" -eq 0 ] || [ "$(arch)" != "amd64" ]; then
     return
   fi
+  # Included as part of build step so we can skip this consistently if the build was cached.
+  release_preview
 }
 
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
-  pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
+  echo_header "docs release preview"
 
-  if [ -n "$pr_number" ]; then
-    echo_header "docs release preview"
-
-    # Deploy and capture exit code and output.
-    if ! deploy_output=$(yarn netlify deploy --dir . --site aztec-docs-dev 2>&1); then
-      echo "Netlify deploy failed with error:"
-      echo "$deploy_output"
-      exit 1
-    fi
-
-    # Extract preview URL.
-    docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
-    if [ -z "$docs_preview_url" ]; then
-      echo "Failed to extract preview URL from Netlify output."
-    else
-      echo "Docs preview URL: ${docs_preview_url}"
-    fi
+  # Deploy and capture exit code and output.
+  if ! deploy_output=$(yarn netlify deploy --dir . --site aztec-docs-dev 2>&1); then
+    echo "Netlify deploy failed with error:"
+    echo "$deploy_output"
+    exit 1
   fi
 
-  if [ -n "$PR_NUMBER" ]; then
-    AZTEC_BOT_COMMENTER_GITHUB_TOKEN="$AZTEC_BOT_COMMENTER_GITHUB_TOKEN" \
-      PR_NUMBER="$PR_NUMBER" \
-      DOCS_PREVIEW_URL="$DOCS_PREVIEW_URL" \
-      yarn --cwd ../yarn-project/scripts docs-preview-comment
+  # Extract preview URL.
+  local docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
+  if [ -z "$docs_preview_url" ]; then
+    echo "Failed to extract preview URL from Netlify output."
+  else
+    echo "Docs preview URL: ${docs_preview_url}"
+  fi
+
+  local pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
+  if [ -n "$pr_number" ]; then
+    if [ -z "${GITHUB_TOKEN:-}" ]; then
+      echo_stderr "Not updating docs preview comment; no PR number."
+      return
+    fi
+    scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number $docs_preview_url
   fi
 }
 
@@ -70,13 +69,13 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"full")
-    build
+    build_and_preview
     ;;
   "hash")
     echo "$hash"
     ;;
   "release_preview")
-    release
+    release_preview
     ;;
   "release")
     release

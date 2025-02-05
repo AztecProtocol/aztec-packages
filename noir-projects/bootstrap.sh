@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# TODO: Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
