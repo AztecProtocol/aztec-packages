@@ -4,28 +4,28 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/node/index.js",
-    "./interfaces/pxe": "./dest/node/api/interfaces/pxe.js",
-    "./abi": "./dest/node/api/abi.js",
-    "./account": "./dest/node/api/account.js",
-    "./addresses": "./dest/node/api/addresses.js",
-    "./cheatcodes": "./dest/node/api/cheatcodes.js",
-    "./contracts": "./dest/node/contract/index.js",
-    "./deployment": "./dest/node/api/deployment.js",
-    "./entrypoint": "./dest/node/api/entrypoint.js",
-    "./eth_address": "./dest/node/api/eth_address.js",
-    "./ethereum": "./dest/node/api/ethereum/index.js",
-    "./fee": "./dest/node/api/fee.js",
-    "./fields": "./dest/node/api/fields.js",
-    "./log_id": "./dest/node/api/log_id.js",
-    "./rpc": "./dest/node/rpc_clients/index.js",
-    "./tx_hash": "./dest/node/api/tx_hash.js",
-    "./wallet": "./dest/node/api/wallet.js",
-    "./utils": "./dest/node/utils/index.js"
+    ".": "./dest/index.js",
+    "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
+    "./abi": "./dest/api/abi.js",
+    "./account": "./dest/api/account.js",
+    "./addresses": "./dest/api/addresses.js",
+    "./cheatcodes": "./dest/api/cheatcodes.js",
+    "./contracts": "./dest/contract/index.js",
+    "./deployment": "./dest/api/deployment.js",
+    "./entrypoint": "./dest/api/entrypoint.js",
+    "./eth_address": "./dest/api/eth_address.js",
+    "./ethereum": "./dest/api/ethereum/index.js",
+    "./fee": "./dest/api/fee.js",
+    "./fields": "./dest/api/fields.js",
+    "./log_id": "./dest/api/log_id.js",
+    "./rpc": "./dest/rpc_clients/index.js",
+    "./tx_hash": "./dest/api/tx_hash.js",
+    "./wallet": "./dest/api/wallet.js",
+    "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/node/index.ts"
+      "./src/index.ts"
     ],
     "name": "Aztec.js",
     "tsconfig": "./tsconfig.json"

@@ -1,7 +1,7 @@
 {
   "extends": "..",
   "compilerOptions": {
-    "outDir": "dest/node",
+    "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
