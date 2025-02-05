@@ -58,16 +58,18 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
                 storage_slot,
                 note_type_id,
             )
-                .unwrap();
+                .expect(f"Failed to compute a note hash for note type {note_type_id}");
 
             let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
             let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
 
             if unique_note_hash == expected_unique_note_hash {
-                // Note that we perform no validations on the nullifier - we fundamentally cannot, since only the
-                // application knows how to compute nullifiers, and we simply trust it to have provided the correct one.
-                // If it hasn't, then PXE may fail to realize that a given note has been nullified already and end up
-                // producing invalid transactions (with duplicate nullifiers).
+                // Note that while we did check that the note hash is the preimage of the expected unique note hash, we
+                // perform no validations on the nullifier - we fundamentally cannot, since only the application knows
+                // how to compute nullifiers. We simply trust it to have provided the correct one: if it hasn't, then
+                // PXE may fail to realize that a given note has been nullified already, and calls to the application
+                // could result in invalid transactions (with duplicate nullifiers). This is not a concern because an
+                // application already has more direct means of making a call to it fail the transaction.
                 discovered_notes.push(
                     DiscoveredNoteInfo {
                         nonce: candidate_nonce,
