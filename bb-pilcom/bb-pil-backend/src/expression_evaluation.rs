@@ -57,60 +57,52 @@ pub fn get_alias_expression_and_degree<F: FieldElement>(
     (degree, expression)
 }
 
+// We only try to remove parenthesis for ADD and MUL. This means
+// that only child_expr for these cases are handled.
 // Return true:
-// - if parent is pow
-// - if parent is mul and child expression is not mul nor pow.
-// - if parent is sub and child is add
+// - if child is MUL and parent is POW
+// - if child is ADD and parent is POW, MUL, SUB or Unary Minus operator
 fn has_parent_priority<F: FieldElement>(
     parent_expr: Option<&AlgebraicExpression<F>>,
     child_expr: &AlgebraicExpression<F>,
 ) -> bool {
-    match parent_expr {
-        Some(AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+    match child_expr {
+        AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
             left: _,
             op,
             right: _,
-        })) => match op {
-            AlgebraicBinaryOperator::Pow => true,
-            AlgebraicBinaryOperator::Mul => match child_expr {
-                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+        }) => match op {
+            AlgebraicBinaryOperator::Mul => match parent_expr {
+                Some(AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
                     left: _,
                     op,
                     right: _,
-                }) => match op {
-                    AlgebraicBinaryOperator::Pow | AlgebraicBinaryOperator::Mul => false,
-                    _ => true,
-                },
-                _ => true,
-            },
-            AlgebraicBinaryOperator::Sub => match child_expr {
-                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
-                    left: _,
-                    op,
-                    right: _,
-                }) => match op {
-                    AlgebraicBinaryOperator::Add => true,
+                })) => match op {
+                    AlgebraicBinaryOperator::Pow => true,
                     _ => false,
+                },
+                _ => false,
+            },
+            AlgebraicBinaryOperator::Add => match parent_expr {
+                Some(AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
+                    left: _,
+                    op,
+                    right: _,
+                })) => match op {
+                    AlgebraicBinaryOperator::Pow
+                    | AlgebraicBinaryOperator::Mul
+                    | AlgebraicBinaryOperator::Sub => true,
+                    _ => false,
+                },
+                Some(AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation {
+                    op: operator,
+                    expr: _,
+                })) => match operator {
+                    AlgebraicUnaryOperator::Minus => true,
                 },
                 _ => false,
             },
             _ => false,
-        },
-        Some(AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation {
-            op: operator,
-            expr: _,
-        })) => match operator {
-            AlgebraicUnaryOperator::Minus => match child_expr {
-                AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
-                    left: _,
-                    op,
-                    right: _,
-                }) => match op {
-                    AlgebraicBinaryOperator::Add => true,
-                    _ => false,
-                },
-                _ => false,
-            },
         },
         _ => false,
     }
