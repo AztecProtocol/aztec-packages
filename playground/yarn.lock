@@ -2607,43 +2607,6 @@ __metadata:
   languageName: node
   linkType: hard
   version: 0.0.0-use.local
-  resolution: "gaztec@workspace:."
-  dependencies:
-    "@aztec/accounts": "link:../yarn-project/accounts"
-    "@aztec/aztec.js": "link:../yarn-project/aztec.js"
-    "@aztec/bb-prover": "link:../yarn-project/bb-prover"
-    "@aztec/circuits.js": "link:../yarn-project/circuits.js"
-    "@aztec/foundation": "link:../yarn-project/foundation"
-    "@aztec/key-store": "link:../yarn-project/key-store"
-    "@aztec/kv-store": "link:../yarn-project/kv-store"
-    "@aztec/pxe": "link:../yarn-project/pxe"
-    "@aztec/simulator": "link:../yarn-project/simulator"
-    "@emotion/react": "npm:^11.14.0"
-    "@emotion/styled": "npm:^11.14.0"
-    "@eslint/js": "npm:^9.18.0"
-    "@fontsource/roboto": "npm:^5.1.1"
-    "@mui/icons-material": "npm:^6.3.1"
-    "@mui/material": "npm:^6.3.1"
-    "@mui/styles": "npm:^6.3.1"
-    "@types/node": "npm:^22.10.5"
-    "@types/react": "npm:^19.0.6"
-    "@types/react-dom": "npm:^19.0.3"
-    "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    eslint: "npm:^9.13.0"
-    eslint-plugin-react-hooks: "npm:^5.1.0"
-    eslint-plugin-react-refresh: "npm:^0.4.18"
-    globals: "npm:^15.14.0"
-    nosleep.js: "npm:^0.12.0"
-    react: "npm:^18.3.1"
-    react-dom: "npm:^18.3.1"
-    react-dropzone: "npm:^14.3.5"
-    typescript: "npm:~5.7.3"
-    typescript-eslint: "npm:^8.11.0"
-    vite: "npm:^6.0.11"
-    vite-plugin-node-polyfills: "npm:^0.23.0"
-    vite-plugin-static-copy: "npm:^2.2.0"
-  languageName: unknown
-  linkType: soft
 
 "get-intrinsic@npm:^1.2.4, get-intrinsic@npm:^1.2.5, get-intrinsic@npm:^1.2.6":
   version: 1.2.7
