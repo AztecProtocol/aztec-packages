@@ -11,6 +11,7 @@
 !/noir-projects/noir-contracts/scripts/extractFunctionAsNoirArtifact.js
 !/noir/packages/
 !/yarn-project/package.json
+!/yarn-project/yarn.lock
 !/yarn-project/*/package.json
 !/yarn-project/*/dest/
 !/yarn-project/cli-wallet/wallet-entrypoint.sh
@@ -18,7 +19,7 @@
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/noir-contracts.js/artifacts/
-!/yarn-project/world-state/build/world_state_napi.node
+!/yarn-project/native/build/nodejs_module.node
 
 # These are copied in so we can perform a "production dependency install", after which they're deleted.
 !/yarn-project/.yarn/

@@ -4,7 +4,7 @@ mod dapp_payload;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AppSubscription {
+pub contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use authwit::auth::assert_current_call_valid_authwit;

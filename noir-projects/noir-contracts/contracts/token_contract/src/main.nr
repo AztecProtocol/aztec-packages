@@ -12,7 +12,7 @@ use dep::aztec::macros::aztec;
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
 #[aztec]
-contract Token {
+pub contract Token {
     // Libs
     use std::meta::derive;
 

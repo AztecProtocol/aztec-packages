@@ -2,7 +2,7 @@ mod note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AvmTest {
+pub contract AvmTest {
     use crate::note::Note;
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;

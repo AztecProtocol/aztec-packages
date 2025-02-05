@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
 hash=$(cache_content_hash \
   ../noir/.rebuild_patterns \
@@ -23,14 +24,14 @@ function format {
 }
 
 function lint {
-  get_projects | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
 }
 export -f format lint get_projects
 
 function build {
   echo_header "yarn-project build"
 
-  denoise "$0 clean-lite"
+  denoise "./bootstrap.sh clean-lite"
   denoise "yarn install"
 
   if cache_download yarn-project-$hash.tar.gz; then
@@ -62,7 +63,7 @@ function build {
     'cd aztec.js && yarn build:web'
     'cd end-to-end && yarn build:web'
   )
-  if [ "${typecheck:-0}" -eq 1 ]; then
+  if [ "${typecheck:-0}" -eq 1 ] || [ "$CI" -eq 1 ]; then
     cmds+=(
       'yarn tsc -b --emitDeclarationOnly'
       lint
@@ -88,9 +89,6 @@ function build {
 }
 
 function test_cmds {
-  # TODO: This takes way longer than it probably should.
-  echo "$hash cd yarn-project && yarn formatting"
-
   # These need isolation due to network stack usage.
   for test in {prover-node,p2p}/src/**/*.test.ts; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
@@ -101,7 +99,8 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment.
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
-  for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
+  # noir-bb-bench: A slow pain. Figure out later.
+  for test in !(end-to-end|kv-store|prover-node|p2p|noir-bb-bench)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -121,13 +120,13 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    git ls-files --ignored --others --exclude-standard \
-      | grep -v '^node_modules/' \
-      | grep -v '^\.yarn/' \
-      | xargs rm -rf
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    if [ -n "$files" ]; then
+      echo "$files" | xargs rm -rf
+    fi
     ;;
   "ci")
-    typecheck=1 build
+    build
     test
     ;;
   ""|"fast")
@@ -149,14 +148,17 @@ case "$cmd" in
     release
     ;;
   "compile")
-    shift
-    compile_project ::: "$@"
+    if [ -n "${1:-}" ]; then
+      compile_project ::: "$@"
+    else
+      get_projects | compile_project
+    fi
     ;;
   "format")
     format
     ;;
   "lint")
-    lint
+    lint "$@"
     ;;
   *)
     echo "Unknown command: $cmd"

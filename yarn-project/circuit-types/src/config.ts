@@ -1,1 +1,1 @@
-export { SequencerConfig, AllowedElement, SequencerConfigSchema } from './interfaces/configs.js';
+export { type SequencerConfig, type AllowedElement, SequencerConfigSchema } from './interfaces/configs.js';

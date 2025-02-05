@@ -3,8 +3,7 @@ import { GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { type AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
@@ -40,7 +39,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
 
   static async create(skipContractDeployments = false): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
     const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);

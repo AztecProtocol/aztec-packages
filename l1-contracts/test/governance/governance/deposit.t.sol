@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {GovernanceBase} from "./base.t.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract DepositTest is GovernanceBase {
   uint256 internal constant DEPOSIT_COUNT = 8;

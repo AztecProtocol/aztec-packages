@@ -6,7 +6,7 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {GovernanceBase} from "./base.t.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract GetProposalStateTest is GovernanceBase {

@@ -34,7 +34,7 @@ import {
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
 import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
@@ -63,8 +63,6 @@ struct Config {
  * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
 contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRollup, ITestRollup {
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using IntRollupLib for uint256;
   using IntRollupLib for ManaBaseFeeComponents;
@@ -434,7 +432,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
   }
 
   /**
-   * @notice  Validate blob transactions against given inputs.
+   * @notice  Validate blob transactions against given inputs
    * @dev     Only exists here for gas estimation.
    */
   function validateBlobs(bytes calldata _blobsInput)
@@ -662,7 +660,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
       rollupStore.blocks[blockOfInterest].feeHeader,
       getL1FeesAt(_timestamp),
       _inFeeAsset ? getFeeAssetPrice() : 1e9,
-      EPOCH_DURATION
+      TimeLib.getStorage().epochDuration
     );
   }
 
@@ -683,7 +681,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
     Slot currentSlot = getSlotAt(_ts);
     address currentProposer = getProposerAt(_ts);
     Epoch epochToProve = getEpochToProve();
-    uint256 posInEpoch = positionInEpoch(currentSlot);
+    uint256 posInEpoch = TimeLib.positionInEpoch(currentSlot);
     bytes32 digest = quoteToDigest(_quote.quote);
 
     ExtRollupLib.validateEpochProofRightClaimAtTime(
@@ -786,16 +784,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, ValidatorSelection, IRo
 
     Slot currentSlot = getSlotAt(_ts);
     Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
-    Slot startSlotOfPendingEpoch = toSlots(oldestPendingEpoch);
+    Slot startSlotOfPendingEpoch = TimeLib.toSlots(oldestPendingEpoch);
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
     // we prune the pending chain back to the end of epoch 1 if:
     // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
     // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
     bool inClaimPhase = currentSlot
-      < startSlotOfPendingEpoch + toSlots(Epoch.wrap(1)) + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
+      < startSlotOfPendingEpoch + TimeLib.toSlots(Epoch.wrap(1))
+        + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
 
-    bool claimExists = currentSlot < startSlotOfPendingEpoch + toSlots(Epoch.wrap(2))
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + TimeLib.toSlots(Epoch.wrap(2))
       && rollupStore.proofClaim.epochToProve == oldestPendingEpoch
       && rollupStore.proofClaim.proposerClaimant != address(0);
 
