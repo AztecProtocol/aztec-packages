@@ -53,30 +53,7 @@ export class LogStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.privateLogs.forEach(log => {
-        // Check that each log stores 2 lengths in its first field. If not, it's not a tagged log:
-        const firstFieldBuf = log.log[0].toBuffer();
-        // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
-        // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-        if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
-          // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
-          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
-          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
-          return;
-        }
-        // Check that the length values line up with the log contents
-        const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
-        const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
-        // Add 1 for the first field holding lengths
-        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
-        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
-        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
-          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
-          return;
-        }
-
-        // The first elt stores lengths as above => tag is in fields[1]
-        const tag = log.log[1];
-
+        const tag = log.fields[0];
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(
           new TxScopedL2Log(
@@ -102,7 +79,30 @@ export class LogStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
-        const tag = log.log[0];
+        // Check that each log stores 2 lengths in its first field. If not, it's not a tagged log:
+        const firstFieldBuf = log.log[0].toBuffer();
+        // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
+        // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+        if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
+          // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
+          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
+          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
+          return;
+        }
+        // Check that the length values line up with the log contents
+        const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
+        const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
+        // Add 1 for the first field holding lengths
+        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
+          return;
+        }
+
+        // The first elt stores lengths as above => tag is in fields[1]
+        const tag = log.log[1];
+
         this.#log.debug(`Found tagged public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];

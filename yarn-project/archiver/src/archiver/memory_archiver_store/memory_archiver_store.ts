@@ -240,6 +240,26 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.privateLogs.forEach(log => {
+        const tag = log.fields[0];
+        const currentLogs = this.taggedLogs.get(tag.toString()) || [];
+        this.taggedLogs.set(tag.toString(), [
+          ...currentLogs,
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ false, log.toBuffer()),
+        ]);
+        const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
+        this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+      });
+    });
+  }
+
+  #storeTaggedLogsFromPublic(block: L2Block): void {
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
+    block.body.txEffects.forEach((txEffect, txIndex) => {
+      const txHash = txEffect.txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      txEffect.publicLogs.forEach(log => {
         // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
         // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
         // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
@@ -264,26 +284,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         // The first elt stores lengths => tag is in fields[1]
         const tag = log.log[1];
 
-        const currentLogs = this.taggedLogs.get(tag.toString()) || [];
-        this.taggedLogs.set(tag.toString(), [
-          ...currentLogs,
-          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ false, log.toBuffer()),
-        ]);
-        const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
-        this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
-      });
-    });
-  }
-
-  #storeTaggedLogsFromPublic(block: L2Block): void {
-    const dataStartIndexForBlock =
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
-    block.body.txEffects.forEach((txEffect, txIndex) => {
-      const txHash = txEffect.txHash;
-      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
-      txEffect.publicLogs.forEach(log => {
-        const tag = log.log[0];
         this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
