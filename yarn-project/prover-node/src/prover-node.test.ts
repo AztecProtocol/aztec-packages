@@ -21,7 +21,7 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
@@ -385,7 +385,7 @@ describe('prover-node', () => {
         getTelemetryClient(),
         port,
       );
-      const kvStore = openTmpStore();
+      const kvStore = await openTmpStore('test');
       return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService);
     };
 

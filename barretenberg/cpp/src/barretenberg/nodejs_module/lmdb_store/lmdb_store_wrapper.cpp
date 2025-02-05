@@ -248,7 +248,18 @@ StatsResponse LMDBStoreWrapper::get_stats()
 
 BoolResponse LMDBStoreWrapper::close()
 {
+    // prevent this store from receiving further messages
+    _msg_processor.close();
+
+    {
+        // close all of the open read cursors
+        std::lock_guard cursors(_cursor_mutex);
+        _cursors.clear();
+    }
+
+    // and finally close the database handle
     _store.reset(nullptr);
+
     return { true };
 }
 

@@ -77,3 +77,13 @@ export async function openTmpStore(
 
   return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, log);
 }
+
+export function openStoreAt(
+  dataDir: string,
+  dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
+  maxReaders = MAX_READERS,
+  log: Logger = createLogger('kv-store:lmdb-v2'),
+): Promise<AztecLMDBStoreV2> {
+  log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log);
+}

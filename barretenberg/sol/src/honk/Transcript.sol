@@ -270,10 +270,9 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    // TODO: mod q proof points
-    // TODO: Preprocess all of the memory locations
-    // TODO: Adjust proof point serde away from poseidon forced field elements
-    // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1234)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1235)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1236)
     function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));

@@ -126,7 +126,7 @@ contract ValidatorSelectionTest is DecoderBase {
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     });
-    slasher = rollup.SLASHER();
+    slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
@@ -310,6 +310,8 @@ contract ValidatorSelectionTest is DecoderBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
+        emit log("We do be reverting?");
+
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -319,6 +321,8 @@ contract ValidatorSelectionTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
+
+      emit log("Time to propose");
       vm.prank(ree.proposer);
       rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 
