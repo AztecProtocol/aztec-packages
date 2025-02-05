@@ -55,7 +55,8 @@ function release_preview {
       echo_stderr "Not updating docs preview comment; no PR number."
       return
     fi
-    scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number $docs_preview_url
+    # We remove color from the URL before passing.
+    scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number "$(echo $docs_preview_url | sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g')"
   fi
 }
 
