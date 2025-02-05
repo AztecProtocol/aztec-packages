@@ -1,4 +1,4 @@
-# GAztec
+# Aztec Playground
 
 Initial version of an "everything app" that can be used to test and benchmark Aztec.
 

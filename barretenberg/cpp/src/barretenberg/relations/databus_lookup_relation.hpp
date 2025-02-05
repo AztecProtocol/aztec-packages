@@ -62,23 +62,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         LOOKUP_SUBREL_LENGTH   // log-derivative lookup argument subrelation (bus_idx 2)
     };
 
-    static constexpr size_t INVERSE_SUBREL_WITNESS_DEGREE = 4; // witness degree of inverse correctness subrelation
-    static constexpr size_t LOOKUP_SUBREL_WITNESS_DEGREE = 4;  // witness degree of log-deriv lookup subrelation
-
-    /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
-     * polynomials, i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree
-     * does not exceed the subrelation partial degree, which is given by LENGTH - 1 in this case.
-     */
-    static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_WITNESS_DEGREES{
-        INVERSE_SUBREL_WITNESS_DEGREE, // inverse polynomial correctness subrelation (bus_idx 0)
-        LOOKUP_SUBREL_WITNESS_DEGREE,  // log-derivative lookup argument subrelation (bus_idx 0)
-        INVERSE_SUBREL_WITNESS_DEGREE, // inverse polynomial correctness subrelation (bus_idx 1)
-        LOOKUP_SUBREL_WITNESS_DEGREE,  // log-derivative lookup argument subrelation (bus_idx 1)
-        INVERSE_SUBREL_WITNESS_DEGREE, // inverse polynomial correctness subrelation (bus_idx 2)
-        LOOKUP_SUBREL_WITNESS_DEGREE   // log-derivative lookup argument subrelation (bus_idx 2)
-    };
-
     static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true; // to be satisfied independently at each row
     static constexpr bool LOOKUP_SUBREL_LIN_INDEPENDENT = false; // to be satisfied as a sum across all rows
 

@@ -35,9 +35,9 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
