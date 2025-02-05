@@ -1,14 +1,14 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Claim {
+pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
     #[storage]
@@ -27,13 +27,14 @@ contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: ValueNote, recipient: AztecAddress) {
+    fn claim(proof_note: UintNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
         );
+        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         let header = context.get_block_header();
@@ -51,9 +52,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        // TODO(benesjan): Instead of ValueNote use UintNote to avoid the conversion to U128 below.
-        Token::at(storage.reward_token.read())
-            .mint_to_public(recipient, U128::from_integer(proof_note.value))
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }

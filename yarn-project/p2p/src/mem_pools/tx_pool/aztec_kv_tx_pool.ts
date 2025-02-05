@@ -174,26 +174,31 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public addTxs(txs: Tx[]): Promise<void> {
-    return this.#store.transactionAsync(async () => {
+  public async addTxs(txs: Tx[]): Promise<void> {
+    const hashesAndStats = await Promise.all(
+      txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
+    );
+    await this.#store.transactionAsync(async () => {
       let pendingCount = 0;
-      for (const tx of txs) {
-        const txHash = tx.getTxHash();
-        this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
-          eventName: 'tx-added-to-pool',
-          ...tx.getStats(),
-        } satisfies TxAddedToPoolStats);
+      await Promise.all(
+        txs.map(async (tx, i) => {
+          const { txHash, txStats } = hashesAndStats[i];
+          this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
+            eventName: 'tx-added-to-pool',
+            ...txStats,
+          } satisfies TxAddedToPoolStats);
 
-        const key = txHash.toString();
-        await this.#txs.set(key, tx.toBuffer());
+          const key = txHash.toString();
+          await this.#txs.set(key, tx.toBuffer());
 
-        if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
-          pendingCount++;
-          // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
-          void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
-          this.#metrics.recordSize(tx);
-        }
-      }
+          if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
+            pendingCount++;
+            // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
+            await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
+            this.#metrics.recordSize(tx);
+          }
+        }),
+      );
 
       this.#metrics.recordAddedObjects(pendingCount, 'pending');
     });
@@ -268,19 +273,21 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - The list of transactions to archive.
    * @returns Empty promise.
    */
-  private archiveTxs(txs: Tx[]): Promise<void> {
-    return this.#archive.transactionAsync(async () => {
+  private async archiveTxs(txs: Tx[]): Promise<void> {
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    await this.#archive.transactionAsync(async () => {
       // calcualte the head and tail indices of the archived txs by insertion order.
       let headIdx =
         ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
       let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
 
-      for (const tx of txs) {
+      for (let i = 0; i < txs.length; i++) {
+        const tx = txs[i];
         while (headIdx - tailIdx >= this.#archivedTxLimit) {
           const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
           if (txHash) {
-            void this.#archivedTxs.delete(txHash);
-            void this.#archivedTxIndices.delete(tailIdx);
+            await this.#archivedTxs.delete(txHash);
+            await this.#archivedTxIndices.delete(tailIdx);
           }
           tailIdx++;
         }
@@ -292,7 +299,7 @@ export class AztecKVTxPool implements TxPool {
           tx.enqueuedPublicFunctionCalls,
           tx.publicTeardownFunctionCall,
         );
-        const txHash = tx.getTxHash().toString();
+        const txHash = txHashes[i].toString();
         await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
         await this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;

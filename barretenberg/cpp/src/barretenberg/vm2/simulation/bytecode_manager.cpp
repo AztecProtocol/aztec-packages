@@ -25,6 +25,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
+    decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
     hash_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
@@ -49,11 +50,13 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
         throw std::runtime_error("Bytecode not found");
     }
 
-    const auto& bytecode = *it->second;
+    auto bytecode_ptr = it->second;
+    const auto& bytecode = *bytecode_ptr;
     // TODO: catch errors etc.
     Instruction instruction = decode_instruction(bytecode, pc);
 
-    decomposition_events.emit({ .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction });
+    fetching_events.emit(
+        { .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction, .bytecode = bytecode_ptr });
 
     return instruction;
 }

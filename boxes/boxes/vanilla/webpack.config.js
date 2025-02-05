@@ -1,6 +1,9 @@
+import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import { resolve } from 'path';
+
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
@@ -13,14 +16,27 @@ export default (_, argv) => ({
   module: {
     rules: [
       {
+        test: /\.gz$/,
+        type: 'asset/resource',
+      },
+      {
         test: /\.ts?$/,
         use: 'ts-loader',
       },
     ],
   },
   plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          context: resolve(require.resolve('@aztec/aztec.js'), '../'),
+          from: '*.gz',
+        },
+      ],
+    }),
     new HtmlWebpackPlugin({
       template: './src/index.html',
+      scriptLoading: 'module',
     }),
     new webpack.DefinePlugin({
       'process.env': {
@@ -50,7 +66,7 @@ export default (_, argv) => ({
   },
   devServer: {
     port: 5173,
-    historyApiFallback: true,
     open: true,
+    historyApiFallback: true,
   },
 });

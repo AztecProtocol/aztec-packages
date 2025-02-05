@@ -1,41 +1,56 @@
-import { Logger, createLogger } from '@aztec/foundation/log';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { mkdtemp, rm } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { rm } from 'fs/promises';
 
-import { AztecAsyncArray } from '../interfaces/array.js';
-import { Key } from '../interfaces/common.js';
-import { AztecAsyncCounter } from '../interfaces/counter.js';
-import { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
-import { AztecAsyncSet } from '../interfaces/set.js';
-import { AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter } from '../interfaces/counter.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { LMDBMap, LMDBMultiMap } from './map.js';
-import { Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
+import {
+  Database,
+  type LMDBMessageChannel,
+  LMDBMessageType,
+  type LMDBRequestBody,
+  type LMDBResponseBody,
+} from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
-export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
-  private channel: TypeSafeMessageChannel;
-  private transactionCtx = new AsyncLocalStorage<WriteTransaction>();
-  private writePromise: Promise<void> = Promise.resolve();
+export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
+  private open = false;
+  private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
+  private writerCtx = new AsyncLocalStorage<WriteTransaction>();
+  private writerQueue = new SerialQueue();
+  private availableCursors: Semaphore;
 
   private constructor(
     private dataDir: string,
-    mapSize?: number,
-    maxReaders?: number,
-    private log: Logger = createLogger('store'),
+    mapSize: number,
+    maxReaders: number,
+    private log: Logger,
     private cleanup?: () => Promise<void>,
   ) {
+    this.log.info(`Starting data store with maxReaders ${maxReaders}`);
     this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders));
+    // leave one reader to always be available for regular, atomic, reads
+    this.availableCursors = new Semaphore(maxReaders - 1);
   }
 
-  private async init() {
+  public get dataDirectory(): string {
+    return this.dataDir;
+  }
+
+  private async start() {
+    this.writerQueue.start();
+
     await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.DATA,
       uniqueKeys: true,
@@ -45,46 +60,34 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
       db: Database.INDEX,
       uniqueKeys: false,
     });
+
+    this.open = true;
   }
 
-  public static async new(dataDir: string, dbMapSizeKb: number = 10 * 1024 * 1024, maxReaders: number = 16) {
-    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders);
-    await db.init();
-    return db;
-  }
-
-  public static async tmp(
-    prefix: string = 'data',
-    cleanupTmpDir = true,
+  public static async new(
+    dataDir: string,
     dbMapSizeKb: number = 10 * 1024 * 1024,
     maxReaders: number = 16,
+    cleanup?: () => Promise<void>,
+    log = createLogger('kv-store:lmdb-v2'),
   ) {
-    const log = createLogger('world-state:database');
-    const dataDir = await mkdtemp(join(tmpdir(), prefix + '-'));
-    log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb}`);
-
-    // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
-    const cleanup = async () => {
-      if (cleanupTmpDir) {
-        await rm(dataDir, { recursive: true, force: true });
-        log.debug(`Deleted temporary data store: ${dataDir}`);
-      } else {
-        log.debug(`Leaving temporary data store: ${dataDir}`);
-      }
-    };
-
     const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
-    await db.init();
+    await db.start();
     return db;
   }
 
   public getReadTx(): ReadTransaction {
-    const writeTx = this.transactionCtx.getStore();
-    return writeTx ? writeTx : new ReadTransaction(this.channel);
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+    return new ReadTransaction(this);
   }
 
-  public getWriteTx(): WriteTransaction | undefined {
-    const currentWrite = this.transactionCtx.getStore();
+  public getCurrentWriteTx(): WriteTransaction | undefined {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+    const currentWrite = this.writerCtx.getStore();
     return currentWrite;
   }
 
@@ -115,32 +118,31 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
   async transactionAsync<T extends Exclude<any, Promise<any>>>(
     callback: (tx: WriteTransaction) => Promise<T>,
   ): Promise<T> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
     // transactionAsync might be called recursively
     // send any writes to the parent tx, but don't close it
     // if the callback throws then the parent tx will rollback automatically
-    const currentTx = this.getWriteTx();
+    const currentTx = this.getCurrentWriteTx();
     if (currentTx) {
       return await callback(currentTx);
     }
 
-    const deferred = promiseWithResolvers<void>();
-    const current = this.writePromise;
-
-    // block future write txs from starting until we finish
-    this.writePromise = deferred.promise;
-
-    // wait for any write txs to flush
-    await current;
-
-    const tx = new WriteTransaction(this.channel);
-    try {
-      const res = await this.transactionCtx.run(tx, callback, tx);
-      await tx.commit();
-      return res;
-    } finally {
-      tx.close();
-      deferred.resolve();
-    }
+    return this.writerQueue.put(async () => {
+      const tx = new WriteTransaction(this);
+      try {
+        const res = await this.writerCtx.run(tx, callback, tx);
+        await tx.commit();
+        return res;
+      } catch (err) {
+        this.log.error(`Failed to commit transaction`, err);
+        throw err;
+      } finally {
+        tx.close();
+      }
+    });
   }
 
   clear(): Promise<void> {
@@ -158,11 +160,77 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore {
     await this.cleanup?.();
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    return { numItems: 0, actualSize: 0, mappingSize: 0 };
+  async close() {
+    if (!this.open) {
+      // already closed
+      return;
+    }
+    this.open = false;
+    await this.writerQueue.cancel();
+    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
   }
 
-  async close() {
-    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
+  public async sendMessage<T extends LMDBMessageType>(
+    msgType: T,
+    body: LMDBRequestBody[T],
+  ): Promise<LMDBResponseBody[T]> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
+    if (msgType === LMDBMessageType.START_CURSOR) {
+      await this.availableCursors.acquire();
+    }
+
+    let response: LMDBResponseBody[T] | undefined = undefined;
+    try {
+      ({ response } = await this.channel.sendMessage(msgType, body));
+      return response;
+    } finally {
+      if (
+        (msgType === LMDBMessageType.START_CURSOR && response === undefined) ||
+        msgType === LMDBMessageType.CLOSE_CURSOR ||
+        // it's possible for a START_CURSOR command to not return a cursor (e.g. db is empty)
+        (msgType === LMDBMessageType.START_CURSOR &&
+          typeof (response as LMDBResponseBody[LMDBMessageType.START_CURSOR]).cursor !== 'number')
+      ) {
+        this.availableCursors.release();
+      }
+    }
+  }
+
+  public async estimateSize(): Promise<StoreSize> {
+    const resp = await this.sendMessage(LMDBMessageType.STATS, undefined);
+    return {
+      mappingSize: Number(resp.dbMapSizeBytes),
+      actualSize: resp.stats.reduce((s, db) => Number(db.totalUsedSize) + s, 0),
+      numItems: resp.stats.reduce((s, db) => Number(db.numDataItems) + s, 0),
+    };
+  }
+}
+
+export function execInWriteTx<T>(store: AztecLMDBStoreV2, fn: (tx: WriteTransaction) => Promise<T>): Promise<T> {
+  const currentWrite = store.getCurrentWriteTx();
+  if (currentWrite) {
+    return fn(currentWrite);
+  } else {
+    return store.transactionAsync(fn);
+  }
+}
+
+export async function execInReadTx<T>(
+  store: AztecLMDBStoreV2,
+  fn: (tx: ReadTransaction) => T | Promise<T>,
+): Promise<T> {
+  const currentWrite = store.getCurrentWriteTx();
+  if (currentWrite) {
+    return await fn(currentWrite);
+  } else {
+    const tx = store.getReadTx();
+    try {
+      return await fn(tx);
+    } finally {
+      tx.close();
+    }
   }
 }

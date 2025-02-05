@@ -151,6 +151,7 @@ export class SafeJsonRpcServer {
       throw new Error('Server is already listening');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.httpServer = http.createServer(this.getApp(prefix).callback());
     this.httpServer.listen(port);
   }
@@ -217,7 +218,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = parseWithOptionals(jsonParams, this.schema[methodName].parameters());
+    const args = await parseWithOptionals(jsonParams, this.schema[methodName].parameters());
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
@@ -355,6 +356,7 @@ export async function startHttpRpcServer(
   const statusRouter = createStatusRouter(rpcServer.isHealthy.bind(rpcServer), options.apiPrefix);
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   if (options.timeoutMs) {
     httpServer.timeout = options.timeoutMs;

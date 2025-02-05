@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./native": "./dest/native/index.js",
+    "./test": "./dest/test/index.js",
     "./config": "./dest/synchronizer/config.js"
   },
   "typedocOptions": {
@@ -15,18 +16,15 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
-    "build:cpp": "./scripts/build.sh cpp",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest ./build .tsbuildinfo",
+    "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/nodejs_module.node build",
     "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
-    "../package.common.json",
-    "./package.local.json"
+    "../package.common.json"
   ],
   "jest": {
     "moduleNameMapper": {

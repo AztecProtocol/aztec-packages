@@ -23,6 +23,8 @@ enum LMDBStoreMessageType {
 
     BATCH,
 
+    STATS,
+
     CLOSE,
 };
 
@@ -71,13 +73,16 @@ struct BatchRequest {
 struct StartCursorRequest {
     lmdblib::Key key;
     std::optional<bool> reverse;
+    std::optional<uint32_t> count;
+    std::optional<bool> onePage;
     std::string db;
-    MSGPACK_FIELDS(key, reverse, db);
+    MSGPACK_FIELDS(key, reverse, count, onePage, db);
 };
 
 struct StartCursorResponse {
     std::optional<uint64_t> cursor;
-    MSGPACK_FIELDS(cursor);
+    lmdblib::KeyDupValuesVector entries;
+    MSGPACK_FIELDS(cursor, entries);
 };
 
 struct AdvanceCursorRequest {
@@ -105,6 +110,12 @@ struct BoolResponse {
 struct BatchResponse {
     uint64_t durationNs;
     MSGPACK_FIELDS(durationNs);
+};
+
+struct StatsResponse {
+    std::vector<lmdblib::DBStats> stats;
+    uint64_t dbMapSizeBytes;
+    MSGPACK_FIELDS(stats, dbMapSizeBytes);
 };
 
 } // namespace bb::nodejs::lmdb_store

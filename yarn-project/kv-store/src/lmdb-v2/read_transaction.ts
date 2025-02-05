@@ -1,9 +1,9 @@
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, TypeSafeMessageChannel } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 
 export class ReadTransaction {
   protected open = true;
 
-  constructor(protected channel: TypeSafeMessageChannel) {}
+  constructor(protected channel: LMDBMessageChannel) {}
 
   public close(): void {
     if (!this.open) {
@@ -20,13 +20,13 @@ export class ReadTransaction {
 
   public async get(key: Uint8Array): Promise<Uint8Array | undefined> {
     this.assertIsOpen();
-    const { response } = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.DATA });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.DATA });
     return response.values[0]?.[0] ?? undefined;
   }
 
   public async getIndex(key: Uint8Array): Promise<Uint8Array[]> {
     this.assertIsOpen();
-    const { response } = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.INDEX });
+    const response = await this.channel.sendMessage(LMDBMessageType.GET, { keys: [key], db: Database.INDEX });
     return response.values[0] ?? [];
   }
 
@@ -58,29 +58,29 @@ export class ReadTransaction {
   ): AsyncIterable<[Uint8Array, T]> {
     this.assertIsOpen();
 
-    const {
-      response: { cursor },
-    } = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
+    const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
       key: startKey,
       reverse,
+      count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
+      onePage: typeof limit === 'number' && limit < CURSOR_PAGE_SIZE,
       db,
     });
 
-    if (typeof cursor !== 'number') {
-      // there's nothing in the db to iterate on
-      return;
-    }
-
-    let done = false;
+    const cursor = response.cursor;
+    let entries = response.entries;
+    let done = typeof cursor !== 'number';
     let count = 0;
+
     try {
-      do {
-        const { response: it } = await this.channel.sendMessage(LMDBMessageType.ADVANCE_CURSOR, {
-          cursor,
-          count: CURSOR_PAGE_SIZE,
-        });
-        done = it.done;
-        for (const [key, values] of it.entries) {
+      // emit the first page and any subsequent pages in a while loop
+      // NB: end contition is in the middle of the while loop
+      while (entries.length > 0) {
+        for (const [key, values] of entries) {
+          if (typeof limit === 'number' && count >= limit) {
+            done = true;
+            break;
+          }
+
           if (endKey) {
             const cmp = Buffer.compare(key, endKey);
             if ((!reverse && cmp >= 0) || (reverse && cmp <= 0)) {
@@ -89,17 +89,28 @@ export class ReadTransaction {
             }
           }
 
-          if (typeof limit === 'number' && count >= limit) {
-            done = true;
-            break;
-          }
-
           count++;
           yield [key, map(values)];
         }
-      } while (!done);
+
+        // cursor is null if DB returned everything in the first page
+        if (typeof cursor !== 'number' || done) {
+          break;
+        }
+
+        const response = await this.channel.sendMessage(LMDBMessageType.ADVANCE_CURSOR, {
+          cursor,
+          count: CURSOR_PAGE_SIZE,
+        });
+
+        done = response.done;
+        entries = response.entries;
+      }
     } finally {
-      await this.channel.sendMessage(LMDBMessageType.CLOSE_CURSOR, { cursor });
+      // we might not have anything to close
+      if (typeof cursor === 'number') {
+        await this.channel.sendMessage(LMDBMessageType.CLOSE_CURSOR, { cursor });
+      }
     }
   }
 }

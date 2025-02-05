@@ -15,7 +15,7 @@
 namespace bb::nodejs::lmdb_store {
 
 struct CursorData {
-    lmdblib::LMDBCursor::Ptr cursor;
+    lmdblib::LMDBCursor::SharedPtr cursor;
     bool reverse;
 };
 /**
@@ -51,7 +51,10 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     BatchResponse batch(const BatchRequest& req);
 
-    BoolResponse close();
+    StatsResponse get_stats();
+    static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
+                                                                        bool reverse,
+                                                                        uint64_t page_size);
 };
 
 } // namespace bb::nodejs::lmdb_store

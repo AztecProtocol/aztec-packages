@@ -2,7 +2,6 @@ import { type EpochProofClaim } from '@aztec/circuit-types';
 import { type EthAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type L1Publisher } from '@aztec/sequencer-client';
 import {
   type TelemetryClient,
   type Traceable,
@@ -10,6 +9,8 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
+
+import { type ProverNodePublisher } from '../prover-node-publisher.js';
 
 export interface ClaimsMonitorHandler {
   handleClaim(proofClaim: EpochProofClaim): Promise<void>;
@@ -25,7 +26,7 @@ export class ClaimsMonitor implements Traceable {
   public readonly tracer: Tracer;
 
   constructor(
-    private readonly l1Publisher: L1Publisher,
+    private readonly l1Publisher: ProverNodePublisher,
     private options: { pollingIntervalMs: number },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {

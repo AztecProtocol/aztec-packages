@@ -7,7 +7,7 @@
 #include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
+#include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -94,7 +94,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     auto mle_opening_point = this->random_evaluation_point(this->log_n);
 
     auto pcs_instance_witness =
-        InstanceWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
+        MockWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
@@ -142,23 +142,14 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     std::vector<Fr> scalars;
     Fr verifier_batched_evaluation{ 0 };
 
-    const Fr unshifted_scalar = (shplonk_eval_challenge - gemini_eval_challenge).invert() +
-                                shplonk_batching_challenge * (shplonk_eval_challenge + gemini_eval_challenge).invert();
+    Fr inverted_vanishing_eval_pos = (shplonk_eval_challenge - gemini_eval_challenge).invert();
+    Fr inverted_vanishing_eval_neg = (shplonk_eval_challenge + gemini_eval_challenge).invert();
 
-    const Fr shifted_scalar = gemini_eval_challenge.invert() *
-                              ((shplonk_eval_challenge - gemini_eval_challenge).invert() -
-                               shplonk_batching_challenge * (shplonk_eval_challenge + gemini_eval_challenge).invert());
+    pcs_instance_witness.claim_batcher.compute_scalars_for_each_batch(
+        inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
-    ShpleminiVerifier::batch_multivariate_opening_claims(RefVector(pcs_instance_witness.unshifted_commitments),
-                                                         RefVector(pcs_instance_witness.to_be_shifted_commitments),
-                                                         RefVector(pcs_instance_witness.unshifted_evals),
-                                                         RefVector(pcs_instance_witness.shifted_evals),
-                                                         rho,
-                                                         unshifted_scalar,
-                                                         shifted_scalar,
-                                                         commitments,
-                                                         scalars,
-                                                         verifier_batched_evaluation);
+    ShpleminiVerifier::batch_multivariate_opening_claims(
+        pcs_instance_witness.claim_batcher, rho, commitments, scalars, verifier_batched_evaluation);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
@@ -173,6 +164,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -192,27 +184,17 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
 
     auto pcs_instance_witness =
-        InstanceWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
+        MockWitnessGenerator<Curve>(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
-    Polynomial batched_unshifted(this->n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(this->n);
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
-    size_t idx = 0;
-    for (auto& poly : pcs_instance_witness.unshifted_polynomials) {
-        batched_unshifted.add_scaled(poly, rhos[idx]);
-        idx++;
-    }
-
-    for (auto& poly : pcs_instance_witness.to_be_shifted_polynomials) {
-        batched_to_be_shifted.add_scaled(poly, rhos[idx]);
-        idx++;
-    }
-
-    Polynomial batched = batched_unshifted;
-    batched += batched_to_be_shifted;
+    Fr running_scalar = Fr(1);
+    Polynomial batched = polynomial_batcher.compute_batched(rho, running_scalar);
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -226,7 +208,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     }
 
     auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
-        this->log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), gemini_eval_challenge);
+        this->log_n, polynomial_batcher, gemini_eval_challenge);
 
     const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
         this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);
@@ -290,6 +272,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     // Initialize transcript and commitment key
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
@@ -308,7 +291,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                             const_size_mle_opening_point.begin() + this->log_n);
 
     // Generate random prover polynomials, compute their evaluations and commitments
-    InstanceWitnessGenerator<Curve> pcs_instance_witness(
+    MockWitnessGenerator<Curve> pcs_instance_witness(
         this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
@@ -321,10 +304,13 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
 
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      RefVector(pcs_instance_witness.unshifted_polynomials),
-                                                      RefVector(pcs_instance_witness.to_be_shifted_polynomials),
+                                                      polynomial_batcher,
                                                       const_size_mle_opening_point,
                                                       ck,
                                                       prover_transcript,
@@ -363,20 +349,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(this->n,
-                                                       RefVector(pcs_instance_witness.unshifted_commitments),
-                                                       RefVector(pcs_instance_witness.to_be_shifted_commitments),
-                                                       RefVector(pcs_instance_witness.unshifted_evals),
-                                                       RefVector(pcs_instance_witness.shifted_evals),
-                                                       const_size_mle_opening_point,
-                                                       this->vk()->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       {},
-                                                       true,
-                                                       &consistency_checked,
-                                                       libra_commitments,
-                                                       libra_evaluation);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
+                                                                                    pcs_instance_witness.claim_batcher,
+                                                                                    const_size_mle_opening_point,
+                                                                                    this->vk()->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    {},
+                                                                                    true,
+                                                                                    &consistency_checked,
+                                                                                    libra_commitments,
+                                                                                    libra_evaluation);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -405,6 +387,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 
@@ -417,7 +400,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Generate masking polynomials for Sumcheck Round Univariates
     ZKSumcheckData<TypeParam> zk_sumcheck_data(this->log_n, prover_transcript, ck);
     // Generate mock witness
-    InstanceWitnessGenerator<Curve> pcs_instance_witness(this->n, 1);
+    MockWitnessGenerator<Curve> pcs_instance_witness(this->n, 1);
 
     // Generate valid sumcheck polynomials of given length
     pcs_instance_witness.template compute_sumcheck_opening_data<TypeParam>(
@@ -433,10 +416,13 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, challenge, claimed_inner_product, prover_transcript, ck);
 
+    PolynomialBatcher polynomial_batcher(this->n);
+    polynomial_batcher.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batcher.set_to_be_shifted_by_one(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      RefVector(pcs_instance_witness.unshifted_polynomials),
-                                                      RefVector(pcs_instance_witness.to_be_shifted_polynomials),
+                                                      polynomial_batcher,
                                                       challenge,
                                                       ck,
                                                       prover_transcript,
@@ -476,10 +462,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Run Shplemini
     const auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(this->n,
-                                                       RefVector(pcs_instance_witness.unshifted_commitments),
-                                                       {},
-                                                       RefVector(pcs_instance_witness.unshifted_evals),
-                                                       {},
+                                                       pcs_instance_witness.claim_batcher,
                                                        challenge,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,

@@ -13,17 +13,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
-    /**
-     * @brief The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        6, // grand product construction sub-relation
-        1  // left-shiftable polynomial sub-relation
-    };
-    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
-    static constexpr size_t ZK_RELATION_LENGTH = 13;
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 

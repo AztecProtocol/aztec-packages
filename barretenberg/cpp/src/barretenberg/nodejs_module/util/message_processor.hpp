@@ -56,7 +56,9 @@ class AsyncMessageProcessor {
         // complete on an separate thread
         auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
 
-        if (info.Length() < 1) {
+        if (!open) {
+            deferred->Reject(Napi::TypeError::New(env, "Message processor is closed").Value());
+        } else if (info.Length() < 1) {
             deferred->Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
         } else if (!info[0].IsBuffer()) {
             deferred->Reject(Napi::TypeError::New(env, "Argument must be a buffer").Value());
@@ -82,12 +84,10 @@ class AsyncMessageProcessor {
         return deferred->Promise();
     }
 
-  private:
-    bb::messaging::MessageDispatcher dispatcher;
+    bool open = true;
 
     template <typename P, typename R>
     void _register_handler(uint32_t msgType, const std::function<R(const P&, const msgpack::object&)>& fn)
-    {
         dispatcher.registerTarget(msgType, [=](msgpack::object& obj, msgpack::sbuffer& buffer) {
             P req_msg;
             obj.convert(req_msg);
@@ -100,7 +100,7 @@ class AsyncMessageProcessor {
 
             return true;
         });
-    }
+}
 };
 
 } // namespace bb::nodejs

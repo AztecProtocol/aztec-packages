@@ -1,29 +1,31 @@
 import { toArray } from '@aztec/foundation/iterable';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { MsgpackChannel, RoundtripDuration } from '@aztec/native';
 
 import { expect } from 'chai';
-import { SinonStubbedInstance, createStubInstance } from 'sinon';
+import { type SinonStubbedInstance, stub } from 'sinon';
 
-import { CURSOR_PAGE_SIZE, Database, LMDBMessageType, LMDBResponse, TypeSafeMessageChannel } from './message.js';
+import {
+  CURSOR_PAGE_SIZE,
+  Database,
+  type LMDBMessageChannel,
+  LMDBMessageType,
+  type LMDBResponseBody,
+} from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 
-const duration = { encodingUs: 0, decodingUs: 0, totalUs: 0, callUs: 0 };
-
 describe('ReadTransaction', () => {
-  let channel: SinonStubbedInstance<TypeSafeMessageChannel>;
+  let channel: SinonStubbedInstance<LMDBMessageChannel>;
   let tx: ReadTransaction;
 
   beforeEach(() => {
-    channel = createStubInstance(MsgpackChannel);
+    channel = stub<LMDBMessageChannel>({
+      sendMessage: () => {},
+    } as any);
     tx = new ReadTransaction(channel);
   });
 
   it('sends GET requests', async () => {
-    const getDeferred = promiseWithResolvers<{
-      duration: RoundtripDuration;
-      response: LMDBResponse[LMDBMessageType.GET];
-    }>();
+    const getDeferred = promiseWithResolvers<LMDBResponseBody[LMDBMessageType.GET]>();
 
     channel.sendMessage.returns(getDeferred.promise);
 
@@ -37,10 +39,7 @@ describe('ReadTransaction', () => {
     ).to.be.true;
 
     getDeferred.resolve({
-      duration,
-      response: {
-        values: [[Buffer.from('foo')]],
-      },
+      values: [[Buffer.from('foo')]],
     });
 
     expect(await resp).to.deep.eq(Buffer.from('foo'));
@@ -48,35 +47,40 @@ describe('ReadTransaction', () => {
 
   it('iterates the database', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42 },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
     channel.sendMessage.onCall(1).resolves({
-      duration,
-      response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: true },
+      entries: [[Buffer.from('quux'), [Buffer.from('another value')]]],
+      done: true,
     });
     channel.sendMessage.onCall(2).resolves({
-      duration,
-      response: { ok: true },
+      ok: true,
     });
 
     const iterable = tx.iterate(Buffer.from('foo'));
+    const entries = await toArray(iterable);
 
-    for await (const entry of iterable) {
-      expect(
-        channel.sendMessage.calledWith(LMDBMessageType.ADVANCE_CURSOR, {
-          cursor: 42,
-          count: CURSOR_PAGE_SIZE,
-        }),
-      ).to.be.true;
-      expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
-    }
+    expect(entries).to.deep.eq([
+      [Buffer.from('foo'), Buffer.from('a value')],
+      [Buffer.from('quux'), Buffer.from('another value')],
+    ]);
 
     expect(
       channel.sendMessage.calledWith(LMDBMessageType.START_CURSOR, {
         db: Database.DATA,
         key: Buffer.from('foo'),
+        count: CURSOR_PAGE_SIZE,
+        onePage: false,
         reverse: false,
+      }),
+    ).to.be.true;
+
+    expect(
+      channel.sendMessage.calledWith(LMDBMessageType.ADVANCE_CURSOR, {
+        cursor: 42,
+        count: CURSOR_PAGE_SIZE,
       }),
     ).to.be.true;
 
@@ -89,23 +93,16 @@ describe('ReadTransaction', () => {
 
   it('closes the cursor early', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42 },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
-      .onCall(0)
-      .resolves({
-        duration,
-        response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
-      })
-      .onCall(1)
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
-    channel.sendMessage
-      .withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 })
-      .resolves({ duration, response: { ok: true } });
+    channel.sendMessage.withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 }).resolves({ ok: true });
 
     for await (const entry of tx.iterate(Buffer.from('foo'))) {
       expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
@@ -121,30 +118,25 @@ describe('ReadTransaction', () => {
 
   it('closes the cursor even if in the case of an error', async () => {
     channel.sendMessage.onCall(0).resolves({
-      duration,
-      response: { cursor: 42 },
+      cursor: 42,
+      entries: [[Buffer.from('foo'), [Buffer.from('a value')]]],
+      done: false,
     });
 
     channel.sendMessage
       .withArgs(LMDBMessageType.ADVANCE_CURSOR, { cursor: 42, count: CURSOR_PAGE_SIZE })
-      .onCall(0)
-      .resolves({
-        duration,
-        response: { entries: [[Buffer.from('foo'), [Buffer.from('a value')]]], done: false },
-      })
-      .onCall(1)
       .rejects(new Error('SHOULD NOT BE CALLED'));
 
-    channel.sendMessage
-      .withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 })
-      .resolves({ duration, response: { ok: true } });
+    channel.sendMessage.withArgs(LMDBMessageType.CLOSE_CURSOR, { cursor: 42 }).resolves({ ok: true });
 
     try {
       for await (const entry of tx.iterate(Buffer.from('foo'))) {
         expect(entry).to.deep.eq([Buffer.from('foo'), Buffer.from('a value')]);
         throw new Error();
       }
-    } catch {}
+    } catch {
+      // no op
+    }
 
     expect(
       channel.sendMessage.calledWith(LMDBMessageType.CLOSE_CURSOR, {
@@ -155,10 +147,17 @@ describe('ReadTransaction', () => {
 
   it('handles empty cursors', async () => {
     channel.sendMessage
-      .withArgs(LMDBMessageType.START_CURSOR, { key: Buffer.from('foo'), reverse: false, db: Database.DATA })
+      .withArgs(LMDBMessageType.START_CURSOR, {
+        key: Buffer.from('foo'),
+        reverse: false,
+        count: CURSOR_PAGE_SIZE,
+        db: Database.DATA,
+        onePage: false,
+      })
       .resolves({
-        duration,
-        response: { cursor: null },
+        cursor: null,
+        entries: [],
+        done: true,
       });
 
     const arr = await toArray(tx.iterate(Buffer.from('foo')));

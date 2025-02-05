@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm2 {
@@ -37,15 +38,15 @@ class lookup_dummy_precomputed_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.execution_sel == 1 || in.precomputed_sel_bitwise == 1);
+        return (in._execution_sel() == 1 || in._precomputed_sel_bitwise() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.execution_sel);
-        const auto is_table_entry = View(in.precomputed_sel_bitwise);
+        const auto is_operation = View(in._execution_sel());
+        const auto is_table_entry = View(in._precomputed_sel_bitwise());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -61,25 +62,25 @@ class lookup_dummy_precomputed_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_dummy_precomputed_inv,
-                                     in.lookup_dummy_precomputed_counts,
-                                     in.execution_sel,
-                                     in.precomputed_sel_bitwise,
-                                     in.execution_sel,
-                                     in.execution_clk,
-                                     in.execution_clk,
-                                     in.execution_clk,
-                                     in.precomputed_bitwise_op_id,
-                                     in.precomputed_bitwise_input_a,
-                                     in.precomputed_bitwise_input_b,
-                                     in.precomputed_bitwise_output);
+        return std::forward_as_tuple(in._lookup_dummy_precomputed_inv(),
+                                     in._lookup_dummy_precomputed_counts(),
+                                     in._execution_sel(),
+                                     in._precomputed_sel_bitwise(),
+                                     in._execution_sel(),
+                                     in._execution_clk(),
+                                     in._execution_clk(),
+                                     in._execution_clk(),
+                                     in._precomputed_bitwise_op_id(),
+                                     in._precomputed_bitwise_input_a(),
+                                     in._precomputed_bitwise_input_b(),
+                                     in._precomputed_bitwise_output());
     }
 };
 
 template <typename FF_>
 class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_dummy_precomputed_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_DUMMY_PRECOMPUTED";
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_PRECOMPUTED";
 };
 template <typename FF_> using lookup_dummy_precomputed = GenericLookup<lookup_dummy_precomputed_lookup_settings, FF_>;
 
@@ -110,15 +111,15 @@ class lookup_dummy_dynamic_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.execution_sel == 1 || in.execution_sel == 1);
+        return (in._execution_sel() == 1 || in._execution_sel() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.execution_sel);
-        const auto is_table_entry = View(in.execution_sel);
+        const auto is_operation = View(in._execution_sel());
+        const auto is_table_entry = View(in._execution_sel());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -134,25 +135,25 @@ class lookup_dummy_dynamic_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_dummy_dynamic_inv,
-                                     in.lookup_dummy_dynamic_counts,
-                                     in.execution_sel,
-                                     in.execution_sel,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4);
+        return std::forward_as_tuple(in._lookup_dummy_dynamic_inv(),
+                                     in._lookup_dummy_dynamic_counts(),
+                                     in._execution_sel(),
+                                     in._execution_sel(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4());
     }
 };
 
 template <typename FF_>
 class lookup_dummy_dynamic_relation : public GenericLookupRelation<lookup_dummy_dynamic_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_DUMMY_DYNAMIC";
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_DYNAMIC";
 };
 template <typename FF_> using lookup_dummy_dynamic = GenericLookup<lookup_dummy_dynamic_lookup_settings, FF_>;
 

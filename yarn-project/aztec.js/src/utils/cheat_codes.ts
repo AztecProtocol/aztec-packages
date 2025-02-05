@@ -1,7 +1,8 @@
 import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { EthCheatCodes, type L1ContractAddresses } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -95,8 +96,8 @@ export class RollupCheatCodes {
     /** Slot duration */ slotDuration: bigint;
   }> {
     const [epochDuration, slotDuration] = await Promise.all([
-      this.rollup.read.EPOCH_DURATION(),
-      this.rollup.read.SLOT_DURATION(),
+      this.rollup.read.getEpochDuration(),
+      this.rollup.read.getSlotDuration(),
     ]);
     return { epochDuration, slotDuration };
   }
@@ -127,7 +128,7 @@ export class RollupCheatCodes {
    */
   public async advanceSlots(howMany: number) {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
-    const slotDuration = await this.rollup.read.SLOT_DURATION();
+    const slotDuration = await this.rollup.read.getSlotDuration();
     const timeToWarp = BigInt(howMany) * slotDuration;
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, true);
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
@@ -223,7 +224,7 @@ export class AztecCheatCodes {
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
+  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Promise<Fr> {
     const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
     return deriveStorageSlotInMap(mapSlot, keyFr);
   }

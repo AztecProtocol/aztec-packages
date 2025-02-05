@@ -1,7 +1,13 @@
 include "alu.pil";
 include "addressing.pil";
+include "bc_decomposition.pil";
+include "bc_hashing.pil";
+include "bc_retrieval.pil";
+include "instr_fetching.pil";
 include "range_check.pil";
+include "bitwise.pil";
 include "precomputed.pil";
+include "sha256.pil";
 
 namespace execution;
 
@@ -10,15 +16,9 @@ pol commit sel; // subtrace selector
 pol commit ex_opcode;
 pol commit indirect;
 // operands
-pol commit op1;
-pol commit op2;
-pol commit op3;
-pol commit op4;
+pol commit op1, op2, op3, op4;
 // resolved operands
-pol commit rop1;
-pol commit rop2;
-pol commit rop3;
-pol commit rop4;
+pol commit rop1, rop2, rop3, rop4;
 
 pol commit pc;
 pol commit bytecode_id;

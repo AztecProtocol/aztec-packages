@@ -1,8 +1,8 @@
 import { Encoder } from 'msgpackr';
 
 import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { AztecLMDBStoreV2 } from './store.js';
-import { execInReadTx, execInWriteTx, serializeKey } from './utils.js';
+import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import { serializeKey } from './utils.js';
 
 export class LMDBSingleValue<T> implements AztecAsyncSingleton<T> {
   private key: Uint8Array;

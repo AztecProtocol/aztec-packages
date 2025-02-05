@@ -49,12 +49,15 @@ export function sequencerStateToNumber(state: SequencerState): number {
  *
  * @todo: perform this logic within the memory attestation store instead?
  */
-export function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
+export async function orderAttestations(
+  attestations: BlockAttestation[],
+  orderAddresses: EthAddress[],
+): Promise<Signature[]> {
   // Create a map of sender addresses to BlockAttestations
   const attestationMap = new Map<string, BlockAttestation>();
 
   for (const attestation of attestations) {
-    const sender = attestation.getSender();
+    const sender = await attestation.getSender();
     if (sender) {
       attestationMap.set(sender.toString(), attestation);
     }

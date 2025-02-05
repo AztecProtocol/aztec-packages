@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @notice Struct encompassing an epoch proof quote

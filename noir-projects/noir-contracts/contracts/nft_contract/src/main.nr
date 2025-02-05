@@ -7,14 +7,14 @@ use dep::aztec::macros::aztec;
 // Minimal NFT implementation with `AuthWit` support that allows minting in public-only and transfers in both public
 // and private.
 #[aztec]
-contract NFT {
+pub contract NFT {
     use crate::types::nft_note::NFTNote;
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
@@ -31,6 +31,7 @@ contract NFT {
     };
     use dep::compressed_string::FieldCompressedString;
     use std::meta::derive;
+
     // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
@@ -333,6 +334,7 @@ contract NFT {
         assert(notes.len() == 1, "NFT not found when transferring");
 
         let mut new_note = NFTNote::new(token_id, to);
+
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }
     // docs:end:transfer_in_private

@@ -22,7 +22,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -64,17 +64,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
     for (const sig of signatures) {
       try {
-        const selector = FunctionSelector.fromSignature(sig);
+        const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-
-    return Promise.resolve();
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -335,15 +333,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * Gets the last L1 block number processed by the archiver
    */
   async getSynchPoint(): Promise<ArchiverL1SynchPoint> {
-    return this.db.transactionAsync(async () => {
-      return {
-        blocksSynchedTo: await this.#blockStore.getSynchedL1BlockNumber(),
-        messagesSynchedTo: await this.#messageStore.getSynchedL1BlockNumber(),
-      };
-    });
+    const [blocksSynchedTo, messagesSynchedTo] = await Promise.all([
+      this.#blockStore.getSynchedL1BlockNumber(),
+      this.#messageStore.getSynchedL1BlockNumber(),
+    ]);
+    return {
+      blocksSynchedTo,
+      messagesSynchedTo,
+    };
   }
 
-  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  public estimateSize(): Promise<StoreSize> {
     return this.db.estimateSize();
   }
 }

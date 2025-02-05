@@ -16,6 +16,10 @@
 #include <vector>
 namespace bb::lmdblib {
 
+/**
+ * Implements a basic lmdb store. Consisting of an environment, any number of databases, transactions and cursors
+ */
+
 class LMDBStore : public LMDBStoreBase {
   public:
     using Ptr = std::unique_ptr<LMDBStore>;

@@ -1,9 +1,6 @@
 import { MAXIMUM_KEY, fromBufferKey, toBufferKey } from 'ordered-binary';
 
-import { Key } from '../interfaces/common.js';
-import { ReadTransaction } from './read_transaction.js';
-import { AztecLMDBStoreV2 } from './store.js';
-import { WriteTransaction } from './write_transaction.js';
+import { type Key } from '../interfaces/common.js';
 
 type Cmp<T> = (a: T, b: T) => -1 | 0 | 1;
 
@@ -101,7 +98,7 @@ export function removeFromSortedArray<T, N>(arr: T[], val: N, cmp: (a: T, b: N) 
 }
 
 export function merge<T>(arr: T[], toInsert: T[], cmp: (a: T, b: T) => -1 | 0 | 1): void {
-  let result = new Array<T>(arr.length + toInsert.length);
+  const result = new Array<T>(arr.length + toInsert.length);
   let i = 0,
     j = 0,
     k = 0;
@@ -110,8 +107,12 @@ export function merge<T>(arr: T[], toInsert: T[], cmp: (a: T, b: T) => -1 | 0 | 
     result[k++] = cmp(arr[i], toInsert[j]) <= 0 ? arr[i++] : toInsert[j++];
   }
 
-  while (i < arr.length) result[k++] = arr[i++];
-  while (j < toInsert.length) result[k++] = toInsert[j++];
+  while (i < arr.length) {
+    result[k++] = arr[i++];
+  }
+  while (j < toInsert.length) {
+    result[k++] = toInsert[j++];
+  }
 
   for (i = 0; i < result.length; i++) {
     arr[i] = result[i];
@@ -125,32 +126,6 @@ export function keyCmp(a: [Uint8Array, Uint8Array[] | null], b: [Uint8Array, Uin
 
 export function singleKeyCmp(a: [Uint8Array, Uint8Array[] | null], b: Uint8Array): -1 | 0 | 1 {
   return Buffer.compare(a[0], b);
-}
-
-export async function execInWriteTx<T>(store: AztecLMDBStoreV2, fn: (tx: WriteTransaction) => Promise<T>): Promise<T> {
-  const currentWrite = store.getWriteTx();
-  if (currentWrite) {
-    return await fn(currentWrite);
-  } else {
-    return store.transactionAsync(fn);
-  }
-}
-
-export async function execInReadTx<T>(
-  store: AztecLMDBStoreV2,
-  fn: (tx: ReadTransaction) => T | Promise<T>,
-): Promise<T> {
-  const currentWrite = store.getWriteTx();
-  if (currentWrite) {
-    return await fn(currentWrite);
-  } else {
-    const tx = store.getReadTx();
-    try {
-      return await fn(tx);
-    } finally {
-      tx.close();
-    }
-  }
 }
 
 export function minKey(prefix: string) {

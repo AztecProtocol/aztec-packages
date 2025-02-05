@@ -16,23 +16,25 @@ export class NullifierStore {
   }
 
   async addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    const blockHashes = await Promise.all(blocks.map(block => block.hash()));
     await this.db.transactionAsync(async () => {
       await Promise.all(
-        blocks.map(block => {
+        blocks.map((block, i) => {
           const dataStartIndexForBlock =
             block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
             block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
-          return block.body.txEffects.map((txEffects, txIndex) => {
-            const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
-            return txEffects.nullifiers.map((nullifier, nullifierIndex) =>
-              Promise.all([
-                ,
-                this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number),
-                this.#nullifiersToBlockHash.set(nullifier.toString(), block.hash().toString()),
-                this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex),
-              ]),
-            );
-          });
+          return Promise.all(
+            block.body.txEffects.map((txEffects, txIndex) => {
+              const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+              return Promise.all(
+                txEffects.nullifiers.map(async (nullifier, nullifierIndex) => {
+                  await this.#nullifiersToBlockNumber.set(nullifier.toString(), block.number);
+                  await this.#nullifiersToBlockHash.set(nullifier.toString(), blockHashes[i].toString());
+                  await this.#nullifiersToIndex.set(nullifier.toString(), dataStartIndexForTx + nullifierIndex);
+                }),
+              );
+            }),
+          );
         }),
       );
     });
@@ -58,15 +60,22 @@ export class NullifierStore {
     blockNumber: number,
     nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]> {
-    const maybeNullifiers = await this.db.transactionAsync(async () => {
-      return Promise.all(
-        nullifiers.map(async nullifier => ({
-          data: await this.#nullifiersToIndex.getAsync(nullifier.toString()),
-          l2BlockNumber: await this.#nullifiersToBlockNumber.getAsync(nullifier.toString()),
-          l2BlockHash: await this.#nullifiersToBlockHash.getAsync(nullifier.toString()),
-        })),
-      );
-    });
+    const asStrings = nullifiers.map(x => x.toString());
+
+    const maybeNullifiers = await Promise.all(
+      asStrings.map(async nullifier => {
+        const [data, l2BlockNumber, l2BlockHash] = await Promise.all([
+          this.#nullifiersToIndex.getAsync(nullifier),
+          this.#nullifiersToBlockNumber.getAsync(nullifier),
+          this.#nullifiersToBlockHash.getAsync(nullifier),
+        ]);
+        return {
+          data,
+          l2BlockNumber,
+          l2BlockHash,
+        };
+      }),
+    );
     return maybeNullifiers.map(({ data, l2BlockNumber, l2BlockHash }) => {
       if (
         data === undefined ||

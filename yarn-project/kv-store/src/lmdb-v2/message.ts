@@ -1,5 +1,3 @@
-import { type MsgpackChannel } from '@aztec/native';
-
 export enum Database {
   DATA = 'data',
   INDEX = 'index',
@@ -17,6 +15,8 @@ export enum LMDBMessageType {
   CLOSE_CURSOR,
 
   BATCH,
+
+  STATS,
 
   CLOSE,
 }
@@ -49,6 +49,8 @@ interface HasRequest {
 interface StartCursorRequest {
   key: Key;
   reverse: boolean;
+  count: number | null;
+  onePage: boolean | null;
   db: string;
 }
 
@@ -82,6 +84,8 @@ export type LMDBRequestBody = {
 
   [LMDBMessageType.BATCH]: BatchRequest;
 
+  [LMDBMessageType.STATS]: void;
+
   [LMDBMessageType.CLOSE]: void;
 };
 
@@ -93,8 +97,9 @@ interface HasResponse {
   exists: boolean[];
 }
 
-interface CursorResponse {
+interface StartCursorResponse {
   cursor: number | null;
+  entries: Array<KeyValues>;
 }
 
 interface AdvanceCursorResponse {
@@ -110,19 +115,32 @@ interface BoolResponse {
   ok: true;
 }
 
-export type LMDBResponse = {
+interface StatsResponse {
+  stats: Array<{
+    name: string;
+    numDataItems: bigint | number;
+    totalUsedSize: bigint | number;
+  }>;
+  dbMapSizeBytes: bigint | number;
+}
+
+export type LMDBResponseBody = {
   [LMDBMessageType.OPEN_DATABASE]: BoolResponse;
 
   [LMDBMessageType.GET]: GetResponse;
   [LMDBMessageType.HAS]: HasResponse;
 
-  [LMDBMessageType.START_CURSOR]: CursorResponse;
+  [LMDBMessageType.START_CURSOR]: StartCursorResponse;
   [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorResponse;
   [LMDBMessageType.CLOSE_CURSOR]: BoolResponse;
 
   [LMDBMessageType.BATCH]: BatchResponse;
 
+  [LMDBMessageType.STATS]: StatsResponse;
+
   [LMDBMessageType.CLOSE]: BoolResponse;
 };
 
-export type TypeSafeMessageChannel = MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponse>;
+export interface LMDBMessageChannel {
+  sendMessage<T extends LMDBMessageType>(msgType: T, body: LMDBRequestBody[T]): Promise<LMDBResponseBody[T]>;
+}

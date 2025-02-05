@@ -12,6 +12,7 @@
 #include <optional>
 #include <ratio>
 #include <stdexcept>
+#include <utility>
 
 using namespace bb::nodejs;
 using namespace bb::nodejs::lmdb_store;
@@ -65,6 +66,8 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
 
     _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
+
+    _msg_processor.register_handler(LMDBStoreMessageType::STATS, this, &LMDBStoreWrapper::get_stats);
 
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close);
 }
@@ -146,26 +149,29 @@ HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req)
 {
     bool reverse = req.reverse.value_or(false);
-    auto tx = _store->create_shared_read_transaction();
-    auto cursor = _store->create_cursor(tx, req.db);
-
+    uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
+    bool one_page = req.onePage.value_or(false);
     lmdblib::Key key = req.key;
-    bool ok = cursor->set_at_key(key);
-    if (!ok) {
+
+    auto tx = _store->create_shared_read_transaction();
+    lmdblib::LMDBCursor::SharedPtr cursor = _store->create_cursor(tx, req.db);
+    bool start_ok = cursor->set_at_key(key);
+
+    if (!start_ok) {
         // we couldn't find exactly the requested key. Find the next biggest one.
-        ok = cursor->set_at_key_gte(key);
+        start_ok = cursor->set_at_key_gte(key);
         // if we found a key that's greater _and_ we want to go in reverse order
         // then we're actually outside the requested bounds, we need to go back one position
-        if (ok && reverse) {
+        if (start_ok && reverse) {
             lmdblib::KeyDupValuesVector entries;
             // read_prev returns `true` if there's nothing more to read
             // turn this into a "not ok" because there's nothing in the db for this cursor to read
-            ok = !cursor->read_prev(1, entries);
-        } else if (!ok && reverse) {
+            start_ok = !cursor->read_prev(1, entries);
+        } else if (!start_ok && reverse) {
             // we couldn't find a key greater than our starting point _and_ we want to go in reverse..
             // then we start at the end of the database (the client requested to start at a key greater than anything in
             // the DB)
-            ok = cursor->set_at_end();
+            start_ok = cursor->set_at_end();
         }
 
         // in case we're iterating in ascending order and we can't find the exact key or one that's greater than it
@@ -173,39 +179,45 @@ StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req
     }
 
     // we couldn't find a starting position
-    if (!ok) {
-        return { std::nullopt };
+    if (!start_ok) {
+        return { std::nullopt, {} };
+    }
+
+    auto [done, first_page] = _advance_cursor(*cursor, reverse, page_size);
+    // cursor finished after reading a single page or client only wanted the first page
+    if (done || one_page) {
+        return { std::nullopt, first_page };
     }
 
     auto cursor_id = cursor->id();
     {
         std::lock_guard<std::mutex> lock(_cursor_mutex);
-        _cursors[cursor_id] = { std::move(cursor), reverse };
+        _cursors[cursor_id] = { cursor, reverse };
     }
 
-    return { cursor_id };
+    return { cursor_id, first_page };
 }
 
 BoolResponse LMDBStoreWrapper::close_cursor(const CloseCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_cursor_mutex);
-    _cursors.erase(req.cursor);
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        _cursors.erase(req.cursor);
+    }
     return { true };
 }
 
 AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorRequest& req)
 {
-    std::lock_guard<std::mutex> lock(_cursor_mutex);
-    CursorData& data = _cursors.at(req.cursor);
+    CursorData data;
 
-    uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
-    lmdblib::KeyDupValuesVector entries;
-    bool done = data.reverse ? data.cursor->read_prev(page_size, entries) : data.cursor->read_next(page_size, entries);
-
-    if (entries.empty()) {
-        return { {}, true };
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        data = _cursors.at(req.cursor);
     }
 
+    uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
+    auto [done, entries] = _advance_cursor(*data.cursor, data.reverse, page_size);
     return { entries, done };
 }
 
@@ -227,8 +239,35 @@ BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
     return { duration_ns.count() };
 }
 
+StatsResponse LMDBStoreWrapper::get_stats()
+{
+    std::vector<lmdblib::DBStats> stats;
+    auto map_size = _store->get_stats(stats);
+    return { stats, map_size };
+}
+
 BoolResponse LMDBStoreWrapper::close()
 {
+    // prevent this store from receiving further messages
+    _msg_processor.close();
+
+    {
+        // close all of the open read cursors
+        std::lock_guard cursors(_cursor_mutex);
+        _cursors.clear();
+    }
+
+    // and finally close the database handle
     _store.reset(nullptr);
+
     return { true };
+}
+
+std::pair<bool, bb::lmdblib::KeyDupValuesVector> LMDBStoreWrapper::_advance_cursor(const lmdblib::LMDBCursor& cursor,
+                                                                                   bool reverse,
+                                                                                   uint64_t page_size)
+{
+    lmdblib::KeyDupValuesVector entries;
+    bool done = reverse ? cursor.read_prev(page_size, entries) : cursor.read_next(page_size, entries);
+    return std::make_pair(done, entries);
 }

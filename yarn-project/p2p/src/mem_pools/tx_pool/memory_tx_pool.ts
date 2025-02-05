@@ -69,10 +69,11 @@ export class InMemoryTxPool implements TxPool {
   }
 
   public async getPendingTxHashes(): Promise<TxHash[]> {
-    return (await this.getAllTxs())
-      .sort((tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)))
-      .map(tx => tx.getTxHash())
-      .filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
+    const txs = (await this.getAllTxs()).sort(
+      (tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    return txHashes.filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
   }
 
   public getMinedTxHashes(): Promise<[TxHash, number][]> {
@@ -111,13 +112,13 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<void> {
     let pending = 0;
     for (const tx of txs) {
-      const txHash = tx.getTxHash();
+      const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
         eventName: 'tx-added-to-pool',
-        ...tx.getStats(),
+        ...(await tx.getStats()),
       } satisfies TxAddedToPoolStats);
 
       const key = txHash.toBigInt();
@@ -130,7 +131,7 @@ export class InMemoryTxPool implements TxPool {
     }
 
     this.metrics.recordAddedObjects(pending, 'pending');
-    return Promise.resolve();
+    return;
   }
 
   /**

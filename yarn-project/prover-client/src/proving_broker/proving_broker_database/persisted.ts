@@ -34,11 +34,11 @@ class SingleEpochDatabase {
     await this.jobs.set(job.id, jsonStringify(job));
   }
 
-  async *allProvingJobs(): AsyncIterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
+  async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
     for await (const jobStr of this.jobs.valuesAsync()) {
-      const job = jsonParseWithSchema(jobStr, ProvingJob);
+      const job = await jsonParseWithSchema(jobStr, ProvingJob);
       const resultStr = await this.jobResults.getAsync(job.id);
-      const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+      const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
   }
@@ -80,8 +80,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     );
   }
 
-  private estimateSize() {
-    const sizes = Array.from(this.epochs.values()).map(x => x.estimateSize());
+  private async estimateSize() {
+    const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
@@ -151,7 +151,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     await epochDb.addProvingJob(job);
   }
 
-  async *allProvingJobs(): AsyncIterable<[ProvingJob, ProvingJobSettledResult | undefined]> {
+  async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
     const iterators = Array.from(this.epochs.values()).map(x => x.allProvingJobs());
     for (const it of iterators) {
       yield* it;
