@@ -142,7 +142,7 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
   }
 
   /**
-   * Get the ABI encoding of the proposer index - see Leonidas.sol _computeProposerIndex
+   * Get the ABI encoding of the proposer index - see ValidatorSelectionLib.sol computeProposerIndex
    */
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}` {
     return encodeAbiParameters(
