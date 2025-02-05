@@ -116,8 +116,10 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
+            self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
             self.previous_kernel.add_private_call_request_for_private_call(private_call);
+            self.previous_kernel.set_historical_header_from_call_data(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };

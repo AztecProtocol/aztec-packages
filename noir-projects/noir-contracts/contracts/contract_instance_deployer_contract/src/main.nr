@@ -7,7 +7,7 @@ pub contract ContractInstanceDeployer {
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
         constants::{
-            DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+            DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
             DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS,
         },
         contract_class_id::ContractClassId,
@@ -92,11 +92,9 @@ pub contract ContractInstanceDeployer {
         block_of_change: u32,
     }
 
-    global UPDATE_DELAY: u32 = 10;
-
     #[storage]
     struct Storage<Context> {
-        updated_class_ids: Map<AztecAddress, SharedMutable<ContractClassId, UPDATE_DELAY, Context>, Context>,
+        updated_class_ids: Map<AztecAddress, SharedMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
     }
 
     #[private]

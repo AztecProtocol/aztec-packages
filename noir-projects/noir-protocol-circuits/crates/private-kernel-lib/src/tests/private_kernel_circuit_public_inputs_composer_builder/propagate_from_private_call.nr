@@ -46,11 +46,11 @@ fn propagate_from_private_call_min_revertible_side_effect_counter_succeeds() {
 fn propagate_from_private_call_max_block_number_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.set_max_block_number(123);
+    builder.private_call.set_max_block_number(5);
 
     let output = builder.compose_from_tx_request(false);
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 123);
+    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 5);
 }
 
 #[test]

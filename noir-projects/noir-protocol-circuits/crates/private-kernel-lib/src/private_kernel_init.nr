@@ -105,11 +105,14 @@ mod tests {
         pub fn new() -> Self {
             let private_call = FixtureBuilder::new().is_first_call();
             let tx_request = private_call.build_tx_request();
+
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
 
-        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        pub fn execute(mut self) -> PrivateKernelCircuitPublicInputs {
+            self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
+
             PrivateKernelInitCircuitPrivateInputs {
                 tx_request: self.tx_request,
                 private_call,

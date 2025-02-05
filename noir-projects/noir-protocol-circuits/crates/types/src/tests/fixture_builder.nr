@@ -43,7 +43,8 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
+        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -51,13 +52,14 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, SHARED_MUTABLE_HASH_SEPARATOR,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        compute_unique_siloed_note_hash, silo_note_hash,
+        compute_unique_siloed_note_hash, poseidon2_hash_with_separator, silo_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -69,10 +71,15 @@ use crate::{
     },
     public_keys::PublicKeys,
     shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        hash_scheduled_data, scheduled_delay_change::ScheduledDelayChange,
+        scheduled_value_change::ScheduledValueChange,
     },
-    tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::{Deserialize, Empty, FromField, Packable},
+    storage::map::derive_storage_slot_in_map,
+    tests::fixtures::{
+        self, contract_functions::ContractFunction, contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
+    },
+    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -408,7 +415,73 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_call_data(self) -> PrivateCallData {
+    pub fn compute_update_tree_and_hints(&mut self) {
+        let public_data_prefill = 2;
+        let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
+
+        if is_empty(self.updated_class_id_value_change)
+            & is_empty(self.updated_class_id_delay_change) {
+            self.historical_header.state.partial.public_data_tree.root =
+                public_data_tree.get_root();
+            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+                public_data_prefill;
+
+            self.updated_class_id_witness = MembershipWitness {
+                leaf_index: (public_data_prefill - 1) as Field,
+                sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+            };
+            self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
+                slot: (public_data_prefill - 1) as Field,
+                value: 0,
+                next_slot: 0,
+                next_index: 0,
+            };
+        } else {
+            let hashed_update = hash_scheduled_data(
+                self.updated_class_id_value_change,
+                self.updated_class_id_delay_change,
+            );
+            let shared_mutable_slot =
+                derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
+            let hash_slot =
+                poseidon2_hash_with_separator([shared_mutable_slot], SHARED_MUTABLE_HASH_SEPARATOR);
+            let hash_leaf_slot = poseidon2_hash_with_separator(
+                [DEPLOYER_CONTRACT_ADDRESS.to_field(), hash_slot],
+                GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+            );
+            public_data_tree.update_leaf(
+                public_data_prefill - 1,
+                PublicDataTreeLeafPreimage {
+                    slot: (public_data_prefill - 1) as Field,
+                    value: 0,
+                    next_slot: hash_leaf_slot,
+                    next_index: public_data_prefill,
+                }
+                    .hash(),
+            );
+            self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
+                slot: hash_leaf_slot,
+                value: hashed_update,
+                next_slot: 0,
+                next_index: 0,
+            };
+            public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
+            self.historical_header.state.partial.public_data_tree.root =
+                public_data_tree.get_root();
+            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+                public_data_prefill + 1;
+            self.updated_class_id_witness = MembershipWitness {
+                leaf_index: public_data_prefill as Field,
+                sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+            };
+        }
+    }
+
+    pub fn set_historical_header_from_call_data(&mut self, private_call: PrivateCallData) {
+        self.historical_header = private_call.public_inputs.historical_header;
+    }
+
+    pub fn to_private_call_data(mut self) -> PrivateCallData {
         PrivateCallData {
             public_inputs: self.to_private_circuit_public_inputs(),
             vk: self.client_ivc_vk,
