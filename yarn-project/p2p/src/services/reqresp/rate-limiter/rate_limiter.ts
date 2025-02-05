@@ -201,7 +201,7 @@ export class RequestResponseRateLimiter {
     switch (rateLimitStatus) {
       case RateLimitStatus.DeniedPeer:
         // Hitting a peer specific limit, we should lightly penalise the peer
-        this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+        this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
         return false;
       case RateLimitStatus.DeniedGlobal:
         // Hitting a global limit, we should not penalise the peer
