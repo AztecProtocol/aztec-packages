@@ -71,7 +71,7 @@ The database stores various types of data, including:
 
 Note discovery helps solve the problem of a user parsing the chain for their encrypted notes.
 
-There is a note tagging scheme that allows users to register an expected note sender in their PXE, which tells the PXE to expect notes coming from that expected sender. This helps the PXE more efficiently discover the encrypted notes being created for its registered accounts.
+Learn more about Aztec's note tagging scheme [here](../advanced/storage/note_discovery.md).
 
 ### Authorization
 
