@@ -385,12 +385,14 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     // Initialize transcript and commitment key
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
 
-    //
-    static constexpr size_t num_polys_in_group = 16;
+    static constexpr size_t log_num_polys_in_group = 4;
+    static constexpr size_t num_polys_in_group = 1UL << log_num_polys_in_group;
 
     // Generate multivariate challenge of size CONST_PROOF_SIZE_LOG_N
     std::vector<Fr> const_size_mle_opening_point = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
-    // Truncate the multivariate challenge to evaluate prover polynomials (As in Sumcheck)
+
+    // Truncate the multivariate challenge to evaluate prover polynomials. In practice, these challenges are produced by
+    // Sumcheck.
     std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
                                       const_size_mle_opening_point.begin() + this->log_n);
 
@@ -403,13 +405,12 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     }
 
     // Generate random prover polynomials, compute their evaluations and commitments
-    // 64 = number of short unshifted polynomials, they are be concatenated into 4 polys
-    // 16 = number of short to-be-shifted polynomials, they are concatenated into a single poly
-
+    // 64 = number of short unshifted polynomials, they are concatenated into 4 BIG polys
+    // 16 = number of short to-be-shifted polynomials, they are concatenated into a single BIG poly
     MultiWitnessGenerator<Curve> pcs_instance_witness(
         num_polys_in_group, this->n, 64, 16, mle_opening_point, extra_challenges);
 
-    // The interface here is unchanged
+    // The interface here is unchanged. Note that ShpleminiProver accepts only big polynomials
     const auto opening_claim = ShpleminiProver::prove(this->n * num_polys_in_group,
                                                       pcs_instance_witness.polynomial_batcher,
                                                       const_size_mle_opening_point,

@@ -235,7 +235,7 @@ template <typename Curve> struct MultiWitnessGenerator {
         polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted_polynomials));
 
         // This must be a step after sumcheck before Shplemini, I believe
-        verifier_combine_from_chunks(num_polys_in_group, lagrange_coeffs);
+        combine_from_chunks(num_polys_in_group, lagrange_coeffs);
 
         // The claim batcher simply accepts the **combined_evals**. After that everythings remains the same
         claim_batcher = ClaimBatcher{
@@ -262,7 +262,7 @@ template <typename Curve> struct MultiWitnessGenerator {
 
         for (size_t idx = 0; idx < num_polys_in_group; idx++) {
             size_t start_idx = idx * n;
-            // Cut a chunk of coefficients (idx*n, (idx+1)n -1)
+            // Get a slice of coefficients (idx*n, (idx+1)n -1)
             std::span<Fr> chunk = poly.subspan(start_idx, n).span;
             // Created a redundant poly, because evaluate_mle is static in Polynomial class, this could def be fixed by
             // by separating evaluate_mle from Polynomial class.
@@ -274,8 +274,15 @@ template <typename Curve> struct MultiWitnessGenerator {
             }
         }
     }
-
-    void verifier_combine_from_chunks(const size_t num_polys_in_group, auto& lagrange_coeffs)
+    /**
+     * @brief The verifier needs to `parse` prover's claimed evaluations by grouping them by 2^{num_polys_in_group} and
+     * taking the sums of elements in each group multiplied by the corresponding Lagrange coefficient. I.e. the
+     * evaluation of the i'th poly in a group is multiplied by L_i evaluated at the `extra_challenges`.
+     *
+     * @param num_polys_in_group
+     * @param lagrange_coeffs
+     */
+    void combine_from_chunks(const size_t num_polys_in_group, auto& lagrange_coeffs)
     {
         size_t num_unshifted_evals = unshifted_evals.size();
 
@@ -303,13 +310,20 @@ template <typename Curve> struct MultiWitnessGenerator {
         }
     }
 
+    /**
+     * @brief The verifier needs to compute 2^{num_polys_in_group} evaluations of the multilinear Lagranges at (u_{n},
+     * u_{n+1}, ..., u_{n + num_polys_in_group -1 }). Here is the optimal solution in terms of field ops.
+     *
+     * @param extra_challenges
+     * @return std::vector<Fr>
+     */
     static std::vector<Fr> populate_lagrange_coeffs(std::vector<Fr>& extra_challenges)
     {
         std::vector<Fr> lagrange_coeffs(1);
 
         lagrange_coeffs[0] = Fr{ 1 };
 
-        // Repeatedly "double" the vector by multiplying half by (1 - x_j) and half by x_j
+        // Repeatedly "double" the vector by multiplying half by (1 - u_j) and half by u_j
         for (size_t j = 0; j < extra_challenges.size(); ++j) {
             Fr current_challenge = extra_challenges[j];
             size_t old_size = lagrange_coeffs.size();
