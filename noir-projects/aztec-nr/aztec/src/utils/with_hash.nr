@@ -156,7 +156,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_reading_initialized_value() {
+    unconstrained fn read_initialized_value() {
         let mut env = TestEnvironment::new();
 
         let value = MockStruct { a: 5, b: 3 };
@@ -230,7 +230,7 @@ mod test {
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
         env.advance_block_by(1);
 
-        let result = WithHash::<MockStruct, 2>::historical_public_storage_read(
+        let _ = WithHash::<MockStruct, 2>::historical_public_storage_read(
             env.private().historical_header,
             env.contract_address(),
             storage_slot,
