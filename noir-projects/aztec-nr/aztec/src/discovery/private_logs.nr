@@ -108,7 +108,7 @@ unconstrained fn destructure_log_plaintext(
     // enums and tagged unions to achieve this goal.
     let combined_type_id = log_plaintext.get(1);
     let note_type_id = ((combined_type_id as u64) % 128) as Field;
-    let log_type_id = combined_type_id / 128;
+    let log_type_id = ((combined_type_id as u64) / 128) as Field;
 
     let log_payload = array::subbvec(log_plaintext, NOTE_PRIVATE_LOG_RESERVED_FIELDS);
 
