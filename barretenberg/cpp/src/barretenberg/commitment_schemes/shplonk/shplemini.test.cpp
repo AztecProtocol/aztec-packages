@@ -108,7 +108,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
                                           /*num_to_be_shifted*/ this->num_shiftable,
                                           /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
-                                          ck);
+                                          this->ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
@@ -210,7 +210,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                           /*num_to_be_shifted*/ this->num_shiftable,
                                           /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
-                                          ck);
+                                          this->ck);
 
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
@@ -316,7 +316,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                           /*num_to_be_shifted*/ this->num_shiftable,
                                           /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
-                                          ck);
+                                          this->ck);
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     const Fr claimed_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
@@ -488,7 +488,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     // Generate valid sumcheck polynomials of given length
     mock_claims.template compute_sumcheck_opening_data<TypeParam>(
-        this->n, this->log_n, this->sumcheck_univariate_length, challenge, ck);
+        this->n, this->log_n, this->sumcheck_univariate_length, challenge, this->ck);
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     const Fr claimed_inner_product =
@@ -543,7 +543,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
                                                                                     mock_claims.claim_batcher,
                                                                                     challenge,
-                                                                                    this->vk()->get_g1_identity(),
+                                                                                    this->vk->get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
