@@ -12,7 +12,6 @@ import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from './config.js';
 import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
-import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
 
 describe('deploy_l1_contracts', () => {

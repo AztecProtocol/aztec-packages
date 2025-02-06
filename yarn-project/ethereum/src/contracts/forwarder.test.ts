@@ -20,7 +20,7 @@ import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type L1Clients, createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
-import { L1TxUtils, defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
+import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
