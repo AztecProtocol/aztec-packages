@@ -81,11 +81,17 @@ if [ "$sepolia_deployment" = "true" ]; then
   helm_set_args+=(
     --set ethereum.externalHost="$EXTERNAL_ETHEREUM_HOST"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
-    --set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY"
-    --set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
   )
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
+    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+  fi
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
+    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+  fi
 fi
 
 helm upgrade --install spartan ../aztec-network \
