@@ -210,7 +210,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       ],
       datastore,
-      // TODO transiently removed setting: { maxInboundStreams: 256 }
       peerDiscovery,
       streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
@@ -225,14 +224,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
-
-          // NOTE(flood-test): adjusted both below
-          // maxInboundStreams: 50,
-          // maxOutboundStreams: 50,
-
-          // NOTE(flood-test): often see this error appearing in the gossip test
-          // maxPushOutgoingStreams: 50,
-          // maxPushIncomingStreams: 50,
         }),
         pubsub: gossipsub({
           debugName: 'gossipsub',
@@ -255,16 +246,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
-          // batchPublish: true,
-          // same as lodestar
-          scoreThresholds: {
-            gossipThreshold: -4000,
-            publishThreshold: -8000,
-            graylistThreshold: -16000,
-            acceptPXThreshold: 100,
-            opportunisticGraftThreshold: 5,
-          },
-          // NOTE: increased mesh message deliveries window
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
@@ -273,25 +254,21 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                meshMessageDeliveriesWindow: 10_000,
               }),
               [EpochProofQuote.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                meshMessageDeliveriesWindow: 10_000,
               }),
             },
           }),
