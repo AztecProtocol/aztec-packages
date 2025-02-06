@@ -9,22 +9,22 @@ export const submitTxsTo = async (
   wallet: Wallet,
   logger: Logger,
 ): Promise<SentTx[]> => {
-  return await Promise.all(
-    Array.from({ length: numTxs }).map(async () => {
-      const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-      const tx = accountManager.deploy({ deployWallet: wallet });
-      const txHash = await tx.getTxHash();
+  const txs: SentTx[] = [];
+  for (let i = 0; i < numTxs; i++) {
+    const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+    const tx = accountManager.deploy({ deployWallet: wallet });
+    const txHash = await tx.getTxHash();
 
-      logger.info(`Tx sent with hash ${txHash}`);
-      const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
-      logger.info(`Receipt received for ${txHash}`);
-      return tx;
-    }),
-  );
+    logger.info(`Tx sent with hash ${txHash}`);
+    const receipt = await tx.getReceipt();
+    expect(receipt).toEqual(
+      expect.objectContaining({
+        status: TxStatus.PENDING,
+        error: '',
+      }),
+    );
+    logger.info(`Receipt received for ${txHash}`);
+    txs.push(tx);
+  }
+  return txs;
 };
