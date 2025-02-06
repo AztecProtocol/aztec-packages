@@ -57,6 +57,7 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
+import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
@@ -213,6 +214,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
+        dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
       },
@@ -241,6 +243,16 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
+
+          // In ms - update this manually
+          // config.seconds_per_slot * slots_per_epoch * 2 * 1000
+          seenTTL: 2 * 48 * 32_000,
+
+          // TODO: set in config - allow to be false
+          // awaitRpcMessageHandler: true
+          // awaitRpcHandler: true
+
+          scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
@@ -249,16 +261,19 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesThreshold: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesThreshold: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesThreshold: 10_000,
               }),
             },
           }),
