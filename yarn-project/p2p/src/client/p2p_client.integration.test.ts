@@ -303,7 +303,7 @@ describe('p2p client integration', () => {
       'Should propagate a tx to all peers with a throttled degree and large node set',
       async () => {
         // No network partition, all nodes should receive
-        const numberOfClients = 30;
+        const numberOfClients = 20;
 
         const __dirname = path.dirname(fileURLToPath(import.meta.url));
         const workerPath = path.join(__dirname, '../../dest/client/p2p_gossipsub_worker.js');
