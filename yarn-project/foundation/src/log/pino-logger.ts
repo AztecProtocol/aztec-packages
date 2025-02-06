@@ -159,9 +159,9 @@ function makeLogger() {
     // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
   }
-  // If running in a child process then cancel this if statement section
-  else if (false) {
-    // else if (process.env.JEST_WORKER_ID) {
+  // If running in a child process then cancel this if statement section by uncommenting below
+  // else if (false) {
+  else if (process.env.JEST_WORKER_ID) {
     // We are on jest, so we need sync logging and stream to stderr.
     // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
     // but if for some reason it doesn't, at least we're covered with a default logger.

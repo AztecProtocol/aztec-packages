@@ -242,16 +242,15 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
-          // TODO: reactivate
-          Dlazy: 1,
+          Dlazy: config.gossipsubDLazy,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
           gossipsubIWantFollowupMs: 12 * 1000,
-          // msgIdFn: getMsgIdFn,
-          // msgIdToStrFn: msgIdToStrFn,
-          // fastMsgIdFn: fastMsgIdFn,
+          msgIdFn: getMsgIdFn,
+          msgIdToStrFn: msgIdToStrFn,
+          fastMsgIdFn: fastMsgIdFn,
           dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
@@ -267,8 +266,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           },
           // NOTE: increased mesh message deliveries window
           scoreParams: createPeerScoreParams({
-            // Disabled for local testing
-            IPColocationFactorWeight: 0,
+            // IPColocation factor can be disabled for local testing - default to -5
+            IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
@@ -369,10 +368,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
       [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
     };
-    // Temp: disable topic validators for testing
-    // for (const [topic, validator] of Object.entries(topicValidators)) {
-    //   this.node.services.pubsub.topicValidators.set(topic, validator);
-    // }
+    // When running bandwidth benchmarks, we use send blobs of data we do not want to validate
+    // NEVER switch this off in production
+    if (!this.config.debugDisableMessageValidation) {
+      for (const [topic, validator] of Object.entries(topicValidators)) {
+        this.node.services.pubsub.topicValidators.set(topic, validator);
+      }
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));

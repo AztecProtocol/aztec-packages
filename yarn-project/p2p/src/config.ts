@@ -30,6 +30,16 @@ export interface P2PConfig extends P2PReqRespConfig {
   blockRequestBatchSize: number;
 
   /**
+   * DEBUG: Disable message validation - for testing purposes only
+   */
+  debugDisableMessageValidation: boolean;
+
+  /**
+   * DEBUG: Disable colocation penalty - for testing purposes only
+   */
+  debugDisableColocationPenalty: boolean;
+
+  /**
    * The frequency in which to check for new peers.
    */
   peerCheckIntervalMS: number;
@@ -116,6 +126,11 @@ export interface P2PConfig extends P2PReqRespConfig {
   gossipsubDhi: number;
 
   /**
+   * The Dlazy parameter for the gossipsub protocol.
+   */
+  gossipsubDLazy: number;
+
+  /**
    * The number of gossipsub interval message cache windows to keep.
    */
   gossipsubMcacheLength: number;
@@ -169,6 +184,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  debugDisableMessageValidation: {
+    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
+    description: 'DEBUG: Disable message validation - NEVER set to true in production',
+    ...booleanConfigHelper(false),
+  },
+  debugDisableColocationPenalty: {
+    env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
+    description: 'DEBUG: Disable colocation penalty - NEVER set to true in production',
+    ...booleanConfigHelper(false),
   },
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
@@ -260,6 +285,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_GOSSIPSUB_DHI',
     description: 'The Dhi parameter for the gossipsub protocol.',
     ...numberConfigHelper(12),
+  },
+  gossipsubDLazy: {
+    env: 'P2P_GOSSIPSUB_D_LAZY',
+    description: 'The Dlazy parameter for the gossipsub protocol.',
+    ...numberConfigHelper(6),
   },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
