@@ -76,13 +76,10 @@ export function createSnapshotManager(
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
-  hooks: {
-    onBeforeCreateAztecNode: (config: AztecNodeConfig) => Promise<void>;
-  } = { onBeforeCreateAztecNode: () => Promise.resolve() },
 ) {
   return dataPath
-    ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs, hooks)
-    : new MockSnapshotManager(testName, config, deployL1ContractsArgs, hooks);
+    ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs)
+    : new MockSnapshotManager(testName, config, deployL1ContractsArgs);
 }
 
 export interface ISnapshotManager {
@@ -106,9 +103,6 @@ class MockSnapshotManager implements ISnapshotManager {
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
-    private hooks: {
-      onBeforeCreateAztecNode: (config: AztecNodeConfig) => Promise<void>;
-    } = { onBeforeCreateAztecNode: () => Promise.resolve() },
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -131,7 +125,7 @@ class MockSnapshotManager implements ISnapshotManager {
 
   public async setup() {
     if (!this.context) {
-      this.context = await setupFromFresh(undefined, this.logger, this.config, this.deployL1ContractsArgs, this.hooks);
+      this.context = await setupFromFresh(undefined, this.logger, this.config, this.deployL1ContractsArgs);
     }
     return this.context;
   }
@@ -157,9 +151,6 @@ class SnapshotManager implements ISnapshotManager {
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
     private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
-    private hooks: {
-      onBeforeCreateAztecNode: (config: AztecNodeConfig) => Promise<void>;
-    } = { onBeforeCreateAztecNode: () => Promise.resolve() },
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -228,7 +219,7 @@ class SnapshotManager implements ISnapshotManager {
       if (previousSnapshotPath) {
         this.logger.verbose(`Copying snapshot from ${previousSnapshotPath} to ${this.livePath}...`);
         copySync(previousSnapshotPath, this.livePath);
-        this.context = await setupFromState(this.livePath, this.logger, this.hooks);
+        this.context = await setupFromState(this.livePath, this.logger);
         // Execute each of the previous snapshots restoration functions in turn.
         await asyncMap(this.snapshotStack, async e => {
           const snapshotData = JSON.parse(readFileSync(`${e.snapshotPath}/${e.name}.json`, 'utf-8'), reviver);
@@ -237,13 +228,7 @@ class SnapshotManager implements ISnapshotManager {
           this.logger.verbose(`Restoration of ${e.name} complete.`);
         });
       } else {
-        this.context = await setupFromFresh(
-          this.livePath,
-          this.logger,
-          this.config,
-          this.deployL1ContractsArgs,
-          this.hooks,
-        );
+        this.context = await setupFromFresh(this.livePath, this.logger, this.config, this.deployL1ContractsArgs);
       }
     }
     return this.context;
@@ -296,9 +281,6 @@ async function setupFromFresh(
     assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
-  hooks: {
-    onBeforeCreateAztecNode: (config: AztecNodeConfig) => Promise<void>;
-  } = { onBeforeCreateAztecNode: () => Promise.resolve() },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
@@ -405,7 +387,6 @@ async function setupFromFresh(
   }
 
   const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
-  await hooks.onBeforeCreateAztecNode(aztecNodeConfig);
 
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
@@ -453,13 +434,7 @@ async function setupFromFresh(
 /**
  * Given a statePath, setup the system starting from that state.
  */
-async function setupFromState(
-  statePath: string,
-  logger: Logger,
-  hooks: {
-    onBeforeCreateAztecNode: (config: AztecNodeConfig) => Promise<void>;
-  } = { onBeforeCreateAztecNode: () => Promise.resolve() },
-): Promise<SubsystemsContext> {
+async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
   logger.verbose(`Initializing with saved state at ${statePath}...`);
 
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -516,7 +491,6 @@ async function setupFromState(
   );
   await watcher.start();
 
-  await hooks.onBeforeCreateAztecNode(aztecNodeConfig);
   logger.verbose('Creating aztec node...');
   const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
