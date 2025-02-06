@@ -1,5 +1,5 @@
 use types::{
-    block_header::BlockHeader,
+    abis::block_header::BlockHeader,
     constants::ARCHIVE_HEIGHT,
     merkle_tree::membership::{assert_check_membership, MembershipWitness},
     traits::Hash,

@@ -7,6 +7,7 @@ use crate::{
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
+        block_header::BlockHeader,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         constant_rollup_data::ConstantRollupData,
@@ -41,7 +42,6 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
-    block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,

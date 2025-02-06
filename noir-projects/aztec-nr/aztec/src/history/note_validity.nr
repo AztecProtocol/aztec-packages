@@ -1,6 +1,6 @@
 use crate::{context::PrivateContext, note::note_interface::{NoteInterface, NullifiableNote}};
 
-use dep::protocol_types::block_header::BlockHeader;
+use dep::protocol_types::abis::block_header::BlockHeader;
 
 trait ProveNoteValidity {
     fn prove_note_validity<Note, let N: u32>(

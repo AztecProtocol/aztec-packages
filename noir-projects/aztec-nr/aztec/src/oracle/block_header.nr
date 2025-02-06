@@ -1,4 +1,4 @@
-use dep::protocol_types::{block_header::BlockHeader, constants::BLOCK_HEADER_LENGTH};
+use dep::protocol_types::{abis::block_header::BlockHeader, constants::BLOCK_HEADER_LENGTH};
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{

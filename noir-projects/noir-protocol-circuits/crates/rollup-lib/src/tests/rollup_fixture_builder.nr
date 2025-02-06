@@ -8,11 +8,11 @@ use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use std::test::OracleMock;
 use types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        global_variables::GlobalVariables, sponge_blob::SpongeBlob,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
+        constant_rollup_data::ConstantRollupData, global_variables::GlobalVariables,
+        sponge_blob::SpongeBlob,
     },
     address::EthAddress,
-    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT, MERGE_ROLLUP_INDEX,

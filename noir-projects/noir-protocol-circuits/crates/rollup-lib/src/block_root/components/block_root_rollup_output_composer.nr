@@ -9,9 +9,9 @@ use crate::{
 use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs}};
 use types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
+        constant_rollup_data::ConstantRollupData,
     },
-    block_header::BlockHeader,
     constants::{AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT},
     content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},

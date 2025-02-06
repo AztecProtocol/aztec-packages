@@ -19,6 +19,7 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
+        block_header::BlockHeader,
         call_context::CallContext,
         function_selector::FunctionSelector,
         log::Log,
@@ -35,7 +36,6 @@ use dep::protocol_types::{
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
-    block_header::BlockHeader,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,

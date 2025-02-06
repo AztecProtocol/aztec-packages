@@ -40,7 +40,7 @@ impl Hash for BlockHeader {
 
 mod test {
     use crate::{
-        block_header::BlockHeader,
+        abis::block_header::BlockHeader,
         constants::BLOCK_HEADER_LENGTH,
         traits::{Deserialize, Empty, Hash, Serialize},
     };

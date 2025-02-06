@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, block_header::BlockHeader, constants::DEPLOYER_CONTRACT_ADDRESS,
+    abis::block_header::BlockHeader, address::AztecAddress, constants::DEPLOYER_CONTRACT_ADDRESS,
     hash::compute_siloed_nullifier,
 };
 

@@ -1,7 +1,7 @@
 use blob::blob_public_inputs::BlobCommitment;
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
-    block_header::BlockHeader,
+    abis::block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
     },

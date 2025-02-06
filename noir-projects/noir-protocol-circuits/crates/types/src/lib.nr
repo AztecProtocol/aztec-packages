@@ -22,7 +22,6 @@ pub mod type_packing;
 pub mod content_commitment;
 pub mod partial_state_reference;
 pub mod state_reference;
-pub mod block_header;
 pub mod abis;
 
 mod tests;
