@@ -17,6 +17,7 @@
     "./ethereum": "./dest/api/ethereum/index.js",
     "./fee": "./dest/api/fee.js",
     "./fields": "./dest/api/fields.js",
+    "./log": "./dest/api/log.js",
     "./log_id": "./dest/api/log_id.js",
     "./rpc": "./dest/rpc_clients/index.js",
     "./tx_hash": "./dest/api/tx_hash.js",
