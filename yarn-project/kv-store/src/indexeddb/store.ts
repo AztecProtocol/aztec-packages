@@ -194,8 +194,4 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   close(): Promise<void> {
     return Promise.resolve();
   }
-
-  close(): Promise<void> {
-    return Promise.resolve();
-  }
 }
