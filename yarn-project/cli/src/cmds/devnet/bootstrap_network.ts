@@ -19,7 +19,7 @@ import {
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;
@@ -45,76 +45,171 @@ export async function bootstrapNetwork(
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
-  // setup a one-off account contract
-  const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-  const wallet = await account.deploy().getWallet();
+  console.log('PRE-DEPLOYED CONTRACT\n\n\n\n');
 
-  const l1Clients = createL1Clients(
+  // setup a one-off account contract
+  const secretKey = Fr.random();
+  const signingPrivateKey = Fq.random();
+  const salt = Fr.random();
+
+  console.log('secretKey', secretKey);
+  console.log('signingPrivateKey', signingPrivateKey);
+  console.log('salt', salt);
+
+  // const account = await getSchnorrAccount(pxe, secretKey, signingPrivateKey, salt);
+
+  console.log('DEPLOYED CONTRACT\n\n\n\n');
+
+  // const wallet = await account.deploy().getWallet();
+
+  const l1Acccount0 = mnemonicToAccount(l1Mnemonic, {
+    accountIndex: 0,
+  });
+
+  const l1Acccount1 = mnemonicToAccount(l1Mnemonic, {
+    accountIndex: 1,
+  });
+
+  const l1Acccount2 = mnemonicToAccount(l1Mnemonic, {
+    addressIndex: 1,
+  });
+
+  const l1Acccount3 = mnemonicToAccount(l1Mnemonic, {
+    addressIndex: 2,
+  });
+
+  const l1Clients0 = createL1Clients(
     l1Url,
-    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Mnemonic,
+    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Acccount0,
     createEthereumChain(l1Url, +l1ChainId).chainInfo,
   );
 
-  const { erc20Address, portalAddress } = await deployERC20(l1Clients);
+  const l1Clients1 = createL1Clients(
+    l1Url,
+    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Acccount1,
+    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+  );
 
-  const { token, bridge } = await deployToken(wallet, portalAddress);
+  const l1Clients2 = createL1Clients(
+    l1Url,
+    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Acccount2,
+    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+  );
 
-  await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
+  const l1Clients3 = createL1Clients(
+    l1Url,
+    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Acccount3,
+    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+  );
 
-  const fpcAdmin = wallet.getAddress();
-  const fpc = await deployFPC(wallet, token.address, fpcAdmin);
+  console.log(
+    'l1 balance of 0',
+    await l1Clients0.walletClient.getBalance({ address: l1Clients0.walletClient.account.address }),
+  );
 
-  const counter = await deployCounter(wallet);
+  console.log(
+    'l1 balance of 1',
+    await l1Clients1.walletClient.getBalance({ address: l1Clients1.walletClient.account.address }),
+  );
+
+  console.log(
+    'l1 balance of 2',
+    await l1Clients0.walletClient.getBalance({ address: l1Clients2.walletClient.account.address }),
+  );
+
+  console.log(
+    'l1 balance of 3',
+    await l1Clients1.walletClient.getBalance({ address: l1Clients3.walletClient.account.address }),
+  );
+
+  // const { erc20Address, portalAddress } = await deployERC20(l1Clients);
+
+  // console.log('DEPLOYED ERC 20\n\n\n\n');
+
+  // const { token, bridge } = await deployToken(wallet, portalAddress);
+
+  // console.log('DEPLOYED TOKEN\n\n\n\n');
+
+  // await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
+
+  // console.log('INITED PORTAL\n\n\n\n');
+
+  // const fpcAdmin = wallet.getAddress();
+  // const fpc = await deployFPC(wallet, token.address, fpcAdmin);
+
+  // console.log('DEPLOYED FPC\n\n\n\n');
+
+  // const counter = await deployCounter(wallet);
+
+  // console.log('DEPLOYED COUNTER\n\n\n\n');
+
+  // console.log('counter address', counter.address)
+
+  // secretKey Fr<0x29537ca0d814e9cc3406ae2e40db8cd6396de2f4bf4514a9bfa275063f5e47c8>
+  // signingPrivateKey Fq<0x1ea12dd4b0a46e498c727dae5035bf38fbf50c3a86d4d90e5416735a4cca2fbd>
+  // salt Fr<0x0aa06cc1183d3c1c57aa14d62e9a806d4731e0f3290a1b818d41a58fb4c5f4ac>
+
+  // const secretKey = new Fr(0x29537ca0d814e9cc3406ae2e40db8cd6396de2f4bf4514a9bfa275063f5e47c8n);
+  // const signingPrivateKey = new Fq(0x1ea12dd4b0a46e498c727dae5035bf38fbf50c3a86d4d90e5416735a4cca2fbdn);
+  // const salt = new Fr(0x0aa06cc1183d3c1c57aa14d62e9a806d4731e0f3290a1b818d41a58fb4c5f4acn);
+
+  // const account = await getSchnorrAccount(pxe, secretKey, signingPrivateKey, salt);
+
+  // const wallet = await account.getWallet();
+
   // NOTE: Disabling for now in order to get devnet running
-  await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
+  // await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
-  if (json) {
-    log(
-      JSON.stringify(
-        {
-          devCoinL1: erc20Address.toString(),
-          devCoinPortalL1: portalAddress.toString(),
-          devCoin: {
-            address: token.address.toString(),
-            initHash: token.initHash.toString(),
-            salt: token.salt.toString(),
-          },
-          devCoinBridge: {
-            address: bridge.address.toString(),
-            initHash: bridge.initHash.toString(),
-            salt: bridge.salt.toString(),
-          },
-          devCoinFpc: {
-            address: fpc.address.toString(),
-            initHash: fpc.initHash.toString(),
-            salt: fpc.salt.toString(),
-          },
-          counter: {
-            address: counter.address.toString(),
-            initHash: counter.initHash.toString(),
-            salt: counter.salt.toString(),
-          },
-        },
-        null,
-        2,
-      ),
-    );
-  } else {
-    log(`DevCoin L1: ${erc20Address}`);
-    log(`DevCoin L1 Portal: ${portalAddress}`);
-    log(`DevCoin L2: ${token.address}`);
-    log(`DevCoin L2 init hash: ${token.initHash}`);
-    log(`DevCoin L2 salt: ${token.salt}`);
-    log(`DevCoin L2 Bridge: ${bridge.address}`);
-    log(`DevCoin L2 Bridge init hash: ${bridge.initHash}`);
-    log(`DevCoin L2 Bridge salt: ${bridge.salt}`);
-    log(`DevCoin FPC: ${fpc.address}`);
-    log(`DevCoin FPC init hash: ${fpc.initHash}`);
-    log(`DevCoin FPC salt: ${fpc.salt}`);
-    log(`Counter: ${counter.address}`);
-    log(`Counter init hash: ${counter.initHash}`);
-    log(`Counter salt: ${counter.salt}`);
-  }
+  // console.log('FUNDED FPC\n\n\n\n');
+  // console.log('dONE\n\n\n\n');
+
+  // if (json) {
+  //   log(
+  //     JSON.stringify(
+  //       {
+  //         devCoinL1: erc20Address.toString(),
+  //         devCoinPortalL1: portalAddress.toString(),
+  //         devCoin: {
+  //           address: token.address.toString(),
+  //           initHash: token.initHash.toString(),
+  //           salt: token.salt.toString(),
+  //         },
+  //         devCoinBridge: {
+  //           address: bridge.address.toString(),
+  //           initHash: bridge.initHash.toString(),
+  //           salt: bridge.salt.toString(),
+  //         },
+  //         devCoinFpc: {
+  //           address: fpc.address.toString(),
+  //           initHash: fpc.initHash.toString(),
+  //           salt: fpc.salt.toString(),
+  //         },
+  //         counter: {
+  //           address: counter.address.toString(),
+  //           initHash: counter.initHash.toString(),
+  //           salt: counter.salt.toString(),
+  //         },
+  //       },
+  //       null,
+  //       2,
+  //     ),
+  //   );
+  // } else {
+  //   log(`DevCoin L1: ${erc20Address}`);
+  //   log(`DevCoin L1 Portal: ${portalAddress}`);
+  //   log(`DevCoin L2: ${token.address}`);
+  //   log(`DevCoin L2 init hash: ${token.initHash}`);
+  //   log(`DevCoin L2 salt: ${token.salt}`);
+  //   log(`DevCoin L2 Bridge: ${bridge.address}`);
+  //   log(`DevCoin L2 Bridge init hash: ${bridge.initHash}`);
+  //   log(`DevCoin L2 Bridge salt: ${bridge.salt}`);
+  //   log(`DevCoin FPC: ${fpc.address}`);
+  //   log(`DevCoin FPC init hash: ${fpc.initHash}`);
+  //   log(`DevCoin FPC salt: ${fpc.salt}`);
+  //   log(`Counter: ${counter.address}`);
+  //   log(`Counter init hash: ${counter.initHash}`);
+  //   log(`Counter salt: ${counter.salt}`);
+  // }
 }
 
 /**
@@ -302,5 +397,5 @@ async function fundFPC(
   await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
     .send()
-    .wait({ ...waitOpts, proven: true });
+    .wait({ ...waitOpts });
 }

@@ -22,7 +22,7 @@ export type WaitOpts = {
 
 export const DefaultWaitOpts: WaitOpts = {
   ignoreDroppedReceiptsFor: 5,
-  timeout: 60,
+  timeout: 600,
   provenTimeout: 600,
   interval: 1,
   debug: false,
