@@ -128,12 +128,7 @@ class ECCVMFlavor {
                               z_perm,           // column 0
                               lookup_inverses); // column 1
     };
-
-    /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     */
-    template <typename DataType> class WireEntities {
+    template <typename DataType> class WireNonShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_add,                             // column 0
@@ -195,45 +190,80 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse, // column 59
-                              transcript_mul,                             // column 60
-                              transcript_msm_count,                       // column 61
-                              transcript_accumulator_x,                   // column 62
-                              transcript_accumulator_y,                   // column 63
-                              precompute_scalar_sum,                      // column 64
-                              precompute_s1hi,                            // column 65
-                              precompute_dx,                              // column 66
-                              precompute_dy,                              // column 67
-                              precompute_tx,                              // column 68
-                              precompute_ty,                              // column 69
-                              msm_transition,                             // column 70
-                              msm_add,                                    // column 71
-                              msm_double,                                 // column 72
-                              msm_skew,                                   // column 73
-                              msm_accumulator_x,                          // column 74
-                              msm_accumulator_y,                          // column 75
-                              msm_count,                                  // column 76
-                              msm_round,                                  // column 77
-                              msm_add1,                                   // column 78
-                              msm_pc,                                     // column 79
-                              precompute_pc,                              // column 80
-                              transcript_pc,                              // column 81
-                              precompute_round,                           // column 82
-                              transcript_accumulator_empty,               // column 83
-                              precompute_select)                          // column 84
+                              transcript_msm_count_at_transition_inverse) // column 59
     };
-
+    template <typename DataType> class WireToBeShiftedAccumulatorEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_accumulator_x, // column 62
+                              transcript_accumulator_y) // column 63
+    };
+    /**
+     * @brief Container for all witness polynomials used/constructed by the prover.
+     * @details Shifts are not included here since they do not occupy their own memory.
+     */
+    template <typename DataType> class WireToBeShiftedWithoutAccumulatorsEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_mul,               // column 60
+                              transcript_msm_count,         // column 61
+                              precompute_scalar_sum,        // column 64
+                              precompute_s1hi,              // column 65
+                              precompute_dx,                // column 66
+                              precompute_dy,                // column 67
+                              precompute_tx,                // column 68
+                              precompute_ty,                // column 69
+                              msm_transition,               // column 70
+                              msm_add,                      // column 71
+                              msm_double,                   // column 72
+                              msm_skew,                     // column 73
+                              msm_accumulator_x,            // column 74
+                              msm_accumulator_y,            // column 75
+                              msm_count,                    // column 76
+                              msm_round,                    // column 77
+                              msm_add1,                     // column 78
+                              msm_pc,                       // column 79
+                              precompute_pc,                // column 80
+                              transcript_pc,                // column 81
+                              precompute_round,             // column 82
+                              transcript_accumulator_empty, // column 83
+                              precompute_select)            // column 84
+    };
+    template <typename DataType>
+    class WireEntities : public WireNonShiftedEntities<DataType>,
+                         public WireToBeShiftedAccumulatorEntities<DataType>,
+                         public WireToBeShiftedWithoutAccumulatorsEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WireNonShiftedEntities<DataType>,
+                                WireToBeShiftedAccumulatorEntities<DataType>,
+                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>);
+    };
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
     template <typename DataType>
-    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
+    class WitnessEntities : public WireNonShiftedEntities<DataType>,
+                            public WireToBeShiftedWithoutAccumulatorsEntities<DataType>,
+                            public WireToBeShiftedAccumulatorEntities<DataType>,
+                            public DerivedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
-        auto get_wires() { return WireEntities<DataType>::get_all(); };
-        // The sorted concatenations of table and witness data needed for plookup.
-        auto get_sorted_polynomials() { return RefArray<DataType, 0>{}; };
+        DEFINE_COMPOUND_GET_ALL(WireNonShiftedEntities<DataType>,
+                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>,
+                                WireToBeShiftedAccumulatorEntities<DataType>,
+                                DerivedWitnessEntities<DataType>)
+        auto get_wires()
+        {
+            return concatenate(WireNonShiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all(),
+                               WireToBeShiftedAccumulatorEntities<DataType>::get_all());
+        };
+        auto get_accumulators() { return WireToBeShiftedAccumulatorEntities<DataType>::get_all(); };
+        auto get_wires_without_accumulators()
+        {
+            return concatenate(WireNonShiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
+        }
     };
 
     /**
@@ -244,8 +274,6 @@ class ECCVMFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_mul_shift,               // column 0
                               transcript_msm_count_shift,         // column 1
-                              transcript_accumulator_x_shift,     // column 2
-                              transcript_accumulator_y_shift,     // column 3
                               precompute_scalar_sum_shift,        // column 4
                               precompute_s1hi_shift,              // column 5
                               precompute_dx_shift,                // column 6
@@ -267,6 +295,8 @@ class ECCVMFlavor {
                               precompute_round_shift,             // column 22
                               transcript_accumulator_empty_shift, // column 23
                               precompute_select_shift,            // column 24
+                              transcript_accumulator_x_shift,     // column 2
+                              transcript_accumulator_y_shift,     // column 3
                               z_perm_shift);                      // column 25
     };
 
@@ -276,8 +306,6 @@ class ECCVMFlavor {
         // NOTE: must match order of ShiftedEntities above!
         return RefArray{ entities.transcript_mul,               // column 0
                          entities.transcript_msm_count,         // column 1
-                         entities.transcript_accumulator_x,     // column 2
-                         entities.transcript_accumulator_y,     // column 3
                          entities.precompute_scalar_sum,        // column 4
                          entities.precompute_s1hi,              // column 5
                          entities.precompute_dx,                // column 6
@@ -299,6 +327,8 @@ class ECCVMFlavor {
                          entities.precompute_round,             // column 22
                          entities.transcript_accumulator_empty, // column 23
                          entities.precompute_select,            // column 24
+                         entities.transcript_accumulator_x,     // column 2
+                         entities.transcript_accumulator_y,     // column 3
                          entities.z_perm };                     // column 25
     }
 
@@ -682,7 +712,7 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
-        size_t real_eccvm_circuit_size;
+        size_t fixed_size;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
@@ -690,7 +720,7 @@ class ECCVMFlavor {
             : Base(std::max(1UL << CONST_ECCVM_LOG_N,
                             builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates())),
                    0)
-            , real_eccvm_circuit_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            , fixed_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
 
             , polynomials(builder)
         {}
