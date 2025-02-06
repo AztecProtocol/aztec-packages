@@ -238,7 +238,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
-          floodPublish: false,
+          floodPublish: config.gossipsubFloodPublish,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,

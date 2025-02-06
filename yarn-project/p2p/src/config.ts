@@ -131,6 +131,11 @@ export interface P2PConfig extends P2PReqRespConfig {
   gossipsubDLazy: number;
 
   /**
+   * Whether to flood publish messages. - For testing purposes only
+   */
+  gossipsubFloodPublish: boolean;
+
+  /**
    * The number of gossipsub interval message cache windows to keep.
    */
   gossipsubMcacheLength: number;
@@ -290,6 +295,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
     ...numberConfigHelper(6),
+  },
+  gossipsubFloodPublish: {
+    env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
+    description: 'Whether to flood publish messages. - For testing purposes only',
+    ...booleanConfigHelper(true),
   },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
