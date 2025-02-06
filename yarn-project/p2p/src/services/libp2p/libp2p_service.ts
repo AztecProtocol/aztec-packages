@@ -214,7 +214,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 0,
+        minConnections: minPeerCount,
         maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
