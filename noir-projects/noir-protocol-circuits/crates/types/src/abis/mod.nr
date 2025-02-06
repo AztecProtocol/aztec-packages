@@ -1,4 +1,6 @@
 pub mod append_only_tree_snapshot;
+pub mod tree_snapshots;
+
 pub mod gas;
 pub mod gas_fees;
 pub mod gas_settings;
@@ -50,5 +52,4 @@ pub mod private_circuit_public_inputs;
 
 pub mod sponge_blob;
 
-pub mod tree_snapshots;
 pub mod tube;
