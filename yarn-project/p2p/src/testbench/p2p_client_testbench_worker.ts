@@ -1,20 +1,23 @@
+/**
+ * A testbench worker that creates a p2p client and listens for commands from the parent.
+ *
+ * Used when running testbench commands
+ */
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { P2PClientType, Tx, TxStatus, WorldStateSynchronizer } from '@aztec/circuit-types';
-import { EpochCache, EpochCacheInterface } from '@aztec/epoch-cache';
+import { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger, pinoPrettyOpts } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
-import { pino } from 'pino';
-
 import { P2PConfig } from '../config.js';
+import { createP2PClient } from '../index.js';
 import { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { TxPool } from '../mem_pools/tx_pool/index.js';
-import { AlwaysTrueCircuitVerifier } from '../mocks/index.js';
-import { createP2PClient } from './index.js';
+import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 
 // Simple mock implementation
 function mockTxPool(): TxPool {

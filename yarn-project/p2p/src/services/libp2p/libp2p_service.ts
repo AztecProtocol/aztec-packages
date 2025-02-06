@@ -19,7 +19,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { type EpochCache, EpochCacheInterface } from '@aztec/epoch-cache';
+import { EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -955,7 +955,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, { p2pMessageIdentifier: identifier });
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
+      p2pMessageIdentifier: identifier,
+      sourcePeer: this.node.peerId.toString(),
+    });
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

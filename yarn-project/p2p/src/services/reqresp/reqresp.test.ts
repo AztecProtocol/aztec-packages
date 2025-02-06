@@ -16,7 +16,7 @@ import {
   createNodes,
   startNodes,
   stopNodes,
-} from '../../mocks/index.js';
+} from '../../test-helpers/reqresp-nodes.js';
 import { type PeerManager } from '../peer-manager/peer_manager.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
