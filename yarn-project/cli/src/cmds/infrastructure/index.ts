@@ -9,12 +9,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('setup-protocol-contracts')
     .description('Bootstrap the blockchain by initializing all the protocol contracts')
     .addOption(pxeOption)
-    .addOption(l1ChainIdOption)
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--skipProofWait', "Don't wait for proofs to land.")
     .action(async options => {
       const { setupProtocolContracts } = await import('./setup_protocol_contract.js');
-      await setupProtocolContracts(options.rpcUrl, options.l1ChainId, options.json, options.skipProofWait, log);
+      await setupProtocolContracts(options.rpcUrl, options.json, options.skipProofWait, log);
     });
 
   program

@@ -1,7 +1,9 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
+import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -14,6 +16,7 @@ import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { getGenesisValues } from '../fixtures/genesis_values.js';
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
   PROPOSER_PRIVATE_KEYS_START_INDEX,
@@ -23,8 +26,8 @@ import {
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
@@ -49,6 +52,8 @@ export class P2PNetworkTest {
 
   public bootstrapNodeEnr: string = '';
 
+  public deployedAccounts: InitialAccountData[] = [];
+  public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
@@ -85,6 +90,7 @@ export class P2PNetworkTest {
         ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
         salt: 420,
         metricsPort: metricsPort,
+        numberOfInitialFundedAccounts: 1,
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
@@ -132,6 +138,13 @@ export class P2PNetworkTest {
       metricsPort,
       assumeProvenThrough,
     );
+  }
+
+  get fundedAccount() {
+    if (!this.deployedAccounts[0]) {
+      throw new Error('Call snapshot t.setupAccount to create a funded account.');
+    }
+    return this.deployedAccounts[0];
   }
 
   /**
@@ -245,16 +258,12 @@ export class P2PNetworkTest {
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      addAccounts(1, this.logger, false),
-      async ({ accountKeys }, ctx) => {
-        const wallets = await Promise.all(
-          accountKeys.map(async ak => {
-            const account = await getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1);
-            return account.getWallet();
-          }),
-        );
-
-        this.wallet = wallets[0];
+      deployAccounts(1, this.logger, false),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.deployedAccounts = deployedAccounts;
+        this.prefilledPublicData = (await getGenesisValues(deployedAccounts.map(a => a.address))).prefilledPublicData;
+        const [account] = deployedAccounts;
+        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
       },
     );
   }

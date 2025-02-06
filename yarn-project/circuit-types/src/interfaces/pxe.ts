@@ -83,13 +83,6 @@ export interface PXE {
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
-   * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   */
-  addCapsule(capsule: Fr[]): Promise<void>;
-
-  /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
    * the chain and store those that correspond to the registered account. Will do nothing if the
@@ -200,7 +193,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -473,7 +466,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.Fr)
     .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),

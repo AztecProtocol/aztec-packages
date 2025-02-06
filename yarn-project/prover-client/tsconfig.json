@@ -10,6 +10,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../circuit-types"
     },
     {

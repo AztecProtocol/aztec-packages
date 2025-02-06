@@ -1,14 +1,10 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
-  GrumpkinScalar,
+  type GrumpkinScalar,
   type Logger,
-  type PXE,
   type Wallet,
   computeAppNullifierSecretKey,
-  deriveKeys,
   deriveMasterNullifierSecretKey,
 } from '@aztec/aztec.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
@@ -59,14 +55,11 @@ function boundedVecToArray<T>(boundedVec: NoirBoundedVec<T>): T[] {
 const PACK_CARDS = 3;
 const GAME_ID = 42;
 
-const PLAYER_SECRET_KEYS = INITIAL_TEST_SECRET_KEYS;
-
 const TIMEOUT = 600_000;
 
 describe('e2e_card_game', () => {
   jest.setTimeout(TIMEOUT);
 
-  let pxe: PXE;
   let logger: Logger;
   let teardown: () => Promise<void>;
 
@@ -103,37 +96,15 @@ describe('e2e_card_game', () => {
   };
 
   beforeAll(async () => {
-    ({ pxe, logger, teardown, wallets } = await setup(0));
-
-    const preRegisteredAccounts = await pxe.getRegisteredAccounts();
-
-    const keyPairs = await Promise.all(
-      INITIAL_TEST_SECRET_KEYS.map(async sk => ({
-        sk,
-        pk: (await deriveKeys(sk)).publicKeys.masterIncomingViewingPublicKey,
-      })),
-    );
-    const secretKeysToRegister = keyPairs.filter(keyPair => {
-      return (
-        preRegisteredAccounts.find(preRegisteredAccount => {
-          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(keyPair.pk);
-        }) == undefined
-      );
-    });
-
-    for (let i = 0; i < secretKeysToRegister.length; i++) {
-      logger.info(`Deploying account contract ${i}/${secretKeysToRegister.length}...`);
-      const encryptionPrivateKey = secretKeysToRegister[i].sk;
-      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
-      const wallet = await account.waitSetup({ interval: 0.1 });
-      wallets.push(wallet);
-    }
-    logger.info('Account contracts deployed');
+    const context = await setup(3);
+    ({ logger, teardown, wallets } = context);
 
     [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
 
-    masterNullifierSecretKeys = PLAYER_SECRET_KEYS.map(sk => deriveMasterNullifierSecretKey(sk));
+    masterNullifierSecretKeys = context.initialFundedAccounts.map(({ secret }) =>
+      deriveMasterNullifierSecretKey(secret),
+    );
   });
 
   beforeEach(async () => {

@@ -22,6 +22,8 @@ describe('deploy_l1_contracts', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
+  let genesisArchiveRoot: Fr;
+  let genesisBlockHash: Fr;
   let initialValidators: EthAddress[];
   let l2FeeJuiceAddress: AztecAddress;
 
@@ -30,6 +32,8 @@ describe('deploy_l1_contracts', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
+    genesisArchiveRoot = Fr.random();
+    genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
     l2FeeJuiceAddress = await AztecAddress.random();
 
@@ -46,6 +50,8 @@ describe('deploy_l1_contracts', () => {
       salt: undefined,
       vkTreeRoot,
       protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
       l2FeeJuiceAddress,
       ...args,
     });

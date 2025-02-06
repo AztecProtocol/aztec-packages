@@ -1,4 +1,9 @@
-import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import {
+  SchnorrAccountContractArtifact,
+  getSchnorrAccount,
+  getSchnorrWalletWithSecretKey,
+} from '@aztec/accounts/schnorr';
+import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
@@ -7,7 +12,6 @@ import {
   type CompleteAddress,
   type DeployL1Contracts,
   EthAddress,
-  type Fq,
   Fr,
   type Logger,
   type PXE,
@@ -26,21 +30,20 @@ import { type PXEService } from '@aztec/pxe';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
+import { getGenesisValues } from '../fixtures/genesis_values.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
-
-const SALT = 1;
 
 type ProvenSetup = {
   pxe: PXE;
@@ -60,7 +63,7 @@ export class FullProverTest {
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  keys: Array<[Fr, Fq]> = [];
+  deployedAccounts: InitialAccountData[] = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
   fakeProofsAsset!: TokenContract;
@@ -101,17 +104,18 @@ export class FullProverTest {
    * 2. Publicly deploy accounts, deploy token contract
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
-      this.keys = accountKeys;
-      this.wallets = await Promise.all(
-        accountKeys.map(async ak => {
-          const account = await getSchnorrAccount(pxe, ak[0], ak[1], SALT);
-          return account.getWallet();
-        }),
-      );
-      this.accounts = this.wallets.map(w => w.getCompleteAddress());
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-    });
+    await this.snapshotManager.snapshot(
+      '2_accounts',
+      deployAccounts(2, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.deployedAccounts = deployedAccounts;
+        this.wallets = await Promise.all(
+          deployedAccounts.map(a => getSchnorrWalletWithSecretKey(pxe, a.secret, a.signingKey, a.salt)),
+        );
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'client_prover_integration',
@@ -218,11 +222,22 @@ export class FullProverTest {
       await result.pxe.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
-        await result.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
-        await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+        await result.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
+        await this.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
       }
 
-      const account = await getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
+      const account = await getSchnorrAccount(
+        result.pxe,
+        this.deployedAccounts[0].secret,
+        this.deployedAccounts[0].signingKey,
+        this.deployedAccounts[0].salt,
+      );
 
       await result.pxe.registerContract({
         instance: account.getInstance(),
@@ -279,11 +294,16 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringMaxParallelRequests: 100,
     };
-    this.proverNode = await createProverNode(proverConfig, {
-      aztecNodeTxProvider: this.aztecNode,
-      archiver: archiver as Archiver,
-      blobSinkClient,
-    });
+    const { prefilledPublicData } = await getGenesisValues(this.context.initialFundedAccounts.map(a => a.address));
+    this.proverNode = await createProverNode(
+      proverConfig,
+      {
+        aztecNodeTxProvider: this.aztecNode,
+        archiver: archiver as Archiver,
+        blobSinkClient,
+      },
+      { prefilledPublicData },
+    );
     await this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);

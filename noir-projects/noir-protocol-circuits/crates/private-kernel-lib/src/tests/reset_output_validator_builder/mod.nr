@@ -70,10 +70,8 @@ impl ResetOutputValidatorBuilder {
         self,
     ) -> PrivateValidationRequestProcessor<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS> {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        let note_hash_read_request_hints =
-            unsafe { self.note_hash_read_request_hints_builder.to_hints() };
-        let nullifier_read_request_hints =
-            unsafe { self.nullifier_read_request_hints_builder.to_hints() };
+        let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
+        let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
 
         PrivateValidationRequestProcessor {
             validation_requests: previous_kernel.validation_requests,

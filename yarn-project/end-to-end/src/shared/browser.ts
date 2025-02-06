@@ -111,18 +111,26 @@ export const browserTestSuite = (
       expect(generatePublicKeyExists).toBe(true);
     });
 
-    it('Creates an account', async () => {
+    it('Deploys a test account', async () => {
       const result = await page.evaluate(
-        async (rpcUrl, secretKeyString) => {
-          const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
+        async rpcUrl => {
+          const { createPXEClient, FeeJuicePaymentMethod, getInitialTestAccounts, getSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const secretKey = Fr.fromHexString(secretKeyString);
-          const account = await getUnsafeSchnorrAccount(pxe, secretKey);
-          await account.waitSetup();
-          const completeAddress = await account.getCompleteAddress();
-          const addressString = completeAddress.address.toString();
-          console.log(`Created Account: ${addressString}`);
-          return addressString;
+          const registeredAccounts = await pxe.getRegisteredAccounts();
+          if (registeredAccounts.length) {
+            const addressString = registeredAccounts[0].address.toString();
+            console.log(`Existing account: ${addressString}`);
+            return addressString;
+          } else {
+            const { secret, signingKey, salt } = (await getInitialTestAccounts())[0];
+            const account = await getSchnorrAccount(pxe, secret, signingKey, salt);
+            const address = account.getAddress();
+            const paymentMethod = new FeeJuicePaymentMethod(address);
+            await account.deploy({ fee: { paymentMethod } }).wait();
+            const addressString = address.toString();
+            console.log(`Deployed account: ${addressString}`);
+            return addressString;
+          }
         },
         pxeURL,
         privKey.toString(),
@@ -189,9 +197,11 @@ export const browserTestSuite = (
             Contract,
             createPXEClient: createPXEClient,
             getDeployedTestAccountsWallets,
-            getUnsafeSchnorrAccount,
             contractArtifactFromBuffer,
             Buffer,
+            getSchnorrAccount,
+            GrumpkinScalar,
+            Fr,
           } = window.AztecJs;
 
           // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
@@ -199,14 +209,22 @@ export const browserTestSuite = (
             Buffer.from(serializedTokenContractArtifact, 'base64'),
           );
           const pxe = createPXEClient(rpcUrl!);
-          const newReceiverAccountManager = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random());
-          const newReceiverAccount = await newReceiverAccountManager.waitSetup();
-          const receiverAddress = newReceiverAccount.getCompleteAddress().address;
-          const [wallet] = await getDeployedTestAccountsWallets(pxe);
+          const wallets = await getDeployedTestAccountsWallets(pxe);
+          const wallet = wallets[0];
+          let recipientWallet = wallets[1];
+          if (!recipientWallet) {
+            const secret = Fr.random();
+            const signingKey = GrumpkinScalar.random();
+            const account = await getSchnorrAccount(pxe, secret, signingKey);
+            await account.deploy({ deployWallet: wallet }).wait();
+            recipientWallet = await account.getWallet();
+            console.log(`Deployed new account: ${account.getAddress()}`);
+          }
+          const recipient = recipientWallet.getAddress();
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
-          await contract.methods.transfer(receiverAddress, transferAmount).send().wait();
+          await contract.methods.transfer(recipient, transferAmount).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
-          return await contract.methods.balance_of_private(receiverAddress).simulate({ from: receiverAddress });
+          return await contract.methods.balance_of_private(recipient).simulate({ from: recipient });
         },
         pxeURL,
         (await getTokenAddress()).toString(),
@@ -222,12 +240,8 @@ export const browserTestSuite = (
           const {
             DeployMethod,
             createPXEClient,
-            getSchnorrAccount,
             Contract,
             getDeployedTestAccountsWallets,
-            INITIAL_TEST_SECRET_KEYS,
-            INITIAL_TEST_SIGNING_KEYS,
-            INITIAL_TEST_ACCOUNT_SALTS,
             Buffer,
             contractArtifactFromBuffer,
           } = window.AztecJs;
@@ -240,14 +254,7 @@ export const browserTestSuite = (
           // we need to ensure that a known account is present in order to create a wallet
           const knownAccounts = await getDeployedTestAccountsWallets(pxe);
           if (!knownAccounts.length) {
-            const newAccountManager = await getSchnorrAccount(
-              pxe,
-              INITIAL_TEST_SECRET_KEYS[0],
-              INITIAL_TEST_SIGNING_KEYS[0],
-              INITIAL_TEST_ACCOUNT_SALTS[0],
-            );
-            const newAccount = await newAccountManager.waitSetup();
-            knownAccounts.push(newAccount);
+            throw new Error('Test account is not setup.');
           }
           const owner = knownAccounts[0];
           const tx = new DeployMethod(

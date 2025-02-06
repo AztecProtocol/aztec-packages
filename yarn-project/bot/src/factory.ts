@@ -4,6 +4,7 @@ import {
   BatchCall,
   type DeployMethod,
   type DeployOptions,
+  FeeJuicePaymentMethod,
   createLogger,
   createPXEClient,
 } from '@aztec/aztec.js';
@@ -70,7 +71,8 @@ export class BotFactory {
       return wallet;
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
-      const sentTx = account.deploy();
+      const paymentMethod = new FeeJuicePaymentMethod(account.getAddress());
+      const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {

@@ -93,6 +93,7 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
+      [...request.capsules],
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.db,
@@ -144,7 +145,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
-    const context = new ViewDataOracle(contractAddress, [], this.db, this.node, undefined, scopes);
+    const context = new ViewDataOracle(contractAddress, [], [], this.db, this.node, undefined, scopes);
 
     try {
       return await executeUnconstrainedFunction(

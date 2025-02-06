@@ -3,8 +3,6 @@ telemetry:
 
 validator:
   replicas: 1
-  sequencer:
-    enforceFees: false # disabled until the bot can fund itself
   validator:
     disabled: false
 
@@ -17,7 +15,7 @@ proverAgent:
 
 bot:
   followChain: "PENDING"
-  feePaymentMethod: "none" # disabled until the bot can fund itself
+  feePaymentMethod: "fee_juice"
   enabled: true
   txIntervalSeconds: 30
 

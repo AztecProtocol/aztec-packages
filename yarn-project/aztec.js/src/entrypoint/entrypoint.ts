@@ -16,6 +16,8 @@ export type ExecutionRequestInit = {
   authWitnesses?: AuthWitness[];
   /** Any transient hashed arguments for this execution */
   hashedArguments?: HashedValues[];
+  /** Data passed through an oracle for this execution. */
+  capsules?: Fr[][];
   /** How the fee is going to be payed */
   fee: FeeOptions;
   /** An optional nonce. Used to repeat a previous tx with a higher fee so that the first one is cancelled */

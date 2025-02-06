@@ -15,7 +15,6 @@ describe('GasTxValidator', () => {
   // Vars for validator.
   let publicStateSource: MockProxy<PublicStateSource>;
   let feeJuiceAddress: AztecAddress;
-  let enforceFees: boolean;
   let gasFees: Writeable<GasFees>;
   // Vars for tx.
   let tx: Tx;
@@ -28,7 +27,6 @@ describe('GasTxValidator', () => {
       storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
     });
     feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    enforceFees = false;
     gasFees = new GasFees(11, 22);
 
     tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
@@ -46,7 +44,7 @@ describe('GasTxValidator', () => {
   };
 
   const validateTx = async (tx: Tx) => {
-    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, enforceFees, gasFees);
+    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees);
     return await validator.validateTx(tx);
   };
 
@@ -95,17 +93,6 @@ describe('GasTxValidator', () => {
       args: [payer.toField(), ...new U128(1n).toFields()],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');
-  });
-
-  it('allows txs with no fee payer if fees are not enforced', async () => {
-    tx.data.feePayer = AztecAddress.ZERO;
-    await expectValid(tx);
-  });
-
-  it('rejects txs with no fee payer if fees are enforced', async () => {
-    enforceFees = true;
-    tx.data.feePayer = AztecAddress.ZERO;
-    await expectInvalid(tx, 'Missing fee payer');
   });
 
   it('skips txs with not enough fee per da gas', async () => {

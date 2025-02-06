@@ -402,7 +402,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be

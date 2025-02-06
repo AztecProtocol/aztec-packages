@@ -60,6 +60,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares,
     Config memory _config
   )
@@ -69,6 +71,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _stakingAsset,
       _vkTreeRoot,
       _protocolContractTreeRoot,
+      _genesisArchiveRoot,
+      _genesisBlockHash,
       _ares,
       _config
     )

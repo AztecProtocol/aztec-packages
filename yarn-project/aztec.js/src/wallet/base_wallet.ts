@@ -67,9 +67,6 @@ export abstract class BaseWallet implements Wallet {
   getAddress() {
     return this.getCompleteAddress().address;
   }
-  addCapsule(capsule: Fr[]): Promise<void> {
-    return this.pxe.addCapsule(capsule);
-  }
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
@@ -108,7 +105,7 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
     return this.pxe.simulateTx(
@@ -116,7 +113,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic,
       msgSender,
       skipTxValidation,
-      enforceFeePayment,
+      skipFeeEnforcement,
       profile,
       this.scopes,
     );
