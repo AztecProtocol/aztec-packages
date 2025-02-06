@@ -161,8 +161,6 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverNode.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.proverNode.debug }}"
             - name: LOG_JSON
               value: "1"
             - name: PROVER_REAL_PROOFS
