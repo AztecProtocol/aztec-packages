@@ -312,6 +312,7 @@ contract RollupTest is DecoderBase {
     _submitEpochProof(
       rollup,
       1,
+      1,
       blockLog.archive,
       data.archive,
       blockLog.blockHash,
@@ -484,6 +485,7 @@ contract RollupTest is DecoderBase {
     _submitEpochProof(
       rollup,
       1,
+      1,
       blockLog.archive,
       data.archive,
       blockLog.blockHash,
@@ -495,6 +497,7 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 2));
     _submitEpochProof(
       rollup,
+      1,
       1,
       blockLog.archive,
       data.archive,
@@ -776,6 +779,7 @@ contract RollupTest is DecoderBase {
       _submitEpochProofWithFee(
         rollup,
         1,
+        1,
         blockLog.archive,
         data.archive,
         blockLog.blockHash,
@@ -799,6 +803,7 @@ contract RollupTest is DecoderBase {
       // When the block is proven we should have received the funds
       _submitEpochProofWithFee(
         rollup,
+        1,
         1,
         blockLog.archive,
         data.archive,
@@ -896,7 +901,8 @@ contract RollupTest is DecoderBase {
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
-        epochSize: 2,
+        start: 1,
+        end: 2,
         args: args,
         fees: fees,
         blobPublicInputs: blobPublicInputs,
@@ -923,6 +929,7 @@ contract RollupTest is DecoderBase {
     );
     _submitEpochProof(
       rollup,
+      1,
       2,
       blockLog.archive,
       data.archive,
@@ -964,6 +971,7 @@ contract RollupTest is DecoderBase {
     );
     _submitEpochProof(
       rollup,
+      1,
       1,
       data1.archive,
       data2.archive,
@@ -1125,6 +1133,7 @@ contract RollupTest is DecoderBase {
     _submitEpochProof(
       rollup,
       1,
+      1,
       wrong,
       data.archive,
       blockLog.blockHash,
@@ -1154,6 +1163,7 @@ contract RollupTest is DecoderBase {
     _submitEpochProof(
       rollup,
       1,
+      1,
       blockLog.archive,
       wrongArchive,
       blockLog.blockHash,
@@ -1178,6 +1188,7 @@ contract RollupTest is DecoderBase {
     );
     _submitEpochProof(
       rollup,
+      1,
       1,
       blockLog.archive,
       data.archive,
@@ -1209,6 +1220,7 @@ contract RollupTest is DecoderBase {
     );
     _submitEpochProof(
       rollup,
+      1,
       1,
       blockLog.archive,
       data.archive,
@@ -1283,6 +1295,7 @@ contract RollupTest is DecoderBase {
       _submitEpochProof(
         rollup,
         1,
+        1,
         blockLog.archive,
         args.archive,
         blockLog.blockHash,
@@ -1346,7 +1359,8 @@ contract RollupTest is DecoderBase {
 
   function _submitEpochProof(
     Rollup _rollup,
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32 _previousArchive,
     bytes32 _endArchive,
     bytes32 _previousBlockHash,
@@ -1356,7 +1370,8 @@ contract RollupTest is DecoderBase {
   ) internal {
     _submitEpochProofWithFee(
       _rollup,
-      _epochSize,
+      _start,
+      _end,
       _previousArchive,
       _endArchive,
       _previousBlockHash,
@@ -1370,7 +1385,8 @@ contract RollupTest is DecoderBase {
 
   function _submitEpochProofWithFee(
     Rollup _rollup,
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32 _previousArchive,
     bytes32 _endArchive,
     bytes32 _previousBlockHash,
@@ -1397,7 +1413,8 @@ contract RollupTest is DecoderBase {
 
     _rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
-        epochSize: _epochSize,
+        start: _start,
+        end: _end,
         args: args,
         fees: fees,
         blobPublicInputs: _blobPublicInputs,

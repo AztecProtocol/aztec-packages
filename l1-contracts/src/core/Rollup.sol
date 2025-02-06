@@ -153,20 +153,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * own public inputs used for generating the proof vs the ones assembled
    * by this contract when verifying it.
    *
-   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _start - The start of the epoch (inclusive)
+   * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view override(IRollup) returns (bytes32[] memory) {
     return ExtRollupLib.getEpochProofPublicInputs(
-      rollupStore, _epochSize, _args, _fees, _blobPublicInputs, _aggregationObject
+      rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 

@@ -18,7 +18,8 @@ import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 struct SubmitEpochRootProofArgs {
-  uint256 epochSize;
+  uint256 start; // inclusive
+  uint256 end; // inclusive
   bytes32[7] args;
   bytes32[] fees;
   bytes blobPublicInputs;
@@ -154,7 +155,8 @@ interface IRollup is IRollupCore {
   function getProofClaim() external view returns (DataStructures.EpochProofClaim memory);
 
   function getEpochProofPublicInputs(
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
