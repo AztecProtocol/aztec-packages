@@ -25,6 +25,7 @@ import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
+  private open = false;
   private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
   private writerQueue = new SerialQueue();
@@ -43,18 +44,24 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
 
+  public get dataDirectory(): string {
+    return this.dataDir;
+  }
+
   private async start() {
     this.writerQueue.start();
 
-    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.DATA,
       uniqueKeys: true,
     });
 
-    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.INDEX,
       uniqueKeys: false,
     });
+
+    this.open = true;
   }
 
   public static async new(
@@ -70,10 +77,16 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   }
 
   public getReadTx(): ReadTransaction {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
     return new ReadTransaction(this);
   }
 
   public getCurrentWriteTx(): WriteTransaction | undefined {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
     const currentWrite = this.writerCtx.getStore();
     return currentWrite;
   }
@@ -105,6 +118,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   async transactionAsync<T extends Exclude<any, Promise<any>>>(
     callback: (tx: WriteTransaction) => Promise<T>,
   ): Promise<T> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
     // transactionAsync might be called recursively
     // send any writes to the parent tx, but don't close it
     // if the callback throws then the parent tx will rollback automatically
@@ -144,14 +161,23 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   }
 
   async close() {
+    if (!this.open) {
+      // already closed
+      return;
+    }
+    this.open = false;
     await this.writerQueue.cancel();
-    await this.sendMessage(LMDBMessageType.CLOSE, undefined);
+    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
   }
 
   public async sendMessage<T extends LMDBMessageType>(
     msgType: T,
     body: LMDBRequestBody[T],
   ): Promise<LMDBResponseBody[T]> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
     if (msgType === LMDBMessageType.START_CURSOR) {
       await this.availableCursors.acquire();
     }

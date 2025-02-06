@@ -6,9 +6,9 @@ import {
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore as createStoreV2 } from '@aztec/kv-store/lmdb-v2';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
@@ -26,7 +26,7 @@ import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerI
 
 type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
-  store?: AztecKVStore;
+  store?: AztecAsyncKVStore;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
   epochProofQuotePool?: EpochProofQuotePool;
 };
@@ -43,8 +43,8 @@ export const createP2PClient = async <T extends P2PClientType>(
 ) => {
   let config = { ..._config };
   const logger = createLogger('p2p');
-  const store = await createStoreV2('p2p-v2', config, createLogger('p2p:lmdb-v2'));
-  const archive = await createStoreV2('p2p-archive', config, createLogger('p2p-archive:lmdb-v2'));
+  const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb-v2')));
+  const archive = await createStore('p2p-archive', config, createLogger('p2p-archive:lmdb-v2'));
 
   const mempools: MemPools<T> = {
     txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),

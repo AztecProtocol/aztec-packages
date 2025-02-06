@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class incl_main_tag_err_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "INCL_MAIN_TAG_ERR";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -69,7 +71,7 @@ class incl_main_tag_err_lookup_settings {
 template <typename FF_>
 class incl_main_tag_err_relation : public GenericLookupRelation<incl_main_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "INCL_MAIN_TAG_ERR";
+    static constexpr std::string_view NAME = incl_main_tag_err_lookup_settings::NAME;
 };
 template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_err_lookup_settings, FF_>;
 
@@ -77,6 +79,8 @@ template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_er
 
 class incl_mem_tag_err_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "INCL_MEM_TAG_ERR";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -132,7 +136,7 @@ class incl_mem_tag_err_lookup_settings {
 template <typename FF_>
 class incl_mem_tag_err_relation : public GenericLookupRelation<incl_mem_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "INCL_MEM_TAG_ERR";
+    static constexpr std::string_view NAME = incl_mem_tag_err_lookup_settings::NAME;
 };
 template <typename FF_> using incl_mem_tag_err = GenericLookup<incl_mem_tag_err_lookup_settings, FF_>;
 
