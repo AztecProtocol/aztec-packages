@@ -6,7 +6,7 @@ use crate::{
         private_call_request::PrivateCallRequest,
         private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::{counted::Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},

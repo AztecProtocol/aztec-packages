@@ -12,6 +12,14 @@ pub mod function_data;
 pub mod tx_context;
 pub mod tx_request;
 
+pub mod log;
+pub mod private_log;
+pub mod note_hash;
+pub mod log_hash;
+pub mod nullifier;
+pub mod call_context;
+pub mod private_call_request;
+pub mod accumulated_data;
 pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
@@ -27,18 +35,9 @@ pub mod constant_rollup_data;
 
 pub mod side_effect;
 pub mod read_request;
-pub mod log;
-pub mod private_log;
 pub mod public_log;
-pub mod log_hash;
-pub mod note_hash;
-pub mod nullifier;
 pub mod public_data_write;
 
-pub mod call_context;
-pub mod private_call_request;
-
-pub mod accumulated_data;
 pub mod validation_requests;
 
 pub mod max_block_number;

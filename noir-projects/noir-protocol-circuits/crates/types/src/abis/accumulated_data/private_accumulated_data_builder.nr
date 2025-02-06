@@ -7,7 +7,7 @@ use crate::{
         private_call_request::PrivateCallRequest,
         private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::{counted::Counted, scoped::Scoped},
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
