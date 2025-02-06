@@ -21,7 +21,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
-    "generate": "yarn generate:copy-artifacts && yarn generate:vk-hashes && yarn generate:vk-tree && yarn generate:noir-circuits && yarn generate:reset-data && yarn generate:client-artifacts-helper",
+    "generate": "yarn generate:copy-artifacts && yarn generate:vk-hashes && yarn generate:noir-circuits && yarn generate:reset-data && yarn generate:client-artifacts-helper && yarn generate:vk-tree",
     "generate:copy-artifacts": "mkdir -p ./artifacts && cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts ",
     "generate:cleanup-artifacts": "node --no-warnings --loader ts-node/esm src/scripts/cleanup_artifacts.ts",
     "generate:vk-hashes": "node --no-warnings --loader ts-node/esm src/scripts/generate_vk_hashes.ts",
