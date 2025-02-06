@@ -39,6 +39,7 @@ pub(crate) type SsaToBrilligGlobals = HashMap<ValueId, BrilligVariable>;
 
 pub(crate) fn get_brillig_entry_points(
     functions: &BTreeMap<FunctionId, Function>,
+    main_id: FunctionId,
 ) -> HashMap<FunctionId, HashSet<FunctionId>> {
     let mut brillig_entry_points = HashMap::default();
     let acir_functions = functions.iter().filter(|(_, func)| func.runtime().is_acir());
@@ -70,6 +71,16 @@ pub(crate) fn get_brillig_entry_points(
             }
         }
     }
+
+    let main_func = &functions[&main_id];
+    build_entry_points_map_recursive(
+        functions,
+        main_id,
+        main_func,
+        &mut brillig_entry_points,
+        im::HashSet::new(),
+    );
+
     brillig_entry_points
 }
 

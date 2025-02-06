@@ -18,7 +18,7 @@ impl Ssa {
             return self;
         }
 
-        let brillig_entry_points = get_brillig_entry_points(&self.functions);
+        let brillig_entry_points = get_brillig_entry_points(&self.functions, self.main_id);
         let entry_points = brillig_entry_points.keys().copied().collect::<HashSet<_>>();
         // dbg!(brillig_entry_points.clone());
         // dbg!(entry_points.clone());
@@ -34,18 +34,6 @@ impl Ssa {
                 inner_call_to_entry_point.entry(*inner_call).or_default().push(entry_point);
             }
         }
-
-        dbg!(inner_call_to_entry_point.clone());
-
-        // Determine the number of times a function is called in different Brillig entry points
-        // let entry_point_call_counts = brillig_entry_points
-        //     .values()
-        //     .flat_map(|set| set.iter())
-        //     .fold(HashMap::default(), |mut counts, &function_id| {
-        //         *counts.entry(function_id).or_insert(0) += 1;
-        //         counts
-        //     });
-        // dbg!(entry_point_call_counts.clone());
 
         let mut calls_to_update_w_entry: HashMap<(FunctionId, FunctionId), FunctionId> =
             HashMap::default();
@@ -108,7 +96,7 @@ impl Ssa {
 
                     // println!("call to {func_id} in entry {entry_point}");
                     if let Some(new_id) = calls_to_update_w_entry.get(&(entry_point, *func_id)) {
-                        println!("inserting {new_id}, for old {func_id}, entry {entry_point}");
+                        // println!("inserting {new_id}, for old {func_id}, entry {entry_point}");
                         new_functions_map.insert(*func_id, *new_id);
                         let new_function_value_id = function.dfg.import_function(*new_id);
                         function.dfg[instruction_id] = Instruction::Call {
