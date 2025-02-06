@@ -60,8 +60,6 @@ function build {
 
   cmds=(
     format
-    'cd aztec.js && yarn build:web'
-    'cd end-to-end && yarn build:web'
   )
   if [ "${typecheck:-0}" -eq 1 ] || [ "$CI" -eq 1 ]; then
     cmds+=(
@@ -78,7 +76,7 @@ function build {
   cache_upload yarn-project-$hash.tar.gz \
     */{dest,fixtures,build,artifacts,generated} \
     circuit-types/src/test/artifacts \
-    end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz} \
+    end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz,*.mjs} \
     ivc-integration/src/types/ \
     noir-contracts.js/{codegenCache.json,src/} \
     noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
