@@ -252,7 +252,7 @@ export class TXE implements TypedOracle {
 
   async addContractArtifact(artifact: ContractArtifact) {
     const contractClass = await getContractClassFromArtifact(artifact);
-    await this.txeDatabase.addContractArtifact(await computeContractClassId(contractClass), artifact);
+    await this.txeDatabase.addContractArtifact(contractClass.id, artifact);
   }
 
   async getPrivateContextInputs(
