@@ -391,6 +391,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     }
 }
 
+// Test Multi-PCS
 TYPED_TEST(ShpleminiTest, MultiShplemini)
 {
     using Curve = TypeParam::Curve;
@@ -413,22 +414,26 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
                                       const_size_mle_opening_point.begin() + this->log_n);
 
     // Thanks to const proof size, we could simply re-use some of dummy challenges for the opening of the concatenation.
-    std::vector<Fr> extra_challenges(4);
+    std::vector<Fr> extra_challenges(log_num_polys_in_group);
 
     // Get  4 = log(16) extra challenges
-    for (size_t idx = 0; idx < 4; idx++) {
+    for (size_t idx = 0; idx < log_num_polys_in_group; idx++) {
         extra_challenges[idx] = const_size_mle_opening_point[idx + this->log_n];
     }
 
     // Generate random prover polynomials, compute their evaluations and commitments
     // 64 = number of short unshifted polynomials, they are concatenated into 4 BIG polys
     // 16 = number of short to-be-shifted polynomials, they are concatenated into a single BIG poly
-    MultiWitnessGenerator<Curve> pcs_instance_witness(
-        num_polys_in_group, this->n, 64, 16, mle_opening_point, extra_challenges);
+    MockMultiClaimGenerator<Curve> mock_multi_claim(num_polys_in_group,
+                                                    /* size of chunks */ this->n,
+                                                    this->num_polynomials * num_polys_in_group,
+                                                    this->num_shiftable * num_polys_in_group,
+                                                    mle_opening_point,
+                                                    extra_challenges);
 
     // The interface here is unchanged. Note that ShpleminiProver accepts only big polynomials
-    const auto opening_claim = ShpleminiProver::prove(this->n * num_polys_in_group,
-                                                      pcs_instance_witness.polynomial_batcher,
+    const auto opening_claim = ShpleminiProver::prove(/* size of concatenated polys */ this->n * num_polys_in_group,
+                                                      mock_multi_claim.polynomial_batcher,
                                                       const_size_mle_opening_point,
                                                       this->ck,
                                                       prover_transcript);
@@ -443,11 +448,12 @@ TYPED_TEST(ShpleminiTest, MultiShplemini)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     // Run Shplemini
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n * num_polys_in_group,
-                                                                                    pcs_instance_witness.claim_batcher,
-                                                                                    const_size_mle_opening_point,
-                                                                                    this->vk->get_g1_identity(),
-                                                                                    verifier_transcript);
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(/* size of concatenated polys */ this->n * num_polys_in_group,
+                                                       mock_multi_claim.claim_batcher,
+                                                       const_size_mle_opening_point,
+                                                       this->vk->get_g1_identity(),
+                                                       verifier_transcript);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result = IPA<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk, verifier_transcript);

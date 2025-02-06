@@ -164,7 +164,7 @@ template <typename Curve> struct MockClaimGenerator {
     }
 };
 
-template <typename Curve> struct MultiWitnessGenerator {
+template <typename Curve> struct MockMultiClaimGenerator {
   public:
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -193,12 +193,12 @@ template <typename Curve> struct MultiWitnessGenerator {
     std::vector<Fr> extra_challenges;
     std::vector<Fr> lagrange_coeffs;
 
-    MultiWitnessGenerator(const size_t num_polys_in_group,
-                          const size_t n,
-                          const size_t num_polynomials,
-                          const size_t num_shiftable,
-                          std::vector<Fr>& mle_opening_point,
-                          std::vector<Fr>& extra_challenges)
+    MockMultiClaimGenerator(const size_t num_polys_in_group,
+                            const size_t n,
+                            const size_t num_polynomials,
+                            const size_t num_shiftable,
+                            std::vector<Fr>& mle_opening_point,
+                            std::vector<Fr>& extra_challenges)
         : ck(create_commitment_key<CommitmentKey>(num_polys_in_group * n))
         , unshifted_polynomials(num_polynomials / num_polys_in_group)
         , to_be_shifted_polynomials(num_shiftable / num_polys_in_group)
@@ -264,13 +264,6 @@ template <typename Curve> struct MultiWitnessGenerator {
 
         // This must be a step after sumcheck - before Shplemini
         combine_from_chunks(num_polys_in_group, lagrange_coeffs);
-        for (auto eval : shifted_combined_evals) {
-            info(eval);
-        }
-        info("===");
-        for (auto eval : unshifted_combined_evals) {
-            info(eval);
-        }
 
         // The claim batcher simply accepts the **combined_evals**. After that everythings remains the same
         claim_batcher = ClaimBatcher{
