@@ -40,6 +40,7 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 8192;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
