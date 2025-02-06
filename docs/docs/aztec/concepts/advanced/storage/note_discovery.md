@@ -28,7 +28,7 @@ In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first fiel
 
 #### Tag generation 
 
-The sender and recipient share a predictable scheme for generating tags. The tag is derived from their [shared secret](TODO) and an index (a shared counter that increments each time the sender creates a note for the recipient).
+The sender and recipient share a predictable scheme for generating tags. The tag is derived from a shared secret and an index (a shared counter that increments each time the sender creates a note for the recipient).
 
 #### Discovering notes in Aztec contracts
 
@@ -42,4 +42,4 @@ This note discovery scheme is implemented by Aztec contracts rather than by the 
 
 ## Further reading
 
-- [How partial notes are discovered](./partial_notes.md)
+- [How partial notes are discovered](./partial_notes.md#note-discovery)
