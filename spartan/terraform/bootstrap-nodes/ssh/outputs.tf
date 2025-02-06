@@ -5,3 +5,7 @@ output "private_key_secret" {
 output "public_key" {
   value = tls_private_key.ssh_key.public_key_openssh
 }
+
+output "ssh_user" {
+  value = var.ssh_user
+}

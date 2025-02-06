@@ -1,9 +1,14 @@
-variable "tcp_ports" {
-  description = "List of allowed TCP ports"
+variable "p2p_tcp_ports" {
+  description = "List of allowed P2P TCP ports"
   type        = list(string)
 }
 
-variable "udp_ports" {
-  description = "List of allowed UDP ports"
+variable "p2p_udp_ports" {
+  description = "List of allowed P2P UDP ports"
   type        = list(string)
+}
+
+variable "chain_id" {
+  description = "A chain identifier"
+  type        = string
 }

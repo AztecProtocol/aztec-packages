@@ -6,7 +6,9 @@ resource "tls_private_key" "ssh_key" {
 resource "google_secret_manager_secret" "ssh_private_key" {
   secret_id = var.secret_name
   replication {
-    automatic = true
+    auto {
+
+    }
   }
 }
 

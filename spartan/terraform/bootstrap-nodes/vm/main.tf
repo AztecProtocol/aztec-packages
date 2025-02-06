@@ -1,18 +1,21 @@
-# 1️⃣ Reserve a static public IP
+# Reserve a static public IP
 resource "google_compute_address" "static_ip" {
-  name   = "static-ip-${var.region}"
+  name   = "${var.chain_id}-${var.region}-bootnode-ip"
   region = var.region
 }
 
-# 2️⃣ Create the VM and assign the static IP
-resource "google_compute_instance" "vm" {
-  name         = "vm-${var.region}"
-  machine_type = "t2d-standard-2"
-  zone         = "${var.region}-b"
 
+# Create the VM and assign the static IP
+resource "google_compute_instance" "vm" {
+  name         = "${var.chain_id}-${var.region}-bootnode-vm"
+  machine_type = "t2d-standard-2"
+  zone         = "${var.region}-a"
+
+  # Create a 50GB disk for the VM
   boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      size  = 80
     }
   }
 
@@ -26,25 +29,16 @@ resource "google_compute_instance" "vm" {
   }
 
   metadata = {
-    ssh-keys = var.public_key
+    ssh-keys       = "${var.ssh_user}:${var.public_key}"
+    static-ip      = google_compute_address.static_ip.address # Pass IP as metadata
+    startup-script = templatefile(var.start_script, { STATIC_IP = google_compute_address.static_ip.address, PEER_ID_PRIVATE_KEY = var.peer_id_private_key, DATA_STORE_MAP_SIZE = 67108864 })
   }
 
-  # 3️⃣ Install Docker and run an Nginx container
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = var.ssh_user
-      private_key = var.private_key
-      host        = google_compute_address.static_ip.address
-    }
-
-    inline = [
-      "sudo apt update -y",
-      "sudo apt install -y docker.io",
-      "sudo systemctl start docker",
-      "sudo systemctl enable docker",
-      "sudo usermod -aG docker $(whoami)",
-      "docker run -d -p 80:80 --name webserver nginx"
-    ]
+  # Service account scopes to enable logging to GCP
+  service_account {
+    email  = var.service_account_email
+    scopes = ["https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write"]
   }
 }
+
+
