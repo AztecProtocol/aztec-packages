@@ -54,7 +54,6 @@ export async function deployContractsToL1(
     hdAccount,
     chain.chainInfo,
     contractDeployLogger,
-    aztecNodeConfig,
     {
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,

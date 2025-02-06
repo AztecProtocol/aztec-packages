@@ -42,7 +42,7 @@ describe('deploy_l1_contracts', () => {
   });
 
   const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>
-    deployL1Contracts(rpcUrl, privateKey, foundry, logger, defaultL1TxUtilsConfig, {
+    deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

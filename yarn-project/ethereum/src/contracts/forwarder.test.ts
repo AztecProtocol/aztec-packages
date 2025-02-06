@@ -53,7 +53,7 @@ describe('Forwarder', () => {
 
     ({ walletClient, publicClient } = createL1Clients(rpcUrl, privateKey));
 
-    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, defaultL1TxUtilsConfig, {
+    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

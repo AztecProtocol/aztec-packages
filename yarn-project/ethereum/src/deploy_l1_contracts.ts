@@ -67,7 +67,7 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils, type L1TxUtilsConfig } from './l1_tx_utils.js';
+import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -269,8 +269,8 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: Logger,
-  txUtilsConfig: L1TxUtilsConfig,
   args: DeployL1ContractsArgs,
+  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
