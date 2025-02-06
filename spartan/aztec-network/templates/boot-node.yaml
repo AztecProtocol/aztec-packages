@@ -115,6 +115,8 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: L1_GAS_PRICE_MAX
+              value: "{{ .Values.ethereum.l1GasPriceMax }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
