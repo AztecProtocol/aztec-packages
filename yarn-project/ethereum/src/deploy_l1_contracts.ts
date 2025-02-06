@@ -67,7 +67,7 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils } from './l1_tx_utils.js';
+import { L1TxUtils, type L1TxUtilsConfig } from './l1_tx_utils.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -269,6 +269,7 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: Logger,
+  txUtilsConfig: L1TxUtilsConfig,
   args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
@@ -296,7 +297,7 @@ export const deployL1Contracts = async (
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
   // Governance stuff
-  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -584,6 +585,7 @@ class L1Deployer {
     private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
     private logger: Logger,
+    private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
   }
@@ -598,6 +600,7 @@ class L1Deployer {
       this.salt,
       params.libraries,
       this.logger,
+      this.txUtilsConfig,
     );
     if (txHash) {
       this.txHashes.push(txHash);
@@ -630,11 +633,12 @@ export async function deployL1Contract(
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
+  txUtilsConfig?: L1TxUtilsConfig,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
 
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, txUtilsConfig);
 
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
@@ -662,6 +666,7 @@ export async function deployL1Contract(
         maybeSalt,
         undefined,
         logger,
+        txUtilsConfig,
       );
 
       for (const linkRef in libraries.linkReferences) {

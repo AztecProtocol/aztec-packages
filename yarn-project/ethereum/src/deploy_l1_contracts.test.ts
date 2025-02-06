@@ -12,6 +12,7 @@ import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from './config.js';
 import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
+import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
 
 describe('deploy_l1_contracts', () => {
@@ -41,7 +42,7 @@ describe('deploy_l1_contracts', () => {
   });
 
   const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>
-    deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
+    deployL1Contracts(rpcUrl, privateKey, foundry, logger, defaultL1TxUtilsConfig, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,
