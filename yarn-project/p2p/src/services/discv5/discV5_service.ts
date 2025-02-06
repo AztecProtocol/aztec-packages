@@ -206,6 +206,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
+      this.logger.warn(`Peer ${enr.nodeId} does not have aztec key in ENR`);
       return false;
     }
 
@@ -217,7 +218,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       return true;
     } catch (err: any) {
       if (err.name === 'ComponentsVersionsError') {
-        this.logger.debug(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
+        this.logger.warn(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
           compressedVersion,
           expected: this.versions,
         });
