@@ -3,12 +3,14 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
+// Note duplicated from circuit-types !
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields
 export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
 // 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
 export const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
+export const REVERT_CODE_PREFIX = 1;
 
 /**
  * Deserializes a blob buffer into an array of field elements.
@@ -66,14 +68,48 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
   return array.slice(0, fieldReader.cursor);
 }
 
+/**
+ * Get the length of the transaction from the first field.
+ *
+ * @param firstField - The first field of the transaction.
+ * @returns The length of the transaction.
+ *
+ * @throws If the first field does not include the correct prefix - encoding invalid.
+ */
 export function getLengthFromFirstField(firstField: Fr): number {
   // Check that the first field includes the correct prefix
-  const buf = firstField.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
-  const prefix = new Fr(buf.subarray(0, TX_START_PREFIX_BYTES_LENGTH));
-  if (prefix.toString() !== TX_START_PREFIX.toString()) {
+  if (!isValidFirstField(firstField)) {
     throw new Error('Invalid prefix');
   }
+  const buf = firstField.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
   return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
+}
+
+// NOTE: duplicated from circuit-types tx effect!
+/**
+ * Determines whether a field is the first field of a tx effect
+ */
+export function isValidFirstField(field: Fr): boolean {
+  const buf = field.toBuffer();
+  if (
+    !buf
+      .subarray(0, field.size - TX_EFFECT_PREFIX_BYTE_LENGTH)
+      .equals(Buffer.alloc(field.size - TX_EFFECT_PREFIX_BYTE_LENGTH))
+  ) {
+    return false;
+  }
+  const sliced = buf.subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
+  if (
+    // Checking we start with the correct prefix...
+    !new Fr(sliced.subarray(0, TX_START_PREFIX_BYTES_LENGTH)).equals(new Fr(TX_START_PREFIX)) ||
+    // ...and include the revert code prefix..
+    sliced[sliced.length - 3] !== REVERT_CODE_PREFIX ||
+    // ...and the following revert code is valid.
+    sliced[sliced.length - 1] > 4
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
