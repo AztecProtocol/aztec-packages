@@ -36,8 +36,8 @@ describe('e2e_pruned_blocks', () => {
 
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
   const WORLD_STATE_BLOCK_HISTORY = 2;
-  const WORLD_STATE_CHECK_INTERVAL_MS = 100;
-  const ARCHIVER_POLLING_INTERVAL_MS = 500;
+  const WORLD_STATE_CHECK_INTERVAL_MS = 300;
+  const ARCHIVER_POLLING_INTERVAL_MS = 300;
 
   beforeAll(async () => {
     ({ aztecNode, cheatCodes, logger, teardown, wallets } = await setup(3, {
