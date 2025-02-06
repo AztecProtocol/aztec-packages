@@ -1,6 +1,5 @@
-import { type EpochProofClaim, type Note, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { type EpochProofClaim } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
@@ -18,34 +17,7 @@ import {
 } from 'viem';
 import { foundry } from 'viem/chains';
 
-/**
- * A class that provides utility functions for interacting with the chain.
- */
-export class CheatCodes {
-  constructor(
-    /** Cheat codes for L1.*/
-    public eth: EthCheatCodes,
-    /** Cheat codes for Aztec L2. */
-    public aztec: AztecCheatCodes,
-    /** Cheat codes for the Aztec Rollup contract on L1. */
-    public rollup: RollupCheatCodes,
-  ) {}
-
-  static async create(rpcUrl: string, pxe: PXE): Promise<CheatCodes> {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    const aztecCheatCodes = new AztecCheatCodes(pxe, ethCheatCodes);
-    const rollupCheatCodes = new RollupCheatCodes(
-      ethCheatCodes,
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
-    );
-    return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
-  }
-
-  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    return new RollupCheatCodes(ethCheatCodes, addresses);
-  }
-}
+export { EthCheatCodes };
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
@@ -196,80 +168,5 @@ export class RollupCheatCodes {
       await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
       this.logger.warn(`Updated L1 gas fee oracle`);
     });
-  }
-}
-
-/**
- * A class that provides utility functions for interacting with the aztec chain.
- */
-export class AztecCheatCodes {
-  constructor(
-    /**
-     * The PXE Service to use for interacting with the chain
-     */
-    public pxe: PXE,
-    /**
-     * The eth cheat codes.
-     */
-    public eth: EthCheatCodes,
-    /**
-     * The logger to use for the aztec cheatcodes
-     */
-    public logger = createLogger('aztecjs:cheat_codes'),
-  ) {}
-
-  /**
-   * Computes the slot value for a given map and key.
-   * @param mapSlot - The slot of the map (specified in Aztec.nr contract)
-   * @param key - The key to lookup in the map
-   * @returns The storage slot of the value in the map
-   */
-  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Promise<Fr> {
-    const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
-    return deriveStorageSlotInMap(mapSlot, keyFr);
-  }
-
-  /**
-   * Get the current blocknumber
-   * @returns The current block number
-   */
-  public async blockNumber(): Promise<number> {
-    return await this.pxe.getBlockNumber();
-  }
-
-  /**
-   * Get the current timestamp
-   * @returns The current timestamp
-   */
-  public async timestamp(): Promise<number> {
-    const res = await this.pxe.getBlock(await this.blockNumber());
-    return res?.header.globalVariables.timestamp.toNumber() ?? 0;
-  }
-
-  /**
-   * Loads the value stored at the given slot in the public storage of the given contract.
-   * @param who - The address of the contract
-   * @param slot - The storage slot to lookup
-   * @returns The value stored at the given slot
-   */
-  public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
-    const storageValue = await this.pxe.getPublicStorageAt(who, new Fr(slot));
-    return storageValue;
-  }
-
-  /**
-   * Loads the value stored at the given slot in the private storage of the given contract.
-   * @param contract - The address of the contract
-   * @param owner - The owner for whom the notes are encrypted
-   * @param slot - The storage slot to lookup
-   * @returns The notes stored at the given slot
-   */
-  public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
-    const extendedNotes = await this.pxe.getNotes({
-      owner,
-      contractAddress: contract,
-      storageSlot: new Fr(slot),
-    });
-    return extendedNotes.map(extendedNote => extendedNote.note);
   }
 }

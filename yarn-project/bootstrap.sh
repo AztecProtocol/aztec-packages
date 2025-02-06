@@ -38,7 +38,6 @@ function build {
         fi
     esac
 
-    denoise 'cd aztec.js && yarn build:web'
     denoise 'cd end-to-end && yarn build:web'
 
     # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
