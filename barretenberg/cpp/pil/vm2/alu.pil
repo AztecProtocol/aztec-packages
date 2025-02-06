@@ -1,5 +1,8 @@
 namespace alu;
 
+// Trace selector.
+pol commit sel;
+
 pol commit sel_op_add;
 pol commit ia;
 pol commit ib;

@@ -7,6 +7,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -16,6 +17,19 @@ namespace bb::avm2::tracegen {
 namespace {
 
 constexpr size_t operand_columns = 4;
+
+Column get_operation_selector(ExecutionOpCode operation)
+{
+    switch (operation) {
+    case ExecutionOpCode::ADD:
+        return Column::execution_sel_alu;
+    default:
+        // TODO: Complete and remove this.
+        return Column::execution_sel;
+        // throw std::runtime_error("Unknown ALU operation");
+        break;
+    }
+}
 
 } // namespace
 
@@ -47,6 +61,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_sel, 1 },   // active execution trace
                       { C::execution_clk, row }, // TODO: we may want this in the event
                       { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
+                      { get_operation_selector(ex_event.opcode), 1 },
                       { C::execution_op1, static_cast<FF>(operands.at(0)) },
                       { C::execution_op2, static_cast<FF>(operands.at(1)) },
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },

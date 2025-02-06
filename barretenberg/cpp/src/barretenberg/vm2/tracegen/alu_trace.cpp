@@ -36,6 +36,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
         trace.set(row,
                   { {
+                      { C::alu_sel, 1 },
                       { opcode_selector, 1 },
                       { C::alu_op, static_cast<uint8_t>(event.operation) },
                       { C::alu_ia, event.a },
