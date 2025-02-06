@@ -8,13 +8,7 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../blob-lib"
-    },
-    {
       "path": "../foundation"
-    },
-    {
-      "path": "../l1-artifacts"
     }
   ]
 }
