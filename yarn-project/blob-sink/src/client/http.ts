@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/foundation/blob';
+import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
@@ -160,6 +160,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
           return b !== undefined;
         });
+
+        console.log(
+          `Filtered blobs`,
+          filteredBlobs.map(b => b.data.slice(0, 50)),
+        );
 
         return filteredBlobs;
       }

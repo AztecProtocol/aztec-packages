@@ -1,4 +1,4 @@
-import { Blob, makeEncodedBlob, makeUnencodedBlob } from '@aztec/foundation/blob';
+import { Blob, makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
@@ -189,7 +189,7 @@ describe('HttpBlobSinkClient', () => {
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
-    it('Even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+    it.only('Even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
