@@ -191,9 +191,7 @@ CMake can be passed various build options on its command line:
 - `-DBENCHMARK=ON | OFF`: Enable/disable building of benchmarks.
 - `-DFUZZING=ON | OFF`: Enable building various fuzzers.
 
-If you are cross-compiling, you can use a preconfigured toolchain file:
-
-- `-DCMAKE_TOOLCHAIN_FILE=<filename in ./cmake/toolchains>`: Use one of the preconfigured toolchains.
+Various presets are defined in CMakePresets.json for scenarios such as instrumentation, cross-compiling and targets such as WASM.
 
 #### WASM build
 

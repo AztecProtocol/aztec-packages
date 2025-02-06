@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+dist_tag=$1
+version=$2
+
+dry_run=${DRY_RUN:-0}
+
+if [ "$dry_run" -eq 0 ]; then
+  echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
+fi
+
+package_name=$(jq -r '.name' package.json)
+echo_header "publishing $package_name $version $dist_tag"
+
+published_version=$(npm show . version --tag $dist_tag | grep -vE '^@' || true)
+higher_version=$(npx semver ${version} ${published_version} | tail -1)
+
+# Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
+if [ "$version" == "$published_version" ]; then
+  echo "Tagged $dist_tag version $version is equal to published $dist_tag version $published_version."
+  echo "Skipping publish."
+  exit 0
+fi
+
+# If the published version is > the given version, something's gone wrong.
+if [ "$version" != "$higher_version" ]; then
+  echo "Tagged version $version is lower than published version $published_version."
+  exit 1
+fi
+
+# Update the package version in package.json.
+tmp=$(mktemp)
+jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+
+# Update each dependent @aztec package version in package.json.
+for pkg in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
+  jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
+done
+
+# Publish.
+if [ "$dry_run" -eq 1 ]; then
+  npm publish --dry-run --tag $dist_tag --access public
+else
+  # Check if version exists.
+  if npm view "$package_name@$version" version >/dev/null 2>&1; then
+    # Tag the existing version.
+    npm dist-tag add $package_name@$version $dist_tag
+  else
+    # Publish new version.
+    npm publish --tag $dist_tag --access public
+  fi
+fi

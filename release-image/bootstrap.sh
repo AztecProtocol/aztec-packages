@@ -24,5 +24,3 @@ case "$cmd" in
     echo "Unknown command: $cmd"
     exit 1
 esac
-# bb cpp version sed
-# l1 contracts release

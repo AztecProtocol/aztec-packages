@@ -57,7 +57,7 @@ function test {
 }
 
 function release_git_push {
-  local ref_name="$1"
+  local ref_name="${REF_NAME:?REF_NAME not set but should have been resolved by source_refname}"
   local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
   # Initialize a new git repository, create an orphan branch, commit, and tag.
   git init >/dev/null
@@ -68,8 +68,8 @@ function release_git_push {
   git remote add origin "$mirrored_repo_url" >/dev/null
   # Force push the tag.
   git push origin --quiet --force "$ref_name" --tags
+  echo "Release complete ($ref_name)."
 }
-export -f release_git_push
 
 function release {
   # Publish to own repo with current tag or branch REF_NAME.
@@ -77,8 +77,6 @@ function release {
   # We take the our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
   # and push with the tag being equal to REF_NAME.
   echo_header "l1-contracts release"
-
-  local ref_name="${REF_NAME:?REF_NAME not set but should have been resolved by source_refname}"
 
   # Clean up our release directory.
   rm -rf release-out && mkdir release-out
@@ -90,9 +88,7 @@ function release {
   cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
 
   cd release-out
-  denoise "release_git_push $ref_name"
-  rm -rf release-out
-  echo "Release complete ($ref_name)."
+  release_git_push
 }
 
 case "$cmd" in
