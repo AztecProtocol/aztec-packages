@@ -82,7 +82,7 @@ impl Function {
     ) -> HashSet<ValueId> {
         let mut context = Context { flattened, ..Default::default() };
 
-        context.mark_function_parameter_arrays_as_used(self);
+        //context.mark_function_parameter_arrays_as_used(self);
 
         for call_data in &self.dfg.data_bus.call_data {
             context.mark_used_instruction_results(&self.dfg, call_data.array_id);
