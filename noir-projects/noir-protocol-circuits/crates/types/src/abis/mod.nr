@@ -4,13 +4,14 @@ pub mod gas_fees;
 pub mod gas_settings;
 pub mod global_variables;
 pub mod block_header;
+pub mod function_selector;
+pub mod public_call_request;
 
 pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
 
 pub mod event_selector;
-pub mod function_selector;
 pub mod function_data;
 
 pub mod note_hash_leaf_preimage;
@@ -39,7 +40,6 @@ pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;
 
-pub mod public_call_request;
 pub mod call_context;
 pub mod private_call_request;
 
