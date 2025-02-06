@@ -264,18 +264,18 @@ impl Context {
         }
     }
 
-    /// Mark any array parameters to the function itself as possibly mutated.
-    fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
-        for parameter in function.parameters() {
-            let typ = function.dfg.type_of_value(*parameter);
-            if typ.contains_an_array() {
-                let typ = typ.get_contained_array();
-                // Want to store the array type which is being referenced,
-                // because it's the underlying array that the `inc_rc` is associated with.
-                self.mutated_array_types.insert(typ.clone());
-            }
-        }
-    }
+    // Mark any array parameters to the function itself as possibly mutated.
+    // fn mark_function_parameter_arrays_as_used(&mut self, function: &Function) {
+    //     for parameter in function.parameters() {
+    //         let typ = function.dfg.type_of_value(*parameter);
+    //         if typ.contains_an_array() {
+    //             let typ = typ.get_contained_array();
+    //             // Want to store the array type which is being referenced,
+    //             // because it's the underlying array that the `inc_rc` is associated with.
+    //             self.mutated_array_types.insert(typ.clone());
+    //         }
+    //     }
+    // }
 
     /// Go through the RC instructions collected when we figured out which values were unused;
     /// for each RC that refers to an unused value, remove the RC as well.
