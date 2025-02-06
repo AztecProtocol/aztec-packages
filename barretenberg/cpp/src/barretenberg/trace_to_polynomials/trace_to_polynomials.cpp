@@ -70,11 +70,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    // if constexpr (IsPlonkFlavor<Flavor>) {
-    //     // Complete the public inputs execution trace block from builder.public_inputs
-    //     populate_public_inputs_block(builder);
-    // }
-
     TraceData trace_data{ builder, proving_key };
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
