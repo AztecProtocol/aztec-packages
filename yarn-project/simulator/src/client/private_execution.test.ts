@@ -7,6 +7,7 @@ import {
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
@@ -246,6 +247,9 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(new IndexedTaggingSecret(secret, 0));
       },
     );
+
+    oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
+    oracle.dbLoad.mockImplementation((_, __) => Promise.resolve(null));
 
     node = mock<AztecNode>();
     node.getPublicStorageAt.mockImplementation(
