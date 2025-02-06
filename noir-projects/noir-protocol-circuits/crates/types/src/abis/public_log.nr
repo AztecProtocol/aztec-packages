@@ -1,11 +1,12 @@
 use crate::{
     abis::{log::Log, side_effect::Scoped},
     address::AztecAddress,
-    constants::{PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS},
+    constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicLog {
     pub log: Log<PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
     pub contract_address: AztecAddress,
@@ -20,39 +21,30 @@ impl Scoped<Log<PUBLIC_LOG_DATA_SIZE_IN_FIELDS>> for PublicLog {
     }
 }
 
-impl Eq for PublicLog {
-    fn eq(self, other: PublicLog) -> bool {
-        (self.log == other.log) & (self.contract_address == other.contract_address)
-    }
-}
-
 impl Empty for PublicLog {
     fn empty() -> Self {
         PublicLog { log: Log::empty(), contract_address: AztecAddress::empty() }
     }
 }
 
-impl Serialize<PUBLIC_LOG_SIZE_IN_FIELDS> for PublicLog {
-    fn serialize(self) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
-        // Note: we ensure that the address of a public log goes first, unlike generic Scoped<T> impls
-        array_concat([self.contract_address.to_field()], self.log.serialize())
-    }
-}
+mod test {
+    use crate::{
+        abis::{log::Log, public_log::PublicLog},
+        address::AztecAddress,
+        constants::PUBLIC_LOG_SIZE_IN_FIELDS,
+        traits::{Deserialize, Serialize},
+    };
 
-impl Deserialize<PUBLIC_LOG_SIZE_IN_FIELDS> for PublicLog {
-    fn deserialize(fields: [Field; PUBLIC_LOG_SIZE_IN_FIELDS]) -> Self {
-        let mut reader = Reader::new(fields);
-        Self {
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-            log: reader.read_struct(Log::deserialize),
-        }
+    #[test]
+    fn serialization_of_public_log() {
+        let item = PublicLog {
+            log: Log::deserialize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
+            contract_address: AztecAddress::from_field(14),
+        };
+        // We use the PUBLIC_LOG_SIZE_IN_FIELDS constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; PUBLIC_LOG_SIZE_IN_FIELDS] = item.serialize();
+        let deserialized = PublicLog::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-#[test]
-fn serialization_of_empty_public_log() {
-    let item = PublicLog::empty();
-    let serialized = item.serialize();
-    let deserialized = PublicLog::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

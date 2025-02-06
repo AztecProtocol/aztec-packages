@@ -7,12 +7,16 @@ pub mod block_header;
 pub mod function_selector;
 pub mod public_call_request;
 
+pub mod function_data;
+
+pub mod tx_context;
+pub mod tx_request;
+
 pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
 
 pub mod event_selector;
-pub mod function_data;
 
 pub mod note_hash_leaf_preimage;
 pub mod nullifier_leaf_preimage;

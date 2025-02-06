@@ -4,7 +4,7 @@ use crate::{
         max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
         private_call_request::PrivateCallRequest, private_log::PrivateLogData,
         public_call_request::PublicCallRequest, read_request::ReadRequest, side_effect::Counted,
-        validation_requests::KeyValidationRequestAndGenerator,
+        tx_context::TxContext, validation_requests::KeyValidationRequestAndGenerator,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
@@ -16,7 +16,6 @@ use crate::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
-    transaction::tx_context::TxContext,
     utils::{arrays::validate_array, reader::Reader},
 };
 

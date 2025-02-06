@@ -1,19 +1,9 @@
 use crate::{constants::AVM_PROOF_LENGTH_IN_FIELDS, traits::{Deserialize, Empty, Serialize}};
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct AvmProof {
     pub fields: [Field; AVM_PROOF_LENGTH_IN_FIELDS],
-}
-
-impl Serialize<AVM_PROOF_LENGTH_IN_FIELDS> for AvmProof {
-    fn serialize(self) -> [Field; AVM_PROOF_LENGTH_IN_FIELDS] {
-        self.fields
-    }
-}
-
-impl Deserialize<AVM_PROOF_LENGTH_IN_FIELDS> for AvmProof {
-    fn deserialize(fields: [Field; AVM_PROOF_LENGTH_IN_FIELDS]) -> Self {
-        AvmProof { fields }
-    }
 }
 
 impl Empty for AvmProof {
@@ -22,16 +12,20 @@ impl Empty for AvmProof {
     }
 }
 
-impl Eq for AvmProof {
-    fn eq(self, other: Self) -> bool {
-        (self.fields == other.fields)
-    }
-}
+mod test {
+    use crate::{
+        constants::AVM_PROOF_LENGTH_IN_FIELDS,
+        proof::avm_proof::AvmProof,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-#[test]
-fn serialization_of_empty_recursive() {
-    let item = AvmProof::empty();
-    let serialized = item.serialize();
-    let deserialized = AvmProof::deserialize(serialized);
-    assert(item.eq(deserialized));
+    #[test]
+    fn serialization_of_avm_proof() {
+        let item = AvmProof::empty();
+        // We use the AVM_PROOF_LENGTH_IN_FIELDS constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; AVM_PROOF_LENGTH_IN_FIELDS] = item.serialize();
+        let deserialized = AvmProof::deserialize(serialized);
+        assert_eq(item, deserialized);
+    }
 }

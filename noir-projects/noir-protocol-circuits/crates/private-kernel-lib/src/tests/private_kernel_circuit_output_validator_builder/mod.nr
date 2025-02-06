@@ -12,10 +12,10 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
+        tx_request::TxRequest,
     },
     constants::PRIVATE_KERNEL_INIT_INDEX,
     tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitOutputValidatorBuilder {

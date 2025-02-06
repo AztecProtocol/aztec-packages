@@ -3,13 +3,11 @@ use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
 };
-use dep::types::{
-    abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    },
-    transaction::tx_request::TxRequest,
+use dep::types::abis::{
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+    tx_request::TxRequest,
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -92,9 +90,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
-        abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        abis::{
+            kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, tx_request::TxRequest,
+        },
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
-        transaction::tx_request::TxRequest,
     };
 
     struct PrivateKernelInitInputsBuilder {

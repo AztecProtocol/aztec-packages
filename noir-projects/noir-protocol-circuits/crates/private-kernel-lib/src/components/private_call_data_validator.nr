@@ -11,10 +11,10 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         public_call_request::PublicCallRequest,
         side_effect::{Ordered, RangeOrdered},
+        tx_request::TxRequest,
     },
     address::AztecAddress,
     constants::{MAX_FIELD_VALUE, REGISTERER_CONTRACT_ADDRESS},
-    transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
 use find_first_revertible_item_index::find_first_revertible_item_index;

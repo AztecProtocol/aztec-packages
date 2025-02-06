@@ -7,7 +7,6 @@ pub mod debug_log;
 pub mod public_keys;
 pub mod point;
 pub mod scalar;
-pub mod transaction;
 pub mod constants;
 pub mod contract_class_id;
 pub mod merkle_tree;

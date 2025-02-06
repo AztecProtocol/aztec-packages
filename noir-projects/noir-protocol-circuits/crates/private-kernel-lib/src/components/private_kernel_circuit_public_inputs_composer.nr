@@ -8,10 +8,10 @@ use dep::types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         side_effect::Ordered,
         tx_constant_data::TxConstantData,
+        tx_request::TxRequest,
     },
     address::AztecAddress,
     traits::{Empty, is_empty},
-    transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
 

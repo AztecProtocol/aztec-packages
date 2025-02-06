@@ -8,7 +8,9 @@ use crate::{
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateToRollupAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
@@ -35,76 +37,20 @@ impl Empty for PrivateToRollupAccumulatedData {
     }
 }
 
-impl Serialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
-    fn serialize(self) -> [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> =
-            BoundedVec::new();
+mod test {
+    use crate::{
+        abis::accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        constants::PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-        fields.extend_from_array(self.note_hashes);
-        fields.extend_from_array(self.nullifiers);
-        for i in 0..self.l2_to_l1_msgs.len() {
-            fields.extend_from_array(self.l2_to_l1_msgs[i].serialize());
-        }
-        for i in 0..self.private_logs.len() {
-            fields.extend_from_array(self.private_logs[i].serialize());
-        }
-        for i in 0..self.contract_class_logs_hashes.len() {
-            fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
-        }
-        fields.push(self.contract_class_log_preimages_length);
-
-        assert_eq(fields.len(), PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH);
-
-        fields.storage()
+    #[test]
+    fn serialization_of_empty_private_to_rollup_accumulated_data() {
+        let item = PrivateToRollupAccumulatedData::empty();
+        // We use the PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH] = item.serialize();
+        let deserialized = PrivateToRollupAccumulatedData::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-impl Deserialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
-    fn deserialize(
-        fields: [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH],
-    ) -> PrivateToRollupAccumulatedData {
-        let mut reader = Reader::new(fields);
-
-        let item = PrivateToRollupAccumulatedData {
-            note_hashes: reader.read_array(),
-            nullifiers: reader.read_array(),
-            l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
-            ),
-            private_logs: reader.read_struct_array(
-                PrivateLog::deserialize,
-                [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
-            ),
-            contract_class_logs_hashes: reader.read_struct_array(
-                ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
-            ),
-            contract_class_log_preimages_length: reader.read(),
-        };
-        reader.finish();
-        item
-    }
-}
-
-impl Eq for PrivateToRollupAccumulatedData {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.private_logs == other.private_logs)
-            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
-            & (
-                self.contract_class_log_preimages_length
-                    == other.contract_class_log_preimages_length
-            )
-    }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = PrivateToRollupAccumulatedData::empty();
-    let serialized = item.serialize();
-    let deserialized = PrivateToRollupAccumulatedData::deserialize(serialized);
-    assert(item.eq(deserialized));
 }
