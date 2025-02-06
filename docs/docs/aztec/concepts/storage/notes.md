@@ -6,7 +6,7 @@ tags: [notes, storage]
 
 import Image from "@theme/IdealImage";
 
-The [state model page](./state_model.md) explains that there is a difference between public and private state. Private state uses UTXOs, also known as notes. This page introduces the concept of UTXOs and how notes are abstracted on Aztec.
+The [state model page](./state_model.md) explains that there is a difference between public and private state. Private state uses UTXOs (unspent transaction ouputs), also known as notes. This page introduces the concept of UTXOs and how notes are abstracted on Aztec.
 
 ## What are notes?
 
