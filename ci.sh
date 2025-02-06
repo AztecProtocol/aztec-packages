@@ -203,9 +203,6 @@ case "$cmd" in
     fi
     echo "$pr_url"
     ;;
-  "release-nightly")
-
-    ;;
   "deploy")
     VERSION_TAG=$1
     ;;
