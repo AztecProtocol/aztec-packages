@@ -25,6 +25,7 @@ unconstrained fn test_storage_slot_allocation() {
     //     example_constant: PrivateImmutable<TestNote, Context>,
     //     example_set: PrivateSet<TestNote, Context>,
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
+    //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
     //     another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     // }
@@ -36,22 +37,27 @@ unconstrained fn test_storage_slot_allocation() {
     // The first slot is always 1.
     let mut expected_slot = 1;
     assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
-
     // Even though example_constant holds TestNote, which packs to a length larger than 1, notes always reserve a
     // single slot.
     expected_slot += 1;
-    assert_eq(Test::storage_layout().example_set.slot, expected_slot);
 
+    assert_eq(Test::storage_layout().example_set.slot, expected_slot);
     // example_set also held a note, so it should have only allocated a single slot.
     expected_slot += 1;
-    assert_eq(Test::storage_layout().example_struct.slot, expected_slot);
 
+    assert_eq(Test::storage_layout().example_struct.slot, expected_slot);
     // example_struct allocates 5 slots because it is not a note and it's packed length is 5.
     expected_slot += 5;
-    assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
 
-    // example_struct_in_map should allocate a single note because it's a map, regardless of whatever it holds. The Map
+    assert_eq(Test::storage_layout().example_struct_in_public_immutable.slot, expected_slot);
+    // example_struct_in_public_immutable should allocate 6 slots because ExampleStruct occupies 5 slots
+    // and `PublicImmutable` wraps the struct in a `WithHash<T>` that adds an additional slot.
+    expected_slot += 6;
+
+    assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
+    // example_struct_in_map should allocate a single slot because it's a map, regardless of whatever it holds. The Map
     // type is going to deal with its own dynamic allocation based on keys
     expected_slot += 1;
+
     assert_eq(Test::storage_layout().another_example_struct.slot, expected_slot);
 }

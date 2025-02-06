@@ -16,6 +16,13 @@ export interface ProverCoordination {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Returns a set of transactions given their hashes if available.
+   * @param txHashes - The hashes of the transactions, used as an ID.
+   * @returns The transactions, if found, 'undefined' otherwise.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+
+  /**
    * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
    * @param quote - The quote to store
    */
@@ -24,5 +31,6 @@ export interface ProverCoordination {
 
 export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
   addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
 };

@@ -18,8 +18,8 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);

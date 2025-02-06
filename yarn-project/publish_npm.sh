@@ -83,6 +83,7 @@ deploy_package native
 deploy_package types
 deploy_package circuits.js
 deploy_package circuit-types
+deploy_package telemetry-client
 deploy_package protocol-contracts
 deploy_package aztec.js
 deploy_package entrypoints

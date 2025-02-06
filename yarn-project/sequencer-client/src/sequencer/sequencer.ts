@@ -19,6 +19,7 @@ import {
   GENESIS_ARCHIVE_ROOT,
   Gas,
   type GlobalVariables,
+  INITIAL_L2_BLOCK_NUM,
   StateReference,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -232,20 +233,18 @@ export class Sequencer {
   protected async doRealWork() {
     this.setState(SequencerState.SYNCHRONIZING, 0n);
     // Update state when the previous block has been synced
-    const prevBlockSynced = await this.isBlockSynced();
+    const chainTip = await this.getChainTip();
     // Do not go forward with new block if the previous one has not been mined and processed
-    if (!prevBlockSynced) {
+    if (!chainTip) {
       return;
     }
 
     this.setState(SequencerState.PROPOSER_CHECK, 0n);
 
-    const chainTip = await this.l2BlockSource.getBlock(-1);
-
-    const newBlockNumber = (chainTip?.header.globalVariables.blockNumber.toNumber() ?? 0) + 1;
+    const newBlockNumber = chainTip.blockNumber + 1;
 
     // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive = chainTip?.archive.root ?? new Fr(GENESIS_ARCHIVE_ROOT);
+    const chainTipArchive = chainTip.archive;
 
     const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
     if (!slot) {
@@ -253,7 +252,7 @@ export class Sequencer {
       return;
     }
 
-    this.log.info(`Can propose block ${newBlockNumber} at slot ${slot}`);
+    this.log.debug(`Can propose block ${newBlockNumber} at slot ${slot}`);
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       new Fr(newBlockNumber),
@@ -763,14 +762,16 @@ export class Sequencer {
    * We don't check against the previous block submitted since it may have been reorg'd out.
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
-  protected async isBlockSynced() {
+  protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
-      this.p2pClient.getStatus().then(s => s.syncedToL2Block.number),
+      this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),
     ] as const);
+
     const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
+
     const result =
       // check that world state has caught up with archiver
       // note that the archiver reports undefined hash for the genesis block
@@ -780,18 +781,33 @@ export class Sequencer {
       // this should change to hashes once p2p client handles reorgs
       // and once we stop pretending that the l1tol2message source is not
       // just the archiver under a different name
-      p2p >= l2BlockSource.number &&
-      l1ToL2MessageSource >= l2BlockSource.number;
+      (!l2BlockSource.hash || p2p.hash === l2BlockSource.hash) &&
+      l1ToL2MessageSource === l2BlockSource.number;
 
     this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
       worldStateNumber: worldState.number,
       worldStateHash: worldState.hash,
       l2BlockSourceNumber: l2BlockSource.number,
       l2BlockSourceHash: l2BlockSource.hash,
-      p2pNumber: p2p,
+      p2pNumber: p2p.number,
+      p2pHash: p2p.hash,
       l1ToL2MessageSourceNumber: l1ToL2MessageSource,
     });
-    return result;
+
+    if (!result) {
+      return undefined;
+    }
+    if (worldState.number >= INITIAL_L2_BLOCK_NUM) {
+      const block = await this.l2BlockSource.getBlock(worldState.number);
+      if (!block) {
+        // this shouldn't really happen because a moment ago we checked that all components were in synch
+        return undefined;
+      }
+
+      return { blockNumber: block.number, archive: block.archive.root };
+    } else {
+      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive: new Fr(GENESIS_ARCHIVE_ROOT) };
+    }
   }
 
   private getSlotStartTimestamp(slotNumber: number | bigint): number {

@@ -41,11 +41,15 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     }
 
     // Errors
+    error ProofLengthWrong();
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
+
+    // Number of field elements in a ultra honk zero knowledge proof
+    uint256 constant PROOF_SIZE = 494;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -55,6 +59,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         override
         returns (bool verified)
     {
+        // Check the received proof is the expected size where each field element is 32 bytes
+        if (proof.length != PROOF_SIZE * 32) {
+            revert ProofLengthWrong();
+        }
+
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
 
