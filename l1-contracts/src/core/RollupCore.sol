@@ -26,12 +26,12 @@ import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {EpochProofLib} from "@aztec/core/libraries/RollupLibs/EpochProofLib.sol";
 import {
   ExtRollupLib,
   ValidateHeaderArgs,
   Header,
-  SignedEpochProofQuote,
-  SubmitEpochRootProofInterimValues
+  SignedEpochProofQuote
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
 import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
@@ -48,6 +48,7 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 struct Config {
   uint256 aztecSlotDuration;
@@ -57,6 +58,17 @@ struct Config {
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+}
+
+struct SubEpochRewards {
+  uint256 summedCount;
+  mapping(address prover => bool proofSubmitted) hasSubmitted;
+}
+
+struct EpochRewards {
+  uint256 longestProvenLength;
+  uint256 rewards;
+  mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
 /**
@@ -118,6 +130,24 @@ contract RollupCore is
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
+  mapping(address => uint256) public sequenceRewards;
+  mapping(Epoch => EpochRewards) internal epochRewards;
+
+  function getProverRewards(Epoch _epoch) external view returns (uint256) {
+    return epochRewards[_epoch].rewards;
+  }
+
+  function getProverRewardsForProver(Epoch _epoch, address _prover) external view returns (uint256) {
+    EpochRewards storage er = epochRewards[_epoch];
+    uint256 length = er.longestProvenLength;
+
+    if (er.subEpoch[length].hasSubmitted[_prover]) {
+      return er.rewards / er.subEpoch[length].summedCount;
+    }
+
+    return 0;
+  }
+
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
@@ -170,6 +200,14 @@ contract RollupCore is
       post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)}),
       slotOfChange: LIFETIME
     });
+  }
+
+  function hasSubmittedProofFor(address _prover, Epoch _epoch, uint256 _length)
+    public
+    view
+    returns (bool)
+  {
+    return epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
@@ -321,30 +359,121 @@ contract RollupCore is
       _prune();
     }
 
-    // We want to compute the two epoch values before hand. Could we do partial interim?
-    // We compute these in here to avoid a lot of pain with linking libraries and passing
-    // external functions into internal functions as args.
-    SubmitEpochRootProofInterimValues memory interimValues;
-    interimValues.previousBlockNumber = rollupStore.tips.provenBlockNumber;
-    interimValues.endBlockNumber = interimValues.previousBlockNumber + _args.epochSize;
+    SubmitProofInterim memory interim;
 
-    // @note The _getEpochForBlock is expected to revert if the block is beyond pending.
-    //       If this changes you are gonna get so rekt you won't believe it.
-    //       I mean proving blocks that have been pruned rekt.
-    interimValues.startEpoch = getEpochForBlock(interimValues.previousBlockNumber + 1);
-    interimValues.epochToProve = getEpochForBlock(interimValues.endBlockNumber);
+    // Start of `isAcceptable`
+    Epoch startEpoch = getEpochForBlock(_args.start);
+    // This also checks for existence of the block.
+    Epoch endEpoch = getEpochForBlock(_args.end);
 
-    uint256 endBlockNumber = ExtRollupLib.submitEpochRootProof(
-      rollupStore,
-      _args,
-      interimValues,
-      PROOF_COMMITMENT_ESCROW,
-      FEE_JUICE_PORTAL,
-      REWARD_DISTRIBUTOR,
-      ASSET,
-      CUAUHXICALLI
-    );
-    emit L2ProofVerified(endBlockNumber, _args.args[6]);
+    require(startEpoch == endEpoch, "Start and end epoch must be the same");
+
+    Slot deadline =
+      startEpoch.toSlots() + Epoch.wrap(1).toSlots() + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
+    require(deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(), "past deadline");
+
+    // By making sure that the previous block is in another epoch, we know that we were
+    // at the start.
+    Epoch parentEpoch = getEpochForBlock(_args.start - 1);
+
+    require(startEpoch > Epoch.wrap(0) || _args.start == 1, "invalid first epoch proof");
+
+    bool isStartOfEpoch = _args.start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
+    require(isStartOfEpoch, "start is not the start of an epoch");
+
+    bool isStartBuildingOnProven = _args.start - 1 <= rollupStore.tips.provenBlockNumber;
+    require(isStartBuildingOnProven, "start is not building on proven");
+
+    // End of `isAcceptable`
+
+    // Start of verifying the proof
+    require(EpochProofLib.verifyEpochRootProof(rollupStore, _args), "proof is invalid");
+    // End of verifying the proof
+
+    interim.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+    interim.isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
+
+    // Mark that the prover has submitted a proof
+    // Only do this if we are canonical for both fees and block rewards.
+    if (interim.isFeeCanonical && interim.isRewardDistributorCanonical) {
+      interim.prover = address(bytes20(_args.args[6]));
+
+      uint256 length = _args.end - _args.start + 1;
+      EpochRewards storage er = epochRewards[endEpoch];
+      SubEpochRewards storage sr = er.subEpoch[length];
+      sr.summedCount += 1;
+
+      // Using the prover id to ensure proof only gets added once
+      require(!sr.hasSubmitted[interim.prover], "go away");
+      sr.hasSubmitted[interim.prover] = true;
+
+      // @todo pull funds from the bridge
+      // @todo get funds from reward distributor
+
+      if (length > er.longestProvenLength) {
+        interim.added = length - er.longestProvenLength;
+        interim.blockRewardsAvailable = interim.isRewardDistributorCanonical
+          ? REWARD_DISTRIBUTOR.claimBlockRewards(address(this), interim.added)
+          : 0;
+        interim.sequencerShare = interim.blockRewardsAvailable / 2;
+        interim.blockRewardSequencer = interim.sequencerShare / interim.added;
+        interim.blockRewardProver = interim.blockRewardsAvailable - interim.sequencerShare;
+
+        for (uint256 i = er.longestProvenLength; i < length; i++) {
+          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
+
+          (interim.fee, interim.burn) = interim.isFeeCanonical
+            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
+            : (0, 0);
+
+          interim.feesToClaim += interim.fee;
+          interim.fee -= interim.burn;
+          interim.totalBurn += interim.burn;
+
+          // @todo get proving cost per mana
+          interim.proverFee =
+            Math.min(10 /* proving cost per mana */ * feeHeader.manaUsed, interim.fee);
+          interim.fee -= interim.proverFee;
+
+          er.rewards += interim.proverFee;
+          sequenceRewards[address(bytes20(_args.fees[i * 2]))] +=
+            (interim.blockRewardSequencer + interim.fee);
+        }
+
+        er.rewards += interim.blockRewardProver;
+
+        er.longestProvenLength = length;
+
+        FEE_JUICE_PORTAL.distributeFees(address(this), interim.feesToClaim);
+      }
+
+      // @todo Get the block rewards for
+
+      if (interim.totalBurn > 0 && interim.isFeeCanonical) {
+        ASSET.transfer(CUAUHXICALLI, interim.totalBurn);
+      }
+    }
+
+    // Update the proven block number
+    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
+
+    emit L2ProofVerified(_args.end, _args.args[6]);
+  }
+
+  struct SubmitProofInterim {
+    uint256 totalBurn;
+    address prover;
+    uint256 feesToClaim;
+    uint256 fee;
+    uint256 proverFee;
+    uint256 burn;
+    uint256 blockRewardsAvailable;
+    uint256 blockRewardSequencer;
+    uint256 blockRewardProver;
+    uint256 added;
+    uint256 sequencerShare;
+    bool isFeeCanonical;
+    bool isRewardDistributorCanonical;
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
