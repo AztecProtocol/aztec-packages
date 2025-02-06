@@ -846,14 +846,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
     return scalar_mul(scalar);
 }
 
-/**
- * Implements scalar multiplication that supports short scalars.
- *
- * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
- **/
 template <typename C, class Fq, class Fr, class G>
+/**
+ * @brief Implements scalar multiplication that supports short scalars.
+ * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
+ * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
+ * @param max_num_bits Even integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
+ * unspecified length.
+ * @return element<C, Fq, Fr, G>
+ */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {
+    ASSERT(max_num_bits % 2 == 0);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.
