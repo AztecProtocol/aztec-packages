@@ -189,7 +189,7 @@ describe('HttpBlobSinkClient', () => {
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
-    it.only('Even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+    it('Even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 

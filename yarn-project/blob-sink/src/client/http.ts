@@ -161,11 +161,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
           return b !== undefined;
         });
 
-        console.log(
-          `Filtered blobs`,
-          filteredBlobs.map(b => b.data.slice(0, 50)),
-        );
-
         return filteredBlobs;
       }
 
