@@ -14,7 +14,7 @@ pub contract Test {
     };
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateSet, PublicImmutable,
+        PrivateImmutable, PrivateSet, PublicImmutable, SharedMutable,
     };
 
     use dep::aztec::protocol_types::{
@@ -61,7 +61,7 @@ pub contract Test {
         value4: Field,
     }
 
-    #[derive(Packable)]
+    #[derive(Eq, Packable)]
     struct ExampleStruct {
         value0: Field,
         value1: Field,
@@ -70,11 +70,14 @@ pub contract Test {
         value4: Field,
     }
 
+    global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
+
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
         example_constant: PrivateImmutable<TestNote, Context>,
+        example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
         example_set: PrivateSet<TestNote, Context>,
         example_struct: PrivateImmutable<ExampleStruct, Context>,
         example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
