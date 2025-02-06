@@ -8,7 +8,6 @@ pub mod public_keys;
 pub mod point;
 pub mod scalar;
 pub mod transaction;
-pub mod abis;
 pub mod constants;
 pub mod contract_class_id;
 pub mod merkle_tree;
@@ -24,6 +23,7 @@ pub mod content_commitment;
 pub mod partial_state_reference;
 pub mod state_reference;
 pub mod block_header;
+pub mod abis;
 
 mod tests;
 
