@@ -841,6 +841,10 @@ impl<'block, Registers: RegisterAllocator> BrilligBlock<'block, Registers> {
 
                 self.brillig_context
                     .load_instruction(rc_register, array_or_vector.extract_register());
+
+                // Check that the refcount is minimum 1, so it can go down to 0 but will not underflow.
+                self.add_usize_minimum_check(rc_register, 1, "array ref-count will underflow");
+
                 self.brillig_context.codegen_usize_op_in_place(
                     rc_register,
                     BrilligBinaryOp::Sub,
@@ -851,7 +855,7 @@ impl<'block, Registers: RegisterAllocator> BrilligBlock<'block, Registers> {
                 // and become 0 or usize::MAX, and then return to 1, then it will indicate
                 // an array as mutable when it probably shouldn't be.
                 // We could use `add_overflow_check` here but going to 0 is the first indication of a problem.
-                self.add_usize_minimum_check(rc_register, 1, "array ref-count went to zero");
+                // self.add_usize_minimum_check(rc_register, 1, "array ref-count went to zero");
 
                 self.brillig_context
                     .store_instruction(array_or_vector.extract_register(), rc_register);
