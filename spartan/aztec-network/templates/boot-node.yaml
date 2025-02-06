@@ -197,6 +197,8 @@ spec:
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.bootNode.logLevel }}"
+            - name: DEBUG
+              value: "{{ .Values.bootNode.debug }}"
             - name: LOG_JSON
               value: "1"
             - name: P2P_ENABLED

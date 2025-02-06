@@ -16,6 +16,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 export PORT=${PORT:-"8080"}
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
+export DEBUG=${DEBUG:-""}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
 export P2P_ENABLED="true"

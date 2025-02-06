@@ -68,6 +68,7 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
+  debug: ""
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -112,6 +113,7 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
+  debug: ""
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -152,6 +154,7 @@ proverNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
+  debug: ""
   proverAgent:
     count: 0
     pollIntervalMs: 1000

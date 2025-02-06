@@ -1,7 +1,11 @@
 telemetry:
   enabled: true
 
+bootNode:
+  debug: "libp2p:gossipsub*"
+
 validator:
+  debug: "libp2p:gossipsub*"
   replicas: 64
 
   resources:
@@ -11,5 +15,6 @@ validator:
     disabled: false
 
 bootNode:
+  debug: "libp2p:gossipsub*"
   validator:
     disabled: true
