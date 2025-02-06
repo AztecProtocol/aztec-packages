@@ -1,8 +1,4 @@
-use crate::{
-    abis::max_block_number::MaxBlockNumber,
-    constants::ROLLUP_VALIDATION_REQUESTS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-};
+use crate::{abis::max_block_number::MaxBlockNumber, traits::{Deserialize, Empty, Serialize}};
 use std::meta::derive;
 
 // These are validation requests that cannot be fulfilled in the current context (private or public), and must be
