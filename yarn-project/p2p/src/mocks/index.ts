@@ -120,7 +120,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     maxPeerCount: 5,
     p2pEnabled: true,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-    skipBootstrapNodeEnrVersionCheck: true,
+    bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
   const discoveryService = new DiscV5Service(peerId, config, telemetry);

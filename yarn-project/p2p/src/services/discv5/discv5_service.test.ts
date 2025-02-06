@@ -114,8 +114,8 @@ describe('Discv5Service', () => {
   });
 
   it('should refuse to connect to a bootstrap node with wrong chain id', async () => {
-    const node1 = await createNode({ l1ChainId: 13 });
-    const node2 = await createNode({ l1ChainId: 14, skipBootstrapNodeEnrVersionCheck: true });
+    const node1 = await createNode({ l1ChainId: 13, bootstrapNodeEnrVersionCheck: true });
+    const node2 = await createNode({ l1ChainId: 14, bootstrapNodeEnrVersionCheck: false });
     await startNodes(node1, node2);
     expect(node1.getAllPeers()).toHaveLength(0);
     expect(node2.getAllPeers()).toHaveLength(1);
@@ -125,7 +125,7 @@ describe('Discv5Service', () => {
   it('should not add a peer with wrong chain id', async () => {
     const node1 = await createNode();
     const node2 = await createNode();
-    const node3 = await createNode({ l1ChainId: 14, skipBootstrapNodeEnrVersionCheck: true });
+    const node3 = await createNode({ l1ChainId: 14 });
     await startNodes(node1, node2, node3);
 
     await Promise.all([

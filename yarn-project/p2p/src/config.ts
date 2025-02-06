@@ -70,8 +70,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    */
   bootstrapNodes: string[];
 
-  /** Whether to skip the version check in the bootstrap node ENR. */
-  skipBootstrapNodeEnrVersionCheck: boolean;
+  /** Whether to execute the version check in the bootstrap node ENR. */
+  bootstrapNodeEnrVersionCheck: boolean;
 
   /**
    * Protocol identifier for transaction gossiping.
@@ -208,10 +208,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
   },
-  skipBootstrapNodeEnrVersionCheck: {
-    env: 'P2P_SKIP_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
-    description: 'Whether to skip the version check in the bootstrap node ENR.',
-    defaultValue: false,
+  bootstrapNodeEnrVersionCheck: {
+    env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
+    description: 'Whether to check the version of the bootstrap node ENR.',
+    ...booleanConfigHelper(),
   },
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',

@@ -126,7 +126,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
       for (const enr of bootstrapNodesEnrs) {
         try {
-          if (!this.config.skipBootstrapNodeEnrVersionCheck) {
+          if (this.config.bootstrapNodeEnrVersionCheck) {
             const value = enr.kvs.get(AZTEC_ENR_KEY);
             if (!value) {
               throw new Error('ENR does not contain aztec key');
