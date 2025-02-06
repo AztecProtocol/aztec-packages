@@ -530,7 +530,7 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(const CircuitBuilder& builder)
+        ProverPolynomials(const CircuitBuilder& builder, const bool fixed_size = false)
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -546,8 +546,12 @@ class ECCVMFlavor {
             const size_t num_rows =
                 std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
-            const size_t dyadic_num_rows =
-                std::max(1UL << CONST_ECCVM_LOG_N, 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1)));
+
+            ASSERT(1UL << CONST_ECCVM_LOG_N > 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1)));
+
+            const size_t dyadic_num_rows = fixed_size
+                                               ? 1UL << CONST_ECCVM_LOG_N
+                                               : 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -712,17 +716,20 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
-        size_t fixed_size;
+        size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        ProvingKey(const CircuitBuilder& builder)
-            : Base(std::max(1UL << CONST_ECCVM_LOG_N,
-                            builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates())),
-                   0)
-            , fixed_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+        ProvingKey(const CircuitBuilder& builder, const bool fixed_size = false)
+            : Base(
+                  // If we want a fixed size, use 2^(CONST_ECCVM_LOG_N).
+                  // Otherwise, compute the real circuit size from the builder.
+                  fixed_size ? (1UL << CONST_ECCVM_LOG_N)
+                             : builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()),
+                  0)
+            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
 
-            , polynomials(builder)
+            , polynomials(builder, fixed_size)
         {}
     };
 
