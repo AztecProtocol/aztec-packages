@@ -17,8 +17,8 @@ where
 }
 
 pub trait NullifiableNote {
-    /// Returns the non-siloed nullifier, which will be later siloed by contract address by the kernels before being
-    /// committed to the state tree.
+    /// Returns the non-siloed nullifier (also called inner-nullifier), which will be later siloed by contract address
+    /// by the kernels before being committed to the state tree.
     ///
     /// This function MUST be called with the correct note hash for consumption! It will otherwise silently fail and
     /// compute an incorrect value. The reason why we receive this as an argument instead of computing it ourselves

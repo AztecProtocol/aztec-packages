@@ -28,6 +28,7 @@ import {
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type LogWithTxData,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -1075,6 +1076,10 @@ export class TXE implements TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     throw new Error('deliverNote');
+  }
+
+  async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    return await this.simulatorOracle.getLogByTag(tag);
   }
 
   // AVM oracles
