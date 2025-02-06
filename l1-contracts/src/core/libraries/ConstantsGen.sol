@@ -311,5 +311,5 @@ library Constants {
   uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
   uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
   uint256 internal constant TWO_POW_64 = 18446744073709551616;
-  uint256 internal constant DEFAULT_UPDATE_DELAY = 10;
+  uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
 }

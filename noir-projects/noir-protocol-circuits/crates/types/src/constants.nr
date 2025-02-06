@@ -771,7 +771,7 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 
-pub global DEFAULT_UPDATE_DELAY: u32 = 10;
+pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
 
 mod test {
     use crate::constants::{

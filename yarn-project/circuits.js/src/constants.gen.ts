@@ -355,7 +355,7 @@ export const PROOF_TYPE_AVM = 4;
 export const PROOF_TYPE_ROLLUP_HONK = 5;
 export const PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
 export const TWO_POW_64 = 18446744073709551616n;
-export const DEFAULT_UPDATE_DELAY = 10;
+export const DEFAULT_UPDATE_DELAY = 3600;
 export enum GeneratorIndex {
   NOTE_HASH = 1,
   NOTE_HASH_NONCE = 2,
