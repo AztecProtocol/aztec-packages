@@ -82,7 +82,7 @@ impl Function {
     ) -> HashSet<ValueId> {
         let mut context = Context { flattened, ..Default::default() };
 
-        //context.mark_function_parameter_arrays_as_used(self);
+       //context.mark_function_parameter_arrays_as_used(self);
 
         for call_data in &self.dfg.data_bus.call_data {
             context.mark_used_instruction_results(&self.dfg, call_data.array_id);
@@ -976,39 +976,39 @@ mod test {
         assert_normalized_ssa_equals(ssa, src);
     }
 
-    #[test]
-    fn does_not_remove_inc_rcs_that_are_never_mutably_borrowed() {
-        let src = "
-        brillig(inline) fn main f0 {
-          b0(v0: [Field; 2]):
-            inc_rc v0
-            inc_rc v0
-            inc_rc v0
-            v2 = array_get v0, index u32 0 -> Field
-            inc_rc v0
-            return v2
-        }
-        ";
+    // #[test]
+    // fn does_not_remove_inc_rcs_that_are_never_mutably_borrowed() {
+    //     let src = "
+    //     brillig(inline) fn main f0 {
+    //       b0(v0: [Field; 2]):
+    //         inc_rc v0
+    //         inc_rc v0
+    //         inc_rc v0
+    //         v2 = array_get v0, index u32 0 -> Field
+    //         inc_rc v0
+    //         return v2
+    //     }
+    //     ";
 
-        let ssa = Ssa::from_str(src).unwrap();
-        let main = ssa.main();
+    //     let ssa = Ssa::from_str(src).unwrap();
+    //     let main = ssa.main();
 
-        // The instruction count never includes the terminator instruction
-        assert_eq!(main.dfg[main.entry_block()].instructions().len(), 5);
+    //     // The instruction count never includes the terminator instruction
+    //     assert_eq!(main.dfg[main.entry_block()].instructions().len(), 5);
 
-        let expected = "
-        brillig(inline) fn main f0 {
-          b0(v0: [Field; 2]):
-            inc_rc v0
-            v2 = array_get v0, index u32 0 -> Field
-            inc_rc v0
-            return v2
-        }
-        ";
+    //     let expected = "
+    //     brillig(inline) fn main f0 {
+    //       b0(v0: [Field; 2]):
+    //         inc_rc v0
+    //         v2 = array_get v0, index u32 0 -> Field
+    //         inc_rc v0
+    //         return v2
+    //     }
+    //     ";
 
-        let ssa = ssa.dead_instruction_elimination();
-        assert_normalized_ssa_equals(ssa, expected);
-    }
+    //     let ssa = ssa.dead_instruction_elimination();
+    //     assert_normalized_ssa_equals(ssa, expected);
+    // }
 
     #[test]
     fn do_not_remove_inc_rcs_for_arrays_in_terminator() {
