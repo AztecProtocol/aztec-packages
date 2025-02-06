@@ -1,75 +1,18 @@
 use crate::{
     address::{aztec_address::AztecAddress, partial_address::PartialAddress},
-    constants::CONTRACT_INSTANCE_LENGTH,
     contract_class_id::ContractClassId,
     public_keys::PublicKeys,
-    traits::{Deserialize, FromField, Hash, Serialize, ToField},
+    traits::{Deserialize, Hash, Serialize, ToField},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ContractInstance {
     pub salt: Field,
     pub deployer: AztecAddress,
     pub contract_class_id: ContractClassId,
     pub initialization_hash: Field,
     pub public_keys: PublicKeys,
-}
-
-impl Eq for ContractInstance {
-    fn eq(self, other: Self) -> bool {
-        self.public_keys.eq(other.public_keys)
-            & self.initialization_hash.eq(other.initialization_hash)
-            & self.contract_class_id.eq(other.contract_class_id)
-            & self.salt.eq(other.salt)
-    }
-}
-
-impl Serialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
-    fn serialize(self) -> [Field; CONTRACT_INSTANCE_LENGTH] {
-        let public_keys_serialized = self.public_keys.serialize();
-        [
-            self.salt,
-            self.deployer.to_field(),
-            self.contract_class_id.to_field(),
-            self.initialization_hash,
-            public_keys_serialized[0],
-            public_keys_serialized[1],
-            public_keys_serialized[2],
-            public_keys_serialized[3],
-            public_keys_serialized[4],
-            public_keys_serialized[5],
-            public_keys_serialized[6],
-            public_keys_serialized[7],
-            public_keys_serialized[8],
-            public_keys_serialized[9],
-            public_keys_serialized[10],
-            public_keys_serialized[11],
-        ]
-    }
-}
-
-impl Deserialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
-    fn deserialize(serialized: [Field; CONTRACT_INSTANCE_LENGTH]) -> Self {
-        Self {
-            salt: serialized[0],
-            deployer: AztecAddress::from_field(serialized[1]),
-            contract_class_id: ContractClassId::from_field(serialized[2]),
-            initialization_hash: serialized[3],
-            public_keys: PublicKeys::deserialize([
-                serialized[4],
-                serialized[5],
-                serialized[6],
-                serialized[7],
-                serialized[8],
-                serialized[9],
-                serialized[10],
-                serialized[11],
-                serialized[12],
-                serialized[13],
-                serialized[14],
-                serialized[15],
-            ]),
-        }
-    }
 }
 
 impl Hash for ContractInstance {
@@ -90,4 +33,35 @@ impl ContractInstance {
             ),
         )
     }
+}
+
+mod test {
+    use crate::{
+        address::AztecAddress,
+        constants::CONTRACT_INSTANCE_LENGTH,
+        contract_class_id::ContractClassId,
+        contract_instance::ContractInstance,
+        public_keys::PublicKeys,
+        traits::{Deserialize, FromField, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_empty() {
+        let instance = ContractInstance {
+            salt: 6,
+            deployer: AztecAddress::from_field(12),
+            contract_class_id: ContractClassId::from_field(13),
+            initialization_hash: 156,
+            public_keys: PublicKeys::default(),
+        };
+
+        // We use the CONTRACT_INSTANCE_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; CONTRACT_INSTANCE_LENGTH] = instance.serialize();
+
+        let deserialized = ContractInstance::deserialize(serialized);
+
+        assert(instance.eq(deserialized));
+    }
+
 }
