@@ -8,7 +8,6 @@ using namespace bb;
 
 template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
-    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -30,7 +29,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     }
 
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
-                                          MockWitnessGenerator<Curve> instance_witness)
+                                          MockClaimGenerator<Curve> mock_claims)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -38,7 +37,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(
-            this->n, instance_witness.polynomial_batcher, multilinear_evaluation_point, ck, prover_transcript);
+            this->n, mock_claims.polynomial_batcher, multilinear_evaluation_point, ck, prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
         this->verify_batch_opening_pair(prover_output);
@@ -49,13 +48,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claims =
-            GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                RefVector(instance_witness.unshifted_evals),
-                                                RefVector(instance_witness.shifted_evals),
-                                                RefVector(instance_witness.unshifted_commitments),
-                                                RefVector(instance_witness.to_be_shifted_commitments),
-                                                verifier_transcript);
+        auto verifier_claims = GeminiVerifier::reduce_verification(
+            multilinear_evaluation_point, mock_claims.claim_batcher, verifier_transcript);
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
@@ -66,7 +60,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
     void execute_gemini_and_verify_claims_with_concatenation(
         std::vector<Fr>& multilinear_evaluation_point,
-        MockWitnessGenerator<Curve> instance_witness,
+        MockClaimGenerator<Curve> mock_claims,
         RefSpan<Polynomial<Fr>> concatenated_polynomials = {},
         RefSpan<Fr> concatenated_evaluations = {},
         const std::vector<RefVector<Polynomial<Fr>>>& groups_to_be_concatenated = {},
@@ -79,7 +73,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(this->n,
-                                                 instance_witness.polynomial_batcher,
+                                                 mock_claims.polynomial_batcher,
                                                  multilinear_evaluation_point,
                                                  ck,
                                                  prover_transcript,
@@ -95,15 +89,11 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claims =
-            GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                RefVector(instance_witness.unshifted_evals),
-                                                RefVector(instance_witness.shifted_evals),
-                                                RefVector(instance_witness.unshifted_commitments),
-                                                RefVector(instance_witness.to_be_shifted_commitments),
-                                                verifier_transcript,
-                                                concatenation_group_commitments,
-                                                concatenated_evaluations);
+        auto verifier_claims = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
+                                                                   mock_claims.claim_batcher,
+                                                                   verifier_transcript,
+                                                                   concatenation_group_commitments,
+                                                                   concatenated_evaluations);
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
@@ -119,18 +109,20 @@ TYPED_TEST_SUITE(GeminiTest, ParamsTypes);
 TYPED_TEST(GeminiTest, Single)
 {
     auto u = this->random_evaluation_point(this->log_n);
-    auto instance_witness = MockWitnessGenerator(this->n, 1, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
-    this->execute_gemini_and_verify_claims(u, instance_witness);
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
 TYPED_TEST(GeminiTest, SingleShift)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = MockWitnessGenerator(this->n, 0, 1, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 1, /*num_to_be_shifted*/ 1, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
-    this->execute_gemini_and_verify_claims(u, instance_witness);
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
 TYPED_TEST(GeminiTest, Double)
@@ -138,9 +130,10 @@ TYPED_TEST(GeminiTest, Double)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = MockWitnessGenerator(this->n, 2, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
-    this->execute_gemini_and_verify_claims(u, instance_witness);
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
 TYPED_TEST(GeminiTest, DoubleWithShift)
@@ -148,23 +141,25 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = MockWitnessGenerator(this->n, 2, 1, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 1, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
-    this->execute_gemini_and_verify_claims(u, instance_witness);
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
 TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    auto instance_witness = MockWitnessGenerator(this->n, 2, 0, u, this->ck);
+    MockClaimGenerator mock_claims(
+        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
 
     auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
         generate_concatenation_inputs<TypeParam>(u, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck);
 
     this->execute_gemini_and_verify_claims_with_concatenation(
         u,
-        instance_witness,
+        mock_claims,
         RefVector(concatenated_polynomials),
         RefVector(c_evaluations),
         to_vector_of_ref_vectors(concatenation_groups),

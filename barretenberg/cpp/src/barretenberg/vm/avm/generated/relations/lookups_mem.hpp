@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class lookup_mem_rng_chk_0_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_0";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -69,7 +71,7 @@ class lookup_mem_rng_chk_0_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_0_relation : public GenericLookupRelation<lookup_mem_rng_chk_0_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_0";
+    static constexpr std::string_view NAME = lookup_mem_rng_chk_0_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_mem_rng_chk_0 = GenericLookup<lookup_mem_rng_chk_0_lookup_settings, FF_>;
 
@@ -77,6 +79,8 @@ template <typename FF_> using lookup_mem_rng_chk_0 = GenericLookup<lookup_mem_rn
 
 class lookup_mem_rng_chk_1_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_1";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -132,7 +136,7 @@ class lookup_mem_rng_chk_1_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_1_relation : public GenericLookupRelation<lookup_mem_rng_chk_1_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_1";
+    static constexpr std::string_view NAME = lookup_mem_rng_chk_1_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_mem_rng_chk_1 = GenericLookup<lookup_mem_rng_chk_1_lookup_settings, FF_>;
 
@@ -140,6 +144,8 @@ template <typename FF_> using lookup_mem_rng_chk_1 = GenericLookup<lookup_mem_rn
 
 class lookup_mem_rng_chk_2_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_2";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -195,7 +201,7 @@ class lookup_mem_rng_chk_2_lookup_settings {
 template <typename FF_>
 class lookup_mem_rng_chk_2_relation : public GenericLookupRelation<lookup_mem_rng_chk_2_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_MEM_RNG_CHK_2";
+    static constexpr std::string_view NAME = lookup_mem_rng_chk_2_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_mem_rng_chk_2 = GenericLookup<lookup_mem_rng_chk_2_lookup_settings, FF_>;
 

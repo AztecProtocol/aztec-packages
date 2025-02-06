@@ -24,8 +24,8 @@ end-to-end/flame_graph
 end-to-end/log
 end-to-end/data
 end-to-end/src/web/*.gz
-end-to-end/src/web/*main.js
-end-to-end/src/web/main.js.LICENSE.txt
+end-to-end/src/web/*.mjs
+end-to-end/src/web/*.mjs.LICENSE.txt
 l1-artifacts/generated
 l1-contracts/generated
 builder/target/
