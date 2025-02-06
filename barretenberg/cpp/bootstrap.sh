@@ -106,8 +106,9 @@ function build_release {
     echo "Error: version ($version) is longer than placeholder ($version_placeholder). Cannot update bb binaries."
     exit 1
   fi
-  # Append null bytes until we match the placeholder length.
-  version+=$(head -c $(( placeholder_length - version_length )) /dev/zero)
+  # Create a string for use in sed that will write the appropriate number of null bytes.
+  let N=$(( placeholder_length - version_length ))
+  let nullbytes="$(printf 'x00%.0s' $(seq 1 "$N"))"
 
   function update_bb_version {
     if ! grep $version_regex "$file" 2>/dev/null; then
@@ -115,7 +116,7 @@ function build_release {
       exit 1
     fi
     # Perform the actual in-place replacement on a file.
-    sed s/$version_regex/ "$(printf '%b' "$padded_version")"'/;' "$file"
+    sed "s/$version_regex/$version$nullbytes/" "$file"
   }
   update_bb_version build/bin/bb > build/bin/bb.replaced
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin --transform 's/.replaced//' bb.replaced
