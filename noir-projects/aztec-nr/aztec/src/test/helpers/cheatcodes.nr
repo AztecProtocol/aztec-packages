@@ -47,8 +47,8 @@ pub unconstrained fn direct_storage_write<let N: u32>(
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
-pub unconstrained fn create_account() -> TestAccount {
-    oracle_create_account()
+pub unconstrained fn create_account(secret: Field) -> TestAccount {
+    oracle_create_account(secret)
 }
 
 pub unconstrained fn add_account(secret: Field) -> TestAccount {
@@ -121,7 +121,7 @@ unconstrained fn direct_storage_write_oracle<let N: u32>(
 ) -> [Field; N] {}
 
 #[oracle(createAccount)]
-unconstrained fn oracle_create_account() -> TestAccount {}
+unconstrained fn oracle_create_account(secret: Field) -> TestAccount {}
 
 #[oracle(addAccount)]
 unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
