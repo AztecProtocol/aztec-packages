@@ -529,33 +529,7 @@ inline bb::fr poseidon_hash_uint256(std::vector<bb::fr> const& data)
 {
     std::vector<uint8_t> buffer = to_buffer(data);
 
-    felt_t state[3] = {
-        {0x6b6e6574486f6e6bull, 0x53746172ull, 0ull, 0ull}, // "StarknetHonk"
-        {0ull, 0ull, 0ull, 0ull}, // 0
-        {1ull, 0ull, 0ull, 0ull}, // 1
-    };
-    permutation_3(state);
-    for (size_t k = 0; k < data.size(); ++k) {
-        felt_t limb_lo = {0ull, 0ull, 0ull, 0ull};
-        felt_t limb_hi = {0ull, 0ull, 0ull, 0ull};
-        for (size_t i = 0; i < 2; ++i) {
-            for (size_t j = 0; j < 8; ++j) {
-                limb_lo[1 - i] |= static_cast<uint64_t>(buffer[(k * 4 + 2 + i) * 8 + j]) << (56 - (j * 8));
-                limb_hi[1 - i] |= static_cast<uint64_t>(buffer[(k * 4 + i) * 8 + j]) << (56 - (j * 8));
-            }
-        }
-        f251_add(state[0], state[0], limb_lo);
-        f251_add(state[1], state[1], limb_hi);
-        permutation_3(state);
-    }
-    std::array<uint8_t, 32> result;
-
-    for (size_t i = 0; i < 4; ++i) {
-        for (size_t j = 0; j < 8; ++j) {
-            uint8_t byte = static_cast<uint8_t>(state[0][3 - i] >> (56 - (j * 8)));
-            result[i * 8 + j] = byte;
-        }
-    }
+    auto result = crypto::poseidon_block(buffer);
 
     auto result_fr = from_buffer<bb::fr>(result);
 

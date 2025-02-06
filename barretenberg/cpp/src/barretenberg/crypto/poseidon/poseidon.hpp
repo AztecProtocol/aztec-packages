@@ -1,16 +1,13 @@
-/* C implementation of Poseidon hash function.
- * Extracted from: https://github.com/CryptoExperts/poseidon
- * Licensed under the Apache License, Version 2.0.
- */
-
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <array>
+#include <cstdint>
+#include <vector>
 
-#include "./sources/poseidon.h"
+namespace bb::crypto {
 
-#ifdef __cplusplus
-}
-#endif
+using PoseidonHash = std::array<uint8_t, 32>;
+
+PoseidonHash poseidon_block(const std::vector<uint8_t>& input);
+
+} // namespace bb::crypto
