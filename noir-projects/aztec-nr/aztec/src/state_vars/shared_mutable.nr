@@ -23,11 +23,11 @@ pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     storage_slot: Field,
 }
 
-// This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `N` storage
+// This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M` storage
 // slots to this state variable.
-impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<N> for SharedMutable<T, INITIAL_DELAY, Context>
+impl<T, let INITIAL_DELAY: u32, Context, let M: u32> Storage<M> for SharedMutable<T, INITIAL_DELAY, Context>
 where
-    WithHash<SharedMutableValues<T, INITIAL_DELAY>, _>: Packable<N>,
+    WithHash<SharedMutableValues<T, INITIAL_DELAY>, _>: Packable<M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
