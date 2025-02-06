@@ -30,8 +30,12 @@ class SingleEpochDatabase {
     return this.store.estimateSize();
   }
 
-  async addProvingJob(job: ProvingJob): Promise<void> {
-    await this.jobs.set(job.id, jsonStringify(job));
+  async addProvingJobs(jobs: ProvingJob[]): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      for (const job of jobs) {
+        await this.jobs.set(job.id, jsonStringify(job));
+      }
+    });
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -136,19 +140,34 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  async addProvingJob(job: ProvingJob): Promise<void> {
-    let epochDb = this.epochs.get(job.epochNumber);
+  async addProvingJob(...jobs: ProvingJob[]): Promise<void> {
+    if (jobs.length === 0) {
+      return;
+    }
+
+    const epochNumbers = new Set<number>();
+    for (const job of jobs) {
+      epochNumbers.add(job.epochNumber);
+    }
+
+    // all jobs must be from the same epoch
+    if (epochNumbers.size !== 1) {
+      throw new Error();
+    }
+    const [epochNumber] = Array.from(epochNumbers);
+
+    let epochDb = this.epochs.get(epochNumber);
     if (!epochDb) {
-      const newEpochDirectory = join(this.config.dataDirectory!, job.epochNumber.toString());
+      const newEpochDirectory = join(this.config.dataDirectory!, epochNumber.toString());
       await mkdir(newEpochDirectory, { recursive: true });
       this.logger.info(
-        `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
+        `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
       );
       const db = await AztecLMDBStoreV2.new(newEpochDirectory, this.config.dataStoreMapSizeKB);
       epochDb = new SingleEpochDatabase(db);
-      this.epochs.set(job.epochNumber, epochDb);
+      this.epochs.set(epochNumber, epochDb);
     }
-    await epochDb.addProvingJob(job);
+    await epochDb.addProvingJobs(jobs);
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {

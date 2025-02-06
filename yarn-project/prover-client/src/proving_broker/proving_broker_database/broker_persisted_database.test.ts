@@ -1,4 +1,5 @@
 import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
+import { times } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 
 import { existsSync } from 'fs';
@@ -56,6 +57,40 @@ describe('ProvingBrokerPersistedDatabase', () => {
         }),
       ).resolves.not.toThrow();
     }
+  });
+
+  it('can add multiple proving jobs as a batch', async () => {
+    const numJobs = 5;
+    await expect(
+      db.addProvingJob(
+        ...times(numJobs, () => ({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        })),
+      ),
+    ).resolves.not.toThrow();
+  });
+
+  it('rejects batches containing jobs from different epochs', async () => {
+    const numJobs = 5;
+    await expect(
+      db.addProvingJob(
+        ...times(numJobs, () => ({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        })),
+        {
+          id: makeRandomProvingJobId(43),
+          epochNumber: 43,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        },
+      ),
+    ).rejects.toBeDefined();
   });
 
   it('can add a proving success', async () => {
