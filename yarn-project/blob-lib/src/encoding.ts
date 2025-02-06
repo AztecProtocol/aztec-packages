@@ -67,7 +67,12 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
 }
 
 export function getLengthFromFirstField(firstField: Fr): number {
+  // Check that the first field includes the correct prefix
   const buf = firstField.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
+  const prefix = new Fr(buf.subarray(0, TX_START_PREFIX_BYTES_LENGTH));
+  if (prefix.toString() !== TX_START_PREFIX.toString()) {
+    throw new Error('Invalid prefix');
+  }
   return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
 }
 
