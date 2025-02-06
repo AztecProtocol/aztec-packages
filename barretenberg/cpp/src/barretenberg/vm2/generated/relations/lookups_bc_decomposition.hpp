@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class lookup_bytecode_to_read_unary_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BYTECODE_TO_READ_UNARY";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -75,7 +77,7 @@ template <typename FF_>
 class lookup_bytecode_to_read_unary_relation
     : public GenericLookupRelation<lookup_bytecode_to_read_unary_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BYTECODE_TO_READ_UNARY";
+    static constexpr std::string_view NAME = lookup_bytecode_to_read_unary_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_bytecode_to_read_unary = GenericLookup<lookup_bytecode_to_read_unary_lookup_settings, FF_>;

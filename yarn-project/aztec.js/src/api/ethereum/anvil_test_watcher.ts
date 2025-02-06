@@ -1,5 +1,6 @@
-import { type EthCheatCodes, type Logger, createLogger } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
+import { type EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';

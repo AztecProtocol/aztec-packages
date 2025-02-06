@@ -407,6 +407,75 @@ describe.each([
       await getAndAssertNextJobId(baseRollup1);
     });
 
+    it('returns a new job when reporting job success', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await broker.getProvingJob();
+      await assertJobStatus(id, 'in-progress');
+
+      const id2 = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id: id2,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await expect(
+        broker.reportProvingJobSuccess(id, 'result' as ProofUri, { allowList: [ProvingRequestType.BASE_PARITY] }),
+      ).resolves.toEqual({ job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
+    });
+
+    it('returns a new job when reporting permanent error', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await broker.getProvingJob();
+      await assertJobStatus(id, 'in-progress');
+
+      const id2 = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id: id2,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await expect(
+        broker.reportProvingJobError(id, 'result' as ProofUri, false, { allowList: [ProvingRequestType.BASE_PARITY] }),
+      ).resolves.toEqual({ job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
+    });
+
+    it('returns a new job when reporting retry-able error', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await broker.getProvingJob();
+      await assertJobStatus(id, 'in-progress');
+
+      const id2 = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id: id2,
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      });
+      await expect(
+        broker.reportProvingJobError(id, 'result' as ProofUri, true, { allowList: [ProvingRequestType.BASE_PARITY] }),
+      ).resolves.toEqual({ job: expect.objectContaining({ id: id2 }), time: expect.any(Number) });
+    });
+
     it('returns a new job when reporting progress if current one is cancelled', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
@@ -590,12 +659,10 @@ describe.each([
       // after the restart the new broker thinks job1 is available
       // inform the agent of the job completion
 
-      await expect(broker.reportProvingJobSuccess(job1.id, makeOutputsUri())).resolves.toBeUndefined();
-      await assertJobStatus(job1.id, 'fulfilled');
-
-      // make sure the the broker sends the next job to the agent
-      await getAndAssertNextJobId(job2.id);
-
+      await expect(broker.reportProvingJobSuccess(job1.id, makeOutputsUri())).resolves.toEqual({
+        job: job2,
+        time: expect.any(Number),
+      });
       await assertJobStatus(job1.id, 'fulfilled');
       await assertJobStatus(job2.id, 'in-progress');
     });
@@ -618,12 +685,14 @@ describe.each([
 
       await getAndAssertNextJobId(id1);
       await assertJobStatus(id1, 'in-progress');
-      await broker.reportProvingJobSuccess(id1, makeOutputsUri());
+      await expect(broker.reportProvingJobSuccess(id1, makeOutputsUri())).resolves.toEqual({
+        job: expect.objectContaining({ id: id2 }),
+        time: expect.any(Number),
+      });
       await assertJobStatus(id1, 'fulfilled');
-
-      await getAndAssertNextJobId(id2);
       await assertJobStatus(id2, 'in-progress');
-      await broker.reportProvingJobError(id2, 'test error');
+
+      await expect(broker.reportProvingJobError(id2, 'test error')).resolves.toEqual(undefined);
       await assertJobStatus(id2, 'rejected');
     });
 

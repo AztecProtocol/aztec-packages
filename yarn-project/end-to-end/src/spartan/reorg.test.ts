@@ -1,10 +1,10 @@
 import { sleep } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import {
   applyProverFailure,

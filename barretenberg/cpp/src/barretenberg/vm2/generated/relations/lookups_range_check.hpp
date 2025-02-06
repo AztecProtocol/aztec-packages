@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class lookup_rng_chk_pow_2_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_POW_2";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -73,7 +75,7 @@ class lookup_rng_chk_pow_2_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_pow_2_relation : public GenericLookupRelation<lookup_rng_chk_pow_2_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_POW_2";
+    static constexpr std::string_view NAME = lookup_rng_chk_pow_2_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_rng_chk_pow_2 = GenericLookup<lookup_rng_chk_pow_2_lookup_settings, FF_>;
 
@@ -81,6 +83,8 @@ template <typename FF_> using lookup_rng_chk_pow_2 = GenericLookup<lookup_rng_ch
 
 class lookup_rng_chk_diff_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_DIFF";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -136,7 +140,7 @@ class lookup_rng_chk_diff_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_diff_relation : public GenericLookupRelation<lookup_rng_chk_diff_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_DIFF";
+    static constexpr std::string_view NAME = lookup_rng_chk_diff_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_rng_chk_diff = GenericLookup<lookup_rng_chk_diff_lookup_settings, FF_>;
 
@@ -144,6 +148,8 @@ template <typename FF_> using lookup_rng_chk_diff = GenericLookup<lookup_rng_chk
 
 class lookup_rng_chk_is_r0_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R0_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -200,7 +206,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r0_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r0_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R0_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r0_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r0_16_bit = GenericLookup<lookup_rng_chk_is_r0_16_bit_lookup_settings, FF_>;
@@ -209,6 +215,8 @@ using lookup_rng_chk_is_r0_16_bit = GenericLookup<lookup_rng_chk_is_r0_16_bit_lo
 
 class lookup_rng_chk_is_r1_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R1_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -265,7 +273,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r1_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r1_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R1_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r1_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r1_16_bit = GenericLookup<lookup_rng_chk_is_r1_16_bit_lookup_settings, FF_>;
@@ -274,6 +282,8 @@ using lookup_rng_chk_is_r1_16_bit = GenericLookup<lookup_rng_chk_is_r1_16_bit_lo
 
 class lookup_rng_chk_is_r2_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R2_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -330,7 +340,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r2_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r2_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R2_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r2_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r2_16_bit = GenericLookup<lookup_rng_chk_is_r2_16_bit_lookup_settings, FF_>;
@@ -339,6 +349,8 @@ using lookup_rng_chk_is_r2_16_bit = GenericLookup<lookup_rng_chk_is_r2_16_bit_lo
 
 class lookup_rng_chk_is_r3_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R3_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -395,7 +407,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r3_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r3_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R3_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r3_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r3_16_bit = GenericLookup<lookup_rng_chk_is_r3_16_bit_lookup_settings, FF_>;
@@ -404,6 +416,8 @@ using lookup_rng_chk_is_r3_16_bit = GenericLookup<lookup_rng_chk_is_r3_16_bit_lo
 
 class lookup_rng_chk_is_r4_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R4_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -460,7 +474,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r4_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r4_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R4_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r4_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r4_16_bit = GenericLookup<lookup_rng_chk_is_r4_16_bit_lookup_settings, FF_>;
@@ -469,6 +483,8 @@ using lookup_rng_chk_is_r4_16_bit = GenericLookup<lookup_rng_chk_is_r4_16_bit_lo
 
 class lookup_rng_chk_is_r5_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R5_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -525,7 +541,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r5_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r5_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R5_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r5_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r5_16_bit = GenericLookup<lookup_rng_chk_is_r5_16_bit_lookup_settings, FF_>;
@@ -534,6 +550,8 @@ using lookup_rng_chk_is_r5_16_bit = GenericLookup<lookup_rng_chk_is_r5_16_bit_lo
 
 class lookup_rng_chk_is_r6_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R6_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -590,7 +608,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r6_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r6_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R6_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r6_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r6_16_bit = GenericLookup<lookup_rng_chk_is_r6_16_bit_lookup_settings, FF_>;
@@ -599,6 +617,8 @@ using lookup_rng_chk_is_r6_16_bit = GenericLookup<lookup_rng_chk_is_r6_16_bit_lo
 
 class lookup_rng_chk_is_r7_16_bit_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R7_16_BIT";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -655,7 +675,7 @@ template <typename FF_>
 class lookup_rng_chk_is_r7_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r7_16_bit_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RNG_CHK_IS_R7_16_BIT";
+    static constexpr std::string_view NAME = lookup_rng_chk_is_r7_16_bit_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_rng_chk_is_r7_16_bit = GenericLookup<lookup_rng_chk_is_r7_16_bit_lookup_settings, FF_>;

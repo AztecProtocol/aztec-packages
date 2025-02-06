@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.74.0...barretenberg.js-v0.75.0) (2025-02-06)
+
+
+### Miscellaneous
+
+* Better bundling for bb.js, remove aztec.js bundling ([#11761](https://github.com/AztecProtocol/aztec-packages/issues/11761)) ([8cc3f0a](https://github.com/AztecProtocol/aztec-packages/commit/8cc3f0a9f2753e942d7055f2ccddc96e6f4c7f94))
+* Playground name change ([#11720](https://github.com/AztecProtocol/aztec-packages/issues/11720)) ([c5cbf65](https://github.com/AztecProtocol/aztec-packages/commit/c5cbf659ffebff15d3609c0cb92d732133691ea0))
+
 ## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.73.0...barretenberg.js-v0.74.0) (2025-02-04)
 
 
