@@ -24,6 +24,6 @@ Notes are comparable to cash, with some slight differences. When you want to spe
 
 When using the Aztec protocol, users may not be aware of the specific notes that they own. Their experience should be similar to Ethereum, and should instead see the amount of their assets inside their account.
 
-This is accomplished through the smart contract library, Aztec.nr, which abstracts notes by allowing developers to specify custom note types. Aztec.nr also helps users discover all of the notes that have been encrypted to their account and posted to the chain, known as [note discovery](../advanced/storage/note_discovery.md). This means they can specify how notes are interacted with, nullified, transferred, and displayed.
+This is accomplished through the smart contract library, Aztec.nr, which abstracts notes by allowing developers to specify custom note types. This means they can specify how notes are interacted with, nullified, transferred, and displayed. Aztec.nr also helps users discover all of the notes that have been encrypted to their account and posted to the chain, known as [note discovery](../advanced/storage/note_discovery.md).
 
 To understand note abstraction in Aztec.nr, you can read the [Build section](../../../developers/guides/smart_contracts/writing_contracts/notes/index.md).

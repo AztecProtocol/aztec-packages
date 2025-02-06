@@ -223,4 +223,4 @@ Simulation result:  25n
 
 ## What's next?
 
-Click the Next button below to continue on your journey and build your first contract.
+Click the Next button below to continue on your journey and write your first Aztec smart contract.
