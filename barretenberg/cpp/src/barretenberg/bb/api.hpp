@@ -31,9 +31,9 @@ class API {
     };
 
     // // WORKTODO: add checking interface?
-    // virtual bool prove(const Flags& flags,
-    //                    const std::filesystem::path& bytecode_path,
-    //                    const std::filesystem::path& witness_path) = 0;
+    // virtual bool check_witness(const Flags& flags,
+    //                            const std::filesystem::path& bytecode_path,
+    //                            const std::filesystem::path& witness_path) = 0;
 
     virtual void prove(const Flags& flags,
                        const std::filesystem::path& bytecode_path,

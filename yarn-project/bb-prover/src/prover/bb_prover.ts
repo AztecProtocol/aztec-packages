@@ -710,53 +710,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Will check a recursive proof argument for validity of it's 'fields' format of proof and convert if required
-   * @param proof - The input proof that may need converting
-   * @returns - The valid proof
-   */
-  public async ensureValidProof(
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, // WORKTODO
-    circuit: ServerProtocolArtifact,
-    vk: VerificationKeyData,
-  ) {
-    // If the 'fields' proof is already valid then simply return
-    // This will be false for proofs coming from clients
-    if (proof.fieldsValid) {
-      return proof;
-    }
-
-    const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
-      const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
-
-      logger.debug(
-        `Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}, num public inputs: ${vk.numPublicInputs}, proof length ${proof.binaryProof.buffer.length}, vk length ${vk.keyAsBytes.length}`,
-      );
-
-      await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
-      await fs.writeFile(vkFullFilename, vk.keyAsBytes);
-
-      const proofString = await fs.readFile(path.join(bbWorkingDirectory, PROOF_FIELDS_FILENAME), {
-        encoding: 'utf-8',
-      });
-      const json = JSON.parse(proofString);
-      // ugh
-      const fields = json
-        .slice(0, 3)
-        .map(Fr.fromHexString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
-      return new RecursiveProof(
-        fields,
-        new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
-        true,
-        NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO
-      );
-    };
-    return await this.runInDirectory(operation);
-  }
-
-  /**
    * Returns the verification key data for a circuit.
    * @param circuitType - The type of circuit for which the verification key is required
    * @returns The verification key data

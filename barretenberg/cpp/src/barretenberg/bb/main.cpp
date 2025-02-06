@@ -803,7 +803,6 @@ int main(int argc, char* argv[])
         }
 
         const std::string command = args[0];
-        vinfo("bb command is: ", command);
         const std::string proof_system = get_option(args, "--scheme", "");
         const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
@@ -815,6 +814,8 @@ int main(int argc, char* argv[])
         const bool recursive = flag_present(args, "--recursive");
         const bool zk = flag_present(args, "--zk");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
+
+        vinfo(std::format("bb command is {} --scheme {}", command, proof_system));
 
         const API::Flags flags = [&]() {
             return API::Flags{
@@ -871,7 +872,7 @@ int main(int argc, char* argv[])
         // CLIENT IVC
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
-            execute_command(command, flags, api);
+            return execute_command(command, flags, api);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
         } else if (command == "gates_mega_honk") {
@@ -880,7 +881,7 @@ int main(int argc, char* argv[])
         // ULTRA HONK
         else if (proof_system == "ultra_honk") {
             UltraHonkAPI api;
-            execute_command(command, flags, api);
+            return execute_command(command, flags, api);
         }
         // ULTRA PLONK
         else if (command == "gates") {
