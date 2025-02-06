@@ -75,6 +75,7 @@ function mockEpochCache(): EpochCacheInterface {
   } as EpochCacheInterface;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
 
@@ -113,7 +114,7 @@ process.on('message', async msg => {
 
       // Create spy for gossip messages
       let gossipMessageCount = 0;
-      (client as any).p2pService.handleNewGossipMessage = async (...args: any[]) => {
+      (client as any).p2pService.handleNewGossipMessage = (...args: any[]) => {
         gossipMessageCount++;
         process.send!({ type: 'GOSSIP_RECEIVED', count: gossipMessageCount });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
@@ -134,6 +135,7 @@ process.on('message', async msg => {
       }
 
       // Listen for commands from parent
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       process.on('message', async (cmd: any) => {
         switch (cmd.type) {
           case 'STOP':
@@ -141,7 +143,6 @@ process.on('message', async msg => {
             process.exit(0);
             break;
           case 'SEND_TX':
-            console.log(cmd);
             await client.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
             process.send!({ type: 'TX_SENT' });
             break;
@@ -151,7 +152,6 @@ process.on('message', async msg => {
       process.send!({ type: 'READY' });
     }
   } catch (err: any) {
-    console.error({ err }, `Client ${clientIndex} error: ${err.message}`);
     process.send!({ type: 'ERROR', error: err.message });
     process.exit(1);
   }

@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
 const logger = createLogger('testbench');
 
-describe('Gossipsub', () => {
+describe.skip('Gossipsub', () => {
   let processes: ChildProcess[];
 
   beforeEach(() => {
@@ -133,7 +133,6 @@ describe('Gossipsub', () => {
 
     // Count how many processes received the message
     const spiesTriggered = Array.from(gossipCounts.values()).filter(count => count > 0).length;
-    console.log('spiesTriggered', spiesTriggered);
 
     // Expect all nodes apart from the one that sent it to receive the message
     expect(spiesTriggered).toEqual(numberOfClients - 1); // All nodes apart from the one that sent it

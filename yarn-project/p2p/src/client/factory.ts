@@ -4,7 +4,7 @@ import {
   P2PClientType,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';

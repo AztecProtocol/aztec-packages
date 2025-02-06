@@ -12,7 +12,7 @@ import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js
  */
 export async function makeEnrs(p2pPrivateKeys: string[], ports: number[]) {
   return await Promise.all(
-    p2pPrivateKeys.map(async (pk, i) => {
+    p2pPrivateKeys.map((pk, i) => {
       return makeEnr(pk, ports[i]);
     }),
   );

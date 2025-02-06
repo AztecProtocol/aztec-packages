@@ -23,13 +23,13 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
+import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/test-helpers';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { createBootstrapNode, createTestLibP2PService } from '../../p2p/dest/test-helpers/index.js';
 import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
