@@ -134,6 +134,7 @@ impl<T> ScheduledValueChange<T> {
     }
 }
 
+// We store 2 Ts and one extra field for the block of change.
 impl<T, let N: u32> Packable<2 * N + 1> for ScheduledValueChange<T>
 where
     T: Packable<N>,
