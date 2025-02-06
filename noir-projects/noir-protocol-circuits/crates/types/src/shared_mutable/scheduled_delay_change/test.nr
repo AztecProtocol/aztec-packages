@@ -1,4 +1,4 @@
-use crate::state_vars::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
+use crate::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
 
 global TEST_INITIAL_DELAY: u32 = 13;
 

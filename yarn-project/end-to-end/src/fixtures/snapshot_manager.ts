@@ -560,7 +560,7 @@ export const addAccounts =
         if (index === 0) {
           // for the first account, check if the contract class is already registered, otherwise we should register now
           if (
-            !(await pxe.getContractClassMetadata(account.getInstance().contractClassId))
+            !(await pxe.getContractClassMetadata(account.getInstance().currentContractClassId))
               .isContractClassPubliclyRegistered
           ) {
             skipClassRegistration = false;

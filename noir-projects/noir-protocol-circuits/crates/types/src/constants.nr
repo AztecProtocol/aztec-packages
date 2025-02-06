@@ -171,6 +171,10 @@ pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
 pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
 
+// sha224sum 'struct ContractInstanceUpdated'
+pub global DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
+    0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
+
 // CANONICAL CONTRACT ADDRESSES
 pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
@@ -182,6 +186,12 @@ pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
+
+// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
+pub global SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR: u32 = 0;
+pub global SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR: u32 = 1;
+pub global SHARED_MUTABLE_HASH_SEPARATOR: u32 = 2;
 
 // CANONICAL DEFAULT KEYS
 // This below are:
@@ -762,6 +772,8 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
+
+pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
 
 mod test {
     use crate::constants::{

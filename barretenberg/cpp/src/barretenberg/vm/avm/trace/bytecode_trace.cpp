@@ -32,7 +32,7 @@ FF AvmBytecodeTraceBuilder::compute_address_from_instance(const ContractInstance
                                                       contract_instance.initialisation_hash,
                                                       contract_instance.deployer_addr });
     FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.contract_class_id, salted_initialization_hash });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_contract_class_id, salted_initialization_hash });
 
     std::vector<FF> public_keys_hash_fields = contract_instance.public_keys.to_fields();
     std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
@@ -144,7 +144,7 @@ void AvmBytecodeTraceBuilder::build_bytecode_hash_columns()
                                           contract_bytecode.contract_class_id_preimage.private_fn_root,
                                           running_hash);
             // Assert that the computed class id is the same as what we received as the hint
-            ASSERT(last_entry.class_id == contract_bytecode.contract_instance.contract_class_id);
+            ASSERT(last_entry.class_id == contract_bytecode.contract_instance.current_contract_class_id);
 
             last_entry.contract_address = compute_address_from_instance(contract_bytecode.contract_instance);
             // Assert that the computed contract address is the same as what we received as the hint

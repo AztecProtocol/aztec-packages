@@ -12,6 +12,7 @@ import {
 import {
   type BlockHeader,
   type ContractClassPublic,
+  type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
@@ -83,8 +84,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#contractClassStore.getContractClassIds();
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = this.#contractInstanceStore.getContractInstance(address);
+  async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contract = this.#contractInstanceStore.getContractInstance(address, await this.getSynchedL2BlockNumber());
     return contract;
   }
 
@@ -124,6 +125,28 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
+  }
+
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((update, logIndex) =>
+          this.#contractInstanceStore.addContractInstanceUpdate(update, blockNumber, logIndex),
+        ),
+      )
+    ).every(Boolean);
+  }
+  async deleteContractInstanceUpdates(
+    data: ContractInstanceUpdateWithAddress[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((update, logIndex) =>
+          this.#contractInstanceStore.deleteContractInstanceUpdate(update, blockNumber, logIndex),
+        ),
+      )
+    ).every(Boolean);
   }
 
   /**

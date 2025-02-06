@@ -74,8 +74,8 @@ export class SimpleContractDataSource implements ContractDataSource {
       return undefined;
     }
     this.logger.debug(`Retrieved contract artifact for address: ${address}`);
-    this.logger.debug(`Contract class ID: ${contractInstance.contractClassId}`);
-    return Promise.resolve(this.contractArtifacts.get(contractInstance!.contractClassId.toString()));
+    this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
+    return Promise.resolve(this.contractArtifacts.get(contractInstance!.currentContractClassId.toString()));
   }
 
   getContractFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {

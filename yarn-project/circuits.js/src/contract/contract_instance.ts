@@ -25,7 +25,8 @@ export class SerializableContractInstance {
   public readonly version = VERSION;
   public readonly salt: Fr;
   public readonly deployer: AztecAddress;
-  public readonly contractClassId: Fr;
+  public readonly currentContractClassId: Fr;
+  public readonly originalContractClassId: Fr;
   public readonly initializationHash: Fr;
   public readonly publicKeys: PublicKeys;
 
@@ -35,7 +36,8 @@ export class SerializableContractInstance {
     }
     this.salt = instance.salt;
     this.deployer = instance.deployer;
-    this.contractClassId = instance.contractClassId;
+    this.currentContractClassId = instance.currentContractClassId;
+    this.originalContractClassId = instance.originalContractClassId;
     this.initializationHash = instance.initializationHash;
     this.publicKeys = instance.publicKeys;
   }
@@ -45,7 +47,8 @@ export class SerializableContractInstance {
       numToUInt8(this.version),
       this.salt,
       this.deployer,
-      this.contractClassId,
+      this.currentContractClassId,
+      this.originalContractClassId,
       this.initializationHash,
       this.publicKeys,
     );
@@ -62,7 +65,8 @@ export class SerializableContractInstance {
       version: reader.readUInt8() as typeof VERSION,
       salt: reader.readObject(Fr),
       deployer: reader.readObject(AztecAddress),
-      contractClassId: reader.readObject(Fr),
+      currentContractClassId: reader.readObject(Fr),
+      originalContractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
       publicKeys: reader.readObject(PublicKeys),
     });
@@ -73,7 +77,8 @@ export class SerializableContractInstance {
       version: VERSION,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       ...opts,
@@ -85,7 +90,8 @@ export class SerializableContractInstance {
       version: VERSION,
       salt: Fr.zero(),
       deployer: AztecAddress.zero(),
-      contractClassId: Fr.zero(),
+      currentContractClassId: Fr.zero(),
+      originalContractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
       publicKeys: PublicKeys.default(),
     });
@@ -125,7 +131,8 @@ export async function getContractInstanceFromDeployParams(
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
-    contractClassId,
+    currentContractClassId: contractClassId,
+    originalContractClassId: contractClassId,
     initializationHash,
     publicKeys,
     salt,

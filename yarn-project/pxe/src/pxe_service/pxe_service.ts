@@ -252,10 +252,10 @@ export class PXEService implements PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = await computeContractClassId(contractClass);
-      if (!contractClassId.equals(instance.contractClassId)) {
+      const contractClassId = contractClass.id;
+      if (!contractClassId.equals(instance.currentContractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
@@ -274,16 +274,39 @@ export class PXEService implements PXE {
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      artifact = await this.db.getContractArtifact(instance.currentContractClassId);
       if (!artifact) {
         throw new Error(
-          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+          `Missing contract artifact for class id ${instance.currentContractClassId} for contract ${instance.address}`,
         );
       }
     }
 
-    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
+    this.log.info(
+      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
+    );
+  }
+
+  public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    const currentInstance = await this.db.getContractInstance(contractAddress);
+    if (!currentInstance) {
+      throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
+    }
+    const contractClass = await getContractClassFromArtifact(artifact);
+
+    await this.db.addContractArtifact(contractClass.id, artifact);
+
+    const publicFunctionSignatures = artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+    await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+
+    // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+    await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+    currentInstance.currentContractClassId = contractClass.id;
+    await this.db.addContractInstance(currentInstance);
+    this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -730,19 +753,14 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing details of the contract call.
    * @returns An object containing the contract address, function artifact, and historical tree roots.
    */
-  async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+  #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionSelector =
       (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
-    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, functionSelector);
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, functionSelector);
 
     return {
       contractAddress,
-      functionArtifact: {
-        ...functionArtifact,
-        debug,
-      },
+      functionSelector,
     };
   }
 
@@ -752,11 +770,11 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(txRequest);
 
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender, scopes);
-      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
+      const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
+      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -776,12 +794,12 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall, scopes?: AztecAddress[]) {
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(execRequest);
 
     this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, scopes);
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionArtifact.name} completed`);
+      const result = await this.simulator.runUnconstrained(execRequest, contractAddress, functionSelector, scopes);
+      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
 
       return result;
     } catch (err) {

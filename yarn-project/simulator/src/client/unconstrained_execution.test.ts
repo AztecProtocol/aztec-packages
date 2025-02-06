@@ -1,5 +1,5 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
-import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, type ContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -56,6 +56,13 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
+      node.getBlockNumber.mockResolvedValue(27);
+      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      oracle.getFunctionArtifact.mockResolvedValue(artifact);
+      oracle.getContractInstance.mockResolvedValue({
+        currentContractClassId: new Fr(42),
+        originalContractClassId: new Fr(42),
+      } as ContractInstance);
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
       oracle.processTaggedLogs.mockResolvedValue();
       oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
@@ -82,7 +89,7 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, artifact, await AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(execRequest, contractAddress, FunctionSelector.empty());
 
       expect(result).toEqual(9n);
     }, 30_000);

@@ -1,33 +1,28 @@
 use dep::protocol_types::{
     address::AztecAddress,
+    constants::{
+        SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR, SHARED_MUTABLE_HASH_SEPARATOR,
+        SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR,
+    },
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    },
     traits::{FromField, Packable, ToField},
     utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::oracle::storage::storage_read;
-use crate::state_vars::{
-    shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-    },
-    storage::Storage,
-};
+use crate::state_vars::storage::Storage;
 use dep::std::mem::zeroed;
 
-pub(crate) mod scheduled_delay_change;
-pub(crate) mod scheduled_value_change;
 mod test;
 
 pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }
-
-// Separators separating storage slot of different values within the same state variable
-global VALUE_CHANGE_SEPARATOR: u32 = 0;
-global DELAY_CHANGE_SEPARATOR: u32 = 1;
-global HASH_SEPARATOR: u32 = 2;
 
 // This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
 // this state variable. This is incorrect, since what we actually store is:
@@ -74,15 +69,15 @@ where
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], SHARED_MUTABLE_HASH_SEPARATOR)
     }
 }
 
@@ -92,6 +87,10 @@ where
 {
 
     pub fn schedule_value_change(self, new_value: T) {
+        let _value_change = self.schedule_and_return_value_change(new_value);
+    }
+
+    pub fn schedule_and_return_value_change(self, new_value: T) -> ScheduledValueChange<T> {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
@@ -104,6 +103,8 @@ where
         value_change.schedule_change(new_value, block_number, current_delay, block_of_change);
 
         self.write(value_change, delay_change);
+
+        value_change
     }
 
     pub fn schedule_delay_change(self, new_delay: u32) {

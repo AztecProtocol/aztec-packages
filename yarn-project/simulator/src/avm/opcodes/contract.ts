@@ -58,7 +58,7 @@ export class GetContractInstance extends Instruction {
           memberValue = new Field(instance.deployer.toField());
           break;
         case ContractInstanceMember.CLASS_ID:
-          memberValue = new Field(instance.contractClassId.toField());
+          memberValue = new Field(instance.currentContractClassId.toField());
           break;
         case ContractInstanceMember.INIT_HASH:
           memberValue = new Field(instance.initializationHash);

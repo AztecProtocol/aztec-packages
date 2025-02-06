@@ -118,7 +118,7 @@ describe('e2e_avm_simulator', () => {
           .test_get_contract_instance_matches(
             avmContract.address,
             avmContract.instance.deployer,
-            avmContract.instance.contractClassId,
+            avmContract.instance.currentContractClassId,
             avmContract.instance.initializationHash,
           )
           .send()

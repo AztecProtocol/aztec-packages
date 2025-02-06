@@ -49,7 +49,7 @@ describe('AVM WitGen & Circuit – proving and verification', () => {
         argsU8,
         /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
         /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-        /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+        /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
         /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
       ];
 

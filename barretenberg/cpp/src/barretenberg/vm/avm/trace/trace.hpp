@@ -233,9 +233,11 @@ class AvmTraceBuilder {
     void checkpoint_non_revertible_state();
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    void validate_contract_instance_current_class_id(uint32_t clk, const ContractInstanceHint& instance);
+
     // Used to track the unique class ids, could also be used to cache membership checks of class ids
     std::unordered_set<FF> contract_class_id_cache;
-    std::unordered_set<FF> bytecode_membership_cache;
+    std::unordered_set<FF> contract_instance_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
     void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
                                          const std::vector<FF>& siloed_note_hashes);

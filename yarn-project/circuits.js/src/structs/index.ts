@@ -70,6 +70,7 @@ export * from './revert_code.js';
 export * from './rollup_validation_requests.js';
 export * from './scoped_key_validation_request_and_generator.js';
 export * from './shared.js';
+export * from './shared_mutable/index.js';
 export * from './state_reference.js';
 export * from './tree_leaf_read_request.js';
 export * from './tree_snapshots.js';

@@ -22,6 +22,7 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PrivateLog,
+  PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
   type TxRequest,
   VK_TREE_HEIGHT,
@@ -342,15 +343,15 @@ export class KernelProver {
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
+    const { currentContractClassId, publicKeys, saltedInitializationHash } =
+      await this.oracle.getContractAddressPreimage(contractAddress);
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractAddress,
+      currentContractClassId,
       functionSelector,
     );
-    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
-      contractAddress,
-    );
+
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
-      await this.oracle.getContractClassIdPreimage(contractClassId);
+      await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
@@ -360,16 +361,20 @@ export class KernelProver {
       ? await getProtocolContractSiblingPath(contractAddress)
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
+    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
       vk,
-      publicKeys,
-      contractClassArtifactHash,
-      contractClassPublicBytecodeCommitment,
-      saltedInitializationHash,
-      functionLeafMembershipWitness,
-      protocolContractSiblingPath,
-      acirHash,
+      verificationKeyHints: PrivateVerificationKeyHints.from({
+        publicKeys,
+        contractClassArtifactHash,
+        contractClassPublicBytecodeCommitment,
+        saltedInitializationHash,
+        functionLeafMembershipWitness,
+        protocolContractSiblingPath,
+        acirHash,
+        updatedClassIdHints,
+      }),
     });
   }
 

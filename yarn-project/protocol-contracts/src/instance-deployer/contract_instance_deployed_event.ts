@@ -51,7 +51,8 @@ export class ContractInstanceDeployedEvent {
     return {
       address: this.address,
       version: this.version,
-      contractClassId: this.contractClassId,
+      currentContractClassId: this.contractClassId,
+      originalContractClassId: this.contractClassId,
       initializationHash: this.initializationHash,
       publicKeys: this.publicKeys,
       salt: this.salt,

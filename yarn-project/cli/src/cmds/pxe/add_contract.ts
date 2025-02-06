@@ -18,11 +18,13 @@ export async function addContract(
   log: LogFn,
 ) {
   const artifact = await getContractArtifact(contractArtifactPath, log);
+  const contractClass = await getContractClassFromArtifact(artifact);
   const instance: ContractInstanceWithAddress = {
     version: 1,
     salt,
     initializationHash,
-    contractClassId: (await getContractClassFromArtifact(artifact)).id,
+    currentContractClassId: contractClass.id,
+    originalContractClassId: contractClass.id,
     publicKeys: publicKeys ?? PublicKeys.default(),
     address,
     deployer: deployer ?? AztecAddress.ZERO,
@@ -35,5 +37,5 @@ export async function addContract(
   const client = await createCompatibleClient(rpcUrl, debugLogger);
 
   await client.registerContract({ artifact, instance });
-  log(`\nContract added to PXE at ${address.toString()} with class ${instance.contractClassId.toString()}\n`);
+  log(`\nContract added to PXE at ${address.toString()} with class ${instance.currentContractClassId.toString()}\n`);
 }

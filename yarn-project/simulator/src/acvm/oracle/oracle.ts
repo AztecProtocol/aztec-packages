@@ -58,7 +58,7 @@ export class Oracle {
     return [
       instance.salt,
       instance.deployer,
-      instance.contractClassId,
+      instance.currentContractClassId,
       instance.initializationHash,
       ...instance.publicKeys.toFields(),
     ].map(toACVMField);

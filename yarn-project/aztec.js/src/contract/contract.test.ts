@@ -13,6 +13,7 @@ import {
   EthAddress,
   GasFees,
   type NodeInfo,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
@@ -79,14 +80,23 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
@@ -131,7 +141,12 @@ describe('Contract Class', () => {
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = await CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
 
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',

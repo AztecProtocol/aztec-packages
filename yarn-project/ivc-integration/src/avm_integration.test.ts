@@ -101,7 +101,7 @@ describe('AVM Integration', () => {
       ...argsU8,
       /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
       /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-      /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ].map(x => new Fr(x));
     const simRes = await simTester.simulateTx(

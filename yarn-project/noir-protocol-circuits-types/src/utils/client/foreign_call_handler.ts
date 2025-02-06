@@ -18,6 +18,8 @@ export function foreignCallHandler(name: string, args: ForeignCallInput[]): Prom
     const msg: string = msgRaw.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
     const fieldsFr: Fr[] = fields.map((field: string) => fromACVMField(field));
     log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
+  } else if (name === 'noOp') {
+    // Workaround for compiler issues where data is deleted because it's "unused"
   } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }

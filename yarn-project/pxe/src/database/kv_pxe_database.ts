@@ -127,7 +127,7 @@ export class KVPxeDatabase implements PxeDatabase {
     address: AztecAddress,
   ): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined> {
     const instance = await this.getContractInstance(address);
-    const artifact = instance && (await this.getContractArtifact(instance?.contractClassId));
+    const artifact = instance && (await this.getContractArtifact(instance?.currentContractClassId));
     if (!instance || !artifact) {
       return undefined;
     }

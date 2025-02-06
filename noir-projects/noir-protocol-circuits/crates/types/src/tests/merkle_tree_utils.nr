@@ -189,6 +189,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
         self.left_supertree_branch[SUPERTREE_HEIGHT - 1]
     }
 
+    // TODO make this actually track non empty leaves
     pub fn get_next_available_index(_self: Self) -> u32 {
         SUBTREE_ITEMS
     }

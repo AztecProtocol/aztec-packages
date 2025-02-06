@@ -152,13 +152,19 @@ export const browserTestSuite = (
 
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
-        async (rpcUrl, contractAddress, TokenContractArtifact) => {
+        async (rpcUrl, contractAddress, serializedTokenContractArtifact) => {
           const {
             Contract,
             AztecAddress,
             createPXEClient: createPXEClient,
             getDeployedTestAccountsWallets,
+            contractArtifactFromBuffer,
+            Buffer,
           } = window.AztecJs;
+          // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
+          const TokenContractArtifact = await contractArtifactFromBuffer(
+            Buffer.from(serializedTokenContractArtifact, 'base64'),
+          );
           const pxe = createPXEClient(rpcUrl!);
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const owner = wallet.getCompleteAddress().address;
@@ -168,22 +174,30 @@ export const browserTestSuite = (
         },
         pxeURL,
         (await getTokenAddress()).toString(),
-        TokenContractArtifact,
+        contractArtifactToBuffer(TokenContractArtifact).toString('base64'),
       );
       expect(result).toEqual(initialBalance);
     });
 
     it('Sends a transfer TX', async () => {
       const result = await page.evaluate(
-        async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
+        async (rpcUrl, contractAddress, transferAmount, serializedTokenContractArtifact) => {
           console.log(`Starting transfer tx`);
+
           const {
             AztecAddress,
             Contract,
             createPXEClient: createPXEClient,
             getDeployedTestAccountsWallets,
             getUnsafeSchnorrAccount,
+            contractArtifactFromBuffer,
+            Buffer,
           } = window.AztecJs;
+
+          // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
+          const TokenContractArtifact = await contractArtifactFromBuffer(
+            Buffer.from(serializedTokenContractArtifact, 'base64'),
+          );
           const pxe = createPXEClient(rpcUrl!);
           const newReceiverAccountManager = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random());
           const newReceiverAccount = await newReceiverAccountManager.waitSetup();
@@ -197,7 +211,7 @@ export const browserTestSuite = (
         pxeURL,
         (await getTokenAddress()).toString(),
         transferAmount,
-        TokenContractArtifact,
+        contractArtifactToBuffer(TokenContractArtifact).toString('base64'),
       );
       expect(result).toEqual(transferAmount);
     });
