@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738778504366,
+  "lastUpdate": 1738836831511,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d149be20e73321fece072a1b7e410225b5dc8c9",
-          "message": "feat(avm): include initial tree roots in DB (#11360)\n\nWe'll need the roots for the context and other stuff. I expect that `get_tree_roots()` will not lay constraints. I expect that the roots will be advanced via hints in, e.g, `emit_nullifier` (root before, root after).",
-          "timestamp": "2025-01-21T10:37:49Z",
-          "tree_id": "d61059801c174dd1b2c16c013c4b1bf6abe5f182",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4d149be20e73321fece072a1b7e410225b5dc8c9"
-        },
-        "date": 1737456937849,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18934.115093000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16022.106673 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21571.164356000052,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18870.275763999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4069.3137160000106,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3759.5047959999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 82807.149561,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 82807149000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14677.943532000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14677944000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 4028415386,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 4028415386 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 166153934,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 166153934 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 135142599,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135142599 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6145cd051a9fcabfd4c7ddcb5c7607390ef5f152",
+          "message": "chore(avm): full row cleanup (#11767)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
+          "timestamp": "2025-02-06T09:55:42Z",
+          "tree_id": "aeeb59eeb4cd7c4f86d5520c2e609f03b7488339",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6145cd051a9fcabfd4c7ddcb5c7607390ef5f152"
+        },
+        "date": 1738836823300,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20355.636050999976,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17605.100001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21177.440432000025,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18439.475241 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4490.174085000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4143.9138410000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 71549.33496699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 71549334000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13406.643896000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13406643000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2726265222,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2726265222 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146876412,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146876412 ns\nthreads: 1"
           }
         ]
       }
