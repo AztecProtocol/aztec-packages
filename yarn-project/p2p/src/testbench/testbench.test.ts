@@ -17,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
 const logger = createLogger('testbench');
 
-describe.skip('Gossipsub', () => {
+describe('Gossipsub', () => {
   let processes: ChildProcess[];
 
   let p2pBaseConfig: P2PConfig;
@@ -108,10 +108,14 @@ describe.skip('Gossipsub', () => {
     // Setup clients in separate processes
     const testConfig: Partial<P2PConfig> = {
       maxPeerCount: numberOfClients + 20,
+      gossipsubFloodPublish: false,
+      debugDisableColocationPenalty: true,
+      debugDisableMessageValidation: true,
       gossipsubInterval: 700,
       gossipsubD: 1,
       gossipsubDlo: 1,
       gossipsubDhi: 1,
+      gossipsubDLazy: 1,
       peerCheckIntervalMS: 2500,
 
       // Increased
