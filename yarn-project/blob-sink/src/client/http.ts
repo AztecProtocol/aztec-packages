@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/foundation/blob';
+import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
