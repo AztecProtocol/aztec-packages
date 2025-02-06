@@ -1,13 +1,14 @@
 import {
   createLogger,
   createAztecNodeClient,
-  type PXE,
   AztecNode,
-  AccountWalletWithSecretKey,
-  AztecAddress,
-  Contract,
   Logger,
-} from "@aztec/aztec.js";
+} from "@aztec/aztec.js/utils";
+
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { AccountWalletWithSecretKey } from "@aztec/aztec.js/wallet";
+import { Contract } from "@aztec/aztec.js/contracts";
+import { type PXE } from "@aztec/aztec.js/interfaces/pxe";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
