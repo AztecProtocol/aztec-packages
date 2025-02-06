@@ -8,7 +8,9 @@ use crate::{
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct AvmAccumulatedData {
     // The note hashes from private combining with those made in the AVM execution.
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
@@ -36,75 +38,20 @@ impl Empty for AvmAccumulatedData {
     }
 }
 
-impl Serialize<AVM_ACCUMULATED_DATA_LENGTH> for AvmAccumulatedData {
-    fn serialize(self) -> [Field; AVM_ACCUMULATED_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, AVM_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
+mod test {
+    use crate::{
+        abis::accumulated_data::avm_accumulated_data::AvmAccumulatedData,
+        constants::AVM_ACCUMULATED_DATA_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-        for i in 0..self.note_hashes.len() {
-            fields.extend_from_array(self.note_hashes[i].serialize());
-        }
-
-        for i in 0..self.nullifiers.len() {
-            fields.extend_from_array(self.nullifiers[i].serialize());
-        }
-
-        for i in 0..self.l2_to_l1_msgs.len() {
-            fields.extend_from_array(self.l2_to_l1_msgs[i].serialize());
-        }
-
-        for i in 0..self.public_logs.len() {
-            fields.extend_from_array(self.public_logs[i].serialize());
-        }
-
-        for i in 0..self.public_data_writes.len() {
-            fields.extend_from_array(self.public_data_writes[i].serialize());
-        }
-
-        assert_eq(fields.len(), AVM_ACCUMULATED_DATA_LENGTH);
-
-        fields.storage()
+    #[test]
+    fn serialization_of_empty_avm_accumulated_data() {
+        let item = AvmAccumulatedData::empty();
+        // We use the AVM_ACCUMULATED_DATA_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; AVM_ACCUMULATED_DATA_LENGTH] = item.serialize();
+        let deserialized = AvmAccumulatedData::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-impl Deserialize<AVM_ACCUMULATED_DATA_LENGTH> for AvmAccumulatedData {
-    fn deserialize(fields: [Field; AVM_ACCUMULATED_DATA_LENGTH]) -> AvmAccumulatedData {
-        let mut reader = Reader::new(fields);
-
-        let item = AvmAccumulatedData {
-            note_hashes: reader.read_array(),
-            nullifiers: reader.read_array(),
-            l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
-            ),
-            public_logs: reader.read_struct_array(
-                PublicLog::deserialize,
-                [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            ),
-            public_data_writes: reader.read_struct_array(
-                PublicDataWrite::deserialize,
-                [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-            ),
-        };
-        reader.finish();
-        item
-    }
-}
-
-impl Eq for AvmAccumulatedData {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.public_logs == other.public_logs)
-            & (self.public_data_writes == other.public_data_writes)
-    }
-}
-
-#[test]
-fn serialization_of_empty_avm_accumulated_data() {
-    let item = AvmAccumulatedData::empty();
-    let serialized = item.serialize();
-    let deserialized = AvmAccumulatedData::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

@@ -21,6 +21,12 @@ pub mod log_hash;
 pub mod nullifier;
 pub mod call_context;
 pub mod private_call_request;
+
+pub mod side_effect;
+pub mod read_request;
+pub mod public_log;
+pub mod public_data_write;
+
 pub mod accumulated_data;
 pub mod avm_circuit_public_inputs;
 
@@ -34,11 +40,6 @@ pub mod nullifier_leaf_preimage;
 pub mod tx_constant_data;
 pub mod combined_constant_data;
 pub mod constant_rollup_data;
-
-pub mod side_effect;
-pub mod read_request;
-pub mod public_log;
-pub mod public_data_write;
 
 pub mod validation_requests;
 
