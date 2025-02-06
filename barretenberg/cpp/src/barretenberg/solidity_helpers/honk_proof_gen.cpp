@@ -16,14 +16,14 @@ using namespace bb;
 using numeric::uint256_t;
 
 // Get rid of the inner typename
-template <template <typename> typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
+template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
 {
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
-    UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(inputs);
+    UltraCircuitBuilder builder = Circuit::generate(inputs);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);

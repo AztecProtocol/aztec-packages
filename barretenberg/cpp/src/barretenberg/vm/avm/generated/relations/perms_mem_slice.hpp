@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class perm_slice_mem_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_SLICE_MEM";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 5;
 
@@ -67,7 +69,7 @@ class perm_slice_mem_permutation_settings {
 template <typename FF_>
 class perm_slice_mem_relation : public GenericPermutationRelation<perm_slice_mem_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_SLICE_MEM";
+    static constexpr std::string_view NAME = perm_slice_mem_permutation_settings::NAME;
 };
 template <typename FF_> using perm_slice_mem = GenericPermutation<perm_slice_mem_permutation_settings, FF_>;
 

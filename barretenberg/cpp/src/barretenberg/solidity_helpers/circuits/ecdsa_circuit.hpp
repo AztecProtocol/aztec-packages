@@ -13,9 +13,9 @@
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace bb {
-
-template <typename Builder> class EcdsaCircuit {
+class EcdsaCircuit {
   public:
+    using Builder = bb::UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     using public_witness_ct = stdlib::public_witness_t<Builder>;

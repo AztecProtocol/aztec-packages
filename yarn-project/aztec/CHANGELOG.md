@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.74.0...aztec-package-v0.75.0) (2025-02-06)
+
+
+### Miscellaneous
+
+* Playground name change ([#11720](https://github.com/AztecProtocol/aztec-packages/issues/11720)) ([c5cbf65](https://github.com/AztecProtocol/aztec-packages/commit/c5cbf659ffebff15d3609c0cb92d732133691ea0))
+
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.73.0...aztec-package-v0.74.0) (2025-02-04)
+
+
+### Miscellaneous
+
+* Ensure new kv-store is used on the server ([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662)) ([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))
+
 ## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.72.1...aztec-package-v0.73.0) (2025-02-01)
 
 
@@ -27,7 +41,7 @@
 
 ### Features
 
-* Gaztec ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
+* Aztec Playground ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
 * Lazy wasm pt. 2 ([#11410](https://github.com/AztecProtocol/aztec-packages/issues/11410)) ([01510f4](https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2))
 * Lazy wasm pt3 ([#11435](https://github.com/AztecProtocol/aztec-packages/issues/11435)) ([7068d05](https://github.com/AztecProtocol/aztec-packages/commit/7068d055d91a6e81e6fbb670e17c77ee209a1a80))
 

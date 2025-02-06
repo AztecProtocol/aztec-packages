@@ -16,11 +16,10 @@ using namespace bb;
 using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
-template <template <typename> typename Circuit>
-void generate_keys_honk(const std::string& output_path, std::string circuit_name)
+template <typename Circuit> void generate_keys_honk(const std::string& output_path, std::string circuit_name)
 {
     uint256_t public_inputs[4] = { 0, 0, 0, 0 };
-    UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(public_inputs);
+    UltraCircuitBuilder builder = Circuit::generate(public_inputs);
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     UltraKeccakProver prover(proving_key);

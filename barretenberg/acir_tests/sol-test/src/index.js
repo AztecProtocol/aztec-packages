@@ -9,6 +9,7 @@ const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
 const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 494;
 
+const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
 const SUMCHECK_FAILED = "0x9fc3a218";
 const SHPLEMINI_FAILED = "0xa5d82e8a";
@@ -258,6 +259,10 @@ try {
   if (testingHonk) {
     var errorType = e.data;
     switch (errorType) {
+      case WRONG_PROOF_LENGTH:
+        throw new Error(
+          "Proof length wrong. Check the constant and the proof surgery."
+        );
       case WRONG_PUBLIC_INPUTS_LENGTH:
         throw new Error("Number of inputs in the proof is wrong");
       case SUMCHECK_FAILED:

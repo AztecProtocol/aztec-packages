@@ -45,8 +45,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     Output output;
     StdlibProof<Builder> honk_proof;

@@ -6,7 +6,33 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+### TBD
+
+### Changes to `TokenBridge` interface
+
+`get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
+### [Aztec.nr] Introduction of `WithHash<T>`
+
+`WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
+This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
+This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
+
+`WithHash<T>` is leveraged by state variables like `PublicImmutable`.
+This is a breaking change because now we require values stored in `PublicImmutable` and `SharedMutable` to implement the `Eq` trait.
+
+To implement the `Eq` trait you can use the `#[derive(Eq)]` macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Eq)]
+pub struct YourType {
+    ...
+}
+```
+
+## 0.73.0
 
 ### [Token, FPC] Moving fee-related complexity from the Token to the FPC
 

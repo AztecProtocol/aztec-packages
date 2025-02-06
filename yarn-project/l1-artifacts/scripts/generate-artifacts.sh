@@ -37,6 +37,7 @@ contracts=(
   "SlashFactory"
   "Forwarder"
   "HonkVerifier"
+  "StakingLib"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.

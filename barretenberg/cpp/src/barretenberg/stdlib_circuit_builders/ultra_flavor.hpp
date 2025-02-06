@@ -60,9 +60,6 @@ class UltraFlavor {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
-
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>

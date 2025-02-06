@@ -40,8 +40,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
     info("instantiated verifier commitments");
