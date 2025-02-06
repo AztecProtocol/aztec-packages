@@ -17,10 +17,7 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
 
     // minimum size of execution trace due to everything else
-    size_t min_size_of_execution_trace = circuit.blocks.pub_inputs.size() + circuit.num_gates;
-    if constexpr (IsMegaFlavor<Flavor>) {
-        min_size_of_execution_trace += circuit.blocks.ecc_op.size();
-    }
+    size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
