@@ -5,7 +5,7 @@ use crate::{
 };
 use std::meta::derive;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct StateReference {
     pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
     pub partial: PartialStateReference,
@@ -17,13 +17,6 @@ impl Empty for StateReference {
             l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
             partial: PartialStateReference::empty(),
         }
-    }
-}
-
-// TODO(benesjan): why does deriving Eq not work?
-impl Eq for StateReference {
-    fn eq(self, other: StateReference) -> bool {
-        self.l1_to_l2_message_tree.eq(other.l1_to_l2_message_tree) & self.partial.eq(other.partial)
     }
 }
 

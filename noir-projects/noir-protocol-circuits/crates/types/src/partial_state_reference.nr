@@ -4,7 +4,7 @@ use crate::{
 };
 use std::meta::derive;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PartialStateReference {
     pub note_hash_tree: AppendOnlyTreeSnapshot,
     pub nullifier_tree: AppendOnlyTreeSnapshot,
@@ -18,15 +18,6 @@ impl Empty for PartialStateReference {
             nullifier_tree: AppendOnlyTreeSnapshot::zero(),
             public_data_tree: AppendOnlyTreeSnapshot::zero(),
         }
-    }
-}
-
-// TODO(benesjan): why does deriving Eq not work?
-impl Eq for PartialStateReference {
-    fn eq(self, other: PartialStateReference) -> bool {
-        self.note_hash_tree.eq(other.note_hash_tree)
-            & self.nullifier_tree.eq(other.nullifier_tree)
-            & self.public_data_tree.eq(other.public_data_tree)
     }
 }
 

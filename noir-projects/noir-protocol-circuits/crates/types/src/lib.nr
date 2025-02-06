@@ -21,12 +21,12 @@ pub mod type_serialization;
 pub mod type_packing;
 
 pub mod content_commitment;
+pub mod partial_state_reference;
+pub mod state_reference;
 pub mod block_header;
 
 mod tests;
 
-pub mod state_reference;
-pub mod partial_state_reference;
 pub mod proof;
 pub mod data;
 pub mod storage;
