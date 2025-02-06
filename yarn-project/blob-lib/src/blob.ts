@@ -51,10 +51,6 @@ export class Blob {
   static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Promise<Blob> {
     try {
       const fields: Fr[] = deserializeEncodedBlobToFields(blob);
-      console.log(
-        `from encoded blob buffer Fields`,
-        fields.slice(0, 10).map(f => f.toString()),
-      );
       return Blob.fromFields(fields, multiBlobFieldsHash);
     } catch (err) {
       throw new BlobDeserializationError(
