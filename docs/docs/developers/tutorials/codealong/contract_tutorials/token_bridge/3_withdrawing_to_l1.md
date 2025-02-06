@@ -55,11 +55,11 @@ We also use a `_withCaller` parameter to determine the appropriate party that ca
 
 We call this pattern _designed caller_ which enables a new paradigm **where we can construct other such portals that talk to the token portal and therefore create more seamless crosschain legos** between L1 and L2.
 
-Before we can compile and use the contract, we need to add two additional functions.
+Before we can compile and use the contract, we need to add 1 additional function.
 
 We need a function that lets us read the token value. Paste this into `main.nr`:
 
-#include_code get_token /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code get_config /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 ## Compile code
 
