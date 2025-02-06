@@ -443,7 +443,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         rollup.submitEpochRootProof(
           SubmitEpochRootProofArgs({
-            epochSize: epochSize,
+            start: start,
+            end: start + epochSize,
             args: args,
             fees: fees,
             blobPublicInputs: blobPublicInputs,

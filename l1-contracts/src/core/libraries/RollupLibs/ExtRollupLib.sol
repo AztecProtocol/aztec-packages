@@ -2,20 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {BlockLog, RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {BlockLog, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Slot, Epoch} from "./../TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
-import {
-  EpochProofLib,
-  SubmitEpochRootProofAddresses,
-  SubmitEpochRootProofInterimValues
-} from "./EpochProofLib.sol";
+import {EpochProofLib} from "./EpochProofLib.sol";
 import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
 import {HeaderLib, Header} from "./HeaderLib.sol";
@@ -24,30 +16,6 @@ import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
 // instead of a few smaller ones.
 
 library ExtRollupLib {
-  function submitEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args,
-    SubmitEpochRootProofInterimValues memory _interimValues,
-    IProofCommitmentEscrow _proofCommitmentEscrow,
-    IFeeJuicePortal _feeJuicePortal,
-    IRewardDistributor _rewardDistributor,
-    IERC20 _asset,
-    address _cuauhxicalli
-  ) external returns (uint256) {
-    return EpochProofLib.submitEpochRootProof(
-      _rollupStore,
-      _args,
-      _interimValues,
-      SubmitEpochRootProofAddresses({
-        proofCommitmentEscrow: _proofCommitmentEscrow,
-        feeJuicePortal: _feeJuicePortal,
-        rewardDistributor: _rewardDistributor,
-        asset: _asset,
-        cuauhxicalli: _cuauhxicalli
-      })
-    );
-  }
-
   function validateHeaderForSubmissionBase(
     ValidateHeaderArgs memory _args,
     mapping(uint256 blockNumber => BlockLog log) storage _blocks
@@ -93,14 +61,15 @@ library ExtRollupLib {
 
   function getEpochProofPublicInputs(
     RollupStore storage _rollupStore,
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory) {
     return EpochProofLib.getEpochProofPublicInputs(
-      _rollupStore, _epochSize, _args, _fees, _blobPublicInputs, _aggregationObject
+      _rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 
