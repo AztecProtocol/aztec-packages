@@ -266,9 +266,6 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
                 ASSERT(false);
             }
 
-            info("Trace overflow mechanism in use: ");
-            blocks.summarize();
-
             // Set has_overflow to true if at least one block exceeds its capacity
             blocks.has_overflow = true;
 
