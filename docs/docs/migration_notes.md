@@ -8,7 +8,12 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### TBD
 
+### Changes to `TokenBridge` interface
+
+`get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
 ### [Aztec.nr] Introduction of `WithHash<T>`
+
 `WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
 This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
 This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
