@@ -156,7 +156,6 @@ class UltraHonkAPI : public API {
         VectorCircuitSource circuit_source{ stack };
         info("created circuit source");
 
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
@@ -169,7 +168,6 @@ class UltraHonkAPI : public API {
                                                                        const std::filesystem::path& bytecode_path,
                                                                        const std::filesystem::path& witness_path)
     {
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
@@ -185,7 +183,6 @@ class UltraHonkAPI : public API {
                                                                     const std::filesystem::path& bytecode_path,
                                                                     const std::filesystem::path& witness_path)
     {
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
@@ -360,7 +357,6 @@ class UltraHonkAPI : public API {
         std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
         VectorCircuitSource circuit_source{ stack };
 
-        info("initialize_pairing_point_accumulator is: ", flags.initialize_pairing_point_accumulator);
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
         const bool verified =

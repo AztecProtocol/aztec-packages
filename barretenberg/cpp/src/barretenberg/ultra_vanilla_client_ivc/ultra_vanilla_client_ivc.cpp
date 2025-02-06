@@ -12,7 +12,7 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
 
 void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit,
                                                const size_t step,
-                                               const bool initialize_pairing_point_accumulator)
+                                               [[maybe_unused]] const bool initialize_pairing_point_accumulator)
 {
     if (step == 0) {
         info("internal ivc step 0");
@@ -21,11 +21,9 @@ void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit,
         info("internal ivc step ", step);
         accumulate(circuit, previous_proof, previous_vk);
         accumulator_indices = accumulator.get_witness_indices();
-    }
-    if (initialize_pairing_point_accumulator) {
-        info("calling add_pairing_point_accumulator");
         circuit.add_pairing_point_accumulator(accumulator_indices);
     }
+
     vinfo("set accumulator indices");
 }
 
