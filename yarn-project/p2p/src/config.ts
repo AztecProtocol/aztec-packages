@@ -287,7 +287,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...numberConfigHelper(12),
   },
   gossipsubDLazy: {
-    env: 'P2P_GOSSIPSUB_D_LAZY',
+    env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
     ...numberConfigHelper(6),
   },
