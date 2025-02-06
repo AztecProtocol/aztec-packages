@@ -1,11 +1,11 @@
 use crate::{
     abis::side_effect::{Ordered, OrderedValue, Scoped},
     address::AztecAddress,
-    constants::{LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct LogHash {
     pub value: Field,
     pub counter: u32,
@@ -24,29 +24,9 @@ impl OrderedValue<Field> for LogHash {
     }
 }
 
-impl Eq for LogHash {
-    fn eq(self, other: LogHash) -> bool {
-        (self.value == other.value)
-            & (self.counter == other.counter)
-            & (self.length == other.length)
-    }
-}
-
 impl Empty for LogHash {
     fn empty() -> Self {
         LogHash { value: 0, counter: 0, length: 0 }
-    }
-}
-
-impl Serialize<LOG_HASH_LENGTH> for LogHash {
-    fn serialize(self) -> [Field; LOG_HASH_LENGTH] {
-        [self.value, self.counter as Field, self.length]
-    }
-}
-
-impl Deserialize<LOG_HASH_LENGTH> for LogHash {
-    fn deserialize(values: [Field; LOG_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, length: values[2] }
     }
 }
 
@@ -56,6 +36,7 @@ impl LogHash {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ScopedLogHash {
     pub log_hash: LogHash,
     pub contract_address: AztecAddress,
@@ -82,36 +63,9 @@ impl OrderedValue<Field> for ScopedLogHash {
     }
 }
 
-impl Eq for ScopedLogHash {
-    fn eq(self, other: ScopedLogHash) -> bool {
-        (self.log_hash == other.log_hash) & (self.contract_address == other.contract_address)
-    }
-}
-
 impl Empty for ScopedLogHash {
     fn empty() -> Self {
         ScopedLogHash { log_hash: LogHash::empty(), contract_address: AztecAddress::empty() }
-    }
-}
-
-impl Serialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
-    fn serialize(self) -> [Field; SCOPED_LOG_HASH_LENGTH] {
-        array_concat(
-            self.log_hash.serialize(),
-            [self.contract_address.to_field()],
-        )
-    }
-}
-
-impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
-    fn deserialize(values: [Field; SCOPED_LOG_HASH_LENGTH]) -> Self {
-        let mut reader = Reader::new(values);
-        let res = Self {
-            log_hash: reader.read_struct(LogHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        res
     }
 }
 
@@ -126,5 +80,37 @@ impl ScopedLogHash {
             },
             contract_address: self.contract_address,
         }
+    }
+}
+
+mod test {
+    use crate::{
+        abis::log_hash::{LogHash, ScopedLogHash},
+        address::AztecAddress,
+        constants::{LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
+        traits::{Deserialize, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_log_hash() {
+        let item = LogHash { value: 5, counter: 6, length: 7 };
+        // We use the LOG_HASH_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; LOG_HASH_LENGTH] = item.serialize();
+        let deserialized = LogHash::deserialize(serialized);
+        assert_eq(item, deserialized);
+    }
+
+    #[test]
+    fn serialization_of_scoped_log_hash() {
+        let item = ScopedLogHash {
+            log_hash: LogHash { value: 5, counter: 6, length: 7 },
+            contract_address: AztecAddress::zero(),
+        };
+        // We use the SCOPED_LOG_HASH_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; SCOPED_LOG_HASH_LENGTH] = item.serialize();
+        let deserialized = ScopedLogHash::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
 }

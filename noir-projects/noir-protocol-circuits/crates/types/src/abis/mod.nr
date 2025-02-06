@@ -39,9 +39,9 @@ pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;
 
-pub mod private_call_request;
 pub mod public_call_request;
 pub mod call_context;
+pub mod private_call_request;
 
 pub mod private_circuit_public_inputs;
 
