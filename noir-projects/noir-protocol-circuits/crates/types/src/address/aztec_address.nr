@@ -3,10 +3,7 @@ use crate::{
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
-    constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        MAX_FIELD_VALUE,
-    },
+    constants::{FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE},
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
@@ -23,16 +20,12 @@ use std::{
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
     ops::Add,
 };
+use std::meta::derive;
 
 // Aztec address
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct AztecAddress {
     pub inner: Field,
-}
-
-impl Eq for AztecAddress {
-    fn eq(self, other: Self) -> bool {
-        self.to_field() == other.to_field()
-    }
 }
 
 impl Empty for AztecAddress {
@@ -50,30 +43,6 @@ impl ToField for AztecAddress {
 impl FromField for AztecAddress {
     fn from_field(value: Field) -> AztecAddress {
         AztecAddress { inner: value }
-    }
-}
-
-impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
-    fn serialize(self: Self) -> [Field; AZTEC_ADDRESS_LENGTH] {
-        [self.to_field()]
-    }
-}
-
-impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
-    fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
-        FromField::from_field(fields[0])
-    }
-}
-
-/// We implement the Packable trait for AztecAddress because it can be stored in contract's storage (and there
-/// the implementation of Packable is required).
-impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
-    fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
-        self.serialize()
-    }
-
-    fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
-        Self::deserialize(fields)
     }
 }
 

@@ -1,3 +1,6 @@
+// Traits need to be first for the #[derive(...)] macro to work.
+pub mod traits;
+
 pub mod utils;
 pub mod address;
 pub mod debug_log;
@@ -14,7 +17,6 @@ pub mod contract_instance;
 pub mod messaging;
 pub mod hash;
 pub mod poseidon2;
-pub mod traits;
 pub mod type_serialization;
 pub mod type_packing;
 

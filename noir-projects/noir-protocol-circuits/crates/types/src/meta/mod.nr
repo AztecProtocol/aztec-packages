@@ -116,7 +116,6 @@ pub comptime fn generate_deserialize_from_fields<N>(
             // The field is a struct so we iterate over each struct field and recursively call
             // `generate_deserialize_from_fields`
             let (nested_def, generics) = typ.as_struct().unwrap();
-            let nested_name = nested_def.name();
             let mut deserialized_fields_list = &[];
 
             // Iterate over each field in the struct
@@ -143,7 +142,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
             // We can construct the struct from the deserialized fields
             let deserialized_fields = deserialized_fields_list.join(quote {,});
             result = quote {
-                $nested_name {
+                $typ {
                     $deserialized_fields
                 }
             };
