@@ -174,7 +174,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     telemetry: TelemetryClient,
     logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
+    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
     // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
