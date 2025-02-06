@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class lookup_bitw_byte_lengths_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_LENGTHS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -72,7 +74,7 @@ class lookup_bitw_byte_lengths_lookup_settings {
 template <typename FF_>
 class lookup_bitw_byte_lengths_relation : public GenericLookupRelation<lookup_bitw_byte_lengths_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_LENGTHS";
+    static constexpr std::string_view NAME = lookup_bitw_byte_lengths_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_bitw_byte_lengths = GenericLookup<lookup_bitw_byte_lengths_lookup_settings, FF_>;
 
@@ -80,6 +82,8 @@ template <typename FF_> using lookup_bitw_byte_lengths = GenericLookup<lookup_bi
 
 class lookup_bitw_byte_operations_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_OPERATIONS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -147,7 +151,7 @@ template <typename FF_>
 class lookup_bitw_byte_operations_relation
     : public GenericLookupRelation<lookup_bitw_byte_operations_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_OPERATIONS";
+    static constexpr std::string_view NAME = lookup_bitw_byte_operations_lookup_settings::NAME;
 };
 template <typename FF_>
 using lookup_bitw_byte_operations = GenericLookup<lookup_bitw_byte_operations_lookup_settings, FF_>;

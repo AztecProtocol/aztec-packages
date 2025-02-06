@@ -20,6 +20,7 @@ import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
@@ -67,6 +68,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
 
+  private txFetcher: RunningPromise;
+  private lastBlockNumber: number | undefined;
+
   public readonly tracer: Tracer;
 
   constructor(
@@ -97,6 +101,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
+    this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
   public getP2P() {
@@ -202,6 +207,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    * This method returns once the prover node has deposited an initial bond into the escrow contract.
    */
   async start() {
+    this.txFetcher.start();
     await this.bondManager.ensureBond();
     this.epochsMonitor.start(this);
     this.claimsMonitor.start(this);
@@ -213,6 +219,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async stop() {
     this.log.info('Stopping ProverNode');
+    await this.txFetcher.stop();
     await this.epochsMonitor.stop();
     await this.claimsMonitor.stop();
     await this.prover.stop();
@@ -310,6 +317,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   @memoize
   private getL1Constants() {
     return this.l2BlockSource.getL1Constants();
+  }
+
+  /** Monitors for new blocks and requests their txs from the p2p layer to ensure they are available for proving. */
+  @trackSpan('ProverNode.checkForTxs')
+  private async checkForTxs() {
+    const blockNumber = await this.l2BlockSource.getBlockNumber();
+    if (this.lastBlockNumber === undefined || blockNumber > this.lastBlockNumber) {
+      const block = await this.l2BlockSource.getBlock(blockNumber);
+      if (!block) {
+        return;
+      }
+      const txHashes = block.body.txEffects.map(tx => tx.txHash);
+      this.log.verbose(`Fetching ${txHashes.length} for block number ${blockNumber} from coordination`);
+      await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
+      this.lastBlockNumber = blockNumber;
+    }
   }
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
