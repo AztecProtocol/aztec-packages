@@ -44,7 +44,7 @@ unconstrained fn test_end_vote() {
 #[test(should_fail)]
 unconstrained fn test_fail_end_vote_by_non_admin() {
     let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account();
+    let alice = env.create_account(1);
 
     env.impersonate(alice);
     EasyPrivateVoting::at(voting_contract_address).end_vote().call(&mut env.public());
@@ -53,7 +53,7 @@ unconstrained fn test_fail_end_vote_by_non_admin() {
 #[test]
 unconstrained fn test_cast_vote() {
     let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account();
+    let alice = env.create_account(1);
     env.impersonate(alice);
 
     let candidate = 1;
@@ -72,8 +72,8 @@ unconstrained fn test_cast_vote() {
 #[test]
 unconstrained fn test_cast_vote_with_separate_accounts() {
     let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account();
-    let bob = env.create_account();
+    let alice = env.create_account(1);
+    let bob = env.create_account(2);
 
     let candidate = 101;
 
@@ -97,7 +97,7 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
 #[test(should_fail)]
 unconstrained fn test_fail_vote_twice() {
     let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account();
+    let alice = env.create_account(1);
 
     let candidate = 101;
 
