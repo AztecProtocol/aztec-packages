@@ -149,6 +149,8 @@ function test_cmds {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
+# WORKTODO: should include failure tests
+
 export -f build_tests test
 
 case "$cmd" in
