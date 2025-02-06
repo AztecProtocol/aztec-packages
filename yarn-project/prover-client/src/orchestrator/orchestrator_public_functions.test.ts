@@ -67,7 +67,7 @@ describe('prover/orchestrator/public-functions', () => {
         numberOfNonRevertiblePublicCallRequests: 2,
       });
       tx.data.constants.historicalHeader = context.getBlockHeader(0);
-      tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+      tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
       const [processed, _] = await context.processPublicFunctions([tx], 1);
