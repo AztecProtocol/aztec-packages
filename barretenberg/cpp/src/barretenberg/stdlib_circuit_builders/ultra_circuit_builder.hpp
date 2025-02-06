@@ -332,6 +332,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<fr> ipa_proof;
 
+    void populate_public_inputs_block();
+
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
@@ -440,18 +442,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void finalize_circuit(const bool ensure_nonzero);
 
     void add_gates_to_ensure_all_polys_are_non_zero();
-
-    uint32_t add_public_variable(const FF& in) override
-    {
-        const uint32_t index = this->add_variable(in);
-        blocks.pub_inputs.populate_wires(index, index, this->zero_idx, this->zero_idx);
-
-        for (auto& selector : blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-
-        return index;
-    }
 
     void create_add_gate(const add_triple_<FF>& in) override;
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
