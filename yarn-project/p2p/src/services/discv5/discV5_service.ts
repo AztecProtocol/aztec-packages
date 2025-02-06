@@ -30,7 +30,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private currentState = PeerDiscoveryState.STOPPED;
 
-  private bootstrapNodes: string[];
+  public bootstrapNodes: string[];
   private bootstrapNodePeerIds: PeerId[] = [];
 
   private startTime = 0;

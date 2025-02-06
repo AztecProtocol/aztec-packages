@@ -334,9 +334,12 @@ describe('p2p client integration', () => {
           logger.info(`\n\n\n\n\n\n\nCreating client ${i}\n\n\n\n\n\n\n`);
           const addr = `127.0.0.1:${ports[i]}`;
           const listenAddr = `0.0.0.0:${ports[i]}`;
-          const otherNodes = peerEnrs.filter((_, ind) => ind < i);
 
-          const config = {
+          // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
+          const otherNodes = peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
+
+          // TODO: drastically increase mcache length parameters and see what happens to performance
+          const config: P2PConfig = {
             ...getP2PDefaultConfig(),
             p2pEnabled: true,
             peerIdPrivateKey: peerIdPrivateKeys[i],
@@ -346,12 +349,16 @@ describe('p2p client integration', () => {
             udpAnnounceAddress: addr,
             bootstrapNodes: [...otherNodes],
             minPeerCount: 0,
-            maxPeerCount: numberOfClients,
+            maxPeerCount: numberOfClients + 20,
             gossipsubInterval: 700,
             gossipsubD: 1,
             gossipsubDlo: 1,
             gossipsubDhi: 1,
             peerCheckIntervalMS: 2500,
+
+            // Increased
+            gossipsubMcacheGossip: 12,
+            gossipsubMcacheLength: 12,
           };
 
           const childProcess = fork(workerPath);
@@ -368,6 +375,7 @@ describe('p2p client integration', () => {
           processes.push(childProcess);
         }
 
+        // Wait for peers to all connect with each other
         await sleep(4000);
 
         // Track gossip message counts from all processes
@@ -385,7 +393,7 @@ describe('p2p client integration', () => {
         processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
 
         // Give time for message propagation
-        await sleep(5000);
+        await sleep(15000);
         logger.info(`\n\n\n\n\n\n\nWoke up\n\n\n\n\n\n\n`);
 
         // Count how many processes received the message

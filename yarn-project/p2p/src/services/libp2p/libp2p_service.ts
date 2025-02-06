@@ -37,6 +37,7 @@ import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p
 import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
+import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import { type ConnectionManager } from '@libp2p/interface-internal';
@@ -182,6 +183,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
+    // If bootstrap nodes are provided, also provide them to the p2p service
+    const peerDiscovery = [];
+    if (peerDiscoveryService.bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    }
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -204,15 +211,28 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       ],
       datastore,
       // TODO transiently removed setting: { maxInboundStreams: 256 }
+      peerDiscovery,
       streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: minPeerCount,
+        minConnections: 0,
         maxConnections: maxPeerCount,
+
+        maxParallelDials: 100,
+        maxPeerAddrsToDial: 5,
+        maxIncomingPendingConnections: 5,
       },
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
+
+          // NOTE(flood-test): adjusted both below
+          // maxInboundStreams: 50,
+          // maxOutboundStreams: 50,
+
+          // NOTE(flood-test): often see this error appearing in the gossip test
+          // maxPushOutgoingStreams: 50,
+          // maxPushIncomingStreams: 50,
         }),
         pubsub: gossipsub({
           debugName: 'gossipsub',
@@ -223,41 +243,56 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
           // TODO: reactivate
-          // Dlazy: 6,
+          Dlazy: 1,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
-          // gossipsubIWantFollowupMs: 12 * 1000,
-          msgIdFn: getMsgIdFn,
-          msgIdToStrFn: msgIdToStrFn,
-          fastMsgIdFn: fastMsgIdFn,
+          gossipsubIWantFollowupMs: 12 * 1000,
+          // msgIdFn: getMsgIdFn,
+          // msgIdToStrFn: msgIdToStrFn,
+          // fastMsgIdFn: fastMsgIdFn,
           dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
           // batchPublish: true,
+          // same as lodestar
+          scoreThresholds: {
+            gossipThreshold: -4000,
+            publishThreshold: -8000,
+            graylistThreshold: -16000,
+            acceptPXThreshold: 100,
+            opportunisticGraftThreshold: 5,
+          },
+          // NOTE: increased mesh message deliveries window
           scoreParams: createPeerScoreParams({
+            // Disabled for local testing
+            IPColocationFactorWeight: 0,
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesWindow: 10_000,
               }),
               [EpochProofQuote.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
+                meshMessageDeliveriesWindow: 10_000,
               }),
             },
           }),
