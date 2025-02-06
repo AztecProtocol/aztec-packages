@@ -42,11 +42,7 @@ import type {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import {
-  computeContractAddressFromInstance,
-  computeContractClassId,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
@@ -100,10 +96,13 @@ export class PXEService implements PXE {
     private proofCreator: PrivateKernelProver,
     private simulationProvider: SimulationProvider,
     config: PXEServiceConfig,
-    logSuffix?: string,
+    loggerOrSuffix?: string | Logger,
   ) {
-    this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
-    this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
+    this.log =
+      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
+        ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
+        : loggerOrSuffix;
+    this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
@@ -237,7 +236,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+    const { id: contractClassId } = await getContractClassFromArtifact(artifact);
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -249,10 +248,9 @@ export class PXEService implements PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = await computeContractClassId(contractClass);
-      if (!contractClassId.equals(instance.contractClassId)) {
+      if (!contractClass.id.equals(instance.contractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClass.id} but instance refers to ${instance.contractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
@@ -260,7 +258,7 @@ export class PXEService implements PXE {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
-      await this.db.addContractArtifact(contractClassId, artifact);
+      await this.db.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -654,7 +652,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 

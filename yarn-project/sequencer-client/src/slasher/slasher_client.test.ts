@@ -9,19 +9,21 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from '@jest/globals';
+import { rm } from 'fs/promises';
 
 import { SlasherClient, type SlasherConfig } from './slasher_client.js';
 
 // Most of this test are directly copied from the P2P client test.
 describe('In-Memory Slasher Client', () => {
   let blockSource: MockL2BlockSource;
-  let kvStore: AztecKVStore;
+  let kvStore: AztecAsyncKVStore;
   let client: SlasherClient;
   let config: SlasherConfig & L1ContractsConfig & L1ReaderConfig;
+  let tmpDir: string;
 
   beforeEach(async () => {
     blockSource = new MockL2BlockSource();
@@ -42,25 +44,25 @@ describe('In-Memory Slasher Client', () => {
       viemPollingIntervalMS: 1000,
     };
 
-    kvStore = openTmpStore();
+    // ephemeral false so that we can close and re-open during tests
+    const store = await openTmpStore('test', false);
+    kvStore = store;
+    tmpDir = store.dataDirectory;
     client = new SlasherClient(config, kvStore, blockSource);
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     blockSource.setProvenEpochNumber(provenEpochNumber);
-    await retryUntil(
-      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
-      'synced',
-      10,
-      0.1,
-    );
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
     if (client.isReady()) {
       await client.stop();
     }
+
+    await rm(tmpDir, { recursive: true, force: true });
   });
 
   it('can start & stop', async () => {
@@ -75,10 +77,13 @@ describe('In-Memory Slasher Client', () => {
 
   it('restores the previous block number it was at', async () => {
     await client.start();
+    const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
-    const client2 = new SlasherClient(config, kvStore, blockSource);
-    expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
+    const reopenedStore = await openStoreAt(tmpDir);
+    const client2 = new SlasherClient(config, reopenedStore, blockSource);
+    expect(await client2.getSyncedLatestBlockNum()).toEqual(synchedBlock);
+    await client2.stop();
   });
 
   describe('Chain prunes', () => {

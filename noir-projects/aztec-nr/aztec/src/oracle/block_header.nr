@@ -94,12 +94,12 @@ mod test {
         let current_header = env.private().historical_header;
 
         let target_block_number = 3;
-        let bad_header = get_block_header_at_internal(target_block_number - 1);
+        let bad_header = get_block_header_at_internal(target_block_number);
 
         // We pass in a different block number than the header received
         constrain_get_block_header_at_internal(
             bad_header,
-            2,
+            target_block_number - 1,
             current_header.global_variables.block_number as u32 - 1,
             current_header.last_archive.root,
         );

@@ -1,9 +1,12 @@
 pub mod interfaces;
 pub mod initialization_utils;
 
-use super::utils::{
-    add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-    is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+use super::{
+    notes::NOTES,
+    utils::{
+        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
+        is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+    },
 };
 use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
@@ -79,6 +82,31 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);"
         .quoted_contents()
+}
+
+/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// available for the current execution.
+comptime fn create_note_discovery_call() -> Quoted {
+    quote {
+        /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
+        /// safe to call.
+        unsafe {
+            dep::aztec::discovery::discover_new_notes(
+                context.this_address(),
+                |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+                    // _compute_note_hash_and_optionally_a_nullifier is a contract library method injected by `generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier`
+                    let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
+
+                    Option::some(
+                        aztec::discovery::NoteHashAndNullifier {
+                            note_hash: hashes[0],
+                            inner_nullifier: hashes[3],
+                        },
+                    )
+                },
+            )
+        };
+    }
 }
 
 /// Private functions are executed client-side and preserve privacy.
@@ -160,6 +188,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // All private functions perform note discovery, since they may need to access notes. This is slightly inefficient
+    // and could be improved by only doing it once we actually attempt to read any.
+    let note_discovery_call = if NOTES.len() > 0 {
+        create_note_discovery_call()
+    } else {
+        quote {}
+    };
+
     // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel
     // circuit expects.
     let return_value_var_name = quote { macro__returned__values };
@@ -211,6 +247,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $note_discovery_call
     };
 
     let to_append = quote {
@@ -332,13 +369,28 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let module_has_storage = module_has_storage(f.module());
 
     let storage_init = if module_has_storage {
-        quote { let storage = Storage::init(context); }
+        quote {
+            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
+            // referenced. We instead ignore 'unused variable' warnings for it.
+            #[allow(unused_variables)]
+            let storage = Storage::init(context);
+        }
     } else {
         quote {}
     };
+
+    // All unconstrained functions perform note discovery, since they may need to access notes. This is slightly
+    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    let note_discovery_call = if NOTES.len() > 0 {
+        create_note_discovery_call()
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
         $context_creation
         $storage_init
+        $note_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});

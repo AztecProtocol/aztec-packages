@@ -59,6 +59,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -501,6 +502,15 @@ export class AztecNodeService implements AztecNode, Traceable {
   }
 
   /**
+   * Method to retrieve txs from the mempool or unfinalised chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]) {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  }
+
+  /**
    * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
@@ -863,7 +873,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     );
     const fork = await this.worldStateSynchronizer.fork();
 
-    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -876,7 +886,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 

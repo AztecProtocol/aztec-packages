@@ -1,7 +1,7 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 
 import {
   type Account,
@@ -45,6 +45,14 @@ export type EpochProofQuoteViemArgs = {
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 
+  static get checkBlobStorageSlot(): bigint {
+    const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
+    if (asString === undefined) {
+      throw new Error('checkBlobStorageSlot not found');
+    }
+    return BigInt(asString);
+  }
+
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
     const {
       publicClient,
@@ -72,7 +80,7 @@ export class RollupContract {
 
   @memoize
   public async getSlashingProposer() {
-    const slasherAddress = await this.rollup.read.SLASHER();
+    const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
     return new SlashingProposerContract(this.client, proposerAddress);
@@ -85,7 +93,7 @@ export class RollupContract {
 
   @memoize
   getL1GenesisTime() {
-    return this.rollup.read.GENESIS_TIME();
+    return this.rollup.read.getGenesisTime();
   }
 
   @memoize
@@ -95,26 +103,26 @@ export class RollupContract {
 
   @memoize
   getEpochDuration() {
-    return this.rollup.read.EPOCH_DURATION();
+    return this.rollup.read.getEpochDuration();
   }
 
   @memoize
   getSlotDuration() {
-    return this.rollup.read.SLOT_DURATION();
+    return this.rollup.read.getSlotDuration();
   }
 
   @memoize
   getTargetCommitteeSize() {
-    return this.rollup.read.TARGET_COMMITTEE_SIZE();
+    return this.rollup.read.getTargetCommitteeSize();
   }
 
   @memoize
   getMinimumStake() {
-    return this.rollup.read.MINIMUM_STAKE();
+    return this.rollup.read.getMinimumStake();
   }
 
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.rollup.read.SLASHER();
+    const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({
       address: getAddress(slasherAddress.toString()),
       abi: SlasherAbi,
@@ -171,6 +179,10 @@ export class RollupContract {
     return this.rollup.read.getTips();
   }
 
+  getTimestampForSlot(slot: bigint) {
+    return this.rollup.read.getTimestampForSlot([slot]);
+  }
+
   async getEpochNumber(blockNumber?: bigint) {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
@@ -191,7 +203,7 @@ export class RollupContract {
         this.rollup.read.FEE_JUICE_PORTAL(),
         this.rollup.read.REWARD_DISTRIBUTOR(),
         this.rollup.read.ASSET(),
-        this.rollup.read.STAKING_ASSET(),
+        this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);
 
