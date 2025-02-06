@@ -226,7 +226,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
 
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+        requires HasDataBus<Flavor>;
 };
 
 } // namespace bb
