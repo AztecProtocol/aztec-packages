@@ -374,7 +374,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     for (size_t i = 1; i < num_rounds / 2; ++i) {
         // `nafs` tracks the naf value for each point for the current round
         std::vector<bool_ct> nafs;
-        info("nafs size ", naf_entries[0].size());
         for (size_t j = 0; j < points.size(); ++j) {
             nafs.emplace_back(naf_entries[j][i * 2 - 1]);
         }

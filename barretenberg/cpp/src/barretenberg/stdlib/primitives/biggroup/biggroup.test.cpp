@@ -414,16 +414,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_short_scalar_mul()
+    // Test short scalar mul with variable even bit length. For efficiency, it's split into two tests.
+    static void test_short_scalar_mul_2_126()
     {
         Builder builder;
-        const size_t max_num_bits = 254;
+        const size_t max_num_bits = 128;
 
         // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
         for (size_t i = 2; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
-            // Get a short scalar
+            // Get a random 256 integer
             uint256_t scalar_raw = engine.get_random_uint256();
+            // Produce a length =< i scalar.
             scalar_raw = scalar_raw >> (256 - i);
             fr scalar = fr(scalar_raw);
 
@@ -449,9 +451,47 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             fq c_x_result(c.x.get_value().lo);
             fq c_y_result(c.y.get_value().lo);
-            if (c_x_result != c_expected.x) {
-                info("failed ", i);
-            };
+
+            EXPECT_EQ(c_x_result, c_expected.x);
+
+            EXPECT_EQ(c_y_result, c_expected.y);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_short_scalar_mul_128_252()
+    {
+        Builder builder;
+        const size_t max_num_bits = 254;
+
+        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        for (size_t i = 128; i < max_num_bits; i += 2) {
+            affine_element input(element::random_element());
+            // Get a random 256-bit integer
+            uint256_t scalar_raw = engine.get_random_uint256();
+            // Produce a length =< i scalar.
+            scalar_raw = scalar_raw >> (256 - i);
+            fr scalar = fr(scalar_raw);
+
+            element_ct P = element_ct::from_witness(&builder, input);
+            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
+
+            // Set input tags
+            x.set_origin_tag(challenge_origin_tag);
+            P.set_origin_tag(submitted_value_origin_tag);
+
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            // Multiply using specified scalar length
+            element_ct c = P.scalar_mul(x, i);
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            affine_element c_expected(element(input) * scalar);
+
+            // Check the result of the multiplication has a tag that's the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            fq c_x_result(c.x.get_value().lo);
+            fq c_y_result(c.y.get_value().lo);
+
             EXPECT_EQ(c_x_result, c_expected.x);
 
             EXPECT_EQ(c_y_result, c_expected.y);
@@ -462,32 +502,52 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_short_scalar_mul_infinity()
     {
-        Builder builder;
-        element input = element::infinity();
+        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
+        // short scalar and also check that the number of gates in this case is equal to the number of gates spent on a
+        // finite point.
 
-        // Get 128-bit scalar
-        uint256_t scalar_raw = fr::random_element();
-        scalar_raw.data[2] = 0ULL;
-        scalar_raw.data[3] = 0ULL;
-        fr scalar = fr(scalar_raw);
+        // Populate test points.
+        std::vector<element> points(2);
 
-        element_ct P = element_ct::from_witness(&builder, input);
-        scalar_ct x = scalar_ct::from_witness(&builder, scalar);
+        points[0] = element::infinity();
+        points[1] = element::random_element();
+        // Containter for gate counts.
+        std::vector<size_t> gates(2);
 
-        // Set input tags
-        x.set_origin_tag(challenge_origin_tag);
-        P.set_origin_tag(submitted_value_origin_tag);
+        // We initialize this flag as `true`, because the first result is expected to be the point at infinity.
+        bool expect_infinity = true;
 
-        std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-        element_ct c = P.scalar_mul(x, 128);
-        std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+        for (auto [point, num_gates] : zip_view(points, gates)) {
+            Builder builder;
 
-        // Check the result of the multiplication has a tag that's the union of inputs' tags
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            const size_t max_num_bits = 128;
+            // Get a random 256-bit integer
+            uint256_t scalar_raw = engine.get_random_uint256();
+            // Produce a length =< max_num_bits scalar.
+            scalar_raw = scalar_raw >> (256 - max_num_bits);
+            fr scalar = fr(scalar_raw);
 
-        EXPECT_EQ(c.is_point_at_infinity().get_value(), true);
+            element_ct P = element_ct::from_witness(&builder, point);
+            scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
+            // Set input tags
+            x.set_origin_tag(challenge_origin_tag);
+            P.set_origin_tag(submitted_value_origin_tag);
+
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            element_ct c = P.scalar_mul(x, max_num_bits);
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            num_gates = builder.get_estimated_num_finalized_gates();
+            // Check the result of the multiplication has a tag that's the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+            EXPECT_EQ(c.is_point_at_infinity().get_value(), expect_infinity);
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+            // The second point is finite, hence we flip the flag
+            expect_infinity = false;
+        }
+        // Check that the numbers of gates are equal in both cases.
+        EXPECT_EQ(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -1704,12 +1764,20 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul)
     TestFixture::test_mul();
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_2_126_bits)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
-        TestFixture::test_short_scalar_mul();
+        TestFixture::test_short_scalar_mul_2_126();
+    }
+}
+HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_128_252_bits)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_short_scalar_mul_128_252();
     }
 }
 
