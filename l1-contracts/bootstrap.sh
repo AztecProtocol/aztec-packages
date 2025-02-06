@@ -57,7 +57,8 @@ function test {
 }
 
 function release {
-  # TODO: Publish to own repo with current tag REF_NAME
+  # Publish to own repo with current tag or branch REF_NAME.
+  # This
   true
 }
 
@@ -74,6 +75,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "release")
+    release
     ;;
   "test-cmds")
     test_cmds
