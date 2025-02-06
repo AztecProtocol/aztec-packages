@@ -1,16 +1,45 @@
 ---
-title: Note discovery
-tags: [storage, concepts, advanced]
-sidebar_position: 4
+title: Note Discovery
+tags: [storage, concepts, advanced, notes]
+sidebar_position: 3
 ---
 
+Note discovery refers to the process of a user identifying and decrypting the [encrypted notes](../../storage/notes.md) that belong to them.
 
-Note discovery refers to the process of a [PXE](../../pxe/index.md) finding the notes that it owns.
+## Existing solutions
 
-Existing protocols use the brute force method of note discovery, also known as trial-decrypt. This involves downloading all notes in the network and attempting to decrypt each one. If you can decrypt it, it means you own it. However, this gets expotentially more computationally expensive as the network grows. It also relies on a server to coninually collect notes and trial-decrypt them, adding another point of failure. 
+### Brute force / trial-decrypt
 
-Another solution could be that the sender of the note communicates the note content to the recipient in some off-chain way. This would allow the recipient to find the note that belongs to them and decrypt it. However, we want the network to be able to exist by itself.
+In some existing protocols, the user downloads all possible notes and tries to decrypt each one. If the decryption succeeds, the user knows they own that note. However, this approach becomes exponentially more expensive as the network grows and more notes are created. It also introduces a third-party server to gather and trial-decrypt notes, which is an additional point of failure.
 
-To solve this, Aztec utilizes somethnig called *note tagging* that allows users to register an expected note sender in their PXE. This tells the PXE to expect notes coming from that expected sender, which helps more efficiently discover the encrypted notes being created for its registered accounts.
+### Off-chain communication
 
+Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network.
 
+## Aztec's solution: Note tagging
+
+Aztec introduces an approach that allows users to predict which notes may belong to them by *tagging* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
+
+### How it works
+
+#### Every log has a tag
+
+In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node can expose an API that can retrieve logs matching specific tags.
+
+#### Tag generation 
+
+The sender and recipient share a predictable scheme for generating tags. The tag is derived from their [shared secret](TODO) and an index (a shared counter that increments each time the sender creates a note for the recipient).
+
+#### Discovering notes in Aztec contracts
+
+This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use another types of note discovery to suit their needs. 
+
+### Limitations
+
+- **You cannot receive notes from an unknown sender**. If you do not know the sender’s address, you cannot create the shared secret, and therefore cannot create the note tag. There are potential ways around this, such as senders adding themselves to a contract and then recipients searching for note tags from all the senders in the contract. However this is out of scope at this point in time.
+
+- **Index synchronization can be complicated**. If transactions are reverted or mined out of order, the recipient may stop searching after receiving a tag with the latest index they expect. This means they can miss notes that belong to them. We cannot redo a reverted a transaction with the same index, because then the tag will be the same and the notes will be linked, leaking privacy. We can solve this by widening the search window (not too much, or it becomes brute force) and implementing a few restrictions on sending notes. A user will not be able to send a large amount of notes from the same contract to the same recipient within a short time frame. 
+
+## Further reading
+
+- [How partial notes are discovered](./partial_notes.md)

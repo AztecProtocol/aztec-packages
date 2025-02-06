@@ -67,11 +67,7 @@ The database stores various types of data, including:
 - **Capsules**: External data or data injected into the system via [oracles](#oracles).
 - **Address Book**: A list of expected addresses that a PXE may encrypt notes for, or received encrypted notes from. This list helps the PXE reduce the amount of work required to find notes relevant to it's registered accounts.
 
-### Note discovery
-
-Note discovery helps solve the problem of a user parsing the chain for their encrypted notes.
-
-Learn more about Aztec's note tagging scheme [here](../advanced/storage/note_discovery.md).
+The PXE is not in charge of note discovery, ie finding the notes that are owned by the user. This is handled by Aztec contracts, and you can learn more [here](../advanced/storage/note_discovery.md)
 
 ### Authorization
 

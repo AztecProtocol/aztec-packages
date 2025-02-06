@@ -2,7 +2,7 @@
 title: Partial Notes
 description: Describes how partial notes are used in Aztec
 tags: [notes, storage]
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.
@@ -153,6 +153,10 @@ This ensures that the refund partial note will be completed for the user.
 #### `complete_refund`
 
 #include_code complete_refund noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+
+## Note discovery
+
+
 
 ## Future work
 
