@@ -445,3 +445,9 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
+
+// STARTER
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint32_t** totals)
+{
+    // return a pointer total such that total[i][0] is the finalized size of the ith circuit in a acir_stack
+}

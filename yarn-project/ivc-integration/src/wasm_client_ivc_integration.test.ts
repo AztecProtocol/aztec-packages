@@ -65,6 +65,11 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
+
+    // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
+    // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
+    // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
+
     logger.debug('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger.debug('built witness stack');

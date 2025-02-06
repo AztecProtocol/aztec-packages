@@ -357,6 +357,21 @@ export class BarretenbergApi {
     return out as [number, number];
   }
 
+  // STARTER
+  async acirGatesAztecClient( // cf acirProveAztecClient
+    acirVec: Uint8Array[]
+  ): Promise<number[]> {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()/* TODO: need to determine this number at runtime or set a max */];
+    const result = await this.wasm.callWasmExport(
+      'acir_gates_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as [number, number];
+  }
+
   async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {
     const inArgs = [sizeHint].map(serializeBufferable);
     const outTypes: OutputType[] = [Ptr];
@@ -1052,6 +1067,22 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_get_circuit_sizes',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  acirGatesMegaHonk(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    honkRecursion: boolean,
+  ): [number, number, number] {
+    const inArgs = [constraintSystemBuf, recursive, honkRecursion].map(serializeBufferable);
+    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_gate_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
