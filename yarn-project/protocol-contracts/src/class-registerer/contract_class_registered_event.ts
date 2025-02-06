@@ -46,11 +46,11 @@ export class ContractClassRegisteredEvent {
     );
   }
 
-  toContractClassPublic(): ContractClassPublic {
-    const computedClassId = computeContractClassId({
+  async toContractClassPublic(): Promise<ContractClassPublic> {
+    const computedClassId = await computeContractClassId({
       artifactHash: this.artifactHash,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      publicBytecodeCommitment: computePublicBytecodeCommitment(this.packedPublicBytecode),
+      publicBytecodeCommitment: await computePublicBytecodeCommitment(this.packedPublicBytecode),
     });
 
     if (!computedClassId.equals(this.contractClassId)) {

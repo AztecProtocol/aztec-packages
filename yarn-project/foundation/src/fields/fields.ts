@@ -1,4 +1,4 @@
-import { BarretenbergLazy } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { inspect } from 'util';
 
@@ -261,7 +261,7 @@ export class Fr extends BaseField {
       return fromHexString(buf, Fr);
     }
 
-    throw new Error('Tried to create a Fr from an invalid string');
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
   }
 
   /**
@@ -319,8 +319,8 @@ export class Fr extends BaseField {
    * @returns A square root of the field element (null if it does not exist).
    */
   async sqrt(): Promise<Fr | null> {
-    const wasm = (await BarretenbergLazy.getSingleton()).getWasm();
-    const [buf] = await wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
+    const wasm = (await BarretenbergSync.initSingleton()).getWasm();
+    const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
     const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
@@ -412,7 +412,7 @@ export class Fq extends BaseField {
       return fromHexString(buf, Fq);
     }
 
-    throw new Error('Tried to create a Fq from an invalid string');
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
   }
 
   /**

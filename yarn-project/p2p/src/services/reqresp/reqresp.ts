@@ -95,7 +95,13 @@ export class ReqResp {
 
     // Register all protocol handlers
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
-      await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
+      await this.libp2p.handle(
+        subProtocol,
+        (data: IncomingStreamData) =>
+          void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+            this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+          ),
+      );
     }
     this.rateLimiter.start();
   }

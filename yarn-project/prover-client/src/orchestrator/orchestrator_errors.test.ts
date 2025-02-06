@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -24,14 +24,14 @@ describe('prover/orchestrator/errors', () => {
 
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
-      const txs = times(4, i => context.makeProcessedTx(i + 1));
+      const txs = await timesParallel(4, i => context.makeProcessedTx(i + 1));
       await context.setEndTreeRoots(txs);
 
       orchestrator.startNewEpoch(1, 1, 1);
       await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       await orchestrator.addTxs(txs);
 
-      await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
+      await expect(async () => await orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(
         `Block ${context.blockNumber} has been initialized with transactions.`,
       );
 
@@ -51,14 +51,14 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
-      await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
+      await expect(async () => await orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(
         /Block proving state for 1 not found/,
       );
     });
 
     it('throws if adding a transaction before starting block', async () => {
       orchestrator.startNewEpoch(1, 1, 1);
-      await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
+      await expect(async () => await orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(
         /Block proving state for 1 not found/,
       );
     });
@@ -75,7 +75,7 @@ describe('prover/orchestrator/errors', () => {
       await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       orchestrator.cancel();
 
-      await expect(async () => await context.orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
+      await expect(async () => await context.orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(
         'Invalid proving state when adding a tx',
       );
     });

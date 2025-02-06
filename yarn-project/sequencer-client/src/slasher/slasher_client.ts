@@ -10,7 +10,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -92,9 +92,9 @@ export class SlasherClient extends WithTracer {
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
 
-  private synchedBlockHashes: AztecMap<number, string>;
-  private synchedLatestBlockNumber: AztecSingleton<number>;
-  private synchedProvenBlockNumber: AztecSingleton<number>;
+  private synchedBlockHashes: AztecAsyncMap<number, string>;
+  private synchedLatestBlockNumber: AztecAsyncSingleton<number>;
+  private synchedProvenBlockNumber: AztecAsyncSingleton<number>;
 
   private blockStream;
 
@@ -110,7 +110,7 @@ export class SlasherClient extends WithTracer {
 
   constructor(
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
-    private store: AztecKVStore,
+    private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
@@ -178,17 +178,17 @@ export class SlasherClient extends WithTracer {
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(this.synchedBlockHashes.get(number));
+    return this.synchedBlockHashes.getAsync(number);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    const latestBlockNumber = this.getSyncedLatestBlockNum();
+  public async getL2Tips(): Promise<L2Tips> {
+    const latestBlockNumber = await this.getSyncedLatestBlockNum();
     let latestBlockHash: string | undefined;
-    const provenBlockNumber = this.getSyncedProvenBlockNum();
+    const provenBlockNumber = await this.getSyncedProvenBlockNum();
     let provenBlockHash: string | undefined;
 
     if (latestBlockNumber > 0) {
-      latestBlockHash = this.synchedBlockHashes.get(latestBlockNumber);
+      latestBlockHash = await this.synchedBlockHashes.getAsync(latestBlockNumber);
       if (typeof latestBlockHash === 'undefined') {
         this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
         throw new Error();
@@ -196,7 +196,7 @@ export class SlasherClient extends WithTracer {
     }
 
     if (provenBlockNumber > 0) {
-      provenBlockHash = this.synchedBlockHashes.get(provenBlockNumber);
+      provenBlockHash = await this.synchedBlockHashes.getAsync(provenBlockNumber);
       if (typeof provenBlockHash === 'undefined') {
         this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
         throw new Error();
@@ -220,7 +220,7 @@ export class SlasherClient extends WithTracer {
         // TODO (alexg): I think we can prune the block hashes map here
         break;
       case 'chain-proven': {
-        const from = this.getSyncedProvenBlockNum() + 1;
+        const from = (await this.getSyncedProvenBlockNum()) + 1;
         const limit = event.blockNumber - from + 1;
         await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
         break;
@@ -247,8 +247,8 @@ export class SlasherClient extends WithTracer {
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
     this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
 
-    const syncedLatestBlock = this.getSyncedLatestBlockNum() + 1;
-    const syncedProvenBlock = this.getSyncedProvenBlockNum() + 1;
+    const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
+    const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
 
     // if there are blocks to be retrieved, go to a synching state
     if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
@@ -278,6 +278,8 @@ export class SlasherClient extends WithTracer {
     this.log.debug('Stopping Slasher client...');
     await this.blockStream.stop();
     this.log.debug('Stopped block downloader');
+    await this.store.close();
+    this.log.debug('Stopped slasher store');
     this.setCurrentState(SlasherClientState.STOPPED);
     this.log.info('Slasher client stopped.');
   }
@@ -294,16 +296,16 @@ export class SlasherClient extends WithTracer {
    * Public function to check the latest block number that the slasher client is synced to.
    * @returns Block number of latest L2 Block we've synced with.
    */
-  public getSyncedLatestBlockNum() {
-    return this.synchedLatestBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedLatestBlockNum(): Promise<number> {
+    return (await this.synchedLatestBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
    * Public function to check the latest proven block number that the slasher client is synced to.
    * @returns Block number of latest proven L2 Block we've synced with.
    */
-  public getSyncedProvenBlockNum() {
-    return this.synchedProvenBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
+  public async getSyncedProvenBlockNum(): Promise<number> {
+    return (await this.synchedProvenBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
@@ -311,11 +313,14 @@ export class SlasherClient extends WithTracer {
    * @returns Information about slasher client status: state & syncedToBlockNum.
    */
   public async getStatus(): Promise<SlasherSyncState> {
-    const blockNumber = this.getSyncedLatestBlockNum();
+    const blockNumber = await this.getSyncedLatestBlockNum();
     const blockHash =
       blockNumber == 0
         ? ''
-        : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
+        : await this.l2BlockSource
+            .getBlockHeader(blockNumber)
+            .then(header => header?.hash())
+            .then(hash => hash?.toString());
     return Promise.resolve({
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
@@ -329,14 +334,19 @@ export class SlasherClient extends WithTracer {
    */
   private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
     if (!blocks.length) {
-      return Promise.resolve();
+      return;
     }
 
-    const lastBlockNum = blocks[blocks.length - 1].number;
-    await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
-    await this.synchedLatestBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to latest block ${lastBlockNum}`);
-    this.startServiceIfSynched();
+    await this.store.transactionAsync(async () => {
+      for (const block of blocks) {
+        await this.synchedBlockHashes.set(block.number, (await block.hash()).toString());
+      }
+
+      const lastBlockNum = blocks[blocks.length - 1].number;
+      await this.synchedLatestBlockNumber.set(lastBlockNum);
+    });
+
+    await this.startServiceIfSynched();
   }
 
   /**
@@ -352,7 +362,7 @@ export class SlasherClient extends WithTracer {
     await this.synchedProvenBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
-    this.startServiceIfSynched();
+    await this.startServiceIfSynched();
   }
 
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
@@ -376,11 +386,15 @@ export class SlasherClient extends WithTracer {
     await this.synchedLatestBlockNumber.set(latestBlock);
   }
 
-  private startServiceIfSynched() {
+  private async startServiceIfSynched() {
+    const [latestBlock, provenBlock] = await Promise.all([
+      this.getSyncedLatestBlockNum(),
+      this.getSyncedProvenBlockNum(),
+    ]);
     if (
       this.currentState === SlasherClientState.SYNCHING &&
-      this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&
-      this.getSyncedProvenBlockNum() >= this.provenBlockNumberAtStart
+      latestBlock >= this.latestBlockNumberAtStart &&
+      provenBlock >= this.provenBlockNumberAtStart
     ) {
       this.log.debug(`Synched to blocks at start`);
       this.setCurrentState(SlasherClientState.RUNNING);

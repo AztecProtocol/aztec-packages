@@ -7,7 +7,7 @@ mod util;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Uniswap {
+pub contract Uniswap {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable};
 
     use dep::authwit::auth::{

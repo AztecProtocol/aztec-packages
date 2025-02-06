@@ -4,7 +4,7 @@ mod capsule;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractClassRegisterer {
+pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
         abis::log_hash::LogHash,
         constants::{
@@ -106,7 +106,7 @@ contract ContractClassRegisterer {
                 private_functions_root,
                 packed_public_bytecode,
             };
-            emit_contract_class_log(&mut context, event.serialize());
+            emit_contract_class_log(&mut context, event.serialize_non_standard());
         }
     }
 
@@ -150,7 +150,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[private]
@@ -186,7 +186,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[contract_library_method]

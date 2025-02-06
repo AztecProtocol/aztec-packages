@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -32,15 +33,15 @@ class incl_main_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.mem_tag_err == 1 || in.main_tag_err == 1);
+        return (in._mem_tag_err() == 1 || in._main_tag_err() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.mem_tag_err);
-        const auto is_table_entry = View(in.main_tag_err);
+        const auto is_operation = View(in._mem_tag_err());
+        const auto is_table_entry = View(in._main_tag_err());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -56,19 +57,19 @@ class incl_main_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.incl_main_tag_err_inv,
-                                     in.incl_main_tag_err_counts,
-                                     in.mem_tag_err,
-                                     in.main_tag_err,
-                                     in.mem_clk,
-                                     in.main_clk);
+        return std::forward_as_tuple(in._incl_main_tag_err_inv(),
+                                     in._incl_main_tag_err_counts(),
+                                     in._mem_tag_err(),
+                                     in._main_tag_err(),
+                                     in._mem_clk(),
+                                     in._main_clk());
     }
 };
 
 template <typename FF_>
 class incl_main_tag_err_relation : public GenericLookupRelation<incl_main_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "INCL_MAIN_TAG_ERR";
+    static constexpr std::string_view NAME = "INCL_MAIN_TAG_ERR";
 };
 template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_err_lookup_settings, FF_>;
 
@@ -95,15 +96,15 @@ class incl_mem_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_tag_err == 1 || in.mem_tag_err == 1);
+        return (in._main_tag_err() == 1 || in._mem_tag_err() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_tag_err);
-        const auto is_table_entry = View(in.mem_tag_err);
+        const auto is_operation = View(in._main_tag_err());
+        const auto is_table_entry = View(in._mem_tag_err());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -119,19 +120,19 @@ class incl_mem_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.incl_mem_tag_err_inv,
-                                     in.incl_mem_tag_err_counts,
-                                     in.main_tag_err,
-                                     in.mem_tag_err,
-                                     in.main_clk,
-                                     in.mem_clk);
+        return std::forward_as_tuple(in._incl_mem_tag_err_inv(),
+                                     in._incl_mem_tag_err_counts(),
+                                     in._main_tag_err(),
+                                     in._mem_tag_err(),
+                                     in._main_clk(),
+                                     in._mem_clk());
     }
 };
 
 template <typename FF_>
 class incl_mem_tag_err_relation : public GenericLookupRelation<incl_mem_tag_err_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "INCL_MEM_TAG_ERR";
+    static constexpr std::string_view NAME = "INCL_MEM_TAG_ERR";
 };
 template <typename FF_> using incl_mem_tag_err = GenericLookup<incl_mem_tag_err_lookup_settings, FF_>;
 

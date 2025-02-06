@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -23,59 +24,59 @@ class perm_pos2_fixed_pos2_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.poseidon2_full_sel_poseidon == 1 || in.poseidon2_sel_poseidon_perm_immediate == 1);
+        return (in._poseidon2_full_sel_poseidon() == 1 || in._poseidon2_sel_poseidon_perm_immediate() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos2_fixed_pos2_perm_inv,
-                                     in.poseidon2_full_sel_poseidon,
-                                     in.poseidon2_full_sel_poseidon,
-                                     in.poseidon2_sel_poseidon_perm_immediate,
-                                     in.poseidon2_full_clk,
-                                     in.poseidon2_full_a_0,
-                                     in.poseidon2_full_a_1,
-                                     in.poseidon2_full_a_2,
-                                     in.poseidon2_full_a_3,
-                                     in.poseidon2_full_b_0,
-                                     in.poseidon2_full_b_1,
-                                     in.poseidon2_full_b_2,
-                                     in.poseidon2_full_b_3,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_a_0,
-                                     in.poseidon2_a_1,
-                                     in.poseidon2_a_2,
-                                     in.poseidon2_a_3,
-                                     in.poseidon2_b_0,
-                                     in.poseidon2_b_1,
-                                     in.poseidon2_b_2,
-                                     in.poseidon2_b_3);
+        return std::forward_as_tuple(in._perm_pos2_fixed_pos2_perm_inv(),
+                                     in._poseidon2_full_sel_poseidon(),
+                                     in._poseidon2_full_sel_poseidon(),
+                                     in._poseidon2_sel_poseidon_perm_immediate(),
+                                     in._poseidon2_full_clk(),
+                                     in._poseidon2_full_a_0(),
+                                     in._poseidon2_full_a_1(),
+                                     in._poseidon2_full_a_2(),
+                                     in._poseidon2_full_a_3(),
+                                     in._poseidon2_full_b_0(),
+                                     in._poseidon2_full_b_1(),
+                                     in._poseidon2_full_b_2(),
+                                     in._poseidon2_full_b_3(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_a_0(),
+                                     in._poseidon2_a_1(),
+                                     in._poseidon2_a_2(),
+                                     in._poseidon2_a_3(),
+                                     in._poseidon2_b_0(),
+                                     in._poseidon2_b_1(),
+                                     in._poseidon2_b_2(),
+                                     in._poseidon2_b_3());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_pos2_fixed_pos2_perm_inv,
-                                     in.poseidon2_full_sel_poseidon,
-                                     in.poseidon2_full_sel_poseidon,
-                                     in.poseidon2_sel_poseidon_perm_immediate,
-                                     in.poseidon2_full_clk,
-                                     in.poseidon2_full_a_0,
-                                     in.poseidon2_full_a_1,
-                                     in.poseidon2_full_a_2,
-                                     in.poseidon2_full_a_3,
-                                     in.poseidon2_full_b_0,
-                                     in.poseidon2_full_b_1,
-                                     in.poseidon2_full_b_2,
-                                     in.poseidon2_full_b_3,
-                                     in.poseidon2_clk,
-                                     in.poseidon2_a_0,
-                                     in.poseidon2_a_1,
-                                     in.poseidon2_a_2,
-                                     in.poseidon2_a_3,
-                                     in.poseidon2_b_0,
-                                     in.poseidon2_b_1,
-                                     in.poseidon2_b_2,
-                                     in.poseidon2_b_3);
+        return std::forward_as_tuple(in._perm_pos2_fixed_pos2_perm_inv(),
+                                     in._poseidon2_full_sel_poseidon(),
+                                     in._poseidon2_full_sel_poseidon(),
+                                     in._poseidon2_sel_poseidon_perm_immediate(),
+                                     in._poseidon2_full_clk(),
+                                     in._poseidon2_full_a_0(),
+                                     in._poseidon2_full_a_1(),
+                                     in._poseidon2_full_a_2(),
+                                     in._poseidon2_full_a_3(),
+                                     in._poseidon2_full_b_0(),
+                                     in._poseidon2_full_b_1(),
+                                     in._poseidon2_full_b_2(),
+                                     in._poseidon2_full_b_3(),
+                                     in._poseidon2_clk(),
+                                     in._poseidon2_a_0(),
+                                     in._poseidon2_a_1(),
+                                     in._poseidon2_a_2(),
+                                     in._poseidon2_a_3(),
+                                     in._poseidon2_b_0(),
+                                     in._poseidon2_b_1(),
+                                     in._poseidon2_b_2(),
+                                     in._poseidon2_b_3());
     }
 };
 
@@ -83,7 +84,7 @@ template <typename FF_>
 class perm_pos2_fixed_pos2_perm_relation
     : public GenericPermutationRelation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_> {
   public:
-    static constexpr const char* NAME = "PERM_POS2_FIXED_POS2_PERM";
+    static constexpr std::string_view NAME = "PERM_POS2_FIXED_POS2_PERM";
 };
 template <typename FF_>
 using perm_pos2_fixed_pos2_perm = GenericPermutation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_>;

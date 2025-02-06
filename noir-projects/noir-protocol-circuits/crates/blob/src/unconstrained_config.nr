@@ -47,7 +47,7 @@ unconstrained fn compute_big_minus_arr(
 }
 
 unconstrained fn bit_reversal_permutation(arr: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut arr_brp: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut arr_brp: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
     let PLUS = FIELDS_PER_BLOB >> 1;
     let MINUS = PLUS >> 1;
     let mut I = 0;
@@ -81,7 +81,7 @@ unconstrained fn bit_reversal_permutation(arr: [F; FIELDS_PER_BLOB]) -> [F; FIEL
 
 // x ^ i for i in 0..4096
 unconstrained fn compute_powers(x: F) -> [F; FIELDS_PER_BLOB] {
-    let mut powers: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut powers: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
     let mut current_power: F = BigNum::one();
     for i in 0..FIELDS_PER_BLOB {
         powers[i] = current_power;
@@ -103,4 +103,11 @@ pub unconstrained fn compute_roots_of_unity() -> [F; FIELDS_PER_BLOB] {
     bit_reversal_permutation(roots_of_unity)
     // bit_reversal_permutation(&mut roots_of_unity);
     // roots_of_unity
+}
+
+mod tests {
+    #[test]
+    unconstrained fn test_roots_correctness() {
+        assert_eq(super::compute_roots_of_unity(), crate::config::ROOTS);
+    }
 }

@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const button = document.createElement('button');
   button.innerText = 'Run Test';
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();

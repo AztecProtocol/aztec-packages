@@ -6,13 +6,13 @@ tags: [functions]
 
 On this page you will learn about function attributes and macros.
 
-If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
+If you are looking for a reference of function macros, go [here](../../../developers/reference/smart_contract_reference/macros.md).
 
 ## Private functions #[private]
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[private]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
+`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/advanced/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -141,7 +141,7 @@ let storage = Storage::init(&mut context);
 
 ## Constrained `view` Functions #[view]
 
-The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
+The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
 
 This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
 
@@ -159,7 +159,7 @@ This is used to designate functions as initializers (or constructors) for an Azt
 Key things to keep in mind:
 
 - A contract can have multiple initializer functions defined, but only one initializer function should be called for the lifetime of a contract instance
-- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#aztecnoinitcheck)
+- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#noinitcheck)
 
 ## #[noinitcheck]
 
@@ -167,7 +167,7 @@ In normal circumstances, all functions in an Aztec contract (except initializers
 
 When a function is annotated with `#[noinitcheck]`:
 
-- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-aztecinitializer) for this specific function
+- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-initializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
 ## `Internal` functions #[internal]
@@ -186,7 +186,7 @@ When a struct is annotated with `#[note]`, the Aztec macro applies a series of t
 
 1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
 
-   - `serialize_content` and `deserialize_content`
+   - `pack_content` and `unpack_content`
    - `get_header` and `set_header`
    - `get_note_type_id`
    - `compute_note_hiding_point`
@@ -219,14 +219,14 @@ struct CustomNote {
 
 ```rust
 impl CustomNote {
-    fn serialize_content(self: CustomNote) -> [Field; NOTE_SERIALIZED_LEN] {
+    fn pack_content(self: CustomNote) -> [Field; PACKED_NOTE_CONTENT_LEN] {
         [self.data, self.owner.to_field()]
     }
 
-    fn deserialize_content(serialized_note: [Field; NOTE_SERIALIZED_LEN]) -> Self {
+    fn unpack_content(packed_content: [Field; PACKED_NOTE_CONTENT_LEN]) -> Self {
         CustomNote {
-            data: serialized_note[0] as Field,
-            owner: Address::from_field(serialized_note[1]),
+            data: packed_content[0] as Field,
+            owner: Address::from_field(packed_content[1]),
             header: NoteHeader::empty()
         }
     }
@@ -358,7 +358,7 @@ Key things to keep in mind:
 
 ## Further reading
 
-- [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
+- [Macros reference](../../../developers/reference/smart_contract_reference/macros.md)
 - [How do macros work](./attributes.md)
 
 

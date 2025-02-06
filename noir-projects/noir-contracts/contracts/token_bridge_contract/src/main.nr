@@ -8,7 +8,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TokenBridge {
+pub contract TokenBridge {
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicImmutable};
 
     use dep::token_portal_content_hash_lib::{
@@ -24,6 +24,7 @@ contract TokenBridge {
     };
     // docs:end:token_bridge_imports
 
+    // TODO: This can be optimized by storing the values in Config struct in 1 PublicImmutable (less merkle proofs).
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]

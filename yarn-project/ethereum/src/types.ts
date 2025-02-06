@@ -4,6 +4,7 @@ import {
   type HttpTransport,
   type PrivateKeyAccount,
   type PublicActions,
+  type PublicClient,
   type PublicRpcSchema,
   type WalletActions,
   type WalletRpcSchema,
@@ -20,3 +21,6 @@ export type ViemClient = Client<
   [...PublicRpcSchema, ...WalletRpcSchema],
   PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
 >;
+
+/** Type for a viem public client */
+export type ViemPublicClient = PublicClient<HttpTransport, Chain>;

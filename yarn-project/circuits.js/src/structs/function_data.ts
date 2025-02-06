@@ -17,9 +17,9 @@ export class FunctionData {
     public isPrivate: boolean,
   ) {}
 
-  static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
+  static async fromAbi(abi: FunctionAbi | ContractFunctionDao): Promise<FunctionData> {
     return new FunctionData(
-      FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       abi.functionType === FunctionType.PRIVATE,
     );
   }

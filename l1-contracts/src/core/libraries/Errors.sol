@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @title Errors Library
@@ -10,6 +10,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
  * @notice Library that contains errors used throughout the Aztec protocol
  * Errors are prefixed with the contract name to make it easy to identify where the error originated
  * when there are multiple contracts that could have thrown the error.
+ *
+ * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect src/core/libraries/Errors.sol:Errors errors`
  */
 library Errors {
   // DEVNET related
@@ -93,18 +95,21 @@ library Errors {
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
 
-  // Sequencer Selection (Leonidas)
-  error Leonidas__EpochNotSetup(); // 0xcf4e597e
-  error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
-  error Leonidas__InvalidDeposit(address attester, address proposer); // 0x1ef9a54b
-  error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
-  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
+  // Sequencer Selection (ValidatorSelection)
+  error ValidatorSelection__EpochNotSetup(); // 0x10816cae
+  error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
+  error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
+  error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
+  error ValidatorSelection__InsufficientAttestationsProvided(
+    uint256 minimumNeeded, uint256 provided
+  ); // 0x4d4f66ac
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
   error Staking__AlreadyRegistered(address); // 0x18047699
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
+  error Staking__InvalidDeposit(address attester, address proposer); // 0xf33fe8c6
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0

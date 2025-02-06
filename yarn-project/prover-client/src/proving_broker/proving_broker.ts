@@ -147,13 +147,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return count;
   };
 
-  public start(): Promise<void> {
+  public async start(): Promise<void> {
     if (this.started) {
       this.logger.info('Proving Broker already started');
       return Promise.resolve();
     }
     this.logger.info('Proving Broker started');
-    for (const [item, result] of this.database.allProvingJobs()) {
+    for await (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
         provingJobId: item.id,
         status: result ? result.status : 'pending',
@@ -178,8 +178,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
     this.started = true;
-
-    return Promise.resolve();
   }
 
   public async stop(): Promise<void> {

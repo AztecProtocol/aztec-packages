@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
@@ -22,11 +23,11 @@ template <typename Curve> class ShpleminiProver_ {
     using VK = CommitmentKey<Curve>;
     using ShplonkProver = ShplonkProver_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
+    using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     template <typename Transcript>
     static OpeningClaim prove(const FF circuit_size,
-                              RefSpan<Polynomial> f_polynomials,
-                              RefSpan<Polynomial> g_polynomials,
+                              PolynomialBatcher& polynomial_batcher,
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
@@ -39,8 +40,7 @@ template <typename Curve> class ShpleminiProver_ {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
-                                                                       f_polynomials,
-                                                                       g_polynomials,
+                                                                       polynomial_batcher,
                                                                        multilinear_challenge,
                                                                        commitment_key,
                                                                        transcript,
@@ -195,15 +195,13 @@ template <typename Curve> class ShpleminiVerifier_ {
     using VK = VerifierCommitmentKey<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
 
   public:
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
         const Fr N,
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> shifted_commitments,
-        RefSpan<Fr> unshifted_evaluations,
-        RefSpan<Fr> shifted_evaluations,
+        ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
@@ -292,16 +290,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
-        // reconstructing thec commitment of Q_z
-
-        // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
-        const Fr unshifted_scalar =
-            inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];
-
-        //  j-th shifted commitment is multiplied by −ρᵏ⁺ʲ⁻¹ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
-        const Fr shifted_scalar =
-            gemini_evaluation_challenge.invert() *
-            (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
+        // reconstructing the commitment of Q_z
+        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z − r)
+                                                     inverse_vanishing_evals[1], // 1/(z + r)
+                                                     shplonk_batching_challenge,
+                                                     gemini_evaluation_challenge);
 
         std::vector<Fr> concatenation_scalars;
         if (!concatenation_group_commitments.empty()) {
@@ -327,18 +320,13 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         if (has_zk) {
             commitments.emplace_back(hiding_polynomial_commitment);
-            scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
+            scalars.emplace_back(-claim_batcher.get_unshifted_batch_scalar()); // corresponds to ρ⁰
         }
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        batch_multivariate_opening_claims(unshifted_commitments,
-                                          shifted_commitments,
-                                          unshifted_evaluations,
-                                          shifted_evaluations,
+        batch_multivariate_opening_claims(claim_batcher,
                                           multivariate_batching_challenge,
-                                          unshifted_scalar,
-                                          shifted_scalar,
                                           commitments,
                                           scalars,
                                           batched_evaluation,
@@ -460,13 +448,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
     static void batch_multivariate_opening_claims(
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> shifted_commitments,
-        RefSpan<Fr> unshifted_evaluations,
-        RefSpan<Fr> shifted_evaluations,
+        ClaimBatcher& claim_batcher,
         const Fr& multivariate_batching_challenge,
-        const Fr& unshifted_scalar,
-        const Fr& shifted_scalar,
         std::vector<Commitment>& commitments,
         std::vector<Fr>& scalars,
         Fr& batched_evaluation,
@@ -482,30 +465,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
-        for (auto [unshifted_commitment, unshifted_evaluation] :
-             zip_view(unshifted_commitments, unshifted_evaluations)) {
-            // Move unshifted commitments to the 'commitments' vector
-            commitments.emplace_back(std::move(unshifted_commitment));
-            // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
-            scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
-            // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
-            batched_evaluation += unshifted_evaluation * current_batching_challenge;
-            // Update the batching challenge
-            current_batching_challenge *= multivariate_batching_challenge;
-        }
-        for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
-            // Move shifted commitments to the 'commitments' vector
-            commitments.emplace_back(std::move(shifted_commitment));
-            // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
-            scalars.emplace_back(-shifted_scalar * current_batching_challenge);
-            // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
-            batched_evaluation += shifted_evaluation * current_batching_challenge;
-            // Update the batching challenge ρ
-            current_batching_challenge *= multivariate_batching_challenge;
-        }
+        claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
+            commitments, scalars, batched_evaluation, multivariate_batching_challenge, current_batching_challenge);
 
-        // If we are performing an opening verification for the translator, add the contributions from the concatenation
-        // commitments and evaluations to the result
+        // If we are performing an opening verification for the translator, add the contributions from the
+        // concatenation commitments and evaluations to the result
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();

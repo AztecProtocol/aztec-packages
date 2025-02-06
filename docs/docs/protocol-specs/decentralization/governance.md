@@ -128,10 +128,7 @@ Importantly we differentiate between `Aztec Governance`, and the governance of a
 
 ### Happy path
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Current Canonical Rollup as Current Rollup
@@ -155,17 +152,13 @@ Version Registry ->> Version Registry: markPendingCanonical(nextRollup)
 Note right of Version Registry: Wait at least 30 days!
 Next Rollup ->> Version Registry: markCanonical(nextRollup)
 Sequencers ->> Next Rollup: Proposing new blocks here!
-</Mermaid>
 ```
 
 ### "Bricked" rollup proposals
 
 In this diagram, we articulate the scenario in which the current canonical rollup contains bugs that result in it being unable to produce not only a block, but a vote of any kind. In this scenario, someone or a group (Lasse refers to as the "unbrick DAO") may lock 1% (specific # TBD) of total supply in order to propose a new canonical rollup. It is expected that this scenario is very unlikely, however, we believe it to be a nice set of checks and balances between the token holders and the decisions of the current rollup implementation.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Current Canonical Rollup as Current Rollup
@@ -185,7 +178,6 @@ Note right of Version Registry: Wait at least 30 days!
 Note left of Sequencers: Upgrade to new client
 Next Rollup ->> Version Registry: markCanonical(nextRollup)
 Sequencers ->> Next Rollup: Proposing new blocks here!
-</Mermaid>
 ```
 
 ### Vote Delegation
@@ -198,10 +190,7 @@ Any token holder can delegate their token's voting weight to another address, in
 
 The diagram below articulates calling delegateTo(address) on both the governance contract and specifying a particular address. Additionally calling delegateTo() on the current canonical rollup if you wish to align with whatever voting mechanism that system currently as in place.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Current Canonical Rollup as Current Rollup
@@ -229,7 +218,6 @@ Version Registry ->> Version Registry: markPendingCanonical(nextRollup)
 Note right of Version Registry: Wait at least 30 days!
 Next Rollup ->> Version Registry: markCanonical(nextRollup)
 Sequencers ->> Next Rollup: Proposing new blocks here!
-</Mermaid>
 ```
 
 ## Emergency mode

@@ -20,11 +20,6 @@ reward_distributor_address=$(echo "$output" | grep -oP 'RewardDistributor Addres
 governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 slash_factory_address=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
-# We assume that there is an env var set for validator keys from the config map
-# We get the index in the config map from the pod name, which will have the validator index within it
-
-INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
-private_key=$(jq -r ".[$INDEX]" /app/config/keys.json)
 
 # Write the addresses to a file in the shared volume
 cat <<EOF >/shared/contracts/contracts.env
@@ -41,9 +36,6 @@ export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$reward_distributor_address
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
 export GOVERNANCE_CONTRACT_ADDRESS=$governance_address
 export SLASH_FACTORY_CONTRACT_ADDRESS=$slash_factory_address
-export VALIDATOR_PRIVATE_KEY=$private_key
-export L1_PRIVATE_KEY=$private_key
-export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 EOF
 
 cat /shared/contracts/contracts.env

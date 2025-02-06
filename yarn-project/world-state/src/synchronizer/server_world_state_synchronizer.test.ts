@@ -38,18 +38,17 @@ describe('ServerWorldStateSynchronizer', () => {
 
   const LATEST_BLOCK_NUMBER = 5;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     log = createLogger('world-state:test:server_world_state_synchronizer');
 
     // Seed l1 to l2 msgs
     l1ToL2Messages = times(randomInt(2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT), Fr.random);
 
     // Compute inHash for verification
-    inHash = new MerkleTreeCalculator(
-      L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      Buffer.alloc(32),
-      new SHA256Trunc().hash,
-    ).computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const calculator = await MerkleTreeCalculator.create(L1_TO_L2_MSG_SUBTREE_HEIGHT, Buffer.alloc(32), (lhs, rhs) =>
+      Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
+    );
+    inHash = await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
   });
 
   beforeEach(() => {

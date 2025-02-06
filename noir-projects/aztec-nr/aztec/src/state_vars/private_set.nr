@@ -22,7 +22,7 @@ pub struct PrivateSet<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PrivateSet<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PrivateSet<T, Context>
 where
     T: Packable<N>,
 {

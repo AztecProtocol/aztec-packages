@@ -5,6 +5,7 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 
 #include <cstddef>
+#include <string_view>
 #include <tuple>
 
 namespace bb::avm {
@@ -33,15 +34,15 @@ class lookup_cd_value_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.slice_sel_cd_cpy == 1 || in.main_sel_calldata == 1);
+        return (in._slice_sel_cd_cpy() == 1 || in._main_sel_calldata() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.slice_sel_cd_cpy);
-        const auto is_table_entry = View(in.main_sel_calldata);
+        const auto is_operation = View(in._slice_sel_cd_cpy());
+        const auto is_table_entry = View(in._main_sel_calldata());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -57,21 +58,21 @@ class lookup_cd_value_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_cd_value_inv,
-                                     in.lookup_cd_value_counts,
-                                     in.slice_sel_cd_cpy,
-                                     in.main_sel_calldata,
-                                     in.slice_col_offset,
-                                     in.slice_val,
-                                     in.main_clk,
-                                     in.main_calldata);
+        return std::forward_as_tuple(in._lookup_cd_value_inv(),
+                                     in._lookup_cd_value_counts(),
+                                     in._slice_sel_cd_cpy(),
+                                     in._main_sel_calldata(),
+                                     in._slice_col_offset(),
+                                     in._slice_val(),
+                                     in._main_clk(),
+                                     in._main_calldata());
     }
 };
 
 template <typename FF_>
 class lookup_cd_value_relation : public GenericLookupRelation<lookup_cd_value_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_CD_VALUE";
+    static constexpr std::string_view NAME = "LOOKUP_CD_VALUE";
 };
 template <typename FF_> using lookup_cd_value = GenericLookup<lookup_cd_value_lookup_settings, FF_>;
 
@@ -99,15 +100,15 @@ class lookup_ret_value_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.slice_sel_return == 1 || in.main_sel_returndata == 1);
+        return (in._slice_sel_return() == 1 || in._main_sel_returndata() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.slice_sel_return);
-        const auto is_table_entry = View(in.main_sel_returndata);
+        const auto is_operation = View(in._slice_sel_return());
+        const auto is_table_entry = View(in._main_sel_returndata());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -123,21 +124,21 @@ class lookup_ret_value_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_ret_value_inv,
-                                     in.lookup_ret_value_counts,
-                                     in.slice_sel_return,
-                                     in.main_sel_returndata,
-                                     in.slice_col_offset,
-                                     in.slice_val,
-                                     in.main_clk,
-                                     in.main_returndata);
+        return std::forward_as_tuple(in._lookup_ret_value_inv(),
+                                     in._lookup_ret_value_counts(),
+                                     in._slice_sel_return(),
+                                     in._main_sel_returndata(),
+                                     in._slice_col_offset(),
+                                     in._slice_val(),
+                                     in._main_clk(),
+                                     in._main_returndata());
     }
 };
 
 template <typename FF_>
 class lookup_ret_value_relation : public GenericLookupRelation<lookup_ret_value_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_RET_VALUE";
+    static constexpr std::string_view NAME = "LOOKUP_RET_VALUE";
 };
 template <typename FF_> using lookup_ret_value = GenericLookup<lookup_ret_value_lookup_settings, FF_>;
 
