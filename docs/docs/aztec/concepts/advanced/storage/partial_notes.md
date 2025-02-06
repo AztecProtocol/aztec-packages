@@ -156,7 +156,7 @@ This ensures that the refund partial note will be completed for the user.
 
 ## Note discovery
 
-
+Note discovery is detailed [here](./note_discovery.md). Partial notes are handled very similarly. Private data is put in an encrypted log in the same way as a regular note, but the contract knows that it is a partial note and is missing its public component. The contract puts the unfinished note + the public log that will be emitted to complete the note into the PXE's database. When this log is emitted, the partial note is completed. This method of discovery allows partial notes to be started and completed in entirely separate transactions.
 
 ## Future work
 
