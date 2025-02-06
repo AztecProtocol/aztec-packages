@@ -19,7 +19,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';

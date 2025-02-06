@@ -1,21 +1,20 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType, WorldStateSynchronizer } from '@aztec/circuit-types';
-import { EpochCache } from '@aztec/epoch-cache';
-import { Logger, createLogger } from '@aztec/foundation/log';
-import { DataStoreConfig } from '@aztec/kv-store/config';
+import { P2PClientType, type WorldStateSynchronizer } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { createP2PClient } from '../client/index.js';
-import { P2PClient } from '../client/p2p_client.js';
-import { P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { TxPool } from '../mem_pools/tx_pool/index.js';
+import { type P2PClient } from '../client/p2p_client.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
-import { AlwaysFalseCircuitVerifier } from './reqresp-nodes.js';
-import { AlwaysTrueCircuitVerifier } from './reqresp-nodes.js';
+import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from './reqresp-nodes.js';
 
 interface MakeTestP2PClientOptions {
   mockAttestationPool: AttestationPool;

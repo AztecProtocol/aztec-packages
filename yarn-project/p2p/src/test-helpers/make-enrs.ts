@@ -1,10 +1,8 @@
 import { SignableENR } from '@chainsafe/enr';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { AZTEC_NET } from '../services/types.js';
-import { AZTEC_ENR_KEY } from '../services/types.js';
-import { createLibP2PPeerIdFromPrivateKey } from '../util.js';
-import { convertToMultiaddr } from '../util.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/types.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 /**
  * Make a list of ENRs for a given list of p2p private keys and ports

@@ -1,13 +1,12 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { ChildProcess, fork } from 'child_process';
+import { type ChildProcess, fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { mockTx } from '../../../circuit-types/src/mocks.js';
-import { getP2PDefaultConfig } from '../config.js';
-import { P2PConfig } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnrs } from '../test-helpers/make-enrs.js';
@@ -58,7 +57,6 @@ describe('Gossipsub', () => {
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
       const otherNodes = peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
 
-      // TODO: drastically increase mcache length parameters and see what happens to performance
       const config: P2PConfig = {
         ...getP2PDefaultConfig(),
         p2pEnabled: true,
@@ -77,8 +75,12 @@ describe('Gossipsub', () => {
       // Wait for ready signal
       await new Promise((resolve, reject) => {
         childProcess.once('message', (msg: any) => {
-          if (msg.type === 'READY') resolve(undefined);
-          if (msg.type === 'ERROR') reject(new Error(msg.error));
+          if (msg.type === 'READY') {
+            resolve(undefined);
+          }
+          if (msg.type === 'ERROR') {
+            reject(new Error(msg.error));
+          }
         });
       });
 
@@ -90,7 +92,7 @@ describe('Gossipsub', () => {
     return peerEnrs;
   }
 
-  it.only('Should propagate a tx to all peers with a throttled degree and large node set', async () => {
+  it('Should propagate a tx to all peers with a throttled degree and large node set', async () => {
     // No network partition, all nodes should receive
     const numberOfClients = 20;
 
