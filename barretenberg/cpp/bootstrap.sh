@@ -249,6 +249,10 @@ function release {
   gh release upload $REF_NAME build-release/* --clobber
 }
 
+function release_commit {
+  release
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -275,7 +279,7 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
-  bench|release|build_native|build_wasm|build_wasm_threads|build_darwin|build_release)
+  bench|release|release_commit|build_native|build_wasm|build_wasm_threads|build_darwin|build_release|test_cmds)
     $cmd $@
     ;;
   *)

@@ -11,9 +11,9 @@ if [ "$dry_run" -eq 0 ]; then
 fi
 
 package_name=$(jq -r '.name' package.json)
-echo_header "publishing $package_name $version $dist_tag"
+echo_header "publishing $package_name"
 
-published_version=$(npm show . version --tag $dist_tag | grep -vE '^@' || true)
+published_version=$(npm show . version --tag $dist_tag 2>/dev/null | grep -vE '^@' || true)
 higher_version=$(npx semver ${version} ${published_version} | tail -1)
 
 # Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
@@ -24,7 +24,7 @@ if [ "$version" == "$published_version" ]; then
 fi
 
 # If the published version is > the given version, something's gone wrong.
-if [ "$version" != "$higher_version" ]; then
+if [ -n "$published_version" ] && [ "$version" != "$higher_version" ]; then
   echo "Tagged version $version is lower than published version $published_version."
   exit 1
 fi
@@ -34,7 +34,7 @@ tmp=$(mktemp)
 jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
 # Update each dependent @aztec package version in package.json.
-for pkg in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
+for pkg in $(jq --raw-output "(.dependencies // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
   jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
 done
 

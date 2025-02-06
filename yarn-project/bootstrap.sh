@@ -14,8 +14,18 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
+# Returns a list of projects to compile/lint/publish.
+# Ensure exclusions are matching in both cases.
 function get_projects {
-  dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+  if [ "${1:-}" == 'topological' ]; then
+    yarn workspaces foreach --topological-dev -A \
+      --exclude @aztec/aztec3-packages \
+      --exclude @aztec/noir-bb-bench \
+      --exclude @aztec/scripts \
+      exec 'basename $(pwd)' | cat | grep -v "Done"
+  else
+    dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+  fi
 }
 
 function format {
@@ -115,15 +125,27 @@ function test {
 }
 
 function release {
-  export DRY_RUN=1
-  local packages=$(yarn workspaces foreach --topological-dev -A --exclude @aztec/aztec3-packages exec 'basename $(pwd)' | cat | grep -v "Done")
+  echo_header "yarn-project release"
 
-  local nightly_date=$(date +%Y%m%d)
-  local current_version=$(jq -r '."."' ../.release-please-manifest.json)
-  local version="v$current_version-$DIST_TAG.$nightly_date"
+  echo "Computing packages to publish..."
+  local packages=$(get_projects topological)
+  local version=${REF_NAME#v}
 
   for package in $packages; do
-    (cd $package && deploy_npm $DIST_TAG $version)
+    (cd $package && deploy_npm $1 $version)
+  done
+}
+
+function release_commit {
+  echo_header "yarn-project release commit"
+  echo "Computing packages to publish..."
+  local packages=$(get_projects topological)
+
+  local current_version=$(jq -r '."."' ../release-please-manifest.json)
+  local version="$current_version-commit.$COMMIT_HASH"
+
+  for package in $packages; do
+    (cd $package && deploy_npm next $version)
   done
 }
 
@@ -148,17 +170,11 @@ case "$cmd" in
   "full")
     typecheck=1 build
     ;;
-  "test")
-    test
-    ;;
   "test-cmds")
     test_cmds
     ;;
   "hash")
     echo $hash
-    ;;
-  "release")
-    release
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
@@ -167,14 +183,11 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  "format")
-    format
-    ;;
   "lint")
     lint "$@"
     ;;
-  "release")
-    release
+  test|release_tagged|release_canary|release_nightly|format)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

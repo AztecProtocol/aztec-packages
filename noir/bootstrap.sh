@@ -22,7 +22,7 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Builds narg, acvm and profiler binaries.
+# Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
   cd noir-repo
@@ -132,6 +132,25 @@ function format {
   nargo fmt $arg
 }
 
+function release {
+  echo_header "noir release"
+  local version=${REF_NAME#v}
+  for project in $js_projects; do
+    jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
+    (cd $project && deploy_npm latest $version)
+  fi
+}
+
+function release_commit {
+  echo_header "bb.js release commit"
+  local current_version=$(jq -r '."."' ../release-please-manifest.json)
+  local version="$current_version-commit.$COMMIT_HASH"
+  for project in $js_projects; do
+    jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
+    (cd $project && deploy_npm next $version)
+  fi
+}
+
 # TODO(ci3,delete-earthly): evaluate if redundant
 # examples:
 #   FROM ../+bootstrap-noir-bb
@@ -158,7 +177,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  build_native|build_packages|format|test)
+  build_native|build_packages|format|test|release|release_commit)
     $cmd $@
     ;;
   "test-cmds")

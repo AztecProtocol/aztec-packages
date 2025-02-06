@@ -163,6 +163,7 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    yarn-project
     # Should publish at least one of our boxes to it's own repo.
     #boxes
     aztec-up
@@ -175,31 +176,36 @@ function release {
   done
 }
 
-function release_nightly {
-  # Compute today's nightly tag.
-  local nightly_date=$(date +%Y-%m-%d)
-  local nightly_tag=nightly-$nightly_date
-
-  # Compute yesterday's nightly tag.
-  local yesterday_tag=nightly-$(date --date="yesterday" +%Y-%m-%d)
-  local repo=$(gh repo view --json nameWithOwner --jq ".nameWithOwner")
+function release_commit {
+  REF_NAME="commit-$COMMIT_HASH"
+  local current_version=v$(jq -r '."."' ./release-please-manifest.json)
 
   # Add an easy link for comparing to previous release.
   local compare_link=""
-  if gh release view "$yesterday_tag" &>/dev/null; then
-    compare_link=$(echo -e "\n\nSee changes: https://github.com/$repo/compare/${yesterday_tag}...${nightly_tag}")
+  if gh release view "v$current_version" &>/dev/null; then
+    compare_link=$(echo -e "\n\nSee changes: https://github.com/$repo/compare/${current_version}...${COMMIT_HASH}")
   fi
 
-  # Ensure we have a nightly release.
-  if ! gh release view "$nightly_tag" &>/dev/null; then
-    gh release create "$nightly_tag" \
-      --title "Nightly Release $nightly_date" \
-      --notes "Nightly release for $nightly_date.${compare_link}"
+  # Ensure we have a commit release.
+  if ! gh release view "$REF_NAME" &>/dev/null; then
+    gh release create "$REF_NAME" \
+      --title "Commit Release $REF_NAME" \
+      --notes "Commit release for $REF_NAME.${compare_link}"
   fi
 
-  # Override our ref name for the build.
-  export REF_NAME="$nightly_tag"
-  ./barretenberg/cpp/bootstrap.sh release
+  projects=(
+    barretenberg/cpp
+    barretenberg/ts
+    yarn-project
+    # Should publish at least one of our boxes to it's own repo.
+    #boxes
+    docs
+    release-image
+  )
+
+  for project in "${projects[@]}"; do
+    $project/bootstrap.sh release_commit
+  done
 }
 
 case "$cmd" in
@@ -240,8 +246,8 @@ case "$cmd" in
     test
     release
     ;;
-  "release-nightly")
-    release_nightly
+  release|release_commit)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"
