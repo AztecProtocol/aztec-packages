@@ -1,3 +1,4 @@
+import { emptyChainConfig } from '@aztec/circuit-types/config';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -18,8 +19,11 @@ const logger = createLogger('testbench');
 describe.skip('Gossipsub', () => {
   let processes: ChildProcess[];
 
+  let p2pBaseConfig: P2PConfig;
+
   beforeEach(() => {
     processes = [];
+    p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
   });
 
   afterEach(async () => {
@@ -46,7 +50,7 @@ describe.skip('Gossipsub', () => {
   async function makeWorkerClients(numberOfClients: number, p2pConfig: Partial<P2PConfig>) {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
     const ports = await getPorts(numberOfClients);
-    const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports);
+    const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
 
     processes = [];
     for (let i = 0; i < numberOfClients; i++) {
