@@ -21,20 +21,20 @@ Bridges in Aztec involve several components across L1 and L2:
 
 - L1 contracts:
   - `ERC20.sol`: An ERC20 contract that represents assets on L1
-  - `TokenPortal.sol`: Manages the passing of messages from L1 to L2
+  - `TokenPortal.sol`: Manages the passing of messages from L1 to L2. It is deployed on L1, is linked to a specific token on L1 and a corresponding contract on L2. The `registry` is used to find the rollup and the corresponding `inbox` and `outbox` contracts.
 - L2 contracts:
   - `Token`: Manages the tokens on L2
   - `TokenBridge`: Manages the bridging of tokens between L2 and L1
 
-### `TokenPortal.sol`
-
 `TokenPortal.sol` is the contract that manages the passing of messages from L1 to L2. It is deployed on L1, is linked to a specific token on L1 and a corresponding contract on L2. The `registry` is used to find the rollup and the corresponding `inbox` and `outbox` contracts.
+
+## How it works
 
 ### Deposit to Aztec
 
-Messages content that is passed to Aztec is limited to a single field element (~254 bits), so if the message content is larger than that, it is hashed, and the message hash is passed an verified on the receiving contract. There is a utility function in the `Hash` library to hash messages (using `sha256`) to field elements.
+`TokenPortal.sol` passes messages to Aztec both publicly and privately.
 
-It is a good practice to include all of the parameters used by the L2 contract in the message content, so that the receiving contract can verify the message and malicious actors cannot modify the message.
+Message content that is passed to Aztec is limited to a single field element (~254 bits), so if the message content is larger than that, it is hashed, and the message hash is passed an verified on the receiving contract. There is a utility function in the `Hash` library to hash messages (using `sha256`) to field elements.
 
 The Aztec message Inbox expects a recipient Aztec address that can consume the message (the corresponding L2 bridge contract), the Aztec version (similar to Ethereum's `chainId`), the message content hash (which includes the token recipient and amount in this case), and a `secretHash`, where the corresponding `secret` is used to consume the message on the receiving contract.
 
@@ -42,11 +42,11 @@ So in summary, it deposits tokens to the portal, encodes a mint message, hashes 
 
 Note that because L1 is public, everyone can inspect and figure out the contentHash and the recipient contract address.
 
-#### `depositToAztecPublic`
+#### `depositToAztecPublic` (TokenPortal.sol)
 
 #include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
 
-#### `depositToAztecPrivate`
+#### `depositToAztecPrivate` (TokenPortal.sol)
 
 #include_code deposit_private l1-contracts/test/portals/TokenPortal.sol solidity
 
@@ -56,7 +56,9 @@ On Aztec, anytime something is consumed (i.e. deleted), we emit a nullifier hash
 
 ### Minting on Aztec
 
-In the previous step, we moved our funds to the bridge and created a L1->L2 message. Upon building the next rollup block, the sequencer asks the L1 inbox contract for any incoming messages and adds them to the Aztec block's L1->L2 message tree, so an application on L2 can prove that the message exists and can consume it.
+The previous code snippets moved funds to the bridge and created a L1->L2 message. Upon building the next rollup block, the sequencer asks the L1 inbox contract for any incoming messages and adds them to the Aztec block's L1->L2 message tree, so an application on L2 can prove that the message exists and can consume it.
+
+This happens inside the `TokenBridge` contract on Aztec.
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
@@ -72,21 +74,17 @@ The Aztec `TokenBridge` contract should be an authorized minter in the correspon
 
 :::
 
-### Withdraw to L1
-
-Now we have tokens on L2, we can withdraw them back to L1. You can withdraw part of a public or private balance to L1, but the amount and the recipient on L1 will be public.
+The token bridge also allows tokens to be withdrawn back to L1 from L2. You can withdraw part of a public or private balance to L1, but the amount and the recipient on L1 will be public.
 
 Sending tokens to L1 involves burning the tokens on L2 and creating a L2->L1 message. The message content is the `amount` to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
 
-For both the public and private flow, we use the same mechanism to determine the content hash. This is because on L1, things are public anyway. The only different between the two functions is that in the private domain we have to nullify user’s notes where as in the public domain we subtract the balance from the user.
+For both the public and private flow, we use the same mechanism to determine the content hash. This is because on L1, things are public anyway. The only difference between the two functions is that in the private domain we have to nullify user’s notes whereas in the public domain we subtract the balance from the user.
 
-### Aztec `TokenBridge`
-
-#### `exit_to_L1_public`
+#### `exit_to_L1_public` (TokenBridge.nr)
 
 #include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
-#### `exit_to_L1_private`
+#### `exit_to_L1_private` (TokenBridge.nr)
 
 This function works very similarly to the public version, except here we burn user’s private notes.
 
@@ -98,13 +96,15 @@ Because public functions are executed by the sequencer while private methods are
 
 A user must sign an approval message to let the contract burn tokens on their behalf. The nonce refers to this approval message.
 
-### L1 `TokenPortal.sol`
+### Claiming on L1
 
 After the transaction is completed on L2, the portal must call the outbox to successfully transfer funds to the user on L1. Like with deposits, things can be complex here. For example, what happens if the transaction was done on L2 to burn tokens but can’t be withdrawn to L1? Then the funds are lost forever! How do we prevent this?
 
 #include_code token_portal_withdraw /l1-contracts/test/portals/TokenPortal.sol solidity
 
-Here we reconstruct the L2 to L1 message and check that this message exists on the outbox. If so, we consume it and transfer the funds to the recipient. As part of the reconstruction, the content hash looks similar to what we did in our bridge contract on aztec where we pass the amount and recipient to the hash. This way a malicious actor can’t change the recipient parameter to the address and withdraw funds to themselves.
+#### `token_portal_withdraw` (TokenPortal.sol)
+
+Here we reconstruct the L2 to L1 message and check that this message exists on the outbox. If so, we consume it and transfer the funds to the recipient. As part of the reconstruction, the content hash looks similar to what we did in our bridge contract on Aztec where we pass the amount and recipient to the hash. This way a malicious actor can’t change the recipient parameter to the address and withdraw funds to themselves.
 
 We also use a `_withCaller` parameter to determine the appropriate party that can execute this function on behalf of the recipient. If `withCaller` is false, then anyone can call the method and hence we use address(0), otherwise only msg.sender should be able to execute. This address should match the `callerOnL1` address we passed in aztec when withdrawing from L2.
 
