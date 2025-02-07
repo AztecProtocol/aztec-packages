@@ -1,4 +1,9 @@
-import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
+import {
+  type AllowedElement,
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+} from '@aztec/circuit-types/config';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
@@ -24,14 +29,6 @@ import {
 
 export * from './publisher/config.js';
 export { SequencerConfig };
-
-/** Chain configuration. */
-type ChainConfig = {
-  /** The chain id of the ethereum host. */
-  l1ChainId: number;
-  /** The version of the rollup. */
-  version: number;
-};
 
 /**
  * Configuration settings for the SequencerClient.
@@ -120,15 +117,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
     description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
-  },
-};
-
-export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
-  l1ChainId: l1ReaderConfigMappings.l1ChainId,
-  version: {
-    env: 'VERSION',
-    description: 'The version of the rollup.',
-    ...numberConfigHelper(1),
   },
 };
 
