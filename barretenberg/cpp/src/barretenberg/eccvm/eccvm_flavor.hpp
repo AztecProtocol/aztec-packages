@@ -45,6 +45,9 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Fixed size of the ECCVM circuits used in ClientIVC
+    static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+
     static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -114,9 +117,6 @@ class ECCVMFlavor {
                               lagrange_last);  // column 2
 
         DataType get_selectors() { return get_all(); };
-        auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_id_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_table_polynomials() { return RefArray<DataType, 0>{}; };
     };
 
     /**
@@ -194,17 +194,6 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
-     * populated until the dyadic size of the circuit.
-     */
-    template <typename DataType> class WireToBeShiftedAccumulatorEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_accumulator_empty, // column 83
-                              transcript_accumulator_x,     // column 62
-                              transcript_accumulator_y)     // column 63
-    };
-    /**
      * @brief Container for all to-be-shifted witness polynomials excluding the accumulators used/constructed by the
      * prover.
      * @details Shifts are not included here since they do not occupy their own memory.
@@ -214,40 +203,40 @@ class ECCVMFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_mul,        // column 60
                               transcript_msm_count,  // column 61
-                              precompute_scalar_sum, // column 64
-                              precompute_s1hi,       // column 65
-                              precompute_dx,         // column 66
-                              precompute_dy,         // column 67
-                              precompute_tx,         // column 68
-                              precompute_ty,         // column 69
-                              msm_transition,        // column 70
-                              msm_add,               // column 71
-                              msm_double,            // column 72
-                              msm_skew,              // column 73
-                              msm_accumulator_x,     // column 74
-                              msm_accumulator_y,     // column 75
-                              msm_count,             // column 76
-                              msm_round,             // column 77
-                              msm_add1,              // column 78
-                              msm_pc,                // column 79
-                              precompute_pc,         // column 80
-                              transcript_pc,         // column 81
-                              precompute_round,      // column 82
-                              precompute_select)     // column 84
+                              precompute_scalar_sum, // column 62
+                              precompute_s1hi,       // column 63
+                              precompute_dx,         // column 64
+                              precompute_dy,         // column 65
+                              precompute_tx,         // column 66
+                              precompute_ty,         // column 67
+                              msm_transition,        // column 68
+                              msm_add,               // column 69
+                              msm_double,            // column 70
+                              msm_skew,              // column 71
+                              msm_accumulator_x,     // column 72
+                              msm_accumulator_y,     // column 73
+                              msm_count,             // column 74
+                              msm_round,             // column 75
+                              msm_add1,              // column 76
+                              msm_pc,                // column 77
+                              precompute_pc,         // column 78
+                              transcript_pc,         // column 79
+                              precompute_round,      // column 80
+                              precompute_select)     // column 81
     };
+
     /**
-     * @brief Container for all wire polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
+     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
+     * populated until the dyadic size of the circuit.
      */
-    template <typename DataType>
-    class WireEntities : public WireNonShiftedEntities<DataType>,
-                         public WireToBeShiftedAccumulatorEntities<DataType>,
-                         public WireToBeShiftedWithoutAccumulatorsEntities<DataType> {
+    template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireNonShiftedEntities<DataType>,
-                                WireToBeShiftedAccumulatorEntities<DataType>,
-                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>);
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_accumulator_empty, // column 82
+                              transcript_accumulator_x,     // column 83
+                              transcript_accumulator_y)     // column 84
     };
+
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
@@ -286,29 +275,29 @@ class ECCVMFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_mul_shift,               // column 0
                               transcript_msm_count_shift,         // column 1
-                              precompute_scalar_sum_shift,        // column 4
-                              precompute_s1hi_shift,              // column 5
-                              precompute_dx_shift,                // column 6
-                              precompute_dy_shift,                // column 7
-                              precompute_tx_shift,                // column 8
-                              precompute_ty_shift,                // column 9
-                              msm_transition_shift,               // column 10
-                              msm_add_shift,                      // column 11
-                              msm_double_shift,                   // column 12
-                              msm_skew_shift,                     // column 13
-                              msm_accumulator_x_shift,            // column 14
-                              msm_accumulator_y_shift,            // column 15
-                              msm_count_shift,                    // column 16
-                              msm_round_shift,                    // column 17
-                              msm_add1_shift,                     // column 18
-                              msm_pc_shift,                       // column 19
-                              precompute_pc_shift,                // column 20
-                              transcript_pc_shift,                // column 21
-                              precompute_round_shift,             // column 22
-                              precompute_select_shift,            // column 24
-                              transcript_accumulator_empty_shift, // column 23
-                              transcript_accumulator_x_shift,     // column 2
-                              transcript_accumulator_y_shift,     // column 3
+                              precompute_scalar_sum_shift,        // column 2
+                              precompute_s1hi_shift,              // column 3
+                              precompute_dx_shift,                // column 4
+                              precompute_dy_shift,                // column 5
+                              precompute_tx_shift,                // column 6
+                              precompute_ty_shift,                // column 7
+                              msm_transition_shift,               // column 8
+                              msm_add_shift,                      // column 9
+                              msm_double_shift,                   // column 10
+                              msm_skew_shift,                     // column 11
+                              msm_accumulator_x_shift,            // column 12
+                              msm_accumulator_y_shift,            // column 13
+                              msm_count_shift,                    // column 14
+                              msm_round_shift,                    // column 15
+                              msm_add1_shift,                     // column 16
+                              msm_pc_shift,                       // column 17
+                              precompute_pc_shift,                // column 18
+                              transcript_pc_shift,                // column 19
+                              precompute_round_shift,             // column 20
+                              precompute_select_shift,            // column 21
+                              transcript_accumulator_empty_shift, // column 22
+                              transcript_accumulator_x_shift,     // column 23
+                              transcript_accumulator_y_shift,     // column 24
                               z_perm_shift);                      // column 25
     };
 
@@ -318,29 +307,29 @@ class ECCVMFlavor {
         // NOTE: must match order of ShiftedEntities above!
         return RefArray{ entities.transcript_mul,               // column 0
                          entities.transcript_msm_count,         // column 1
-                         entities.precompute_scalar_sum,        // column 4
-                         entities.precompute_s1hi,              // column 5
-                         entities.precompute_dx,                // column 6
-                         entities.precompute_dy,                // column 7
-                         entities.precompute_tx,                // column 8
-                         entities.precompute_ty,                // column 9
-                         entities.msm_transition,               // column 10
-                         entities.msm_add,                      // column 11
-                         entities.msm_double,                   // column 12
-                         entities.msm_skew,                     // column 13
-                         entities.msm_accumulator_x,            // column 14
-                         entities.msm_accumulator_y,            // column 15
-                         entities.msm_count,                    // column 16
-                         entities.msm_round,                    // column 17
-                         entities.msm_add1,                     // column 18
-                         entities.msm_pc,                       // column 19
-                         entities.precompute_pc,                // column 20
-                         entities.transcript_pc,                // column 21
-                         entities.precompute_round,             // column 22
-                         entities.precompute_select,            // column 24
-                         entities.transcript_accumulator_empty, // column 23
-                         entities.transcript_accumulator_x,     // column 2
-                         entities.transcript_accumulator_y,     // column 3
+                         entities.precompute_scalar_sum,        // column 2
+                         entities.precompute_s1hi,              // column 3
+                         entities.precompute_dx,                // column 4
+                         entities.precompute_dy,                // column 5
+                         entities.precompute_tx,                // column 6
+                         entities.precompute_ty,                // column 7
+                         entities.msm_transition,               // column 8
+                         entities.msm_add,                      // column 9
+                         entities.msm_double,                   // column 10
+                         entities.msm_skew,                     // column 11
+                         entities.msm_accumulator_x,            // column 12
+                         entities.msm_accumulator_y,            // column 13
+                         entities.msm_count,                    // column 14
+                         entities.msm_round,                    // column 15
+                         entities.msm_add1,                     // column 16
+                         entities.msm_pc,                       // column 17
+                         entities.precompute_pc,                // column 18
+                         entities.transcript_pc,                // column 19
+                         entities.precompute_round,             // column 20
+                         entities.precompute_select,            // column 21
+                         entities.transcript_accumulator_empty, // column 22
+                         entities.transcript_accumulator_x,     // column 23
+                         entities.transcript_accumulator_y,     // column 24
                          entities.z_perm };                     // column 25
     }
 
@@ -559,11 +548,14 @@ class ECCVMFlavor {
                 std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
 
-            ASSERT(1UL << CONST_ECCVM_LOG_N > 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1)));
+            size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
-            const size_t dyadic_num_rows = fixed_size
-                                               ? 1UL << CONST_ECCVM_LOG_N
-                                               : 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
+            if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
+                info("The ECCVM circuit size has exceeded the fixed upper bound");
+                ASSERT(false);
+            }
+
+            dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -734,16 +726,16 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         ProvingKey(const CircuitBuilder& builder, const bool fixed_size = false)
-            : Base(
-                  // If we want a fixed size, use 2^(CONST_ECCVM_LOG_N).
-                  // Otherwise, compute the real circuit size from the builder.
-                  fixed_size ? (1UL << CONST_ECCVM_LOG_N)
-                             : builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()),
-                  0)
-            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
 
             , polynomials(builder, fixed_size)
-        {}
+        {
+            if (fixed_size) {
+                Base(ECCVM_FIXED_SIZE, 0);
+            } else {
+                Base(real_size, 0);
+            }
+        }
     };
 
     /**
