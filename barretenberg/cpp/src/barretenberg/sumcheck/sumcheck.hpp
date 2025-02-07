@@ -305,6 +305,7 @@ template <typename Flavor> class SumcheckProver {
                 // Place the evaluations of the round univariate into transcript.
                 transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             } else {
+
                 // Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
                 // needed in the PCS round
                 commit_to_round_univariate(

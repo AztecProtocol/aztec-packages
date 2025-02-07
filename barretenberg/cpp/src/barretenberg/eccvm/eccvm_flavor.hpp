@@ -192,6 +192,11 @@ class ECCVMFlavor {
                               transcript_msm_count_zero_at_transition,    // column 58
                               transcript_msm_count_at_transition_inverse) // column 59
     };
+
+    /**
+     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
+     * populated until the dyadic size of the circuit.
+     */
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -199,7 +204,8 @@ class ECCVMFlavor {
                               transcript_accumulator_y) // column 63
     };
     /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
+     * @brief Container for all to-be-shifted witness polynomials excluding the accumulators used/constructed by the
+     * prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
     template <typename DataType> class WireToBeShiftedWithoutAccumulatorsEntities {
@@ -229,6 +235,10 @@ class ECCVMFlavor {
                               transcript_accumulator_empty, // column 83
                               precompute_select)            // column 84
     };
+    /**
+     * @brief Container for all wire polynomials used/constructed by the prover.
+     * @details Shifts are not included here since they do not occupy their own memory.
+     */
     template <typename DataType>
     class WireEntities : public WireNonShiftedEntities<DataType>,
                          public WireToBeShiftedAccumulatorEntities<DataType>,
@@ -258,6 +268,8 @@ class ECCVMFlavor {
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all(),
                                WireToBeShiftedAccumulatorEntities<DataType>::get_all());
         };
+
+        // Used to amortize the commitment time when the ECCVM size is fixed
         auto get_accumulators() { return WireToBeShiftedAccumulatorEntities<DataType>::get_all(); };
         auto get_wires_without_accumulators()
         {
@@ -716,6 +728,7 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
+        // Used to amortize the commitment time when `fixed_size` = true.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover

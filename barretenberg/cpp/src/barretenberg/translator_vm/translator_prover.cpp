@@ -49,6 +49,8 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     // values. Therefore we could commit to a subspan of that size.
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+        // ECCVM/Translator/MegaZK
         PolynomialSpan<FF> wire_span = wire;
         transcript->send_to_verifier(
             label, key->proving_key->commitment_key->commit(wire_span.subspan(0, key->mini_circuit_dyadic_size)));

@@ -50,7 +50,8 @@ void ECCVMProver::execute_wire_commitments_round()
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
                                               commitment_labels.get_wires_without_accumulators())) {
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+        // ECCVM/Translator/MegaZK
         PolynomialSpan<FF> wire_span = wire;
         transcript->send_to_verifier(label, key->commitment_key->commit(wire_span.subspan(0, key->real_size)));
     }
