@@ -277,6 +277,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-validator
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
 spec:
   clusterIP: None
   selector:
