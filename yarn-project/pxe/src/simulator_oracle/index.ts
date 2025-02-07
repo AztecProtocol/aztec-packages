@@ -24,8 +24,10 @@ import {
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  LogWithTxData,
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
@@ -42,6 +44,7 @@ import {
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
@@ -707,8 +710,45 @@ export class SimulatorOracle implements DBOracle {
     });
   }
 
+  public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    const logs = await this.aztecNode.getLogsByTags([tag]);
+    const logsForTag = logs[0];
+
+    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const log = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(log.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${log.txHash} which is known to exist`);
+    }
+
+    const reader = BufferReader.asReader(log.logData);
+    const logArray = reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr);
+
+    // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
+    // log is lost. Until this is improved, we simply remove all of the zero elements (which are expected to be at the
+    // end).
+    // TODO(#11636): use the actual log length.
+    const trimmedLog = logArray.filter(x => !x.isZero());
+
+    return new LogWithTxData(trimmedLog, log.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+  }
+
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
-    this.log.verbose('Removing nullified notes', { contract: contractAddress });
+    this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });

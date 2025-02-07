@@ -1,5 +1,6 @@
 mod context;
 mod deploy;
+mod discovery;
 mod generators;
 mod hash;
 mod history;
