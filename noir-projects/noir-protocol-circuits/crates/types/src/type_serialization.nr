@@ -12,8 +12,10 @@ global I16_SERIALIZED_LEN: u32 = 1;
 global I32_SERIALIZED_LEN: u32 = 1;
 global I64_SERIALIZED_LEN: u32 = 1;
 
-impl Serialize<BOOL_SERIALIZED_LEN> for bool {
-    fn serialize(self) -> [Field; BOOL_SERIALIZED_LEN] {
+impl Serialize for bool {
+    let N = BOOL_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -24,8 +26,10 @@ impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
     }
 }
 
-impl Serialize<U8_SERIALIZED_LEN> for u8 {
-    fn serialize(self) -> [Field; U8_SERIALIZED_LEN] {
+impl Serialize for u8 {
+    let N = U8_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -36,8 +40,10 @@ impl Deserialize<U8_SERIALIZED_LEN> for u8 {
     }
 }
 
-impl Serialize<U16_SERIALIZED_LEN> for u16 {
-    fn serialize(self) -> [Field; U16_SERIALIZED_LEN] {
+impl Serialize for u16 {
+    let N = U16_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -48,8 +54,10 @@ impl Deserialize<U16_SERIALIZED_LEN> for u16 {
     }
 }
 
-impl Serialize<U32_SERIALIZED_LEN> for u32 {
-    fn serialize(self) -> [Field; U32_SERIALIZED_LEN] {
+impl Serialize for u32 {
+    let N = U32_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -60,8 +68,10 @@ impl Deserialize<U32_SERIALIZED_LEN> for u32 {
     }
 }
 
-impl Serialize<U64_SERIALIZED_LEN> for u64 {
-    fn serialize(self) -> [Field; U64_SERIALIZED_LEN] {
+impl Serialize for u64 {
+    let N = U64_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -72,8 +82,10 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
     }
 }
 
-impl Serialize<U128_SERIALIZED_LEN> for U128 {
-    fn serialize(self) -> [Field; U128_SERIALIZED_LEN] {
+impl Serialize for U128 {
+    let N = U128_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         // We use little-endian ordering to match the order in which U128 defines its limbs.
         // This is necessary because of how Noir handles serialization:
         // - When calling a contract function from TypeScript, the serialization in encoder.ts gets used and then Noir
@@ -92,8 +104,10 @@ impl Deserialize<U128_SERIALIZED_LEN> for U128 {
     }
 }
 
-impl Serialize<FIELD_SERIALIZED_LEN> for Field {
-    fn serialize(self) -> [Field; FIELD_SERIALIZED_LEN] {
+impl Serialize for Field {
+    let N = FIELD_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self]
     }
 }
@@ -104,8 +118,10 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
     }
 }
 
-impl Serialize<I8_SERIALIZED_LEN> for i8 {
-    fn serialize(self) -> [Field; I8_SERIALIZED_LEN] {
+impl Serialize for i8 {
+    let N = I8_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -116,8 +132,10 @@ impl Deserialize<I8_SERIALIZED_LEN> for i8 {
     }
 }
 
-impl Serialize<I16_SERIALIZED_LEN> for i16 {
-    fn serialize(self) -> [Field; I16_SERIALIZED_LEN] {
+impl Serialize for i16 {
+    let N = I16_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -128,8 +146,10 @@ impl Deserialize<I16_SERIALIZED_LEN> for i16 {
     }
 }
 
-impl Serialize<I32_SERIALIZED_LEN> for i32 {
-    fn serialize(self) -> [Field; I32_SERIALIZED_LEN] {
+impl Serialize for i32 {
+    let N = I32_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }
@@ -140,8 +160,10 @@ impl Deserialize<I32_SERIALIZED_LEN> for i32 {
     }
 }
 
-impl Serialize<I64_SERIALIZED_LEN> for i64 {
-    fn serialize(self) -> [Field; I64_SERIALIZED_LEN] {
+impl Serialize for i64 {
+    let N = I64_SERIALIZED_LEN;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
 }

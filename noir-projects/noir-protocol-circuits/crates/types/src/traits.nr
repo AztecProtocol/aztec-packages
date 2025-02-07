@@ -186,13 +186,17 @@ impl FromField for U128 {
 /// }
 /// ```
 #[derive_via(derive_serialize)]
-pub trait Serialize<let N: u32> {
+pub trait Serialize {
+    let N: u32;
+
     fn serialize(self) -> [Field; N];
 }
 // docs:end:serialize
 
-impl<let N: u32> Serialize<N> for str<N> {
-    fn serialize(self) -> [Field; N] {
+impl Serialize for str<M> {
+    let N = M;
+
+    fn serialize(self) -> [Field; Self::N] {
         let bytes = self.as_bytes();
         let mut fields = [0; N];
         for i in 0..bytes.len() {
