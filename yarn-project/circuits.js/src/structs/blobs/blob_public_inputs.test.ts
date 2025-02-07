@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 

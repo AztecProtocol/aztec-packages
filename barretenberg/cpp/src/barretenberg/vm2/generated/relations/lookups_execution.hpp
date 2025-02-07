@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class lookup_dummy_precomputed_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_PRECOMPUTED";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -80,7 +82,12 @@ class lookup_dummy_precomputed_lookup_settings {
 template <typename FF_>
 class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_dummy_precomputed_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_DUMMY_PRECOMPUTED";
+    static constexpr std::string_view NAME = lookup_dummy_precomputed_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.execution_sel.is_zero() && in.precomputed_sel_bitwise.is_zero();
+    }
 };
 template <typename FF_> using lookup_dummy_precomputed = GenericLookup<lookup_dummy_precomputed_lookup_settings, FF_>;
 
@@ -88,6 +95,8 @@ template <typename FF_> using lookup_dummy_precomputed = GenericLookup<lookup_du
 
 class lookup_dummy_dynamic_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_DUMMY_DYNAMIC";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -153,7 +162,12 @@ class lookup_dummy_dynamic_lookup_settings {
 template <typename FF_>
 class lookup_dummy_dynamic_relation : public GenericLookupRelation<lookup_dummy_dynamic_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_DUMMY_DYNAMIC";
+    static constexpr std::string_view NAME = lookup_dummy_dynamic_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+    }
 };
 template <typename FF_> using lookup_dummy_dynamic = GenericLookup<lookup_dummy_dynamic_lookup_settings, FF_>;
 

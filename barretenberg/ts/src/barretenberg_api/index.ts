@@ -607,7 +607,6 @@ export class BarretenbergApi {
   }
 
   async acirProveUltraKeccakHonk(acirVec: Uint8Array, recursive: boolean, witnessVec: Uint8Array): Promise<Uint8Array> {
-    console.log('acirProveUltraKeccakHonk in');
     const inArgs = [acirVec, recursive, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(

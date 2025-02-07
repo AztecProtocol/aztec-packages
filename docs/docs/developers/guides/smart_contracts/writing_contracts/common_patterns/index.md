@@ -39,16 +39,15 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways to achieve the desired effect:
+You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `SharedMutable` (for values that change infrequently, see [shared state](../../../../reference/smart_contract_reference/storage/shared_state.md) for details) state variables.
+Values that change frequently (`PublicMutable`) cannot be read in private as for those we need access to the tip of the chain and only a sequencer has access to that (and sequencer executes only public functions).
 
-1. For public values that change infrequently, you can use [shared state](../../../../reference/smart_contract_reference/storage/shared_state.md).
-
-1. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
+E.g. when using `PublicImmutable`
 
 ```rust
 #[storage]
 struct Storage {
-   token: PublicMutable<Field>,
+  config: PublicImmutable<Config, Context>,
 }
 
 contract Bridge {
@@ -59,9 +58,8 @@ contract Bridge {
         amount: Field,
     ) -> Field {
         ...
-    #include_code call_assert_token_is_same /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr raw
-    }
     #include_code assert_token_is_same /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr raw
+    }
 }
 ```
 

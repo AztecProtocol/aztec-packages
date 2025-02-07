@@ -71,8 +71,8 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    pub unconstrained fn create_account(_self: Self) -> AztecAddress {
-        let test_account = cheatcodes::create_account();
+    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
+        let test_account = cheatcodes::create_account(secret);
         test_account.address
     }
 

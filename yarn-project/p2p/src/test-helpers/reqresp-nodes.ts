@@ -5,6 +5,7 @@ import {
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -105,6 +106,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,
+  chainConfig: ChainConfig = emptyChainConfig,
 ) {
   peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
@@ -114,10 +116,11 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     udpListenAddress: `0.0.0.0:${port}`,
     bootstrapNodes: boostrapAddrs,
     peerCheckIntervalMS: 1000,
-    minPeerCount: 1,
     maxPeerCount: 5,
     p2pEnabled: true,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    bootstrapNodeEnrVersionCheck: false,
+    ...chainConfig,
   } as P2PConfig & DataStoreConfig;
   const discoveryService = new DiscV5Service(peerId, config, telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
@@ -230,15 +233,15 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 }
 
 // Bootnodes
-export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
+export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     peerIdPrivateKey: privateKey,
-    minPeerCount: 10,
     maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    ...chainConfig,
   };
 }
 
@@ -246,17 +249,19 @@ export function createBootstrapNodeFromPrivateKey(
   privateKey: string,
   port: number,
   telemetry: TelemetryClient = getTelemetryClient(),
+  chainConfig: ChainConfig = emptyChainConfig,
 ): Promise<BootstrapNode> {
-  const config = createBootstrapNodeConfig(privateKey, port);
+  const config = createBootstrapNodeConfig(privateKey, port, chainConfig);
   return startBootstrapNode(config, telemetry);
 }
 
 export async function createBootstrapNode(
   port: number,
   telemetry: TelemetryClient = getTelemetryClient(),
+  chainConfig: ChainConfig = emptyChainConfig,
 ): Promise<BootstrapNode> {
   const peerId = await createSecp256k1PeerId();
-  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
+  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port, chainConfig);
 
   return startBootstrapNode(config, telemetry);
 }

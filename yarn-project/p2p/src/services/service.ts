@@ -106,4 +106,6 @@ export interface PeerDiscoveryService extends EventEmitter {
   getStatus(): PeerDiscoveryState;
 
   getEnr(): ENR | undefined;
+
+  bootstrapNodes: string[];
 }

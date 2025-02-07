@@ -115,6 +115,10 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: L1_GAS_PRICE_MAX
+              value: "{{ .Values.ethereum.l1GasPriceMax }}"
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -247,6 +251,10 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}

@@ -28,7 +28,7 @@ export class NoteHashExists extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
     const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -41,8 +41,6 @@ export class NoteHashExists extends Instruction {
 
     const exists = await context.persistableState.checkNoteHashExists(context.environment.address, noteHash, leafIndex);
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
-
-    memory.assert({ reads: 2, writes: 1, addressing });
   }
 }
 
@@ -57,7 +55,7 @@ export class EmitNoteHash extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.noteHashOffset];
@@ -71,8 +69,6 @@ export class EmitNoteHash extends Instruction {
 
     const noteHash = memory.get(noteHashOffset).toFr();
     await context.persistableState.writeNoteHash(context.environment.address, noteHash);
-
-    memory.assert({ reads: 1, addressing });
   }
 }
 
@@ -98,7 +94,7 @@ export class NullifierExists extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
@@ -111,8 +107,6 @@ export class NullifierExists extends Instruction {
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
-
-    memory.assert({ reads: 2, writes: 1, addressing });
   }
 }
 
@@ -131,7 +125,7 @@ export class EmitNullifier extends Instruction {
       throw new StaticCallAlterationError();
     }
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.nullifierOffset];
@@ -152,8 +146,6 @@ export class EmitNullifier extends Instruction {
         throw e;
       }
     }
-
-    memory.assert({ reads: 1, addressing });
   }
 }
 
@@ -179,7 +171,7 @@ export class L1ToL2MessageExists extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
@@ -195,8 +187,6 @@ export class L1ToL2MessageExists extends Instruction {
       msgLeafIndex,
     );
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
-
-    memory.assert({ reads: 2, writes: 1, addressing });
   }
 }
 
@@ -216,7 +206,7 @@ export class EmitUnencryptedLog extends Instruction {
       throw new StaticCallAlterationError();
     }
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
 
     const operands = [this.logOffset, this.logSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -230,8 +220,6 @@ export class EmitUnencryptedLog extends Instruction {
     context.machineState.consumeGas(this.gasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writePublicLog(contractAddress, log);
-
-    memory.assert({ reads: 1 + logSize, addressing });
   }
 }
 
@@ -250,7 +238,7 @@ export class SendL2ToL1Message extends Instruction {
       throw new StaticCallAlterationError();
     }
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.recipientOffset, this.contentOffset];
@@ -261,7 +249,5 @@ export class SendL2ToL1Message extends Instruction {
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
-
-    memory.assert({ reads: 2, addressing });
   }
 }

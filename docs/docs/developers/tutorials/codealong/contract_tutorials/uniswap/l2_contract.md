@@ -57,12 +57,6 @@ Both public and private swap functions call this function:
 
 #include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
-### Assertions
-
-#include_code assert_token_is_same noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
-
-This is a simple function that asserts that the token passed in to the function is the one that the bridge is associated with.
-
 ## Utils
 
 ### Compute content hash for public

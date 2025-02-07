@@ -6,7 +6,6 @@
     ".": "./dest/index.js",
     "./block-builder": "./dest/block_builder/index.js",
     "./broker": "./dest/proving_broker/index.js",
-    "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js",
     "./config": "./dest/config.js"
@@ -68,6 +67,7 @@
   },
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
