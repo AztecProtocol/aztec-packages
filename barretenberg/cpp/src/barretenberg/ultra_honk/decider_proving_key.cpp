@@ -96,7 +96,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
+    PROFILE_THIS_NAME("allocate_table_lookup_polynomials_and_inverses");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
@@ -113,7 +113,6 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     // Allocate the read counts and tags polynomials
     proving_key.polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
     proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-    ZoneScopedN("allocating lookup and databus inverses");
 
     const size_t lookup_block_end =
         static_cast<size_t>(circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
