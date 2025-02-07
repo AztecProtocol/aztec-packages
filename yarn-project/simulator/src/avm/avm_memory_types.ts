@@ -219,7 +219,7 @@ export enum TypeTag {
   UINT32 = MEM_TAG_U32,
   UINT64 = MEM_TAG_U64,
   UINT128 = MEM_TAG_U128,
-  INVALID = MEM_TAG_U128 + 1
+  INVALID = MEM_TAG_U128 + 1,
 }
 
 // Lazy interface definition for tagged memory
