@@ -41,13 +41,13 @@ function test {
 }
 
 function release {
-  echo_header "bb.js release"
-  local dist_tag=${DIST_TAG:-latest}
-  if [ "${DRY_RUN:-0}" -eq 1 ]; then
-    npm publish --tag $dist_tag --access public --dry-run
-  else
-    npm publish --tag $dist_tag --access public
-  fi
+  local version=${REF_NAME#v}
+  deploy_npm latest $version
+}
+
+function release_commit {
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
+  deploy_npm next $version
 }
 
 case "$cmd" in
@@ -61,17 +61,14 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test")
-    test
-    ;;
   "test-cmds")
     test_cmds
     ;;
   "hash")
     echo "$hash"
     ;;
-  "release")
-    release
+  test|release|release_commit)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

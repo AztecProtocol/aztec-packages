@@ -14,17 +14,5 @@
     { "type": "test", "section": "Miscellaneous", "hidden": false },
     { "type": "refactor", "section": "Miscellaneous", "hidden": false },
     { "type": "docs", "section": "Documentation", "hidden": false }
-  ],
-  "packages": {
-    ".": {
-      "release-type": "simple",
-      "component": "aztec-packages",
-      "package-name": "aztec-packages",
-      "extra-files": [
-        "cpp/CMakeLists.txt",
-        "yarn-project/aztec/package.json",
-        "barretenberg/ts/package.json"
-      ]
-    }
-  }
+  ]
 }

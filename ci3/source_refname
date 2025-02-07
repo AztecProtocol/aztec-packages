@@ -32,3 +32,7 @@ fi
 if [ -z "${COMMIT_HASH:-}" ]; then
   export COMMIT_HASH=$(git rev-parse HEAD)
 fi
+
+if [ -z "${CURRENT_VERSION:-}" ]; then
+  export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
+fi
