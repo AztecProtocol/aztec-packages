@@ -25,6 +25,9 @@
       "path": "../native"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../telemetry-client"
     },
     {

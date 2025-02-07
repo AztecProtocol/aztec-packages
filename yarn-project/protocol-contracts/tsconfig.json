@@ -14,9 +14,6 @@
     },
     {
       "path": "../types"
-    },
-    {
-      "path": "../world-state"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts"],

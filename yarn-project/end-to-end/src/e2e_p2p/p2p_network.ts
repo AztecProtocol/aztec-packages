@@ -11,7 +11,7 @@ import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
-import { getGenesisValues } from '@aztec/protocol-contracts/testing';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';

@@ -2,7 +2,7 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
-import { getGenesisValues } from '@aztec/protocol-contracts/testing';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
 
