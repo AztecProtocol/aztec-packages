@@ -80,9 +80,8 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
         if (it != row_idx.end()) {
             return it->second;
         }
-        // throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-        //                          ". Could not find tuple in destination.");
-        throw std::runtime_error("Failed computing counts. Could not find tuple in destination.");
+        throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
+                                 ". Could not find tuple in destination.");
     }
 
   private:

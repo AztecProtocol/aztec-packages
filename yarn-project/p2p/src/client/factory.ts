@@ -4,8 +4,8 @@ import {
   P2PClientType,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -29,6 +29,7 @@ type P2PClientDeps<T extends P2PClientType> = {
   store?: AztecAsyncKVStore;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
   epochProofQuotePool?: EpochProofQuotePool;
+  logger?: Logger;
 };
 
 export const createP2PClient = async <T extends P2PClientType>(
@@ -37,12 +38,12 @@ export const createP2PClient = async <T extends P2PClientType>(
   l2BlockSource: L2BlockSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
-  epochCache: EpochCache,
+  epochCache: EpochCacheInterface,
   telemetry: TelemetryClient = getTelemetryClient(),
   deps: P2PClientDeps<T> = {},
 ) => {
   let config = { ..._config };
-  const logger = createLogger('p2p');
+  const logger = deps.logger ?? createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore('p2p-archive', config, createLogger('p2p-archive:lmdb-v2'));
 
@@ -66,7 +67,12 @@ export const createP2PClient = async <T extends P2PClientType>(
     // Create peer discovery service
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, store);
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
-    const discoveryService = new DiscV5Service(peerId, config, telemetry);
+    const discoveryService = new DiscV5Service(
+      peerId,
+      config,
+      telemetry,
+      createLogger(`${logger.module}:discv5_service`),
+    );
 
     p2pService = await LibP2PService.new<T>(
       clientType,
@@ -80,6 +86,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       worldStateSynchronizer,
       store,
       telemetry,
+      createLogger(`${logger.module}:libp2p_service`),
     );
   } else {
     logger.verbose('P2P is disabled. Using dummy P2P service');

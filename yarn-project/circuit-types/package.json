@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./blob": "./dest/blob/index.js",
     "./stats": "./dest/stats/index.js",
     "./jest": "./dest/jest/index.js",
     "./interfaces": "./dest/interfaces/index.js",
@@ -80,6 +81,7 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
+    "@types/koa": "^2.15.0",
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.isequal": "^4.5.6",
     "@types/lodash.omit": "^4.5.9",
