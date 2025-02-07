@@ -73,6 +73,11 @@ class lookup_bytecode_bytes_are_bytes_relation
     : public GenericLookupRelation<lookup_bytecode_bytes_are_bytes_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_bytecode_bytes_are_bytes_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_range_8.is_zero();
+    }
 };
 template <typename FF_>
 using lookup_bytecode_bytes_are_bytes = GenericLookup<lookup_bytecode_bytes_are_bytes_lookup_settings, FF_>;
@@ -145,6 +150,11 @@ class lookup_bytecode_to_read_unary_relation
     : public GenericLookupRelation<lookup_bytecode_to_read_unary_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_bytecode_to_read_unary_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_unary.is_zero();
+    }
 };
 template <typename FF_>
 using lookup_bytecode_to_read_unary = GenericLookup<lookup_bytecode_to_read_unary_lookup_settings, FF_>;
