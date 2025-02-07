@@ -136,7 +136,7 @@ Add this to your `tsconfig.json`:
 ```json
 {
   "compilerOptions": {
-    "rootDir": "../",
+    "rootDir": ".",
     "outDir": "./dest",
     "target": "es2020",
     "lib": ["dom", "esnext", "es2017.object"],
