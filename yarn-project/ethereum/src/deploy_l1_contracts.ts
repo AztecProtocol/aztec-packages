@@ -596,13 +596,13 @@ class L1Deployer {
     const { txHash, address } = await deployL1Contract(
       this.walletClient,
       this.publicClient,
-      this.l1TxUtils,
       params.contractAbi,
       params.contractBytecode,
       args,
       this.salt,
       params.libraries,
       this.logger,
+      this.l1TxUtils,
     );
     if (txHash) {
       this.txHashes.push(txHash);
