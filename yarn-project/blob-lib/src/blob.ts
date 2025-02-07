@@ -1,10 +1,11 @@
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-import { poseidon2Hash, sha256 } from '../crypto/index.js';
-import { Fr } from '../fields/index.js';
-import { BufferReader, serializeToBuffer } from '../serialize/index.js';
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
 import { BlobDeserializationError } from './errors.js';
 import { type BlobJson } from './interface.js';

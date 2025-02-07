@@ -72,13 +72,12 @@ export async function deployAztecContracts(
     debugLogger,
     {
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       salt,
       initialValidators,
       ...config,
     },
-    // pass l1 tx utils config
     config,
   );
 }

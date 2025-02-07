@@ -1,4 +1,5 @@
 import { readFieldCompressedString } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
@@ -6,7 +7,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 

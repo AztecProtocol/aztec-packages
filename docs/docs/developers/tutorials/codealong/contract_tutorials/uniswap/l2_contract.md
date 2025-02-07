@@ -3,7 +3,7 @@ title: L2 Contracts (Aztec)
 sidebar_position: 1
 ---
 
-This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge (codealong tutorial)](../token_bridge/index.md). 
+This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge (codealong tutorial)](../token_bridge/index.md).
 
 ## Main.nr
 
@@ -56,12 +56,6 @@ This flow works similarly to the public flow with a few notable changes:
 Both public and private swap functions call this function:
 
 #include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
-
-### Assertions
-
-#include_code assert_token_is_same noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
-
-This is a simple function that asserts that the token passed in to the function is the one that the bridge is associated with.
 
 ## Utils
 

@@ -69,7 +69,6 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/simulator": "workspace:^",
-    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "zod": "^3.23.8"

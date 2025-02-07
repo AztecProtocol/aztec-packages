@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.74.0...barretenberg-v0.75.0) (2025-02-06)
+
+
+### Features
+
+* K-shifts ([#11663](https://github.com/AztecProtocol/aztec-packages/issues/11663)) ([511abe5](https://github.com/AztecProtocol/aztec-packages/commit/511abe50c77b91bfd0d29c209720663c33debc61))
+* Report wrong proof length in the verifier contract ([#11728](https://github.com/AztecProtocol/aztec-packages/issues/11728)) ([1a83cd2](https://github.com/AztecProtocol/aztec-packages/commit/1a83cd26f7f8c4163d538f942677dcea7f2bc8dc))
+
+
+### Miscellaneous
+
+* **avm:** Add names to lookup settings ([#11768](https://github.com/AztecProtocol/aztec-packages/issues/11768)) ([fafe3ba](https://github.com/AztecProtocol/aztec-packages/commit/fafe3bad6ceff1679ed1bd43ab29a1345cc22721))
+* **avm:** Full row cleanup ([#11767](https://github.com/AztecProtocol/aztec-packages/issues/11767)) ([6145cd0](https://github.com/AztecProtocol/aztec-packages/commit/6145cd051a9fcabfd4c7ddcb5c7607390ef5f152))
+* **avm:** Use lookup by clk for sha params ([#11762](https://github.com/AztecProtocol/aztec-packages/issues/11762)) ([b003567](https://github.com/AztecProtocol/aztec-packages/commit/b003567128c15c1064bd6bd831ebe1a4158ae66f))
+* Better bundling for bb.js, remove aztec.js bundling ([#11761](https://github.com/AztecProtocol/aztec-packages/issues/11761)) ([8cc3f0a](https://github.com/AztecProtocol/aztec-packages/commit/8cc3f0a9f2753e942d7055f2ccddc96e6f4c7f94))
+* Remove stale zk constants and methods ([#11715](https://github.com/AztecProtocol/aztec-packages/issues/11715)) ([7a2870f](https://github.com/AztecProtocol/aztec-packages/commit/7a2870f3684b198d5472ea4bdd7be5a84e812d93))
+
 ## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.73.0...barretenberg-v0.74.0) (2025-02-04)
 
 
