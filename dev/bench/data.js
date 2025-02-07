@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738860277839,
+  "lastUpdate": 1738926606245,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "sergei iakovenko",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fe34b0580a308665c655a897c72f06bd05dcd4c4",
-          "message": "feat: eccvm sumcheck with commitments to round univariates (#11206)\n\n[Protocol outline](https://hackmd.io/sxlCHpVISdaaQJbCpcXA-Q)\r\n\r\n* combined with SmallSubgroup inner product argument, ensures that the\r\nsumcheck round univariates do not leak witness information (In ECCVM)\r\n* drastically reduces the eccvm proof size - instead of sending 24\r\ncoefficients of each round univariate, the prover sends evals at 0, 1,\r\nand a group element\r\n* reduces eccvm recursive verifier costs by avoiding expensive\r\nevaluations of polys of degree 23 (360K gates -> 230K gates)",
-          "timestamp": "2025-01-22T16:32:11+01:00",
-          "tree_id": "7cca89d27ac7e50ea84edf7fc6be7c76918360b3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fe34b0580a308665c655a897c72f06bd05dcd4c4"
-        },
-        "date": 1737561402901,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19591.829495000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16680.902129 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24930.087184,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19013.502672000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4438.269887000019,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4097.429571000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 80693.997431,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 80693998000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13536.199834000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13536201000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3549754629,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3549754629 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153191669,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153191669 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 143095998,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143095998 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be382bc5ecf9bdea11ff26af104c8860472260d9",
+          "message": "feat(avm): restrict bytecode bytes (#11798)\n\nAdded \"range check\".",
+          "timestamp": "2025-02-07T10:53:05Z",
+          "tree_id": "f020449c2326567e1d33bdd8f49d84ae5bc99f88",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be382bc5ecf9bdea11ff26af104c8860472260d9"
+        },
+        "date": 1738926598571,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19150.442951,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16302.132906 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20766.060745999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18438.789222 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4060.2140510000027,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3781.2978590000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72747.636521,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72747637000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14368.568916,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14368570000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2607070623,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2607070623 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132828840,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132828840 ns\nthreads: 1"
           }
         ]
       }
