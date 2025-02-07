@@ -160,7 +160,7 @@ class UltraStarknetFlavor : public bb::UltraFlavor {
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
-    using Transcript = UltraKeccakFlavor::Transcript_<PoseidonTranscriptParams>;
+    using Transcript = UltraStarknetFlavor::Transcript_<StarknetTranscriptParams>;
 };
 
 } // namespace bb

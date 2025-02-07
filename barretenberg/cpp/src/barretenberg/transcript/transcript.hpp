@@ -526,22 +526,22 @@ struct KeccakTranscriptParams {
 
 using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
 
-inline bb::fr poseidon_hash_uint256(std::vector<bb::fr> const& data)
+inline bb::fr starknet_hash_uint256(std::vector<bb::fr> const& data)
 {
     std::vector<uint8_t> buffer = to_buffer(data);
 
-    auto result = crypto::poseidon_block(buffer);
+    auto result = crypto::poseidon_stark252(buffer);
 
     auto result_fr = from_buffer<bb::fr>(result);
 
     return result_fr;
 }
 
-struct PoseidonTranscriptParams {
+struct StarknetTranscriptParams {
     using Fr = bb::fr;
     using Proof = HonkProof;
 
-    static inline Fr hash(const std::vector<Fr>& data) { return poseidon_hash_uint256(data); }
+    static inline Fr hash(const std::vector<Fr>& data) { return starknet_hash_uint256(data); }
 
     template <typename T> static inline T convert_challenge(const Fr& challenge)
     {
@@ -567,6 +567,6 @@ struct PoseidonTranscriptParams {
     }
 };
 
-using PoseidonTranscript = BaseTranscript<PoseidonTranscriptParams>;
+using StarknetTranscript = BaseTranscript<StarknetTranscriptParams>;
 
 } // namespace bb

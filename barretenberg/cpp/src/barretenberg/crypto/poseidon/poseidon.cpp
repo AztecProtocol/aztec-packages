@@ -602,8 +602,10 @@ template <typename Params> class PoseidonPermutation {
     }
 };
 
-PoseidonHash poseidon_block(const std::vector<uint8_t>& buffer)
+PoseidonHash poseidon_stark252(const std::vector<uint8_t>& buffer)
 {
+    assert(buffer.size() % 32 == 0);
+
     using Permutation = PoseidonPermutation<PoseidonStark252BaseFieldParams>;
     using State = Permutation::State;
     using FF = Permutation::FF;
