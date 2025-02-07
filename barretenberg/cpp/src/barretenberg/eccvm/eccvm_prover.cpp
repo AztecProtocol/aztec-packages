@@ -26,7 +26,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
 
     // Construct the proving key; populates all polynomials except for witness polys
-    key = std::make_shared<ProvingKey>(builder, fixed_size);
+    key = fixed_size ? std::make_shared<ProvingKey>(builder, fixed_size) : std::make_shared<ProvingKey>(builder);
 
     key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }

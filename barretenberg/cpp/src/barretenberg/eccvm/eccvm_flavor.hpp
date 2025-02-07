@@ -725,17 +725,19 @@ class ECCVMFlavor {
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        ProvingKey(const CircuitBuilder& builder, const bool fixed_size = false)
-            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+        // Constructor for dynamic size ProvingKey
+        ProvingKey(const CircuitBuilder& builder)
+            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
+            , real_size(this->circuit_size)
+            , polynomials(builder)
+        {}
 
+        // Constructor for fixed size ProvingKey
+        ProvingKey(const CircuitBuilder& builder, bool fixed_size)
+            : Base(ECCVM_FIXED_SIZE, 0)
+            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder, fixed_size)
-        {
-            if (fixed_size) {
-                Base(ECCVM_FIXED_SIZE, 0);
-            } else {
-                Base(real_size, 0);
-            }
-        }
+        {}
     };
 
     /**

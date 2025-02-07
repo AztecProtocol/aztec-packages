@@ -94,7 +94,7 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (circuit.num_gates < Flavor::MINIMUM_MINI_CIRCUIT_SIZE) {
+        if (circuit.num_gates > Flavor::MINIMUM_MINI_CIRCUIT_SIZE) {
             info("The Translator circuit size has exceeded the fixed upper bound");
             ASSERT(false);
         }
