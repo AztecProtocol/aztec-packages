@@ -53,7 +53,7 @@ fn validate_propagated_sorted_values_contract_class_logs_succeeds() {
 }
 
 #[test(should_fail_with = "incorrect transformed value")]
-fn validate_propagated_sorted_values_contract_class_log_hashes_mismatch_fails() {
+fn validate_propagated_sorted_values_contract_class_log_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
     builder.previous_kernel.add_contract_class_log([3, 2]);

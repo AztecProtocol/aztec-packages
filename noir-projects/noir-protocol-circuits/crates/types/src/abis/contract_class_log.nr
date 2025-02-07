@@ -134,7 +134,8 @@ impl Scoped<ContractClassLogData> {
 }
 
 // Like assert_array_appended_and_scoped, but for contract class logs where we have the special is_empty
-// and transformation of log.log_size from private_call to public_inputs
+// and transformation of log.log_size from private_call to public_inputs.
+// Called for each private call added in init and inner kernels. Constrains log_size is correct.
 pub fn assert_contract_class_logs_appended_and_scoped<let N: u32, let M: u32>(
     dest: [Scoped<ContractClassLogData>; N],
     source: [ContractClassLogData; M],
