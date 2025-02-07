@@ -79,6 +79,7 @@ spec:
     - protocol: TCP
       port: {{ .Values.ethereum.beacon.service.port }}
       targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
