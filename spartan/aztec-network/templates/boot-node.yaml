@@ -27,20 +27,6 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: boot-node
     spec:
-      {{- if and .Values.bootNode.gke.spotEnabled .Values.network.gke }}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: cloud.google.com/gke-spot
-                operator: Exists
-      tolerations:
-      - key: "cloud.google.com/gke-spot"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
-      {{- end }}
       {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"

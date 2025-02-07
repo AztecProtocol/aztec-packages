@@ -133,6 +133,8 @@ jobs:
 
           rm helm_values.json
 
+          ADDRESS_INDEX=69
+
           kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &>/dev/null &
           port_forward_pids+=($!)
 
@@ -152,6 +154,7 @@ jobs:
             --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
             --l1-chain-id "$L1_CHAIN_ID" \
             --mnemonic "$MNEMONIC" \
+            --address-index "$ADDRESS_INDEX" \
             --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json
