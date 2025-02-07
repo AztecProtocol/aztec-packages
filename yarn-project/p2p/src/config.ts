@@ -31,6 +31,16 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   blockRequestBatchSize: number;
 
   /**
+   * DEBUG: Disable message validation - for testing purposes only
+   */
+  debugDisableMessageValidation: boolean;
+
+  /**
+   * DEBUG: Disable colocation penalty - for testing purposes only
+   */
+  debugDisableColocationPenalty: boolean;
+
+  /**
    * The frequency in which to check for new peers.
    */
   peerCheckIntervalMS: number;
@@ -120,6 +130,16 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   gossipsubDhi: number;
 
   /**
+   * The Dlazy parameter for the gossipsub protocol.
+   */
+  gossipsubDLazy: number;
+
+  /**
+   * Whether to flood publish messages. - For testing purposes only
+   */
+  gossipsubFloodPublish: boolean;
+
+  /**
    * The number of gossipsub interval message cache windows to keep.
    */
   gossipsubMcacheLength: number;
@@ -168,6 +188,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  debugDisableMessageValidation: {
+    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
+    description: 'DEBUG: Disable message validation - NEVER set to true in production',
+    ...booleanConfigHelper(false),
+  },
+  debugDisableColocationPenalty: {
+    env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
+    description: 'DEBUG: Disable colocation penalty - NEVER set to true in production',
+    ...booleanConfigHelper(false),
   },
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
@@ -248,7 +278,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(700),
   },
   gossipsubD: {
     env: 'P2P_GOSSIPSUB_D',
@@ -265,10 +295,20 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The Dhi parameter for the gossipsub protocol.',
     ...numberConfigHelper(12),
   },
+  gossipsubDLazy: {
+    env: 'P2P_GOSSIPSUB_DLAZY',
+    description: 'The Dlazy parameter for the gossipsub protocol.',
+    ...numberConfigHelper(6),
+  },
+  gossipsubFloodPublish: {
+    env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
+    description: 'Whether to flood publish messages. - For testing purposes only',
+    ...booleanConfigHelper(true),
+  },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(5),
+    ...numberConfigHelper(6),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
