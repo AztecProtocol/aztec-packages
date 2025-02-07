@@ -87,7 +87,6 @@ function test_cmds {
   echo "$prefix simple flakey_e2e_inclusion_proofs_contract"
 
   echo "$prefix compose composed/docs_examples"
-  echo "$prefix compose composed/e2e_aztec_js_browser"
   echo "$prefix compose composed/e2e_pxe"
   echo "$prefix compose composed/e2e_sandbox_example"
   echo "$prefix compose composed/integration_l1_publisher"

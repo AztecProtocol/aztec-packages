@@ -24,7 +24,7 @@ function build_and_preview {
   denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
   cache_upload docs-$hash.tar.gz build
 
-  if [ "$CI" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
+  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
     # Included as part of build step so we can skip this consistently if the build was cached.
     release_preview
   fi

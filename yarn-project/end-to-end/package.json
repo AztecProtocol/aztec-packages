@@ -11,7 +11,6 @@
     "build": "yarn clean && tsc -b && webpack",
     "build:e2e": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "build:web": "webpack",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:with-alerts": "./scripts/test-with-alerts.sh",
@@ -88,7 +87,6 @@
     "lodash.every": "^4.6.0",
     "memdown": "^6.1.1",
     "process": "^0.11.10",
-    "puppeteer-core": "^22.2",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
     "ts-loader": "^9.4.4",
@@ -97,8 +95,6 @@
     "typescript": "^5.0.4",
     "util": "^0.12.5",
     "viem": "2.22.8",
-    "webpack": "^5.90.0",
-    "webpack-cli": "^5.1.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
