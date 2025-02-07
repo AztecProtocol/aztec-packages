@@ -12,7 +12,7 @@ package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"
 
 published_version=$(npm show . version --tag $dist_tag 2>/dev/null | grep -vE '^@' || true)
-higher_version=$(npx semver ${version} ${published_version} | tail -1)
+higher_version=$(npx --yes semver ${version} ${published_version} | tail -1)
 
 # Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
 if [ "$version" == "$published_version" ]; then

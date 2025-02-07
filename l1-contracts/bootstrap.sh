@@ -64,7 +64,7 @@ function release_git_push {
   local ref_name="${REF_NAME:?REF_NAME not set but should have been resolved by source_refname}"
   local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
   # Initialize a new git repository, create an orphan branch, commit, and tag.
-  git init >/dev/null
+  git init &>/dev/null
   git checkout -b $COMMIT_HASH &>/dev/null
   git add .
   git commit -m "Release $ref_name." >/dev/null
@@ -95,6 +95,11 @@ function release {
   release_git_push
 }
 
+function release_commit {
+  REF_NAME="commit-$COMMIT_HASH"
+  release
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -109,8 +114,8 @@ case "$cmd" in
   "test")
     test
     ;;
-  "release")
-    release
+  release|release_commit)
+    $cmd
     ;;
   "test-cmds")
     test_cmds

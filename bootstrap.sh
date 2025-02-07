@@ -163,6 +163,8 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    noir
+    l1-contracts
     yarn-project
     # Should publish at least one of our boxes to it's own repo.
     #boxes
@@ -197,12 +199,13 @@ function release_commit {
   projects=(
     barretenberg/cpp
     barretenberg/ts
-    # l1-contracts
-    # yarn-project
-    # # Should publish at least one of our boxes to it's own repo.
-    # #boxes
-    # docs
-    # release-image
+    noir
+    l1-contracts
+    yarn-project
+    # Should publish at least one of our boxes to it's own repo.
+    #boxes
+    docs
+    release-image
   )
 
   for project in "${projects[@]}"; do

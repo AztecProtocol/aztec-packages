@@ -107,27 +107,22 @@ function test {
   test_cmds | parallelise $((num_cpus / 2))
 }
 
-function release {
-  echo_header "yarn-project release"
-
+function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
-  local version=${REF_NAME#v}
-
   for package in $packages; do
     (cd $package && deploy_npm $1 $version)
   done
 }
 
+function release {
+  echo_header "yarn-project release"
+  release_packages latest ${REF_NAME#v}
+}
+
 function release_commit {
   echo_header "yarn-project release commit"
-  echo "Computing packages to publish..."
-  local packages=$(get_projects topological)
-  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
-
-  for package in $packages; do
-    (cd $package && deploy_npm next $version)
-  done
+  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
 case "$cmd" in
@@ -167,7 +162,7 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
-  test|release_tagged|release_canary|release_nightly|format)
+  test|release|release_commit|format)
     $cmd
     ;;
   *)
