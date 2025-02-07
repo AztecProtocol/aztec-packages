@@ -1,4 +1,5 @@
 import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
@@ -7,7 +8,6 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
@@ -28,6 +28,8 @@ const k8sLocalConfigSchema = z.object({
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
+  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
 });
 

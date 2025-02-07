@@ -32,6 +32,7 @@ cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
+sepolia_run=${SEPOLIA_RUN:-false}
 
 OVERRIDES="${OVERRIDES:-}"
 
@@ -72,7 +73,7 @@ trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
 function copy_stern_to_log() {
-  stern spartan -n $namespace > logs/test_kind.log &
+  stern spartan -n $namespace >logs/test_kind.log &
   stern_pid=$!
 }
 
@@ -81,7 +82,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file
+  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
 fi
 
 # Find 4 free ports between 9000 and 10000
@@ -106,6 +107,14 @@ ethereum_slot_duration=$(./read_value.sh "ethereum.blockTime" $value_yamls)
 aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
 aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
+
+env_args=()
+if [ "$sepolia_run" = "true" ]; then
+  env_args+=(
+    -e ETHEREUM_HOST="$EXTERNAL_ETHEREUM_HOST"
+    -e SEPOLIA_RUN="true"
+  )
+fi
 
 if [ "$use_docker" = "true" ]; then
   echo "RUNNING TEST: $test (docker)"
@@ -133,6 +142,7 @@ if [ "$use_docker" = "true" ]; then
     -e AZTEC_SLOT_DURATION=$aztec_slot_duration \
     -e AZTEC_EPOCH_DURATION=$aztec_epoch_duration \
     -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$aztec_epoch_proof_claim_window_in_l2_slots \
+    "${env_args[@]}" \
     aztecprotocol/end-to-end:$aztec_docker_tag $test
 else
   echo "RUNNING TEST: $test"

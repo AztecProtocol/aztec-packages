@@ -49,6 +49,7 @@ import {
   TxValidationResultSchema,
 } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
@@ -601,6 +602,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
-export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
-  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
+export function createAztecNodeClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
+    namespaceMethods: 'node',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

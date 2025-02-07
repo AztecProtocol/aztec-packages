@@ -65,14 +65,21 @@ export async function deployAztecContracts(
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
-    protocolContractTreeRoot,
-    salt,
-    initialValidators,
-    ...config,
-  });
+  return await deployL1Contracts(
+    chain.rpcUrl,
+    account,
+    chain.chainInfo,
+    debugLogger,
+    {
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      salt,
+      initialValidators,
+      ...config,
+    },
+    config,
+  );
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */

@@ -11,14 +11,23 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
-export function createLogger(module: string): Logger {
+export function createLogger(module: string, fixedTerms = {}): Logger {
   module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
+
+  // Only perform copy of data if fixed terms are provided
+  const hasFixedTerms = Object.keys(fixedTerms).length > 0;
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
   const logFn = (level: LogLevel, msg: string, data?: unknown) =>
-    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
+    isLevelEnabled(pinoLogger, level) &&
+    pinoLogger[level](
+      hasFixedTerms
+        ? processLogData({ ...fixedTerms, ...(data ?? {}) } as LogData)
+        : processLogData((data as LogData) ?? {}),
+      msg,
+    );
 
   return {
     silent: () => {},
@@ -149,7 +158,10 @@ function makeLogger() {
   if (!isNode) {
     // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
-  } else if (process.env.JEST_WORKER_ID) {
+  }
+  // If running in a child process then cancel this if statement section by uncommenting below
+  // else if (false) {
+  else if (process.env.JEST_WORKER_ID) {
     // We are on jest, so we need sync logging and stream to stderr.
     // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
     // but if for some reason it doesn't, at least we're covered with a default logger.

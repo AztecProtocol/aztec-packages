@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
