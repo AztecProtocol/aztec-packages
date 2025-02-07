@@ -118,8 +118,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "PRECOMPUTE_PC", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_PC", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_ROUND", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SELECT", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");

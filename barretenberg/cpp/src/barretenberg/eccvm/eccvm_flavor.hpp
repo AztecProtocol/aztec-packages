@@ -200,8 +200,9 @@ class ECCVMFlavor {
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_accumulator_x, // column 62
-                              transcript_accumulator_y) // column 63
+                              transcript_accumulator_empty, // column 83
+                              transcript_accumulator_x,     // column 62
+                              transcript_accumulator_y)     // column 63
     };
     /**
      * @brief Container for all to-be-shifted witness polynomials excluding the accumulators used/constructed by the
@@ -211,29 +212,28 @@ class ECCVMFlavor {
     template <typename DataType> class WireToBeShiftedWithoutAccumulatorsEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_mul,               // column 60
-                              transcript_msm_count,         // column 61
-                              precompute_scalar_sum,        // column 64
-                              precompute_s1hi,              // column 65
-                              precompute_dx,                // column 66
-                              precompute_dy,                // column 67
-                              precompute_tx,                // column 68
-                              precompute_ty,                // column 69
-                              msm_transition,               // column 70
-                              msm_add,                      // column 71
-                              msm_double,                   // column 72
-                              msm_skew,                     // column 73
-                              msm_accumulator_x,            // column 74
-                              msm_accumulator_y,            // column 75
-                              msm_count,                    // column 76
-                              msm_round,                    // column 77
-                              msm_add1,                     // column 78
-                              msm_pc,                       // column 79
-                              precompute_pc,                // column 80
-                              transcript_pc,                // column 81
-                              precompute_round,             // column 82
-                              transcript_accumulator_empty, // column 83
-                              precompute_select)            // column 84
+                              transcript_mul,        // column 60
+                              transcript_msm_count,  // column 61
+                              precompute_scalar_sum, // column 64
+                              precompute_s1hi,       // column 65
+                              precompute_dx,         // column 66
+                              precompute_dy,         // column 67
+                              precompute_tx,         // column 68
+                              precompute_ty,         // column 69
+                              msm_transition,        // column 70
+                              msm_add,               // column 71
+                              msm_double,            // column 72
+                              msm_skew,              // column 73
+                              msm_accumulator_x,     // column 74
+                              msm_accumulator_y,     // column 75
+                              msm_count,             // column 76
+                              msm_round,             // column 77
+                              msm_add1,              // column 78
+                              msm_pc,                // column 79
+                              precompute_pc,         // column 80
+                              transcript_pc,         // column 81
+                              precompute_round,      // column 82
+                              precompute_select)     // column 84
     };
     /**
      * @brief Container for all wire polynomials used/constructed by the prover.
@@ -305,8 +305,8 @@ class ECCVMFlavor {
                               precompute_pc_shift,                // column 20
                               transcript_pc_shift,                // column 21
                               precompute_round_shift,             // column 22
-                              transcript_accumulator_empty_shift, // column 23
                               precompute_select_shift,            // column 24
+                              transcript_accumulator_empty_shift, // column 23
                               transcript_accumulator_x_shift,     // column 2
                               transcript_accumulator_y_shift,     // column 3
                               z_perm_shift);                      // column 25
@@ -337,8 +337,8 @@ class ECCVMFlavor {
                          entities.precompute_pc,                // column 20
                          entities.transcript_pc,                // column 21
                          entities.precompute_round,             // column 22
-                         entities.transcript_accumulator_empty, // column 23
                          entities.precompute_select,            // column 24
+                         entities.transcript_accumulator_empty, // column 23
                          entities.transcript_accumulator_x,     // column 2
                          entities.transcript_accumulator_y,     // column 3
                          entities.z_perm };                     // column 25
