@@ -39,6 +39,7 @@ export async function bootstrapNetwork(
   l1ChainId: string,
   l1PrivateKey: `0x${string}` | undefined,
   l1Mnemonic: string,
+  addressIndex: number,
   json: boolean,
   log: LogFn,
   debugLog: Logger,
@@ -55,7 +56,7 @@ export async function bootstrapNetwork(
       ? privateKeyToAccount(l1PrivateKey)
       : // We need to use a different account that the main "deployer" account because the "deployer" account creates transactions that send blobs.
         // Note that this account needs to be funded on L1 !
-        mnemonicToAccount(l1Mnemonic, { addressIndex: 69 }),
+        mnemonicToAccount(l1Mnemonic, { addressIndex }),
     createEthereumChain(l1Url, +l1ChainId).chainInfo,
   );
 
