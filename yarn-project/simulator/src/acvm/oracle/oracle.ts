@@ -1,12 +1,11 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { LogWithTxData } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -395,16 +394,6 @@ export class Oracle {
     );
 
     return toACVMField(true);
-  }
-
-  async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const log = await this.typedOracle.getLogByTag(fromACVMField(tag));
-
-    if (log == null) {
-      return [toACVMField(0), ...LogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
-    } else {
-      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
-    }
   }
 
   async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {

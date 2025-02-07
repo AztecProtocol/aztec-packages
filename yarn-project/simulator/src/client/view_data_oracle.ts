@@ -12,7 +12,6 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -327,10 +326,6 @@ export class ViewDataOracle extends TypedOracle {
     }
 
     await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
-  }
-
-  public override getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return this.db.getLogByTag(tag);
   }
 
   public override dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {

@@ -268,13 +268,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteHash: Fr,
     counter: number,
   ) {
-    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
-      contractAddress: this.callContext.contractAddress,
-      storageSlot,
-      noteTypeId,
-      counter,
-    });
-
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
