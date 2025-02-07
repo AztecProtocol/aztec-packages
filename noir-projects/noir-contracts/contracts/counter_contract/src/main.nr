@@ -103,8 +103,8 @@ pub contract Counter {
     unconstrained fn test_increment() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.create_account();
-        let sender = env.create_account();
+        let owner = env.create_account(1);
+        let sender = env.create_account(2);
         let initial_value: Field = 5;
         env.impersonate(owner);
         // Deploy contract and initialize
