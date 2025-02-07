@@ -56,7 +56,10 @@ use crate::{
         UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
-    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    data::{
+        hash::compute_public_data_tree_index,
+        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         compute_unique_siloed_note_hash, poseidon2_hash_with_separator, silo_note_hash,
@@ -71,8 +74,8 @@ use crate::{
     },
     public_keys::PublicKeys,
     shared_mutable::{
-        hash_scheduled_data, scheduled_delay_change::ScheduledDelayChange,
-        scheduled_value_change::ScheduledValueChange,
+        compute_scheduled_data_hash_slot, hash_scheduled_data,
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
     },
     storage::map::derive_storage_slot_in_map,
     tests::fixtures::{
@@ -443,12 +446,9 @@ impl FixtureBuilder {
             );
             let shared_mutable_slot =
                 derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
-            let hash_slot =
-                poseidon2_hash_with_separator([shared_mutable_slot], SHARED_MUTABLE_HASH_SEPARATOR);
-            let hash_leaf_slot = poseidon2_hash_with_separator(
-                [DEPLOYER_CONTRACT_ADDRESS.to_field(), hash_slot],
-                GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-            );
+            let hash_slot = compute_scheduled_data_hash_slot(shared_mutable_slot);
+            let hash_leaf_slot =
+                compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
             public_data_tree.update_leaf(
                 public_data_prefill - 1,
                 PublicDataTreeLeafPreimage {
