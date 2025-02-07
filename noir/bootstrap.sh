@@ -97,6 +97,14 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function test_example {
+  local test="$1"
+  export PATH="$root/noir/noir-repo/target/release:${PATH}"
+  export BACKEND="$root/barretenberg/cpp/build/bin/bb"
+  cd "noir-repo/examples/$test"
+  ./test.sh
+}
+
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
   cd noir-repo
@@ -114,6 +122,11 @@ function test_cmds {
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
+  # We need to include these as they will go out of date otherwise and externals use these examples.
+  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
+  echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
+  echo "$example_test_hash noir/bootstrap.sh test_example recursion"
 }
 
 function format {
@@ -138,7 +151,7 @@ function release {
   for project in $js_projects; do
     jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
     (cd $project && deploy_npm latest $version)
-  fi
+  done
 }
 
 function release_commit {
@@ -147,23 +160,8 @@ function release_commit {
   for project in $js_projects; do
     jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
     (cd $project && deploy_npm next $version)
-  fi
+  done
 }
-
-# TODO(ci3,delete-earthly): evaluate if redundant
-# examples:
-#   FROM ../+bootstrap-noir-bb
-#   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-#   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
-#
-#   WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
-#   RUN ./test.sh
-#
-#   WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
-#   RUN ./test.sh
-#
-#   WORKDIR /usr/src/noir/noir-repo/examples/recursion
-#   RUN ./test.sh
 
 case "$cmd" in
   "clean")
@@ -176,7 +174,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  build_native|build_packages|format|test|release|release_commit)
+  build_native|build_packages|format|test|release|release_commit|test_example)
     $cmd $@
     ;;
   "test-cmds")

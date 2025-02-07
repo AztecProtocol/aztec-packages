@@ -93,14 +93,44 @@ function download_old_crs {
 function build_release {
   rm -rf build-release
   mkdir build-release
+  local version=$(jq -r '."."' ../../.release-please-manifest.json)
+  local version_placeholder='00000000.00000000.00000000'
+  local version_regex='00000000\.00000000\.00000000'
   local arch=$(arch)
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
+  # We pad version to the length of our version_placeholder, adding null bytes to the end.
+  # We then write out to this version to our artifacts, using sed to replace the version placeholder in our binaries.
+  # Calculate lengths (both version and placeholder)
+  local placeholder_length=${#version_placeholder}
+  local version_length=${#version}
+  if (( version_length > placeholder_length )); then
+    echo "Error: version ($version) is longer than placeholder ($version_placeholder). Cannot update bb binaries."
+    exit 1
+  fi
+  # Create a string for use in sed that will write the appropriate number of null bytes.
+  local N=$(( placeholder_length - version_length ))
+  local nullbytes="$(printf '\\x00%.0s' $(seq 1 "$N"))"
+
+  function update_bb_version {
+    local file=$1
+    if ! grep $version_regex "$file" 2>/dev/null; then
+      echo_stderr "Error: $file does not have placeholder ($version_placeholder). Cannot update bb binaries."
+      exit 1
+    fi
+    # Perform the actual replacement on a file.
+    sed "s/$version_regex/$version$nullbytes/" "$file"
+  }
+  update_bb_version build/bin/bb > build-release/bb
+  chmod +x build-release/bb
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release bb
+  # WASM binaries do not currently report version.
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
   if [ "$REF_NAME" == "master" ]; then
-    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin bb
+    update_bb_version build-darwin-$arch/bin/bb > build-darwin-$arch/bin/bb.replaced
+    chmod +x build-darwin-$arch/bin/bb.replaced
+    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin --transform 's/.replaced//' bb.replaced
   fi
 }
 

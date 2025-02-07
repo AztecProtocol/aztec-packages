@@ -4,10 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-hash=$(cache_content_hash \
-  ../noir/.rebuild_patterns \
-  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+function hash {
+  cache_content_hash \
+    ../noir/.rebuild_patterns \
+    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns
+}
 
 function compile_project {
   # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
@@ -24,7 +26,7 @@ function get_projects {
       --exclude @aztec/scripts \
       exec 'basename $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated | grep -vE '(noir-bb-bench|scripts)'
+    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
   fi
 }
 
@@ -45,13 +47,9 @@ function build {
   denoise "./bootstrap.sh clean-lite"
   denoise "yarn install"
 
-  if cache_download yarn-project-$hash.tar.gz; then
-    return
-  fi
-
   compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
-  # This many projects have a generation stage now!?
+  # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
     circuit-types \
@@ -78,23 +76,12 @@ function build {
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
-  # parallel --line-buffered --tag denoise 'cd {} && yarn build:web' ::: aztec.js end-to-end
 
-  # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
-  # Then one-off cases. If you've written into src, you need to update this.
-  cache_upload yarn-project-$hash.tar.gz \
-    */{dest,fixtures,build,artifacts,generated} \
-    circuit-types/src/test/artifacts \
-    ivc-integration/src/types/ \
-    noir-contracts.js/{codegenCache.json,src/} \
-    noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
-    pxe/src/config/package_info.ts \
-    protocol-contracts/src/protocol_contract_data.ts
-  echo
   echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
+  local hash=$(hash)
   # These need isolation due to network stack usage.
   for test in {prover-node,p2p}/src/**/*.test.ts; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
@@ -110,7 +97,7 @@ function test_cmds {
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
-  # Uses mocha - so we have to treat it differently...
+  # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
 }
 
@@ -168,7 +155,7 @@ case "$cmd" in
     test_cmds
     ;;
   "hash")
-    echo $hash
+    hash
     ;;
   "compile")
     if [ -n "${1:-}" ]; then

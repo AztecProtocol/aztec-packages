@@ -4,7 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns)
+export hash=$(cache_content_hash \
+  .rebuild_patterns \
+  ../noir-projects/noir-protocol-circuits \
+  ../barretenberg/cpp/.rebuild_patterns
+)
 
 function build {
   echo_header "l1-contracts build"
@@ -20,7 +24,7 @@ function build {
     git submodule update --init --recursive ./lib
 
     mkdir -p generated
-    # Copy from noir-projects. Bootstrap must hav
+    # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then
       cp "$rollup_verifier_path" generated/HonkVerifier.sol
@@ -56,10 +60,39 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function release_git_push {
+  local ref_name="${REF_NAME:?REF_NAME not set but should have been resolved by source_refname}"
+  local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
+  # Initialize a new git repository, create an orphan branch, commit, and tag.
+  git init >/dev/null
+  git checkout -b $COMMIT_HASH &>/dev/null
+  git add .
+  git commit -m "Release $ref_name." >/dev/null
+  git tag -a "$ref_name" -m "Release $ref_name."
+  git remote add origin "$mirrored_repo_url" >/dev/null
+  # Force push the tag.
+  git push origin --quiet --force "$ref_name" --tags
+  echo "Release complete ($ref_name)."
+}
+
 function release {
   # Publish to own repo with current tag or branch REF_NAME.
-  # This
-  true
+  # We support one use-case - using foundry to install our contracts from a certain tag.
+  # We take the our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
+  # and push with the tag being equal to REF_NAME.
+  echo_header "l1-contracts release"
+
+  # Clean up our release directory.
+  rm -rf release-out && mkdir release-out
+
+  # Copy our git files to our release directory.
+  git archive HEAD | tar -x -C release-out
+
+  # Copy from noir-projects. Bootstrap must have ran in noir-projects.
+  cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
+
+  cd release-out
+  release_git_push
 }
 
 case "$cmd" in
