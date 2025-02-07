@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738930632050,
+  "lastUpdate": 1738933499949,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "01510f45aa5d385a08584df674d9caf9522e6be2",
-          "message": "feat: Lazy wasm pt. 2 (#11410)\n\nFocusing on converting our account contract crypto fns",
-          "timestamp": "2025-01-22T18:35:08+01:00",
-          "tree_id": "aa4aacaf8c23a96ff8055785fc2d2a33f0ced25c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2"
-        },
-        "date": 1737568844510,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19227.91431599998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16391.361991 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21464.658516999974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18976.205669 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4046.244662000021,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3738.346501 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 77198.532948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 77198534000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14593.498877000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14593499000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3210977855,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3210977855 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132574195,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132574195 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 133888551,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133888551 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ee5fc45d1347fd12d924efd4e9a2305ba5efe5b7",
+          "message": "chore: do not differentiate variable vs fixed length for Poseidon2 (#11740)\n\nRemove the terminator for poseidon2 that was used to distinguish between\r\nfixed and variable size hashes.",
+          "timestamp": "2025-02-07T13:01:24+01:00",
+          "tree_id": "068effa569dc0859b9555229a5ad30262f7070b0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ee5fc45d1347fd12d924efd4e9a2305ba5efe5b7"
+        },
+        "date": 1738933492063,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19133.344061000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16294.236034999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20800.562824999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18450.334303000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4068.7724550000157,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3788.0796119999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73423.034237,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73423034000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14375.265541000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14375267000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2803749417,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2803749417 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141306638,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141306638 ns\nthreads: 1"
           }
         ]
       }
