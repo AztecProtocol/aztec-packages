@@ -102,7 +102,6 @@ describe.skip('Gossipsub', () => {
 
     // Setup clients in separate processes
     const testConfig: Partial<P2PConfig> = {
-      minPeerCount: 0,
       maxPeerCount: numberOfClients + 20,
       gossipsubInterval: 700,
       gossipsubD: 1,

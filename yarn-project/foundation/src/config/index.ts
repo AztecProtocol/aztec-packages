@@ -72,7 +72,12 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  */
 export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => BigInt(val),
+    parseEnv: (val: string) => {
+      if (val === '') {
+        return defaultVal;
+      }
+      return BigInt(val);
+    },
     defaultValue: defaultVal,
   };
 }
