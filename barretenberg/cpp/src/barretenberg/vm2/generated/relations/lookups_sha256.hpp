@@ -78,6 +78,11 @@ class lookup_sha256_round_constant_relation
     : public GenericLookupRelation<lookup_sha256_round_constant_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_sha256_round_constant_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.sha256_sel.is_zero() && in.precomputed_sel_sha256_compression.is_zero();
+    }
 };
 template <typename FF_>
 using lookup_sha256_round_constant = GenericLookup<lookup_sha256_round_constant_lookup_settings, FF_>;
