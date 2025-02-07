@@ -93,7 +93,7 @@ helm_set_args=(
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
   helm_set_args+=(
-    --set ethereum.externalHost="$EXTERNAL_ETHEREUM_HOST"
+    --set ethereum.execution.externalHost="$EXTERNAL_ETHEREUM_HOST"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
