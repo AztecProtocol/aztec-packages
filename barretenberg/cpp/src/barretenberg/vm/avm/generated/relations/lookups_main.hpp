@@ -72,6 +72,11 @@ template <typename FF_>
 class incl_main_tag_err_relation : public GenericLookupRelation<incl_main_tag_err_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = incl_main_tag_err_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.mem_tag_err.is_zero() && in.main_tag_err.is_zero();
+    }
 };
 template <typename FF_> using incl_main_tag_err = GenericLookup<incl_main_tag_err_lookup_settings, FF_>;
 
@@ -137,6 +142,11 @@ template <typename FF_>
 class incl_mem_tag_err_relation : public GenericLookupRelation<incl_mem_tag_err_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = incl_mem_tag_err_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_tag_err.is_zero() && in.mem_tag_err.is_zero();
+    }
 };
 template <typename FF_> using incl_mem_tag_err = GenericLookup<incl_mem_tag_err_lookup_settings, FF_>;
 
