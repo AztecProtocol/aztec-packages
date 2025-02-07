@@ -1,4 +1,4 @@
-import { createAztecNodeClient, AztecNode } from "@aztec/aztec.js/utils";
+import { createAztecNodeClient, type AztecNode } from "@aztec/aztec.js/utils";
 
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { AccountWalletWithSecretKey } from "@aztec/aztec.js/wallet";
