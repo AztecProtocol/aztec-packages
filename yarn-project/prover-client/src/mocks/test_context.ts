@@ -27,7 +27,6 @@ import {
   WASMSimulatorWithBlobs,
   type WorldStateDB,
 } from '@aztec/simulator/server';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -40,8 +39,7 @@ import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
-import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
-import { ProverAgent } from '../prover-agent/prover-agent.js';
+import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
@@ -54,7 +52,7 @@ export class TestContext {
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
-    public proverAgent: ProverAgent,
+    public broker: TestBroker,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -115,12 +113,10 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const queue = new MemoryProvingQueue(getTelemetryClient());
-    const orchestrator = new TestProvingOrchestrator(ws, queue, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount, undefined);
+    const broker = new TestBroker(proverCount, localProver);
+    const orchestrator = new TestProvingOrchestrator(ws, broker.facade, Fr.ZERO);
 
-    queue.start();
-    agent.start(queue);
+    await broker.start();
 
     return new this(
       publicTxSimulator,
@@ -129,7 +125,7 @@ export class TestContext {
       simulationProvider,
       globalVariables,
       localProver,
-      agent,
+      broker,
       orchestrator,
       blockNumber,
       directoriesToCleanup,
@@ -152,7 +148,7 @@ export class TestContext {
   }
 
   async cleanup() {
-    await this.proverAgent.stop();
+    await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
