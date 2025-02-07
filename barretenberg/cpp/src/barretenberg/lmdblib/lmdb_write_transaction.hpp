@@ -23,7 +23,6 @@ namespace bb::lmdblib {
 class LMDBWriteTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBWriteTransaction>;
-    using SharedPtr = std::shared_ptr<LMDBWriteTransaction>;
 
     LMDBWriteTransaction(LMDBEnvironment::SharedPtr env);
     LMDBWriteTransaction(const LMDBWriteTransaction& other) = delete;
