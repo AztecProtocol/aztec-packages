@@ -42,7 +42,6 @@ import {
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
@@ -306,7 +305,7 @@ describe('PXESchema', () => {
   });
 
   it('getPrivateEvents', async () => {
-    const result = await context.client.getPrivateEvents<EpochProofQuote>(
+    const result = await context.client.getPrivateEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -316,7 +315,7 @@ describe('PXESchema', () => {
   });
 
   it('getPublicEvents', async () => {
-    const result = await context.client.getPublicEvents<EpochProofQuote>(
+    const result = await context.client.getPublicEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,

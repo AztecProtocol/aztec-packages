@@ -4,7 +4,6 @@ import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { type P2PClientType } from '../p2p/client_type.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { Tx } from '../tx/tx.js';
 
 export type PeerInfo =
@@ -26,14 +25,6 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 
 /** Exposed API to the P2P module. */
 export interface P2PApiWithoutAttestations {
-  /**
-   * Queries the EpochProofQuote pool for quotes for the given epoch
-   *
-   * @param epoch - the epoch to query
-   * @returns EpochProofQuotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
   /**
    * Returns all pending transactions in the transaction pool.
    * @returns An array of Txs.
@@ -71,7 +62,6 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     .function()
     .args(schemas.BigInt, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),

@@ -271,10 +271,6 @@ export class FullProverTest {
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
-      quoteProviderBasisPointFee: 100,
-      quoteProviderBondAmount: 1000n,
-      proverMinimumEscrowAmount: 3000n,
-      proverTargetEscrowAmount: 6000n,
       txGatheringTimeoutMs: 60000,
       txGatheringIntervalMs: 1000,
       txGatheringMaxParallelRequests: 100,
@@ -284,7 +280,7 @@ export class FullProverTest {
       archiver: archiver as Archiver,
       blobSinkClient,
     });
-    await this.proverNode.start();
+    this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);
     return this;

@@ -1,4 +1,4 @@
-import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -117,10 +117,6 @@ describe('full_prover', () => {
       const balanceBeforeCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
       const balanceBeforeProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
 
-      // Wait until the prover node submits a quote
-      logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
-      await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
-
       // Send another tx so the sequencer can assemble a block that includes the prover node claim
       // so the prover node starts proving
       logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
@@ -130,11 +126,6 @@ describe('full_prover', () => {
         .send(sendOpts)
         .wait({ timeout: 300, interval: 10 });
       tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-
-      // Expect the block to have a claim
-      const claim = await cheatCodes.rollup.getProofClaim();
-      expect(claim).toBeDefined();
-      expect(claim?.epochToProve).toEqual(epoch);
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
@@ -148,16 +139,13 @@ describe('full_prover', () => {
         await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
       ).map(b => b!.header.totalFees.toBigInt());
 
-      const rewards = fees.map(fee => fee + blockReward);
-      const toProver = rewards
-        .map(reward => (reward * claim!.basisPointFee) / 10_000n)
-        .reduce((acc, fee) => acc + fee, 0n);
-      const toCoinbase = rewards.reduce((acc, reward) => acc + reward, 0n) - toProver;
+      const rewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      const toCoinbase = rewards / 2n;
+      const toProver = rewards / 2n;
 
       expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
       expect(balanceAfterCoinbase).toBe(balanceBeforeCoinbase + toCoinbase);
       expect(balanceAfterProver).toBe(balanceBeforeProver + toProver);
-      expect(claim!.bondProvider).toEqual(t.proverAddress);
     },
     TIMEOUT,
   );
@@ -223,10 +211,6 @@ describe('full_prover', () => {
     logger.info(`Advancing from epoch ${epoch} to next epoch`);
     await cheatCodes.rollup.advanceToNextEpoch();
 
-    // Wait until the prover node submits a quote
-    logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
-    await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
-
     // Send another tx so the sequencer can assemble a block that includes the prover node claim
     // so the prover node starts proving
     logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
@@ -236,11 +220,6 @@ describe('full_prover', () => {
       .send(sendOpts)
       .wait({ timeout: 300, interval: 10 });
     tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-
-    // Expect the block to have a claim
-    const claim = await cheatCodes.rollup.getProofClaim();
-    expect(claim).toBeDefined();
-    expect(claim?.epochToProve).toEqual(epoch);
 
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);

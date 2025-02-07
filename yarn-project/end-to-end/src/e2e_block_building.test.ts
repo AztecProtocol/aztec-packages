@@ -58,7 +58,7 @@ describe('e2e_block_building', () => {
   let cheatCodes: CheatCodes;
   let teardown: () => Promise<void>;
 
-  const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
+  const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -577,7 +577,7 @@ describe('e2e_block_building', () => {
       // Now move to a new epoch and past the proof claim window to cause a reorg
       logger.info('Advancing past the proof claim window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(aztecEpochProofClaimWindowInL2Slots + 1); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1); // off-by-one?
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);

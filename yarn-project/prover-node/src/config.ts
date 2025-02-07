@@ -1,11 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
-import {
-  type ConfigMappingsType,
-  bigintConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
 import {
@@ -30,7 +25,6 @@ import {
 } from '@aztec/sequencer-client/config';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {
   type ProverCoordinationConfig,
   getTxProviderConfigFromEnv,
@@ -45,8 +39,6 @@ export type ProverNodeConfig = ArchiverConfig &
   TxSenderConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
-  ProverBondManagerConfig &
-  QuoteProviderConfig &
   SpecificProverNodeConfig;
 
 type SpecificProverNodeConfig = {
@@ -97,24 +89,6 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
   },
 };
 
-const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
-  quoteProviderBasisPointFee: {
-    env: 'QUOTE_PROVIDER_BASIS_POINT_FEE',
-    description: 'The basis point fee to charge for providing quotes',
-    ...numberConfigHelper(100),
-  },
-  quoteProviderBondAmount: {
-    env: 'QUOTE_PROVIDER_BOND_AMOUNT',
-    description: 'The bond amount to charge for providing quotes',
-    ...bigintConfigHelper(1000n),
-  },
-  quoteProviderUrl: {
-    env: 'QUOTE_PROVIDER_URL',
-    description:
-      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
-  },
-};
-
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...dataConfigMappings,
   ...archiverConfigMappings,
@@ -124,8 +98,6 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
-  ...quoteProviderConfigMappings,
-  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
@@ -139,9 +111,7 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getPublisherConfigFromEnv('PROVER'),
     ...getTxSenderConfigFromEnv('PROVER'),
     ...getTxProviderConfigFromEnv(),
-    ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
-    ...getConfigFromMappings(proverBondManagerConfigMappings),
   };
 }
 
