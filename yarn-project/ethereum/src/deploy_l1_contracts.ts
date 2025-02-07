@@ -629,16 +629,21 @@ class L1Deployer {
 export async function deployL1Contract(
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
-  l1TxUtils: L1TxUtils,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
+  _l1TxUtils?: L1TxUtils,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
+  let l1TxUtils: L1TxUtils | undefined = _l1TxUtils;
+
+  if (!l1TxUtils) {
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  }
 
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
@@ -660,13 +665,13 @@ export async function deployL1Contract(
       const { address } = await deployL1Contract(
         walletClient,
         publicClient,
-        l1TxUtils,
         lib.contractAbi,
         lib.contractBytecode,
         [],
         maybeSalt,
         undefined,
         logger,
+        l1TxUtils,
       );
 
       for (const linkRef in libraries.linkReferences) {
