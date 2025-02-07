@@ -14,7 +14,6 @@ import {
   PrivateToPublicAccumulatedDataBuilder,
   SerializableContractInstance,
   computeContractAddressFromInstance,
-  computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
@@ -226,7 +225,7 @@ export const randomContractInstanceWithAddress = async (
 
 export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
-  const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+  const { id: contractClassId } = await getContractClassFromArtifact(artifact);
   return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
 };
 

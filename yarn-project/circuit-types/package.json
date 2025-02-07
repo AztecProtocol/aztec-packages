@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./blob": "./dest/blob/index.js",
     "./stats": "./dest/stats/index.js",
     "./jest": "./dest/jest/index.js",
     "./interfaces": "./dest/interfaces/index.js",

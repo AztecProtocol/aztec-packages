@@ -26,6 +26,7 @@
     "validator-client",
     "bb-prover",
     "blob-sink",
+    "blob-lib",
     "bot",
     "builder",
     "pxe",

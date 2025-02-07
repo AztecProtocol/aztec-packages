@@ -66,6 +66,7 @@ case ${1:-} in
       export WS_BLOCK_CHECK_INTERVAL_MS=500
       export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
       export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
+      export LOG_LEVEL=${LOG_LEVEL:-info}
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
         anvil --host 0.0.0.0 --silent &
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox

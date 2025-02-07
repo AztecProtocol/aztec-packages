@@ -138,7 +138,7 @@ jobs:
           port_forward_pids+=($!)
 
           # port-forward directly to the pod because the Eth node does not have a service definition
-          ETH_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=ethereum -o jsonpath='{.items[0].metadata.name}')
+          ETH_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=eth-execution -o jsonpath='{.items[0].metadata.name}')
           kubectl port-forward -n $NAMESPACE pod/$ETH_POD_NAME $ETHEREUM_PORT &>/dev/null &
           port_forward_pids+=($!)
 

@@ -17,12 +17,10 @@ import {
   tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
-import { asyncPool } from '@aztec/foundation/async-pool';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
-import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
@@ -70,6 +68,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
 
+  private txFetcher: RunningPromise;
+  private lastBlockNumber: number | undefined;
+
   public readonly tracer: Tracer;
 
   constructor(
@@ -100,6 +101,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
+    this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
   public getP2P() {
@@ -205,6 +207,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    * This method returns once the prover node has deposited an initial bond into the escrow contract.
    */
   async start() {
+    this.txFetcher.start();
     await this.bondManager.ensureBond();
     this.epochsMonitor.start(this);
     this.claimsMonitor.start(this);
@@ -216,6 +219,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async stop() {
     this.log.info('Stopping ProverNode');
+    await this.txFetcher.stop();
     await this.epochsMonitor.stop();
     await this.claimsMonitor.stop();
     await this.prover.stop();
@@ -315,6 +319,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     return this.l2BlockSource.getL1Constants();
   }
 
+  /** Monitors for new blocks and requests their txs from the p2p layer to ensure they are available for proving. */
+  @trackSpan('ProverNode.checkForTxs')
+  private async checkForTxs() {
+    const blockNumber = await this.l2BlockSource.getBlockNumber();
+    if (this.lastBlockNumber === undefined || blockNumber > this.lastBlockNumber) {
+      const block = await this.l2BlockSource.getBlock(blockNumber);
+      if (!block) {
+        return;
+      }
+      const txHashes = block.body.txEffects.map(tx => tx.txHash);
+      this.log.verbose(`Fetching ${txHashes.length} for block number ${blockNumber} from coordination`);
+      await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
+      this.lastBlockNumber = blockNumber;
+    }
+  }
+
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async gatherEpochData(epochNumber: bigint) {
     // Gather blocks for this epoch and their txs
@@ -333,68 +353,20 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   }
 
   private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
-    let txsToFind: TxHash[] = [];
-    const txHashToBlock = new Map<string, number>();
-    const results = new Map<string, Tx>();
+    const txsToFind: TxHash[] = blocks.flatMap(block => block.body.txEffects.map(tx => tx.txHash));
+    const txs = await this.coordination.getTxsByHash(txsToFind);
 
-    for (const block of blocks) {
-      for (const tx of block.body.txEffects) {
-        txsToFind.push(tx.txHash);
-        txHashToBlock.set(tx.txHash.toString(), block.number);
-      }
+    if (txs.length === txsToFind.length) {
+      this.log.verbose(`Gathered all ${txs.length} txs for epoch ${epochNumber}`, { epochNumber });
+      return txs;
     }
 
-    const totalTxsRequired = txsToFind.length;
-    this.log.info(
-      `Gathering a total of ${totalTxsRequired} txs for epoch=${epochNumber} made up of ${blocks.length} blocks`,
-      { epochNumber },
-    );
+    const txHashesFound = await Promise.all(txs.map(tx => tx.getTxHash()));
+    const missingTxHashes = txsToFind
+      .filter(txHashToFind => !txHashesFound.some(txHashFound => txHashToFind.equals(txHashFound)))
+      .join(', ');
 
-    let iteration = 0;
-    try {
-      await retryUntil(
-        async () => {
-          const batch = [...txsToFind];
-          txsToFind = [];
-          const batchResults = await asyncPool(this.options.txGatheringMaxParallelRequests, batch, async txHash => {
-            const tx = await this.coordination.getTxByHash(txHash);
-            return [txHash, tx] as const;
-          });
-          let found = 0;
-          for (const [txHash, maybeTx] of batchResults) {
-            if (maybeTx) {
-              found++;
-              results.set(txHash.toString(), maybeTx);
-            } else {
-              txsToFind.push(txHash);
-            }
-          }
-
-          this.log.verbose(
-            `Gathered ${found}/${batch.length} txs in iteration ${iteration} for epoch ${epochNumber}. In total ${results.size}/${totalTxsRequired} have been retrieved.`,
-            { epochNumber },
-          );
-          iteration++;
-
-          // stop when we found all transactions
-          return txsToFind.length === 0;
-        },
-        'Gather txs',
-        this.options.txGatheringTimeoutMs / 1_000,
-        this.options.txGatheringIntervalMs / 1_000,
-      );
-    } catch (err) {
-      if (err && err instanceof TimeoutError) {
-        const notFoundList = txsToFind
-          .map(txHash => `${txHash.toString()} (block ${txHashToBlock.get(txHash.toString())})`)
-          .join(', ');
-        throw new Error(`Txs not found for epoch ${epochNumber}: ${notFoundList}`);
-      } else {
-        throw err;
-      }
-    }
-
-    return Array.from(results.values());
+    throw new Error(`Txs not found for epoch ${epochNumber}: ${missingTxHashes}`);
   }
 
   /** Extracted for testing purposes. */

@@ -1,14 +1,13 @@
-import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
+  type ContractInstanceWithAddress,
+  DEPLOYER_CONTRACT_ADDRESS,
   Fr,
   FunctionSelector,
   PublicDataWrite,
-  PublicKeys,
   computePartialAddress,
-  getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
@@ -89,35 +88,15 @@ export class TXEService {
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
-  async deploy(
-    artifact: ContractArtifact,
-    initializer: ForeignCallArray,
-    _length: ForeignCallSingle,
-    args: ForeignCallArray,
-    publicKeysHash: ForeignCallSingle,
-  ) {
-    const initializerStr = fromArray(initializer)
-      .map(char => String.fromCharCode(char.toNumber()))
-      .join('');
-    const decodedArgs = fromArray(args);
-    const publicKeysHashFr = fromSingle(publicKeysHash);
-    this.logger.debug(
-      `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
-    );
-
-    const instance = await getContractInstanceFromDeployParams(artifact, {
-      constructorArgs: decodedArgs,
-      skipArgsDecoding: true,
-      salt: Fr.ONE,
-      // TODO: Modify this to allow for passing public keys.
-      publicKeys: PublicKeys.default(),
-      constructorArtifact: initializerStr ? initializerStr : undefined,
-      deployer: AztecAddress.ZERO,
-    });
+  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+    // Emit deployment nullifier
+    (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
+      await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
+    ]);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
     return toForeignCallResult([
       toArray([
         instance.salt,
@@ -151,9 +130,10 @@ export class TXEService {
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
-  async createAccount() {
+  async createAccount(secret: ForeignCallSingle) {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
-    const completeAddress = await keyStore.createAccount();
+    const secretFr = fromSingle(secret);
+    const completeAddress = await keyStore.addAccount(secretFr, secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -163,22 +143,10 @@ export class TXEService {
     ]);
   }
 
-  async addAccount(secret: ForeignCallSingle) {
-    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
-    const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const artifact = SchnorrAccountContractArtifact;
-    const instance = await getContractInstanceFromDeployParams(artifact, {
-      constructorArgs: args,
-      skipArgsDecoding: true,
-      salt: Fr.ONE,
-      publicKeys: keys.publicKeys,
-      constructorArtifact: 'constructor',
-      deployer: AztecAddress.ZERO,
-    });
-
+  async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));

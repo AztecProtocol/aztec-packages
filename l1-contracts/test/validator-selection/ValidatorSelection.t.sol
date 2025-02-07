@@ -13,7 +13,6 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup, Config} from "@aztec/core/Rollup.sol";
-import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -69,20 +68,10 @@ contract ValidatorSelectionTest is DecoderBase {
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";
     {
-      ValidatorSelection validatorSelection = new ValidatorSelection(
-        testERC20,
-        TestConstants.AZTEC_MINIMUM_STAKE,
-        TestConstants.AZTEC_SLASHING_QUORUM,
-        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION,
-        TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
-      );
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
-        - slotNumber * validatorSelection.getSlotDuration();
+        - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -126,7 +115,7 @@ contract ValidatorSelectionTest is DecoderBase {
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     });
-    slasher = rollup.SLASHER();
+    slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
@@ -187,14 +176,14 @@ contract ValidatorSelectionTest is DecoderBase {
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    assertGt(rollup.getAttesters().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
-    uint256 committeeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
+    assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
+    uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
     _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
-      rollup.TARGET_COMMITTEE_SIZE(),
+      rollup.getTargetCommitteeSize(),
       "Invalid committee size"
     );
   }
@@ -310,6 +299,8 @@ contract ValidatorSelectionTest is DecoderBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
+        emit log("We do be reverting?");
+
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -319,6 +310,8 @@ contract ValidatorSelectionTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
+
+      emit log("Time to propose");
       vm.prank(ree.proposer);
       rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
 

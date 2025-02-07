@@ -1,4 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
+import { Blob } from '@aztec/blob-lib';
 import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
@@ -49,7 +50,6 @@ import {
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
