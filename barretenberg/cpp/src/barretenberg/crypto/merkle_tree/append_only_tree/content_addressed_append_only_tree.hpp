@@ -39,20 +39,21 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using StoreType = Store;
 
     // Asynchronous methods accept these callback function types as arguments
+    using EmptyResponseCallback = std::function<void(Response&)>;
     using AppendCompletionCallback = std::function<void(TypedResponse<AddDataResponse>&)>;
     using MetaDataCallback = std::function<void(TypedResponse<TreeMetaResponse>&)>;
     using HashPathCallback = std::function<void(TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
-    using RollbackCallback = std::function<void(Response&)>;
+    using RollbackCallback = EmptyResponseCallback;
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
-    using FinaliseBlockCallback = std::function<void(Response&)>;
+    using FinaliseBlockCallback = EmptyResponseCallback;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
-    using CheckpointCallback = std::function<void(Response&)>;
-    using CheckpointCommitCallback = std::function<void(Response&)>;
-    using CheckpointRevertCallback = std::function<void(Response&)>;
+    using CheckpointCallback = EmptyResponseCallback;
+    using CheckpointCommitCallback = EmptyResponseCallback;
+    using CheckpointRevertCallback = EmptyResponseCallback;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -868,14 +869,16 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const Chec
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_checkpoint(const CheckpointCallback& on_completion)
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_checkpoint(
+    const CheckpointCommitCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_checkpoint(); }, on_completion); };
     workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(const CheckpointCallback& on_completion)
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
+    const CheckpointRevertCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_checkpoint(); }, on_completion); };
     workers_->enqueue(job);
