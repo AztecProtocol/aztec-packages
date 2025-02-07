@@ -18,27 +18,27 @@ Another proposed solution is having the sender give the note content to the reci
 
 ## Aztec's solution: Note tagging
 
-Aztec introduces an approach that allows users to predict which notes may belong to them by *tagging* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
+Aztec introduces an approach that allows users to identify which notes are relevant them by *tagging* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
 
 ### How it works
 
 #### Every log has a tag
 
-In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node exposes an API that can retrieve logs matching specific tags.
+In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node exposes an API `getLogsByTags()` that can retrieve logs matching specific tags.
 
-#### Tag generation 
+#### Tag generation
 
 The sender and recipient share a predictable scheme for generating tags. The tag is derived from a shared secret and an index (a shared counter that increments each time the sender creates a note for the recipient).
 
 #### Discovering notes in Aztec contracts
 
-This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use other types of note discovery to suit their needs. 
+This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use other types of note discovery to suit their needs.
 
 ### Limitations
 
 - **You cannot receive notes from an unknown sender**. If you do not know the sender’s address, you cannot create the shared secret, and therefore cannot create the note tag. There are potential ways around this, such as senders adding themselves to a contract and then recipients searching for note tags from all the senders in the contract. However this is out of scope at this point in time.
 
-- **Index synchronization can be complicated**. If transactions are reverted or mined out of order, the recipient may stop searching after receiving a tag with the latest index they expect. This means they can miss notes that belong to them. We cannot redo a reverted a transaction with the same index, because then the tag will be the same and the notes will be linked, leaking privacy. We can solve this by widening the search window (not too much, or it becomes brute force) and implementing a few restrictions on sending notes. A user will not be able to send a large amount of notes from the same contract to the same recipient within a short time frame. 
+- **Index synchronization can be complicated**. If transactions are reverted or mined out of order, the recipient may stop searching after receiving a tag with the latest index they expect. This means they can miss notes that belong to them. We cannot redo a reverted a transaction with the same index, because then the tag will be the same and the notes will be linked, leaking privacy. We can solve this by widening the search window (not too much, or it becomes brute force) and implementing a few restrictions on sending notes. A user will not be able to send a large amount of notes from the same contract to the same recipient within a short time frame.
 
 ## Further reading
 
