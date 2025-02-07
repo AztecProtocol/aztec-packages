@@ -598,6 +598,8 @@ export class ReqResp {
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
 
+      this.logger.info(`Stream handler for ${protocol}`);
+
       await pipe(
         stream,
         async function* (source: any) {
@@ -610,6 +612,10 @@ export class ReqResp {
               await stream.close();
               return;
             }
+
+            // Send success code first, then the response
+            const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
+            yield new Uint8Array(successChunk);
 
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }

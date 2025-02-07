@@ -354,9 +354,8 @@ describe('ReqResp', () => {
         GoodByeReason.SHUTDOWN,
       );
 
-      // Expect the response to be a buffer of length 1
-      expect(response?.status).toEqual(ReqRespStatus.SUCCESS);
-      expect(response?.data).toEqual(Buffer.from([0x0]));
+      // Expect no response to be sent - we categorize as unknown
+      expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
   });
 
