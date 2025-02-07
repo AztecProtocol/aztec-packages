@@ -30,6 +30,9 @@ export class PrivateEnv {
 
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
+    config.l1ChainId = process.env.L1_CHAIN_ID
+      ? parseInt(process.env.L1_CHAIN_ID)
+      : 31337;
     const aztecNode = await createAztecNodeClient(nodeURL);
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
