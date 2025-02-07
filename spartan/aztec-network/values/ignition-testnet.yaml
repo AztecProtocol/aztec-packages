@@ -68,8 +68,8 @@ ethereum:
   l1GasPriceMax: 500
   l1FixedPriorityFeePerGas: 3
   deployL1ContractsPrivateKey:
-  externalHost:
   execution:
+    externalHost:
     resources:
       requests:
         memory: "1Gi"
