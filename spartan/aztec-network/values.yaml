@@ -240,8 +240,8 @@ ethereum:
   # 10 times the default of 131072
   maxTxInputSizeBytes: "1310720"
   args: ""
-  externalHost: ""
   execution:
+    externalHost: ""
     service:
       port: 8545
       targetPort: 8545
