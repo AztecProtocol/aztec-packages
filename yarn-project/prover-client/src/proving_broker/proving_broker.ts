@@ -205,6 +205,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       return Promise.resolve();
     }
     await this.cleanupPromise.stop();
+    await this.writeQueue.stop();
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
@@ -216,6 +217,14 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     if (!currentBatch) {
       return;
     }
+
+    if (currentBatch.epochNumber < this.oldestEpochToKeep()) {
+      this.logger.warn(
+        `Dropping batch batchSize=${currentBatch.jobs.length} because stale: epoch ${currentBatch.epochNumber} < ${this.oldestEpochToKeep}`,
+      );
+      return;
+    }
+
     this.logger.verbose(`Writing jobs to disk batchSize=${currentBatch.jobs.length}`);
 
     try {
