@@ -9,8 +9,8 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
     url = `${wasmPath}/barretenberg${suffix}.wasm.gz`;
   } else {
     url = multithreaded
-      ? (await import(`./barretenberg-threads.js`)).default
-      : (await import(`./barretenberg.js`)).default;
+      ? (await import(/* webpackIgnore: true */ './barretenberg-threads.js')).default
+      : (await import(/* webpackIgnore: true */ './barretenberg.js')).default;
   }
   const res = await fetch(url);
   const maybeCompressedData = await res.arrayBuffer();
