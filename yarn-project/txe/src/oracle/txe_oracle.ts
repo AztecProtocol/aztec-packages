@@ -22,7 +22,6 @@ import {
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
   Gas,
   GasFees,
   GlobalVariables,
@@ -44,10 +43,8 @@ import {
   type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicLog,
-  computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
-  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import {
@@ -251,9 +248,8 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractInstance(contractInstance);
   }
 
-  async addContractArtifact(artifact: ContractArtifact) {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await this.txeDatabase.addContractArtifact(await computeContractClassId(contractClass), artifact);
+  async addContractArtifact(contractClassId: Fr, artifact: ContractArtifact) {
+    await this.txeDatabase.addContractArtifact(contractClassId, artifact);
   }
 
   async getPrivateContextInputs(
@@ -502,6 +498,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+
     return header;
   }
 
@@ -741,6 +739,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+
     l2Block.header = header;
 
     await fork.updateArchive(l2Block.header);
@@ -888,7 +888,6 @@ export class TXE implements TypedOracle {
     const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = this.baseFork;
-    const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this);
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(await this.node.getChainId());
@@ -896,28 +895,9 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
-    const tempFork = await this.nativeWorldStateService.fork();
-    // Apply current public data writes
-    await tempFork.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      this.publicDataWrites.map(p => p.toBuffer()),
-    );
-
-    // If the contract instance exists in the TXE's world state, make sure its nullifier is present in the tree
-    // so its nullifier check passes.
-    if ((await worldStateDb.getContractInstance(callContext.contractAddress)) !== undefined) {
-      const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        callContext.contractAddress.toField(),
-      );
-      if ((await worldStateDb.getNullifierIndex(contractAddressNullifier)) === undefined) {
-        await tempFork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-      }
-    }
-
     const simulator = new PublicTxSimulator(
-      tempFork,
-      new TXEWorldStateDB(tempFork, new TXEPublicContractDataSource(this), this),
+      db,
+      new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
       globalVariables,
     );
 
@@ -954,7 +934,6 @@ export class TXE implements TypedOracle {
       ),
     );
 
-    await tempFork.close();
     return Promise.resolve(result);
   }
 

@@ -130,7 +130,7 @@ std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relati
 void show_trace_info(const auto& trace)
 {
     vinfo("Built trace size: ", trace.size(), " (next power: 2^", std::bit_width(trace.size()), ")");
-    vinfo("Number of columns: ", trace.front().SIZE);
+    vinfo("Number of columns: ", avm::NUM_COLUMNS_WITH_SHIFTS);
     vinfo("Relation degrees: ", []() {
         std::string result;
         for (const auto& [key, value] : sorted_entries(get_relations_degrees())) {

@@ -149,7 +149,7 @@ describe('e2e_deploy_contract deploy method', () => {
       if (!PXE_URL) {
         return;
       }
-      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
       const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),

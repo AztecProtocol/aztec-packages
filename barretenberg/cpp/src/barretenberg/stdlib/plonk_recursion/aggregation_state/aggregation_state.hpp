@@ -20,17 +20,36 @@ template <typename Curve> struct aggregation_state {
     {
         return P0 == other.P0 && P1 == other.P1;
     };
-
+    template <typename BuilderType = void>
     void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
     {
-        P0 += other.P0 * recursion_separator;
-        P1 += other.P1 * recursion_separator;
+        if constexpr (std::is_same_v<BuilderType, MegaCircuitBuilder>) {
+            P0 += other.P0 * recursion_separator;
+            P1 += other.P1 * recursion_separator;
+        } else {
+            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
+            // recursion_separator} directly to avoid edge cases.
+            typename Curve::Group point_to_aggregate = other.P0.scalar_mul(recursion_separator, 128);
+            P0 += point_to_aggregate;
+            point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
+            P1 += point_to_aggregate;
+        }
     }
 
+    template <typename BuilderType = void>
     void aggregate(std::array<typename Curve::Group, 2> const& other, typename Curve::ScalarField recursion_separator)
     {
-        P0 += other[0] * recursion_separator;
-        P1 += other[1] * recursion_separator;
+        if constexpr (std::is_same_v<BuilderType, MegaCircuitBuilder>) {
+            P0 += other[0] * recursion_separator;
+            P1 += other[1] * recursion_separator;
+        } else {
+            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
+            // recursion_separator} directly to avoid edge cases.
+            typename Curve::Group point_to_aggregate = other[0].scalar_mul(recursion_separator, 128);
+            P0 += point_to_aggregate;
+            point_to_aggregate = other[1].scalar_mul(recursion_separator, 128);
+            P1 += point_to_aggregate;
+        }
     }
 
     PairingPointAccumulatorIndices get_witness_indices()

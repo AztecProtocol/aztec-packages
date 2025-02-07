@@ -230,6 +230,6 @@ contract TestBase is Test {
     // and looking in the logs. Interesting.
     // Alternative, run forge inspect src/core/Rollup.sol:Rollup storageLayout --pretty
     //    uint256 slot = stdstore.target(address(rollup)).sig("checkBlob()").find();
-    vm.store(address(rollup), bytes32(uint256(5)), bytes32(uint256(0)));
+    vm.store(address(rollup), bytes32(uint256(4)), bytes32(uint256(0)));
   }
 }

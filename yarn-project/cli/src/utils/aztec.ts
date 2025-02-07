@@ -67,7 +67,7 @@ export async function deployAztecContracts(
 
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
+    vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt,
     initialValidators,

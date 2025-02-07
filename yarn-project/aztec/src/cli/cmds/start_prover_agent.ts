@@ -13,6 +13,7 @@ import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
+import { getVersions } from '../versioning.js';
 
 export async function startProverAgent(
   options: any,
@@ -38,7 +39,7 @@ export async function startProverAgent(
     process.exit(1);
   }
 
-  const broker = createProvingJobBrokerClient(config.proverBrokerUrl);
+  const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions());
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);

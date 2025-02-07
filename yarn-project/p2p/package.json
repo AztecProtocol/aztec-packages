@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./mocks": "./dest/mocks/index.js",
+    "./test-helpers": "./dest/test-helpers/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
     "./config": "./dest/config.js",
     "./msg_validators": "./dest/msg_validators/index.js"
@@ -68,6 +68,8 @@
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@chainsafe/discv5": "9.0.0",
     "@chainsafe/enr": "3.0.0",
