@@ -1,8 +1,9 @@
 import { PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { generateGenesisValues } from '@aztec/world-state';
+
+import { computeFeePayerBalanceLeafSlot } from './fee-juice/index.js';
 
 export const defaultInitialAccountFeeJuice = new Fr(10n ** 22n);
 

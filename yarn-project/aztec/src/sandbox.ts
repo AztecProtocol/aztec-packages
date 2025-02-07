@@ -18,6 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { getGenesisValues } from '@aztec/protocol-contracts/testing';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import {
   type TelemetryClient,
@@ -29,7 +30,6 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as htt
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { getGenesisValues } from './genesis_values.js';
 import { DefaultMnemonic } from './mnemonic.js';
 
 const logger = createLogger('sandbox');
@@ -133,7 +133,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, initial
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
-  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, prefilledPublicData);
+  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
   const pxe = await createAztecPXE(node);
 
   await setupCanonicalL2FeeJuice(
@@ -158,10 +158,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, initial
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
   deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
-  prefilledPublicData: PublicDataTreeLeaf[] = [],
+  options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, { prefilledPublicData });
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
 }
 

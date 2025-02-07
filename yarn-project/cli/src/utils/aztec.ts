@@ -1,10 +1,9 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type PXE } from '@aztec/circuit-types';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/circuits.js/constants';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -54,6 +53,8 @@ export async function deployAztecContracts(
   mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
   config: L1ContractsConfig,
   debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
@@ -71,8 +72,8 @@ export async function deployAztecContracts(
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: await getVKTreeRoot(),
     protocolContractTreeRoot,
-    genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
-    genesisBlockHash: new Fr(GENESIS_BLOCK_HASH),
+    genesisArchiveRoot,
+    genesisBlockHash,
     salt,
     initialValidators,
     ...config,

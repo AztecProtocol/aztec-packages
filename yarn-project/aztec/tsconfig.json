@@ -92,9 +92,6 @@
     },
     {
       "path": "../types"
-    },
-    {
-      "path": "../world-state"
     }
   ],
   "include": ["src"]

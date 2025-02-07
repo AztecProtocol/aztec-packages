@@ -7,13 +7,15 @@
   "exports": {
     ".": "./dest/index.js",
     "./bundle": "./dest/bundle/index.js",
+    "./testing": "./dest/testing.js",
     "./*": "./dest/*/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts",
       "./src/class-registerer/index.ts",
-      "./src/instance-deployer/index.ts"
+      "./src/instance-deployer/index.ts",
+      "./src/testing.ts"
     ],
     "name": "Protocol Contracts",
     "tsconfig": "./tsconfig.json"
@@ -72,6 +74,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "lodash.omit": "^4.5.0",
     "tslib": "^2.4.0"
