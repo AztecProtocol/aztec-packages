@@ -191,6 +191,12 @@ spec:
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: {{ .Values.proverNode.l1FixedPriorityFeePerGas | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.proverNode.l1GasLimitBufferPercentage | quote }}
+            - name: L1_GAS_PRICE_MAX
+              value: {{ .Values.proverNode.l1GasPriceMax | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2pEnabled }}"
             - name: P2P_TCP_LISTEN_ADDR

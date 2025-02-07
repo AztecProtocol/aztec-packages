@@ -1,5 +1,4 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
@@ -18,7 +17,6 @@ export { sequencerClientConfigMappings, SequencerClientConfig };
  * The configuration the aztec node.
  */
 export type AztecNodeConfig = ArchiverConfig &
-  BlobSinkConfig &
   SequencerClientConfig &
   ValidatorClientConfig &
   ProverClientConfig &
@@ -40,7 +38,6 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
   ...dataConfigMappings,
-  ...blobSinkConfigMapping,
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',

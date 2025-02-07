@@ -5,6 +5,8 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: number;
@@ -26,7 +28,7 @@ export type L1ContractsConfig = {
   governanceProposerQuorum: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
-};
+} & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
@@ -92,6 +94,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The governance proposing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
   },
+  ...l1TxUtilsConfigMappings,
 };
 
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {

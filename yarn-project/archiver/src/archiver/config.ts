@@ -1,3 +1,4 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type L1ContractAddresses,
@@ -41,9 +42,11 @@ export type ArchiverConfig = {
   maxLogs?: number;
 } & L1ReaderConfig &
   L1ContractsConfig &
+  BlobSinkConfig &
   ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  ...blobSinkConfigMapping,
   archiverUrl: {
     env: 'ARCHIVER_URL',
     description:

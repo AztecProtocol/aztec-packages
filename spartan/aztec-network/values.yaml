@@ -176,6 +176,9 @@ proverNode:
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  l1GasPriceMax: 100
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
 
 pxe:
   enabled: true
