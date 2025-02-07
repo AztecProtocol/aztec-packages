@@ -73,30 +73,6 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
-    content {
-      name  = "bootNode.seqPublisherPrivateKey"
-      value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
-    }
-  }
-
-  dynamic "set" {
-    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
-    content {
-      name  = "proverNode.proverPublisherPrivateKey"
-      value = var.PROVER_PUBLISHER_PRIVATE_KEY
-    }
-  }
-
-  dynamic "set_list" {
-    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? toset(["iterate"]) : toset([])
-    content {
-      name  = "validator.validatorKeys"
-      value = var.VALIDATOR_KEYS
-    }
-  }
-
-  dynamic "set" {
     for_each = var.EXTERNAL_ETHEREUM_HOST != "" ? toset(["iterate"]) : toset([])
     content {
       name  = "ethereum.externalHost"
