@@ -32,6 +32,9 @@ cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
+sepolia_run=${SEPOLIA_RUN:-false}
+
+OVERRIDES="${OVERRIDES:-}"
 
 # Ensure we have kind context
 ../bootstrap.sh kind
@@ -70,7 +73,7 @@ trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
 function copy_stern_to_log() {
-  stern spartan -n $namespace > logs/test_kind.log &
+  stern spartan -n $namespace >logs/test_kind.log &
   stern_pid=$!
 }
 
@@ -79,16 +82,17 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  ./deploy_kind.sh $namespace
+  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
 fi
 
-# Find 3 free ports between 9000 and 10000
-free_ports=$(find_ports 3)
+# Find 4 free ports between 9000 and 10000
+free_ports=$(find_ports 4)
 
 # Extract the free ports from the list
-pxe_port=$(echo $free_ports | awk '{print $1}')
-anvil_port=$(echo $free_ports | awk '{print $2}')
-metrics_port=$(echo $free_ports | awk '{print $3}')
+forwarded_pxe_port=$(echo $free_ports | awk '{print $1}')
+forwarded_anvil_port=$(echo $free_ports | awk '{print $2}')
+forwarded_metrics_port=$(echo $free_ports | awk '{print $3}')
+forwarded_node_port=$(echo $free_ports | awk '{print $4}')
 
 if [ "$install_metrics" = "true" ]; then
   grafana_password=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
@@ -104,6 +108,14 @@ aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
 aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
 
+env_args=()
+if [ "$sepolia_run" = "true" ]; then
+  env_args+=(
+    -e ETHEREUM_HOST="$EXTERNAL_ETHEREUM_HOST"
+    -e SEPOLIA_RUN="true"
+  )
+fi
+
 if [ "$use_docker" = "true" ]; then
   echo "RUNNING TEST: $test (docker)"
   # Run test in Docker.
@@ -114,11 +126,13 @@ if [ "$use_docker" = "true" ]; then
     -e INSTANCE_NAME="spartan" \
     -e SPARTAN_DIR="/usr/src/spartan" \
     -e NAMESPACE="$namespace" \
-    -e HOST_PXE_PORT=$pxe_port \
+    -e HOST_PXE_PORT=$forwarded_pxe_port \
     -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$anvil_port \
+    -e HOST_ETHEREUM_PORT=$forwarded_anvil_port \
     -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_METRICS_PORT=$metrics_port \
+    -e HOST_NODE_PORT=$forwarded_node_port \
+    -e CONTAINER_NODE_PORT=8080 \
+    -e HOST_METRICS_PORT=$forwarded_metrics_port \
     -e CONTAINER_METRICS_PORT=80 \
     -e GRAFANA_PASSWORD=$grafana_password \
     -e DEBUG=${DEBUG:-""} \
@@ -128,6 +142,7 @@ if [ "$use_docker" = "true" ]; then
     -e AZTEC_SLOT_DURATION=$aztec_slot_duration \
     -e AZTEC_EPOCH_DURATION=$aztec_epoch_duration \
     -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$aztec_epoch_proof_claim_window_in_l2_slots \
+    "${env_args[@]}" \
     aztecprotocol/end-to-end:$aztec_docker_tag $test
 else
   echo "RUNNING TEST: $test"
@@ -136,11 +151,13 @@ else
   export INSTANCE_NAME="spartan"
   export SPARTAN_DIR="$(pwd)/.."
   export NAMESPACE="$namespace"
-  export HOST_PXE_PORT="$pxe_port"
+  export HOST_PXE_PORT="$forwarded_pxe_port"
   export CONTAINER_PXE_PORT="8081"
-  export HOST_ETHEREUM_PORT="$anvil_port"
+  export HOST_ETHEREUM_PORT="$forwarded_anvil_port"
   export CONTAINER_ETHEREUM_PORT="8545"
-  export HOST_METRICS_PORT="$metrics_port"
+  export HOST_NODE_PORT="$forwarded_node_port"
+  export CONTAINER_NODE_PORT="8080"
+  export HOST_METRICS_PORT="$forwarded_metrics_port"
   export CONTAINER_METRICS_PORT="80"
   export GRAFANA_PASSWORD="$grafana_password"
   export DEBUG="${DEBUG:-""}"

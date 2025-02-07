@@ -4,7 +4,7 @@ mod auth_oracle;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract SchnorrSingleKeyAccount {
+pub contract SchnorrSingleKeyAccount {
     use dep::aztec::prelude::PrivateContext;
 
     use dep::authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}};

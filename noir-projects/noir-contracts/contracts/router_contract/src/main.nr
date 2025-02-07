@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 /// call. This is achieved by having a private function on this contract that enques the public call and hence
 /// the `msg_sender` in the public call is the address of this contract.
 #[aztec]
-contract Router {
+pub contract Router {
     use aztec::{macros::functions::{internal, private, public, view}, utils::comparison::compare};
 
     // docs:start:check_timestamp

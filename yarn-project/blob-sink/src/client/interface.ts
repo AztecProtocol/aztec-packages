@@ -1,4 +1,4 @@
-import { type Blob } from '@aztec/foundation/blob';
+import { type Blob } from '@aztec/blob-lib';
 
 export interface BlobSinkClientInterface {
   sendBlobsToBlobSink(blockId: string, blobs: Blob[]): Promise<boolean>;

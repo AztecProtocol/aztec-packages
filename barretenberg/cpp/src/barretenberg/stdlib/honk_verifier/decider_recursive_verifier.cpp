@@ -18,6 +18,8 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
@@ -31,11 +33,12 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // Execute Shplemini rounds.
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+    };
     const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                                      commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      output.claimed_evaluations.get_unshifted(),
-                                                                      output.claimed_evaluations.get_shifted(),
+                                                                      claim_batcher,
                                                                       output.challenge,
                                                                       Commitment::one(builder),
                                                                       transcript,

@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.externalHost }}
+{{- if not .Values.ethereum.beacon.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +17,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: eth-beacon
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}

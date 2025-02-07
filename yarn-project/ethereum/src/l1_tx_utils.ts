@@ -1,4 +1,3 @@
-import { toHex } from '@aztec/foundation/bigint-buffer';
 import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
@@ -23,7 +22,6 @@ import {
   type HttpTransport,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
-  type PublicClient,
   type StateOverride,
   type TransactionReceipt,
   type WalletClient,
@@ -32,6 +30,7 @@ import {
   hexToBytes,
 } from 'viem';
 
+import { type L1Clients } from './deploy_l1_contracts.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -207,7 +206,7 @@ export class L1TxUtils {
   private interrupted = false;
 
   constructor(
-    public publicClient: PublicClient,
+    public publicClient: L1Clients['publicClient'],
     public walletClient: WalletClient<HttpTransport, Chain, Account>,
     protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
@@ -216,6 +215,7 @@ export class L1TxUtils {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
+    this.logger?.debug('Initializing L1 TX utils with config', { config: this.config });
   }
 
   public interrupt() {
@@ -506,12 +506,14 @@ export class L1TxUtils {
 
     // Get blob base fee if available
     let blobBaseFee = 0n;
-    try {
-      const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
-      blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
-    } catch {
-      this.logger?.warn('Failed to get L1 blob base fee', attempt);
+    if (isBlobTx) {
+      try {
+        const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
+        blobBaseFee = BigInt(blobBaseFeeHex);
+        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      } catch {
+        this.logger?.warn('Failed to get L1 blob base fee', attempt);
+      }
     }
 
     let priorityFee: bigint;
@@ -658,32 +660,21 @@ export class L1TxUtils {
   public async tryGetErrorFromRevertedTx(
     data: Hex,
     args: {
-      args: any[];
+      args: readonly any[];
       functionName: string;
       abi: Abi;
       address: Hex;
     },
-    blobInputs?: L1BlobInputs & { maxFeePerBlobGas: bigint },
+    blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
+    stateOverride: StateOverride = [],
   ) {
     try {
-      // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
-      // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
-      const checkBlobSlot = 9n;
       await this.publicClient.simulateContract({
         ...args,
         account: this.walletClient.account,
-        stateOverride: [
-          {
-            address: args.address,
-            stateDiff: [
-              {
-                slot: toHex(checkBlobSlot, true),
-                value: toHex(0n, true),
-              },
-            ],
-          },
-        ],
+        stateOverride,
       });
+      this.logger?.trace('Simulated blob tx', { blobInputs });
       // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
@@ -702,7 +693,9 @@ export class L1TxUtils {
             to: args.address,
             data,
           };
+      this.logger?.trace('Preparing tx', { request });
       await this.walletClient.prepareTransactionRequest(request);
+      this.logger?.trace('Prepared tx');
       return undefined;
     } catch (simulationErr: any) {
       // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.

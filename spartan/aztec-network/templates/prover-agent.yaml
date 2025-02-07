@@ -17,7 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,10 +31,10 @@ spec:
         value: "true"
         effect: "NoSchedule"
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- end }}
       volumes:
         - name: config

@@ -1,3 +1,5 @@
+mod config;
+
 // docs:start:token_bridge_imports
 
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
@@ -8,7 +10,9 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TokenBridge {
+pub contract TokenBridge {
+    use crate::config::Config;
+
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicImmutable};
 
     use dep::token_portal_content_hash_lib::{
@@ -18,37 +22,36 @@ contract TokenBridge {
 
     use dep::token::Token;
 
-    use dep::aztec::macros::{
-        functions::{initializer, internal, private, public, view},
-        storage::storage,
-    };
+    use dep::aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
     // docs:end:token_bridge_imports
 
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
-        token: PublicImmutable<AztecAddress, Context>,
-        portal_address: PublicImmutable<EthAddress, Context>,
+        config: PublicImmutable<Config, Context>,
     }
 
     // Constructs the contract.
     #[public]
     #[initializer]
-    fn constructor(token: AztecAddress, portal_address: EthAddress) {
-        storage.token.initialize(token);
-        storage.portal_address.initialize(portal_address);
+    fn constructor(token: AztecAddress, portal: EthAddress) {
+        storage.config.initialize(Config { token, portal });
     }
     // docs:end:token_bridge_storage_and_constructor
 
+    // docs:start:get_config
     #[private]
-    fn get_portal_address() -> EthAddress {
-        storage.portal_address.read()
+    #[view]
+    fn get_config() -> Config {
+        storage.config.read()
     }
+    // docs:end:get_config
 
     #[public]
-    fn get_portal_address_public() -> EthAddress {
-        storage.portal_address.read()
+    #[view]
+    fn get_config_public() -> Config {
+        storage.config.read()
     }
 
     // docs:start:claim_public
@@ -57,16 +60,13 @@ contract TokenBridge {
     fn claim_public(to: AztecAddress, amount: U128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_to_public_content_hash(to, amount);
 
+        let config = storage.config.read();
+
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(
-            content_hash,
-            secret,
-            storage.portal_address.read(),
-            message_leaf_index,
-        );
+        context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
 
         // Mint tokens
-        Token::at(storage.token.read()).mint_to_public(to, amount).call(&mut context);
+        Token::at(config.token).mint_to_public(to, amount).call(&mut context);
     }
     // docs:end:claim_public
 
@@ -80,14 +80,14 @@ contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
+        let config = storage.config.read();
+
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
-        context.message_portal(storage.portal_address.read(), content);
+        context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(
-            &mut context,
-        );
+        Token::at(config.token).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
     }
     // docs:end:exit_to_l1_public
 
@@ -102,21 +102,20 @@ contract TokenBridge {
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
         message_leaf_index: Field,
     ) {
+        let config = storage.config.read();
+
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_to_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
-            storage.portal_address.read(),
+            config.portal,
             message_leaf_index,
         );
 
-        // Read the token address from storage
-        let token_address = storage.token.read();
-
         // At last we mint the tokens
         // docs:start:call_mint_on_token
-        Token::at(token_address).mint_to_private(context.msg_sender(), recipient, amount).call(
+        Token::at(config.token).mint_to_private(context.msg_sender(), recipient, amount).call(
             &mut context,
         );
         // docs:end:call_mint_on_token
@@ -134,31 +133,19 @@ contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
+        // docs:start:assert_token_is_same
+        let config = storage.config.read();
+
+        // Assert that user provided token address is same as seen in storage.
+        assert_eq(config.token, token, "Token address is not the same as seen in storage");
+        // docs:end:assert_token_is_same
+
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
-        context.message_portal(storage.portal_address.read(), content);
+        context.message_portal(config.portal, content);
 
-        // docs:start:call_assert_token_is_same
-        // Assert that user provided token address is same as seen in storage.
-        TokenBridge::at(context.this_address())._assert_token_is_same(token).enqueue(&mut context);
-        // docs:end:call_assert_token_is_same
         // Burn tokens
         Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
     }
-    /// docs:end:exit_to_l1_private
-    // docs:start:get_token
-    #[public]
-    #[view]
-    fn get_token() -> AztecAddress {
-        storage.token.read()
-    }
-    // docs:end:get_token
-
-    // docs:start:assert_token_is_same
-    #[public]
-    #[internal]
-    fn _assert_token_is_same(token: AztecAddress) {
-        assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
-    }
-    // docs:end:assert_token_is_same
+    // docs:end:exit_to_l1_private
 }

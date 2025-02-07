@@ -59,6 +59,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -162,11 +163,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
-
-    // we identify the P2P transaction protocol by using the rollup contract address.
-    // this may well change in future
-    const rollupAddress = config.l1Contracts.rollupAddress;
-    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
@@ -498,6 +494,15 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public getTxByHash(txHash: TxHash) {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalised chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]) {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
   /**
@@ -863,7 +868,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     );
     const fork = await this.worldStateSynchronizer.fork();
 
-    this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -876,7 +881,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
         throw failedTxs[0].error;
       }
 

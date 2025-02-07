@@ -177,12 +177,15 @@ export async function createNewPXE(
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
   const l1Contracts = await node.getL1ContractAddresses();
+  const { l1ChainId, protocolVersion } = await node.getNodeInfo();
   const pxeConfig = {
     l2StartingBlock: startingBlock,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts,
+    l1ChainId,
+    version: protocolVersion,
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);

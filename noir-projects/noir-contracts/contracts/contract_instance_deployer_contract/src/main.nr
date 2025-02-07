@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractInstanceDeployer {
+pub contract ContractInstanceDeployer {
     use dep::aztec::macros::{events::event, functions::private};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},

@@ -1,14 +1,14 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 
 import { BlobWithIndex } from '../types/index.js';
 import { type BlobStore } from './interface.js';
 
-export function describeBlobStore(getBlobStore: () => BlobStore) {
+export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
   let blobStore: BlobStore;
 
-  beforeEach(() => {
-    blobStore = getBlobStore();
+  beforeEach(async () => {
+    blobStore = await getBlobStore();
   });
 
   it('should store and retrieve a blob', async () => {

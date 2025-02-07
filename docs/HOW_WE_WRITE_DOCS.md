@@ -1,12 +1,12 @@
 # How we write docs
 
-This doc covers the structure and tone of Aztec developer documentation. For the contribution guidelines, go [here](./CONTRIBUTING.md). Please keep in mind that this is constantly changing.
+This doc covers the structure and tone of Aztec developer documentation. For the contribution guidelines, go [here](./CONTRIBUTING.md). Please keep in mind that this is constantly changing. 
 
 ## Structure
 
 ### High level
 
-Aztec docs are divided into two main sections - `Learn` and `Build`.
+Aztec docs are divided into two main sections - `Learn` and `Build`. 
 
 Anyone technical can read the `Learn` section, whereas only developers who are actively building or starting to build on Aztec will read the `Build` section.
 
@@ -16,7 +16,7 @@ The `Build` section contains information that only developers need to know - thi
 
 ### Types of pages
 
-The Aztec docs roughly follow the [Diataxis](https://diataxis.fr/) framework. It is recommended to read this website before contributing to the docs.
+The Aztec docs roughly follow the [Diataxis](https://diataxis.fr/) framework. It is recommended to read this website before contributing to the docs. 
 
 Every page will fall into **one type of doc**. If your contribution covers multiple types, you will need to split it into multiple pages.
 
@@ -39,8 +39,8 @@ These are docs that developers can consult to know exact and succinct informatio
 ## Tone
 
 * Concise and informative - for example, rather than repeating information, write "to learn more, read ..."
-* Friendly and empathetic - for example, "you do not have to worry about this yet"
-* Simple and jardon-avoidant when possible
+* Friendly and empathetic - for example, "you do not have to worry about this yet" 
+* Simple and jardon-avoidant when possible 
 * Short sentences
 * Unopinionated language - we know things are exciting sometimes, but try not to tell the developer what they should be excited about
 
@@ -85,4 +85,4 @@ The Aztec docs use a sidebar - https://docusaurus.io/docs/sidebar/items
 
 ## Indexing and Search
 
-Typesense docs search - https://typesense.org/
+Algolia docs search - https://docusaurus.io/docs/search#algolia-index-configuration

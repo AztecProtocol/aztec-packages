@@ -50,7 +50,13 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtilsWithBlobs, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  GovernanceProposerContract,
+  L1TxUtilsWithBlobs,
+  RollupContract,
+  SlashingProposerContract,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -402,11 +408,18 @@ describe('e2e_synching', () => {
       logger,
       config,
     );
-    const rollupContract = new RollupContract(
+    const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
+    const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
+    const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK);
+    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
+    const slashingProposerContract = new SlashingProposerContract(
+      deployL1ContractsValues.publicClient,
+      slashingProposerAddress.toString(),
+    );
+    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });
@@ -428,6 +441,8 @@ describe('e2e_synching', () => {
         l1TxUtils,
         rollupContract,
         forwarderContract,
+        governanceProposerContract,
+        slashingProposerContract,
         epochCache,
       },
     );
@@ -548,7 +563,7 @@ describe('e2e_synching', () => {
           const assumeProvenThrough = pendingBlockNumber - 2n;
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
@@ -634,7 +649,7 @@ describe('e2e_synching', () => {
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
@@ -694,7 +709,7 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 

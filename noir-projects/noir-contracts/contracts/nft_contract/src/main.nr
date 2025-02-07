@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 // Minimal NFT implementation with `AuthWit` support that allows minting in public-only and transfers in both public
 // and private.
 #[aztec]
-contract NFT {
+pub contract NFT {
     use crate::types::nft_note::NFTNote;
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,

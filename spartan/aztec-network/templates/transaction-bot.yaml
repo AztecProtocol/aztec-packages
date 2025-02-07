@@ -17,10 +17,24 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: bot
     spec:
+      {{- if and .Values.bot.gke.spotEnabled .Values.network.gke }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       volumes:
         - name: config
           emptyDir: {}
@@ -121,6 +135,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}
@@ -150,6 +166,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: bot
 spec:
   type: {{ .Values.bot.service.type }}
   selector:

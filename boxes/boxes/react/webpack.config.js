@@ -1,7 +1,7 @@
-import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
@@ -14,10 +14,6 @@ export default (_, argv) => ({
   module: {
     rules: [
       {
-        test: /\.gz$/,
-        type: 'asset/resource',
-      },
-      {
         test: /\.tsx?$/,
         use: 'ts-loader',
       },
@@ -27,15 +23,10 @@ export default (_, argv) => ({
       },
     ],
   },
+  output: {
+    publicPath: "/"
+  },
   plugins: [
-    new CopyPlugin({
-      patterns: [
-        {
-          context: '../../../barretenberg/ts/dest/browser',
-          from: '*.gz',
-        },
-      ],
-    }),
     new HtmlWebpackPlugin({
       template: './index.html',
       scriptLoading: 'module',

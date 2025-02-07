@@ -45,6 +45,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     Output output;
     StdlibProof<Builder> honk_proof;
@@ -98,7 +100,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
-    agg_obj.aggregate(nested_agg_obj, recursion_separator);
+    agg_obj.template aggregate<Builder>(nested_agg_obj, recursion_separator);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -120,12 +122,13 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     bool consistency_checked = true;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,
@@ -140,11 +143,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
-    agg_obj.aggregate(pairing_points, recursion_separator);
+    agg_obj.template aggregate<Builder>(pairing_points, recursion_separator);
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {

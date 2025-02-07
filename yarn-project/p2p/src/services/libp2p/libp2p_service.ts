@@ -19,7 +19,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -34,8 +34,10 @@ import {
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
+import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
+import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import { type ConnectionManager } from '@libp2p/interface-internal';
@@ -65,6 +67,7 @@ import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } fro
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
+import { createLibp2pComponentLogger } from './libp2p_logger.js';
 
 interface MessageValidator {
   validator: {
@@ -111,7 +114,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
@@ -127,7 +130,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerDiscoveryService,
       config,
       telemetry,
-      logger,
+      createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
     );
@@ -164,13 +167,14 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     peerId: PeerId,
     mempools: MemPools<T>,
     l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecAsyncKVStore,
     telemetry: TelemetryClient,
+    logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
+    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
     // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
@@ -178,6 +182,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const datastore = new AztecDatastore(store);
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
+    // If bootstrap nodes are provided, also provide them to the p2p service
+    const peerDiscovery = [];
+    if (peerDiscoveryService.bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    }
 
     const node = await createLibp2p({
       start: false,
@@ -200,24 +210,35 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       ],
       datastore,
-      streamMuxers: [yamux(), mplex()],
+      peerDiscovery,
+      streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: minPeerCount,
+        minConnections: 0,
         maxConnections: maxPeerCount,
+
+        maxParallelDials: 100,
+        maxPeerAddrsToDial: 5,
+        maxIncomingPendingConnections: 5,
       },
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          debugName: 'gossipsub',
+          globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
+          floodPublish: config.gossipsubFloodPublish,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
+          Dlazy: config.gossipsubDLazy,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
+          gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -226,6 +247,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
           scoreParams: createPeerScoreParams({
+            // IPColocation factor can be disabled for local testing - default to -5
+            IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
@@ -254,6 +277,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           connectionManager: components.connectionManager,
         }),
       },
+      // Fix the peer id in libp2p logs so we can see the source of the log
+      logger: createLibp2pComponentLogger(logger.module, { sourcePeerId: peerId }),
     });
 
     return new LibP2PService(
@@ -267,6 +292,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
+      logger,
     );
   }
 
@@ -319,8 +345,16 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
       [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
     };
-    for (const [topic, validator] of Object.entries(topicValidators)) {
-      this.node.services.pubsub.topicValidators.set(topic, validator);
+    // When running bandwidth benchmarks, we use send blobs of data we do not want to validate
+    // NEVER switch this off in production
+    if (!this.config.debugDisableMessageValidation) {
+      for (const [topic, validator] of Object.entries(topicValidators)) {
+        this.node.services.pubsub.topicValidators.set(topic, validator);
+      }
+    } else {
+      this.logger.warn(
+        'MESSAGE VALIDATION DISABLED - IF YOU SEE THIS LOG AND ARE NOT DEBUGGING AND ARE RUNNING IN A PRODUCTION ENVIRONMENT, PLEASE RE-ENABLE MESSAGE VALIDATION',
+      );
     }
 
     // add GossipSub listener
@@ -584,7 +618,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }
 
   private async processTxFromPeer(tx: Tx): Promise<void> {
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
     await this.mempools.txPool.addTxs([tx]);
@@ -904,7 +938,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, { p2pMessageIdentifier: identifier });
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
+      p2pMessageIdentifier: identifier,
+      sourcePeer: this.node.peerId.toString(),
+    });
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

@@ -1,14 +1,14 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/utils';
+import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
@@ -217,7 +217,7 @@ export class P2PNetworkTest {
           hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
         });
 
-        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
         const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {

@@ -28,19 +28,47 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
-      {{- if .Values.storage.localSsd }}
-      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
       {{- end }}
 
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+
+        # Get the private key from the mnemonic - based on the pod replica index
+        - name: get-private-key
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              source /scripts/get-private-key.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+
         - name: wait-for-services
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -69,6 +97,7 @@ spec:
             - name: config
               mountPath: /shared/config
 
+
         - name: configure-validator-env
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -86,16 +115,8 @@ spec:
               mountPath: /shared/pxe
             - name: scripts
               mountPath: /scripts
-            - name: validator-keys
-              mountPath: /app/config
-              readOnly: true
             - name: config
               mountPath: /shared/config
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
       containers:
         - name: validator
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -107,6 +128,7 @@ spec:
               source /shared/contracts/contracts.env && \
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
+              source /shared/config/keys.env && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
           startupProbe:
@@ -215,6 +237,10 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
@@ -226,9 +252,6 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
-        - name: validator-keys
-          configMap:
-            name: {{ include "aztec-network.fullname" . }}-validator-keys
         - name: contracts-env
           emptyDir: {}
         - name: p2p-addresses
@@ -254,6 +277,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-validator
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
 spec:
   clusterIP: None
   selector:

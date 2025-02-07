@@ -25,3 +25,4 @@ dist-ssr
 
 artifacts/*
 codegenCache.json
+test-results/
