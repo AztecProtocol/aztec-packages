@@ -172,7 +172,13 @@ export class Blob {
    * @returns The encoded fields from the blobs.
    */
   static toEncodedFields(blobs: Blob[]): Fr[] {
-    return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
+    try {
+      return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**
