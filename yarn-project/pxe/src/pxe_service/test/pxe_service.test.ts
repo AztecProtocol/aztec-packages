@@ -36,6 +36,8 @@ async function createPXEService(): Promise<PXE> {
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
+    l1ChainId: 31337,
+    version: 1,
   };
 
   // Setup the relevant mocks
@@ -87,6 +89,8 @@ describe('PXEService', () => {
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,
       l1Contracts: { rollupAddress: EthAddress.random() },
+      version: 1,
+      l1ChainId: 31337,
     };
   });
 

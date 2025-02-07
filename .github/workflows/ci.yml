@@ -52,6 +52,7 @@ jobs:
       yarn-project: ${{ steps.filter.outputs.yarn-project }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-bb: ${{ steps.filter.outputs.non-bb }}
+      helm-charts: ${{ steps.filter.outputs.helm-charts }}
       # Test flags:
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
@@ -102,6 +103,8 @@ jobs:
               - 'noir-projects/**'
             yarn-project:
               - 'yarn-project/**'
+            helm-charts:
+              - 'spartan/**'
             non-bb:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
@@ -363,7 +366,7 @@ jobs:
 
   kind-network-smoke:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true' || needs.configure.outputs.helm-charts == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -400,15 +403,24 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # - test: reorg.test.ts
+          # - name: "reorg"
+          #   test: reorg.test.ts
           #   values: ci.yaml
           #   runner_type: 16core-tester-x86-high-memory
           #   timeout: 60
-          - test: 4epochs.test.ts
+          - name: "4epochs"
+            test: 4epochs.test.ts
             values: ci.yaml
             runner_type: 16core-tester-x86
             timeout: 40
-          # - test: gating-passive.test.ts
+          - name: "4epochs-with-blob-sink"
+            test: 4epochs.test.ts
+            values: ci.yaml
+            overrides: "blobSink.enabled=true"
+            runner_type: 16core-tester-x86
+            timeout: 40
+          # - name: "gating-passive"
+          #   test: gating-passive.test.ts
           #   values: ci.yaml
           #   runner_type: 16core-tester-x86
           #   timeout: 40
@@ -430,7 +442,7 @@ jobs:
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
+              OVERRIDES="${{ matrix.config.overrides }}" INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
@@ -441,8 +453,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
-          path: test_kind.log
+          name: kind-network-test-${{ matrix.config.name }}.log
+          path: network-test.log
 
   bb-bench:
     runs-on: ubuntu-latest
@@ -494,26 +506,25 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/11471) reenable
-  # boxes-test:
-  #   needs: [ci-rest, configure]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
-  #     - uses: ./.github/ci-setup-action
+  boxes-test:
+    needs: [ci-rest, configure]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
 
-  #     - name: Build Boxes
-  #       uses: ./.github/ensure-builder
-  #       timeout-minutes: 40
-  #       with:
-  #         username: ${{ needs.configure.outputs.username }}
-  #         runner_type: builder-x86
-  #         run: |
-  #           export CI=1 USE_CACHE=1
-  #           if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
-  #             ./bootstrap.sh test-boxes
-  #           fi
+      - name: Build Boxes
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        with:
+          username: ${{ needs.configure.outputs.username }}
+          runner_type: builder-x86
+          run: |
+            export CI=1 USE_CACHE=1
+            if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
+              ./bootstrap.sh test-boxes
+            fi
 
   prover-client-test:
     needs: [ci-rest, configure]
@@ -571,7 +582,7 @@ jobs:
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
-        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
+        uses: noir-lang/noir-gates-diff@dbe920a8dcc3370af4be4f702ca9cef29317bec1
         continue-on-error: true
         timeout-minutes: 1
         with:
@@ -609,7 +620,7 @@ jobs:
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
+        uses: noir-lang/noir-gates-diff@dbe920a8dcc3370af4be4f702ca9cef29317bec1
         continue-on-error: true
         timeout-minutes: 1
         with:

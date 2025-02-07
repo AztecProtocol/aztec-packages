@@ -1,10 +1,10 @@
 import { sleep } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import {
   applyProverFailure,
@@ -24,11 +24,11 @@ const { NAMESPACE, HOST_PXE_PORT, HOST_ETHEREUM_PORT, CONTAINER_PXE_PORT, CONTAI
 const debugLogger = createLogger('e2e:spartan-test:reorg');
 
 async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
-  testWallets.wallets.forEach(async w => {
+  for (const w of testWallets.wallets) {
     expect(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate()).toBe(
       mintAmount - totalAmountTransferred,
     );
-  });
+  }
 
   expect(
     await testWallets.tokenAdminWallet.methods.balance_of_public(testWallets.recipientWallet.getAddress()).simulate(),

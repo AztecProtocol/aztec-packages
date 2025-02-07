@@ -9,7 +9,7 @@ import {BlockLog, RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/inter
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {DataStructures} from "./../DataStructures.sol";
-import {Slot, Epoch} from "./../TimeMath.sol";
+import {Slot, Epoch} from "./../TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {
   EpochProofLib,
@@ -107,7 +107,11 @@ library ExtRollupLib {
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     external
     view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+    returns (
+      bytes32[] memory blobHashes,
+      bytes32 blobsHashesCommitment,
+      bytes32 blobPublicInputsHash
+    )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);
   }

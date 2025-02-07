@@ -72,6 +72,10 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 
+{{- define "aztec-network.blobSinkUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-blob-sink.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.blobSink.service.nodePort }}
+{{- end -}}
+
 {{- define "aztec-network.metricsHost" -}}
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
@@ -147,6 +151,10 @@ Service Address Setup Container
       value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
       value: "{{ .Values.ethereum.beacon.externalHost }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+      value: "{{ .Values.ethereum.beacon.apiKey }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+      value: "{{ .Values.ethereum.beacon.apiKeyHeader }}"
     - name: ETHEREUM_CONSENSUS_PORT
       value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
@@ -192,7 +200,7 @@ affinity:
 
 {{- define "aztec-network.gcpLocalSsd" -}}
 nodeSelector:
-  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+  local-ssd: "true"
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}

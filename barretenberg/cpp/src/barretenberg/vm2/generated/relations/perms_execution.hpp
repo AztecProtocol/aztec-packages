@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class perm_dummy_dynamic_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_DUMMY_DYNAMIC";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 4;
 
@@ -24,46 +26,51 @@ class perm_dummy_dynamic_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.execution_sel == 1 || in.execution_sel == 1);
+        return (in._execution_sel() == 1 || in._execution_sel() == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_dummy_dynamic_inv,
-                                     in.execution_sel,
-                                     in.execution_sel,
-                                     in.execution_sel,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4);
+        return std::forward_as_tuple(in._perm_dummy_dynamic_inv(),
+                                     in._execution_sel(),
+                                     in._execution_sel(),
+                                     in._execution_sel(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4());
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_dummy_dynamic_inv,
-                                     in.execution_sel,
-                                     in.execution_sel,
-                                     in.execution_sel,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4,
-                                     in.execution_op1,
-                                     in.execution_op2,
-                                     in.execution_op3,
-                                     in.execution_op4);
+        return std::forward_as_tuple(in._perm_dummy_dynamic_inv(),
+                                     in._execution_sel(),
+                                     in._execution_sel(),
+                                     in._execution_sel(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4(),
+                                     in._execution_op1(),
+                                     in._execution_op2(),
+                                     in._execution_op3(),
+                                     in._execution_op4());
     }
 };
 
 template <typename FF_>
 class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy_dynamic_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_DUMMY_DYNAMIC";
+    static constexpr std::string_view NAME = perm_dummy_dynamic_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+    }
 };
 template <typename FF_> using perm_dummy_dynamic = GenericPermutation<perm_dummy_dynamic_permutation_settings, FF_>;
 

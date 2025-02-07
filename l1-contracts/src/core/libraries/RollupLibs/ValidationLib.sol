@@ -8,7 +8,8 @@ import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Errors} from "./../Errors.sol";
-import {Timestamp, Slot, Epoch} from "./../TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "./../TimeLib.sol";
+import {TimeLib} from "./../TimeLib.sol";
 import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {Header} from "./HeaderLib.sol";
 
@@ -16,12 +17,11 @@ struct ValidateHeaderArgs {
   Header header;
   Timestamp currentTime;
   uint256 manaBaseFee;
-  bytes32 blobsHash;
+  bytes32 blobsHashesCommitment;
   uint256 pendingBlockNumber;
   DataStructures.ExecutionFlags flags;
   uint256 version;
   IFeeJuicePortal feeJuicePortal;
-  function(Slot) external view returns (Timestamp) getTimestampForSlot;
 }
 
 library ValidationLib {
@@ -56,7 +56,7 @@ library ValidationLib {
     Slot lastSlot = _blocks[_args.pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Timestamp timestamp = _args.getTimestampForSlot(slot);
+    Timestamp timestamp = TimeLib.toTimestamp(slot);
     require(
       Timestamp.wrap(_args.header.globalVariables.timestamp) == timestamp,
       Errors.Rollup__InvalidTimestamp(
@@ -76,7 +76,8 @@ library ValidationLib {
 
     // Check if the data is available
     require(
-      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHash,
+      _args.flags.ignoreDA
+        || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
       Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
     );
 

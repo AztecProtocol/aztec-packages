@@ -145,10 +145,6 @@ inline void output_vk_sol(std::ostream& os, std::shared_ptr<plonk::verification_
 {
     CircuitType circuit_type = static_cast<CircuitType>(key->circuit_type);
     switch (circuit_type) {
-    case CircuitType::STANDARD: {
-        return output_vk_sol_standard(os, key, class_name);
-        break;
-    }
     case CircuitType::ULTRA: {
         return output_vk_sol_ultra(os, key, class_name);
         break;

@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -19,7 +19,8 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
 import { formatViemError } from './utils.js';
 
@@ -35,7 +36,7 @@ export type PendingTransaction = {
 };
 
 describe('GasUtils', () => {
-  let gasUtils: L1TxUtils;
+  let gasUtils: L1TxUtilsWithBlobs;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let anvil: Anvil;
@@ -73,7 +74,7 @@ describe('GasUtils', () => {
     });
     await cheatCodes.evmMine();
 
-    gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
@@ -201,7 +202,7 @@ describe('GasUtils', () => {
     await cheatCodes.evmMine();
 
     // First deploy without any buffer
-    const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const baselineGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
       minGwei: 10n, // Increased minimum gas price
@@ -221,7 +222,7 @@ describe('GasUtils', () => {
     });
 
     // Now deploy with 20% buffer
-    const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const bufferedGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
@@ -280,7 +281,7 @@ describe('GasUtils', () => {
   });
 
   it('respects minimum gas price bump for replacements', async () => {
-    const gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       ...defaultL1TxUtilsConfig,
       priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
     });
@@ -477,4 +478,125 @@ describe('GasUtils', () => {
     ).rejects.toThrow(/timed out/);
     expect(Date.now() - now).toBeGreaterThanOrEqual(990);
   }, 60_000);
+
+  it('attempts to cancel timed out transactions', async () => {
+    // Disable auto-mining to control block production
+    await cheatCodes.setIntervalMining(0);
+    await cheatCodes.setAutomine(false);
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Send initial transaction
+    const { txHash } = await gasUtils.sendTransaction(request);
+    const initialTx = await publicClient.getTransaction({ hash: txHash });
+
+    // Try to monitor with a short timeout
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait for cancellation tx to be sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await publicClient.getBlock({ blockTag: 'pending' });
+    const pendingTxHash = pendingBlock.transactions[0];
+    const cancelTx = await publicClient.getTransaction({ hash: pendingTxHash });
+
+    // // Verify cancellation tx
+    expect(cancelTx).toBeDefined();
+    expect(cancelTx!.nonce).toBe(nonce);
+    expect(cancelTx!.to!.toLowerCase()).toBe(walletClient.account.address.toLowerCase());
+    expect(cancelTx!.value).toBe(0n);
+    expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
+    expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+    expect(cancelTx!.gas).toBe(21000n);
+
+    // Mine a block to process the cancellation
+    await cheatCodes.evmMine();
+
+    // Verify the original transaction is no longer present
+    await expect(publicClient.getTransaction({ hash: txHash })).rejects.toThrow();
+  }, 10_000);
+
+  it('attempts to cancel timed out blob transactions with correct parameters', async () => {
+    // Disable auto-mining to control block production
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Create blob data
+    const blobData = new Uint8Array(131072).fill(1);
+    const kzg = Blob.getViemKzgInstance();
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Send initial blob transaction
+    const { txHash } = await gasUtils.sendTransaction(request, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 100n * WEI_CONST, // 100 gwei
+    });
+    const initialTx = await publicClient.getTransaction({ hash: txHash });
+
+    // Try to monitor with a short timeout
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
+      {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: 100n * WEI_CONST,
+      },
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait for cancellation tx to be sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await publicClient.getBlock({ blockTag: 'pending' });
+    const pendingTxHash = pendingBlock.transactions[0];
+    const cancelTx = await publicClient.getTransaction({ hash: pendingTxHash });
+
+    // Verify cancellation tx
+    expect(cancelTx).toBeDefined();
+    expect(cancelTx!.nonce).toBe(nonce);
+    expect(cancelTx!.to!.toLowerCase()).toBe(walletClient.account.address.toLowerCase());
+    expect(cancelTx!.value).toBe(0n);
+    expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
+    expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+    expect(cancelTx!.maxFeePerBlobGas).toBeGreaterThan(initialTx.maxFeePerBlobGas!);
+    expect(cancelTx!.blobVersionedHashes).toBeDefined();
+    expect(cancelTx!.blobVersionedHashes!.length).toBe(1);
+
+    // Mine a block to process the cancellation
+    await cheatCodes.evmMine();
+
+    // Verify the original transaction is no longer present
+    await expect(publicClient.getTransaction({ hash: txHash })).rejects.toThrow();
+  }, 10_000);
 });

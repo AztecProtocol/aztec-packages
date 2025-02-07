@@ -157,15 +157,18 @@ impl<'a> Parser<'a> {
             return Some(StatementKind::For(for_loop));
         }
 
-        if let Some(block) = self.parse_loop() {
-            return Some(StatementKind::Loop(block));
+        if let Some((block, span)) = self.parse_loop() {
+            return Some(StatementKind::Loop(block, span));
         }
 
         if let Some(kind) = self.parse_if_expr() {
-            return Some(StatementKind::Expression(Expression {
-                kind,
-                span: self.span_since(start_span),
-            }));
+            let span = self.span_since(start_span);
+            return Some(StatementKind::Expression(Expression { kind, span }));
+        }
+
+        if let Some(kind) = self.parse_match_expr() {
+            let span = self.span_since(start_span);
+            return Some(StatementKind::Expression(Expression { kind, span }));
         }
 
         if let Some(block) = self.parse_block() {
@@ -293,10 +296,13 @@ impl<'a> Parser<'a> {
     }
 
     /// LoopStatement = 'loop' Block
-    fn parse_loop(&mut self) -> Option<Expression> {
+    fn parse_loop(&mut self) -> Option<(Expression, Span)> {
+        let start_span = self.current_token_span;
         if !self.eat_keyword(Keyword::Loop) {
             return None;
         }
+
+        self.push_error(ParserErrorReason::ExperimentalFeature("loops"), start_span);
 
         let block_start_span = self.current_token_span;
         let block = if let Some(block) = self.parse_block() {
@@ -309,7 +315,7 @@ impl<'a> Parser<'a> {
             Expression { kind: ExpressionKind::Error, span: self.span_since(block_start_span) }
         };
 
-        Some(block)
+        Some((block, start_span))
     }
 
     /// ForRange
@@ -819,21 +825,25 @@ mod tests {
     #[test]
     fn parses_empty_loop() {
         let src = "loop { }";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Loop(block) = statement.kind else {
+        let mut parser = Parser::for_str(src);
+        let statement = parser.parse_statement_or_error();
+        let StatementKind::Loop(block, span) = statement.kind else {
             panic!("Expected loop");
         };
         let ExpressionKind::Block(block) = block.kind else {
             panic!("Expected block");
         };
         assert!(block.statements.is_empty());
+        assert_eq!(span.start(), 0);
+        assert_eq!(span.end(), 4);
     }
 
     #[test]
     fn parses_loop_with_statements() {
         let src = "loop { 1; 2 }";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Loop(block) = statement.kind else {
+        let mut parser = Parser::for_str(src);
+        let statement = parser.parse_statement_or_error();
+        let StatementKind::Loop(block, _) = statement.kind else {
             panic!("Expected loop");
         };
         let ExpressionKind::Block(block) = block.kind else {

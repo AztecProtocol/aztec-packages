@@ -11,6 +11,8 @@ import {
   type L2Tips,
   type LogFilter,
   type MerkleTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   type NullifierMembershipWitness,
   type ProverConfig,
   type PublicDataWitness,
@@ -44,7 +46,7 @@ import {
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
+import { type NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
@@ -59,7 +61,8 @@ export class TXENode implements AztecNode {
     private blockNumber: number,
     private version: number,
     private chainId: number,
-    private trees: MerkleTrees,
+    private nativeWorldStateService: NativeWorldStateService,
+    private baseFork: MerkleTreeWriteOperations,
   ) {}
 
   /**
@@ -272,14 +275,10 @@ export class TXENode implements AztecNode {
     // We should likely migrate this so that the trees are owned by the node.
 
     // TODO: blockNumber is being passed as undefined, figure out why
-    if (blockNumber === 'latest' || blockNumber === undefined) {
-      blockNumber = await this.getBlockNumber();
-    }
-
-    const db =
-      blockNumber === (await this.getBlockNumber())
-        ? await this.trees.getLatest()
-        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+    const db: MerkleTreeReadOperations =
+      blockNumber === (await this.getBlockNumber()) || blockNumber === 'latest' || blockNumber === undefined
+        ? this.baseFork
+        : this.nativeWorldStateService.getSnapshot(blockNumber);
 
     return await db.findLeafIndices(
       treeId,
@@ -566,6 +565,10 @@ export class TXENode implements AztecNode {
    * @returns The pending tx if it exists.
    */
   getTxByHash(_txHash: TxHash): Promise<Tx | undefined> {
+    throw new Error('TXE Node method getTxByHash not implemented');
+  }
+
+  getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
     throw new Error('TXE Node method getTxByHash not implemented');
   }
 

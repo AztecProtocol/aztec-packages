@@ -27,189 +27,176 @@ template <typename FF_> class range_checkImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto range_check_X_0 = (new_term.range_check_is_lte_u16 * new_term.range_check_u16_r7);
-        const auto range_check_X_1 = (new_term.range_check_is_lte_u32 *
-                                      (new_term.range_check_u16_r0 + (new_term.range_check_u16_r7 * FF(65536))));
-        const auto range_check_X_2 = (new_term.range_check_is_lte_u48 *
-                                      ((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                                       (new_term.range_check_u16_r7 * FF(4294967296UL))));
-        const auto range_check_X_3 = (new_term.range_check_is_lte_u64 *
-                                      (((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                                        (new_term.range_check_u16_r2 * FF(4294967296UL))) +
-                                       (new_term.range_check_u16_r7 * FF(281474976710656UL))));
-        const auto range_check_X_4 = (new_term.range_check_is_lte_u80 *
-                                      ((((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                                         (new_term.range_check_u16_r2 * FF(4294967296UL))) +
-                                        (new_term.range_check_u16_r3 * FF(281474976710656UL))) +
-                                       (new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }))));
-        const auto range_check_X_5 = (new_term.range_check_is_lte_u96 *
-                                      (((((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                                          (new_term.range_check_u16_r2 * FF(4294967296UL))) +
-                                         (new_term.range_check_u16_r3 * FF(281474976710656UL))) +
-                                        (new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }))) +
-                                       (new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }))));
-        const auto range_check_X_6 = (new_term.range_check_is_lte_u112 *
-                                      ((((((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                                           (new_term.range_check_u16_r2 * FF(4294967296UL))) +
-                                          (new_term.range_check_u16_r3 * FF(281474976710656UL))) +
-                                         (new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }))) +
-                                        (new_term.range_check_u16_r5 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }))) +
-                                       (new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }))));
+        const auto range_check_X_0 = new_term.range_check_is_lte_u16 * new_term.range_check_u16_r7;
+        const auto range_check_X_1 =
+            new_term.range_check_is_lte_u32 * (new_term.range_check_u16_r0 + new_term.range_check_u16_r7 * FF(65536));
+        const auto range_check_X_2 =
+            new_term.range_check_is_lte_u48 * (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+                                               new_term.range_check_u16_r7 * FF(4294967296UL));
+        const auto range_check_X_3 =
+            new_term.range_check_is_lte_u64 *
+            (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+             new_term.range_check_u16_r2 * FF(4294967296UL) + new_term.range_check_u16_r7 * FF(281474976710656UL));
+        const auto range_check_X_4 =
+            new_term.range_check_is_lte_u80 *
+            (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+             new_term.range_check_u16_r2 * FF(4294967296UL) + new_term.range_check_u16_r3 * FF(281474976710656UL) +
+             new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }));
+        const auto range_check_X_5 =
+            new_term.range_check_is_lte_u96 *
+            (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+             new_term.range_check_u16_r2 * FF(4294967296UL) + new_term.range_check_u16_r3 * FF(281474976710656UL) +
+             new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }));
+        const auto range_check_X_6 =
+            new_term.range_check_is_lte_u112 *
+            (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+             new_term.range_check_u16_r2 * FF(4294967296UL) + new_term.range_check_u16_r3 * FF(281474976710656UL) +
+             new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r5 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }));
         const auto range_check_X_7 =
-            (new_term.range_check_is_lte_u128 *
-             (((((((new_term.range_check_u16_r0 + (new_term.range_check_u16_r1 * FF(65536))) +
-                   (new_term.range_check_u16_r2 * FF(4294967296UL))) +
-                  (new_term.range_check_u16_r3 * FF(281474976710656UL))) +
-                 (new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }))) +
-                (new_term.range_check_u16_r5 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }))) +
-               (new_term.range_check_u16_r6 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }))) +
-              (new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }))));
-        const auto range_check_RESULT =
-            (((((((range_check_X_0 + range_check_X_1) + range_check_X_2) + range_check_X_3) + range_check_X_4) +
-               range_check_X_5) +
-              range_check_X_6) +
-             range_check_X_7);
+            new_term.range_check_is_lte_u128 *
+            (new_term.range_check_u16_r0 + new_term.range_check_u16_r1 * FF(65536) +
+             new_term.range_check_u16_r2 * FF(4294967296UL) + new_term.range_check_u16_r3 * FF(281474976710656UL) +
+             new_term.range_check_u16_r4 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r5 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r6 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) +
+             new_term.range_check_u16_r7 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }));
+        const auto range_check_RESULT = range_check_X_0 + range_check_X_1 + range_check_X_2 + range_check_X_3 +
+                                        range_check_X_4 + range_check_X_5 + range_check_X_6 + range_check_X_7;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel * (FF(1) - new_term.range_check_sel));
+            auto tmp = new_term.range_check_sel * (FF(1) - new_term.range_check_sel);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u16 * (FF(1) - new_term.range_check_is_lte_u16));
+            auto tmp = new_term.range_check_is_lte_u16 * (FF(1) - new_term.range_check_is_lte_u16);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u32 * (FF(1) - new_term.range_check_is_lte_u32));
+            auto tmp = new_term.range_check_is_lte_u32 * (FF(1) - new_term.range_check_is_lte_u32);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u48 * (FF(1) - new_term.range_check_is_lte_u48));
+            auto tmp = new_term.range_check_is_lte_u48 * (FF(1) - new_term.range_check_is_lte_u48);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u64 * (FF(1) - new_term.range_check_is_lte_u64));
+            auto tmp = new_term.range_check_is_lte_u64 * (FF(1) - new_term.range_check_is_lte_u64);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u80 * (FF(1) - new_term.range_check_is_lte_u80));
+            auto tmp = new_term.range_check_is_lte_u80 * (FF(1) - new_term.range_check_is_lte_u80);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u96 * (FF(1) - new_term.range_check_is_lte_u96));
+            auto tmp = new_term.range_check_is_lte_u96 * (FF(1) - new_term.range_check_is_lte_u96);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u112 * (FF(1) - new_term.range_check_is_lte_u112));
+            auto tmp = new_term.range_check_is_lte_u112 * (FF(1) - new_term.range_check_is_lte_u112);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_is_lte_u128 * (FF(1) - new_term.range_check_is_lte_u128));
+            auto tmp = new_term.range_check_is_lte_u128 * (FF(1) - new_term.range_check_is_lte_u128);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = ((((((((new_term.range_check_is_lte_u16 + new_term.range_check_is_lte_u32) +
-                              new_term.range_check_is_lte_u48) +
-                             new_term.range_check_is_lte_u64) +
-                            new_term.range_check_is_lte_u80) +
-                           new_term.range_check_is_lte_u96) +
-                          new_term.range_check_is_lte_u112) +
-                         new_term.range_check_is_lte_u128) -
-                        new_term.range_check_sel);
+            auto tmp =
+                ((new_term.range_check_is_lte_u16 + new_term.range_check_is_lte_u32 + new_term.range_check_is_lte_u48 +
+                  new_term.range_check_is_lte_u64 + new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96 +
+                  new_term.range_check_is_lte_u112 + new_term.range_check_is_lte_u128) -
+                 new_term.range_check_sel);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel * (range_check_RESULT - new_term.range_check_value));
+            auto tmp = new_term.range_check_sel * (range_check_RESULT - new_term.range_check_value);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = (new_term.range_check_dyn_rng_chk_bits -
-                        (((((((new_term.range_check_rng_chk_bits - (new_term.range_check_is_lte_u32 * FF(16))) -
-                              (new_term.range_check_is_lte_u48 * FF(32))) -
-                             (new_term.range_check_is_lte_u64 * FF(48))) -
-                            (new_term.range_check_is_lte_u80 * FF(64))) -
-                           (new_term.range_check_is_lte_u96 * FF(80))) -
-                          (new_term.range_check_is_lte_u112 * FF(96))) -
-                         (new_term.range_check_is_lte_u128 * FF(112))));
+                        (((((((new_term.range_check_rng_chk_bits - new_term.range_check_is_lte_u32 * FF(16)) -
+                              new_term.range_check_is_lte_u48 * FF(32)) -
+                             new_term.range_check_is_lte_u64 * FF(48)) -
+                            new_term.range_check_is_lte_u80 * FF(64)) -
+                           new_term.range_check_is_lte_u96 * FF(80)) -
+                          new_term.range_check_is_lte_u112 * FF(96)) -
+                         new_term.range_check_is_lte_u128 * FF(112)));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel *
-                        (new_term.range_check_dyn_diff -
-                         ((new_term.range_check_dyn_rng_chk_pow_2 - new_term.range_check_u16_r7) - FF(1))));
+            auto tmp = new_term.range_check_sel *
+                       (new_term.range_check_dyn_diff -
+                        ((new_term.range_check_dyn_rng_chk_pow_2 - new_term.range_check_u16_r7) - FF(1)));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel_r0_16_bit_rng_lookup -
-                        ((((((new_term.range_check_is_lte_u32 + new_term.range_check_is_lte_u48) +
-                             new_term.range_check_is_lte_u64) +
-                            new_term.range_check_is_lte_u80) +
-                           new_term.range_check_is_lte_u96) +
-                          new_term.range_check_is_lte_u112) +
-                         new_term.range_check_is_lte_u128));
+            auto tmp =
+                (new_term.range_check_sel_r0_16_bit_rng_lookup -
+                 (new_term.range_check_is_lte_u32 + new_term.range_check_is_lte_u48 + new_term.range_check_is_lte_u64 +
+                  new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96 + new_term.range_check_is_lte_u112 +
+                  new_term.range_check_is_lte_u128));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = (new_term.range_check_sel_r1_16_bit_rng_lookup -
-                        (((((new_term.range_check_is_lte_u48 + new_term.range_check_is_lte_u64) +
-                            new_term.range_check_is_lte_u80) +
-                           new_term.range_check_is_lte_u96) +
-                          new_term.range_check_is_lte_u112) +
-                         new_term.range_check_is_lte_u128));
+                        (new_term.range_check_is_lte_u48 + new_term.range_check_is_lte_u64 +
+                         new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96 +
+                         new_term.range_check_is_lte_u112 + new_term.range_check_is_lte_u128));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = (new_term.range_check_sel_r2_16_bit_rng_lookup -
-                        ((((new_term.range_check_is_lte_u64 + new_term.range_check_is_lte_u80) +
-                           new_term.range_check_is_lte_u96) +
-                          new_term.range_check_is_lte_u112) +
-                         new_term.range_check_is_lte_u128));
+            auto tmp =
+                (new_term.range_check_sel_r2_16_bit_rng_lookup -
+                 (new_term.range_check_is_lte_u64 + new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96 +
+                  new_term.range_check_is_lte_u112 + new_term.range_check_is_lte_u128));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = (new_term.range_check_sel_r3_16_bit_rng_lookup -
-                        (((new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96) +
-                          new_term.range_check_is_lte_u112) +
-                         new_term.range_check_is_lte_u128));
+                        (new_term.range_check_is_lte_u80 + new_term.range_check_is_lte_u96 +
+                         new_term.range_check_is_lte_u112 + new_term.range_check_is_lte_u128));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (new_term.range_check_sel_r4_16_bit_rng_lookup -
-                        ((new_term.range_check_is_lte_u96 + new_term.range_check_is_lte_u112) +
+                        (new_term.range_check_is_lte_u96 + new_term.range_check_is_lte_u112 +
                          new_term.range_check_is_lte_u128));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);

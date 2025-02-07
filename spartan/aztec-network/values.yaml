@@ -11,6 +11,10 @@ network:
   public: false
   setupL2Contracts: true
 
+  # If true, pods are scheduled onto specific node pools using selectors
+  # This is only applicable to GKE deployments
+  gke: false
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -45,10 +49,17 @@ aztec:
   epochProofClaimWindow: 13 # in L2 slots
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  # The derivation path of the calcualted private keys
+  # Starting from this index, the number of keys is equal to the number of replicas for the given service
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 1000
+
+  ## The number of extra accounts to prefund
+  extraAccountsStartIndex: 2000
+  extraAccounts: 10
   l1Salt: "" # leave empty for random salt
 
 bootNode:
-  seqPublisherPrivateKey: ""
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
@@ -67,9 +78,9 @@ bootNode:
     enabled: "true"
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -96,10 +107,6 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
-  validatorKeys:
-    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-  validatorAddresses:
-    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
@@ -123,9 +130,9 @@ validator:
     failureThreshold: 120
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   attestationPollingInterval: 1000
@@ -137,7 +144,6 @@ validator:
   l1GasLimitBufferPercentage: ""
 
 proverNode:
-  proverPublisherPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
   externalHost: ""
   replicas: 1
   p2pEnabled: true
@@ -157,9 +163,9 @@ proverNode:
     jobMaxRetries: 3
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   pollInterval: 1000
@@ -171,8 +177,12 @@ proverNode:
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  l1GasPriceMax: 100
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
 
 pxe:
+  enabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -186,7 +196,7 @@ pxe:
   resources:
     requests:
       memory: "4Gi"
-      cpu: "1"
+      cpu: "1.5"
 
 bot:
   enabled: true
@@ -212,16 +222,18 @@ bot:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
 
 ethereum:
   replicas: 1
   chainId: 1337
   blockTime: 12
-  extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
@@ -233,22 +245,22 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1"
+        cpu: "1.5"
     storageSize: "80Gi"
   beacon:
     externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
     service:
       port: 5052
       targetPort: 5052
-      nodePort: ""
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1"
+        cpu: "1.5"
     storageSize: "80Gi"
   validator:
     resources:
@@ -262,11 +274,6 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
-      cpu: "1"
-  storageSize: "80Gi"
   deployL1ContractsPrivateKey:
 
 proverAgent:
@@ -277,14 +284,15 @@ proverAgent:
   pollIntervalMs: 1000
   proofTypes: ["foo", "bar", "baz"]
   gke:
-    spotEnabled: false
+    spotEnabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
   pollInterval: 200
 
 proverBroker:
@@ -300,15 +308,29 @@ proverBroker:
   dataDir: "/data"
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
-  maxOldSpaceSize: "3584"
+      memory: "5Gi"
+      cpu: "1.5"
+  maxOldSpaceSize: "4608"
 
 jobs:
   deployL1Verifier:
     enable: false
 
+blobSink:
+  enabled: false
+  replicas: 1
+  service:
+    nodePort: 5052
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+  dataStoreConfig:
+    dataDir: "/data"
+    storageSize: "8Gi"
+    dataStoreMapSize: "134217728" # 128 GB
+
 faucet:
+  enabled: true
   replicas: 1
   service:
     nodePort: 8085

@@ -87,6 +87,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
 
+    // If a function is further modified as unconstrained, we throw an error
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[private] but marked as unconstrained, remove unconstrained keyword",
+        );
+    }
+
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
@@ -244,13 +252,23 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
 
+    // If a function is further modified as unconstrained, we throw an error
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[public] but marked as unconstrained, remove unconstrained keyword",
+        );
+    }
+
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
     let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| generate_serialize_to_fields(name, typ, &[]).0.len())
+        .map(|(name, typ): (Quoted, Type)| {
+            generate_serialize_to_fields(name, typ, &[], false).0.len()
+        })
         .fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
@@ -330,7 +348,12 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let module_has_storage = module_has_storage(f.module());
 
     let storage_init = if module_has_storage {
-        quote { let storage = Storage::init(context); }
+        quote {
+            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
+            // referenced. We instead ignore 'unused variable' warnings for it.
+            #[allow(unused_variables)]
+            let storage = Storage::init(context);
+        }
     } else {
         quote {}
     };

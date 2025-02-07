@@ -8,6 +8,9 @@
   },
   "references": [
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../circuits.js"
     },
     {

@@ -13,7 +13,7 @@ import {
   type AztecAddress,
   type ContractClassIdPreimage,
   EthAddress,
-  Gas,
+  type Gas,
   type GasSettings,
   type GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -53,9 +53,6 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 import { UniqueClassIds } from './unique_class_ids.js';
@@ -512,29 +509,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     };
   }
 
-  /**
-   * Get the results of public execution.
-   */
-  public toPublicEnqueuedCallExecutionResult(
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-  ): EnqueuedPublicCallExecutionResultWithSideEffects {
-    return {
-      endGasLeft: Gas.from(avmCallResults.gasLeft),
-      endSideEffectCounter: new Fr(this.sideEffectCounter),
-      returnValues: avmCallResults.output,
-      reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason,
-      sideEffects: {
-        publicDataWrites: this.publicDataWrites,
-        noteHashes: this.noteHashes,
-        nullifiers: this.nullifiers,
-        l2ToL1Messages: this.l2ToL1Messages,
-        publicLogs: this.publicLogs,
-      },
-    };
-  }
-
   public toAvmCircuitPublicInputs(
     /** Globals. */
     globalVariables: GlobalVariables,
@@ -583,21 +557,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       transactionFee,
       reverted,
     );
-  }
-
-  public toPublicFunctionCallResult(
-    /** The execution environment of the nested call. */
-    _avmEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    _startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    _bytecode: Buffer,
-    /** The call's results */
-    _avmCallResults: AvmFinalizedCallResult,
-    /** Function name for logging */
-    _functionName: string = 'unknown',
-  ): PublicFunctionCallResult {
-    throw new Error('Not implemented');
   }
 
   public getPublicLogs() {

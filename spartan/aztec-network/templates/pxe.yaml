@@ -1,3 +1,4 @@
+{{ if .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,8 +17,13 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: pxe
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
@@ -107,6 +113,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}
@@ -171,4 +179,5 @@ spec:
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
 ---
+{{ end }}
 {{ end }}

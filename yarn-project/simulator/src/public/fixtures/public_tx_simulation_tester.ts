@@ -15,9 +15,8 @@ import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
@@ -46,7 +45,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
   public static async create(skipContractDeployments = false): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     return new PublicTxSimulationTester(contractDataSource, merkleTrees, skipContractDeployments);
   }
 
@@ -122,7 +121,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const avmResult = await simulator.simulate(tx);
 
     if (avmResult.revertCode.isOK()) {
-      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.output);
+      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);
     }
 
     return avmResult;

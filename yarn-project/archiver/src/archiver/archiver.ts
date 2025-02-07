@@ -167,7 +167,7 @@ export class Archiver implements ArchiveSource, Traceable {
 
     const [l1StartBlock, l1GenesisTime] = await Promise.all([
       rollup.read.L1_BLOCK_AT_GENESIS(),
-      rollup.read.GENESIS_TIME(),
+      rollup.read.getGenesisTime(),
     ] as const);
 
     const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
@@ -1139,7 +1139,7 @@ class ArchiverStoreHelper
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
   }
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
 }

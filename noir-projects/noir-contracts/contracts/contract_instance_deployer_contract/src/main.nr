@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractInstanceDeployer {
+pub contract ContractInstanceDeployer {
     use dep::aztec::macros::{events::event, functions::private};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
@@ -56,8 +56,8 @@ contract ContractInstanceDeployer {
     //   kind: 'point'
     // }
 
-    impl Serialize<15> for ContractInstanceDeployed {
-        fn serialize(self) -> [Field; 15] {
+    impl ContractInstanceDeployed {
+        fn serialize_non_standard(self) -> [Field; 15] {
             [
                 self.DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
                 self.address.to_field(),
@@ -117,10 +117,7 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        // This is a hack to get around there being two implementations of `Serialize`.
-        // Can be replaced with the below once fixed
-        // let payload = event.serialize();
-        let payload = Serialize::<15>::serialize(event);
+        let payload = event.serialize_non_standard();
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);

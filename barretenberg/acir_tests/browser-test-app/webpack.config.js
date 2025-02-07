@@ -1,7 +1,5 @@
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import ResolveTypeScriptPlugin from "resolve-typescript-plugin";
-import CopyWebpackPlugin from "copy-webpack-plugin";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
 
@@ -12,14 +10,7 @@ export default {
     index: "./src/index.ts",
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
-      {
-        test: /\.gz$/,
-        type: 'asset/resource',
-      },
       {
         test: /\.tsx?$/,
         use: [{ loader: "ts-loader" }],
@@ -28,8 +19,8 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
+    publicPath: "/",
     filename: "[name].js",
-    chunkFilename: "[name].chunk.js", // This naming pattern is used for chunks produced from code-splitting.
     library: {
       type: 'module',
     },
@@ -39,19 +30,11 @@ export default {
     outputModule: true,
   },
   plugins: [
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          context: '../../ts/dest/browser',
-          from: '*.gz',
-        },
-      ],
-    }),
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
   ],
   resolve: {
-    plugins: [new ResolveTypeScriptPlugin()],
+    extensions: ['.tsx', '.ts', '.js'],
   },
   devServer: {
     hot: false,
