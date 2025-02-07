@@ -360,7 +360,13 @@ where
         let mut result = Ordering::equal();
         for i in 0..self.len() {
             if result == Ordering::equal() {
-                result = self[i].cmp(other[i]);
+                let result_i = self[i].cmp(other[i]);
+
+                if result_i == Ordering::less() {
+                    result = result_i;
+                } else if result_i == Ordering::greater() {
+                    result = result_i;
+                }
             }
         }
         result
@@ -377,7 +383,13 @@ where
         let mut result = self.len().cmp(other.len());
         for i in 0..self.len() {
             if result == Ordering::equal() {
-                result = self[i].cmp(other[i]);
+                let result_i = self[i].cmp(other[i]);
+
+                if result_i == Ordering::less() {
+                    result = result_i;
+                } else if result_i == Ordering::greater() {
+                    result = result_i;
+                }
             }
         }
         result
