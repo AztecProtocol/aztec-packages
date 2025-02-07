@@ -6,15 +6,6 @@ aztec:
   validatorKeyIndexStart: 49
   proverKeyIndexStart: 52
 
-# ethereum:
-#   chainId: "11155111"
-#   deployL1ContractsPrivateKey:
-#   externalHost:
-#   beacon:
-#     externalHost:
-#     apiKey: ""
-#     apiKeyHeader: ""
-
 ethereum:
   chainId: "11155111"
   externalHost: ""

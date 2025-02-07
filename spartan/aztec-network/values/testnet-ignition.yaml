@@ -21,6 +21,11 @@ pxe:
 faucet:
   enabled: false
 
+proverNode:
+  l1FixedPriorityFeePerGas: 3
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 500
+
 validator:
   replicas: 3
   l1FixedPriorityFeePerGas: 3

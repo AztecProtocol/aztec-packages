@@ -5,7 +5,7 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: true
-  # TODO: Will need to change these as zombienet will be using them
+  # TODO: Will need to change these as ignition will be using them
   l1DeploymentMnemonic: ""
   validatorKeyIndexStart: 4
   proverKeyIndexStart: 52

@@ -580,6 +580,7 @@ export const deployL1Contracts = async (
 class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
+  private l1TxUtils: L1TxUtils;
   constructor(
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
     private publicClient: PublicClient<HttpTransport, Chain>,
@@ -588,19 +589,20 @@ class L1Deployer {
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
+    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.logger, this.txUtilsConfig);
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
     const { txHash, address } = await deployL1Contract(
       this.walletClient,
       this.publicClient,
+      this.l1TxUtils,
       params.contractAbi,
       params.contractBytecode,
       args,
       this.salt,
       params.libraries,
       this.logger,
-      this.txUtilsConfig,
     );
     if (txHash) {
       this.txHashes.push(txHash);
@@ -627,18 +629,16 @@ class L1Deployer {
 export async function deployL1Contract(
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
+  l1TxUtils: L1TxUtils,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
-  txUtilsConfig?: L1TxUtilsConfig,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
-
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, txUtilsConfig);
 
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
@@ -660,13 +660,13 @@ export async function deployL1Contract(
       const { address } = await deployL1Contract(
         walletClient,
         publicClient,
+        l1TxUtils,
         lib.contractAbi,
         lib.contractBytecode,
         [],
         maybeSalt,
         undefined,
         logger,
-        txUtilsConfig,
       );
 
       for (const linkRef in libraries.linkReferences) {
