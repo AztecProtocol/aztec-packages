@@ -33,7 +33,7 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
-        aztecEpochProofClaimWindowInL2Slots: 1,
+        aztecProofSubmissionWindow: 2,
         slashingQuorum,
         slashingRoundSize,
       },

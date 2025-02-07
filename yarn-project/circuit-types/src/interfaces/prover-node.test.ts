@@ -1,6 +1,5 @@
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
 
 describe('ProvingNodeApiSchema', () => {
@@ -37,22 +36,17 @@ describe('ProvingNodeApiSchema', () => {
   it('prove', async () => {
     await context.client.prove(1);
   });
-
-  it('sendEpochProofQuote', async () => {
-    const quote = EpochProofQuote.empty();
-    await context.client.sendEpochProofQuote(quote);
-  });
 });
 
 class MockProverNode implements ProverNodeApi {
-  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
+  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: bigint }[]> {
     return Promise.resolve([
-      { uuid: 'uuid1', status: 'initialized' },
-      { uuid: 'uuid2', status: 'processing' },
-      { uuid: 'uuid3', status: 'awaiting-prover' },
-      { uuid: 'uuid4', status: 'publishing-proof' },
-      { uuid: 'uuid5', status: 'completed' },
-      { uuid: 'uuid6', status: 'failed' },
+      { uuid: 'uuid1', status: 'initialized', epochNumber: 10n },
+      { uuid: 'uuid2', status: 'processing', epochNumber: 10n },
+      { uuid: 'uuid3', status: 'awaiting-prover', epochNumber: 10n },
+      { uuid: 'uuid4', status: 'publishing-proof', epochNumber: 10n },
+      { uuid: 'uuid5', status: 'completed', epochNumber: 10n },
+      { uuid: 'uuid6', status: 'failed', epochNumber: 10n },
     ]);
   }
   startProof(epochNumber: number): Promise<void> {
@@ -61,10 +55,6 @@ class MockProverNode implements ProverNodeApi {
   }
   prove(epochNumber: number): Promise<void> {
     expect(typeof epochNumber).toBe('number');
-    return Promise.resolve();
-  }
-  sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    expect(quote).toBeInstanceOf(EpochProofQuote);
     return Promise.resolve();
   }
 }

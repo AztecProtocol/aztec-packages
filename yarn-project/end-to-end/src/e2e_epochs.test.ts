@@ -46,7 +46,7 @@ describe('e2e_epochs', () => {
       aztecEpochDuration: EPOCH_DURATION_IN_L2_SLOTS,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecEpochProofClaimWindowInL2Slots: EPOCH_DURATION_IN_L2_SLOTS / 2,
+      aztecProofSubmissionWindow: EPOCH_DURATION_IN_L2_SLOTS * 2,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,

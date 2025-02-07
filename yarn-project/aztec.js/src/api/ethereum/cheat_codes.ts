@@ -1,5 +1,3 @@
-import { type EpochProofClaim } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
@@ -105,33 +103,6 @@ export class RollupCheatCodes {
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, true);
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
-  }
-
-  /** Returns the current proof claim (if any) */
-  public async getProofClaim(): Promise<EpochProofClaim | undefined> {
-    // REFACTOR: This code is duplicated from l1-publisher
-    const {
-      epochToProve,
-      basisPointFee,
-      bondAmount,
-      bondProvider: bondProviderHex,
-      proposerClaimant: proposerClaimantHex,
-    } = await this.rollup.read.getProofClaim();
-
-    const bondProvider = EthAddress.fromString(bondProviderHex);
-    const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
-
-    if (bondProvider.isZero() && proposerClaimant.isZero() && epochToProve === 0n) {
-      return undefined;
-    }
-
-    return {
-      epochToProve,
-      basisPointFee,
-      bondAmount,
-      bondProvider,
-      proposerClaimant,
-    };
   }
 
   /**

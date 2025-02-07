@@ -1,5 +1,4 @@
 import {
-  type EpochProofQuote,
   type L1RollupConstants,
   type L1ToL2MessageSource,
   type L2Block,
@@ -272,9 +271,6 @@ export class Sequencer {
       VoteType.SLASHING,
     );
 
-    // Start collecting proof quotes for the previous epoch if needed in the background
-    const createProofQuotePromise = this.createProofClaimForPreviousEpoch(slot);
-
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       chainTipArchive,
@@ -315,11 +311,6 @@ export class Sequencer {
     await enqueueSlashingVotePromise.catch(err => {
       this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
     });
-    await createProofQuotePromise
-      .then(quote => (quote ? this.publisher.enqueueClaimEpochProofRight(quote) : undefined))
-      .catch(err => {
-        this.log.error(`Error creating proof quote`, err, { blockNumber: newBlockNumber, slot });
-      });
 
     await this.publisher.sendRequests();
 
@@ -658,54 +649,6 @@ export class Sequencer {
     return orderAttestations(attestations, committee);
   }
 
-  protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
-    try {
-      // Find out which epoch we are currently in
-      const epochToProve = await this.publisher.getClaimableEpoch();
-
-      if (epochToProve === undefined) {
-        this.log.trace(`No epoch to claim at slot ${slotNumber}`);
-        return undefined;
-      }
-
-      // Get quotes for the epoch to be proven
-      this.log.debug(`Collecting proof quotes for epoch ${epochToProve}`);
-      const p2pQuotes = await this.p2pClient
-        .getEpochProofQuotes(epochToProve)
-        .then(quotes =>
-          quotes
-            .filter(x => x.payload.validUntilSlot >= slotNumber)
-            .filter(x => x.payload.epochToProve === epochToProve),
-        );
-      this.log.verbose(`Retrieved ${p2pQuotes.length} quotes for slot ${slotNumber} epoch ${epochToProve}`, {
-        epochToProve,
-        slotNumber,
-        quotes: p2pQuotes.map(q => q.payload),
-      });
-      if (!p2pQuotes.length) {
-        return undefined;
-      }
-
-      // ensure these quotes are still valid for the slot and have the contract validate them
-      const validQuotes = await this.publisher.filterValidQuotes(p2pQuotes);
-
-      if (!validQuotes.length) {
-        this.log.warn(`Failed to find any valid proof quotes`);
-        return undefined;
-      }
-      // pick the quote with the lowest fee
-      const sortedQuotes = validQuotes.sort(
-        (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
-      );
-      const quote = sortedQuotes[0];
-      this.log.info(`Selected proof quote for proof claim`, { quote: quote.toInspect() });
-      return quote;
-    } catch (err) {
-      this.log.error(`Failed to create proof claim for previous epoch`, err, { slotNumber });
-      return undefined;
-    }
-  }
-
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
@@ -732,29 +675,6 @@ export class Sequencer {
     if (!enqueued) {
       throw new Error(`Failed to enqueue publish of block ${block.number}`);
     }
-  }
-
-  @trackSpan(
-    'Sequencer.claimEpochProofRightIfAvailable',
-    slotNumber => ({ [Attributes.SLOT_NUMBER]: Number(slotNumber) }),
-    epoch => ({ [Attributes.EPOCH_NUMBER]: Number(epoch) }),
-  )
-  /** Collects an epoch proof quote if there is an epoch to prove, and submits it to the L1 contract. */
-  protected async claimEpochProofRightIfAvailable(slotNumber: bigint) {
-    const proofQuote = await this.createProofClaimForPreviousEpoch(slotNumber);
-    if (proofQuote === undefined) {
-      return;
-    }
-
-    const epoch = proofQuote.payload.epochToProve;
-    const ctx = { slotNumber, epoch, quote: proofQuote.toInspect() };
-    this.log.verbose(`Claiming proof right for epoch ${epoch}`, ctx);
-    const enqueued = this.publisher.enqueueClaimEpochProofRight(proofQuote);
-    if (!enqueued) {
-      throw new Error(`Failed to enqueue claim of proof right for epoch ${epoch}`);
-    }
-    this.log.info(`Enqueued claim of proof right for epoch ${epoch}`, ctx);
-    return epoch;
   }
 
   /**
