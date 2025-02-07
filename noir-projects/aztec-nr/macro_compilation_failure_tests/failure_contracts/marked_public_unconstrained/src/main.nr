@@ -1,4 +1,4 @@
-/// Private functions that are also marked as unconstrained are not allowed.
+/// Public functions that are also marked as unconstrained are not allowed.
 ///
 use aztec::macros::aztec;
 
