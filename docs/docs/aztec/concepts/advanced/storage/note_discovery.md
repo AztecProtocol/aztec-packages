@@ -10,11 +10,11 @@ Note discovery refers to the process of a user identifying and decrypting the [e
 
 ### Brute force / trial-decrypt
 
-In some existing protocols, the user downloads all possible notes and tries to decrypt each one. If the decryption succeeds, the user knows they own that note. However, this approach becomes exponentially more expensive as the network grows and more notes are created. It also introduces a third-party server to gather and trial-decrypt notes, which is an additional point of failure.
+In some existing protocols, the user downloads all possible notes and tries to decrypt each one. If the decryption succeeds, the user knows they own that note. However, this approach becomes exponentially more expensive as the network grows and more notes are created. It also introduces a third-party server to gather and trial-decrypt notes, which is an additional point of failure. Note that this note discovery technique is not currently implemented for Aztec.
 
 ### Off-chain communication
 
-Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network.
+Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted on-chain.
 
 ## Aztec's solution: Note tagging
 
@@ -24,7 +24,7 @@ Aztec introduces an approach that allows users to predict which notes may belong
 
 #### Every log has a tag
 
-In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node can expose an API that can retrieve logs matching specific tags.
+In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node exposes an API that can retrieve logs matching specific tags.
 
 #### Tag generation 
 
@@ -32,7 +32,7 @@ The sender and recipient share a predictable scheme for generating tags. The tag
 
 #### Discovering notes in Aztec contracts
 
-This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use another types of note discovery to suit their needs. 
+This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use other types of note discovery to suit their needs. 
 
 ### Limitations
 
