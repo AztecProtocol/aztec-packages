@@ -235,7 +235,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  */
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-    requires HasDataBus<Flavor>
+    requires IsMegaFlavor<Flavor>
 {
     auto& blocks = circuit.blocks;
     auto& overflow_block = circuit.blocks.overflow;

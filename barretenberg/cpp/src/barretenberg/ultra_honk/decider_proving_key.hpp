@@ -225,7 +225,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         requires HasDataBus<Flavor>;
 
     static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-        requires HasDataBus<Flavor>;
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb
