@@ -260,7 +260,7 @@ For this reason we've decided to rename it:
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
 
 ### Blobs
-We now publish all DA in EVM blobs rather than calldata. This replaces all code that touched the `txsEffectsHash`.
+We now publish the majority of DA in L1 blobs rather than calldata, with only contract class logs remaining as calldata. This replaces all code that touched the `txsEffectsHash`.
 In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
 
 ```diff
