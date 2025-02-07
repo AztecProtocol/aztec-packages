@@ -28,6 +28,7 @@ template <class Flavor> class TraceToPolynomials {
 
         TraceData(Builder& builder, ProvingKey& proving_key)
         {
+            info("in TraceData constructor: start");
 
             PROFILE_THIS_NAME("TraceData constructor");
 
@@ -39,6 +40,7 @@ template <class Flavor> class TraceToPolynomials {
                 for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
                     selector = other_selector.share();
                 }
+                info("in TraceData constructor: after sharing wires and selectors");
             } else {
                 // Initialize and share the wire and selector polynomials
                 for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -61,6 +63,7 @@ template <class Flavor> class TraceToPolynomials {
                 PROFILE_THIS_NAME("copy cycle initialization");
 
                 copy_cycles.resize(builder.variables.size());
+                info("in TraceData constructor: after resize copy_cycles of size ", copy_cycles.size());
             }
         }
     };

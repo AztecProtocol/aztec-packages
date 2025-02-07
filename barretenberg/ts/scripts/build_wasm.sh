@@ -9,9 +9,9 @@ if [ -z "$SKIP_CPP_BUILD" ]; then
   # Build the wasms and strip debug symbols.
   cd ../cpp
   cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads
-  if [ -z "$SKIP_ST_BUILD" ]; then
-    cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
-  fi
+  # if [ -z "$SKIP_ST_BUILD" ]; then
+  #   cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
+  # fi
   [ -z "$NO_STRIP" ] && ./scripts/strip-wasm.sh
   ./scripts/gzip-wasm.sh
   cd ../ts

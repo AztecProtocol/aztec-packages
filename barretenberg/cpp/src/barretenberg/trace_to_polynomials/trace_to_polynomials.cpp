@@ -32,13 +32,13 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
                                           typename Flavor::ProvingKey& proving_key,
                                           bool is_structured)
 {
-
+    info("in populate: start");
     PROFILE_THIS_NAME("trace populate");
 
     // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
-
+    info("in populate: after construct_trace_data");
     if constexpr (IsUltraFlavor<Flavor>) {
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
@@ -47,6 +47,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
+        info("in populate: after add_memory_records_to_proving_key");
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -62,6 +63,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
         PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
 
         compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
+        info("in populate: after compute_permutation_argument_polynomials");
     }
 }
 
@@ -72,11 +74,16 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& tr
     requires IsUltraPlonkOrHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
-
+    info(std::format(
+        "in add_memory_records_to_proving_key: start with {} memory read records and {} memory write records",
+        builder.memory_read_records.size(),
+        builder.memory_write_records.size()));
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
         proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }
+    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
@@ -86,7 +93,7 @@ template <class Flavor>
 typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-
+    info("in construct_trace_data: start");
     PROFILE_THIS_NAME("construct_trace_data");
 
     if constexpr (IsPlonkFlavor<Flavor>) {
@@ -95,7 +102,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
     }
 
     TraceData trace_data{ builder, proving_key };
-
+    info("in construct_trace_data: after init TraceData");
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
 
@@ -152,6 +159,18 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
+    std::map<uint32_t, uint32_t> copy_cycle_size_count;
+    for (size_t i = 0; i < builder.variables.size(); ++i) {
+        copy_cycle_size_count[static_cast<uint32_t>(trace_data.copy_cycles[i].size())]++;
+    }
+    uint32_t total = 0;
+    for (auto [size, count] : copy_cycle_size_count) {
+        info(std::format("copy cycle size: {}, count: {}", size, count));
+        total += size * count;
+    }
+    info(std::format("total copy cycle elements: {}", total));
+    // go through all the copy cycles and find their sizes
+    info("in construct_trace_data: end");
 
     return trace_data;
 }

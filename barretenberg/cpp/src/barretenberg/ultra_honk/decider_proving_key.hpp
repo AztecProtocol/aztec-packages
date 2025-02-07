@@ -99,27 +99,55 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         if constexpr (IsMegaFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
+        {
+            // print out everything in the circuit to count allocations
+            info(std::format("builder constant_variable_indices size {}", circuit.constant_variable_indices.size()));
+            info(std::format("builder lookup_tables size {}", circuit.lookup_tables.size()));
+            info(std::format("builder range_lists size {}", circuit.range_lists.size()));
+            info(std::format("builder ram_arrays size {}", circuit.ram_arrays.size()));
+            info(std::format("builder rom_arrays size {}", circuit.rom_arrays.size()));
+            info(std::format("builder memory_read_records size {}", circuit.memory_read_records.size()));
+            info(std::format("builder memory_write_records size {}", circuit.memory_write_records.size()));
+            info(std::format("builder cached_partial_non_native_field_multiplications size {}",
+                             circuit.cached_partial_non_native_field_multiplications.size()));
+
+            info(std::format("builder public_inputs size {}", circuit.public_inputs.size()));
+            info(std::format("builder variables size {}", circuit.variables.size()));
+            info(std::format("builder variable_names size {}", circuit.variable_names.size()));
+            info(std::format("builder next_var_index size {}", circuit.next_var_index.size()));
+            info(std::format("builder prev_var_index size {}", circuit.prev_var_index.size()));
+            info(std::format("builder real_variable_index size {}", circuit.real_variable_index.size()));
+            info(std::format("builder real_variable_tags size {}", circuit.real_variable_tags.size()));
+            info(std::format("builder tau size {}", circuit.tau.size()));
+        }
+
         vinfo("allocating polynomials object in proving key...");
         {
             PROFILE_THIS_NAME("allocating proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+            info("in DeciderProvingKey: after init proving key");
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
             // is_structured = false;
+            info("is_structured: ", is_structured);
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
                 allocate_wires();
-
+                info("in DeciderProvingKey: after allocating wires");
                 allocate_permutation_argument_polynomials();
+                info("in DeciderProvingKey: after allocating permutation argument polynomials");
 
                 allocate_selectors(circuit);
+                info("in DeciderProvingKey: after allocating selectors");
 
                 allocate_table_lookup_polynomials(circuit);
+                info("in DeciderProvingKey: after allocating table lookup polynomials");
 
                 allocate_lagrange_polynomials();
+                info("in DeciderProvingKey: after allocating lagrange polynomials");
 
                 if constexpr (IsMegaFlavor<Flavor>) {
                     allocate_ecc_op_polynomials(circuit);
@@ -131,11 +159,13 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
             proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
+            info("in DeciderProvingKey: after set shifted");
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
         Trace::populate(circuit, proving_key, is_structured);
+        info("in DeciderProvingKey: after populating trace");
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
@@ -189,6 +219,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         vinfo("time to construct proving key: ", diff.count(), " ms.");
+
+        info("in DeciderProvingKey_ constructor: end");
     }
 
     DeciderProvingKey_() = default;

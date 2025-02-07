@@ -17,6 +17,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     if (proving_key->proving_key.commitment_key == nullptr) {
         proving_key->proving_key.commitment_key =
             std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+        info("in OinkProver: created commitment key");
     }
     {
 
@@ -24,6 +25,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
         // Add circuit size public input size and public inputs to transcript->
         execute_preamble_round();
+        info("in OinkProver: after execute_preamble_round");
     }
     {
 
@@ -31,6 +33,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
         // Compute first three wire commitments
         execute_wire_commitments_round();
+        info("in OinkProver: after execute_wire_commitments_round");
     }
     {
 
@@ -38,6 +41,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
         // Compute sorted list accumulator and commitment
         execute_sorted_list_accumulator_round();
+        info("in OinkProver: after execute_sorted_list_accumulator_round");
     }
 
     {
@@ -46,6 +50,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
         // Fiat-Shamir: beta & gamma
         execute_log_derivative_inverse_round();
+        info("in OinkProver: after execute_log_derivative_inverse_round");
     }
 
     {
@@ -54,15 +59,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
 
         // Compute grand product(s) and commitments.
         execute_grand_product_computation_round();
+        info("in OinkProver: after execute_grand_product_computation_round");
     }
 
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
+    info("in OinkProver: after generate_alphas_round");
 
-#ifndef __wasm__
+    // #ifndef __wasm__
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
-#endif
+    info("in OinkProver: after free commitment key");
+    // #endif
+    info("in OinkProver: end");
 }
 
 /**

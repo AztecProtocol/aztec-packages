@@ -17,6 +17,7 @@ namespace bb {
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_nonzero)
 {
+    PROFILE_THIS_NAME("finalize_circuit");
     /**
      * First of all, add the gates related to ROM arrays and range lists.
      * Note that the total number of rows in an UltraPlonk program can be divided as following:
@@ -53,6 +54,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         process_range_lists();
 #endif
         circuit_finalized = true;
+
+        blocks.summarize();
+        info("in finalize_circuit: end");
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
         info("WARNING: Redundant call to finalize_circuit(). Is this intentional?");

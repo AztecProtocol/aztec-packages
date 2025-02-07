@@ -90,8 +90,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    info("in compute_grand_product: start, active_domain_size is ", active_domain_size);
     Polynomial numerator{ active_domain_size };
     Polynomial denominator{ active_domain_size };
+    info("in compute_grand_product: after allocating polynomials");
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation

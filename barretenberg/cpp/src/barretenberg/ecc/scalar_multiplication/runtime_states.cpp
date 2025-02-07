@@ -40,6 +40,19 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(const size_t num_initial
     , bucket_empty_status(reinterpret_cast<bool*>(aligned_alloc(64, num_threads * num_buckets * sizeof(bool))))
     , round_counts(reinterpret_cast<uint64_t*>(aligned_alloc(32, MAX_NUM_ROUNDS * sizeof(uint64_t))))
 {
+    info("in Pippenger runtime state constructor: num_initial_points = ", num_initial_points);
+    info("size of point_schedule_ptr = ",
+         (static_cast<size_t>(num_points) * num_rounds + prefetch_overflow) * sizeof(uint64_t));
+    info("size of point_pairs_1_ptr = ",
+         (static_cast<size_t>(num_points) * 2 + (num_threads * 16)) * sizeof(AffineElement));
+    info("size of point_pairs_2_ptr = ",
+         (static_cast<size_t>(num_points) * 2 + (num_threads * 16)) * sizeof(AffineElement));
+    info("size of scratch_space_ptr = ", static_cast<size_t>(num_points) * sizeof(AffineElement));
+    info("size of skew_table = ", pad(static_cast<size_t>(num_points) * sizeof(bool), 64));
+    info("size of bucket_counts = ", num_threads * num_buckets * sizeof(uint32_t));
+    info("size of bit_counts = ", num_threads * num_buckets * sizeof(uint32_t));
+    info("size of bucket_empty_status = ", num_threads * num_buckets * sizeof(bool));
+    info("size of round_counts = ", MAX_NUM_ROUNDS * sizeof(uint64_t));
     PROFILE_THIS();
 
     using Fq = typename Curve::BaseField;

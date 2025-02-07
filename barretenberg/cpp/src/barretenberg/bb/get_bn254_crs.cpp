@@ -32,16 +32,18 @@ std::vector<uint8_t> download_bn254_g2_data()
 namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
+    PROFILE_THIS_NAME("get_bn254_g1_data");
     // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
     std::filesystem::create_directories(path);
 
     auto g1_path = path / "bn254_g1.dat";
     size_t g1_file_size = get_file_size(g1_path);
-
+    info("num bn254 g1 points: ", num_points);
     if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0) {
+        PROFILE_THIS_NAME("using cached bn254 crs");
         vinfo("using cached bn254 crs of size ", std::to_string(g1_file_size / 64), " at ", g1_path);
-        auto data = read_file(g1_path, g1_file_size);
+        auto data = read_file(g1_path, num_points * 64);
         auto points = std::vector<g1::affine_element>(num_points);
         for (size_t i = 0; i < num_points; ++i) {
             points[i] = from_buffer<g1::affine_element>(data, i * 64);

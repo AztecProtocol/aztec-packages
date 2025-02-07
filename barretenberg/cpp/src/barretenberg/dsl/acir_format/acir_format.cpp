@@ -376,6 +376,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     PairingPointAccumulatorIndices current_aggregation_object,
     uint32_t honk_recursion)
 {
+    info("in process_honk_recursion_constraints: start");
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
     size_t idx = 0;
@@ -540,11 +541,39 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
+    info("in create_circuit: start");
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
+    info(std::format("in create_circuit: size_hint {}, witness size {}, varnum {}",
+                     metadata.size_hint,
+                     witness.size(),
+                     constraints.varnum));
     Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum, metadata.recursive };
+    info("in create_circuit: after init builder");
 
+    /*
+    2025-02-06T16:47:18.445Z bb.js:wasm pub inputs :	0 (mem: 948.06MiB)
+2025-02-06T16:47:18.445Z bb.js:wasm lookups    :	2 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm arithmetic :	383276 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm delta range:	187898 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm elliptic   :	2 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm auxiliary  :	278975 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm poseidon ext  :	2072 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm poseidon int  :	11801 (mem: 948.06MiB)
+2025-02-06T16:47:18.446Z bb.js:wasm overflow :	0 (mem: 948.06MiB)*/
+    std::array<uint32_t, 9> block_sizes = { 0, 2, 383276, 187898, 2, 278975, 2072, 11801, 0 };
+    size_t ctr = 0;
+    // lets just reserve space for all the blocks
+    for (auto& block : builder.blocks.get()) {
+        for (auto& selector : block.selectors) {
+            selector.reserve(block_sizes[ctr]);
+        }
+        for (auto& wire : block.wires) {
+            wire.reserve(block_sizes[ctr]);
+        }
+        ctr++;
+    }
     build_constraints(builder, program, metadata);
 
     vinfo("created circuit");

@@ -85,12 +85,14 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
+        info("in PermutationMapping constructor: start");
         PROFILE_THIS_NAME("PermutationMapping constructor");
 
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             sigmas[wire_idx] = Mapping(circuit_size);
             ids[wire_idx] = Mapping(circuit_size);
         }
+        info("in PermutationMapping constructor: after init sigma and id mappings");
 
         const size_t num_threads = calculate_num_threads_pow2(circuit_size, /*min_iterations_per_thread=*/1 << 10);
         size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
@@ -422,9 +424,10 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               typename Flavor::ProvingKey* key,
                                               const std::vector<CyclicPermutation>& copy_cycles)
 {
+    info("in compute_permutation_argument_polynomials: start");
     constexpr bool generalized = IsUltraPlonkOrHonk<Flavor>;
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
-
+    info("in compute_permutation_argument_polynomials: after compute_permutation_mapping");
     if constexpr (IsPlonkFlavor<Flavor>) { // any Plonk flavor
         // Compute Plonk-style sigma and ID polynomials in lagrange, monomial, and coset-fft forms
         compute_plonk_permutation_lagrange_polynomials_from_mapping("sigma", mapping.sigmas, key);
@@ -441,6 +444,8 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
 
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_sigmas(), mapping.sigmas, key);
+            info("in compute_permutation_argument_polynomials: after "
+                 "compute_honk_style_permutation_lagrange_polynomials_from_mapping");
         }
         {
 
@@ -448,6 +453,8 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
 
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_ids(), mapping.ids, key);
+            info("in compute_permutation_argument_polynomials: after "
+                 "compute_honk_style_permutation_lagrange_polynomials_from_mapping");
         }
     }
 }

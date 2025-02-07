@@ -216,6 +216,7 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     PairingPointAccumulatorIndices input_aggregation_object_indices,
     bool has_valid_witness_assignments)
 {
+    info("in create_honk_recursion_constraints: start");
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
@@ -232,6 +233,8 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
         key_fields.emplace_back(field);
     }
 
+    info("in create_honk_recursion_constraints: after initing key_fields");
+
     std::vector<field_ct> proof_fields;
 
     // Create witness indices for the proof with public inputs reinserted
@@ -242,6 +245,8 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
+
+    info("in create_honk_recursion_constraints: after initing proof_fields");
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
@@ -261,11 +266,18 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
 
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+
+    info("in create_honk_recursion_constraints: after creating vkey");
+
     RecursiveVerifier verifier(&builder, vkey);
+
+    info("in create_honk_recursion_constraints: after initing verifier");
+
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
     HonkRecursionConstraintOutput output;
     UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
+    info("in create_honk_recursion_constraints: after verifying proof");
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
@@ -275,6 +287,7 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
         output.ipa_claim = verifier_output.ipa_opening_claim;
         output.ipa_proof = verifier_output.ipa_proof;
     }
+    info("in create_honk_recursion_constraints: end");
     return output;
 }
 

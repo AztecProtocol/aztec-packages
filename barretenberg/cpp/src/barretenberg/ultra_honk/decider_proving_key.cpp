@@ -71,7 +71,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_lagran
 template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     PROFILE_THIS_NAME("allocate_selectors");
-
+    info("in allocate_selectors: start");
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] :
          zip_view(proving_key.polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
@@ -85,18 +85,21 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
         } else {
             selector = Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
         }
+        info("in allocate_selectors: after allocating a selector");
     }
 
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
     for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
         selector = Polynomial(proving_key.circuit_size);
     }
+
+    info("in allocate_selectors: end");
 }
 
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
+    PROFILE_THIS_NAME("allocate_table_lookup_polynomials and lookup and databus inverses");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
@@ -113,7 +116,6 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     // Allocate the read counts and tags polynomials
     proving_key.polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
     proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-    ZoneScopedN("allocating lookup and databus inverses");
 
     const size_t lookup_block_end =
         static_cast<size_t>(circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
