@@ -52,11 +52,12 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
     BatchResponse batch(const BatchRequest& req);
 
     StatsResponse get_stats();
+
+    BoolResponse close();
+
     static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
                                                                         bool reverse,
                                                                         uint64_t page_size);
-
-    BoolResponse close();
 };
 
 } // namespace bb::nodejs::lmdb_store

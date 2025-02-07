@@ -15,11 +15,9 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
-import { fr, makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { FeeJuicePortalLinkReferences } from '@aztec/l1-artifacts/FeeJuicePortalBytecode';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
 import { jest } from '@jest/globals';
-import { fork } from 'child_process';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';

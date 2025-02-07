@@ -57,6 +57,7 @@ export class MsgpackChannel<
 
     const start = process.hrtime.bigint();
     const requestId = this.msgId++;
+
     const request = new TypedMessage(msgType, new MessageHeader({ requestId }), body);
     const encodedRequest = this.encoder.encode(request);
     const encodingEnd = process.hrtime.bigint();
