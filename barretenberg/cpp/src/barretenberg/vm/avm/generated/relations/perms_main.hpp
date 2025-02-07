@@ -114,6 +114,11 @@ template <typename FF_>
 class perm_main_alu_relation : public GenericPermutationRelation<perm_main_alu_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_alu_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_alu.is_zero() && in.alu_sel_alu.is_zero();
+    }
 };
 template <typename FF_> using perm_main_alu = GenericPermutation<perm_main_alu_permutation_settings, FF_>;
 
@@ -181,6 +186,11 @@ template <typename FF_>
 class perm_main_bin_relation : public GenericPermutationRelation<perm_main_bin_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_bin_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_bin.is_zero() && in.binary_start.is_zero();
+    }
 };
 template <typename FF_> using perm_main_bin = GenericPermutation<perm_main_bin_permutation_settings, FF_>;
 
@@ -244,6 +254,11 @@ template <typename FF_>
 class perm_main_conv_relation : public GenericPermutationRelation<perm_main_conv_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_conv_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_op_radix_be.is_zero() && in.conversion_sel_to_radix_be.is_zero();
+    }
 };
 template <typename FF_> using perm_main_conv = GenericPermutation<perm_main_conv_permutation_settings, FF_>;
 
@@ -303,6 +318,11 @@ template <typename FF_>
 class perm_main_sha256_relation : public GenericPermutationRelation<perm_main_sha256_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_sha256_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_op_sha256.is_zero() && in.sha256_sel_sha256_compression.is_zero();
+    }
 };
 template <typename FF_> using perm_main_sha256 = GenericPermutation<perm_main_sha256_permutation_settings, FF_>;
 
@@ -362,6 +382,11 @@ template <typename FF_>
 class perm_main_pos2_perm_relation : public GenericPermutationRelation<perm_main_pos2_perm_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_pos2_perm_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_op_poseidon2.is_zero() && in.poseidon2_sel_poseidon_perm.is_zero();
+    }
 };
 template <typename FF_> using perm_main_pos2_perm = GenericPermutation<perm_main_pos2_perm_permutation_settings, FF_>;
 
@@ -437,6 +462,11 @@ template <typename FF_>
 class perm_main_mem_a_relation : public GenericPermutationRelation<perm_main_mem_a_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_a_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_mem_op_a.is_zero() && in.mem_sel_op_a.is_zero();
+    }
 };
 template <typename FF_> using perm_main_mem_a = GenericPermutation<perm_main_mem_a_permutation_settings, FF_>;
 
@@ -512,6 +542,11 @@ template <typename FF_>
 class perm_main_mem_b_relation : public GenericPermutationRelation<perm_main_mem_b_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_b_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_mem_op_b.is_zero() && in.mem_sel_op_b.is_zero();
+    }
 };
 template <typename FF_> using perm_main_mem_b = GenericPermutation<perm_main_mem_b_permutation_settings, FF_>;
 
@@ -583,6 +618,11 @@ template <typename FF_>
 class perm_main_mem_c_relation : public GenericPermutationRelation<perm_main_mem_c_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_c_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_mem_op_c.is_zero() && in.mem_sel_op_c.is_zero();
+    }
 };
 template <typename FF_> using perm_main_mem_c = GenericPermutation<perm_main_mem_c_permutation_settings, FF_>;
 
@@ -654,6 +694,11 @@ template <typename FF_>
 class perm_main_mem_d_relation : public GenericPermutationRelation<perm_main_mem_d_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_d_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_mem_op_d.is_zero() && in.mem_sel_op_d.is_zero();
+    }
 };
 template <typename FF_> using perm_main_mem_d = GenericPermutation<perm_main_mem_d_permutation_settings, FF_>;
 
@@ -714,6 +759,11 @@ class perm_main_mem_ind_addr_a_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_a_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_ind_addr_a_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_resolve_ind_addr_a.is_zero() && in.mem_sel_resolve_ind_addr_a.is_zero();
+    }
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_a = GenericPermutation<perm_main_mem_ind_addr_a_permutation_settings, FF_>;
@@ -775,6 +825,11 @@ class perm_main_mem_ind_addr_b_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_b_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_ind_addr_b_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_resolve_ind_addr_b.is_zero() && in.mem_sel_resolve_ind_addr_b.is_zero();
+    }
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_b = GenericPermutation<perm_main_mem_ind_addr_b_permutation_settings, FF_>;
@@ -836,6 +891,11 @@ class perm_main_mem_ind_addr_c_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_c_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_ind_addr_c_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_resolve_ind_addr_c.is_zero() && in.mem_sel_resolve_ind_addr_c.is_zero();
+    }
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_c = GenericPermutation<perm_main_mem_ind_addr_c_permutation_settings, FF_>;
@@ -897,6 +957,11 @@ class perm_main_mem_ind_addr_d_relation
     : public GenericPermutationRelation<perm_main_mem_ind_addr_d_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_main_mem_ind_addr_d_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_sel_resolve_ind_addr_d.is_zero() && in.mem_sel_resolve_ind_addr_d.is_zero();
+    }
 };
 template <typename FF_>
 using perm_main_mem_ind_addr_d = GenericPermutation<perm_main_mem_ind_addr_d_permutation_settings, FF_>;
