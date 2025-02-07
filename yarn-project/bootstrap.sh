@@ -89,7 +89,7 @@ function test_cmds {
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
-  # Uses mocha - so we have to treat it differently...
+  # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
 }
 
