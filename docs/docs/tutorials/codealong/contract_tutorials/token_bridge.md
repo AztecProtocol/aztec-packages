@@ -118,6 +118,12 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 
 Same prerequisites as the [getting started guide](../../../developers/getting_started.md#prerequisites) and the sandbox.
 
+:::warning
+
+Make sure you are using Node.js version 18.x.
+
+::: 
+
 ### ProjectSetup
 
 Create a new directory for the tutorial and install the dependencies:
@@ -136,22 +142,12 @@ Add this to your `tsconfig.json`:
 ```json
 {
   "compilerOptions": {
-    "rootDir": "../",
-    "outDir": "./dest",
     "target": "es2020",
     "lib": ["dom", "esnext", "es2017.object"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "downlevelIteration": true,
-    "inlineSourceMap": true,
-    "declarationMap": true,
-    "importHelpers": true,
-    "resolveJsonModule": true,
-    "composite": true,
     "skipLibCheck": true
   }
 }
