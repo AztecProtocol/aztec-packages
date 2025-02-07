@@ -598,12 +598,20 @@ export class ReqResp {
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
 
+      this.logger.info(`Stream handler for ${protocol}`);
+
       await pipe(
         stream,
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(connection.remotePeer, msg);
+
+            if (protocol === ReqRespSubProtocol.GOODBYE) {
+              // Don't respond
+              await stream.close();
+              return;
+            }
 
             // Send success code first, then the response
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
@@ -615,7 +623,7 @@ export class ReqResp {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn(e);
+      this.logger.warn('Reqresp Response error: ', e);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown

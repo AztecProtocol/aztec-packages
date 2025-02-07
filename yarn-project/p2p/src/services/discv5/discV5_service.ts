@@ -35,7 +35,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private currentState = PeerDiscoveryState.STOPPED;
 
-  private bootstrapNodes: string[];
+  public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
 
   private startTime = 0;
@@ -48,7 +48,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
-    this.bootstrapNodes = bootstrapNodes;
+    this.bootstrapNodes = bootstrapNodes ?? [];
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
