@@ -78,14 +78,14 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
+    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
+    key.compute_concatenated_polynomials();
+
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     key.compute_translator_range_constraint_ordered_polynomials();
 
     // Compute the fixed numerator (part of verification key)
     key.compute_extra_range_constraint_numerator();
-
-    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
-    key.compute_concatenated_polynomials();
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);

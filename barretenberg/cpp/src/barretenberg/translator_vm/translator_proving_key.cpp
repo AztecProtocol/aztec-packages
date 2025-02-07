@@ -45,7 +45,7 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
 
         // Copy into appropriate position in the concatenated polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
-        for (size_t k = 0; k < MINI_CIRCUIT_SIZE; k++) {
+        for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
             current_target.at(j * MINI_CIRCUIT_SIZE + k) = my_group[j][k];
         }
     };
@@ -77,9 +77,10 @@ void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
  */
 void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
 {
+
     const size_t group_size = group.size();
-    const size_t polynomial_size = group[0].size();
-    for (size_t j = 0; j < polynomial_size; j++) {
+    const size_t group_polynomial_size = result.size() / group_size;
+    for (size_t j = result.start_index(); j < group_polynomial_size; j++) {
         for (size_t k = 0; k < group_size; k++) {
             result.at(k + j * group_size) = group[k][j];
         }

@@ -28,7 +28,6 @@ void ensure_non_zero(auto& polynomial)
 /**
  * @brief Check that a given relation is satified for a set of polynomials
  *
- * @tparam relation_idx Index into a tuple of provided relations
  */
 template <typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
