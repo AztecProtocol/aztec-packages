@@ -1,7 +1,8 @@
 use noirc_frontend::{
     ast::{
-        AssignStatement, Expression, ExpressionKind, ForLoopStatement, ForRange, LetStatement,
-        Pattern, Statement, StatementKind, UnresolvedType, UnresolvedTypeData,
+        AssignStatement, ConstrainKind, ConstrainStatement, Expression, ExpressionKind,
+        ForLoopStatement, ForRange, LetStatement, Pattern, Statement, StatementKind,
+        UnresolvedType, UnresolvedTypeData,
     },
     token::{Keyword, SecondaryAttribute, Token, TokenKind},
 };
@@ -47,6 +48,9 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
         match statement.kind {
             StatementKind::Let(let_statement) => {
                 group.group(self.format_let_statement(let_statement));
+            }
+            StatementKind::Constrain(constrain_statement) => {
+                group.group(self.format_constrain_statement(constrain_statement));
             }
             StatementKind::Expression(expression) => match expression.kind {
                 ExpressionKind::Block(block) => group.group(self.format_block_expression(
@@ -145,6 +149,44 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
         } else {
             group.semicolon(self);
         }
+
+        group
+    }
+
+    fn format_constrain_statement(
+        &mut self,
+        constrain_statement: ConstrainStatement,
+    ) -> ChunkGroup {
+        let mut group = ChunkGroup::new();
+
+        let keyword = match constrain_statement.kind {
+            ConstrainKind::Assert => Keyword::Assert,
+            ConstrainKind::AssertEq => Keyword::AssertEq,
+            ConstrainKind::Constrain => {
+                unreachable!("constrain always produces an error, and the formatter doesn't run when there are errors")
+            }
+        };
+
+        group.text(self.chunk(|formatter| {
+            formatter.write_keyword(keyword);
+            formatter.write_left_paren();
+        }));
+
+        group.kind = GroupKind::ExpressionList {
+            prefix_width: group.width(),
+            expressions_count: constrain_statement.arguments.len(),
+        };
+
+        self.format_expressions_separated_by_comma(
+            constrain_statement.arguments,
+            false, // force trailing comma
+            &mut group,
+        );
+
+        group.text(self.chunk(|formatter| {
+            formatter.write_right_paren();
+            formatter.write_semicolon();
+        }));
 
         group
     }

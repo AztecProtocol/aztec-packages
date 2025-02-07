@@ -8,7 +8,7 @@ use lsp_types::{
 use noirc_errors::{Location, Span};
 use noirc_frontend::{
     ast::{
-        CallExpression, ConstrainExpression, ConstrainKind, Expression, FunctionReturnType,
+        CallExpression, ConstrainKind, ConstrainStatement, Expression, FunctionReturnType,
         MethodCallExpression, Statement, Visitor,
     },
     hir_def::{function::FuncMeta, stmt::HirPattern},
@@ -383,7 +383,7 @@ impl<'a> Visitor for SignatureFinder<'a> {
         false
     }
 
-    fn visit_constrain_statement(&mut self, constrain_statement: &ConstrainExpression) -> bool {
+    fn visit_constrain_statement(&mut self, constrain_statement: &ConstrainStatement) -> bool {
         constrain_statement.accept_children(self);
 
         if self.signature_help.is_some() {
