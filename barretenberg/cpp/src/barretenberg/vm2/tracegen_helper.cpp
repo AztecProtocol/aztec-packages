@@ -198,7 +198,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_operations_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_lengths_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_to_read_unary_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_bytes_are_bytes_lookup_settings>>());
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
