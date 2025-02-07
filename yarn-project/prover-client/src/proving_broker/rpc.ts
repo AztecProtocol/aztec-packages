@@ -34,12 +34,18 @@ export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
   getProvingJob: z.function().args(optional(ProvingJobFilterSchema)).returns(GetProvingJobResponse.optional()),
-  reportProvingJobError: z.function().args(ProvingJobId, z.string(), optional(z.boolean())).returns(z.void()),
+  reportProvingJobError: z
+    .function()
+    .args(ProvingJobId, z.string(), optional(z.boolean()), optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
   reportProvingJobProgress: z
     .function()
     .args(ProvingJobId, z.number(), optional(ProvingJobFilterSchema))
     .returns(GetProvingJobResponse.optional()),
-  reportProvingJobSuccess: z.function().args(ProvingJobId, ProofUri).returns(z.void()),
+  reportProvingJobSuccess: z
+    .function()
+    .args(ProvingJobId, ProofUri, optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
 };
 
 export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {

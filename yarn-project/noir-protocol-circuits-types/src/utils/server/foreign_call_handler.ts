@@ -1,6 +1,6 @@
+import { Blob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/circuits.js';
 import { BlockBlobPublicInputs, SpongeBlob } from '@aztec/circuits.js/blobs';
-import { Blob } from '@aztec/foundation/blob';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
