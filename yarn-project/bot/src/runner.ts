@@ -3,7 +3,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
 import { Bot } from './bot.js';
-import { type BotConfig } from './config.js';
+import { type BotConfig, getVersions } from './config.js';
 import { type BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
@@ -26,7 +26,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }
-    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, makeTracedFetch([1, 2, 3], true));
+    this.node =
+      dependencies.node ?? createAztecNodeClient(config.nodeUrl!, getVersions(), makeTracedFetch([1, 2, 3], true));
     this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
