@@ -351,6 +351,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       for (const [topic, validator] of Object.entries(topicValidators)) {
         this.node.services.pubsub.topicValidators.set(topic, validator);
       }
+    } else {
+      this.logger.warn(
+        'MESSAGE VALIDATION DISABLED - IF YOU SEE THIS LOG AND ARE NOT DEBUGGING AND ARE RUNNING IN A PRODUCTION ENVIRONMENT, PLEASE RE-ENABLE MESSAGE VALIDATION',
+      );
     }
 
     // add GossipSub listener

@@ -36,7 +36,7 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxEffect: () => Promise.resolve(undefined),
     getSettledTxReceipt: () => Promise.resolve(undefined),
-  } as TxPool;
+  };
 }
 
 function mockAttestationPool(): AttestationPool {
@@ -47,7 +47,7 @@ function mockAttestationPool(): AttestationPool {
     deleteAttestationsForSlot: () => Promise.resolve(),
     deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
     getAttestationsForSlot: () => Promise.resolve([]),
-  } as AttestationPool;
+  };
 }
 
 function mockEpochProofQuotePool(): EpochProofQuotePool {
@@ -55,7 +55,7 @@ function mockEpochProofQuotePool(): EpochProofQuotePool {
     addQuote: () => {},
     getQuotes: () => [],
     deleteQuotesToEpoch: () => {},
-  } as EpochProofQuotePool;
+  };
 }
 
 function mockEpochCache(): EpochCacheInterface {
@@ -72,7 +72,7 @@ function mockEpochCache(): EpochCacheInterface {
         nextSlot: 0n,
       }),
     isInCommittee: () => Promise.resolve(false),
-  } as EpochCacheInterface;
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
