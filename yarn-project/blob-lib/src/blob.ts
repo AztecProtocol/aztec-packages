@@ -1,8 +1,8 @@
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
@@ -172,7 +172,13 @@ export class Blob {
    * @returns The encoded fields from the blobs.
    */
   static toEncodedFields(blobs: Blob[]): Fr[] {
-    return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
+    try {
+      return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
   }
 
   /**
