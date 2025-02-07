@@ -73,7 +73,7 @@ Here, we are using the `Contract` class with the compiled artifact to send a new
 Note that the token's `constructor()` method expects an `owner` address to set as the contract `admin`. We are using the first account from the Sandbox for this.
 
 :::info
-If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../../guides/smart_contracts/how_to_deploy_contract.md) page for more info.
+If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../../guides/js_apps/deploy_contract.md) page for more info.
 :::
 
 Run the snippet above as `node src/deploy.mjs`, and you should see the following output, along with a new `addresses.json` file in your project root:

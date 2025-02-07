@@ -32,7 +32,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 4.  Write unit tests [using the TXE](testing.md) and end-to-end
     tests [with typescript](../js_apps/test.md)
 5.  [Compile](how_to_compile_contract.md) your contract
-6.  [Deploy](how_to_deploy_contract.md) your contract
+6.  [Deploy](../js_apps/deploy_contract.md) your contract with Aztec.js
 
 ## Section Contents
 
