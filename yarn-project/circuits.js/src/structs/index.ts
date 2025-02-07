@@ -18,6 +18,7 @@ export * from './gas_settings.js';
 export * from './global_variables.js';
 export * from './block_header.js';
 export * from './indexed_tagging_secret.js';
+export * from './log_with_tx_data.js';
 export * from './kernel/private_to_rollup_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
 export * from './kernel/private_to_rollup_kernel_circuit_public_inputs.js';

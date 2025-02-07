@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/utils';
+import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';

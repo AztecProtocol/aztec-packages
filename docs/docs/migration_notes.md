@@ -8,7 +8,28 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### TBD
 
+### Changes to `TokenBridge` interface
+
+`get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
+### [Aztec.nr] `SharedMutable` can store size of packed length larger than 1
+
+`SharedMutable` has been modified such that now it can store type `T` which packs to a length larger than 1.
+This is a breaking change because now `SharedMutable` requires `T` to implement `Packable` trait instead of `ToField` and `FromField` traits.
+
+To implement the `Packable` trait for your type you can use the derive macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Packable)]
+pub struct YourType {
+    ...
+}
+```
+
 ### [Aztec.nr] Introduction of `WithHash<T>`
+
 `WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
 This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
 This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.

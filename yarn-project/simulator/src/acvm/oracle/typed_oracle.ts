@@ -12,6 +12,7 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -239,6 +240,10 @@ export abstract class TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     throw new OracleMethodNotAvailableError('deliverNote');
+  }
+
+  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getLogByTag');
   }
 
   dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {

@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
@@ -27,7 +28,6 @@ import {
   formatViemError,
 } from '@aztec/ethereum';
 import { toHex } from '@aztec/foundation/bigint-buffer';
-import { Blob } from '@aztec/foundation/blob';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

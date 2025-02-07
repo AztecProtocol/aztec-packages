@@ -40,6 +40,13 @@ export function toACVMField(
 }
 
 /**
+ * Converts a single value or an array of single values into the equivalent ACVM field representation.
+ */
+export function toACVMFieldSingleOrArray(value: Fr | Fr[]) {
+  return Array.isArray(value) ? value.map(toACVMField) : toACVMField(value);
+}
+
+/**
  * Inserts a list of ACVM fields to a witness.
  * @param witnessStartIndex - The index where to start inserting the fields.
  * @param fields - The fields to insert.
