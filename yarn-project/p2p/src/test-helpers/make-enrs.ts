@@ -1,4 +1,4 @@
-import { ChainConfig } from '@aztec/circuit-types/config';
+import { type ChainConfig } from '@aztec/circuit-types/config';
 
 import { SignableENR } from '@chainsafe/enr';
 import { multiaddr } from '@multiformats/multiaddr';

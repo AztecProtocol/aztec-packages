@@ -8,8 +8,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type P2PClient } from '../client/p2p_client.js';
-import { P2PConfig } from '../config.js';
-import { getP2PDefaultConfig } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
