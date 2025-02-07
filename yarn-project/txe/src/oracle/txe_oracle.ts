@@ -28,7 +28,6 @@ import {
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  type LogWithTxData,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -44,10 +43,8 @@ import {
   type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicLog,
-  computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
-  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import {
@@ -251,9 +248,8 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractInstance(contractInstance);
   }
 
-  async addContractArtifact(artifact: ContractArtifact) {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await this.txeDatabase.addContractArtifact(await computeContractClassId(contractClass), artifact);
+  async addContractArtifact(contractClassId: Fr, artifact: ContractArtifact) {
+    await this.txeDatabase.addContractArtifact(contractClassId, artifact);
   }
 
   async getPrivateContextInputs(
@@ -1076,10 +1072,6 @@ export class TXE implements TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     throw new Error('deliverNote');
-  }
-
-  async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return await this.simulatorOracle.getLogByTag(tag);
   }
 
   // AVM oracles

@@ -18,6 +18,7 @@ import {
   revertReasonFromExplicitRevert,
 } from './errors.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
+import { type Instruction } from './opcodes/instruction.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
@@ -33,20 +34,26 @@ export class AvmSimulator {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
+  // maps pc to [instr, bytesRead]
+  private deserializedInstructionsCache: Map<number, [Instruction, number]> = new Map();
 
   private tallyPrintFunction = () => {};
   private tallyInstructionFunction = (_b: string, _c: Gas) => {};
 
   // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
   // only. Otherwise, use build() below.
-  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
+  constructor(
+    private context: AvmContext,
+    private instructionSet: InstructionSet = INSTRUCTION_SET(),
+    enableTallying = false,
+  ) {
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
       `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
     );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
-    // TODO(palla/log): Should tallies be printed on debug, or only on trace?
-    if (this.log.isLevelEnabled('debug')) {
+    // Turn on tallying if explicitly enabled or if trace logging
+    if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
       this.tallyInstructionFunction = this.tallyInstruction;
     }
@@ -125,6 +132,7 @@ export class AvmSimulator {
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
+    const startTotalTime = performance.now();
     assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
@@ -137,19 +145,32 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       let instrCounter = 0;
       while (!machineState.getHalted()) {
-        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
+        // Get the instruction from cache, or deserialize for the first time
+        let cachedInstruction = this.deserializedInstructionsCache.get(machineState.pc);
+
+        if (cachedInstruction === undefined) {
+          cachedInstruction = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
+          this.deserializedInstructionsCache.set(machineState.pc, cachedInstruction);
+        }
+        const [instruction, bytesRead] = cachedInstruction;
+
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
 
-        this.log.trace(
-          `[PC:${machineState.pc}] [IC:${instrCounter++}] ${instruction.toString()} (gasLeft l2=${
-            machineState.l2GasLeft
-          } da=${machineState.daGasLeft})`,
-        );
+        if (this.log.isLevelEnabled('trace')) {
+          // Skip this entirely to avoid toStringing etc if trace is not enabled
+          this.log.trace(
+            `[PC:${machineState.pc}] [IC:${instrCounter}] ${instruction.toString()} (gasLeft l2=${
+              machineState.l2GasLeft
+            } da=${machineState.daGasLeft})`,
+          );
+        }
+        instrCounter++;
+
+        machineState.nextPc = machineState.pc + bytesRead;
+
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
-        machineState.nextPc = machineState.pc + bytesRead;
-
         await instruction.execute(this.context);
         if (!instruction.handlesPC()) {
           // Increment PC if the instruction doesn't handle it itself
@@ -181,6 +202,11 @@ export class AvmSimulator {
       this.log.debug(`Executed ${instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
 
       this.tallyPrintFunction();
+
+      const endTotalTime = performance.now();
+      const totalTime = endTotalTime - startTotalTime;
+      this.log.debug(`Total execution time: ${totalTime}ms`);
+
       // Return results for processing by calling context
       return results;
     } catch (err: any) {

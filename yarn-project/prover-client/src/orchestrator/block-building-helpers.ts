@@ -441,7 +441,7 @@ export const getConstantRollupData = runInSpan(
   'getConstantRollupData',
   async (_span, globalVariables: GlobalVariables, db: MerkleTreeReadOperations): Promise<ConstantRollupData> => {
     return ConstantRollupData.from({
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
       globalVariables,

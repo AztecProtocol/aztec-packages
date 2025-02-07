@@ -9,8 +9,8 @@ import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/types.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
+import { setAztecEnrKey } from '../versioning.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -46,7 +46,8 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
     enr.setLocationMultiaddr(publicAddr);
-    enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+
+    const versions = setAztecEnrKey(enr, config);
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
@@ -72,7 +73,12 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     try {
       await this.node.start();
-      this.logger.info('Bootstrap node started', { peerId, enr: enr.encodeTxt(), addr: listenAddrUdp.toString() });
+      this.logger.info('Bootstrap node started', {
+        peerId,
+        enr: enr.encodeTxt(),
+        addr: listenAddrUdp.toString(),
+        versions,
+      });
     } catch (e) {
       this.logger.error('Error starting Discv5', e);
     }

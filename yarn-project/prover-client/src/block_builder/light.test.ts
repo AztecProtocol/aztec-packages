@@ -96,7 +96,7 @@ describe('LightBlockBuilder', () => {
   beforeAll(async () => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
-    vkTreeRoot = await getVKTreeRoot();
+    vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
     db = await NativeWorldStateService.tmp();
@@ -277,7 +277,7 @@ describe('LightBlockBuilder', () => {
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
       const vkIndex = TUBE_VK_INDEX;
-      const vkPath = await getVKSiblingPath(vkIndex);
+      const vkPath = getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
       const tubeData = new PrivateTubeData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
@@ -294,7 +294,7 @@ describe('LightBlockBuilder', () => {
 
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
     const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
-    const baseRollupVkWitness = await getVkMembershipWitness(baseRollupVk);
+    const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
     const leftInput = new PreviousRollupData(left, emptyRollupProof, baseRollupVk, baseRollupVkWitness);
     const rightInput = new PreviousRollupData(right, emptyRollupProof, baseRollupVk, baseRollupVkWitness);
     const inputs = new MergeRollupInputs([leftInput, rightInput]);
@@ -308,7 +308,7 @@ describe('LightBlockBuilder', () => {
 
     const rootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>[] = [];
     const baseParityVk = ProtocolCircuitVks['BaseParityArtifact'].keyAsFields;
-    const baseParityVkWitness = await getVkMembershipWitness(baseParityVk);
+    const baseParityVkWitness = getVkMembershipWitness(baseParityVk);
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
       const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkTreeRoot);
       const { inputs } = await simulator.getBaseParityProof(input);
@@ -332,7 +332,7 @@ describe('LightBlockBuilder', () => {
     txs: ProcessedTx[],
   ) => {
     const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
-    const mergeRollupVkWitness = await getVkMembershipWitness(mergeRollupVk);
+    const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
     const previousRollupData = previousRollups.map(
       r => new PreviousRollupData(r, emptyRollupProof, mergeRollupVk, mergeRollupVkWitness),
     );
@@ -343,7 +343,7 @@ describe('LightBlockBuilder', () => {
     const blobs = await Blob.getBlobs(blobFields);
     const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
-    const rootParityVkWitness = await getVkMembershipWitness(rootParityVk);
+    const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
     const rootParityInput = new RootParityInput(
       emptyProof,
@@ -366,7 +366,7 @@ describe('LightBlockBuilder', () => {
       const constants = ConstantRollupData.from({
         lastArchive: startArchiveSnapshot,
         globalVariables,
-        vkTreeRoot: await getVKTreeRoot(),
+        vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
       });
       const inputs = EmptyBlockRootRollupInputs.from({
@@ -404,8 +404,8 @@ describe('LightBlockBuilder', () => {
     }
   };
 
-  async function getVkMembershipWitness(vk: VerificationKeyAsFields) {
-    const leafIndex = await getVKIndex(vk);
-    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex));
+  function getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = getVKIndex(vk);
+    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex));
   }
 });

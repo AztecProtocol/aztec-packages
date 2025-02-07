@@ -76,6 +76,11 @@ template <typename FF_>
 class lookup_rng_chk_pow_2_relation : public GenericLookupRelation<lookup_rng_chk_pow_2_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_pow_2_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_rng_chk.is_zero() && in.main_sel_rng_8.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_pow_2 = GenericLookup<lookup_rng_chk_pow_2_lookup_settings, FF_>;
 
@@ -141,6 +146,11 @@ template <typename FF_>
 class lookup_rng_chk_diff_relation : public GenericLookupRelation<lookup_rng_chk_diff_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_diff_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_rng_chk.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_diff = GenericLookup<lookup_rng_chk_diff_lookup_settings, FF_>;
 
@@ -206,6 +216,11 @@ template <typename FF_>
 class lookup_rng_chk_0_relation : public GenericLookupRelation<lookup_rng_chk_0_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_0_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_0.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_0 = GenericLookup<lookup_rng_chk_0_lookup_settings, FF_>;
 
@@ -271,6 +286,11 @@ template <typename FF_>
 class lookup_rng_chk_1_relation : public GenericLookupRelation<lookup_rng_chk_1_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_1_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_1.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_1 = GenericLookup<lookup_rng_chk_1_lookup_settings, FF_>;
 
@@ -336,6 +356,11 @@ template <typename FF_>
 class lookup_rng_chk_2_relation : public GenericLookupRelation<lookup_rng_chk_2_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_2_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_2.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_2 = GenericLookup<lookup_rng_chk_2_lookup_settings, FF_>;
 
@@ -401,6 +426,11 @@ template <typename FF_>
 class lookup_rng_chk_3_relation : public GenericLookupRelation<lookup_rng_chk_3_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_3_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_3.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_3 = GenericLookup<lookup_rng_chk_3_lookup_settings, FF_>;
 
@@ -466,6 +496,11 @@ template <typename FF_>
 class lookup_rng_chk_4_relation : public GenericLookupRelation<lookup_rng_chk_4_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_4_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_4.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_4 = GenericLookup<lookup_rng_chk_4_lookup_settings, FF_>;
 
@@ -531,6 +566,11 @@ template <typename FF_>
 class lookup_rng_chk_5_relation : public GenericLookupRelation<lookup_rng_chk_5_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_5_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_5.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_5 = GenericLookup<lookup_rng_chk_5_lookup_settings, FF_>;
 
@@ -596,6 +636,11 @@ template <typename FF_>
 class lookup_rng_chk_6_relation : public GenericLookupRelation<lookup_rng_chk_6_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_6_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_lookup_6.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_6 = GenericLookup<lookup_rng_chk_6_lookup_settings, FF_>;
 
@@ -661,6 +706,11 @@ template <typename FF_>
 class lookup_rng_chk_7_relation : public GenericLookupRelation<lookup_rng_chk_7_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_rng_chk_7_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_sel_rng_chk.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_rng_chk_7 = GenericLookup<lookup_rng_chk_7_lookup_settings, FF_>;
 

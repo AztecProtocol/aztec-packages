@@ -31,7 +31,7 @@ export function frToBoolean(fr: Fr): boolean {
 
 /**
  * Converts a Noir BoundedVec of Fields into an Fr array. Note that BoundedVecs are structs, and therefore translated as
- * two separate ACVMField values (an array and a single field).
+ * two separate ACVMField arrays.
  *
  * @param storage The array with the BoundedVec's storage (i.e. BoundedVec::storage())
  * @param length The length of the BoundedVec (i.e. BoundedVec::len())

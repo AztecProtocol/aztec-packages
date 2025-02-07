@@ -6,11 +6,27 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-### TBD
+### 0.75.0
 
 ### Changes to `TokenBridge` interface
 
 `get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
+### [Aztec.nr] `SharedMutable` can store size of packed length larger than 1
+
+`SharedMutable` has been modified such that now it can store type `T` which packs to a length larger than 1.
+This is a breaking change because now `SharedMutable` requires `T` to implement `Packable` trait instead of `ToField` and `FromField` traits.
+
+To implement the `Packable` trait for your type you can use the derive macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Packable)]
+pub struct YourType {
+    ...
+}
+```
 
 ### [Aztec.nr] Introduction of `WithHash<T>`
 

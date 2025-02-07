@@ -23,6 +23,7 @@ interface MakeTestP2PClientOptions {
   mockEpochCache: EpochCache;
   mockWorldState: WorldStateSynchronizer;
   alwaysTrueVerifier?: boolean;
+  p2pBaseConfig: P2PConfig;
   p2pConfigOverrides?: Partial<P2PConfig>;
   logger?: Logger;
 }
@@ -41,6 +42,7 @@ export async function makeTestP2PClient(
   peers: string[],
   {
     alwaysTrueVerifier = true,
+    p2pBaseConfig,
     p2pConfigOverrides = {},
     mockAttestationPool,
     mockEpochProofQuotePool,
@@ -56,7 +58,7 @@ export async function makeTestP2PClient(
   // Filter nodes so that we only dial active peers
 
   const config: P2PConfig & DataStoreConfig = {
-    ...getP2PDefaultConfig(),
+    ...p2pBaseConfig,
     p2pEnabled: true,
     peerIdPrivateKey,
     tcpListenAddress: listenAddr, // run on port 0
@@ -108,7 +110,7 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
 
   const ports = await getPorts(numberOfPeers);
-  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports);
+  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
     const client = await makeTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
