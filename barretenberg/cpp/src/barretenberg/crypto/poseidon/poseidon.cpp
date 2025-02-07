@@ -3,7 +3,6 @@
 
 namespace bb::stark252 {
 struct Stark252FqParams {
-    // Reference: https://eprint.iacr.org/2015/696.pdf
     static constexpr uint64_t modulus_0 = 0x0000000000000001ULL;
     static constexpr uint64_t modulus_1 = 0x0000000000000000ULL;
     static constexpr uint64_t modulus_2 = 0x0000000000000000ULL;
@@ -14,7 +13,20 @@ struct Stark252FqParams {
     static constexpr uint64_t r_squared_2 = 0xffffffffff6f8000ULL;
     static constexpr uint64_t r_squared_3 = 0x07ffd4ab5e008810ULL;
 
+    // Reference: https://eprint.iacr.org/2015/696.pdf
     static constexpr uint64_t r_inv = 0xffffffffffffffffULL;
+
+    /*
+    static constexpr uint64_t modulus_wasm_0 = 0x00000001;
+    static constexpr uint64_t modulus_wasm_1 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_2 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_3 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_4 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_5 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_6 = 0x00440000;
+    static constexpr uint64_t modulus_wasm_7 = 0x00000000;
+    static constexpr uint64_t modulus_wasm_8 = 0x00080000;
+    */
 };
 
 using fq = field<Stark252FqParams>;
@@ -29,33 +41,51 @@ struct PoseidonStark252BaseFieldParams {
     static constexpr size_t d = 3;
     static constexpr size_t rounds_f = 8;
     static constexpr size_t rounds_p = 83;
-
+    static constexpr size_t sbox_size = 252;
     static constexpr std::array<FF, t> internal_matrix_diagonal = {
-        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000002")),
-        FF(std::string("0x0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffff")),
         FF(std::string("0x0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffe")),
+        FF(std::string("0x0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffff")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000002")),
+    };
+
+    static constexpr std::array<std::array<FF, t>, t> internal_matrix = {
+        std::array<FF, t>{
+            FF(std::string("0x0800000000000010fffffffffffffffffffffffffffffffffffffffffffffffe")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0800000000000010ffffffffffffffffffffffffffffffffffffffffffffffff")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000002")),
+        },
     };
 
     static constexpr std::array<std::array<FF, t>, rounds_f + rounds_p> round_constants{
         std::array<FF, t>{
-            FF(std::string("0x06861759ea556a2339dd92f9562a30b9e58e2ad98109ae4780b7fd8eac77fe6f")),
-            FF(std::string("0x03827681995d5af9ffc8397a3d00425a3da43f76abf28a64e4ab1a22f27508c4")),
             FF(std::string("0x03a3956d2fad44d0e7f760a2277dc7cb2cac75dc279b2d687a0dbe17704a8309")),
+            FF(std::string("0x03827681995d5af9ffc8397a3d00425a3da43f76abf28a64e4ab1a22f27508c4")),
+            FF(std::string("0x06861759ea556a2339dd92f9562a30b9e58e2ad98109ae4780b7fd8eac77fe6f")),
         },
         std::array<FF, t>{
-            FF(std::string("0x0626c47a7d421fe1f13c4282214aa759291c78f926a2d1c6882031afe67ef4cd")),
-            FF(std::string("0x078985f8e16505035bd6df5518cfd41f2d327fcc948d772cadfe17baca05d6a6")),
             FF(std::string("0x05427f10867514a3204c659875341243c6e26a68b456dc1d142dcf34341696ff")),
+            FF(std::string("0x078985f8e16505035bd6df5518cfd41f2d327fcc948d772cadfe17baca05d6a6")),
+            FF(std::string("0x0626c47a7d421fe1f13c4282214aa759291c78f926a2d1c6882031afe67ef4cd")),
         },
         std::array<FF, t>{
-            FF(std::string("0x05af083f36e4c729454361733f0883c5847cd2c5d9d4cb8b0465e60edce699d7")),
-            FF(std::string("0x07d71701bde3d06d54fa3f74f7b352a52d3975f92ff84b1ac77e709bfd388882")),
             FF(std::string("0x0603da06882019009c26f8a6320a1c5eac1b64f699ffea44e39584467a6b1d3e")),
+            FF(std::string("0x07d71701bde3d06d54fa3f74f7b352a52d3975f92ff84b1ac77e709bfd388882")),
+            FF(std::string("0x05af083f36e4c729454361733f0883c5847cd2c5d9d4cb8b0465e60edce699d7")),
         },
         std::array<FF, t>{
-            FF(std::string("0x04332a6f6bde2f288e79ce13f47ad1cdeebd8870fd13a36b613b9721f6453a5d")),
-            FF(std::string("0x053d0ebf61664c685310a04c4dec2e7e4b9a813aaeff60d6c9e8caeb5cba78e7")),
             FF(std::string("0x05346a68894845835ae5ebcb88028d2a6c82f99f928494ee1bfc2d15eaabfebc")),
+            FF(std::string("0x053d0ebf61664c685310a04c4dec2e7e4b9a813aaeff60d6c9e8caeb5cba78e7")),
+            FF(std::string("0x04332a6f6bde2f288e79ce13f47ad1cdeebd8870fd13a36b613b9721f6453a5d")),
         },
         std::array<FF, t>{
             FF(std::string("0x04b085eb1df4258c3453cc97445954bf3433b6ab9dd5a99592864c00f54a3f9a")),
@@ -473,29 +503,27 @@ struct PoseidonStark252BaseFieldParams {
             FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
         },
         std::array<FF, t>{
-            FF(std::string("0x064851937f9836ee5a08a7dde65e44b467018a82ba3bf99bba0b4502755c8074")),
-            FF(std::string("0x06a9ac84251294769eca450ffb52b441882be77cb85f422ff9ea5e73f1d971dc")),
             FF(std::string("0x037ec35b710b0d04c9a2b71f2f7bd098c6a81d991d27f0fc1884f5ca545064de")),
+            FF(std::string("0x06a9ac84251294769eca450ffb52b441882be77cb85f422ff9ea5e73f1d971dc")),
+            FF(std::string("0x064851937f9836ee5a08a7dde65e44b467018a82ba3bf99bba0b4502755c8074")),
         },
         std::array<FF, t>{
-            FF(std::string("0x005334f75b052c0235119816883040da72c6d0a61538bdfff46d6a242bfeb7a1")),
-            FF(std::string("0x05d0af4fcbd9e056c1020cca9d871ae68f80ee4af2ec6547cd49d6dca50aa431")),
             FF(std::string("0x030131bce2fba5694114a19c46d24e00b4699dc00f1d53ba5ab99537901b1e65")),
+            FF(std::string("0x05d0af4fcbd9e056c1020cca9d871ae68f80ee4af2ec6547cd49d6dca50aa431")),
+            FF(std::string("0x005334f75b052c0235119816883040da72c6d0a61538bdfff46d6a242bfeb7a1")),
         },
         std::array<FF, t>{
-            FF(std::string("0x05646a95a7c1ae86b34c0750ed2e641c538f93f13161be3c4957660f2e788965")),
-            FF(std::string("0x04b9f291d7b430c79fac36230a11f43e78581f5259692b52c90df47b7d4ec01a")),
             FF(std::string("0x05006d393d3480f41a98f19127072dc83e00becf6ceb4d73d890e74abae01a13")),
+            FF(std::string("0x04b9f291d7b430c79fac36230a11f43e78581f5259692b52c90df47b7d4ec01a")),
+            FF(std::string("0x05646a95a7c1ae86b34c0750ed2e641c538f93f13161be3c4957660f2e788965")),
         },
         std::array<FF, t>{
-            FF(std::string("0x062c9d42199f3b260e7cb8a115143106acf4f702e6b346fd202dc3b26a679d80")),
-            FF(std::string("0x051274d092db5099f180b1a8a13b7f2c7606836eabd8af54bf1d9ac2dc5717a5")),
             FF(std::string("0x061fc552b8eb75e17ad0fb7aaa4ca528f415e14f0d9cdbed861a8db0bfff0c5b")),
+            FF(std::string("0x051274d092db5099f180b1a8a13b7f2c7606836eabd8af54bf1d9ac2dc5717a5")),
+            FF(std::string("0x062c9d42199f3b260e7cb8a115143106acf4f702e6b346fd202dc3b26a679d80")),
         },
     };
 };
-
-using FF = bb::stark252::fq;
 
 template <typename Params> class PoseidonPermutation {
   public:
@@ -552,11 +580,6 @@ template <typename Params> class PoseidonPermutation {
 
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
-            /*
-            add_round_constants(current_state, round_constants[i]);
-            apply_sbox(current_state);
-            matrix_multiplication_external(current_state);
-            */
             add_round_constants(current_state, round_constants[i]);
             apply_sbox(current_state);
             matrix_multiplication_internal(current_state);
@@ -564,22 +587,12 @@ template <typename Params> class PoseidonPermutation {
 
         const size_t p_end = rounds_f_beginning + rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-            /*
             current_state[0] += round_constants[i][0];
             apply_single_sbox(current_state[0]);
-            matrix_multiplication_internal(current_state);
-            */
-            current_state[t - 1] += round_constants[i][0];
-            apply_single_sbox(current_state[t - 1]);
             matrix_multiplication_internal(current_state);
         }
 
         for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
-            /*
-            add_round_constants(current_state, round_constants[i]);
-            apply_sbox(current_state);
-            matrix_multiplication_external(current_state);
-            */
             add_round_constants(current_state, round_constants[i]);
             apply_sbox(current_state);
             matrix_multiplication_internal(current_state);
@@ -591,34 +604,37 @@ template <typename Params> class PoseidonPermutation {
 
 PoseidonHash poseidon_block(const std::vector<uint8_t>& buffer)
 {
-    PoseidonPermutation<PoseidonStark252BaseFieldParams> p;
+    using Permutation = PoseidonPermutation<PoseidonStark252BaseFieldParams>;
+    using State = Permutation::State;
+    using FF = Permutation::FF;
 
-    std::array<FF, 3> state = {
-      FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")), // "StarknetHonk"
-      FF(0),
+    State state = {
       FF(1),
+      FF(0),
+      FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")), // "StarknetHonk"
     };
 
-    state = p.permutation(state);
+    state = Permutation::permutation(state);
 
     for (size_t k = 0; k < buffer.size() / 32; ++k) {
         std::array<uint8_t, 32> limb_lo = {};
         std::array<uint8_t, 32> limb_hi = {};
+
         for (size_t i = 16; i < 32; ++i) {
-            limb_lo[i] = buffer[k * 32 + i];
             limb_hi[i] = buffer[k * 32 + i - 16];
+            limb_lo[i] = buffer[k * 32 + i];
         }
 
         FF limb0 = from_buffer<FF>(limb_lo);
         FF limb1 = from_buffer<FF>(limb_hi);
 
-        state[0] += limb0;
+        state[2] += limb0;
         state[1] += limb1;
 
-        state = p.permutation(state);
+        state = Permutation::permutation(state);
     }
 
-    std::vector<uint8_t> digest = to_buffer(state[0]);
+    std::vector<uint8_t> digest = to_buffer(state[2]);
 
     std::array<uint8_t, 32> result;
     for (size_t i = 0; i < 32; ++i) {
