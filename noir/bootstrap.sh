@@ -143,8 +143,7 @@ function release {
 
 function release_commit {
   echo_header "bb.js release commit"
-  local current_version=$(jq -r '."."' ../release-please-manifest.json)
-  local version="$current_version-commit.$COMMIT_HASH"
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
   for project in $js_projects; do
     jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
     (cd $project && deploy_npm next $version)

@@ -6,9 +6,7 @@ version=$2
 
 dry_run=${DRY_RUN:-0}
 
-if [ "$dry_run" -eq 0 ]; then
-  echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
-fi
+export npm_config__authToken=${NPM_TOKEN:-}
 
 package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"

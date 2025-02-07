@@ -178,29 +178,31 @@ function release {
 
 function release_commit {
   REF_NAME="commit-$COMMIT_HASH"
-  local current_version=v$(jq -r '."."' ./release-please-manifest.json)
 
   # Add an easy link for comparing to previous release.
   local compare_link=""
-  if gh release view "v$current_version" &>/dev/null; then
-    compare_link=$(echo -e "\n\nSee changes: https://github.com/$repo/compare/${current_version}...${COMMIT_HASH}")
+  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
+    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
 
   # Ensure we have a commit release.
   if ! gh release view "$REF_NAME" &>/dev/null; then
     gh release create "$REF_NAME" \
-      --title "Commit Release $REF_NAME" \
-      --notes "Commit release for $REF_NAME.${compare_link}"
+      --prerelease \
+      --target $COMMIT_HASH \
+      --title "$REF_NAME" \
+      --notes "${compare_link}"
   fi
 
   projects=(
     barretenberg/cpp
     barretenberg/ts
-    yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
-    docs
-    release-image
+    # l1-contracts
+    # yarn-project
+    # # Should publish at least one of our boxes to it's own repo.
+    # #boxes
+    # docs
+    # release-image
   )
 
   for project in "${projects[@]}"; do

@@ -15,7 +15,7 @@ function check_release {
   # Release check below maybe a bit slow, so we can early out if already checked.
   [ "${CHECKED_RELEASE:-0}" -eq 1 ] && return || export CHECKED_RELEASE=1
 
-  if ! [[ "$REF_NAME" =~ "$1" ]]; then
+  if ! [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo_stderr -e "${yellow}$REF_NAME does not match tag requirements. Won't deploy.${reset}"
     exit 0
   elif ! gh release view $REF_NAME &>/dev/null; then
@@ -43,9 +43,6 @@ case "${1:-}" in
     export USE_CACHE=${USE_CACHE:-1}
     ;;
   release)
-    check_release '^v[0-9]+\.[0-9]+\.[0-9]+$'
-    ;;
-  release_commit)
-    check_release '^commit-.+'
+    check_release
     ;;
 esac

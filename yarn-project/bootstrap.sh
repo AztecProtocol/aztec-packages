@@ -140,9 +140,7 @@ function release_commit {
   echo_header "yarn-project release commit"
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
-
-  local current_version=$(jq -r '."."' ../release-please-manifest.json)
-  local version="$current_version-commit.$COMMIT_HASH"
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
 
   for package in $packages; do
     (cd $package && deploy_npm next $version)

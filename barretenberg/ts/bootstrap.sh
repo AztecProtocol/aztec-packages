@@ -41,15 +41,12 @@ function test {
 }
 
 function release {
-  echo_header "bb.js release"
   local version=${REF_NAME#v}
   deploy_npm latest $version
 }
 
 function release_commit {
-  echo_header "bb.js release commit"
-  local current_version=$(jq -r '."."' ../release-please-manifest.json)
-  local version="$current_version-commit.$COMMIT_HASH"
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
   deploy_npm next $version
 }
 
