@@ -215,6 +215,7 @@ export class L1TxUtils {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
+    this.logger?.debug('Initializing L1 TX utils with config', { config: this.config });
   }
 
   public interrupt() {
@@ -505,12 +506,14 @@ export class L1TxUtils {
 
     // Get blob base fee if available
     let blobBaseFee = 0n;
-    try {
-      const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
-      blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
-    } catch {
-      this.logger?.warn('Failed to get L1 blob base fee', attempt);
+    if (isBlobTx) {
+      try {
+        const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
+        blobBaseFee = BigInt(blobBaseFeeHex);
+        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      } catch {
+        this.logger?.warn('Failed to get L1 blob base fee', attempt);
+      }
     }
 
     let priorityFee: bigint;
