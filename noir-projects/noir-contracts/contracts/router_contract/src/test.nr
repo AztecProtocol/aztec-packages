@@ -14,7 +14,7 @@ unconstrained fn test_check_block_number() {
 
     // First we sanity-check that current block number is as expected
     let current_block_number = env.block_number();
-    assert(current_block_number == 10, "Expected block number to be 10");
+    assert(current_block_number == 9, "Expected block number to be 9");
 
     // We test just one success case and 1 failure case in this test as the rest is tested in the comparator unit tests
     router.check_block_number(Comparator.LT, 11).call(&mut env.private());
@@ -32,7 +32,7 @@ unconstrained fn test_fail_check_block_number() {
 
     // First we sanity-check that current block number is as expected
     let current_block_number = env.block_number();
-    assert(current_block_number == 10, "Expected block number to be 10");
+    assert(current_block_number == 9, "Expected block number to be 9");
 
     router.check_block_number(Comparator.LT, 5).call(&mut env.private());
 }

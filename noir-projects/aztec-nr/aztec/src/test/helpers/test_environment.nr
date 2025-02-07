@@ -22,8 +22,19 @@ impl TestEnvironment {
         Self {}
     }
 
-    pub unconstrained fn block_number(_self: Self) -> u32 {
+    // This is the block number of the block currently being built
+    pub unconstrained fn pending_block_number(_self: Self) -> u32 {
         get_block_number()
+    }
+
+    // This is the block number of the last committed block
+    pub unconstrained fn committed_block_number(_self: Self) -> u32 {
+        get_block_number() - 1
+    }
+
+    //delete
+    pub unconstrained fn block_number(_self: Self) -> u32 {
+        get_block_number() - 1
     }
 
     pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
