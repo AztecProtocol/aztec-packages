@@ -1,12 +1,8 @@
 name: Reindex TypeSense
 
 on:
-# testing
- push:
-    branches:
-      - docs/typesense-reindex-in-ci
-  # release:
-  #   types: [prereleased, published]
+  release:
+    types: [prereleased, published]
 jobs:
   reindex:
     name: Reindex docs in TypeSense
