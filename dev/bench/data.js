@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738952607255,
+  "lastUpdate": 1738955952226,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9796e1ea2720e6ee01be20b4c9226257c9efb0a9",
-          "message": "chore(avm): do not use commit_sparse (#11447)\n\nExperiments in vm1 showed that we are at 90% median column fullness. I'm switching us to use the normal `commit` method which makes sense now that we are using tight polynomials (with virtual size). We could later use `commit` or `commit_sparse` depending on the runtime sparcity of a column (which we know), see: https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/vm2/constraining/README.md\n\nFor now we use `commit` since the performance is almost the same for our current situation but the memory footprint is lower.",
-          "timestamp": "2025-01-23T13:49:02Z",
-          "tree_id": "5a7b3ad0ab57fa32f104ef19707ed4f1b55cb072",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9796e1ea2720e6ee01be20b4c9226257c9efb0a9"
-        },
-        "date": 1737641595379,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19049.998824999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16263.217849 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21561.917171999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19072.521275 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4084.894847999948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3778.0737990000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 74471.137085,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 74471137000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14677.794882999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14677796000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3096265687,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3096265687 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133923375,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133923375 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 134857308,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134857308 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c1d4770d60d6d06014c0cd66aae63bd1560a8ff",
+          "message": "fix: Add missing return in main (#11786)\n\nhttps://github.com/AztecProtocol/aztec-packages/pull/10217 introduced a\nbug where the verifier result would not be sent from bb main as a\nsignal. This triggers a mysterious error in the ivc-integration tests\nsuite, native only, but does not break any e2e tests. More investigation\nis necessary, and ultimately this should be resolved in the ACIR tests,\nbut it feels prudent now to fix the bug and reinstate the tests later.",
+          "timestamp": "2025-02-07T18:52:42Z",
+          "tree_id": "777abc0fc0a9b6a6a735b0a25dcb8ecf86214b9a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8c1d4770d60d6d06014c0cd66aae63bd1560a8ff"
+        },
+        "date": 1738955945167,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19056.493096999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16413.644007000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20754.794586999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18324.37999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4062.22329000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3794.907889 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72476.85666300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72476857000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14365.453820999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14365454000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2617905823,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2617905823 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132649934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132649934 ns\nthreads: 1"
           }
         ]
       }
