@@ -1,15 +1,13 @@
-import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
+import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
-  BlockHeader,
+  type ContractInstanceWithAddress,
+  DEPLOYER_CONTRACT_ADDRESS,
   Fr,
   FunctionSelector,
-  PublicDataTreeLeaf,
-  PublicKeys,
+  PublicDataWrite,
   computePartialAddress,
-  getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
@@ -20,8 +18,7 @@ import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -42,8 +39,10 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, getTelemetryClient(), logger);
     const executionCache = new HashedValuesCache();
+    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const baseFork = await nativeWorldStateService.fork();
+
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
@@ -53,7 +52,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = await TXE.create(logger, trees, executionCache, keyStore, txeDatabase);
+    const txe = await TXE.create(logger, executionCache, keyStore, txeDatabase, nativeWorldStateService, baseFork);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -69,22 +68,10 @@ export class TXEService {
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
-    const trees = (this.typedOracle as TXE).getTrees();
-
-    await (this.typedOracle as TXE).commitState();
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
-      const header = BlockHeader.empty();
-      const l2Block = L2Block.empty();
-      header.state = await trees.getStateReference(true);
-      header.globalVariables.blockNumber = new Fr(blockNumber);
-      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [await header.hash()]);
-      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
-      l2Block.header = header;
-      const headerHash = await header.hash();
-      this.logger.debug(`Block ${blockNumber} created, header hash ${headerHash.toString()}`);
-      await trees.handleL2BlockAndMessages(l2Block, []);
+      await (this.typedOracle as TXE).commitState();
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
     return toForeignCallResult([]);
@@ -101,35 +88,15 @@ export class TXEService {
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
-  async deploy(
-    artifact: ContractArtifact,
-    initializer: ForeignCallArray,
-    _length: ForeignCallSingle,
-    args: ForeignCallArray,
-    publicKeysHash: ForeignCallSingle,
-  ) {
-    const initializerStr = fromArray(initializer)
-      .map(char => String.fromCharCode(char.toNumber()))
-      .join('');
-    const decodedArgs = fromArray(args);
-    const publicKeysHashFr = fromSingle(publicKeysHash);
-    this.logger.debug(
-      `Deploy ${artifact.name} with initializer ${initializerStr}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
-    );
-
-    const instance = await getContractInstanceFromDeployParams(artifact, {
-      constructorArgs: decodedArgs,
-      skipArgsDecoding: true,
-      salt: Fr.ONE,
-      // TODO: Modify this to allow for passing public keys.
-      publicKeys: PublicKeys.default(),
-      constructorArtifact: initializerStr ? initializerStr : undefined,
-      deployer: AztecAddress.ZERO,
-    });
+  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+    // Emit deployment nullifier
+    (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
+      await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
+    ]);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
     return toForeignCallResult([
       toArray([
         instance.salt,
@@ -146,30 +113,27 @@ export class TXEService {
     startStorageSlot: ForeignCallSingle,
     values: ForeignCallArray,
   ) {
-    const trees = (this.typedOracle as TXE).getTrees();
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = addressFromSingle(contractAddress);
-    const db = await trees.getLatest();
 
     const publicDataWrites = await Promise.all(
       valuesFr.map(async (value, i) => {
         const storageSlot = startStorageSlotFr.add(new Fr(i));
         this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-        return new PublicDataTreeLeaf(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+        return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
       }),
     );
-    await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => write.toBuffer()),
-      0,
-    );
+
+    await (this.typedOracle as TXE).addPublicDataWrites(publicDataWrites);
+
     return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
-  async createAccount() {
+  async createAccount(secret: ForeignCallSingle) {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
-    const completeAddress = await keyStore.createAccount();
+    const secretFr = fromSingle(secret);
+    const completeAddress = await keyStore.addAccount(secretFr, secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -179,22 +143,10 @@ export class TXEService {
     ]);
   }
 
-  async addAccount(secret: ForeignCallSingle) {
-    const keys = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
-    const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-    const artifact = SchnorrAccountContractArtifact;
-    const instance = await getContractInstanceFromDeployParams(artifact, {
-      constructorArgs: args,
-      skipArgsDecoding: true,
-      salt: Fr.ONE,
-      publicKeys: keys.publicKeys,
-      constructorArtifact: 'constructor',
-      deployer: AztecAddress.ZERO,
-    });
-
+  async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
@@ -530,16 +482,6 @@ export class TXEService {
 
   async getVersion() {
     return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
-  }
-
-  async addNullifiers(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, nullifiers: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNullifiers(addressFromSingle(contractAddress), fromArray(nullifiers));
-    return toForeignCallResult([]);
-  }
-
-  async addNoteHashes(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
-    await (this.typedOracle as TXE).addNoteHashes(addressFromSingle(contractAddress), fromArray(noteHashes));
-    return toForeignCallResult([]);
   }
 
   async getBlockHeader(blockNumber: ForeignCallSingle) {

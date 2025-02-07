@@ -35,7 +35,9 @@ contracts=(
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
+  "StakingLib"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
@@ -66,7 +68,13 @@ echo "// Auto-generated module" >"generated/index.ts"
 # Add Errors export to index.ts
 echo "export * from './ErrorsAbi.js';" >>"generated/index.ts"
 
+# Collect all compressed abis
+abis=""
+
 for contract_name in "${contracts[@]}"; do
+  # Append compressed abi to abis collection
+  abis="$abis:$(jq -c '.abi' "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json")"
+
   # Generate <ContractName>Abi.ts
   (
     echo "/**"
@@ -107,4 +115,22 @@ for contract_name in "${contracts[@]}"; do
   echo "export * from './${contract_name}Bytecode.js';" >>"generated/index.ts"
 done
 
-echo "Successfully generated TS artifacts!"
+# Generate RollupStorage.ts
+(
+  echo "/**"
+  echo " * Rollup storage."
+  echo " */"
+  echo -n "export const RollupStorage = "
+  jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
+  echo " as const;"
+) >"generated/RollupStorage.ts"
+
+# Update index.ts exports
+echo "export * from './RollupStorage.js';" >>"generated/index.ts"
+
+# Write abis hash. Consider excluding some contracts from this hash if 
+# we don't want to consider them as breaking for the interfaces.
+echo "export const AbisChecksum = \"$(echo -n "$abis" | sha256sum | cut -d' ' -f1)\";" >"generated/checksum.ts"
+echo "export * from './checksum.js';" >>"generated/index.ts"
+
+echo "Successfully generated TS artifacts"

@@ -23,7 +23,7 @@ template <typename FF_> class keccakf1600Impl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.keccakf1600_sel_keccakf1600 * (FF(1) - new_term.keccakf1600_sel_keccakf1600));
+            auto tmp = new_term.keccakf1600_sel_keccakf1600 * (FF(1) - new_term.keccakf1600_sel_keccakf1600);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

@@ -1,8 +1,8 @@
-use dep::protocol_types::traits::{Deserialize, Packable, Serialize};
+use dep::protocol_types::traits::{Deserialize, Empty, Packable, Serialize};
 
-pub(crate) struct MockStruct {
-    pub(crate) a: Field,
-    pub(crate) b: Field,
+pub struct MockStruct {
+    pub a: Field,
+    pub b: Field,
 }
 
 impl MockStruct {
@@ -14,6 +14,12 @@ impl MockStruct {
 impl Eq for MockStruct {
     fn eq(self, other: Self) -> bool {
         (self.a == other.a) & (self.b == other.b)
+    }
+}
+
+impl Empty for MockStruct {
+    fn empty() -> Self {
+        Self { a: 0, b: 0 }
     }
 }
 

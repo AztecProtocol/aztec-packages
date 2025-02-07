@@ -14,12 +14,12 @@ using namespace bb::plonk;
 using namespace stdlib;
 using numeric::uint256_t;
 
-template <typename OuterBuilder> class RecursiveCircuit {
+class RecursiveCircuit {
     using InnerComposer = UltraComposer;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using Builder = UltraCircuitBuilder;
 
-    using inner_curve = bn254<InnerBuilder>;
-    using outer_curve = bn254<OuterBuilder>;
+    using inner_curve = bn254<Builder>;
+    using outer_curve = bn254<Builder>;
 
     using verification_key_pt = recursion::verification_key<outer_curve>;
     using recursive_settings = recursion::recursive_ultra_verifier_settings<outer_curve>;
@@ -34,20 +34,15 @@ template <typename OuterBuilder> class RecursiveCircuit {
     using inner_scalar_field = typename inner_curve::ScalarFieldNative;
     using outer_scalar_field = typename outer_curve::BaseFieldNative;
     using pairing_target_field = bb::fq12;
-    static constexpr bool is_ultra_to_ultra = std::is_same_v<OuterBuilder, bb::UltraCircuitBuilder>;
-    using ProverOfInnerCircuit =
-        std::conditional_t<is_ultra_to_ultra, plonk::UltraProver, plonk::UltraToStandardProver>;
-    using VerifierOfInnerProof =
-        std::conditional_t<is_ultra_to_ultra, plonk::UltraVerifier, plonk::UltraToStandardVerifier>;
-    using RecursiveSettings =
-        std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
+    using ProverOfInnerCircuit = plonk::UltraProver;
+    using VerifierOfInnerProof = plonk::UltraVerifier;
 
     struct circuit_outputs {
         stdlib::recursion::aggregation_state<outer_curve> aggregation_state;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
-    static void create_inner_circuit_no_tables(InnerBuilder& builder, uint256_t public_inputs[])
+    static void create_inner_circuit_no_tables(Builder& builder, uint256_t public_inputs[])
     {
         // A nice Pythagorean triples circuit example: "I know a & b s.t. a^2 + b^2 = c^2".
         inner_scalar_field_ct a(witness_ct(&builder, public_inputs[0]));
@@ -61,15 +56,11 @@ template <typename OuterBuilder> class RecursiveCircuit {
         c_sq.set_public();
     };
 
-    static circuit_outputs create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)
+    static circuit_outputs create_outer_circuit(Builder& inner_circuit, Builder& outer_builder)
     {
         ProverOfInnerCircuit prover;
         InnerComposer inner_composer;
-        if constexpr (is_ultra_to_ultra) {
-            prover = inner_composer.create_prover(inner_circuit);
-        } else {
-            prover = inner_composer.create_ultra_to_standard_prover(inner_circuit);
-        }
+        prover = inner_composer.create_prover(inner_circuit);
 
         const auto verification_key_native = inner_composer.compute_verification_key(inner_circuit);
         // Convert the verification key's elements into _circuit_ types, using the OUTER composer.
@@ -82,27 +73,23 @@ template <typename OuterBuilder> class RecursiveCircuit {
             // Native check is mainly for comparison vs circuit version of the verifier.
             VerifierOfInnerProof native_verifier;
 
-            if constexpr (is_ultra_to_ultra) {
-                native_verifier = inner_composer.create_verifier(inner_circuit);
-            } else {
-                native_verifier = inner_composer.create_ultra_to_standard_verifier(inner_circuit);
-            }
+            native_verifier = inner_composer.create_verifier(inner_circuit);
 
-            auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
-            if (native_result == false) {
+            bool native_result = native_verifier.verify_proof(proof_to_recursively_verify);
+            if (!native_result) {
                 throw_or_abort("Native verification failed");
             }
         }
 
         transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
 
-        auto output = recursion::verify_proof<outer_curve, RecursiveSettings>(
+        auto output = recursion::verify_proof<outer_curve, recursive_settings>(
             &outer_builder, verification_key, recursive_manifest, proof_to_recursively_verify);
 
         return { output, verification_key };
     };
 
-    static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
+    static bool check_pairing_point_accum_public_inputs(Builder& builder, const bb::pairing::miller_lines* lines)
     {
         if (builder.contains_pairing_point_accumulator &&
             builder.pairing_point_accumulator_public_input_indices.size() == 16) {
@@ -166,10 +153,10 @@ template <typename OuterBuilder> class RecursiveCircuit {
     }
 
   public:
-    static OuterBuilder generate(uint256_t inputs[])
+    static Builder generate(uint256_t inputs[])
     {
-        InnerBuilder inner_circuit;
-        OuterBuilder outer_circuit;
+        Builder inner_circuit;
+        Builder outer_circuit;
 
         create_inner_circuit_no_tables(inner_circuit, inputs);
 

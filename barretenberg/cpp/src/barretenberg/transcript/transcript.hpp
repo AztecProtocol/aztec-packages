@@ -12,6 +12,7 @@
 
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
 template <typename T, typename... U>
 concept Loggable =
     (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, bb::g1::affine_element> ||

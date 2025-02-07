@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -41,7 +41,9 @@ async function main(
     logger.info('Node stopped');
     process.exit(0);
   };
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGTERM', stop);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGINT', stop);
 }
 

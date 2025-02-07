@@ -64,14 +64,12 @@ export async function bridgeL1FeeJuice(
 
   if (wait) {
     const delayedCheck = (delay: number) => {
-      return new Promise(resolve => {
-        setTimeout(async () => {
-          const witness = await pxe.getL1ToL2MembershipWitness(
-            feeJuiceAddress,
-            Fr.fromHexString(messageHash),
-            claimSecret,
-          );
-          resolve(witness);
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          void pxe
+            .getL1ToL2MembershipWitness(feeJuiceAddress, Fr.fromHexString(messageHash), claimSecret)
+            .then(witness => resolve(witness))
+            .catch(err => reject(err));
         }, delay);
       });
     };

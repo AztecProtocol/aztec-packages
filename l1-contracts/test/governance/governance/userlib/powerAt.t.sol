@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {UserLibBase} from "./base.t.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 contract PowerAtTest is UserLibBase {

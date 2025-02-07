@@ -58,7 +58,7 @@ export async function deployContractsToL1(
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
@@ -116,6 +116,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
       l1ContractAddresses.rollupAddress,
       publicClient,
     );
+    watcher.setIsSandbox(true);
     await watcher.start();
   }
 

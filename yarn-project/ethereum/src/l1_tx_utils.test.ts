@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -19,7 +19,8 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
 import { formatViemError } from './utils.js';
 
@@ -35,7 +36,7 @@ export type PendingTransaction = {
 };
 
 describe('GasUtils', () => {
-  let gasUtils: L1TxUtils;
+  let gasUtils: L1TxUtilsWithBlobs;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let anvil: Anvil;
@@ -73,7 +74,7 @@ describe('GasUtils', () => {
     });
     await cheatCodes.evmMine();
 
-    gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
@@ -201,7 +202,7 @@ describe('GasUtils', () => {
     await cheatCodes.evmMine();
 
     // First deploy without any buffer
-    const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const baselineGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
       minGwei: 10n, // Increased minimum gas price
@@ -221,7 +222,7 @@ describe('GasUtils', () => {
     });
 
     // Now deploy with 20% buffer
-    const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const bufferedGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
@@ -280,7 +281,7 @@ describe('GasUtils', () => {
   });
 
   it('respects minimum gas price bump for replacements', async () => {
-    const gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
+    const gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       ...defaultL1TxUtilsConfig,
       priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
     });

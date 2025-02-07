@@ -41,7 +41,6 @@
     "./wasm": "./dest/wasm/index.js",
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
-    "./blob": "./dest/blob/index.js",
     "./types": "./dest/types/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
@@ -52,7 +51,8 @@
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
-    "./string": "./dest/string/index.js"
+    "./string": "./dest/string/index.js",
+    "./message": "./dest/message/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",

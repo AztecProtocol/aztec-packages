@@ -21,7 +21,7 @@ export async function setupProtocolContracts(
   };
   log('setupProtocolContracts: Wait options' + jsonStringify(waitOpts));
   log('setupProtocolContracts: Creating PXE client...');
-  const pxe = createPXEClient(rpcUrl, makeFetch([1, 1, 1, 1, 1], false));
+  const pxe = createPXEClient(rpcUrl, {}, makeFetch([1, 1, 1, 1, 1], false));
   const wallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));
 
   log('setupProtocolContracts: Getting fee juice portal address...');

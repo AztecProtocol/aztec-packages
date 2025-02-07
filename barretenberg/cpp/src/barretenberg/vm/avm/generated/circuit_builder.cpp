@@ -58,14 +58,14 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                        // An array which stores for each column of the trace the smallest size of the
                        // truncated column containing all non-zero elements.
                        // It is used to allocate the polynomials without memory overhead for the tail of zeros.
-                       std::array<size_t, Row::SIZE> col_nonzero_size{};
+                       std::array<size_t, NUM_COLUMNS_WITH_SHIFTS> col_nonzero_size{};
 
                        // Computation of size of columns.
                        // Non-parallel version takes 0.5 second for a trace size of 200k rows.
                        // A parallel version might be considered in the future.
                        for (size_t i = 0; i < num_rows; i++) {
                            const auto& row = rows[i];
-                           for (size_t col = 0; col < Row::SIZE; col++) {
+                           for (size_t col = 0; col < col_nonzero_size.size(); col++) {
                                if (!row.get_column(static_cast<ColumnAndShifts>(col)).is_zero()) {
                                    col_nonzero_size[col] = i + 1;
                                }
@@ -860,7 +860,7 @@ bool AvmCircuitBuilder::check_circuit() const
 
             std::array<bool, result.size()> subrelation_failed = { false };
             for (size_t r = 0; r < num_rows; ++r) {
-                Relation::accumulate(result, polys.get_row(r), {}, 1);
+                Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
                 for (size_t j = 0; j < result.size(); ++j) {
                     if (!subrelation_failed[j] && result[j] != 0) {
                         signal_error(format("Relation ",
@@ -891,7 +891,7 @@ bool AvmCircuitBuilder::check_circuit() const
                 r = 0;
             }
             for (size_t r = 0; r < num_rows; ++r) {
-                Relation::accumulate(lookup_result, polys.get_row(r), params, 1);
+                Relation::accumulate(lookup_result, polys.get_standard_row(r), params, 1);
             }
             for (auto r : lookup_result) {
                 if (r != 0) {

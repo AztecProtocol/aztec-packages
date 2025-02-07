@@ -17,6 +17,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: eth-validator
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       initContainers:
         - name: create-genesis
           image: maddiaa/eth2-val-tools:latest

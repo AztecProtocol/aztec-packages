@@ -18,7 +18,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -279,6 +279,11 @@ describe('AztecNodeApiSchema', () => {
   it('getTxByHash', async () => {
     const response = await context.client.getTxByHash(TxHash.random());
     expect(response).toBeInstanceOf(Tx);
+  });
+
+  it('getTxsByHash', async () => {
+    const response = await context.client.getTxsByHash([TxHash.random()]);
+    expect(response[0]).toBeInstanceOf(Tx);
   });
 
   it('getPublicStorageAt', async () => {
@@ -558,6 +563,10 @@ class MockAztecNode implements AztecNode {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(Tx.random());
+  }
+  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    expect(txHashes[0]).toBeInstanceOf(TxHash);
+    return [await Tx.random()];
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr, _blockNumber: number | 'latest'): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);

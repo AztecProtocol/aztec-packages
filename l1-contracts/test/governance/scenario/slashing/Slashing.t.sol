@@ -18,17 +18,12 @@ import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
 
-import {Slot, SlotLib, Epoch} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 contract SlashingScenario is TestBase {
-  using SlotLib for Slot;
-
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
@@ -75,7 +70,7 @@ contract SlashingScenario is TestBase {
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     });
-    slasher = rollup.SLASHER();
+    slasher = Slasher(rollup.getSlasher());
     slashingProposer = slasher.PROPOSER();
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 

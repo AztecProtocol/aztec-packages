@@ -26,3 +26,4 @@ export * from './in_block.js';
 export * from './nullifier_with_block_source.js';
 export * from './proving_error.js';
 export * from './epoch-helpers/index.js';
+export * from './versioning.js';

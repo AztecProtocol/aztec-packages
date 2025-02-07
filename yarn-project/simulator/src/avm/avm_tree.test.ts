@@ -16,9 +16,7 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { MerkleTrees, NativeWorldStateService } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import {
   AvmEphemeralForest,
@@ -531,8 +529,7 @@ describe('Checking forking and merging', () => {
  */
 describe('AVM Ephemeral Tree Sanity Test', () => {
   it('Should calculate the frontier correctly', async () => {
-    const store = openTmpStore(true);
-    const worldStateTrees = await MerkleTrees.new(store, getTelemetryClient());
+    const worldStateTrees = await NativeWorldStateService.tmp();
     const leaves = [];
     const numLeaves = 6;
     for (let i = 0; i < numLeaves; i++) {
@@ -557,8 +554,9 @@ describe('AVM Ephemeral Tree Sanity Test', () => {
     const expectedFrontier = [expectedFrontier0, exepctedFrontier1, expectedFrontier2];
     expect(tree.frontier).toEqual(expectedFrontier);
     // Check root
-    await worldStateTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
-    const treeInfo = await worldStateTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true);
+    const fork = await worldStateTrees.fork();
+    await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
+    const treeInfo = await fork.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
     const localRoot = await tree.getRoot();
     expect(localRoot.toBuffer()).toEqual(treeInfo.root);
   });

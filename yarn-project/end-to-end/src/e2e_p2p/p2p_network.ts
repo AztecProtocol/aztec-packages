@@ -1,14 +1,14 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/utils';
-import { L1TxUtils, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/aztec.js/ethereum';
+import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
@@ -55,7 +55,7 @@ export class P2PNetworkTest {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  private gasUtils: L1TxUtils | undefined = undefined;
+  private gasUtils: L1TxUtilsWithBlobs | undefined = undefined;
 
   constructor(
     testName: string,
@@ -138,8 +138,8 @@ export class P2PNetworkTest {
    * Start a loop to sync the mock system time with the L1 block time
    */
   public startSyncMockSystemTimeInterval() {
-    this.cleanupInterval = setInterval(async () => {
-      await this.syncMockSystemTime();
+    this.cleanupInterval = setInterval(() => {
+      void this.syncMockSystemTime().catch(err => this.logger.error('Error syncing mock system time', err));
     }, l1ContractsConfig.aztecSlotDuration * 1000);
   }
 
@@ -196,24 +196,28 @@ export class P2PNetworkTest {
 
         for (let i = 0; i < this.numberOfNodes; i++) {
           const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
-          const proposer = privateKeyToAccount(this.proposerPrivateKeys[i]!);
+          const proposerEOA = privateKeyToAccount(this.proposerPrivateKeys[i]!);
+          const forwarder = getExpectedAddress(
+            ForwarderAbi,
+            ForwarderBytecode,
+            [proposerEOA.address],
+            proposerEOA.address,
+          ).address;
           validators.push({
             attester: attester.address,
-            proposer: proposer.address,
+            proposer: forwarder,
             withdrawer: attester.address,
             amount: l1ContractsConfig.minimumStake,
           } as const);
 
-          this.logger.verbose(
-            `Adding (attester, proposer) pair: (${attester.address}, ${proposer.address}) as validator`,
-          );
+          this.logger.verbose(`Adding (attester, proposer) pair: (${attester.address}, ${forwarder}) as validator`);
         }
 
         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
         });
 
-        const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+        const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
         const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
         try {
@@ -301,7 +305,7 @@ export class P2PNetworkTest {
     this.ctx = await this.snapshotManager.setup();
     this.startSyncMockSystemTimeInterval();
 
-    this.gasUtils = new L1TxUtils(
+    this.gasUtils = new L1TxUtilsWithBlobs(
       this.ctx.deployL1ContractsValues.publicClient,
       this.ctx.deployL1ContractsValues.walletClient,
       this.logger,
@@ -327,9 +331,8 @@ export class P2PNetworkTest {
       return;
     }
 
-    for (const node of nodes) {
-      await node.stop();
-    }
+    await Promise.all(nodes.map(node => node.stop()));
+
     this.logger.info('Nodes stopped');
   }
 

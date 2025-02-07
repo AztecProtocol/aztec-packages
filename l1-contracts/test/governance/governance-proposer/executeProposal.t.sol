@@ -4,17 +4,17 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
-import {ValidatorSelection} from "../../harnesses/ValidatorSelection.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
+import {Fakerollup} from "./mocks/Fakerollup.sol";
 
 contract ExecuteProposalTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
-  ValidatorSelection internal validatorSelection;
+  Fakerollup internal validatorSelection;
 
   IPayload internal proposal = IPayload(address(this));
   address internal proposer = address(0);
@@ -30,7 +30,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalInstanceHoldCode() {
-    validatorSelection = new ValidatorSelection();
+    validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(validatorSelection));
 
@@ -64,8 +64,8 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(validatorSelection.GENESIS_TIME()))
-        / validatorSelection.SLOT_DURATION()
+      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+        / validatorSelection.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(slotToHit)));
@@ -221,7 +221,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it revert
 
     // When using a new registry we change the governanceProposer's interpetation of time :O
-    ValidatorSelection freshInstance = new ValidatorSelection();
+    Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(freshInstance));
 

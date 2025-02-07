@@ -14,6 +14,30 @@ opentelemetry-collector:
         metric_expiration: 5m
         resource_to_telemetry_conversion:
           enabled: true
+    service:
+      pipelines:
+        logs:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlphttp/logs
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlp/tempo
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            # - debug
 
 loki:
   deploymentMode: SingleBinary

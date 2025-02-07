@@ -114,7 +114,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_token().simulate()).equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate()).token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 

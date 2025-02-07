@@ -19,11 +19,11 @@ cd ../../sol
 
 echo "Building c++ binaries..."
 cd ../cpp
-cmake --preset clang16
-cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen honk_solidity_proof_gen honk_solidity_key_gen
+cmake --build --preset clang16 --parallel --target solidity_key_gen solidity_proof_gen honk_solidity_proof_gen honk_solidity_key_gen
 cd ../sol
 
-echo "Generating keys..."
+# Keys of non-zk and zk verifier should be the same
+echo "Generating verification keys..."
 ./scripts/init.sh
 ./scripts/init_honk.sh
 

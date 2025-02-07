@@ -9,6 +9,8 @@ import {
   ExtRollupLibBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
+  ForwarderAbi,
+  ForwarderBytecode,
   GovernanceAbi,
   GovernanceBytecode,
   GovernanceProposerAbi,
@@ -26,6 +28,8 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
+  StakingLibAbi,
+  StakingLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorSelectionLibAbi,
@@ -36,10 +40,15 @@ import type { Abi, Narrow } from 'abitype';
 import {
   type Account,
   type Chain,
+  type Client,
   type Hex,
   type HttpTransport,
+  type PublicActions,
   type PublicClient,
+  type PublicRpcSchema,
+  type WalletActions,
   type WalletClient,
+  type WalletRpcSchema,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -50,6 +59,7 @@ import {
   http,
   numberToHex,
   padHex,
+  publicActions,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -57,7 +67,9 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils } from './l1_tx_utils.js';
+import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+
+export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 /**
  * Return type of the deployL1Contract function.
@@ -136,6 +148,10 @@ export const l1Artifacts = {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
         },
+        StakingLib: {
+          contractAbi: StakingLibAbi,
+          contractBytecode: StakingLibBytecode as Hex,
+        },
       },
     },
   },
@@ -190,7 +206,13 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 
 export type L1Clients = {
   publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: Client<
+    HttpTransport,
+    Chain,
+    PrivateKeyAccount,
+    [...WalletRpcSchema, ...PublicRpcSchema],
+    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
+  >;
 };
 
 /**
@@ -212,18 +234,25 @@ export function createL1Clients(
         : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
       : mnemonicOrPrivateKeyOrHdAccount;
 
+  // From what I can see, this is the difference between the HDAccount and the PrivateKeyAccount
+  // and we don't need it for anything. This lets us use the same type for both.
+  // eslint-disable-next-line camelcase
+  hdAccount.experimental_signAuthorization ??= () => {
+    throw new Error('experimental_signAuthorization not implemented for HDAccount');
+  };
+
   const walletClient = createWalletClient({
     account: hdAccount,
     chain,
     transport: http(rpcUrl),
-  });
+  }).extend(publicActions);
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl),
     pollingInterval: 100,
   });
 
-  return { walletClient, publicClient };
+  return { walletClient, publicClient } as L1Clients;
 }
 
 /**
@@ -241,6 +270,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: Logger,
   args: DeployL1ContractsArgs,
+  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -267,7 +297,7 @@ export const deployL1Contracts = async (
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
   // Governance stuff
-  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -414,18 +444,18 @@ export const deployL1Contracts = async (
         ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
       );
 
-      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([
-        newValidatorsAddresses.map(v => ({
-          attester: v,
-          proposer: v,
-          withdrawer: v,
-          amount: args.minimumStake,
-        })),
-      ]);
+      const validators = newValidatorsAddresses.map(v => ({
+        attester: v,
+        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
+        withdrawer: v,
+        amount: args.minimumStake,
+      }));
+      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
       txHashes.push(initiateValidatorSetTxHash);
-      logger.info(
-        `Initialized validator set (${newValidatorsAddresses.join(', ')}) in tx ${initiateValidatorSetTxHash}`,
-      );
+      logger.info(`Initialized validator set`, {
+        validators,
+        txHash: initiateValidatorSetTxHash,
+      });
     }
   }
 
@@ -550,13 +580,16 @@ export const deployL1Contracts = async (
 class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
+  private l1TxUtils: L1TxUtils;
   constructor(
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
     private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
     private logger: Logger,
+    private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
+    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.logger, this.txUtilsConfig);
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -569,6 +602,7 @@ class L1Deployer {
       this.salt,
       params.libraries,
       this.logger,
+      this.l1TxUtils,
     );
     if (txHash) {
       this.txHashes.push(txHash);
@@ -601,11 +635,15 @@ export async function deployL1Contract(
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
+  _l1TxUtils?: L1TxUtils,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
+  let l1TxUtils: L1TxUtils | undefined = _l1TxUtils;
 
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  if (!l1TxUtils) {
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  }
 
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
@@ -633,6 +671,7 @@ export async function deployL1Contract(
         maybeSalt,
         undefined,
         logger,
+        l1TxUtils,
       );
 
       for (const linkRef in libraries.linkReferences) {
@@ -663,15 +702,12 @@ export async function deployL1Contract(
   }
 
   if (maybeSalt) {
-    const salt = padHex(maybeSalt, { size: 32 });
-    const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
-    const calldata = encodeDeployData({ abi, bytecode, args });
-    resultingAddress = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, maybeSalt);
+    resultingAddress = address;
     const existing = await publicClient.getBytecode({ address: resultingAddress });
-
     if (existing === undefined || existing === '0x') {
       const res = await l1TxUtils.sendTransaction({
-        to: deployer,
+        to: DEPLOYER_ADDRESS,
         data: concatHex([salt, calldata]),
       });
       txHash = res.txHash;
@@ -701,4 +737,26 @@ export async function deployL1Contract(
 
   return { address: EthAddress.fromString(resultingAddress!), txHash };
 }
+
+export function getExpectedAddress(
+  abi: Narrow<Abi | readonly unknown[]>,
+  bytecode: Hex,
+  args: readonly unknown[],
+  salt: Hex,
+) {
+  const paddedSalt = padHex(salt, { size: 32 });
+  const calldata = encodeDeployData({ abi, bytecode, args });
+  const address = getContractAddress({
+    from: DEPLOYER_ADDRESS,
+    salt: paddedSalt,
+    bytecode: calldata,
+    opcode: 'CREATE2',
+  });
+  return {
+    address,
+    paddedSalt,
+    calldata,
+  };
+}
+
 // docs:end:deployL1Contract
