@@ -8,15 +8,19 @@ export const defaultInitialAccountFeeJuice = new Fr(10n ** 22n);
 export async function getGenesisValues(
   initialAccounts: AztecAddress[],
   initialAccountFeeJuice = defaultInitialAccountFeeJuice,
+  genesisPublicData: PublicDataTreeLeaf[] = [],
 ) {
   // Top up the accounts with fee juice.
-  const prefilledPublicData = (
-    await Promise.all(
-      initialAccounts.map(
-        async address => new PublicDataTreeLeaf(await computeFeePayerBalanceLeafSlot(address), initialAccountFeeJuice),
-      ),
-    )
-  ).sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
+  let prefilledPublicData = await Promise.all(
+    initialAccounts.map(
+      async address => new PublicDataTreeLeaf(await computeFeePayerBalanceLeafSlot(address), initialAccountFeeJuice),
+    ),
+  );
+
+  // Add user-defined public data
+  prefilledPublicData = prefilledPublicData.concat(genesisPublicData);
+
+  prefilledPublicData.sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
 
   const { genesisBlockHash, genesisArchiveRoot } = await generateGenesisValues(prefilledPublicData);
 

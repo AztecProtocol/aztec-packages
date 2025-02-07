@@ -136,6 +136,8 @@ export async function verifyCurrentClassId(
     currentClassId = instance.originalContractClassId;
   }
   if (!instance.currentContractClassId.equals(currentClassId)) {
-    throw new Error(`Contract ${contractAddress} is outdated, current class id is ${currentClassId}`);
+    throw new Error(
+      `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,
+    );
   }
 }
