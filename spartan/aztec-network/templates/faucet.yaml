@@ -105,6 +105,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-faucet
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: faucet
 spec:
   type: ClusterIP
   selector:

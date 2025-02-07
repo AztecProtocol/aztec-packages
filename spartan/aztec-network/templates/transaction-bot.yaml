@@ -166,6 +166,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: bot
 spec:
   type: {{ .Values.bot.service.type }}
   selector:
