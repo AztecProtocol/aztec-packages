@@ -34,6 +34,8 @@ install_metrics=${INSTALL_METRICS:-true}
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
 
+OVERRIDES="${OVERRIDES:-}"
+
 # Ensure we have kind context
 ../bootstrap.sh kind
 
@@ -80,7 +82,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  ./deploy_kind.sh $namespace $values_file $sepolia_run
+  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
 fi
 
 # Find 4 free ports between 9000 and 10000

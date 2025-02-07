@@ -316,6 +316,19 @@ jobs:
   deployL1Verifier:
     enable: false
 
+blobSink:
+  enabled: false
+  replicas: 1
+  service:
+    nodePort: 5052
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+  dataStoreConfig:
+    dataDir: "/data"
+    storageSize: "8Gi"
+    dataStoreMapSize: "134217728" # 128 GB
+
 faucet:
   enabled: true
   replicas: 1
