@@ -872,7 +872,7 @@ int main(int argc, char* argv[])
         // CLIENT IVC
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
-            return execute_command(command, flags, api);
+            execute_command(command, flags, api);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
         } else if (command == "gates_mega_honk") {
