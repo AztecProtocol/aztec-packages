@@ -1,5 +1,3 @@
-import { createLogger } from '@aztec/foundation/log';
-
 import { jest } from '@jest/globals';
 
 /* eslint-disable camelcase */
