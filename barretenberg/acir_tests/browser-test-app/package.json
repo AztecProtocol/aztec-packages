@@ -6,18 +6,16 @@
   "type": "module",
   "scripts": {
     "build": "rm -rf dest && webpack",
-    "serve:dest:st": "serve -n -L -p ${PORT:-8080} -c ../serve.st.json dest",
-    "serve:dest:mt": "serve -n -L -p ${PORT:-8080} -c ../serve.mt.json dest"
+    "serve:dest:st": "serve -n -L -p ${PORT:-8080} -c ../serve.json dest",
+    "serve:dest:mt": "serve -n -L -p ${PORT:-8080} -c ../serve.json dest"
   },
   "devDependencies": {
     "@aztec/bb.js": "../../ts",
     "@types/debug": "^4.1.12",
     "@types/pako": "^2.0.3",
-    "copy-webpack-plugin": "^12.0.2",
     "debug": "^4.3.4",
     "html-webpack-plugin": "^5.6.0",
     "pako": "^2.1.0",
-    "resolve-typescript-plugin": "^2.0.1",
     "serve": "^14.2.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.2",

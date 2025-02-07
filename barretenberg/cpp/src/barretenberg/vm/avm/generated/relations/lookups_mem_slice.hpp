@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class lookup_cd_value_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_CD_VALUE";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -72,7 +74,7 @@ class lookup_cd_value_lookup_settings {
 template <typename FF_>
 class lookup_cd_value_relation : public GenericLookupRelation<lookup_cd_value_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_CD_VALUE";
+    static constexpr std::string_view NAME = lookup_cd_value_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_cd_value = GenericLookup<lookup_cd_value_lookup_settings, FF_>;
 
@@ -80,6 +82,8 @@ template <typename FF_> using lookup_cd_value = GenericLookup<lookup_cd_value_lo
 
 class lookup_ret_value_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_RET_VALUE";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -138,7 +142,7 @@ class lookup_ret_value_lookup_settings {
 template <typename FF_>
 class lookup_ret_value_relation : public GenericLookupRelation<lookup_ret_value_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_RET_VALUE";
+    static constexpr std::string_view NAME = lookup_ret_value_lookup_settings::NAME;
 };
 template <typename FF_> using lookup_ret_value = GenericLookup<lookup_ret_value_lookup_settings, FF_>;
 

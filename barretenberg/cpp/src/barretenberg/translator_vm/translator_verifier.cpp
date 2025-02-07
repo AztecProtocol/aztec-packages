@@ -52,8 +52,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve>;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 

@@ -261,7 +261,7 @@ export class Fr extends BaseField {
       return fromHexString(buf, Fr);
     }
 
-    throw new Error('Tried to create a Fr from an invalid string');
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
   }
 
   /**
@@ -412,7 +412,7 @@ export class Fq extends BaseField {
       return fromHexString(buf, Fq);
     }
 
-    throw new Error('Tried to create a Fq from an invalid string');
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
   }
 
   /**
