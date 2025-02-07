@@ -1,4 +1,10 @@
-import { ProverAgentApiSchema, type ProvingJobSource, ProvingJobSourceSchema } from '@aztec/circuit-types';
+import {
+  type ComponentsVersions,
+  ProverAgentApiSchema,
+  type ProvingJobSource,
+  ProvingJobSourceSchema,
+  getVersioningResponseHandler,
+} from '@aztec/circuit-types';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
@@ -8,8 +14,16 @@ export function createProvingJobSourceServer(queue: ProvingJobSource) {
   return createTracedJsonRpcServer(queue, ProvingJobSourceSchema);
 }
 
-export function createProvingJobSourceClient(url: string, fetch = makeTracedFetch([1, 2, 3], false)): ProvingJobSource {
-  return createSafeJsonRpcClient(url, ProvingJobSourceSchema, false, 'provingJobSource', fetch);
+export function createProvingJobSourceClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobSource {
+  return createSafeJsonRpcClient(url, ProvingJobSourceSchema, {
+    namespaceMethods: 'provingJobSource',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 /**

@@ -168,11 +168,6 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
-    // we identify the P2P transaction protocol by using the rollup contract address.
-    // this may well change in future
-    const rollupAddress = config.l1Contracts.rollupAddress;
-    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
-
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
       config,

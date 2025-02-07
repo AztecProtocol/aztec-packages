@@ -68,6 +68,8 @@
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@chainsafe/discv5": "9.0.0",
     "@chainsafe/enr": "3.0.0",

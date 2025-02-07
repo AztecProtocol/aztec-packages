@@ -121,7 +121,7 @@ export async function startNode(
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    pxe = await addPXE(options, signalHandlers, services, userLog, { node });
+    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
   }
 
   // Add a txs bot if requested
@@ -129,4 +129,6 @@ export async function startNode(
     const { addBot } = await import('./start_bot.js');
     await addBot(options, signalHandlers, services, { pxe, node, telemetry });
   }
+
+  return { config: nodeConfig };
 }

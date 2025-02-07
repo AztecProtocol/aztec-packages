@@ -23,7 +23,7 @@ template <typename FF_> class bytecodeImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.bytecode_end_latch * (FF(1) - new_term.bytecode_end_latch));
+            auto tmp = new_term.bytecode_end_latch * (FF(1) - new_term.bytecode_end_latch);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

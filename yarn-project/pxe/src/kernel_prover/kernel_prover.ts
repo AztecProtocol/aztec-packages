@@ -221,7 +221,7 @@ export class KernelProver {
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
-          await getVKTreeRoot(),
+          getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,

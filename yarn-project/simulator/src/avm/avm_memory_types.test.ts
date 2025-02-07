@@ -1,16 +1,6 @@
 import { AssertionError } from 'assert';
 
-import {
-  Field,
-  MeteredTaggedMemory,
-  TaggedMemory,
-  Uint1,
-  Uint8,
-  Uint16,
-  Uint32,
-  Uint64,
-  Uint128,
-} from './avm_memory_types.js';
+import { Field, TaggedMemory, Uint1, Uint8, Uint16, Uint32, Uint64, Uint128 } from './avm_memory_types.js';
 
 describe('TaggedMemory', () => {
   it('Elements should be Field(0) after construction', () => {
@@ -64,58 +54,6 @@ describe('TaggedMemory', () => {
 
     expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE + 15, new Field(1))).toThrow(AssertionError);
     expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE + 7)).toThrow(AssertionError);
-  });
-});
-
-describe('MeteredTaggedMemory', () => {
-  let mem: MeteredTaggedMemory;
-
-  beforeEach(() => {
-    mem = new MeteredTaggedMemory(new TaggedMemory());
-  });
-
-  it(`Counts reads`, () => {
-    mem.get(10);
-    mem.getAs(20);
-    expect(mem.reset()).toEqual({ reads: 2, writes: 0 });
-  });
-
-  it(`Counts reading slices`, () => {
-    const val = [new Field(5), new Field(6), new Field(7)];
-    mem.setSlice(10, val);
-    mem.reset();
-
-    mem.getSlice(10, 3);
-    mem.getSliceAs(11, 2);
-    expect(mem.reset()).toEqual({ reads: 5, writes: 0 });
-  });
-
-  it(`Counts writes`, () => {
-    mem.set(10, new Uint8(5));
-    expect(mem.reset()).toEqual({ reads: 0, writes: 1 });
-  });
-
-  it(`Counts writing slices`, () => {
-    mem.setSlice(10, [new Field(5), new Field(6)]);
-    expect(mem.reset()).toEqual({ reads: 0, writes: 2 });
-  });
-
-  it(`Clears stats`, () => {
-    mem.get(10);
-    mem.set(20, new Uint8(5));
-    expect(mem.reset()).toEqual({ reads: 1, writes: 1 });
-    expect(mem.reset()).toEqual({ reads: 0, writes: 0 });
-  });
-
-  it(`Asserts stats`, () => {
-    mem.get(10);
-    mem.set(20, new Uint8(5));
-    expect(() => mem.assert({ reads: 1, writes: 1 })).not.toThrow();
-  });
-
-  it(`Throws on failed stat assertion`, () => {
-    mem.get(10);
-    expect(() => mem.assert({ reads: 1, writes: 1 })).toThrow();
   });
 });
 

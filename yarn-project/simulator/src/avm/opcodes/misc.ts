@@ -32,7 +32,7 @@ export class DebugLog extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
@@ -56,7 +56,5 @@ export class DebugLog extends Instruction {
     );
 
     DebugLog.logger.verbose(formattedStr);
-
-    memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
   }
 }

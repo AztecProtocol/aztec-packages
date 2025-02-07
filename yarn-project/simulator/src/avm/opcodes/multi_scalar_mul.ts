@@ -33,7 +33,7 @@ export class MultiScalarMul extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     // Resolve indirects
     const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset, this.pointsLengthOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -117,11 +117,5 @@ export class MultiScalarMul extends Instruction {
     memory.setSlice(outputOffset, [new Field(outputPoint.x), new Field(outputPoint.y)]);
     // Check representation of infinity for grumpkin
     memory.setSlice(outputOffset + 2, [new Uint1(outputPoint.equals(Point.ZERO) ? 1 : 0)]);
-
-    memory.assert({
-      reads: 1 + pointsReadLength + scalarReadLength /* points and scalars */,
-      writes: 3 /* output triplet */,
-      addressing,
-    });
   }
 }

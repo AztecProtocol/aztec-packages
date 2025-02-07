@@ -62,7 +62,7 @@ export async function deployContractsToL1(
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
