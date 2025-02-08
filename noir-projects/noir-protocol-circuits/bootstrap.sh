@@ -10,12 +10,13 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 export PLATFORM_TAG=any
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+export BB=${BB:-$(realpath ../../barretenberg/cpp/build/bin/bb)}
+export NARGO=${NARGO:-$(realpath ../../noir/noir-repo/target/release/nargo)}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-key_dir=./target/keys
+target_dir=$(realpath ./target)
+key_dir=$target_dir/keys
 mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
@@ -54,18 +55,23 @@ function on_exit() {
 trap on_exit EXIT
 
 # Export vars needed inside compile.
-export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
+export target_dir key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 
 function compile {
   set -euo pipefail
-  local dir=$1
+
+  cd $1
+  rm -rf target
+
+  local dir=$(basename $1)
   local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
+  local key_path="./target/$name.vk.data.json"
   local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
-  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  local program_hash_cmd="$NARGO check --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
@@ -75,7 +81,7 @@ function compile {
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
-    local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
+    local compile_cmd="$NARGO compile --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
@@ -117,7 +123,6 @@ function compile {
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
   if ! cache_download vk-$hash.tar.gz 1>&2; then
-    local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
     local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
@@ -128,17 +133,24 @@ function compile {
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
+
+    # If required, generate solidity verifier for this contract.
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
-      local verifier_path="$key_dir/${name}_verifier.sol"
+      local verifier_path="./target/${name}_verifier.sol"
       SECONDS=0
-      # Generate solidity verifier for this contract.
       echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
       echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
-      # Include the verifier path if we create it.
-      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-    else
-      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
+
+    cache_upload vk-$hash.tar.gz $key_path ${verifier_path:-} &> /dev/null
+  fi
+
+  # We're side-stepping nargo's workspaces.
+  # We copy the results up to the root target folder as this is the expected output location.
+  cp $json_path $target_dir
+  cp $key_path $key_dir
+  if [ -f "${verifier_path:-}" ]; then
+    cp $verifier_path $target_dir
   fi
 }
 export -f compile
@@ -146,17 +158,17 @@ export -f compile
 function build {
   # We allow errors so we can output the joblog.
   set +e
-  set -u
+
+  # We're building everything, so clean first.
   rm -rf target
   mkdir -p $key_dir
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
-    while read -r dir; do
-      toml_file=./crates/$dir/Nargo.toml
+  find crates -iname Nargo.toml | \
+    while read -r toml_file; do
       if grep -q 'type = "bin"' "$toml_file"; then
-          echo "$(basename $dir)"
+          echo "$(dirname $toml_file)"
       fi
     done | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
@@ -209,7 +221,7 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    compile $1
+    compile crates/$1
     ;;
   "test")
     test
