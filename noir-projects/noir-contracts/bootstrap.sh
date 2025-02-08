@@ -150,8 +150,9 @@ function build {
 }
 
 function test_cmds {
+  local filter="${1:-}"
   i=0
-  $NARGO test --list-tests | while read -r package test; do
+  $NARGO test --list-tests | { if [ -n "$filter" ]; then grep "$filter"; else cat; fi; } | while read -r package test; do
     # We assume there are 8 txe's running.
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     echo "noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
@@ -159,6 +160,7 @@ function test_cmds {
 }
 
 function test {
+  local filter="$*"
   # Starting txe servers with incrementing port numbers.
   NUM_TXES=8
   trap 'kill $(jobs -p)' EXIT
@@ -171,7 +173,7 @@ function test {
   done
 
   echo "Starting test run..."
-  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar $PARALLEL_FLAGS 'dump_fail {} >/dev/null')
+  test_cmds "$filter" | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar $PARALLEL_FLAGS 'dump_fail {} >/dev/null')
 }
 
 case "$cmd" in
@@ -196,7 +198,8 @@ case "$cmd" in
     build $1
     ;;
   "test")
-    test
+    shift
+    test "$@"
     ;;
   "test-cmds")
     test_cmds
