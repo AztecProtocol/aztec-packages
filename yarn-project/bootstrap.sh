@@ -111,7 +111,7 @@ function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
   for package in $packages; do
-    (cd $package && deploy_npm $1 $version)
+    (cd $package && deploy_npm $1 $2)
   done
 }
 
