@@ -1,3 +1,6 @@
+import { jest } from '@jest/globals';
+
+import { type Logger, createLogger } from '../log/pino-logger.js';
 import { sleep } from '../sleep/index.js';
 import { RunningPromise } from './running-promise.js';
 
@@ -5,6 +8,7 @@ describe('RunningPromise', () => {
   let runningPromise: RunningPromise;
   let counter: number;
   let fn: () => Promise<void>;
+  let logger: Logger;
 
   beforeEach(() => {
     counter = 0;
@@ -12,7 +16,8 @@ describe('RunningPromise', () => {
       counter++;
       await sleep(100);
     };
-    runningPromise = new RunningPromise(fn, 50);
+    logger = createLogger('test');
+    runningPromise = new RunningPromise(fn, logger, 50);
   });
 
   afterEach(async () => {
@@ -39,6 +44,39 @@ describe('RunningPromise', () => {
       expect(counter).toEqual(1);
       await runningPromise.trigger();
       expect(counter).toEqual(2);
+    });
+
+    it('handles errors', async () => {
+      const failingFn = async () => {
+        await fn();
+        throw new Error('ouch');
+      };
+      const loggerSpy = jest.spyOn(logger, 'error');
+      runningPromise = new RunningPromise(failingFn, logger, 50);
+      runningPromise.start();
+      await sleep(150);
+      expect(counter).toEqual(1);
+      expect(loggerSpy).toHaveBeenCalledTimes(1);
+    });
+
+    class IgnoredError extends Error {
+      constructor() {
+        super('ignored');
+        this.name = 'IgnoredError';
+      }
+    }
+
+    it('handles ignored errors', async () => {
+      const failingFn = async () => {
+        await fn();
+        throw new IgnoredError();
+      };
+      const loggerSpy = jest.spyOn(logger, 'error');
+      runningPromise = new RunningPromise(failingFn, logger, 50, [IgnoredError]);
+      runningPromise.start();
+      await sleep(150);
+      expect(counter).toEqual(1);
+      expect(loggerSpy).not.toHaveBeenCalled();
     });
   });
 });

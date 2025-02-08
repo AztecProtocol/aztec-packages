@@ -7,17 +7,18 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
   Vector,
 } from '@aztec/circuits.js';
+import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class ContractClassStore {
-  #contractClasses: AztecMap<string, Buffer>;
-  #bytecodeCommitments: AztecMap<string, Buffer>;
+  #contractClasses: AztecAsyncMap<string, Buffer>;
+  #bytecodeCommitments: AztecAsyncMap<string, Buffer>;
 
-  constructor(private db: AztecKVStore) {
+  constructor(private db: AztecAsyncKVStore) {
     this.#contractClasses = db.openMap('archiver_contract_classes');
     this.#bytecodeCommitments = db.openMap('archiver_bytecode_commitments');
   }
@@ -35,25 +36,25 @@ export class ContractClassStore {
   }
 
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
-    const restoredContractClass = this.#contractClasses.get(contractClass.id.toString());
+    const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.#contractClasses.delete(contractClass.id.toString());
       await this.#bytecodeCommitments.delete(contractClass.id.toString());
     }
   }
 
-  getContractClass(id: Fr): ContractClassPublic | undefined {
-    const contractClass = this.#contractClasses.get(id.toString());
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    const contractClass = await this.#contractClasses.getAsync(id.toString());
     return contractClass && { ...deserializeContractClassPublic(contractClass), id };
   }
 
-  getBytecodeCommitment(id: Fr): Fr | undefined {
-    const value = this.#bytecodeCommitments.get(id.toString());
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const value = await this.#bytecodeCommitments.getAsync(id.toString());
     return value === undefined ? undefined : Fr.fromBuffer(value);
   }
 
-  getContractClassIds(): Fr[] {
-    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
+  async getContractClassIds(): Promise<Fr[]> {
+    return (await toArray(this.#contractClasses.keysAsync())).map(key => Fr.fromHexString(key));
   }
 
   async addFunctions(
@@ -61,8 +62,8 @@ export class ContractClassStore {
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
     newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    await this.db.transaction(() => {
-      const existingClassBuffer = this.#contractClasses.get(contractClassId.toString());
+    await this.db.transactionAsync(async () => {
+      const existingClassBuffer = await this.#contractClasses.getAsync(contractClassId.toString());
       if (!existingClassBuffer) {
         throw new Error(`Unknown contract class ${contractClassId} when adding private functions to store`);
       }
@@ -83,9 +84,10 @@ export class ContractClassStore {
           ),
         ],
       };
-      void this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
+      await this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
     });
-    return Promise.resolve(true);
+
+    return true;
   }
 }
 

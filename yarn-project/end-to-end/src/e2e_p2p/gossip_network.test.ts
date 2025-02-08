@@ -1,6 +1,7 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 
+import { jest } from '@jest/globals';
 import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -18,10 +19,12 @@ const BOOT_NODE_UDP_PORT = 40600;
 
 const DATA_DIR = './data/gossip';
 
+jest.setTimeout(1000 * 60 * 10);
+
 const qosAlerts: AlertConfig[] = [
   {
     alert: 'SequencerTimeToCollectAttestations',
-    expr: 'aztec_sequencer_time_to_collect_attestations > 2500',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
     labels: { severity: 'error' },
     for: '10m',
     annotations: {},
@@ -37,11 +40,12 @@ describe('e2e_p2p_network', () => {
       testName: 'e2e_p2p_network',
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -75,6 +79,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,

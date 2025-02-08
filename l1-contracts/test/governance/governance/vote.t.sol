@@ -6,7 +6,7 @@ import {GovernanceBase} from "./base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 
 contract VoteTest is GovernanceBase {

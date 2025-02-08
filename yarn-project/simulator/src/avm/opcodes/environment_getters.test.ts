@@ -1,5 +1,4 @@
 import { GasFees } from '@aztec/circuits.js';
-import { FunctionSelector as FunctionSelectorType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -11,10 +10,9 @@ import { initContext, initExecutionEnvironment, initGlobalVariables } from '../f
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
+const address = await AztecAddress.random();
+const sender = await AztecAddress.random();
 describe('Environment getters', () => {
-  const address = AztecAddress.random();
-  const sender = AztecAddress.random();
-  const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
@@ -31,16 +29,16 @@ describe('Environment getters', () => {
     timestamp,
     gasFees,
   });
-  const env = initExecutionEnvironment({
-    address,
-    sender,
-    functionSelector,
-    transactionFee,
-    globals,
-    isStaticCall,
-  });
+
   let context: AvmContext;
-  beforeEach(() => {
+  beforeEach(async () => {
+    const env = initExecutionEnvironment({
+      address,
+      sender,
+      transactionFee,
+      globals,
+      isStaticCall,
+    });
     context = initContext({ env });
   });
 
@@ -63,7 +61,6 @@ describe('Environment getters', () => {
   describe.each([
     [EnvironmentVariable.ADDRESS, address.toField()],
     [EnvironmentVariable.SENDER, sender.toField()],
-    [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],

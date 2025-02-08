@@ -13,7 +13,13 @@ import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { mockGetBytecode, mockGetContractClass, mockGetContractInstance, mockTraceFork } from '../test_utils.js';
+import {
+  mockGetBytecode,
+  mockGetContractClass,
+  mockGetContractInstance,
+  mockNullifierExists,
+  mockTraceFork,
+} from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
 import { type Instruction } from './instruction.js';
@@ -114,15 +120,16 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
         ]),
       );
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
+      mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -165,15 +172,17 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      mockNullifierExists(worldStateDB, addr);
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
+      mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -250,14 +259,15 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      mockNullifierExists(worldStateDB, addr.toFr());
 
-      const contractClass = makeContractClassPublic(0, {
+      const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
 
       const instruction = new StaticCall(

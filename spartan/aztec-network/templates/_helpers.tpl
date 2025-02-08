@@ -50,6 +50,14 @@ app.kubernetes.io/name: {{ include "aztec-network.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Aztec Image
+*/}}
+{{- define "aztec-network.image" -}}
+image: {{ .Values.images.aztec.image }}
+imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+{{- end -}}
+
 
 
 {{- define "aztec-network.pxeUrl" -}}
@@ -64,32 +72,12 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 
+{{- define "aztec-network.blobSinkUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-blob-sink.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.blobSink.service.nodePort }}
+{{- end -}}
+
 {{- define "aztec-network.metricsHost" -}}
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorLogsEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/logs
-{{- end -}}
-{{- end -}}
 {{- end -}}
 
 {{- define "helpers.flag" -}}
@@ -153,10 +141,22 @@ Service Address Setup Container
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
+    - name: TELEMETRY
+      value: "{{ .Values.telemetry.enabled }}"
+    - name: OTEL_COLLECTOR_ENDPOINT
+      value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.externalHost }}"
+      value: "{{ .Values.ethereum.execution.externalHost }}"
     - name: ETHEREUM_PORT
-      value: "{{ .Values.ethereum.service.port }}"
+      value: "{{ .Values.ethereum.execution.service.port }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
+      value: "{{ .Values.ethereum.beacon.externalHost }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+      value: "{{ .Values.ethereum.beacon.apiKey }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+      value: "{{ .Values.ethereum.beacon.apiKeyHeader }}"
+    - name: ETHEREUM_CONSENSUS_PORT
+      value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
@@ -167,6 +167,8 @@ Service Address Setup Container
       value: "{{ .Values.proverNode.service.nodePort }}"
     - name: PROVER_BROKER_PORT
       value: "{{ .Values.proverBroker.service.nodePort }}"
+    - name: USE_GCLOUD_OBSERVABILITY
+      value: "{{ .Values.telemetry.useGcloudObservability }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:
@@ -190,6 +192,27 @@ affinity:
               values:
                 - validator
                 - boot-node
-                - prover
+                - prover-node
+                - prover-broker
         topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
+{{- end -}}
+
+{{- define "aztec-network.gcpLocalSsd" -}}
+nodeSelector:
+  local-ssd: "true"
+{{- end -}}
+
+{{- define "aztec-network.waitForEthereum" -}}
+if [ -n "${EXTERNAL_ETHEREUM_HOST}" ]; then
+  export ETHEREUM_HOST="${EXTERNAL_ETHEREUM_HOST}"
+fi
+echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
+until curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+  ${ETHEREUM_HOST} | grep 0x; do
+  echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+  sleep 5
+done
+echo "Ethereum node is ready!"
 {{- end -}}

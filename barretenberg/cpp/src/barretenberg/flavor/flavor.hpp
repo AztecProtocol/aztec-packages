@@ -98,6 +98,29 @@ class PrecomputedEntitiesBase {
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
 };
+// Specifies the regions of the execution trace containing non-trivial wire values
+struct ActiveRegionData {
+    void add_range(const size_t start, const size_t end)
+    {
+        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        ranges.emplace_back(start, end);
+        for (size_t i = start; i < end; ++i) {
+            idxs.push_back(i);
+        }
+        current_end = end;
+    }
+
+    std::vector<std::pair<size_t, size_t>> get_ranges() const { return ranges; }
+    size_t get_idx(const size_t idx) const { return idxs[idx]; }
+    std::pair<size_t, size_t> get_range(const size_t idx) const { return ranges.at(idx); }
+    size_t size() const { return idxs.size(); }
+    size_t num_ranges() const { return ranges.size(); }
+
+  private:
+    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
+    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+    size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
+};
 
 /**
  * @brief Base proving key class.
@@ -123,8 +146,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges of the form [start, end) over which the execution trace is "active"
-    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
@@ -220,15 +242,11 @@ auto get_unshifted_then_shifted(const auto& all_entities)
  * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are as constants, not as variables..
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_relation_length()
+template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
     }(seq);
 }
 
@@ -237,15 +255,11 @@ template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_
  * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are regarded as variables.
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_total_relation_length()
+template <typename Tuple> constexpr size_t compute_max_total_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_TOTAL_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
     }(seq);
 }
 
@@ -322,14 +336,17 @@ template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 // Forward declare honk flavors
 namespace bb {
 class UltraFlavor;
-class UltraFlavorWithZK;
+class UltraZKFlavor;
 class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
+class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
+namespace avm {
 class AvmFlavor;
+}
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
@@ -359,10 +376,10 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
@@ -394,6 +411,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
+// These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 
@@ -401,8 +420,9 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraKeccakZKFlavor,
                                                            UltraRollupFlavor,
-                                                           UltraFlavorWithZK,
+                                                           UltraZKFlavor,
                                                            MegaFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
@@ -414,8 +434,6 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                             MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template <typename T>
-concept FlavorHasZK =  T::HasZK;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {

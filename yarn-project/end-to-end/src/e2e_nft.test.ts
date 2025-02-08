@@ -1,5 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr } from '@aztec/aztec.js';
-import { NFTContract } from '@aztec/noir-contracts.js';
+import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 
 import { jest } from '@jest/globals';
 

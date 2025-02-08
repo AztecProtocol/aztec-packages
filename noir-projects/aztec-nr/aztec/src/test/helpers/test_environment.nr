@@ -71,8 +71,8 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    pub unconstrained fn create_account(_self: Self) -> AztecAddress {
-        let test_account = cheatcodes::create_account();
+    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
+        let test_account = cheatcodes::create_account(secret);
         test_account.address
     }
 
@@ -148,11 +148,11 @@ impl TestEnvironment {
         let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
         note.set_header(header);
         let note_hash = note.compute_note_hash();
-        let serialized_note = Note::serialize_content(*note);
+        let packed_content = Note::pack_content(*note);
         notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
-            serialized_note,
+            packed_content,
             note_hash,
             note_hash_counter,
         );

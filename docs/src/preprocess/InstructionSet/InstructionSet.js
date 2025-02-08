@@ -532,25 +532,6 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = field`",
   },
   {
-    id: "functionselector",
-    Name: "`FUNCTIONSELECTOR`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.functionSelector`",
-    Summary:
-      "Get the function selector of the contract function being executed",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
-  },
-  {
     id: "transactionfee",
     Name: "`TRANSACTIONFEE`",
     Category: "Execution Environment",

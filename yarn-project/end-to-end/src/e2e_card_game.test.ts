@@ -3,8 +3,8 @@ import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
-  type DebugLogger,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
   computeAppNullifierSecretKey,
@@ -67,7 +67,7 @@ describe('e2e_card_game', () => {
   jest.setTimeout(TIMEOUT);
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let wallets: AccountWallet[];
@@ -85,10 +85,10 @@ describe('e2e_card_game', () => {
   let contractAsSecondPlayer: CardGameContract;
   let contractAsThirdPlayer: CardGameContract;
 
-  const getPackedCards = (accountIndex: number, seed: bigint): Card[] => {
+  const getPackedCards = async (accountIndex: number, seed: bigint): Promise<Card[]> => {
     // First we get the app nullifier secret key for the account
     const masterNullifierSecretKey = masterNullifierSecretKeys[accountIndex];
-    const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
+    const appNullifierSecretKey = await computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
     // Then we compute the mix from it and hash it to get the random bytes the same way as in the contract
     const mix = appNullifierSecretKey.toBigInt() + seed;
     const randomBytes = sha256(toBufferLE(mix, 32));
@@ -107,19 +107,24 @@ describe('e2e_card_game', () => {
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
-    const secretKeysToRegister = INITIAL_TEST_SECRET_KEYS.filter(key => {
-      const publicKey = deriveKeys(key).publicKeys.masterIncomingViewingPublicKey;
+    const keyPairs = await Promise.all(
+      INITIAL_TEST_SECRET_KEYS.map(async sk => ({
+        sk,
+        pk: (await deriveKeys(sk)).publicKeys.masterIncomingViewingPublicKey,
+      })),
+    );
+    const secretKeysToRegister = keyPairs.filter(keyPair => {
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
-          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(publicKey);
+          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(keyPair.pk);
         }) == undefined
       );
     });
 
     for (let i = 0; i < secretKeysToRegister.length; i++) {
       logger.info(`Deploying account contract ${i}/${secretKeysToRegister.length}...`);
-      const encryptionPrivateKey = secretKeysToRegister[i];
-      const account = getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
+      const encryptionPrivateKey = secretKeysToRegister[i].sk;
+      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
       const wallet = await account.waitSetup({ interval: 0.1 });
       wallets.push(wallet);
     }
@@ -154,7 +159,7 @@ describe('e2e_card_game', () => {
     await contract.methods.buy_pack(seed).send().wait();
     // docs:end:send_tx
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
-    const expected = getPackedCards(0, seed);
+    const expected = await getPackedCards(0, seed);
     expect(boundedVecToArray(collection)).toMatchObject(expected);
   });
 

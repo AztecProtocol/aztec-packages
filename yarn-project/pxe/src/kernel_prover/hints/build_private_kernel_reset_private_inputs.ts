@@ -1,4 +1,4 @@
-import { type PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
+import { type PrivateCallExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,
@@ -37,13 +37,13 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types';
+import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
-  executionStack: PrivateExecutionResult[],
-  extractReadRequests: (execution: PrivateExecutionResult) => ReadRequest[],
+  executionStack: PrivateCallExecutionResult[],
+  extractReadRequests: (execution: PrivateCallExecutionResult) => ReadRequest[],
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
@@ -57,7 +57,7 @@ function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
   return async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
@@ -101,7 +101,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
-    private executionStack: PrivateExecutionResult[],
+    private executionStack: PrivateCallExecutionResult[],
     private noteHashNullifierCounterMap: Map<number, number>,
     private validationRequestsSplitCounter: number,
   ) {

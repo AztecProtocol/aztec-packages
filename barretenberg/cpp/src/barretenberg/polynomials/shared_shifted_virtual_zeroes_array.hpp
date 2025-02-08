@@ -85,7 +85,10 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
 
     T& operator[](size_t index)
     {
-        ASSERT(index >= start_ && index < end_);
+        if (index < start_ || index >= end_) {
+            vinfo("index = ", index, ", start_ = ", start_, ", end_ = ", end_);
+            ASSERT(false);
+        }
         return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]

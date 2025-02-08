@@ -163,6 +163,12 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting Polynomial shares the memory of that used to generate it
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
+
+    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
      * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
      * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
@@ -387,10 +393,6 @@ template <typename Fr> class Polynomial {
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
-
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.

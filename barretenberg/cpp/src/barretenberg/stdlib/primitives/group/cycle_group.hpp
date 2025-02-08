@@ -136,6 +136,7 @@ template <typename Builder> class cycle_group {
         std::optional<field_t> read(size_t index);
         size_t _table_bits;
         std::vector<field_t> slices;
+        std::vector<uint64_t> slices_native;
     };
 
     /**
@@ -165,11 +166,16 @@ template <typename Builder> class cycle_group {
      */
     struct straus_lookup_table {
       public:
+        static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
+                                                                      const Element& offset_generator,
+                                                                      size_t table_bits);
+
         straus_lookup_table() = default;
         straus_lookup_table(Builder* context,
                             const cycle_group& base_point,
                             const cycle_group& offset_generator,
-                            size_t table_bits);
+                            size_t table_bits,
+                            std::optional<std::span<AffineElement>> hints = std::nullopt);
         cycle_group read(const field_t& index);
         size_t _table_bits;
         Builder* _context;
@@ -204,17 +210,22 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
     cycle_group get_standard_form() const;
     void validate_is_on_curve() const;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_subtract(const cycle_group& other) const;
-    cycle_group checked_unconditional_add(const cycle_group& other) const;
-    cycle_group checked_unconditional_subtract(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other,
+                                       const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_add(const cycle_group& other,
+                                          const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_subtract(const cycle_group& other,
+                                               const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
     cycle_group operator-() const;

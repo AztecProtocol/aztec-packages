@@ -95,6 +95,16 @@ struct DatabusPropagationData {
         return os;
     };
 
+    // Construct an instance of this class with the default settings for a kernel circuit
+    static DatabusPropagationData kernel_default()
+    {
+        DatabusPropagationData data;
+        data.kernel_return_data_public_input_idx = 0; // kernel return data commitment is first public input
+        data.app_return_data_public_input_idx = 8;    // followed by app return data commitment
+        data.is_kernel = true;
+        return data;
+    }
+
     MSGPACK_FIELDS(app_return_data_public_input_idx, kernel_return_data_public_input_idx, is_kernel);
 };
 

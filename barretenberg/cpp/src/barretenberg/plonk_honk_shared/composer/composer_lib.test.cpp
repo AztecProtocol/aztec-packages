@@ -14,7 +14,7 @@ class ComposerLibTests : public ::testing::Test {
     using FF = typename Flavor::FF;
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 /**
@@ -43,8 +43,9 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     auto accumulators = plookup::get_lookup_accumulators(UINT32_XOR, left, right, /*is_2_to_1_lookup*/ true);
     builder.create_gates_from_plookup_accumulators(UINT32_XOR, accumulators, left_idx, right_idx);
 
-    EXPECT_EQ(builder.lookup_tables.size(), 1);       // we only used a single table
-    EXPECT_EQ(builder.lookup_tables[0].size(), 4096); // table has size 64*64 (6 bit operands)
+    EXPECT_EQ(builder.lookup_tables.size(), 2);       // we only used two tables, first for 6 bits, second for 2 bits
+    EXPECT_EQ(builder.lookup_tables[0].size(), 4096); // first table has size 64*64 (6 bit operands)
+    EXPECT_EQ(builder.lookup_tables[1].size(), 16);   // first table has size 4*4 (2 bit operands)
 
     size_t circuit_size = 8192;
 
@@ -55,17 +56,21 @@ TEST_F(ComposerLibTests, LookupReadCounts)
 
     // The table polys are constructed at the bottom of the trace, thus so to are the counts/tags
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t offset = circuit_size - builder.get_tables_size();
+    size_t offset = builder.blocks.lookup.trace_offset;
 
     // The uint32 XOR lookup table is constructed for 6 bit operands via double for loop that iterates through the left
     // operand externally (0 to 63) then the right operand internally (0 to 63). Computing (1 XOR 5) will thus result in
-    // 1 lookup from the (1*64 + 5)th index in the table and 5 lookups from the (0*64 + 0)th index (for the remaining 5
-    // limbs that are all 0). The counts and tags at all other indices should be zero.
+    // 1 lookup from the (1*64 + 5)th index in the table and 4 lookups from the (0*64 + 0)th index (for the remaining 4
+    // 6-bits limbs  that are all 0) and one lookup from second table from the (64 * 64 + 0) index (for last 2 bits).
+    // The counts and tags at all other indices should be zero.
     for (auto [idx, count, tag] : zip_polys(read_counts, read_tags)) {
         if (idx == (0 + offset)) {
-            EXPECT_EQ(count, 5);
+            EXPECT_EQ(count, 4);
             EXPECT_EQ(tag, 1);
         } else if (idx == (69 + offset)) {
+            EXPECT_EQ(count, 1);
+            EXPECT_EQ(tag, 1);
+        } else if (idx == (64 * 64 + offset)) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
         } else {

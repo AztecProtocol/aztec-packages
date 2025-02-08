@@ -26,6 +26,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
+        # This gets in the way of a valid designated initializer pattern (i.e. MyClass my_class{ .my_member = init_value })
+        add_compile_options(-Wno-missing-field-initializers)
     endif()
 endif()
 
@@ -58,14 +60,14 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
-  add_subdirectory(barretenberg/world_state_napi)
+  add_subdirectory(barretenberg/nodejs_module)
 endif()
 
-add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/bb11)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -79,6 +81,7 @@ add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
+add_subdirectory(barretenberg/lmdblib)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/plonk_honk_shared)
@@ -88,6 +91,7 @@ add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/srs)
+add_subdirectory(barretenberg/ultra_vanilla_client_ivc)
 add_subdirectory(barretenberg/stdlib)
 add_subdirectory(barretenberg/stdlib_circuit_builders)
 add_subdirectory(barretenberg/sumcheck)
@@ -95,11 +99,16 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
+add_subdirectory(barretenberg/vm2)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
+endif()
+
+if(SMT AND ACIR_FORMAL_PROOFS)
+    add_subdirectory(barretenberg/acir_formal_proofs)
 endif()
 
 add_subdirectory(barretenberg/benchmark)
@@ -140,6 +149,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
+    $<TARGET_OBJECTS:ultra_vanilla_client_ivc_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
@@ -166,11 +176,13 @@ set(BARRETENBERG_TARGET_OBJECTS
 if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
 endif()
 
 if(NOT WASM)
-    # enable merkle trees
+    # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
 endif()
 
 add_library(

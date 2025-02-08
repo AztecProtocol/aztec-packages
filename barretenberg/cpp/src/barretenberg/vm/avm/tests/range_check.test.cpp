@@ -14,7 +14,7 @@
 namespace tests_avm {
 
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmRangeCheck, shouldRangeCheck)
 {
@@ -74,7 +74,7 @@ TEST(AvmRangeCheck, shouldRangeCheck)
     std::cerr << "Done computing polynomials..." << std::endl;
 
     std::cerr << "Accumulating relations..." << std::endl;
-    using Relation = Avm_vm::range_check<FF>;
+    using Relation = avm::range_check<FF>;
 
     typename Relation::SumcheckArrayOfValuesOverSubrelations result;
     for (auto& r : result) {
@@ -83,7 +83,7 @@ TEST(AvmRangeCheck, shouldRangeCheck)
 
     // We set the conditions up there.
     for (size_t r = 0; r < num_rows; ++r) {
-        Relation::accumulate(result, polys.get_row(r), {}, 1);
+        Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
     }
 
     for (size_t j = 0; j < result.size(); ++j) {

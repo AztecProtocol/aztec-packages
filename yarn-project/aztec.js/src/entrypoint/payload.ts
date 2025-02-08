@@ -1,4 +1,4 @@
-import { FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { FunctionCall, HashedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -24,6 +24,8 @@ export type UserFeeOptions = {
   paymentMethod?: FeePaymentMethod;
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /** Percentage to pad the base fee by, if empty, defaults to 0.5 */
+  baseFeePadding?: number;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
   estimateGas?: boolean;
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
@@ -54,19 +56,22 @@ type EncodedFunctionCall = {
 
 /** Assembles an entrypoint payload */
 export abstract class EntrypointPayload {
-  #packedArguments: PackedValues[] = [];
-  #functionCalls: EncodedFunctionCall[] = [];
-  #nonce: Fr;
-  #generatorIndex: number;
+  protected constructor(
+    private functionCalls: EncodedFunctionCall[],
+    private _hashedArguments: HashedValues[],
+    private generatorIndex: number,
+    private _nonce: Fr,
+  ) {}
 
-  protected constructor(functionCalls: FunctionCall[], generatorIndex: number, nonce = Fr.random()) {
+  protected static async create(functionCalls: FunctionCall[]) {
+    const hashedArguments: HashedValues[] = [];
     for (const call of functionCalls) {
-      this.#packedArguments.push(PackedValues.fromValues(call.args));
+      hashedArguments.push(await HashedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */
-    this.#functionCalls = functionCalls.map((call, index) => ({
-      args_hash: this.#packedArguments[index].hash,
+    const encodedFunctionCalls = functionCalls.map((call, index) => ({
+      args_hash: hashedArguments[index].hash,
       function_selector: call.selector.toField(),
       target_address: call.to.toField(),
       is_public: call.type == FunctionType.PUBLIC,
@@ -74,8 +79,10 @@ export abstract class EntrypointPayload {
     }));
     /* eslint-enable camelcase */
 
-    this.#generatorIndex = generatorIndex;
-    this.#nonce = nonce;
+    return {
+      encodedFunctionCalls,
+      hashedArguments,
+    };
   }
 
   /* eslint-disable camelcase */
@@ -84,7 +91,7 @@ export abstract class EntrypointPayload {
    * @internal
    */
   get function_calls() {
-    return this.#functionCalls;
+    return this.functionCalls;
   }
   /* eslint-enable camelcase */
 
@@ -93,14 +100,14 @@ export abstract class EntrypointPayload {
    * @internal
    */
   get nonce() {
-    return this.#nonce;
+    return this._nonce;
   }
 
   /**
-   * The packed arguments for the function calls
+   * The hashed arguments for the function calls
    */
-  get packedArguments() {
-    return this.#packedArguments;
+  get hashedArguments() {
+    return this._hashedArguments;
   }
 
   /**
@@ -114,12 +121,12 @@ export abstract class EntrypointPayload {
    * @returns The hash of the payload
    */
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), this.#generatorIndex);
+    return poseidon2HashWithSeparator(this.toFields(), this.generatorIndex);
   }
 
   /** Serializes the function calls to an array of fields. */
   protected functionCallsToFields() {
-    return this.#functionCalls.flatMap(call => [
+    return this.functionCalls.flatMap(call => [
       call.args_hash,
       call.function_selector,
       call.target_address,
@@ -133,8 +140,9 @@ export abstract class EntrypointPayload {
    * @param functionCalls - The function calls to execute
    * @returns The execution payload
    */
-  static fromFunctionCalls(functionCalls: FunctionCall[]) {
-    return new AppEntrypointPayload(functionCalls, 0);
+  static async fromFunctionCalls(functionCalls: FunctionCall[]) {
+    const { encodedFunctionCalls, hashedArguments } = await this.create(functionCalls);
+    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, 0, Fr.random());
   }
 
   /**
@@ -143,12 +151,13 @@ export abstract class EntrypointPayload {
    * @param nonce - The nonce for the payload, used to emit a nullifier identifying the call
    * @returns The execution payload
    */
-  static fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>, nonce = Fr.random()) {
+  static async fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>, nonce = Fr.random()) {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
     }
     const paddedCalls = padArrayEnd(functionCalls, FunctionCall.empty(), APP_MAX_CALLS);
-    return new AppEntrypointPayload(paddedCalls, GeneratorIndex.SIGNATURE_PAYLOAD, nonce);
+    const { encodedFunctionCalls, hashedArguments } = await this.create(paddedCalls);
+    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, GeneratorIndex.SIGNATURE_PAYLOAD, nonce);
   }
 
   /**
@@ -162,7 +171,14 @@ export abstract class EntrypointPayload {
     const feePayer = await feeOpts?.paymentMethod.getFeePayer(feeOpts?.gasSettings);
     const isFeePayer = !!feePayer && feePayer.equals(sender);
     const paddedCalls = padArrayEnd(calls, FunctionCall.empty(), FEE_MAX_CALLS);
-    return new FeeEntrypointPayload(paddedCalls, GeneratorIndex.FEE_PAYLOAD, isFeePayer);
+    const { encodedFunctionCalls, hashedArguments } = await this.create(paddedCalls);
+    return new FeeEntrypointPayload(
+      encodedFunctionCalls,
+      hashedArguments,
+      GeneratorIndex.FEE_PAYLOAD,
+      Fr.random(),
+      isFeePayer,
+    );
   }
 }
 
@@ -177,8 +193,14 @@ class AppEntrypointPayload extends EntrypointPayload {
 class FeeEntrypointPayload extends EntrypointPayload {
   #isFeePayer: boolean;
 
-  constructor(functionCalls: FunctionCall[], generatorIndex: number, isFeePayer: boolean) {
-    super(functionCalls, generatorIndex);
+  constructor(
+    functionCalls: EncodedFunctionCall[],
+    hashedArguments: HashedValues[],
+    generatorIndex: number,
+    nonce: Fr,
+    isFeePayer: boolean,
+  ) {
+    super(functionCalls, hashedArguments, generatorIndex, nonce);
     this.#isFeePayer = isFeePayer;
   }
 
@@ -200,6 +222,12 @@ class FeeEntrypointPayload extends EntrypointPayload {
  * @param feePayload - A fee payload.
  * @returns A hash of a combined payload.
  */
-export function computeCombinedPayloadHash(appPayload: AppEntrypointPayload, feePayload: FeeEntrypointPayload): Fr {
-  return poseidon2HashWithSeparator([appPayload.hash(), feePayload.hash()], GeneratorIndex.COMBINED_PAYLOAD);
+export async function computeCombinedPayloadHash(
+  appPayload: AppEntrypointPayload,
+  feePayload: FeeEntrypointPayload,
+): Promise<Fr> {
+  return poseidon2HashWithSeparator(
+    [await appPayload.hash(), await feePayload.hash()],
+    GeneratorIndex.COMBINED_PAYLOAD,
+  );
 }

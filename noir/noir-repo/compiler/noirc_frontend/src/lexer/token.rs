@@ -25,7 +25,7 @@ pub enum BorrowedToken<'input> {
     Str(&'input str),
     /// the u8 is the number of hashes, i.e. r###..
     RawStr(&'input str, u8),
-    FmtStr(&'input str),
+    FmtStr(&'input [FmtStrFragment], u32 /* length */),
     Keyword(Keyword),
     IntType(IntType),
     AttributeStart {
@@ -91,6 +91,8 @@ pub enum BorrowedToken<'input> {
     RightBracket,
     /// ->
     Arrow,
+    /// =>
+    FatArrow,
     /// |
     Pipe,
     /// #
@@ -136,7 +138,7 @@ pub enum Token {
     Str(String),
     /// the u8 is the number of hashes, i.e. r###..
     RawStr(String, u8),
-    FmtStr(String),
+    FmtStr(Vec<FmtStrFragment>, u32 /* length */),
     Keyword(Keyword),
     IntType(IntType),
     AttributeStart {
@@ -212,6 +214,8 @@ pub enum Token {
     RightBracket,
     /// ->
     Arrow,
+    /// =>
+    FatArrow,
     /// |
     Pipe,
     /// #
@@ -255,7 +259,7 @@ pub fn token_to_borrowed_token(token: &Token) -> BorrowedToken<'_> {
         Token::Int(n) => BorrowedToken::Int(*n),
         Token::Bool(b) => BorrowedToken::Bool(*b),
         Token::Str(ref b) => BorrowedToken::Str(b),
-        Token::FmtStr(ref b) => BorrowedToken::FmtStr(b),
+        Token::FmtStr(ref b, length) => BorrowedToken::FmtStr(b, *length),
         Token::RawStr(ref b, hashes) => BorrowedToken::RawStr(b, *hashes),
         Token::Keyword(k) => BorrowedToken::Keyword(*k),
         Token::AttributeStart { is_inner, is_tag } => {
@@ -296,6 +300,7 @@ pub fn token_to_borrowed_token(token: &Token) -> BorrowedToken<'_> {
         Token::LeftBracket => BorrowedToken::LeftBracket,
         Token::RightBracket => BorrowedToken::RightBracket,
         Token::Arrow => BorrowedToken::Arrow,
+        Token::FatArrow => BorrowedToken::FatArrow,
         Token::Pipe => BorrowedToken::Pipe,
         Token::Pound => BorrowedToken::Pound,
         Token::Comma => BorrowedToken::Comma,
@@ -309,6 +314,35 @@ pub fn token_to_borrowed_token(token: &Token) -> BorrowedToken<'_> {
         Token::Invalid(c) => BorrowedToken::Invalid(*c),
         Token::Whitespace(ref s) => BorrowedToken::Whitespace(s),
         Token::UnquoteMarker(id) => BorrowedToken::UnquoteMarker(*id),
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+pub enum FmtStrFragment {
+    String(String),
+    Interpolation(String, Span),
+}
+
+impl Display for FmtStrFragment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FmtStrFragment::String(string) => {
+                // Undo the escapes when displaying the fmt string
+                let string = string
+                    .replace('{', "{{")
+                    .replace('}', "}}")
+                    .replace('\r', "\\r")
+                    .replace('\n', "\\n")
+                    .replace('\t', "\\t")
+                    .replace('\0', "\\0")
+                    .replace('\'', "\\'")
+                    .replace('\"', "\\\"");
+                write!(f, "{}", string)
+            }
+            FmtStrFragment::Interpolation(string, _span) => {
+                write!(f, "{{{}}}", string)
+            }
+        }
     }
 }
 
@@ -375,7 +409,7 @@ impl fmt::Display for Token {
             Token::Int(n) => write!(f, "{}", n),
             Token::Bool(b) => write!(f, "{b}"),
             Token::Str(ref b) => write!(f, "{b:?}"),
-            Token::FmtStr(ref b) => write!(f, "f{b:?}"),
+            Token::FmtStr(ref b, _length) => write!(f, "f{b:?}"),
             Token::RawStr(ref b, hashes) => {
                 let h: String = std::iter::once('#').cycle().take(hashes as usize).collect();
                 write!(f, "r{h}{b:?}{h}")
@@ -444,6 +478,7 @@ impl fmt::Display for Token {
             Token::LeftBracket => write!(f, "["),
             Token::RightBracket => write!(f, "]"),
             Token::Arrow => write!(f, "->"),
+            Token::FatArrow => write!(f, "=>"),
             Token::Pipe => write!(f, "|"),
             Token::Pound => write!(f, "#"),
             Token::Comma => write!(f, ","),
@@ -515,7 +550,7 @@ impl Token {
             | Token::Bool(_)
             | Token::Str(_)
             | Token::RawStr(..)
-            | Token::FmtStr(_) => TokenKind::Literal,
+            | Token::FmtStr(_, _) => TokenKind::Literal,
             Token::Keyword(_) => TokenKind::Keyword,
             Token::UnquoteMarker(_) => TokenKind::UnquoteMarker,
             Token::Quote(_) => TokenKind::Quote,
@@ -990,6 +1025,8 @@ pub enum Keyword {
     CtString,
     Dep,
     Else,
+    Enum,
+    EnumDefinition,
     Expr,
     Field,
     Fn,
@@ -1001,6 +1038,8 @@ pub enum Keyword {
     Impl,
     In,
     Let,
+    Loop,
+    Match,
     Mod,
     Module,
     Mut,
@@ -1047,6 +1086,8 @@ impl fmt::Display for Keyword {
             Keyword::CtString => write!(f, "CtString"),
             Keyword::Dep => write!(f, "dep"),
             Keyword::Else => write!(f, "else"),
+            Keyword::Enum => write!(f, "enum"),
+            Keyword::EnumDefinition => write!(f, "EnumDefinition"),
             Keyword::Expr => write!(f, "Expr"),
             Keyword::Field => write!(f, "Field"),
             Keyword::Fn => write!(f, "fn"),
@@ -1058,6 +1099,8 @@ impl fmt::Display for Keyword {
             Keyword::Impl => write!(f, "impl"),
             Keyword::In => write!(f, "in"),
             Keyword::Let => write!(f, "let"),
+            Keyword::Loop => write!(f, "loop"),
+            Keyword::Match => write!(f, "match"),
             Keyword::Mod => write!(f, "mod"),
             Keyword::Module => write!(f, "Module"),
             Keyword::Mut => write!(f, "mut"),
@@ -1107,6 +1150,8 @@ impl Keyword {
             "CtString" => Keyword::CtString,
             "dep" => Keyword::Dep,
             "else" => Keyword::Else,
+            "enum" => Keyword::Enum,
+            "EnumDefinition" => Keyword::EnumDefinition,
             "Expr" => Keyword::Expr,
             "Field" => Keyword::Field,
             "fn" => Keyword::Fn,
@@ -1118,6 +1163,8 @@ impl Keyword {
             "impl" => Keyword::Impl,
             "in" => Keyword::In,
             "let" => Keyword::Let,
+            "loop" => Keyword::Loop,
+            "match" => Keyword::Match,
             "mod" => Keyword::Mod,
             "Module" => Keyword::Module,
             "mut" => Keyword::Mut,

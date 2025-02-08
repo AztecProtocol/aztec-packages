@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
@@ -31,7 +31,7 @@ contract TestProofCommitmentEscrow is Test {
   }
 
   function setUp() public {
-    TOKEN = new TestERC20();
+    TOKEN = new TestERC20("test", "TEST", address(this));
     ESCROW = new ProofCommitmentEscrow(
       TOKEN, address(this), TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
     );

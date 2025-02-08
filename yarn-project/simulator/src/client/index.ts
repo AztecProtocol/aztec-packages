@@ -1,5 +1,14 @@
-export * from './simulator.js';
-export * from './db_oracle.js';
+export { AcirSimulator } from './simulator.js';
+export { DBOracle, ContractClassNotFoundError, ContractNotFoundError } from './db_oracle.js';
 export * from './pick_notes.js';
-export * from './execution_note_cache.js';
+export { ExecutionNoteCache } from './execution_note_cache.js';
 export { extractPrivateCircuitPublicInputs } from './private_execution.js';
+export { witnessMapToFields } from '../acvm/deserialize.js';
+export { toACVMWitness } from '../acvm/serialize.js';
+export { extractCallStack } from '../acvm/acvm.js';
+export { WASMSimulator } from '../providers/acvm_wasm.js';
+export { NoteData, TypedOracle } from '../acvm/oracle/typed_oracle.js';
+export { Oracle } from '../acvm/oracle/oracle.js';
+export { type SimulationProvider } from '../common/simulation_provider.js';
+export { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+export { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '../common/errors.js';

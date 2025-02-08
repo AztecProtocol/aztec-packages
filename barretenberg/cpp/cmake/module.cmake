@@ -204,6 +204,7 @@ function(barretenberg_module MODULE_NAME)
 
     file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
     if(FUZZING AND FUZZERS_SOURCE_FILES)
+        add_definitions(-DULTRA_FUZZ)
         foreach(FUZZER_SOURCE_FILE ${FUZZERS_SOURCE_FILES})
             get_filename_component(FUZZER_NAME_STEM ${FUZZER_SOURCE_FILE} NAME_WE)
             add_executable(

@@ -1,3 +1,4 @@
+{{- if .Values.network.public }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -56,3 +57,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "aztec-network.fullname" . }}-node
   namespace: {{ .Release.Namespace }}
+{{- end }}

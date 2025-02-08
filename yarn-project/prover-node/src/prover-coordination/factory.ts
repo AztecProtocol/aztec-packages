@@ -1,10 +1,19 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type ProverCoordination, type WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import {
+  P2PClientType,
+  type ProverCoordination,
+  type WorldStateSynchronizer,
+  createAztecNodeClient,
+  getComponentsVersionsFromConfig,
+} from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
+import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { createP2PClient } from '@aztec/p2p';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';
 
@@ -14,6 +23,7 @@ type ProverCoordinationDeps = {
   worldStateSynchronizer?: WorldStateSynchronizer;
   archiver?: Archiver | ArchiveSource;
   telemetry?: TelemetryClient;
+  epochCache?: EpochCache;
 };
 
 /**
@@ -26,7 +36,7 @@ export async function createProverCoordination(
   config: ProverNodeConfig & DataStoreConfig,
   deps: ProverCoordinationDeps,
 ): Promise<ProverCoordination> {
-  const log = createDebugLogger('aztec:createProverCoordination');
+  const log = createLogger('prover-node:prover-coordination');
 
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');
@@ -36,16 +46,18 @@ export async function createProverCoordination(
   if (config.p2pEnabled) {
     log.info('Using prover coordination via p2p');
 
-    if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry) {
+    if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry || !deps.epochCache) {
       throw new Error('Missing dependencies for p2p prover coordination');
     }
 
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     const p2pClient = await createP2PClient(
+      P2PClientType.Prover,
       config,
       deps.archiver,
       proofVerifier,
       deps.worldStateSynchronizer,
+      deps.epochCache,
       deps.telemetry,
     );
     await p2pClient.start();
@@ -55,7 +67,8 @@ export async function createProverCoordination(
 
   if (config.proverCoordinationNodeUrl) {
     log.info('Using prover coordination via node url');
-    return createAztecNodeClient(config.proverCoordinationNodeUrl);
+    const versions = getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
+    return createAztecNodeClient(config.proverCoordinationNodeUrl, versions, makeTracedFetch([1, 2, 3], false));
   } else {
     throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }

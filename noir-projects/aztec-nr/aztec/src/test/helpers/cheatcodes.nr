@@ -47,8 +47,8 @@ pub unconstrained fn direct_storage_write<let N: u32>(
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
-pub unconstrained fn create_account() -> TestAccount {
-    oracle_create_account()
+pub unconstrained fn create_account(secret: Field) -> TestAccount {
+    oracle_create_account(secret)
 }
 
 pub unconstrained fn add_account(secret: Field) -> TestAccount {
@@ -60,7 +60,7 @@ pub unconstrained fn derive_keys(secret: Field) -> PublicKeys {
 }
 
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {
-    orable_add_authwit(address, message_hash)
+    oracle_add_authwit(address, message_hash)
 }
 
 pub unconstrained fn assert_public_call_fails(
@@ -121,7 +121,7 @@ unconstrained fn direct_storage_write_oracle<let N: u32>(
 ) -> [Field; N] {}
 
 #[oracle(createAccount)]
-unconstrained fn oracle_create_account() -> TestAccount {}
+unconstrained fn oracle_create_account(secret: Field) -> TestAccount {}
 
 #[oracle(addAccount)]
 unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
@@ -130,7 +130,7 @@ unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
 unconstrained fn oracle_derive_keys(secret: Field) -> PublicKeys {}
 
 #[oracle(addAuthWitness)]
-unconstrained fn orable_add_authwit(address: AztecAddress, message_hash: Field) {}
+unconstrained fn oracle_add_authwit(address: AztecAddress, message_hash: Field) {}
 
 #[oracle(assertPublicCallFails)]
 unconstrained fn oracle_assert_public_call_fails(

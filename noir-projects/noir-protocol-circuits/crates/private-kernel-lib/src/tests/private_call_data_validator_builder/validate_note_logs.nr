@@ -16,7 +16,9 @@ fn validate_note_logs_random_note_hash_counter_fails() {
 
     builder.private_call.append_note_hashes_with_logs(2);
     // Tweak the note_hash_counter to not match any note hash's counter.
-    builder.private_call.private_logs.storage[1].inner.note_hash_counter += 100;
+    let mut note_hash = builder.private_call.private_logs.get(1);
+    note_hash.inner.note_hash_counter += 100;
+    builder.private_call.private_logs.set(1, note_hash);
 
     builder.validate();
 }

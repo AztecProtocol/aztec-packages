@@ -11,12 +11,28 @@ using namespace bb;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1148): logic in this file is incomplete. See issue for
 // details.
 
-ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
+std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
+                                                            const TraceSettings& trace_settings);
 
-void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app = 0);
+void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel);
 
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
-                                                           const size_t num_public_inputs);
+std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
+                                                  const size_t num_public_inputs,
+                                                  const size_t pub_inputs_offset);
+
+std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
+                                                const size_t num_public_inputs,
+                                                const size_t pub_inputs_offset);
+
+std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t dyadic_size,
+                                                                    const size_t num_public_inputs,
+                                                                    const size_t pub_inputs_offset);
+
+std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk();
+
+ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::QUEUE_TYPE type,
+                                                               const TraceSettings& trace_settings,
+                                                               const bool is_kernel);
 
 ClientIVC::MergeProof create_dummy_merge_proof();
 

@@ -471,7 +471,7 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
     using Fr = fr;
 
     auto P1 = G1::infinity();
-    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();

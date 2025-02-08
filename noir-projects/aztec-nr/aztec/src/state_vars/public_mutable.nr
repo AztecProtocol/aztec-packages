@@ -1,6 +1,6 @@
 use crate::context::{PublicContext, UnconstrainedContext};
 use crate::state_vars::storage::Storage;
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::traits::Packable;
 
 // docs:start:public_mutable_struct
 pub struct PublicMutable<T, Context> {
@@ -9,10 +9,14 @@ pub struct PublicMutable<T, Context> {
 }
 // docs:end:public_mutable_struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PublicMutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PublicMutable<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
-{}
+    T: Packable<N>,
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<T, Context> PublicMutable<T, Context> {
     // docs:start:public_mutable_struct_new
@@ -27,9 +31,9 @@ impl<T, Context> PublicMutable<T, Context> {
     // docs:end:public_mutable_struct_new
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, &mut PublicContext>
+impl<T, let T_PACKED_LEN: u32> PublicMutable<T, &mut PublicContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN>,
 {
     // docs:start:public_mutable_struct_read
     pub fn read(self) -> T {
@@ -44,9 +48,9 @@ where
     // docs:end:public_mutable_struct_write
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, UnconstrainedContext>
+impl<T, let T_PACKED_LEN: u32> PublicMutable<T, UnconstrainedContext>
 where
-    T: Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN>,
 {
     pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)

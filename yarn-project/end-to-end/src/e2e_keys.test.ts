@@ -19,7 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 
@@ -67,14 +67,14 @@ describe('Keys', () => {
     // need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial note.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
-      const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
+      const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
       const noteValue = 5;
       const noteOwner = account.getAddress();
-      const outgoingViewer = noteOwner; // Setting the outgoing viewer to owner to not have to bother with setting up another account.
+      const sender = noteOwner;
       const noteStorageSlot = 12;
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, outgoingViewer, noteStorageSlot).send().wait();
+      await testContract.methods.call_create_note(noteValue, noteOwner, sender, noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
@@ -94,10 +94,12 @@ describe('Keys', () => {
         block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
       );
       // 3. Derive all the possible nullifiers using nskApp
-      const derivedNullifiers = noteHashes.map(noteHash => {
-        const innerNullifier = poseidon2HashWithSeparator([noteHash, nskApp], GeneratorIndex.NOTE_NULLIFIER);
-        return siloNullifier(contractAddress, innerNullifier);
-      });
+      const derivedNullifiers = await Promise.all(
+        noteHashes.map(async noteHash => {
+          const innerNullifier = await poseidon2HashWithSeparator([noteHash, nskApp], GeneratorIndex.NOTE_NULLIFIER);
+          return siloNullifier(contractAddress, innerNullifier);
+        }),
+      );
       // 4. Count the number of derived nullifiers that are in the nullifiers array
       return derivedNullifiers.reduce((count, derived) => {
         if (nullifiers.some(nullifier => nullifier.equals(derived))) {
@@ -112,10 +114,10 @@ describe('Keys', () => {
     it('gets ovsk_app', async () => {
       // Derive the ovpk_m_hash from the account secret
       const ovskM = deriveMasterOutgoingViewingSecretKey(secret);
-      const ovpkMHash = derivePublicKeyFromSecretKey(ovskM).hash();
+      const ovpkMHash = await (await derivePublicKeyFromSecretKey(ovskM)).hash();
 
       // Compute the expected ovsk_app
-      const expectedOvskApp = computeAppSecretKey(ovskM, testContract.address, 'ov');
+      const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');
 
       // Get the ovsk_app via the test contract
       const ovskAppBigInt = await testContract.methods.get_ovsk_app(ovpkMHash).simulate();

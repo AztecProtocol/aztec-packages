@@ -23,7 +23,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { type ProofStore } from './proof_store.js';
+import { type ProofStore } from './proof_store/index.js';
 import { ProvingAgent } from './proving_agent.js';
 
 describe('ProvingAgent', () => {
@@ -32,6 +32,7 @@ describe('ProvingAgent', () => {
   let agent: ProvingAgent;
   let proofDB: jest.Mocked<ProofStore>;
   const agentPollIntervalMs = 1000;
+  let allowList: ProvingRequestType[];
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -50,7 +51,8 @@ describe('ProvingAgent', () => {
       saveProofOutput: jest.fn(),
     };
 
-    agent = new ProvingAgent(jobSource, proofDB, prover, [ProvingRequestType.BASE_PARITY]);
+    allowList = [ProvingRequestType.BASE_PARITY];
+    agent = new ProvingAgent(jobSource, proofDB, prover, allowList);
   });
 
   afterEach(async () => {
@@ -110,7 +112,7 @@ describe('ProvingAgent', () => {
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(proofDB.saveProofOutput).toHaveBeenCalledWith(job.id, job.type, result);
-    expect(jobSource.reportProvingJobSuccess).toHaveBeenCalledWith(job.id, 'output-uri');
+    expect(jobSource.reportProvingJobSuccess).toHaveBeenCalledWith(job.id, 'output-uri', { allowList });
   });
 
   it('reports errors to the job source', async () => {
@@ -122,7 +124,7 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, 'test error', false);
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, 'test error', false, { allowList });
   });
 
   it('sets the retry flag on when reporting an error', async () => {
@@ -135,7 +137,7 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, err.message, true);
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, err.message, true, { allowList });
   });
 
   it('reports jobs in progress to the job source', async () => {
@@ -222,6 +224,52 @@ describe('ProvingAgent', () => {
     secondProof.resolve(makeBaseParityResult());
   });
 
+  it('immediately starts working on the next job', async () => {
+    const job1 = makeBaseParityJob();
+    const job2 = makeBaseParityJob();
+
+    jest
+      .spyOn(prover, 'getBaseParityProof')
+      .mockResolvedValueOnce(makeBaseParityResult())
+      .mockResolvedValueOnce(makeBaseParityResult());
+
+    proofDB.getProofInput.mockResolvedValueOnce(job1.inputs).mockResolvedValueOnce(job2.inputs);
+    proofDB.saveProofOutput.mockResolvedValue('' as ProofUri);
+
+    jobSource.getProvingJob.mockResolvedValueOnce(job1);
+    jobSource.reportProvingJobSuccess.mockResolvedValueOnce(job2);
+
+    agent.start();
+
+    await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
+    await jest.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+    expect(jobSource.reportProvingJobSuccess).toHaveBeenCalledWith(job1.job.id, expect.any(String), { allowList });
+    expect(jobSource.reportProvingJobSuccess).toHaveBeenCalledWith(job2.job.id, expect.any(String), { allowList });
+  });
+
+  it('immediately starts working after reporting an error', async () => {
+    const job1 = makeBaseParityJob();
+    const job2 = makeBaseParityJob();
+
+    jest
+      .spyOn(prover, 'getBaseParityProof')
+      .mockRejectedValueOnce(new Error('test error'))
+      .mockResolvedValueOnce(makeBaseParityResult());
+
+    proofDB.getProofInput.mockResolvedValueOnce(job1.inputs).mockResolvedValueOnce(job2.inputs);
+    proofDB.saveProofOutput.mockResolvedValue('' as ProofUri);
+
+    jobSource.getProvingJob.mockResolvedValueOnce(job1);
+    jobSource.reportProvingJobError.mockResolvedValueOnce(job2);
+
+    agent.start();
+
+    await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job1.job.id, expect.any(String), false, { allowList });
+    expect(jobSource.reportProvingJobSuccess).toHaveBeenCalledWith(job2.job.id, expect.any(String), { allowList });
+  });
+
   it('reports an error if inputs cannot be loaded', async () => {
     const { job, time } = makeBaseParityJob();
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
@@ -230,7 +278,9 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, 'Failed to load proof inputs', true);
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, 'Failed to load proof inputs', true, {
+      allowList,
+    });
   });
 
   function makeBaseParityJob(): { job: ProvingJob; time: number; inputs: ProvingJobInputs } {
@@ -238,7 +288,7 @@ describe('ProvingAgent', () => {
     const inputs: ProvingJobInputs = { type: ProvingRequestType.BASE_PARITY, inputs: makeBaseParityInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
-      blockNumber: 1,
+      epochNumber: 1,
       type: ProvingRequestType.BASE_PARITY,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };

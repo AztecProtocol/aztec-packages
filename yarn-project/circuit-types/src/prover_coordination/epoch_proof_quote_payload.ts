@@ -1,3 +1,4 @@
+import type { EpochProofQuoteViemArgs } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -98,17 +99,21 @@ export class EpochProofQuotePayload {
       .transform(EpochProofQuotePayload.from);
   }
 
-  toViemArgs(): {
-    epochToProve: bigint;
-    validUntilSlot: bigint;
-    bondAmount: bigint;
-    prover: `0x${string}`;
-    basisPointFee: number;
-  } {
+  toViemArgs(): EpochProofQuoteViemArgs {
     return {
       epochToProve: this.epochToProve,
       validUntilSlot: this.validUntilSlot,
       bondAmount: this.bondAmount,
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  toInspect() {
+    return {
+      epochToProve: Number(this.epochToProve),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
       prover: this.prover.toString(),
       basisPointFee: this.basisPointFee,
     };

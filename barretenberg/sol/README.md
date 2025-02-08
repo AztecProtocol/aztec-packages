@@ -4,13 +4,13 @@
 
 This folder contains verifier contracts and testing harnesses that are used by [Noir, our Zero-Knowledge Programming Language](https://github.com/noir-lang/noir).
 
-The implementations maintain the same interface, regardless of the verifier flavour (Standard, Ultra), this should enable upstream implementations to be "plug-and-play".
+The implementations maintain the same interface, regardless of the verifier flavor (Standard, Ultra), this should enable upstream implementations to be "plug-and-play".
 
 The verifier will follow an overall architecture below, consisting of 3 contracts/libraries. Namely, the verifier algorithm (stable across circuits), the verification key (circuit dependent) and then the "verifier instance", a base that reads from the verification key and uses the key's values in the verification algorithm. The main advantage of this design is that we can generate verification key's per circuit and plug them into a general verification algorithm.
 
 ![Verifier architecture](./figures/verifier.png)
 
-The verification key is currently generated via [Barretenberg](https://github.com/AztecProtocol/barretenberg/blob/master/cpp/src/aztec/plonk_honk_shared/verification_key/sol_gen.hpp), Aztec's backend for generating proofs.
+The verification key is currently generated via [Barretenberg](https://github.com/AztecProtocol/barretenberg/blob/master/cpp/src/barretenberg/plonk/proof_system/verification_key/sol_gen.hpp), Aztec's backend for generating proofs.
 
 ## Current implementations
 

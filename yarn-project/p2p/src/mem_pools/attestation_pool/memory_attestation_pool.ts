@@ -1,6 +1,6 @@
 import { type BlockAttestation } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { createLogger } from '@aztec/foundation/log';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
@@ -10,7 +10,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:attestation_pool')) {
+  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:attestation_pool')) {
     this.attestations = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
@@ -26,13 +26,13 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
       const slotNumber = attestation.payload.header.globalVariables.slotNumber;
 
       const proposalId = attestation.archive.toString();
-      const address = attestation.getSender();
+      const address = await attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
@@ -105,7 +105,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       const slotNumber = attestation.payload.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
@@ -113,7 +113,7 @@ export class InMemoryAttestationPool implements AttestationPool {
         const proposalId = attestation.archive.toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
-          const address = attestation.getSender();
+          const address = await attestation.getSender();
           proposalAttestationMap.delete(address.toString());
           this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
         }

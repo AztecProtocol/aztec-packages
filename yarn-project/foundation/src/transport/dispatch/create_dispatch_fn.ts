@@ -1,6 +1,6 @@
 import { format } from 'util';
 
-import { createDebugLogger } from '../../log/index.js';
+import { createLogger } from '../../log/index.js';
 
 /**
  * Represents a message object for dispatching function calls.
@@ -26,7 +26,7 @@ export interface DispatchMsg {
  * @param log - Optional logging function for debugging purposes.
  * @returns A dispatch function that accepts a DispatchMsg object and calls the target's method with provided arguments.
  */
-export function createDispatchFn(targetFn: () => any, log = createDebugLogger('aztec:foundation:dispatch')) {
+export function createDispatchFn(targetFn: () => any, log = createLogger('foundation:dispatch')) {
   return async ({ fn, args }: DispatchMsg) => {
     const target = targetFn();
     log.debug(format(`dispatching to ${target}: ${fn}`, args));

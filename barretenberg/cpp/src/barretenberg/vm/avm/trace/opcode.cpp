@@ -93,6 +93,10 @@ std::string to_string(OpCode opcode)
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
+    case OpCode::RETURNDATASIZE:
+        return "RETURNDATASIZE";
+    case OpCode::RETURNDATACOPY:
+        return "RETURNDATACOPY";
     // Machine State
     // Machine State - Internal Control Flow
     case OpCode::JUMP_32:

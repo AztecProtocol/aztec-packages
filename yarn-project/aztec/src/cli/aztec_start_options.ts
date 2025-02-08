@@ -1,12 +1,8 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
-import { sequencerClientConfigMappings } from '@aztec/aztec-node';
-import { botConfigMappings } from '@aztec/bot';
-import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/circuit-types';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
+import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
+import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
   type EnvVar,
@@ -14,13 +10,19 @@ import {
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
-import { proverNodeConfigMappings } from '@aztec/prover-node';
-import { allPxeConfigMappings } from '@aztec/pxe';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
+import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
+import { proverNodeConfigMappings } from '@aztec/prover-node/config';
+import { allPxeConfigMappings } from '@aztec/pxe/config';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { defaultMnemonic } from '../sandbox.js';
+import { DefaultMnemonic } from '../mnemonic.js';
 
 // Define an interface for options
 export interface AztecStartOption {
@@ -70,9 +72,9 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       ...booleanConfigHelper(true),
     },
     {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
+      flag: '--sandbox.noPXE',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
       ...booleanConfigHelper(),
     },
   ],
@@ -108,7 +110,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--l1-mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used if no publisher private keys are provided',
-      defaultValue: defaultMnemonic,
+      defaultValue: DefaultMnemonic,
       envVar: 'MNEMONIC',
     },
   ],
@@ -142,6 +144,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',
@@ -244,6 +252,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
+  BLOB_SINK: [
+    {
+      flag: '--blob-sink',
+      description: 'Starts Aztec Blob Sink with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('blobSink', blobSinkConfigMappings),
+  ],
   'PROVER NODE': [
     {
       flag: '--prover-node',
@@ -323,5 +340,27 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
+  ],
+  FAUCET: [
+    {
+      flag: '--faucet',
+      description: 'Starts the Aztec faucet',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServer',
+      description: 'Starts a simple HTTP server to access the faucet',
+      defaultValue: true,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServerPort <value>',
+      description: 'The port on which to start the api server on',
+      defaultValue: 8080,
+      envVar: undefined,
+      parseVal: val => parseInt(val, 10),
+    },
+    ...getOptions('faucet', faucetConfigMapping),
   ],
 };

@@ -6,25 +6,29 @@ import { MerkleTree } from './merkle_tree.js';
  * Merkle tree calculator.
  */
 export class MerkleTreeCalculator {
-  private zeroHashes: Buffer[];
-  private hasher: (left: Buffer, right: Buffer) => Buffer;
-
-  constructor(
+  private constructor(
     private height: number,
-    zeroLeaf = Buffer.alloc(32),
-    hasher = (left: Buffer, right: Buffer) => pedersenHash([left, right]).toBuffer(),
+    private zeroHashes: Buffer[],
+    private hasher: (left: Buffer, right: Buffer) => Promise<Buffer>,
   ) {
     this.hasher = hasher;
-    this.zeroHashes = Array.from({ length: height }).reduce(
-      (acc: Buffer[], _, i) => [...acc, this.hasher(acc[i], acc[i])],
-      [zeroLeaf],
-    );
   }
 
-  computeTree(leaves: Buffer[] = []): MerkleTree {
+  static async create(
+    height: number,
+    zeroLeaf = Buffer.alloc(32),
+    hasher = async (left: Buffer, right: Buffer) => (await pedersenHash([left, right])).toBuffer(),
+  ) {
+    const zeroHashes = [zeroLeaf];
+    for (let i = 0; i < height; i++) {
+      zeroHashes.push(await hasher(zeroHashes[i], zeroHashes[i]));
+    }
+    return new MerkleTreeCalculator(height, zeroHashes, hasher);
+  }
+
+  async computeTree(leaves: Buffer[] = []): Promise<MerkleTree> {
     if (leaves.length === 0) {
-      // TODO(#4425): We should be returning a number of nodes that matches the tree height.
-      return new MerkleTree(this.height, [this.zeroHashes[this.zeroHashes.length - 1]]);
+      leaves = new Array(2 ** this.height).fill(this.zeroHashes[0]);
     }
 
     let result = leaves.slice();
@@ -35,7 +39,7 @@ export class MerkleTreeCalculator {
       for (let j = 0; j < leaves.length / 2; ++j) {
         const l = leaves[j * 2];
         const r = leaves[j * 2 + 1] || this.zeroHashes[i];
-        newLeaves[j] = this.hasher(l, r);
+        newLeaves[j] = await this.hasher(l, r);
       }
       result = result.concat(new Array(numLeaves - leaves.length).fill(this.zeroHashes[i]), newLeaves);
       leaves = newLeaves;
@@ -44,7 +48,7 @@ export class MerkleTreeCalculator {
     return new MerkleTree(this.height, result);
   }
 
-  computeTreeRoot(leaves: Buffer[] = []): Buffer {
+  async computeTreeRoot(leaves: Buffer[] = []): Promise<Buffer> {
     if (leaves.length === 0) {
       return this.zeroHashes[this.zeroHashes.length - 1];
     }
@@ -56,7 +60,7 @@ export class MerkleTreeCalculator {
       for (; j < leaves.length / 2; ++j) {
         const l = leaves[j * 2];
         const r = leaves[j * 2 + 1] || this.zeroHashes[i];
-        leaves[j] = this.hasher(l, r);
+        leaves[j] = await this.hasher(l, r);
       }
       leaves = leaves.slice(0, j);
     }

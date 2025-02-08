@@ -2,29 +2,11 @@
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
-
-template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    PROFILE_THIS_NAME("populate_public_inputs_block");
-
-    // Update the public inputs block
-    for (const auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
 
 template <class Flavor>
 void TraceToPolynomials<Flavor>::populate(Builder& builder,
@@ -88,11 +70,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // Complete the public inputs execution trace block from builder.public_inputs
-        populate_public_inputs_block(builder);
-    }
-
     TraceData trace_data{ builder, proving_key };
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
@@ -102,9 +79,10 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraFlavor<Flavor>) {
+        if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
+            PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
-                proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+                proving_key.active_region_data.add_range(offset, offset + block.size());
             }
         }
 
@@ -150,6 +128,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);
     }
+
     return trace_data;
 }
 
@@ -174,7 +153,9 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 }
 
 template class TraceToPolynomials<UltraFlavor>;
+template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
+template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;

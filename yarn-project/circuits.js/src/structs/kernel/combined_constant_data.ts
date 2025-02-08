@@ -5,8 +5,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { BlockHeader } from '../block_header.js';
 import { GlobalVariables } from '../global_variables.js';
-import { Header } from '../header.js';
 import { TxContext } from '../tx_context.js';
 import { type TxConstantData } from './tx_constant_data.js';
 
@@ -16,7 +16,7 @@ import { type TxConstantData } from './tx_constant_data.js';
 export class CombinedConstantData {
   constructor(
     /** Header of a block whose state is used during execution (not the block the transaction is included in). */
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     /**
      * Context of the transaction.
      *
@@ -51,7 +51,7 @@ export class CombinedConstantData {
   static get schema() {
     return z
       .object({
-        historicalHeader: Header.schema,
+        historicalHeader: BlockHeader.schema,
         txContext: TxContext.schema,
         vkTreeRoot: schemas.Fr,
         protocolContractTreeRoot: schemas.Fr,
@@ -103,7 +103,7 @@ export class CombinedConstantData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedConstantData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedConstantData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -114,7 +114,7 @@ export class CombinedConstantData {
   static fromFields(fields: Fr[] | FieldReader): CombinedConstantData {
     const reader = FieldReader.asReader(fields);
     return new CombinedConstantData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       reader.readField(),
       reader.readField(),
@@ -123,6 +123,6 @@ export class CombinedConstantData {
   }
 
   static empty() {
-    return new CombinedConstantData(Header.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO, GlobalVariables.empty());
+    return new CombinedConstantData(BlockHeader.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO, GlobalVariables.empty());
   }
 }

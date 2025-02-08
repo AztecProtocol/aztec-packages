@@ -22,7 +22,7 @@ Some of the info we need to populate this document might have already been writt
 
 ## Diagrams
 
-To increase the probability of diagrams being up to date we encourage you to write them in `mermaid`. Mermaid is a markdown-like language for generating diagrams and is supported by Docusaurus, so it will be rendered automatically for you.
+To increase the probability of diagrams being up-to-date we encourage you to write them in `mermaid`. Mermaid is a markdown-like language for generating diagrams and is supported by Docusaurus, so it will be rendered automatically for you.
 You simply create a codeblock specifying the language as `mermaid` and write your diagram in the codeblock. For example:
 
 ````txt
@@ -87,7 +87,7 @@ classDiagram
 
 If mermaid doesn't cover your case, please add both the rendered image and the source code to the documentation. Most of the tools for diagramming can export a non-rendered representation that can then be updated by other people. Please name it such that it is clear what tool was used.
 
-This should allow us to keep the diagrams up to date, by allowing others to update them.
+This should allow us to keep the diagrams up-to-date, by allowing others to update them.
 
 ## For each protocol feature
 

@@ -1,0 +1,16 @@
+network:
+  public: true
+
+validator:
+  replicas: 1
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 10

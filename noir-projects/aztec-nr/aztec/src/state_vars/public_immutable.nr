@@ -1,14 +1,38 @@
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
     state_vars::storage::Storage,
+    utils::with_hash::WithHash,
 };
-use dep::protocol_types::{
-    constants::INITIALIZATION_SLOT_SEPARATOR,
-    traits::{Deserialize, Serialize},
-};
+use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Packable};
 
 /// Stores an immutable value in public state which can be read from public, private and unconstrained execution
 /// contexts.
+///
+/// Leverages `WithHash<T>` to enable efficient private reads of public storage. `WithHash` wrapper allows for
+/// efficient reads by verifying large values through a single hash check and then proving inclusion only of the hash
+/// in the public storage. This reduces the number of required tree inclusion proofs from O(M) to O(1).
+///
+/// This is valuable when T packs to multiple fields, as it maintains "almost constant" verification overhead
+/// regardless of the original data size.
+///
+/// # Optimizing private reads in your contract
+/// Given that reading T from public immutable in private has "almost constant" constraints cost for different sizes
+/// of T it is recommended to group multiple values into a single struct when they are being read together. This can
+/// typically be some kind of configuration set up during contract initialization. E.g.:
+///
+/// ```noir
+/// use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
+/// use std::meta::derive;
+///
+/// #[derive(Eq, Packable)]
+/// pub struct Config \{
+///     pub address_1: AztecAddress,
+///     pub value_1: U128,
+///     pub value_2: u64,
+///     ...
+/// }
+/// ```
+///
 // docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,
@@ -16,10 +40,16 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
+/// `WithHash<T>` stores both the packed value (using N fields) and its hash (1 field), requiring N = M + 1 total
+/// fields.
+impl<T, Context, let M: u32, let N: u32> Storage<N> for PublicImmutable<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
-{}
+    WithHash<T, M>: Packable<N>,
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<T, Context> PublicImmutable<T, Context> {
     // docs:start:public_immutable_struct_new
@@ -34,9 +64,9 @@ impl<T, Context> PublicImmutable<T, Context> {
     // docs:end:public_immutable_struct_new
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PublicContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN> + Eq,
 {
     // docs:start:public_immutable_struct_write
     pub fn initialize(self, value: T) {
@@ -47,41 +77,36 @@ where
 
         // We populate the initialization slot with a non-zero value to indicate that the struct is initialized
         self.context.storage_write(initialization_slot, 0xdead);
-        self.context.storage_write(self.storage_slot, value);
+        self.context.storage_write(self.storage_slot, WithHash::new(value));
     }
     // docs:end:public_immutable_struct_write
 
     // Note that we don't access the context, but we do call oracles that are only available in public
     // docs:start:public_immutable_struct_read
     pub fn read(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        WithHash::public_storage_read(*self.context, self.storage_slot)
     }
     // docs:end:public_immutable_struct_read
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN> + Eq,
 {
     pub unconstrained fn read(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        WithHash::unconstrained_public_storage_read(self.context, self.storage_slot)
     }
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
+impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
+    T: Packable<T_PACKED_LEN> + Eq,
 {
     pub fn read(self) -> T {
-        let header = self.context.get_header();
-        let mut fields = [0; T_SERIALIZED_LEN];
-
-        for i in 0..fields.len() {
-            fields[i] = header.public_storage_historical_read(
-                self.storage_slot + i as Field,
-                (*self.context).this_address(),
-            );
-        }
-        T::deserialize(fields)
+        WithHash::historical_public_storage_read(
+            self.context.get_block_header(),
+            self.context.this_address(),
+            self.storage_slot,
+        )
     }
 }

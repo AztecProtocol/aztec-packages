@@ -8,18 +8,17 @@ use dep::aztec::{
     },
     oracle::random::random,
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 
-global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
+pub(crate) global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
-// ValueNote is used as fn parameter in the Claim contract, so it has to implement the Serialize trait.
-// It is important that the order of these annotations is preserved so that derive(Serialize) runs AFTER the note macro, which injects the note header.
 #[note]
-#[derive(Serialize)]
 pub struct ValueNote {
     value: Field,
     owner: AztecAddress,
@@ -58,11 +57,12 @@ impl NullifiableNote for ValueNote {
 
 impl ValueNote {
     pub fn new(value: Field, owner: AztecAddress) -> Self {
-        // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
-        // malicious sender could use non-random values to make the note less private. But they already know the full
-        // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
-        // therefore assume that the sender will cooperate in the random value generation.
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
+
         let header = NoteHeader::empty();
         ValueNote { value, owner, randomness, header }
     }

@@ -5,7 +5,7 @@ mod test;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Auth {
+pub contract Auth {
     use dep::aztec::{
         macros::{functions::{initializer, private, public, view}, storage::storage},
         protocol_types::address::AztecAddress,

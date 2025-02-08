@@ -3,7 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GlobalVariables } from '../global_variables.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 
 /**
  * Data which is forwarded through the base rollup circuits unchanged.

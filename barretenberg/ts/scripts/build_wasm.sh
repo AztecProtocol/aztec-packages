@@ -1,5 +1,9 @@
 #!/bin/sh
+# Builds the wasm and copies it into it's location in dest.
+# If you want to build the wasm with debug info for stack traces, use NO_STRIP=1.
 set -e
+
+cd $(dirname $0)/..
 
 if [ -z "$SKIP_CPP_BUILD" ]; then
   # Build the wasms and strip debug symbols.
@@ -8,7 +12,7 @@ if [ -z "$SKIP_CPP_BUILD" ]; then
   if [ -z "$SKIP_ST_BUILD" ]; then
     cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
   fi
-  ./scripts/strip-wasm.sh
+  [ -z "$NO_STRIP" ] && ./scripts/strip-wasm.sh
   ./scripts/gzip-wasm.sh
   cd ../ts
 fi

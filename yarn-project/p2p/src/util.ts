@@ -1,9 +1,10 @@
-import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
 import { type PeerId, type PrivateKey } from '@libp2p/interface';
+import { type ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import type { Libp2p } from 'libp2p';
@@ -13,6 +14,9 @@ import { type P2PConfig } from './config.js';
 export interface PubSubLibp2p extends Libp2p {
   services: {
     pubsub: GossipSub;
+    components: {
+      connectionManager: ConnectionManager;
+    };
   };
 }
 
@@ -153,14 +157,17 @@ export async function configureP2PClientAddresses(
  * 3. If not, create a new one, then persist it in the node
  *
  */
-export async function getPeerIdPrivateKey(config: { peerIdPrivateKey?: string }, store: AztecKVStore): Promise<string> {
-  const peerIdPrivateKeySingleton: AztecSingleton<string> = store.openSingleton('peerIdPrivateKey');
+export async function getPeerIdPrivateKey(
+  config: { peerIdPrivateKey?: string },
+  store: AztecAsyncKVStore,
+): Promise<string> {
+  const peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
   if (config.peerIdPrivateKey) {
     await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
     return config.peerIdPrivateKey;
   }
 
-  const storedPeerIdPrivateKey = peerIdPrivateKeySingleton.get();
+  const storedPeerIdPrivateKey = await peerIdPrivateKeySingleton.getAsync();
   if (storedPeerIdPrivateKey) {
     return storedPeerIdPrivateKey;
   }

@@ -6,16 +6,17 @@ import { getGasLimits } from './get_gas_limits.js';
 describe('getGasLimits', () => {
   let txSimulationResult: TxSimulationResult;
 
-  beforeEach(() => {
-    txSimulationResult = mockSimulatedTx();
+  beforeEach(async () => {
+    txSimulationResult = await mockSimulatedTx();
 
-    const tx = mockTxForRollup();
+    const tx = await mockTxForRollup();
     tx.data.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
     txSimulationResult.publicInputs = tx.data;
 
     txSimulationResult.publicOutput!.gasUsed = {
       totalGas: Gas.from({ daGas: 140, l2Gas: 280 }),
       teardownGas: Gas.from({ daGas: 10, l2Gas: 20 }),
+      publicGas: Gas.from({ daGas: 50, l2Gas: 200 }),
     };
   });
 

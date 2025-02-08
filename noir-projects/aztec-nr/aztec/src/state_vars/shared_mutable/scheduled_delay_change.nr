@@ -1,11 +1,13 @@
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::traits::Packable;
 use std::cmp::min;
 
 mod test;
 
+pub(crate) global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
+
 // This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.
-// This delay is initally equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
+// This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
@@ -125,8 +127,8 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     }
 }
 
-impl<let INITIAL_DELAY: u32> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
-    fn serialize(self) -> [Field; 1] {
+impl<let INITIAL_DELAY: u32> Packable<SCHEDULED_DELAY_CHANGE_PCKD_LEN> for ScheduledDelayChange<INITIAL_DELAY> {
+    fn pack(self) -> [Field; SCHEDULED_DELAY_CHANGE_PCKD_LEN] {
         // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
         // Low limb: [ pre_inner: u32 | post_inner: u32 ]
         // High limb: [ empty | pre_is_some: u8 |  post_is_some: u8 | block_of_change: u32 ]
@@ -141,10 +143,8 @@ impl<let INITIAL_DELAY: u32> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY
 
         [packed.to_integer()]
     }
-}
 
-impl<let INITIAL_DELAY: u32> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
-    fn deserialize(input: [Field; 1]) -> Self {
+    fn unpack(input: [Field; SCHEDULED_DELAY_CHANGE_PCKD_LEN]) -> Self {
         let packed = U128::from_integer(input[0]);
 
         // We use division and modulo to clear the bits that correspond to other values when unpacking.

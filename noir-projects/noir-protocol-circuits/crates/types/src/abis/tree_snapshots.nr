@@ -5,10 +5,10 @@ use crate::{
 };
 
 pub struct TreeSnapshots {
-    l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
-    note_hash_tree: AppendOnlyTreeSnapshot,
-    nullifier_tree: AppendOnlyTreeSnapshot,
-    public_data_tree: AppendOnlyTreeSnapshot,
+    pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
+    pub note_hash_tree: AppendOnlyTreeSnapshot,
+    pub nullifier_tree: AppendOnlyTreeSnapshot,
+    pub public_data_tree: AppendOnlyTreeSnapshot,
 }
 
 impl Eq for TreeSnapshots {

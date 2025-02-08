@@ -2,12 +2,22 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 
+contract FakeRegistry {
+  function getGovernance() external pure returns (address) {
+    return address(0x01);
+  }
+
+  function getRollup() external pure returns (address) {
+    return address(0x02);
+  }
+}
+
 contract ConstructorTest is Test {
-  IRegistry internal constant REGISTRY = IRegistry(address(0x02));
+  IRegistry internal REGISTRY = IRegistry(address(new FakeRegistry()));
 
   function test_WhenNIsLessThanOrEqualHalfOfM(uint256 _n, uint256 _m) external {
     // it revert
@@ -42,5 +52,7 @@ contract ConstructorTest is Test {
     assertEq(address(g.REGISTRY()), address(REGISTRY));
     assertEq(g.N(), n);
     assertEq(g.M(), m);
+    assertEq(g.getExecutor(), address(REGISTRY.getGovernance()), "executor");
+    assertEq(g.getInstance(), address(REGISTRY.getRollup()), "instance");
   }
 }

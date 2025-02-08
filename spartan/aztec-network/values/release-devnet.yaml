@@ -1,0 +1,38 @@
+telemetry:
+  enabled: true
+
+validator:
+  replicas: 1
+  sequencer:
+    enforceFees: false # disabled until the bot can fund itself
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
+
+proverAgent:
+  replicas: 1
+
+bot:
+  followChain: "PENDING"
+  feePaymentMethod: "none" # disabled until the bot can fund itself
+  enabled: true
+  txIntervalSeconds: 30
+
+network:
+  public: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false
+
+jobs:
+  deployL1Verifier:
+    enable: false

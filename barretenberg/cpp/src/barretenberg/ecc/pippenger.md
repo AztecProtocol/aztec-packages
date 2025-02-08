@@ -24,7 +24,7 @@ For example, let's say that our bit slice is 6 bits. The first round will take t
 
 So, for example, if the most significant 6 bits of a scalar are `011001` (25), we add the scalar's point into the 25th bucket. 
 
-At the end of each round, we then 'concatenate' all of the buckets into a sum. Let's represent each bucket accumulator in an array `A[num_buckets]`. The concatenation phase will compute `A[0] + 2A[1] + 3A[2] + 4A[3] + 5A[4] + ... = Sum`.
+At the end of each round, we then 'concatenate' all the buckets into a sum. Let's represent each bucket accumulator in an array `A[num_buckets]`. The concatenation phase will compute `A[0] + 2A[1] + 3A[2] + 4A[3] + 5A[4] + ... = Sum`.
 
 Finally, we add each `Sum` point into an overall accumulator. For example, for a set of 254 bit scalars, if we evaluate the most 6 significant bits of each scalar and accumulate the resulting point into `Sum`, we actually need `(2^{248}).Sum` to accommodate for the bit shift. 
 

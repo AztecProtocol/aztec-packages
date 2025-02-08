@@ -118,10 +118,8 @@ describe('JsonRpc integration', () => {
       await expect(() => client.fail()).rejects.toThrow('Test state failed');
     });
 
-    it('fails if calls non-existing method in handler', async () => {
-      await expect(() => (client as TestState).forceClear()).rejects.toThrow(
-        'Unspecified method forceClear in client schema',
-      );
+    it('fails if calls non-existing method in handler', () => {
+      expect(() => (client as TestState).forceClear()).toThrow(/not a function/i);
     });
   });
 
@@ -144,8 +142,8 @@ describe('JsonRpc integration', () => {
 
       httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
       url = `http://127.0.0.1:${httpServer.port}`;
-      lettersClient = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, false, 'letters');
-      numbersClient = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, false, 'numbers');
+      lettersClient = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, { namespaceMethods: 'letters' });
+      numbersClient = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, { namespaceMethods: 'numbers' });
     });
 
     it('calls correct namespace', async () => {
@@ -159,7 +157,7 @@ describe('JsonRpc integration', () => {
     });
 
     it('fails if calls without namespace', async () => {
-      const client = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, false);
+      const client = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema);
       await expect(() => client.getNote(1)).rejects.toThrow('Method not found: getNote');
     });
   });

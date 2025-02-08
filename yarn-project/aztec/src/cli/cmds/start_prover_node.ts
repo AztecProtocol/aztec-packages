@@ -1,4 +1,4 @@
-import { ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -9,11 +9,13 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
+import { validateL1Config } from '../validation.js';
+import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
@@ -58,15 +60,18 @@ export async function startProverNode(
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
   }
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  // If we create an archiver here, validate the L1 config
+  if (options.archiver) {
+    await validateL1Config(proverConfig);
+  }
+
+  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
-    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl);
+    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig));
   } else if (options.proverBroker) {
-    broker = await startProverBroker(options, signalHandlers, services, userLog);
+    ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
   } else {
     userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
     process.exit(1);
@@ -81,12 +86,17 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
+  const p2p = proverNode.getP2P();
+  if (p2p) {
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  }
+
   if (!proverConfig.proverBrokerUrl) {
     services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  // Automatically start proving unproven blocks
   await proverNode.start();
+  return { config: proverConfig };
 }

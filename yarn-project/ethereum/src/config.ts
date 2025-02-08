@@ -1,4 +1,11 @@
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  bigintConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
+
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
 
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
@@ -11,15 +18,30 @@ export type L1ContractsConfig = {
   aztecTargetCommitteeSize: number;
   /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
   aztecEpochProofClaimWindowInL2Slots: number;
-};
+  /** The minimum stake for a validator. */
+  minimumStake: bigint;
+  /** The slashing quorum */
+  slashingQuorum: number;
+  /** The slashing round size */
+  slashingRoundSize: number;
+  /** Governance proposing quorum */
+  governanceProposerQuorum: number;
+  /** Governance proposing round size */
+  governanceProposerRoundSize: number;
+} & L1TxUtilsConfig;
 
-export const DefaultL1ContractsConfig: L1ContractsConfig = {
+export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 24,
   aztecEpochDuration: 16,
   aztecTargetCommitteeSize: 48,
   aztecEpochProofClaimWindowInL2Slots: 13,
-};
+  minimumStake: BigInt(100e18),
+  slashingQuorum: 6,
+  slashingRoundSize: 10,
+  governanceProposerQuorum: 6,
+  governanceProposerRoundSize: 10,
+} satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {
@@ -47,6 +69,32 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The number of L2 slots that we can wait for a proof of an epoch to be produced.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots),
   },
+  minimumStake: {
+    env: 'AZTEC_MINIMUM_STAKE',
+    description: 'The minimum stake for a validator.',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.minimumStake),
+  },
+  slashingQuorum: {
+    env: 'AZTEC_SLASHING_QUORUM',
+    description: 'The slashing quorum',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingQuorum),
+  },
+  slashingRoundSize: {
+    env: 'AZTEC_SLASHING_ROUND_SIZE',
+    description: 'The slashing round size',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingRoundSize),
+  },
+  governanceProposerQuorum: {
+    env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
+    description: 'The governance proposing quorum',
+    ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerQuorum),
+  },
+  governanceProposerRoundSize: {
+    env: 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
+    description: 'The governance proposing round size',
+    ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
+  },
+  ...l1TxUtilsConfigMappings,
 };
 
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {

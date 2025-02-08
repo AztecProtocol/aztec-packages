@@ -47,9 +47,12 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
             add_gates_to_ensure_all_polys_are_non_zero();
         }
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+#endif
+        populate_public_inputs_block();
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -1793,6 +1796,24 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
+ * @brief Copy the public input idx data into the public inputs trace block
+ * @note
+ */
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
+{
+    PROFILE_THIS_NAME("populate_public_inputs_block");
+
+    // Update the public inputs block
+    for (const auto& idx : this->public_inputs) {
+        // first two wires get a copy of the public inputs
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
+        for (auto& selector : this->blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
+}
+
+/**
  * @brief Called in `compute_proving_key` when finalizing circuit.
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
@@ -2955,6 +2976,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
     }
+
+    cir.circuit_finalized = this->circuit_finalized;
 
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);

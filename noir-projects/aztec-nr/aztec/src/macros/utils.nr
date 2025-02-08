@@ -1,4 +1,4 @@
-use std::meta::{typ::fresh_type_variable, unquote};
+use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
@@ -128,9 +128,11 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
-        let (s, _) = typ.as_struct().unwrap();
-        let field_signatures =
-            s.fields().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+        let (s, generics) = typ.as_struct().unwrap();
+        let field_signatures = s
+            .fields(generics)
+            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
+            .join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -201,9 +203,11 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     // The signature will be "Foo(Field,AztecAddress)".
     let event_name = s.name();
     let args_signatures = s
-        .fields()
+        .fields_as_written()
         .map(|(_, typ): (Quoted, Type)| {
-            signature_of_type(typ) // signature_of_type can handle structs, so this supports nested structs
+            // signature_of_type can handle structs, so this supports nested structs
+            // FIXME: Field generics are not handled here!
+            signature_of_type(typ)
         })
         .join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
@@ -215,18 +219,18 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
-    let any = fresh_type_variable();
-    let maybe_serialize_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+/// Returns how many storage slots a type needs to reserve for itself. State variables must implement the Storage trait
+/// for slots to be allocated for them.
+pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
+    // We create a type variable for the storage size. We can't simply read the value used in the implementation because
+    // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
+    let storage_size = std::meta::typ::fresh_type_variable();
+    assert(
+        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+    );
 
-    maybe_serialize_impl
-        .expect(
-            f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait",
-        )
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap()
+    storage_size.as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {

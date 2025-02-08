@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, WitnessVector& witness_values)
@@ -100,7 +100,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -153,7 +153,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -201,7 +201,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},

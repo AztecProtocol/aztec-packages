@@ -18,6 +18,8 @@ template <typename FF_> class CircuitBuilderBase {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
+    // true if we have dummy witnesses (in the write_vk case)
+    bool has_dummy_witnesses = false;
 
     std::vector<uint32_t> public_inputs;
     std::vector<FF> variables;
@@ -56,7 +58,7 @@ template <typename FF_> class CircuitBuilderBase {
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
 
-    CircuitBuilderBase(size_t size_hint = 0);
+    CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
@@ -251,6 +253,7 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
                    vars_of_interest,
@@ -381,7 +384,7 @@ template <typename FF> struct CircuitSchemaInternal {
  * ComposerBase naming conventions:
  *   - n = 5 gates (4 gates plus the 'zero' gate).
  *   - variables <-- A.k.a. "witnesses". Indices of this variables vector are referred to as `witness_indices`.
- * Example of varibales in this example (a 3,4,5 triangle):
+ * Example of variables in this example (a 3,4,5 triangle):
  *   - variables      = [  0,   3,   4,   5,   9,  16,  25,  25]
  *   - public_inputs  = [6] <-- points to variables[6].
  *

@@ -17,10 +17,24 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: bot
     spec:
+      {{- if and .Values.bot.gke.spotEnabled .Values.network.gke }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       volumes:
         - name: config
           emptyDir: {}
@@ -38,6 +52,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -52,7 +67,7 @@ spec:
               mountPath: /shared/config
       containers:
         - name: transaction-bot
-          image: "{{ .Values.images.aztec.image }}"
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -63,6 +78,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -73,14 +89,26 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: bot
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: DEBUG
-              value: "{{ .Values.bot.debug }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
@@ -93,14 +121,22 @@ spec:
               value: "{{ .Values.bot.followChain }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
+            - name: BOT_FEE_PAYMENT_METHOD
+              value: "{{ .Values.bot.feePaymentMethod }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bot.pxeProverEnabled }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bot.proverRealProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: BOT_MAX_CONSECUTIVE_ERRORS
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY
               value: "{{ .Values.bot.stopIfUnhealthy }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}
@@ -130,6 +166,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: bot
 spec:
   type: {{ .Values.bot.service.type }}
   selector:

@@ -1,0 +1,53 @@
+#!/bin/bash
+set -uo pipefail
+
+# Ensure a command is passed
+if [ "$#" -eq 0 ]; then
+  echo "Usage: $0 <command>"
+  exit 1
+fi
+
+if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
+  set -e
+  eval "$*"
+  exit 0
+fi
+
+dots_per_line=${LINE_WIDTH:-64}
+dot_count=0
+status=0
+
+# We don't want to lose color just because we're wrapping.
+export FORCE_COLOR=1
+
+# Create a new file descriptor for capturing output
+exec 3>&1
+
+# Execute the command and process the output
+echo "Executing: $*"
+echo -n "   0 "
+output=$(
+  eval "$*" 2>&1 | while IFS= read -r -d '' -n 1 char; do
+    if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
+      printf "." >&3
+      ((dot_count++))
+      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+        printf "\n%4s " "$dot_count" >&3
+      fi
+    fi
+    printf "%s" "$char"  # Send each character to the captured output
+  done;
+)
+
+# Get the exit status of the command
+status=${PIPESTATUS[0]}
+
+# Handle non-zero exit status
+if [ "$status" -ne 0 ]; then
+  echo -e "\nCommand exited with status $status. Dumping output:"
+  echo -e "$output"
+else
+  echo ". done (${SECONDS}s)"
+fi
+
+exit $status

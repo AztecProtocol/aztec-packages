@@ -1,10 +1,10 @@
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('setup-protocol-contracts')
     .description('Bootstrap the blockchain by initializing all the protocol contracts')

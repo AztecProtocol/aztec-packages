@@ -15,6 +15,7 @@ template <typename Builder, typename T> class bigfield {
 
   public:
     using View = bigfield;
+    using CoefficientAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
 
@@ -283,6 +284,7 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
     bigfield operator+(const bigfield& other) const;
+    bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 

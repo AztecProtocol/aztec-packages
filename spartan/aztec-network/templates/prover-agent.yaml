@@ -17,7 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,9 +31,10 @@ spec:
         value: "true"
         effect: "NoSchedule"
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- end }}
       volumes:
         - name: config
@@ -44,31 +45,24 @@ spec:
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
             - |
               source /shared/config/service-addresses
+              cat /shared/config/service-addresses
               until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
                 echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
                 sleep 5
               done
               echo "Broker is ready!"
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
-                echo "Waiting for OpenTelemetry collector..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
       containers:
         - name: prover-agent
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -79,16 +73,28 @@ spec:
               source /shared/config/service-addresses && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-agent
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.proverAgent.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverAgent.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.proverAgent.debug }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.proverAgent.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_AGENT_COUNT
               value: "1"
             - name: PROVER_AGENT_POLL_INTERVAL_MS
@@ -97,12 +103,10 @@ spec:
               value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}

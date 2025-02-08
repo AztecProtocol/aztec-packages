@@ -1,0 +1,50 @@
+network:
+  public: true
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+telemetry:
+  enabled: true
+
+validator:
+  storageSize: "100Gi"
+  replicas: 48
+  validator:
+    disabled: false
+
+bootNode:
+  peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
+  validator:
+    disabled: true
+  storageSize: "100Gi"
+
+proverAgent:
+  replicas: 2
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 900
+  resources:
+    requests:
+      memory: 15Gi
+      cpu: 7
+
+jobs:
+  deployL1Verifier:
+    enable: true

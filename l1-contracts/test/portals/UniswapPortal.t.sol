@@ -22,7 +22,10 @@ import {UniswapPortal} from "./UniswapPortal.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
 contract UniswapPortalTest is Test {
+  using stdStorage for StdStorage;
   using Hash for DataStructures.L2ToL1Msg;
 
   IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -55,12 +58,7 @@ contract UniswapPortalTest is Test {
     registry = new Registry(address(this));
     RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(),
-      rewardDistributor,
-      bytes32(0),
-      bytes32(0),
-      address(this),
-      new address[](0)
+      new MockFeeJuicePortal(), rewardDistributor, DAI, bytes32(0), bytes32(0), address(this)
     );
     registry.upgrade(address(rollup));
 
@@ -74,7 +72,9 @@ contract UniswapPortalTest is Test {
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber + 1));
+    vm.store(address(rollup), bytes32(uint256(13)), bytes32(l2BlockNumber + 1));
+
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber + 1);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber + 1);
 
     // have DAI locked in portal that can be moved when funds are withdrawn

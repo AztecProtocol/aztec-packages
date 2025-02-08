@@ -17,21 +17,6 @@ template <typename FF_> class EccOpQueueRelationImpl {
         3, // op-queue-wire vanishes sub-relation 3
         3  // op-queue-wire vanishes sub-relation 4
     };
-    /**
-     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 8> SUBRELATION_WITNESS_DEGREES{
-        1, // wire - op-queue-wire consistency sub-relation 1
-        1, // wire - op-queue-wire consistency sub-relation 2
-        1, // wire - op-queue-wire consistency sub-relation 3
-        1, // wire - op-queue-wire consistency sub-relation 4
-        1, // op-queue-wire vanishes sub-relation 1
-        1, // op-queue-wire vanishes sub-relation 2
-        1, // op-queue-wire vanishes sub-relation 3
-        1  // op-queue-wire vanishes sub-relation 4
-    };
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
@@ -67,17 +52,20 @@ template <typename FF_> class EccOpQueueRelationImpl {
     {
         PROFILE_THIS_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
-
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto op_wire_1 = View(in.ecc_op_wire_1);
-        auto op_wire_2 = View(in.ecc_op_wire_2);
-        auto op_wire_3 = View(in.ecc_op_wire_3);
-        auto op_wire_4 = View(in.ecc_op_wire_4);
-        auto lagrange_ecc_op = View(in.lagrange_ecc_op);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        // We skip using the CoefficientAccumulator type in this relation, as the overall relation degree is low (deg
+        // 3). To do a degree-1 multiplication in the coefficient basis requires 3 Fp muls and 4 Fp adds (karatsuba
+        // multiplication). But a multiplication of a degree-3 Univariate only requires 3 Fp muls.
+        // We still cast to CoefficientAccumulator so that the degree is extended to degree-3 from degree-1
+        auto w_1 = Accumulator(CoefficientAccumulator(in.w_l));
+        auto w_2 = Accumulator(CoefficientAccumulator(in.w_r));
+        auto w_3 = Accumulator(CoefficientAccumulator(in.w_o));
+        auto w_4 = Accumulator(CoefficientAccumulator(in.w_4));
+        auto op_wire_1 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_1));
+        auto op_wire_2 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_2));
+        auto op_wire_3 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_3));
+        auto op_wire_4 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_4));
+        auto lagrange_ecc_op = Accumulator(CoefficientAccumulator(in.lagrange_ecc_op));
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
         auto lagrange_by_scaling = lagrange_ecc_op * scaling_factor;

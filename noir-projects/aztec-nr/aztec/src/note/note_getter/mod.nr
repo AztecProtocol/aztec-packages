@@ -17,13 +17,13 @@ pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 mod test;
 
 fn extract_property_value_from_selector<let N: u32>(
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     selector: PropertySelector,
 ) -> Field {
-    // Selectors use PropertySelectors in order to locate note properties inside the serialized note.
-    // This allows easier packing and custom (de)serialization schemas. A note property is located
-    // inside the serialized note using the index inside the array, a byte offset and a length.
-    let value: [u8; 32] = serialized_note[selector.index].to_be_bytes();
+    // Selectors use PropertySelectors in order to locate note properties inside the packed note.
+    // This allows easier packing and custom (un)packing schemas. A note property is located
+    // inside the packed note using the index inside the array, a byte offset and a length.
+    let value: [u8; 32] = packed_note_content[selector.index].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
@@ -47,14 +47,14 @@ where
     assert(header.storage_slot == storage_slot, "Mismatch note header storage slot.");
 }
 
-fn check_note_fields<let N: u32>(
-    serialized_note: [Field; N],
+fn check_note_content<let N: u32>(
+    packed_note_content: [Field; N],
     selects: BoundedVec<Option<Select>, N>,
 ) {
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
-            extract_property_value_from_selector(serialized_note, select.property_selector);
+            extract_property_value_from_selector(packed_note_content, select.property_selector);
 
         assert(
             compare(value_field, select.comparator, select.value.to_field()),
@@ -89,10 +89,9 @@ pub fn get_note<Note, let N: u32>(
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
+    /// Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
+    /// is check that the metadata is correct, and that the note exists.
     let note = unsafe { get_note_internal(storage_slot) };
-
-    // Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is check that
-    // the metadata is correct, and that the note exists.
     check_note_header(*context, storage_slot, note);
 
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
@@ -109,6 +108,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
 where
     Note: NoteInterface<N> + NullifiableNote + Eq,
 {
+    /// Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
 
     // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
@@ -141,7 +141,7 @@ where
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse_array(filtered_notes);
+    let notes = crate::utils::array::collapse(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
         BoundedVec::new();
 
@@ -154,9 +154,9 @@ where
     for i in 0..options.limit {
         if i < notes.len() {
             let note = notes.get_unchecked(i);
-            let fields = note.serialize_content();
+            let fields = note.pack_content();
             check_note_header(*context, storage_slot, note);
-            check_note_fields(fields, options.selects);
+            check_note_content(fields, options.selects);
             if i != 0 {
                 check_notes_order(prev_fields, fields, options.sorts);
             }

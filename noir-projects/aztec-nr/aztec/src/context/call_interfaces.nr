@@ -5,9 +5,58 @@ use dep::protocol_types::{
 use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 
 use crate::hash::hash_args;
-use crate::oracle::arguments::pack_arguments;
+use crate::oracle::execution_cache;
 
 pub trait CallInterface<let N: u32> {
+    fn get_args(self) -> [Field];
+    fn get_selector(self) -> FunctionSelector;
+    fn get_name(self) -> str<N>;
+    fn get_contract_address(self) -> AztecAddress;
+    fn get_is_static(self) -> bool;
+}
+
+pub struct PrivateCallInterface<let N: u32, T> {
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args_hash: Field,
+    pub args: [Field],
+    pub return_type: T,
+    pub is_static: bool,
+}
+
+impl<let N: u32, T> PrivateCallInterface<N, T> {
+    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        execution_cache::store(self.args);
+        let returns_hash = context.call_private_function_with_args_hash(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+        );
+        let returns: T = returns_hash.get_preimage();
+        returns
+    }
+
+    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize<M>,
+    {
+        execution_cache::store(self.args);
+        let returns_hash = context.call_private_function_with_args_hash(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            true,
+        );
+        returns_hash.get_preimage()
+    }
+}
+
+impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -29,49 +78,6 @@ pub trait CallInterface<let N: u32> {
     }
 }
 
-pub struct PrivateCallInterface<let N: u32, T> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args_hash: Field,
-    pub args: [Field],
-    pub return_type: T,
-    pub is_static: bool,
-}
-
-impl<let N: u32, T> PrivateCallInterface<N, T> {
-    pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
-    where
-        T: Deserialize<M>,
-    {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-        );
-        let unpacked: T = returns.unpack_into();
-        unpacked
-    }
-
-    pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
-    where
-        T: Deserialize<M>,
-    {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            true,
-        );
-        returns.unpack_into()
-    }
-}
-
-impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {}
-
 pub struct PrivateVoidCallInterface<let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
@@ -84,9 +90,9 @@ pub struct PrivateVoidCallInterface<let N: u32> {
 
 impl<let N: u32> PrivateVoidCallInterface<N> {
     pub fn call(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
+        execution_cache::store(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,
@@ -96,9 +102,9 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     }
 
     pub fn view(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
+        execution_cache::store(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,
@@ -108,7 +114,27 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PrivateStaticCallInterface<let N: u32, T> {
     pub target_contract: AztecAddress,
@@ -125,18 +151,38 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
     where
         T: Deserialize<M>,
     {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        execution_cache::store(self.args);
+        let returns = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
             true,
         );
-        returns.unpack_into()
+        returns.get_preimage()
     }
 }
 
-impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PrivateStaticVoidCallInterface<let N: u32> {
     pub target_contract: AztecAddress,
@@ -150,9 +196,9 @@ pub struct PrivateStaticVoidCallInterface<let N: u32> {
 
 impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     pub fn view(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
+        execution_cache::store(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,
@@ -162,7 +208,27 @@ impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PublicCallInterface<let N: u32, T> {
     pub target_contract: AztecAddress,
@@ -208,8 +274,8 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -220,8 +286,8 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -231,7 +297,27 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PublicVoidCallInterface<let N: u32> {
     pub target_contract: AztecAddress,
@@ -271,8 +357,8 @@ impl<let N: u32> PublicVoidCallInterface<N> {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -283,8 +369,8 @@ impl<let N: u32> PublicVoidCallInterface<N> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -294,7 +380,27 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {}
+impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PublicStaticCallInterface<let N: u32, T> {
     pub target_contract: AztecAddress,
@@ -327,8 +433,8 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -338,7 +444,27 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {}
+impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
+    fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+
+    fn get_is_static(self) -> bool {
+        self.is_static
+    }
+}
 
 pub struct PublicStaticVoidCallInterface<let N: u32> {
     target_contract: AztecAddress,
@@ -368,8 +494,8 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
+        execution_cache::store(self.args);
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,

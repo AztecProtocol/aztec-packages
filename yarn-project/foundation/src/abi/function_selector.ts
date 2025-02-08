@@ -20,26 +20,6 @@ export interface FunctionSelector {
 /** A function selector is the first 4 bytes of the hash of a function signature. */
 export class FunctionSelector extends Selector {
   /**
-   * Checks if this function selector is equal to another.
-   * @returns True if the function selectors are equal.
-   */
-  override equals(fn: { name: string; parameters: ABIParameter[] }): boolean;
-  override equals(otherName: string, otherParams: ABIParameter[]): boolean;
-  override equals(other: FunctionSelector): boolean;
-  override equals(
-    other: FunctionSelector | string | { name: string; parameters: ABIParameter[] },
-    otherParams?: ABIParameter[],
-  ): boolean {
-    if (typeof other === 'string') {
-      return this.equals(FunctionSelector.fromNameAndParameters(other, otherParams!));
-    } else if (typeof other === 'object' && 'name' in other) {
-      return this.equals(FunctionSelector.fromNameAndParameters(other.name, other.parameters));
-    } else {
-      return this.value === other.value;
-    }
-  }
-
-  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
    * @returns The Selector.
@@ -69,12 +49,12 @@ export class FunctionSelector extends Selector {
    * @param signature - Signature to generate the selector for (e.g. "transfer(field,field)").
    * @returns selector.
    */
-  static fromSignature(signature: string) {
+  static async fromSignature(signature: string) {
     // throw if signature contains whitespace
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    const hash = poseidon2HashBytes(Buffer.from(signature));
+    const hash = await poseidon2HashBytes(Buffer.from(signature));
     // We take the last Selector.SIZE big endian bytes
     const bytes = hash.toBuffer().slice(-Selector.SIZE);
     return FunctionSelector.fromBuffer(bytes);
@@ -82,16 +62,15 @@ export class FunctionSelector extends Selector {
 
   /**
    * Create a Selector instance from a hex-encoded string.
-   * The input 'address' should be prefixed with '0x' or not, and have exactly 64 hex characters.
-   * Throws an error if the input length is invalid or address value is out of range.
    *
    * @param selector - The hex-encoded string representing the Selector.
    * @returns An Selector instance.
+   * @throws If the selector length is invalid.
    */
   static fromString(selector: string) {
     const buf = fromHex(selector);
     if (buf.length !== Selector.SIZE) {
-      throw new Error(`Invalid Selector length ${buf.length} (expected ${Selector.SIZE}).`);
+      throw new Error(`Invalid FunctionSelector length ${buf.length} (expected ${Selector.SIZE}).`);
     }
     return FunctionSelector.fromBuffer(buf);
   }
@@ -110,16 +89,16 @@ export class FunctionSelector extends Selector {
    * @param parameters - An array of ABIParameter objects, each containing the type information of a function parameter.
    * @returns A Buffer containing the 4-byte selector.
    */
-  static fromNameAndParameters(args: { name: string; parameters: ABIParameter[] }): FunctionSelector;
-  static fromNameAndParameters(name: string, parameters: ABIParameter[]): FunctionSelector;
-  static fromNameAndParameters(
+  static fromNameAndParameters(args: { name: string; parameters: ABIParameter[] }): Promise<FunctionSelector>;
+  static fromNameAndParameters(name: string, parameters: ABIParameter[]): Promise<FunctionSelector>;
+  static async fromNameAndParameters(
     nameOrArgs: string | { name: string; parameters: ABIParameter[] },
     maybeParameters?: ABIParameter[],
-  ): FunctionSelector {
+  ): Promise<FunctionSelector> {
     const { name, parameters } =
       typeof nameOrArgs === 'string' ? { name: nameOrArgs, parameters: maybeParameters! } : nameOrArgs;
     const signature = decodeFunctionSignature(name, parameters);
-    const selector = this.fromSignature(signature);
+    const selector = await this.fromSignature(signature);
     // If using the debug logger here it kill the typing in the `server_world_state_synchronizer` and jest tests.
     // console.log(`selector for ${signature} is ${selector}`);
     return selector;

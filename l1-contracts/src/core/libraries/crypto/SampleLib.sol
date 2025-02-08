@@ -33,7 +33,7 @@ library SampleLib {
    * @return indices - The indices of the committee
    */
   function computeCommitteeStupid(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    external
+    internal
     pure
     returns (uint256[] memory)
   {
@@ -63,7 +63,7 @@ library SampleLib {
    * @return indices - The indices of the committee
    */
   function computeCommitteeClever(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    external
+    internal
     pure
     returns (uint256[] memory)
   {

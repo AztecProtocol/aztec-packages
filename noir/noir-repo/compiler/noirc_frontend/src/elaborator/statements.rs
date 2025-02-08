@@ -21,10 +21,10 @@ use crate::{
         },
     },
     node_interner::{DefinitionId, DefinitionKind, GlobalId, StmtId},
-    StructType, Type,
+    DataType, Type,
 };
 
-use super::{lints, Elaborator};
+use super::{lints, Elaborator, Loop};
 
 impl<'context> Elaborator<'context> {
     fn elaborate_statement_value(&mut self, statement: Statement) -> (HirStatement, Type) {
@@ -33,6 +33,7 @@ impl<'context> Elaborator<'context> {
             StatementKind::Constrain(constrain) => self.elaborate_constrain(constrain),
             StatementKind::Assign(assign) => self.elaborate_assign(assign),
             StatementKind::For(for_stmt) => self.elaborate_for(for_stmt),
+            StatementKind::Loop(block, span) => self.elaborate_loop(block, span),
             StatementKind::Break => self.elaborate_jump(true, statement.span),
             StatementKind::Continue => self.elaborate_jump(false, statement.span),
             StatementKind::Comptime(statement) => self.elaborate_comptime_statement(*statement),
@@ -76,6 +77,7 @@ impl<'context> Elaborator<'context> {
     ) -> (HirStatement, Type) {
         let expr_span = let_stmt.expression.span;
         let (expression, expr_type) = self.elaborate_expression(let_stmt.expression);
+
         let type_contains_unspecified = let_stmt.r#type.contains_unspecified();
         let annotated_type = self.resolve_inferred_type(let_stmt.r#type);
 
@@ -123,7 +125,9 @@ impl<'context> Elaborator<'context> {
 
         let attributes = let_stmt.attributes;
         let comptime = let_stmt.comptime;
-        let let_ = HirLetStatement { pattern, r#type, expression, attributes, comptime };
+        let is_global_let = let_stmt.is_global_let;
+        let let_ =
+            HirLetStatement::new(pattern, r#type, expression, attributes, comptime, is_global_let);
         (HirStatement::Let(let_), Type::Unit)
     }
 
@@ -183,20 +187,20 @@ impl<'context> Elaborator<'context> {
     }
 
     pub(super) fn elaborate_assign(&mut self, assign: AssignStatement) -> (HirStatement, Type) {
-        let span = assign.expression.span;
+        let expr_span = assign.expression.span;
         let (expression, expr_type) = self.elaborate_expression(assign.expression);
-        let (lvalue, lvalue_type, mutable) = self.elaborate_lvalue(assign.lvalue, span);
+        let (lvalue, lvalue_type, mutable) = self.elaborate_lvalue(assign.lvalue);
 
         if !mutable {
             let (name, span) = self.get_lvalue_name_and_span(&lvalue);
             self.push_err(TypeCheckError::VariableMustBeMutable { name, span });
         }
 
-        self.unify_with_coercions(&expr_type, &lvalue_type, expression, span, || {
+        self.unify_with_coercions(&expr_type, &lvalue_type, expression, expr_span, || {
             TypeCheckError::TypeMismatchWithSource {
                 actual: expr_type.clone(),
                 expected: lvalue_type.clone(),
-                span,
+                span: expr_span,
                 source: Source::Assignment,
             }
         });
@@ -223,7 +227,9 @@ impl<'context> Elaborator<'context> {
         let (end_range, end_range_type) = self.elaborate_expression(end);
         let (identifier, block) = (for_loop.identifier, for_loop.block);
 
-        self.nested_loops += 1;
+        let old_loop = std::mem::take(&mut self.current_loop);
+
+        self.current_loop = Some(Loop { is_for: true, has_break: false });
         self.push_scope();
 
         // TODO: For loop variables are currently mutable by default since we haven't
@@ -257,10 +263,39 @@ impl<'context> Elaborator<'context> {
         let (block, _block_type) = self.elaborate_expression(block);
 
         self.pop_scope();
-        self.nested_loops -= 1;
+        self.current_loop = old_loop;
 
         let statement =
             HirStatement::For(HirForStatement { start_range, end_range, block, identifier });
+
+        (statement, Type::Unit)
+    }
+
+    pub(super) fn elaborate_loop(
+        &mut self,
+        block: Expression,
+        span: noirc_errors::Span,
+    ) -> (HirStatement, Type) {
+        let in_constrained_function = self.in_constrained_function();
+        if in_constrained_function {
+            self.push_err(ResolverError::LoopInConstrainedFn { span });
+        }
+
+        let old_loop = std::mem::take(&mut self.current_loop);
+        self.current_loop = Some(Loop { is_for: false, has_break: false });
+        self.push_scope();
+
+        let (block, _block_type) = self.elaborate_expression(block);
+
+        self.pop_scope();
+
+        let last_loop =
+            std::mem::replace(&mut self.current_loop, old_loop).expect("Expected a loop");
+        if !last_loop.has_break {
+            self.push_err(ResolverError::LoopWithoutBreak { span });
+        }
+
+        let statement = HirStatement::Loop(block);
 
         (statement, Type::Unit)
     }
@@ -271,7 +306,12 @@ impl<'context> Elaborator<'context> {
         if in_constrained_function {
             self.push_err(ResolverError::JumpInConstrainedFn { is_break, span });
         }
-        if self.nested_loops == 0 {
+
+        if let Some(current_loop) = &mut self.current_loop {
+            if is_break {
+                current_loop.has_break = true;
+            }
+        } else {
             self.push_err(ResolverError::JumpOutsideLoop { is_break, span });
         }
 
@@ -296,7 +336,7 @@ impl<'context> Elaborator<'context> {
         }
     }
 
-    fn elaborate_lvalue(&mut self, lvalue: LValue, assign_span: Span) -> (HirLValue, Type, bool) {
+    fn elaborate_lvalue(&mut self, lvalue: LValue) -> (HirLValue, Type, bool) {
         match lvalue {
             LValue::Ident(ident) => {
                 let mut mutable = true;
@@ -330,7 +370,7 @@ impl<'context> Elaborator<'context> {
                 (HirLValue::Ident(ident.clone(), typ.clone()), typ, mutable)
             }
             LValue::MemberAccess { object, field_name, span } => {
-                let (object, lhs_type, mut mutable) = self.elaborate_lvalue(*object, assign_span);
+                let (object, lhs_type, mut mutable) = self.elaborate_lvalue(*object);
                 let mut object = Box::new(object);
                 let field_name = field_name.clone();
 
@@ -374,8 +414,7 @@ impl<'context> Elaborator<'context> {
                     expr_span,
                 });
 
-                let (mut lvalue, mut lvalue_type, mut mutable) =
-                    self.elaborate_lvalue(*array, assign_span);
+                let (mut lvalue, mut lvalue_type, mut mutable) = self.elaborate_lvalue(*array);
 
                 // Before we check that the lvalue is an array, try to dereference it as many times
                 // as needed to unwrap any &mut wrappers.
@@ -397,12 +436,15 @@ impl<'context> Elaborator<'context> {
                         self.push_err(TypeCheckError::StringIndexAssign { span: lvalue_span });
                         Type::Error
                     }
+                    Type::TypeVariable(_) => {
+                        self.push_err(TypeCheckError::TypeAnnotationsNeededForIndex { span });
+                        Type::Error
+                    }
                     other => {
-                        // TODO: Need a better span here
                         self.push_err(TypeCheckError::TypeMismatch {
                             expected_typ: "array".to_string(),
                             expr_typ: other.to_string(),
-                            expr_span: assign_span,
+                            expr_span: span,
                         });
                         Type::Error
                     }
@@ -413,7 +455,7 @@ impl<'context> Elaborator<'context> {
                 (HirLValue::Index { array, index, typ, location }, array_type, mutable)
             }
             LValue::Dereference(lvalue, span) => {
-                let (lvalue, reference_type, _) = self.elaborate_lvalue(*lvalue, assign_span);
+                let (lvalue, reference_type, _) = self.elaborate_lvalue(*lvalue);
                 let lvalue = Box::new(lvalue);
                 let location = Location::new(span, self.file);
 
@@ -423,7 +465,7 @@ impl<'context> Elaborator<'context> {
                 self.unify(&reference_type, &expected_type, || TypeCheckError::TypeMismatch {
                     expected_typ: expected_type.to_string(),
                     expr_typ: reference_type.to_string(),
-                    expr_span: assign_span,
+                    expr_span: span,
                 });
 
                 // Dereferences are always mutable since we already type checked against a &mut T
@@ -433,7 +475,7 @@ impl<'context> Elaborator<'context> {
             }
             LValue::Interned(id, span) => {
                 let lvalue = self.interner.get_lvalue(id, span).clone();
-                self.elaborate_lvalue(lvalue, assign_span)
+                self.elaborate_lvalue(lvalue)
             }
         }
     }
@@ -449,7 +491,7 @@ impl<'context> Elaborator<'context> {
         let lhs_type = lhs_type.follow_bindings();
 
         match &lhs_type {
-            Type::Struct(s, args) => {
+            Type::DataType(s, args) => {
                 let s = s.borrow();
                 if let Some((field, visibility, index)) = s.get_field(field_name, args) {
                     let reference_location = Location::new(span, self.file);
@@ -513,7 +555,7 @@ impl<'context> Elaborator<'context> {
 
     pub(super) fn check_struct_field_visibility(
         &mut self,
-        struct_type: &StructType,
+        struct_type: &DataType,
         field_name: &str,
         visibility: ItemVisibility,
         span: Span,
