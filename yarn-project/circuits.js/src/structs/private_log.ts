@@ -43,6 +43,22 @@ export class PrivateLog {
     return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random));
   }
 
+  getEmittedLength() {
+    // This assumes that we cut trailing zeroes from the end of the log. In ts, these will always be added back.
+    return this.getEmittedFields().length;
+  }
+
+  getEmittedFields() {
+    let lastZeroIndex = 0;
+    for (let i = this.fields.length - 1; i >= 0; i--) {
+      if (!this.fields[i].isZero() && lastZeroIndex == 0) {
+        lastZeroIndex = i + 1;
+        break;
+      }
+    }
+    return this.fields.slice(0, lastZeroIndex);
+  }
+
   static get schema() {
     return z
       .object({

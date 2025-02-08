@@ -54,6 +54,22 @@ export class PublicLog {
     return new PublicLog(await AztecAddress.random(), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr.random));
   }
 
+  getEmittedLength() {
+    // This assumes that we cut trailing zeroes from the end of the log. In ts, these will always be added back.
+    return this.getEmittedFields().length;
+  }
+
+  getEmittedFields() {
+    let lastZeroIndex = 0;
+    for (let i = this.toFields().length - 1; i >= 0; i--) {
+      if (!this.toFields()[i].isZero() && lastZeroIndex == 0) {
+        lastZeroIndex = i + 1;
+        break;
+      }
+    }
+    return this.toFields().slice(0, lastZeroIndex);
+  }
+
   equals(other: this) {
     return (
       this.contractAddress.equals(other.contractAddress) &&

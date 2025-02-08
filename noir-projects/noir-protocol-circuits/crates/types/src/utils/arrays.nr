@@ -81,6 +81,26 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(
     index
 }
 
+// As above, but counts from the end of the array.
+// Useful for finding trailing zeroes in arrays which may have valid empty values.
+// e.g. removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
+// TODO: can be removed if logs cannot contain valid 0s.
+pub unconstrained fn find_index_hint_from_end<T, let N: u32, Env>(
+    array: [T; N],
+    find: fn[Env](T) -> bool,
+) -> u32 {
+    let mut index = 0;
+    for i in 0..N {
+        let j = N - i - 1;
+        // We check `index == 0` to ensure that we only update the index if we haven't found a match yet.
+        if (index == 0) & !find(array[j]) {
+            // Since we are looking from the end of the array, the index at which find() is true is the next one:
+            index = j + 1;
+        }
+    }
+    index
+}
+
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
@@ -96,6 +116,25 @@ where
         } else {
             assert(seen_empty == false, "invalid array");
             length += 1;
+        }
+    }
+    length
+}
+
+// Routine which validates that zero values of an array form a contiguous region at the end, i.e.,
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+// TODO: can be removed if logs cannot contain valid 0s.
+pub fn validate_trailing_zeroes<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    /// Safety: this value is constrained in the below loop
+    let length = unsafe { find_index_hint_from_end(array, |elem: T| is_empty(elem)) };
+    let mut check_zero = false;
+    for i in 0..N {
+        check_zero |= i == length;
+        if check_zero {
+            assert(is_empty(array[i]), "invalid array");
         }
     }
     length
@@ -207,6 +246,30 @@ fn smoke_validate_array() {
 
     let valid_array = [1, 2, 3, 0, 0];
     assert(validate_array(valid_array) == 3);
+}
+
+#[test]
+fn smoke_validate_array_trailing() {
+    let valid_array: [Field; 0] = [];
+    assert(validate_trailing_zeroes(valid_array) == 0);
+
+    let valid_array = [0];
+    assert(validate_trailing_zeroes(valid_array) == 0);
+
+    let valid_array = [3];
+    assert(validate_trailing_zeroes(valid_array) == 1);
+
+    let valid_array = [1, 0, 3];
+    assert(validate_trailing_zeroes(valid_array) == 3);
+
+    let valid_array = [1, 0, 3, 0];
+    assert(validate_trailing_zeroes(valid_array) == 3);
+
+    let valid_array = [1, 2, 3, 0, 0];
+    assert(validate_trailing_zeroes(valid_array) == 3);
+
+    let valid_array = [0, 0, 3, 0, 0];
+    assert(validate_trailing_zeroes(valid_array) == 3);
 }
 
 #[test(should_fail_with = "invalid array")]
