@@ -15,6 +15,8 @@ import {
 } from '@aztec/foundation/abi';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
+import { gunzipSync } from 'zlib';
+
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
   AZTEC_INTERNAL_ATTRIBUTE,
@@ -279,7 +281,7 @@ function getNoteTypes(input: NoirCompiledContract) {
  */
 function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
   try {
-    return ContractArtifactSchema.parse({
+    const artifact = ContractArtifactSchema.parse({
       name: contract.name,
       functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
       outputs: contract.outputs,
@@ -288,6 +290,18 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
       fileMap: contract.file_map,
       ...(aztecNrVersion ? { aztecNrVersion } : {}),
     });
+
+    // Uncompress the bytecode if the function is public.
+    // The bytecode is compressed _at storage_ but should be handled in uncompressed form.
+    // In particular, it gets deployed uncompressed.
+    for (const fn of artifact.functions) {
+      if (fn.functionType === FunctionType.PUBLIC) {
+        const bytecodeBuffer = Buffer.from(fn.bytecode);
+        fn.bytecode = gunzipSync(bytecodeBuffer);
+      }
+    }
+
+    return artifact;
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);
   }
