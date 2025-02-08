@@ -76,6 +76,8 @@ function release_git_push {
   if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
     # Update branch reference without checkout.
     git branch -f "$branch_name" origin/"$branch_name"
+    # Point HEAD to the branch.
+    git symbolic-ref HEAD refs/heads/"$branch_name"
     # Move to latest commit, keep working tree.
     git reset --soft origin/"$branch_name"
   else
