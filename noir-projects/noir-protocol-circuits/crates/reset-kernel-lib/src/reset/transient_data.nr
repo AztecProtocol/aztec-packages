@@ -1,7 +1,9 @@
 use dep::types::{
     abis::{
-        note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_log::PrivateLogData,
+        side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
     traits::is_empty,
 };
@@ -185,8 +187,10 @@ pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIE
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32,
 ) {
+    /// Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
     let squashed_note_hash_hints =
         unsafe { get_squashed_note_hash_hints(transient_data_index_hints) };
+    /// Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
     let squashed_nullifier_hints =
         unsafe { get_squashed_nullifier_hints(transient_data_index_hints) };
     verify_squashed_transient_data_with_hint_indexes(
@@ -214,11 +218,12 @@ mod tests {
             note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
             private_log::{PrivateLog, PrivateLogData},
-            side_effect::scoped::Scoped,
+            side_effect::{Ordered, scoped::Scoped},
         },
         address::AztecAddress,
         constants::PRIVATE_LOG_SIZE_IN_FIELDS,
         tests::utils::pad_end,
+        traits::{Empty, FromField},
     };
 
     global contract_address: AztecAddress = AztecAddress::from_field(987654);
@@ -426,8 +431,10 @@ mod tests {
         }
 
         pub fn get_hint_indexes(self) -> ([bool; NUM_NOTE_HASHES], [bool; NUM_NULLIFIERS]) {
+            /// Safety: This is only used in tests.
             let squashed_note_hash_hints =
                 unsafe { get_squashed_note_hash_hints(self.transient_data_index_hints) };
+            /// Safety: This is only used in tests.
             let squashed_nullifier_hints =
                 unsafe { get_squashed_nullifier_hints(self.transient_data_index_hints) };
             (squashed_note_hash_hints, squashed_nullifier_hints)

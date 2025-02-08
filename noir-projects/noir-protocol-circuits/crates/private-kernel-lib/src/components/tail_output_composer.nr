@@ -14,6 +14,7 @@ use dep::types::{
         side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::Empty,
 };
 pub use meter_gas_used::meter_gas_used;
 

@@ -9,6 +9,7 @@ use dep::types::{
         private_call_request::PrivateCallRequest,
     },
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
     transaction::tx_request::TxRequest,
 };
 
@@ -57,6 +58,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn new_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputsComposer {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+        /// Safety: This is only used in tests.
         unsafe {
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
         }
@@ -67,12 +69,10 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         is_private_only: bool,
     ) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
-        unsafe {
-            self
-                .new_from_tx_request(is_private_only)
-                .with_private_call(private_call.public_inputs)
-                .finish()
-        }
+        self
+            .new_from_tx_request(is_private_only)
+            .with_private_call(private_call.public_inputs)
+            .finish()
     }
 
     pub fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
@@ -84,7 +84,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         previous_kernel.end.private_call_stack[num_private_call_requests].args_hash = 98765432;
 
         let private_call = self.private_call.to_private_call_data();
-
+        /// Safety: This is only used in tests.
         unsafe {
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
                 .pop_top_call_request()

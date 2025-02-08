@@ -9,6 +9,7 @@ use dep::types::{
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -37,6 +38,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
+        /// Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -66,6 +68,7 @@ mod tests {
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
+        traits::{Empty, FromField},
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,

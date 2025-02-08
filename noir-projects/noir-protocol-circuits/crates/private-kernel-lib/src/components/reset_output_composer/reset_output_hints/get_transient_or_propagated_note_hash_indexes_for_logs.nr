@@ -1,6 +1,10 @@
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{
-    abis::{note_hash::ScopedNoteHash, private_log::PrivateLogData, side_effect::scoped::Scoped},
+    abis::{
+        note_hash::ScopedNoteHash,
+        private_log::PrivateLogData,
+        side_effect::{Ordered, scoped::Scoped},
+    },
     utils::arrays::find_index_hint,
 };
 

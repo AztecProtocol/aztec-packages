@@ -4,14 +4,12 @@ use crate::{
 };
 
 use bigint::{BigNum, BigNumTrait};
-// Fixed hash method:
-use types::hash::poseidon2_hash_subarray;
-// Variable hash method:
-// use types::hash::poseidon2_cheaper_variable_hash;
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
+    hash::poseidon2_hash_subarray,
+    traits::Empty,
     utils::arrays::array_splice,
 };
 
@@ -70,6 +68,7 @@ unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
 // Only works for bignums with modulus larger than the BN Fr size (which is true
 // for the bls12-381 Fr field).
 fn field_to_bignum(x: Field) -> F {
+    /// Safety: we constrain the limbs below
     let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
 
     let mut check = __x_limbs[3 - 1];
@@ -484,14 +483,16 @@ mod tests {
         config::{D, D_INV, F, ROOTS},
     };
     use super::{__compute_partial_sums, __compute_sum};
-    use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
-    use bigint::bignum::BigNumTrait;
+    use bigint::{
+        BigNum, bignum::BigNumTrait, fields::bls12_381Fr::BLS12_381_Fr_Params,
+        params::BigNumParamsGetter,
+    };
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
+        traits::Serialize,
     };
-    use types::traits::Serialize;
 
     #[test]
     unconstrained fn test_one_note() {
@@ -525,7 +526,7 @@ mod tests {
         //*                    d
         //
         let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
+        let z_minus_1 = challenge_z.__sub(BigNum::one());
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }
@@ -725,6 +726,7 @@ mod tests {
         for i in 0..FIELDS_PER_BLOB {
             fields[i] = field_to_bignum(i as Field);
         }
+        /// Safety: this is a test
         unsafe {
             let partial_sums = __compute_partial_sums(fields, ROOTS);
             let sum = __compute_sum(fields, ROOTS);

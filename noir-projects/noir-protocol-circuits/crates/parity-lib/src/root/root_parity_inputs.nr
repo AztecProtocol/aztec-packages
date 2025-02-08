@@ -2,7 +2,7 @@ use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
     utils::sha256_merkle_tree::Sha256MerkleTree,
 };
-use dep::types::merkle_tree::MerkleTree;
+use dep::types::{merkle_tree::MerkleTree, proof::traits::Verifiable};
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
@@ -59,13 +59,13 @@ mod tests {
         parity_public_inputs::ParityPublicInputs,
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs},
     };
-    use dep::types::constants::BASE_PARITY_INDEX;
-    use dep::types::proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey};
-    use dep::types::tests::fixtures;
-
-    use super::NUM_BASE_PARITY_PER_ROOT_PARITY;
-    use types::hash::verification_key_hash;
-    use types::tests::fixtures::vk_tree::generate_fake_honk_vk_for_index;
+    use types::{
+        constants::{BASE_PARITY_INDEX, NUM_BASE_PARITY_PER_ROOT_PARITY},
+        hash::verification_key_hash,
+        proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey},
+        tests::fixtures::vk_tree::{generate_fake_honk_vk_for_index, get_vk_merkle_tree},
+        traits::Empty,
+    };
 
     fn test_setup() -> [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY] {
         // 31 byte test SHA roots
@@ -76,7 +76,7 @@ mod tests {
             0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
-        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+        let vk_tree = get_vk_merkle_tree();
 
         let vk_path = vk_tree.get_sibling_path(BASE_PARITY_INDEX);
         let vk_tree_root = vk_tree.get_root();

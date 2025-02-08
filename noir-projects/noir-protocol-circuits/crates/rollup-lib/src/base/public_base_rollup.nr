@@ -307,7 +307,7 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
             utils::pad_end,
         },
-        traits::{Empty, Hash, is_empty},
+        traits::{Empty, Hash, is_empty, Serialize},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},

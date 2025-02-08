@@ -82,6 +82,7 @@ impl Serialize<U128_SERIALIZED_LEN> for U128 {
         //   first.
         // For this reason if we didn't use the ordering of U128 limbs here and in encoder.ts we would get an arguments
         // hash mismatch.
+        // The below warning is due to visibility in noir stdlib.
         [self.lo, self.hi]
     }
 }

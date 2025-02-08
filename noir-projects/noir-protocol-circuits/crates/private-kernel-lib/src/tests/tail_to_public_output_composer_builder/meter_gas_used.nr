@@ -7,6 +7,7 @@ use dep::types::{
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
 };
 
 #[test]

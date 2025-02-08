@@ -1,7 +1,9 @@
 mod previous_kernel_validator_hints;
 
 use dep::types::{
-    abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
+    abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
+    address::AztecAddress,
+    traits::is_empty,
     utils::arrays::array_length,
 };
 use previous_kernel_validator_hints::{
@@ -15,6 +17,7 @@ pub struct PreviousKernelValidator {
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelData) -> Self {
+        /// Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
         let hints =
             unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
         PreviousKernelValidator { previous_kernel, hints }
