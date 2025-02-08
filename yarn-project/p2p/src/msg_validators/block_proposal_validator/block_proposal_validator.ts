@@ -1,10 +1,10 @@
 import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
 
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {
-  private epochCache: EpochCache;
+  private epochCache: EpochCacheInterface;
 
-  constructor(epochCache: EpochCache) {
+  constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
   }
 

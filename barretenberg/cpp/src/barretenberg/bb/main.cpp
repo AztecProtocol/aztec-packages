@@ -860,7 +860,7 @@ int main(int argc, char* argv[])
                 return 0;
             } else {
                 throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
-                return 1;
+                return 0;
             }
         };
 
@@ -872,7 +872,7 @@ int main(int argc, char* argv[])
         // CLIENT IVC
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
-            execute_command(command, flags, api);
+            return execute_command(command, flags, api);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
         } else if (command == "gates_mega_honk") {

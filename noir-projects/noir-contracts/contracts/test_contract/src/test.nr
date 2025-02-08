@@ -23,6 +23,7 @@ unconstrained fn test_storage_slot_allocation() {
     // #[storage]
     // struct Storage<Context> {
     //     example_constant: PrivateImmutable<TestNote, Context>,
+    //     example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
     //     example_set: PrivateSet<TestNote, Context>,
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
     //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
@@ -41,6 +42,9 @@ unconstrained fn test_storage_slot_allocation() {
     // single slot.
     expected_slot += 1;
 
+    assert_eq(Test::storage_layout().example_struct_in_shared_mutable.slot, expected_slot);
+    expected_slot += get_shared_mutable_num_slots();
+
     assert_eq(Test::storage_layout().example_set.slot, expected_slot);
     // example_set also held a note, so it should have only allocated a single slot.
     expected_slot += 1;
@@ -51,13 +55,17 @@ unconstrained fn test_storage_slot_allocation() {
 
     assert_eq(Test::storage_layout().example_struct_in_public_immutable.slot, expected_slot);
     // example_struct_in_public_immutable should allocate 6 slots because ExampleStruct occupies 5 slots
-    // and `PublicImmutable` wraps the struct in a `WithHash<T>` that adds an additional slot.
     expected_slot += 6;
 
     assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
-    // example_struct_in_map should allocate a single slot because it's a map, regardless of whatever it holds. The Map
-    // type is going to deal with its own dynamic allocation based on keys
-    expected_slot += 1;
+}
 
-    assert_eq(Test::storage_layout().another_example_struct.slot, expected_slot);
+fn get_shared_mutable_num_slots() -> Field {
+    let scheduled_delay_packed_len = 1; // There is 1 ScheduledDelayChange stored in storage and it fits into 1 slot.
+    let example_struct_packed_len = 5; // ExampleStruct packs to 5 slots.
+    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
+    let scheduled_value_change_packed_len = (example_struct_packed_len * 2 + 1);
+    let with_hash_additional_slots = 1; // Wrapping the values in WithHash adds 1 slot.
+
+    scheduled_delay_packed_len + scheduled_value_change_packed_len + with_hash_additional_slots
 }

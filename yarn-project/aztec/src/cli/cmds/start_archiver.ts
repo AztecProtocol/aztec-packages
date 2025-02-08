@@ -16,12 +16,14 @@ import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } fro
 import { extractRelevantOptions } from '../util.js';
 import { validateL1Config } from '../validation.js';
 
+export type { ArchiverConfig, DataStoreConfig };
+
 /** Starts a standalone archiver. */
 export async function startArchiver(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
-) {
+): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
   const archiverConfig = extractRelevantOptions<ArchiverConfig & DataStoreConfig>(
     options,
     {
@@ -43,5 +45,6 @@ export async function startArchiver(
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
-  return services;
+
+  return { config: archiverConfig };
 }

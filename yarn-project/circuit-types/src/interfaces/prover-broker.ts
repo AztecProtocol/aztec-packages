@@ -60,7 +60,11 @@ export interface ProvingJobConsumer {
    * @param id - The ID of the job to report success for
    * @param result - The result of the job
    */
-  reportProvingJobSuccess(id: ProvingJobId, result: ProofUri): Promise<void>;
+  reportProvingJobSuccess(
+    id: ProvingJobId,
+    result: ProofUri,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined>;
 
   /**
    * Marks a proving job as errored
@@ -68,7 +72,12 @@ export interface ProvingJobConsumer {
    * @param err - The error that occurred while processing the job
    * @param retry - Whether to retry the job
    */
-  reportProvingJobError(id: ProvingJobId, err: string, retry?: boolean): Promise<void>;
+  reportProvingJobError(
+    id: ProvingJobId,
+    err: string,
+    retry?: boolean,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined>;
 
   /**
    * Sends a heartbeat to the broker to indicate that the agent is still working on the given proving job
