@@ -237,7 +237,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec@workspace:aztec":
+"@aztec/aztec@workspace:^, @aztec/aztec@workspace:aztec":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec@workspace:aztec"
   dependencies:
@@ -614,6 +614,7 @@ __metadata:
     0x: "npm:^5.7.0"
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
+    "@aztec/aztec": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"

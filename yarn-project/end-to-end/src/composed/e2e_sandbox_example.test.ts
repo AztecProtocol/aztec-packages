@@ -54,8 +54,18 @@ end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.t
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, type PXE, createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { getDeployedBananaCoinAddress, getDeployedBananaFPCAddress } from '@aztec/aztec';
+import {
+  Fr,
+  GrumpkinScalar,
+  type PXE,
+  PrivateFeePaymentMethod,
+  createLogger,
+  createPXEClient,
+  waitForPXE,
+} from '@aztec/aztec.js';
 import { timesParallel } from '@aztec/foundation/collection';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { format } from 'util';
 
@@ -180,6 +190,10 @@ describe('e2e_sandbox_example', () => {
 
     // docs:start:create_accounts
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
+
+    // Use one of the pre-funded accounts to pay for the deployments.
+    const [fundedWallet] = await getDeployedTestAccountsWallets(pxe);
+
     // Creates new accounts using an account contract that verifies schnorr signatures
     // Returns once the deployment transactions have settled
     const createSchnorrAccounts = async (numAccounts: number, pxe: PXE) => {
@@ -191,12 +205,9 @@ describe('e2e_sandbox_example', () => {
         ),
       );
 
-      // Use one of the pre-funded accounts to pay for the deployment.
-      const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
-
       return await Promise.all(
         accountManagers.map(async x => {
-          await x.deploy({ deployWallet }).wait();
+          await x.deploy({ deployWallet: fundedWallet }).wait();
           return x;
         }),
       );
@@ -205,6 +216,7 @@ describe('e2e_sandbox_example', () => {
     // Create 2 accounts and wallets to go with each
     logger.info(`Creating accounts using schnorr signers...`);
     const accounts = await createSchnorrAccounts(2, pxe);
+    const aliceWallet = await accounts[0].getWallet();
 
     ////////////// VERIFY THE ACCOUNTS WERE CREATED SUCCESSFULLY //////////////
 
@@ -227,5 +239,31 @@ describe('e2e_sandbox_example', () => {
     // check that alice and bob are in registeredAccounts
     expect(registeredAccounts.find(acc => acc.equals(alice))).toBeTruthy();
     expect(registeredAccounts.find(acc => acc.equals(bob))).toBeTruthy();
+
+    ////////////// FUND THE NEW ACCOUNT WITH BANANA COIN //////////////
+    const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
+    const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
+    const mintAmount = 10n ** 20n;
+    await bananaCoin.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
+
+    ////////////// USE THE NEW ACCOUNT TO SEND A TX AND PAID WITH BANANA COIN //////////////
+    const transferAmount = 100n;
+    const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
+    const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, aliceWallet);
+    const receipt = await bananaCoin
+      .withWallet(aliceWallet)
+      .methods.transfer(bob, transferAmount)
+      .send({ fee: { paymentMethod } })
+      .wait();
+    logger.info(`Transaction fee: ${receipt.transactionFee}`);
+
+    // Check the balances
+    const aliceBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
+    logger.info(`Alice's balance: ${aliceBalance}`);
+    expect(aliceBalance).toEqual(mintAmount - receipt.transactionFee! - transferAmount);
+
+    const bobBalance = await bananaCoin.methods.balance_of_private(bob).simulate();
+    logger.info(`Bob's balance: ${bobBalance}`);
+    expect(bobBalance).toEqual(transferAmount);
   });
 });
