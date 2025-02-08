@@ -280,6 +280,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: 'ARCHIVER_URL',
     },
+    {
+      flag: '--proverNode.testAccounts',
+      description: 'Populate genesis state with initial fee juice for test accounts',
+      envVar: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(true),
+    },
     ...getOptions(
       'proverNode',
       omitConfigMappings(proverNodeConfigMappings, [
@@ -287,6 +293,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
         ...(Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
         ...(Object.keys(proverBrokerConfigMappings) as (keyof ProverBrokerConfig)[]),
         ...(Object.keys(proverAgentConfigMappings) as (keyof ProverAgentConfig)[]),
+        'testAccounts',
       ]),
     ),
   ],

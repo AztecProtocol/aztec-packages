@@ -35,7 +35,7 @@ export async function startNode(
     process.exit(1);
   }
 
-  const initialFundedAccounts = options.testAccounts ? await getInitialTestAccounts() : [];
+  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
   const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address),
   );

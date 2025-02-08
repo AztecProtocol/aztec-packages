@@ -1,41 +1,31 @@
-import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
-import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
-import {
-  type ProverClientConfig,
-  bbConfigMappings,
-  getProverEnvVars,
-  proverClientConfigMappings,
-} from '@aztec/prover-client/config';
+import { type ProverClientConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
-  getPublisherConfigFromEnv,
   getPublisherConfigMappings,
-  getTxSenderConfigFromEnv,
   getTxSenderConfigMappings,
 } from '@aztec/sequencer-client/config';
-import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state/config';
+import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
-import {
-  type ProverCoordinationConfig,
-  getTxProviderConfigFromEnv,
-  proverCoordinationConfigMappings,
-} from './prover-coordination/config.js';
+import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
@@ -47,7 +37,10 @@ export type ProverNodeConfig = ArchiverConfig &
   ProverCoordinationConfig &
   ProverBondManagerConfig &
   QuoteProviderConfig &
-  SpecificProverNodeConfig;
+  SpecificProverNodeConfig & {
+    /** Whether to populate the genesis state with initial fee juice for the test accounts */
+    testAccounts: boolean;
+  };
 
 type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
@@ -127,22 +120,15 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...quoteProviderConfigMappings,
   ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(),
+  },
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
-  return {
-    ...getP2PConfigFromEnv(),
-    ...getDataConfigFromEnv(),
-    ...getArchiverConfigFromEnv(),
-    ...getProverEnvVars(),
-    ...getWorldStateConfigFromEnv(),
-    ...getPublisherConfigFromEnv('PROVER'),
-    ...getTxSenderConfigFromEnv('PROVER'),
-    ...getTxProviderConfigFromEnv(),
-    ...getConfigFromMappings(quoteProviderConfigMappings),
-    ...getConfigFromMappings(specificProverNodeConfigMappings),
-    ...getConfigFromMappings(proverBondManagerConfigMappings),
-  };
+  return getConfigFromMappings(proverNodeConfigMappings);
 }
 
 export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
