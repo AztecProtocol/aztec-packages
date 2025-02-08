@@ -70,12 +70,11 @@ function release_git_push {
 
   git init &>/dev/null
   git remote add origin "$mirrored_repo_url" &>/dev/null
-  git fetch origin "$branch_name" &>/dev/null
+  git fetch origin --quiet
 
-  # Checkout existing branch if it exists, otherwise create it.
-  if git show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
-    git checkout "$branch_name"
-    git pull origin "$branch_name" --quiet
+  # Checkout the existing branch or create it if it doesn't exist.
+  if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
+    git checkout -b "$branch_name" origin/"$branch_name"
   else
     git checkout -b "$branch_name"
   fi
@@ -110,8 +109,8 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test")
-    test
+  test|release|release_commit)
+    $cmd
     ;;
   "test-cmds")
     test_cmds
