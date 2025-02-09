@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId, MerkleTreeWriteOperations, SiblingPath } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations, type SiblingPath } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
