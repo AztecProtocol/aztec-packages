@@ -1,4 +1,4 @@
-import { type Blob } from '@aztec/foundation/blob';
+import { type Blob } from '@aztec/blob-lib';
 
 import { type BlobStore } from '../blobstore/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';

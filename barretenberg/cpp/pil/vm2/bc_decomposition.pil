@@ -29,8 +29,8 @@ last_of_contract * (1 - last_of_contract) = 0;
 // If the TX uses several bytecodes, they should go one after the other in this column.
 pol commit bytes;
 // This constrains that the bytes are in the range 0 to 255.
-// #[LOOKUP_BYTECODE_BYTES]
-// sel { bytes } in precomputed.sel_u8 { precomputed.clk }
+#[LOOKUP_BYTECODE_BYTES_ARE_BYTES]
+sel { bytes } in precomputed.sel_range_8 { precomputed.clk };
 
 // These are helper columns that will be used for bytecode decomposition.
 pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, bytes_pc_plus_5,

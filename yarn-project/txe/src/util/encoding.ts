@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/circuits.js';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -9,7 +9,7 @@ export type ForeignCallSingle = string;
 
 export type ForeignCallArray = string[];
 
-export type ForeignCallArgs = (ForeignCallSingle | ForeignCallArray | ContractArtifact)[];
+export type ForeignCallArgs = (ForeignCallSingle | ForeignCallArray | ContractArtifact | ContractInstanceWithAddress)[];
 
 export type ForeignCallResult = {
   values: (ForeignCallSingle | ForeignCallArray)[];
@@ -44,7 +44,7 @@ export const ForeignCallSingleSchema = z.string();
 export const ForeignCallArraySchema = z.array(z.string());
 
 export const ForeignCallArgsSchema = z.array(
-  z.union([ForeignCallSingleSchema, ForeignCallArraySchema, ContractArtifactSchema]),
+  z.union([ForeignCallSingleSchema, ForeignCallArraySchema, ContractArtifactSchema, ContractInstanceWithAddressSchema]),
 );
 
 export const ForeignCallResultSchema = z.object({
