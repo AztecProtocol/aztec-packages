@@ -15,6 +15,7 @@ noir-protocol-circuits-types/src/types/index.ts
 noir-protocol-circuits-types/src/private_kernel_reset_data.ts
 noir-protocol-circuits-types/src/private_kernel_reset_types.ts
 noir-protocol-circuits-types/src/private_kernel_reset_vks.ts
+noir-protocol-circuits-types/src/vk_tree.ts
 noir-protocol-circuits-types/src/client_artifacts_helper.ts
 circuits.js/src/constants.gen.ts
 noir-bb-bench/src/types/index.ts

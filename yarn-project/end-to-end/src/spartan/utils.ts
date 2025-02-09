@@ -28,6 +28,8 @@ const k8sLocalConfigSchema = z.object({
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
+  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
 });
 

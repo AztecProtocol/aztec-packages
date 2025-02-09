@@ -30,6 +30,11 @@ fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
+# NOTE: slated for removal along with e2e image!
+use_docker=${USE_DOCKER:-true}
+sepolia_run=${SEPOLIA_RUN:-false}
+
+OVERRIDES="${OVERRIDES:-}"
 
 # Ensure we have kind context
 ../bootstrap.sh kind
@@ -62,7 +67,7 @@ trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
 function copy_stern_to_log() {
-  stern spartan -n $namespace > logs/test_kind.log &
+  stern spartan -n $namespace >logs/test_kind.log &
   stern_pid=$!
 }
 
@@ -71,7 +76,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  ./deploy_kind.sh $namespace $values_file
+  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
 fi
 
 # Find 4 free ports between 9000 and 10000

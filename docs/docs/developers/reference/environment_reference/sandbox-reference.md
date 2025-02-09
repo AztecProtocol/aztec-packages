@@ -60,7 +60,6 @@ P2P_TCP_ANNOUNCE_ADDR='' # TCP Address to announce to the p2p network. Format: <
 P2P_UDP_ANNOUNCE_ADDR='' # UDP Hostname to announce to the p2p network (used for peer discovery). Uses TCP announce addr if not provided
 P2P_ANNOUNCE_PORT='' # Port to announce to the p2p network
 P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
-P2P_MIN_PEERS=10 # The minimum number of peers (a peer count below this will cause the node to look for more peers)
 P2P_MAX_PEERS=100 # The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
 
 ## Aztec Contract Addresses ##

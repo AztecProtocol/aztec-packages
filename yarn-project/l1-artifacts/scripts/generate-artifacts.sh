@@ -68,7 +68,13 @@ echo "// Auto-generated module" >"src/index.ts"
 # Add Errors export to index.ts
 echo "export * from './ErrorsAbi.js';" >>"src/index.ts"
 
+# Collect all compressed abis
+abis=""
+
 for contract_name in "${contracts[@]}"; do
+  # Append compressed abi to abis collection
+  abis="$abis:$(jq -c '.abi' "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json")"
+
   # Generate <ContractName>Abi.ts
   (
     echo "/**"
@@ -122,4 +128,9 @@ done
 # Update index.ts exports
 echo "export * from './RollupStorage.js';" >>"src/index.ts"
 
-echo "Successfully generated TS artifacts!"
+# Write abis hash. Consider excluding some contracts from this hash if
+# we don't want to consider them as breaking for the interfaces.
+echo "export const AbisChecksum = \"$(echo -n "$abis" | sha256sum | cut -d' ' -f1)\";" >"src/checksum.ts"
+echo "export * from './checksum.js';" >>"src/index.ts"
+
+echo "Successfully generated TS artifacts"

@@ -67,6 +67,11 @@ class perm_merkle_poseidon2_relation
     : public GenericPermutationRelation<perm_merkle_poseidon2_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_merkle_poseidon2_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.merkle_tree_sel_merkle_tree.is_zero() && in.poseidon2_full_sel_merkle_tree.is_zero();
+    }
 };
 template <typename FF_>
 using perm_merkle_poseidon2 = GenericPermutation<perm_merkle_poseidon2_permutation_settings, FF_>;
