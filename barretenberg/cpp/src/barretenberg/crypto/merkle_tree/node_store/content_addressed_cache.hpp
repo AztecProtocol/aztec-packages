@@ -33,6 +33,9 @@ template <> struct std::hash<bb::fr> {
 
 namespace bb::crypto::merkle_tree {
 
+// Stores all of the penidng updates to a mekle tree indexed for optimal retrieval
+// Also stores a journal of inverse changes to the cache, enabling checkpoints and
+// and subsequent commit/revert operations
 template <typename LeafValueType> class ContentAddressedCache {
   public:
     using LeafType = LeafValueType;

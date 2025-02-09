@@ -171,8 +171,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void unwind_block(const block_number_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
 
-    std::optional<index_t> get_fork_block() const;
-
     void advance_finalised_block(const block_number_t& blockNumber);
 
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
@@ -183,7 +181,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
   private:
     using Cache = ContentAddressedCache<LeafValueType>;
-    using CachePtr = typename Cache::UniquePtr;
 
     struct ForkConstantData {
         std::string name_;
@@ -206,10 +203,6 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void enrich_meta_from_fork_constant_data(TreeMeta& m) const;
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
-
-    void persist_leaf_indices(WriteTransaction& tx);
-
-    void persist_leaf_pre_image(const fr& hash, WriteTransaction& tx);
 
     void persist_node(const std::optional<fr>& optional_hash, uint32_t level, WriteTransaction& tx);
 
@@ -602,7 +595,7 @@ fr ContentAddressedCachedTreeStore<LeafValueType>::get_current_root(ReadTransact
 }
 
 // The following functions are related to either initialisation or committing data
-// It is assumed that when these operations are being executed that no other state accessing operations
+// It is assumed that when these operations are being executed, no other state accessing operations
 // are in progress, hence no data synchronisation is used.
 
 template <typename LeafValueType>
@@ -635,7 +628,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
         try {
             if (dataPresent) {
                 // std::cout << "Persisting data for block " << uncommittedMeta.unfinalisedBlockHeight + 1 << std::endl;
-                persist_leaf_indices(*tx);
+                // Persist the leaf indices
+                const std::map<uint256_t, index_t>& indices = cache_.get_indices();
+                for (const auto& idx : indices) {
+                    FrKeyType key = idx.first;
+                    dataStore_->write_leaf_index(key, idx.second, *tx);
+                }
             }
             // If we are commiting a block, we need to persist the root, since the new block "references" this root
             // However, if the root is the empty root we can't persist it, since it's not a real node
@@ -686,26 +684,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::extract_db_stats(TreeDBStat
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteTransaction& tx)
-{
-    const std::map<uint256_t, index_t>& indices = cache_.get_indices();
-    for (auto& idx : indices) {
-        FrKeyType key = idx.first;
-        dataStore_->write_leaf_index(key, idx.second, tx);
-    }
-}
-
-template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_pre_image(const fr& hash, WriteTransaction& tx)
-{
-    // Now persist the leaf pre-image
-    IndexedLeafValueType leafPreImage;
-    if (cache_.get_leaf_preimage_by_hash(hash, leafPreImage)) {
-        dataStore_->write_leaf_by_hash(hash, leafPreImage, tx);
-    }
-}
-
-template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::optional<fr>& optional_hash,
                                                                   uint32_t level,
                                                                   WriteTransaction& tx)
@@ -730,8 +708,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
         fr hash = so.opHash.value();
 
         if (so.lvl == forkConstantData_.depth_) {
-            // this is a leaf
-            persist_leaf_pre_image(hash, tx);
+            // this is a leaf, we need to persist the pre-image
+            IndexedLeafValueType leafPreImage;
+            if (cache_.get_leaf_preimage_by_hash(hash, leafPreImage)) {
+                dataStore_->write_leaf_by_hash(hash, leafPreImage, tx);
+            }
         }
 
         // std::cout << "Persisting node hash " << hash << " at level " << so.lvl << std::endl;
@@ -1190,15 +1171,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         enrich_meta_from_fork_constant_data(meta);
         cache_.put_meta(meta);
     }
-}
-
-template <typename LeafValueType>
-std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::get_fork_block() const
-{
-    if (forkConstantData_.initialised_from_block_.has_value()) {
-        return forkConstantData_.initialised_from_block_->blockNumber;
-    }
-    return std::nullopt;
 }
 
 } // namespace bb::crypto::merkle_tree
