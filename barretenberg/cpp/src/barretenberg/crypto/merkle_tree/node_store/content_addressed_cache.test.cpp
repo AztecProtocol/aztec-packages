@@ -46,7 +46,7 @@ void add_to_cache(
         NodePayload node = { fr::random_element(), fr::random_element(), 0 };
         cache.put_node(node_hash, node);
 
-        uint32_t level = i % cache.get_meta().depth;
+        uint32_t level = uint32_t(i % uint64_t(cache.get_meta().depth));
         index_t max_index_at_level = 1;
         max_index_at_level <<= level;
         max_index_at_level--;
