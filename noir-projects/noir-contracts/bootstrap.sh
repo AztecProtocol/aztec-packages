@@ -153,7 +153,7 @@ function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
 
   set +e
-  get_contracts_dir | parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
+  get_contract_dirs | parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
   code=$?
   cat joblog.txt
   return $code
