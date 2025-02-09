@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/blob-lib';
 import {
   Body,
   MerkleTreeId,
@@ -44,7 +45,6 @@ import {
   PublicBaseStateDiffHints,
 } from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
-import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
@@ -441,7 +441,7 @@ export const getConstantRollupData = runInSpan(
   'getConstantRollupData',
   async (_span, globalVariables: GlobalVariables, db: MerkleTreeReadOperations): Promise<ConstantRollupData> => {
     return ConstantRollupData.from({
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
       globalVariables,

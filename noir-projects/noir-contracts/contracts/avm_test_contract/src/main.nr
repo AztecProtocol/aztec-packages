@@ -297,42 +297,6 @@ pub contract AvmTest {
     }
 
     /************************************************************************
-<<<<<<< HEAD
-=======
-     * Hashing functions
-     ************************************************************************/
-    #[public]
-    fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::keccak256(data, data.len() as u32)
-    }
-
-    #[public]
-    fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
-        std::hash::keccak::keccakf1600(data)
-    }
-
-    #[public]
-    fn poseidon2_hash(data: [Field; 10]) -> Field {
-        std::hash::poseidon2::Poseidon2::hash(data, data.len())
-    }
-
-    #[public]
-    fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
-        sha256::digest(data)
-    }
-
-    #[public]
-    fn pedersen_hash(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash(data)
-    }
-
-    #[public]
-    fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
-    }
-
-    /************************************************************************
->>>>>>> master
      * Contract instance
      ************************************************************************/
     #[public]

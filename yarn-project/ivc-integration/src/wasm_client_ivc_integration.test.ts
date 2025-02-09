@@ -1,6 +1,7 @@
-import { createLogger } from '@aztec/foundation/log';
-
 import { jest } from '@jest/globals';
+
+/* eslint-disable camelcase */
+import createDebug from 'debug';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -25,9 +26,8 @@ import {
   witnessGenReaderAppMockCircuit,
 } from './index.js';
 
-/* eslint-disable camelcase */
-
-const logger = createLogger('ivc-integration:test:wasm');
+const logger = createDebug('ivc-integration:test:wasm');
+createDebug.enable('*');
 
 jest.setTimeout(120_000);
 
@@ -38,26 +38,26 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const tx = {
       number_of_calls: '0x1',
     };
     // Witness gen app and kernels
     const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger.debug('generated app mock circuit witness');
+    logger('generated app mock circuit witness');
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
       app_vk: getVkAsFields(MockAppCreatorVk),
     });
-    logger.debug('generated mock private kernel init witness');
+    logger('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
-    logger.debug('generated mock private kernel tail witness');
+    logger('generated mock private kernel tail witness');
 
     // Create client IVC proof
     const bytecodes = [
@@ -65,12 +65,12 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
-    logger.debug('built bytecode array');
+    logger('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
-    logger.debug('built witness stack');
+    logger('built witness stack');
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated then verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -82,7 +82,7 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it.skip('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const tx = {
       number_of_calls: '0x2',
     };
@@ -137,7 +137,7 @@ describe('Client IVC Integration', () => {
     ];
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated then verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

@@ -17,7 +17,8 @@ network:
 ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
-  externalHost:
+  execution:
+    externalHost:
   beacon:
     externalHost:
     apiKey: ""

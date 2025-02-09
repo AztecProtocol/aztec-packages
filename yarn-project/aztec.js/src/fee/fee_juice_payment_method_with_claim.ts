@@ -4,7 +4,7 @@ import { FunctionType, U128 } from '@aztec/foundation/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
-import { type L2AmountClaim } from '../utils/portal_manager.js';
+import { type L2AmountClaim } from '../api/ethereum/portal_manager.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
