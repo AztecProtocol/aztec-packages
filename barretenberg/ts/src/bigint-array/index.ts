@@ -10,12 +10,20 @@ export function toBigIntBE(bytes: Uint8Array) {
   return bigint;
 }
 
-export function toBufferBE(value: bigint, byteLength = 32) {
-  const bytes = new Uint8Array(byteLength);
-  const view = new DataView(bytes.buffer);
-  for (let i = 0; i < byteLength; i++) {
-    view.setUint8(byteLength - i - 1, Number(value & BigInt(0xff)));
-    value >>= BigInt(8);
-  }
-  return bytes;
+export function bufToBigIntBE(buf: Buffer) {
+  return (
+    (buf.readBigInt64BE(0) << 192n) +
+    (buf.readBigInt64BE(8) << 128n) +
+    (buf.readBigInt64BE(16) << 64n) +
+    buf.readBigInt64BE(24)
+  );
+}
+
+export function toBufferBE(value: bigint, byteLength = 32): Buffer {
+  const buf = Buffer.alloc(byteLength);
+  buf.writeBigUInt64BE(value >> 192n, 0);
+  buf.writeBigUInt64BE((value >> 128n) & 0xffffffffffffffffn, 8);
+  buf.writeBigUInt64BE((value >> 64n) & 0xffffffffffffffffn, 16);
+  buf.writeBigUInt64BE(value & 0xffffffffffffffffn, 24);
+  return buf;
 }
