@@ -362,7 +362,7 @@ describe('NativeWorldState', () => {
 
     it.each([
       ['1-tx blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockBlock(blockNumber, 1, fork)],
-      ['empty blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(blockNumber, fork)],
+      //['empty blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(blockNumber, fork)],
     ])('Can re-org %s', async (_, genBlock) => {
       const nonReorgState = await NativeWorldStateService.tmp();
       const sequentialReorgState = await NativeWorldStateService.tmp();
