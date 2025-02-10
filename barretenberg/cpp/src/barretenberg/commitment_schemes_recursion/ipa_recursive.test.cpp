@@ -229,6 +229,14 @@ TEST_F(IPARecursiveTests, AccumulateMedium)
     test_accumulation(/*POLY_LENGTH=*/1024);
 }
 
+/**
+ * @brief Test accumulation with polynomials of length 1024
+ * @details More details in test_accumulation
+ */
+TEST_F(IPARecursiveTests, AccumulateLarge)
+{
+    test_accumulation(/*POLY_LENGTH=*/1 << CONST_ECCVM_LOG_N);
+}
 TEST_F(IPARecursiveTests, ConstantVerifier)
 {
     test_fixed_ipa_recursive_verifier();
