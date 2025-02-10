@@ -1,6 +1,7 @@
 ---
 title: How to Simulate a Function Call
 tags: [functions]
+sidebar_position: 2
 ---
 
 This guide explains how to `simulate` a function call using Aztec.js.
