@@ -58,6 +58,19 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 /// }
+///
+/// # On including length in note hash preimage
+/// For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
+/// However, due to elliptic curve symmetry about the x-axis, for any x-coordinate,
+/// there are two points with that x-coordinate. This means -C has the same hash (x-coord) as C,
+/// and the tuple [-a, -b, -c] produces the same hash as [a, b, c].
+///
+/// This property makes the hash trivially not collision resistant without including the length.
+/// By including the length l, the commitment becomes:
+/// C = a*G1 + b*G2 + c*G3 + l*G_len
+///
+/// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
+/// including the length protects against these collisions.
 comptime fn generate_note_interface(
     s: StructDefinition,
     note_type_id: Field,
@@ -105,10 +118,15 @@ comptime fn generate_note_interface(
     let (new_generators_list, new_scalars_list, _, new_aux_vars) =
         generate_multi_scalar_mul(prefixed_merged_fields);
 
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_generators = new_generators_list
+        .push_back(quote { aztec::generators::G_slot })
+        .push_back(quote { aztec::generators::G_len })
+        .join(quote {,});
+
+    let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
         .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
     (
