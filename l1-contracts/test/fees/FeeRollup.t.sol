@@ -54,7 +54,7 @@ import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
 
 contract FakeCanonical is IRewardDistributor {
-  uint256 public constant BLOCK_REWARD = 0; //50e18;
+  uint256 public constant BLOCK_REWARD = 50e18;
   IERC20 public immutable UNDERLYING;
 
   address public canonicalRollup;

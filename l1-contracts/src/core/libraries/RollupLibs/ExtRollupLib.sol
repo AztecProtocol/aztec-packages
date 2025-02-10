@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+
 import {BlockLog, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
@@ -17,6 +19,13 @@ library ExtRollupLib {
     mapping(uint256 blockNumber => BlockLog log) storage _blocks
   ) external view {
     ValidationLib.validateHeaderForSubmissionBase(_args, _blocks);
+  }
+
+  function verifyEpochRootProof(
+    RollupStore storage _rollupStore,
+    SubmitEpochRootProofArgs calldata _args
+  ) external view returns (bool) {
+    return EpochProofLib.verifyEpochRootProof(_rollupStore, _args);
   }
 
   function getManaBaseFeeComponentsAt(
