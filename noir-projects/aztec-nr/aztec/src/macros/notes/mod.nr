@@ -349,7 +349,24 @@ comptime fn generate_multi_scalar_mul(
 //
 /// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and hiding point.
 ///
-/// Example:
+/// # On including length in note hash preimage
+/// The hiding point is computed as a multi-scalar multiplication that includes the length of the preimage
+/// to protect against collisions due to elliptic curve symmetry.
+///
+/// When computing a note hash in the partial notes flow, we take the hiding point, add the nullable fields to it
+/// in public and then we take the x-coordinate of the point and use it as the note hash. E.g. for a given commitment
+/// C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x. However, due to elliptic curve symmetry about the x-axis,
+/// for any x-coordinate, there are two points with that x-coordinate. This means -C has the same hash (x-coord) as C,
+/// and the tuple [-a, -b, -c] produces the same hash as [a, b, c].
+///
+/// This property makes the hash trivially not collision resistant without including the length.
+/// By including the length l, the commitment becomes:
+/// C = a*G1 + b*G2 + c*G3 + l*G_len
+///
+/// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
+/// including the length protects against these collisions.
+///
+/// # Example function output
 /// ```
 /// struct TokenNoteSetupPayload {
 ///     log_plaintext: [u8; 160],
@@ -359,11 +376,12 @@ comptime fn generate_multi_scalar_mul(
 /// impl TokenNoteSetupPayload {
 ///     fn new(mut self, npk_m_hash: Field, randomness: Field, storage_slot: Field) -> TokenNoteSetupPayload {
 ///         let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
-///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot],
+///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot, aztec::generators::G_len],
 ///             [
 ///                 std::hash::from_field_unsafe(npk_m_hash),
 ///                 std::hash::from_field_unsafe(randomness),
-///                 std::hash::from_field_unsafe(storage_slot)
+///                 std::hash::from_field_unsafe(storage_slot),
+///                 std::hash::from_field_unsafe(3)
 ///             ]
 ///         );
 ///
@@ -423,10 +441,14 @@ comptime fn generate_setup_payload(
         .append(new_args_list)
         .push_back(quote { storage_slot: Field })
         .join(quote {,});
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_generators = new_generators_list
+        .push_back(quote { aztec::generators::G_slot })
+        .push_back(quote { aztec::generators::G_len })
+        .join(quote {,});
+    let merged_fields_len = indexed_fixed_fields.len() + indexed_nullable_fields.len() + 1; // +1 for storage_slot
     let new_scalars = new_scalars_list
         .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
     // Then the log plaintext ones
