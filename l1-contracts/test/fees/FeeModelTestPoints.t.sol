@@ -5,6 +5,12 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
 import {OracleInput as FeeMathOracleInput} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {
+  MAX_PROVING_COST_MODIFIER,
+  MAX_FEE_ASSET_PRICE_MODIFIER,
+  MINIMUM_CONGESTION_MULTIPLIER
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 // Remember that foundry json parsing is alphabetically done, so you MUST
 // sort the struct fields alphabetically or prepare for a headache.
@@ -134,11 +140,48 @@ contract FeeModelTestPoints is TestBase {
     );
   }
 
-  function assertEq(ManaBaseFeeComponents memory a, ManaBaseFeeComponents memory b) internal pure {
-    assertEq(a.congestion_cost, b.congestion_cost, "congestion_cost mismatch");
-    assertEq(a.congestion_multiplier, b.congestion_multiplier, "congestion_multiplier mismatch");
-    assertEq(a.data_cost, b.data_cost, "data_cost mismatch");
-    assertEq(a.gas_cost, b.gas_cost, "gas_cost mismatch");
-    assertEq(a.proving_cost, b.proving_cost, "proving_cost mismatch");
+  function assertEq(
+    ManaBaseFeeComponents memory a,
+    ManaBaseFeeComponents memory b,
+    string memory _message
+  ) internal pure {
+    assertEq(
+      a.congestion_cost, b.congestion_cost, string.concat(_message, " congestion_cost mismatch")
+    );
+    assertEq(
+      a.congestion_multiplier,
+      b.congestion_multiplier,
+      string.concat(_message, " congestion_multiplier mismatch")
+    );
+    assertEq(a.data_cost, b.data_cost, string.concat(_message, " data_cost mismatch"));
+    assertEq(a.gas_cost, b.gas_cost, string.concat(_message, " gas_cost mismatch"));
+    assertEq(a.proving_cost, b.proving_cost, string.concat(_message, " proving_cost mismatch"));
+  }
+
+  function manipulateProvingCost(TestPoint memory point) internal pure returns (TestPoint memory) {
+    point.outputs.mana_base_fee_components_in_wei.proving_cost = 100;
+    point.outputs.mana_base_fee_components_in_fee_asset.proving_cost = Math.mulDiv(
+      point.outputs.mana_base_fee_components_in_wei.proving_cost,
+      point.outputs.fee_asset_price_at_execution,
+      1e9,
+      Math.Rounding.Ceil
+    );
+
+    uint256 total = point.outputs.mana_base_fee_components_in_wei.data_cost
+      + point.outputs.mana_base_fee_components_in_wei.gas_cost
+      + point.outputs.mana_base_fee_components_in_wei.proving_cost;
+
+    point.outputs.mana_base_fee_components_in_wei.congestion_cost = (
+      total * point.outputs.mana_base_fee_components_in_wei.congestion_multiplier
+        / MINIMUM_CONGESTION_MULTIPLIER - total
+    );
+    point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost = Math.mulDiv(
+      point.outputs.mana_base_fee_components_in_wei.congestion_cost,
+      point.outputs.fee_asset_price_at_execution,
+      1e9,
+      Math.Rounding.Ceil
+    );
+
+    return point;
   }
 }
