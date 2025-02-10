@@ -24,24 +24,6 @@ class TranslatorProvingKeyTests : public ::testing::Test {
 };
 } // namespace
 
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
-{
-    for (size_t i = 0; i < circuit_size; i++) {
-        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        SumcheckArrayOfValuesOverSubrelations result;
-        for (auto& element : result) {
-            element = 0;
-        }
-
-        // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, polynomials.get_row(i), params, 1);
-        for (auto& element : result) {
-            ASSERT_EQ(element, 0);
-        }
-    }
-}
-
 /**
  * @brief Simple test to check the interleaving method produces the expected results.
  *
