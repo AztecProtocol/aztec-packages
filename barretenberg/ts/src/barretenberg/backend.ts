@@ -391,7 +391,9 @@ export class AztecClientBackend {
 
   // STARTER
   async gates(): Promise<number[]> {
-    // call funciton on API
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient( this.acirMsgpack);
   }
 
   async destroy(): Promise<void> {

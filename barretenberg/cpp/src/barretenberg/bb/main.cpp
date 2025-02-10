@@ -81,7 +81,7 @@ std::string honk_vk_to_json(std::vector<bb::fr>& data)
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param witnessPath Path to the file containing the serialized witness
- * @param recursive Whether to use recursive proof generation of non-recursive
+ * @param recursive Whether to use recursive proof generation or non-recursive
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
@@ -214,7 +214,7 @@ void prove_tube(const std::string& output_path)
     std::string vkPath = output_path + "/client_ivc_vk";
     std::string proofPath = output_path + "/client_ivc_proof";
 
-    // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
+    // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
     init_bn254_crs(1 << 25);
     init_grumpkin_crs(1 << 18);
 
@@ -223,7 +223,7 @@ void prove_tube(const std::string& output_path)
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vkPath));
 
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
-    // IPA. The + 1 is to satisfy IPA verification key requirements.
+    // verify IPA. The + 1 is to satisfy IPA verification key requirements.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 
 /* eslint-disable camelcase */
 import createDebug from 'debug';
+import { ungzip } from 'pako';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -66,11 +67,19 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelTailCircuit.bytecode,
     ];
 
+    const { AztecClientBackend } = await import('@aztec/bb.js');
+    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+    const gateNumbers = await backend.gates();
+
+    logger('Gate numbers for each circuit:');
+    gateNumbers.forEach((gateCount, index) => {
+      logger(`Circuit ${index + 1}: ${gateCount} gates`);
+    });
     // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
     // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
     // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
 
-    logger.debug('built bytecode array');
+    logger('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger('built witness stack');
 
@@ -147,3 +156,6 @@ describe('Client IVC Integration', () => {
     expect(verifyResult).toEqual(true);
   });
 });
+function base64ToUint8Array(base64: string): Uint8Array {
+  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+}
