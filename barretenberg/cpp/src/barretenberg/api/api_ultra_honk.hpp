@@ -1,9 +1,9 @@
 #pragma once
 
-#include "barretenberg/bb/acir_format_getters.hpp"
-#include "barretenberg/bb/api.hpp"
-#include "barretenberg/bb/init_srs.hpp"
-#include "barretenberg/bb/write_prover_output.hpp"
+#include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/api.hpp"
+#include "barretenberg/api/init_srs.hpp"
+#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -117,7 +117,7 @@ template <typename VK> struct ProofAndKey {
 };
 
 class UltraHonkAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_stack(InputType input_type,
+    static std::vector<acir_format::AcirProgram> _build_stack(const std::string& input_type,
                                                               const std::filesystem::path& bytecode_path,
                                                               const std::filesystem::path& witness_path)
     {
@@ -128,7 +128,7 @@ class UltraHonkAPI : public API {
         // WORKTODO: handle single circuit case here
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-        if (input_type == InputType::COMPILETIME_STACK) {
+        if (input_type == "compiletime_stack") {
             auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/1);
             // Accumulate the entire program stack into the IVC
             while (!program_stack.empty()) {
@@ -250,8 +250,8 @@ class UltraHonkAPI : public API {
     }
 
     void _prove(const bool vk_only,
-                const OutputDataType output_data_type,
-                const OutputContentType output_content_type,
+                const std::string& output_data_type,
+                const std::string& output_content_type,
                 const API::Flags& flags,
                 const std::filesystem::path& bytecode_path,
                 const std::filesystem::path& witness_path,
@@ -261,13 +261,13 @@ class UltraHonkAPI : public API {
             info("proving with ipa_accumulation");
             write(
                 _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
-        } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
+        } else if (flags.oracle_hash_type == "poseidon2") {
             info("proving with poseidon2");
             write(_prove_poseidon2(flags, bytecode_path, witness_path),
                   output_data_type,
                   output_content_type,
                   output_dir);
-        } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
+        } else if (flags.oracle_hash_type == "keccak") {
             info("proving with keccak");
             if (flags.zk) {
                 write(_prove_keccak_zk(vk_only, flags, bytecode_path, witness_path),
@@ -281,24 +281,23 @@ class UltraHonkAPI : public API {
                       output_dir);
             }
         } else {
-            info(flags);
-            ASSERT("Invalid proving options specified");
+            throw_or_abort("Invalid proving options specified in _prove");
         };
     };
 
   public:
+    bool check_witness([[maybe_unused]] const Flags& flags,
+                       [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                       [[maybe_unused]] const std::filesystem::path& witness_path) override
+    {
+        return false; // WORKTODO
+    }
+
     void prove(const API::Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        if (flags.output_data_type == OutputDataType::UNSPECIFIED) {
-            ASSERT("No output type provided");
-        }
-        if (flags.output_content_type == OutputContentType::UNSPECIFIED) {
-            ASSERT("No output content provided");
-        }
-
         _prove(
             /*vk_only*/ false,
             flags.output_data_type,
@@ -334,11 +333,11 @@ class UltraHonkAPI : public API {
             info("verifying with keccak and zk");
             return _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
         }
-        if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
+        if (flags.oracle_hash_type == "poseidon2") {
             info("verifying with poseidon2");
             return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
         }
-        if (flags.oracle_hash_type == OracleHashType::KECCAK) {
+        if (flags.oracle_hash_type == "keccak") {
             info("verifying with keccak");
             return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
         }
@@ -378,31 +377,14 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        if (flags.output_data_type == OutputDataType::UNSPECIFIED) {
-            ASSERT("No output type provided");
-        }
-        ASSERT(flags.output_data_type == OutputDataType::BYTES || flags.output_data_type == OutputDataType::FIELDS);
-        OutputDataType output_type =
-            flags.output_data_type == OutputDataType::BYTES ? OutputDataType::BYTES : OutputDataType::FIELDS;
-        _prove(/*vk_only*/ true, output_type, OutputContentType::VK, flags, bytecode_path, "", output_path);
-    };
-
-    /**
-     * @brief Write an arbitrary but valid ClientIVC proof and VK to files
-     * @details used to test the prove_tube flow
-     *
-     * @param flags
-     * @param output_dir
-     */
-    void write_arbitrary_valid_proof_and_vk_to_file([[maybe_unused]] const API::Flags& flags,
-                                                    [[maybe_unused]] const std::filesystem::path& output_dir) override
-    {
-        ASSERT("API function not implemented");
+        // passing an empty string will result in an invalid witness being created. this is sufficient to generate the
+        // verification key.
+        // WORKTODO: _prove got crazy lookin
+        _prove(/*vk_only*/ true, flags.output_data_type, "vk", flags, bytecode_path, "", output_path);
     };
 
     void gates([[maybe_unused]] const API::Flags& flags,
-               [[maybe_unused]] const std::filesystem::path& bytecode_path,
-               [[maybe_unused]] const std::filesystem::path& witness_path) override
+               [[maybe_unused]] const std::filesystem::path& bytecode_path) override
     {
         ASSERT("API function not implemented");
     };
@@ -434,6 +416,19 @@ class UltraHonkAPI : public API {
         }
     };
 
+    /**
+     * @brief Write an arbitrary but valid ClientIVC proof and VK to files
+     * @details used to test the prove_tube flow
+     *
+     * @param flags
+     * @param output_dir
+     */
+    void write_arbitrary_valid_proof_and_vk_to_file([[maybe_unused]] const API::Flags& flags,
+                                                    [[maybe_unused]] const std::filesystem::path& output_dir) override
+    {
+        ASSERT("API function not implemented");
+    };
+
     void write_recursion_inputs(const API::Flags& flags,
                                 const std::string& bytecode_path,
                                 const std::string& witness_path,
@@ -451,15 +446,14 @@ class UltraHonkAPI : public API {
         if (ipa_accumulation) {
             info("proving with ipa_accumulation");
             write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
-        } else if (flags.oracle_hash_type == OracleHashType::POSEIDON2) {
+        } else if (flags.oracle_hash_type == "poseidon2") {
             info("proving with poseidon2");
             write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
-        } else if (flags.oracle_hash_type == OracleHashType::KECCAK) {
+        } else if (flags.oracle_hash_type == "keccak") {
             info("proving with keccak");
             write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
         } else {
-            info(flags);
-            ASSERT("Invalid proving options specified");
+            throw_or_abort("Invalid proving options specified in write_recursion_inputs");
         };
     }
 };

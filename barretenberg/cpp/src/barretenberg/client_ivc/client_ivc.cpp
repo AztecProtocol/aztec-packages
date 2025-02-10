@@ -155,6 +155,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * folding proof. Also execute the merge protocol to produce a merge proof.
  *
  * @param circuit
+ * @param _one_circuit Receives the signal that the initial stack to be accumulated consists of only one circuit. In
+ * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
 void ClientIVC::accumulate(ClientCircuit& circuit,
@@ -193,6 +195,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     }
 
     if (_one_circuit) {
+        // The initial stack consisted of only one circuit, so construct a proof for it.
         one_circuit = _one_circuit;
         MegaProver prover{ proving_key };
         vinfo("computing mega proof...");

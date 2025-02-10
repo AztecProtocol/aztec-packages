@@ -1,6 +1,6 @@
 #!/bin/bash
 # prove_then_verify produces intermediate state. We use process substitution to make parallel safe.
-set -eux
+set -eu
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
@@ -35,12 +35,14 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --output_type bytes --oracle_hash ${HASH:-poseidon2} --ipa_accumulation ${ROLLUP:-false}"
+    FLAGS+=" --scheme $SYS"
+    [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
+
     # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
     $BIN verify $FLAGS \
-        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
-        -p <($BIN prove --output_content proof -o - $FLAGS $BFLAG)
-    ;;
+        -k <($BIN write_vk -o - $FLAGS $BFLAG --input_type ${INPUT_TYPE:-compiletime_stack} --output_data bytes) \
+        -p <($BIN prove --output_content proof --oracle_hash ${HASH:-poseidon2} -o - $FLAGS $BFLAG --input_type ${INPUT_TYPE:-compiletime_stack} --output_data bytes)
+  ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api
     SYS_DEP=_ultra_honk

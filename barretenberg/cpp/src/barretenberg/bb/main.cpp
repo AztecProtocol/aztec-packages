@@ -1,8 +1,8 @@
-#include "barretenberg/bb/api.hpp"
-#include "barretenberg/bb/api_client_ivc.hpp"
-#include "barretenberg/bb/api_flag_types.hpp"
-#include "barretenberg/bb/api_ultra_honk.hpp"
-#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/api/api.hpp"
+#include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_flag_types.hpp"
+#include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/benchmark.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/timer.hpp"
@@ -793,77 +793,77 @@ std::string get_option(std::vector<std::string>& args, const std::string& option
 
 int main(int argc, char* argv[])
 {
-    try {
-        std::vector<std::string> args(argv + 1, argv + argc);
-        debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
-        verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
-        if (args.empty()) {
-            std::cerr << "No command provided.\n";
+    std::vector<std::string> args(argv + 1, argv + argc);
+    debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
+    verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
+    if (args.empty()) {
+        std::cerr << "No command provided.\n";
+        return 1;
+    }
+
+    const std::string command = args[0];
+    const std::string proof_system = get_option(args, "--scheme", "");
+    const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
+    const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
+    const std::string proof_path = get_option(args, "-p", "./target/proof");
+    const std::string vk_path = get_option(args, "-k", "./target/vk");
+    const std::string pk_path = get_option(args, "-r", "./target/pk");
+
+    const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
+    const bool recursive = flag_present(args, "--recursive");
+    const bool zk = flag_present(args, "--zk");
+    CRS_PATH = get_option(args, "-c", CRS_PATH);
+
+    vinfo(std::format("bb command is {} --scheme {}", command, proof_system));
+
+    const API::Flags flags = [&]() {
+        return API::Flags{
+            .zk = zk,
+            .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
+            .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
+            .oracle_hash_type = get_option(args, "--oracle_hash", "poseidon2"),
+            .output_data_type = get_option(args, "--output_type", "fields_msgpack"),
+            .input_type = get_option(args, "--input_type", "compiletime_stack"),
+            .output_content_type = get_option(args, "--output_content", "proof"),
+        };
+    }();
+
+    const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
+        info(flags);
+        if (command == "prove") {
+            const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+            // TODO(#7371): remove this (msgpack version...)
+            api.prove(flags, bytecode_path, witness_path, output_dir);
+            // WORKTODO: could throw if proving doesn't complete?
+            return 0;
+        } else if (command == "verify") {
+            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+        } else if (command == "prove_and_verify") {
+            return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
+        } else if (command == "write_vk") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            info("writing vk to ", output_path);
+            api.write_vk(flags, bytecode_path, output_path);
+            return 0;
+        } else if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
+            const std::filesystem::path output_dir = get_option(args, "-o", "./target");
+            api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
+            return 0;
+        } else if (command == "contract") {
+            const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
+            api.contract(flags, output_path, vk_path);
+            return 0;
+        } else if (command == "write_recursion_inputs") {
+            const std::string output_path = get_option(args, "-o", "./target");
+            api.write_recursion_inputs(flags, bytecode_path, witness_path, output_path);
+            return 0;
+        } else {
+            throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
             return 1;
         }
+    };
 
-        const std::string command = args[0];
-        const std::string proof_system = get_option(args, "--scheme", "");
-        const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
-        const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-        const std::string proof_path = get_option(args, "-p", "./target/proof");
-        const std::string vk_path = get_option(args, "-k", "./target/vk");
-        const std::string pk_path = get_option(args, "-r", "./target/pk");
-
-        const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-        const bool recursive = flag_present(args, "--recursive");
-        const bool zk = flag_present(args, "--zk");
-        CRS_PATH = get_option(args, "-c", CRS_PATH);
-
-        vinfo(std::format("bb command is {} --scheme {}", command, proof_system));
-
-        const API::Flags flags = [&]() {
-            return API::Flags{
-                .zk = zk,
-                .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
-                .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
-                .oracle_hash_type = parse_oracle_hash_type(get_option(args, "--oracle_hash", "poseidon2")),
-                .output_data_type = parse_output_data_type(get_option(args, "--output_type", "fields_msgpack")),
-                .input_type = parse_input_type(get_option(args, "--input_type", "compiletime_stack")),
-                .output_content_type = parse_output_content_type(get_option(args, "--output_content", "proof")),
-            };
-        }();
-
-        // trigger rebuild
-        const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
-            info(flags);
-            if (command == "prove") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                // TODO(#7371): remove this (msgpack version...)
-                api.prove(flags, bytecode_path, witness_path, output_dir);
-                return 0;
-            } else if (command == "verify") {
-                return api.verify(flags, proof_path, vk_path) ? 0 : 1;
-            } else if (command == "prove_and_verify") {
-                return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
-            } else if (command == "write_vk") {
-                std::string output_path = get_option(args, "-o", "./target/vk");
-                info("writing vk to ", output_path);
-                api.write_vk(flags, bytecode_path, output_path);
-                return 0;
-            } else if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
-                const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
-                return 0;
-            } else if (command == "contract") {
-                const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
-                api.contract(flags, output_path, vk_path);
-                return 0;
-            } else if (command == "write_recursion_inputs") {
-                const std::string output_path = get_option(args, "-o", "./target");
-                api.write_recursion_inputs(flags, bytecode_path, witness_path, output_path);
-                return 0;
-            } else {
-                throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
-                return 0;
-            }
-        };
-
+    try {
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
             write_string_to_stdout(BB_VERSION);

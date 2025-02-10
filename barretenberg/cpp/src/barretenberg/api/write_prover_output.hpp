@@ -1,13 +1,13 @@
 #pragma once
-#include "barretenberg/bb/api_flag_types.hpp"
+#include "barretenberg/api/api_flag_types.hpp"
 #include "barretenberg/common/log.hpp"
 #include <filesystem>
 
 namespace bb {
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
-           const OutputDataType& output_data_type,
-           const OutputContentType& output_content,
+           const std::string& output_data_type,
+           const std::string& output_content,
            const std::filesystem::path& output_dir)
 {
     enum class ObjectToWrite : size_t { PROOF, VK };
@@ -65,82 +65,55 @@ void write(const ProverOutput& prover_output,
         }
     };
 
-    switch (output_content) {
-    case OutputContentType::PROOF: {
-        switch (output_data_type) {
-        case OutputDataType::BYTES: {
-            info("case OutputDataType::BYTES: ");
+    // [changed] Replaced switch on output_content/output_data_type with if/else chains.
+    if (output_content == "proof") {
+        if (output_data_type == "bytes") {
+            info("case bytes: ");
             write_bytes(ObjectToWrite::PROOF);
-            break;
-        }
-        case OutputDataType::FIELDS: {
-            info("case OutputDataType::FIELDS: ");
+        } else if (output_data_type == "fields") {
+            info("case fields: ");
             write_fields(ObjectToWrite::PROOF);
-            break;
-        }
-        case OutputDataType::BYTES_AND_FIELDS: {
-            info("case OutputDataType::BYTES_AND_FIELDS: ");
+        } else if (output_data_type == "bytes_and_fields") {
+            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
-            break;
+        } else {
+            ASSERT("Invalid std::string for PROOF");
         }
-        default:
-            ASSERT("Invalid OutputDataType for PROOF");
-        }
-        break;
-    }
-    case OutputContentType::VK: {
-        switch (output_data_type) {
-        case OutputDataType::BYTES: {
-            info("case OutputDataType::BYTES: ");
+    } else if (output_content == "vk") {
+        if (output_data_type == "bytes") {
+            info("case bytes: ");
             write_bytes(ObjectToWrite::VK);
-            break;
-        }
-        case OutputDataType::FIELDS: {
-            info("case OutputDataType::FIELDS: ");
+        } else if (output_data_type == "fields") {
+            info("case fields: ");
             write_fields(ObjectToWrite::VK);
-            break;
-        }
-        case OutputDataType::BYTES_AND_FIELDS: {
-            info("case OutputDataType::BYTES_AND_FIELDS: ");
+        } else if (output_data_type == "bytes_and_fields") {
+            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
-            break;
+        } else {
+            ASSERT("Invalid std::string for VK");
         }
-        default:
-            ASSERT("Invalid OutputDataType for VK");
-        }
-        break;
-    }
-    case OutputContentType::PROOF_AND_VK: {
-        switch (output_data_type) {
-        case OutputDataType::BYTES: {
-            info("case OutputDataType::BYTES: ");
+    } else if (output_content == "proof_and_vk") {
+        if (output_data_type == "bytes") {
+            info("case bytes: ");
             write_bytes(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
-            break;
-        }
-        case OutputDataType::FIELDS: {
-            info("case OutputDataType::FIELDS: ");
+        } else if (output_data_type == "fields") {
+            info("case fields: ");
             write_fields(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::VK);
-            break;
-        }
-        case OutputDataType::BYTES_AND_FIELDS: {
-            info("case OutputDataType::BYTES_AND_FIELDS: ");
+        } else if (output_data_type == "bytes_and_fields") {
+            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
-            break;
+        } else {
+            ASSERT("Invalid std::string for PROOF_AND_VK");
         }
-        default:
-            ASSERT("Invalid OutputDataType for PROOF_AND_VK");
-        }
-        break;
-    }
-    default:
-        ASSERT("Invalid OutputContentType");
+    } else {
+        ASSERT("Invalid std::string");
     }
 }
 } // namespace bb

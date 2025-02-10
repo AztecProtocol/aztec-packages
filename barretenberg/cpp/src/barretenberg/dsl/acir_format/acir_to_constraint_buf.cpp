@@ -8,7 +8,7 @@
 #include <tuple>
 #include <utility>
 #ifndef __wasm__
-#include "barretenberg/bb/get_bytecode.hpp"
+#include "barretenberg/api/get_bytecode.hpp" // WORKTODO NB NB NB
 #endif
 #include "barretenberg/common/map.hpp"
 namespace acir_format {

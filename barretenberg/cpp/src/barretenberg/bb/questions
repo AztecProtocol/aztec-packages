@@ -1,5 +1,0 @@
-Who uses output_all commands?
-Why the "write_recursion_inputs" pattern? Can it just go away if proof surgery is not necessary?
-Why the "as_fields" pattern?
-Need to do keccak and rollup versions
-Need to do write_vk functionality

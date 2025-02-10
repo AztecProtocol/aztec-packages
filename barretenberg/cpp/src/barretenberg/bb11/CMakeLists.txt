@@ -1,11 +1,11 @@
 if (NOT(FUZZING) AND NOT(WASM))
     add_executable(
-        bb
+        bb11
         main.cpp
     )
 
     target_link_libraries(
-        bb
+        bb11
         PRIVATE
         barretenberg
         env
@@ -15,12 +15,12 @@ if (NOT(FUZZING) AND NOT(WASM))
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(
-            bb
+            bb11
             PUBLIC
             Backward::Interface
         )
         target_link_options(
-            bb
+            bb11
             PRIVATE
             -ldw -lelf
         )

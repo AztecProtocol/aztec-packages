@@ -1,0 +1,1 @@
+barretenberg_module(api client_ivc ultra_vanilla_client_ivc)

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "barretenberg/bb/acir_format_getters.hpp"
-#include "barretenberg/bb/api.hpp"
-#include "barretenberg/bb/init_srs.hpp"
+#include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/api.hpp"
+#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -152,7 +152,7 @@ void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path
 }
 
 class ClientIVCAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_folding_stack(const InputType input_type,
+    static std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
                                                                       const std::filesystem::path& bytecode_path,
                                                                       const std::filesystem::path& witness_path)
     {
@@ -161,7 +161,7 @@ class ClientIVCAPI : public API {
         std::vector<AcirProgram> folding_stack;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-        if (input_type == InputType::COMPILETIME_STACK) {
+        if (input_type == "compiletime_stack") {
             auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
             // Accumulate the entire program stack into the IVC
             while (!program_stack.empty()) {
@@ -171,7 +171,7 @@ class ClientIVCAPI : public API {
             }
         }
 
-        if (input_type == InputType::RUNTIME_STACK) {
+        if (input_type == "runtime_stack") {
             std::vector<std::string> gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
             std::vector<std::string> witness_data = unpack_from_file<std::vector<std::string>>(witness_path);
             for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
@@ -280,7 +280,7 @@ class ClientIVCAPI : public API {
                           const std::filesystem::path& bytecode_path,
                           const std::filesystem::path& witness_path) override
     {
-        if (!(flags.input_type == InputType::COMPILETIME_STACK || flags.input_type == InputType::RUNTIME_STACK)) {
+        if (!(flags.input_type == "compiletime_stack" || flags.input_type == "runtime_stack")) {
             throw_or_abort("No input_type or input_type not supported");
         }
 
@@ -305,11 +305,11 @@ class ClientIVCAPI : public API {
     void write_arbitrary_valid_proof_and_vk_to_file(const Flags& flags,
                                                     const std::filesystem::path& output_dir) override
     {
-        if (!(flags.output_data_type == OutputDataType::FIELDS_MSGPACK)) {
+        if (!(flags.output_data_type == "fields_msgpack")) {
             throw_or_abort("No output_data_type or output_data_type not supported");
         }
 
-        if (!(flags.input_type == InputType::COMPILETIME_STACK || flags.input_type == InputType::RUNTIME_STACK)) {
+        if (!(flags.input_type == "compiletime_stack" || flags.input_type == "runtime_stack")) {
             throw_or_abort("No input_type or input_type not supported");
         }
 
@@ -340,8 +340,7 @@ class ClientIVCAPI : public API {
     };
 
     void gates([[maybe_unused]] const Flags& flags,
-               [[maybe_unused]] const std::filesystem::path& bytecode_path,
-               [[maybe_unused]] const std::filesystem::path& witness_path) override
+               [[maybe_unused]] const std::filesystem::path& bytecode_path) override
     {
         throw_or_abort("API function not implemented");
     };
@@ -357,9 +356,9 @@ class ClientIVCAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override
     {
-        ASSERT(flags.output_data_type == OutputDataType::BYTES || flags.output_data_type == OutputDataType::FIELDS);
+        ASSERT(flags.output_data_type == "bytes" || flags.output_data_type == "fields");
 
-        write_vk_for_ivc(flags.output_data_type == OutputDataType::FIELDS, bytecode_path, output_path);
+        write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path, output_path);
     };
 
     void write_recursion_inputs([[maybe_unused]] const Flags& flags,
@@ -368,6 +367,15 @@ class ClientIVCAPI : public API {
                                 [[maybe_unused]] const std::string& output_path) override
     {
         throw_or_abort("API function not implemented; IVC is built in!");
+    };
+
+    virtual bool check_witness([[maybe_unused]] const Flags& flags,
+                               [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                               [[maybe_unused]] const std::filesystem::path& witness_path) override
+
+    {
+        throw_or_abort("API function not implemented; IVC is built in!");
+        return false;
     };
 };
 } // namespace bb
