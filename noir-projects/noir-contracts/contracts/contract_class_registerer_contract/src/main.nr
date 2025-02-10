@@ -1,5 +1,4 @@
 mod events;
-mod capsule;
 
 use dep::aztec::macros::aztec;
 
@@ -11,14 +10,15 @@ pub contract ContractClassRegisterer {
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
             MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
     };
 
     use dep::aztec::{
-        context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
+        context::PrivateContext,
+        macros::functions::private,
+        oracle::{logs::emit_contract_class_unencrypted_log_private, pxe_db},
     };
 
     use crate::events::{
@@ -32,11 +32,6 @@ pub contract ContractClassRegisterer {
         },
     };
 
-    // docs:start:import_pop_capsule
-    use crate::capsule::pop_capsule;
-
-    // docs:end:import_pop_capsule
-
     #[private]
     fn register(
         artifact_hash: Field,
@@ -47,8 +42,13 @@ pub contract ContractClassRegisterer {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:pop_capsule
-        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
-            unsafe { pop_capsule() };
+        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
+            pxe_db::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
         // docs:end:pop_capsule
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
@@ -121,8 +121,13 @@ pub contract ContractClassRegisterer {
         artifact_function_tree_leaf_index: Field,
         function_data: InnerPrivateFunction,
     ) {
-        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] =
-            unsafe { pop_capsule() };
+        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
+            pxe_db::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
 
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
@@ -162,8 +167,13 @@ pub contract ContractClassRegisterer {
         artifact_function_tree_leaf_index: Field,
         function_data: InnerUnconstrainedFunction,
     ) {
-        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] =
-            unsafe { pop_capsule() };
+        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = unsafe {
+            pxe_db::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
         let event = ClassUnconstrainedFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
