@@ -62,6 +62,7 @@ library FeeMath {
   function getManaBaseFeeComponentsAt(
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
+    uint256 _provingCostPerMana,
     uint256 _feeAssetPrice,
     uint256 _epochDuration
   ) internal view returns (ManaBaseFeeComponents memory) {
@@ -74,10 +75,9 @@ library FeeMath {
     uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
     uint256 gasCost = Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil);
-    uint256 provingCost = FeeMath.provingCostPerMana(_parentFeeHeader.provingCostPerManaNumerator);
 
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
-    uint256 total = dataCost + gasCost + provingCost;
+    uint256 total = dataCost + gasCost + _provingCostPerMana;
     uint256 congestionCost = Math.mulDiv(
       total, congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor
     ) - total;
@@ -87,7 +87,7 @@ library FeeMath {
     return ManaBaseFeeComponents({
       dataCost: Math.mulDiv(dataCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
       gasCost: Math.mulDiv(gasCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      provingCost: Math.mulDiv(provingCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      provingCost: Math.mulDiv(_provingCostPerMana, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
       congestionCost: Math.mulDiv(congestionCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
       congestionMultiplier: congestionMultiplier_
     });
@@ -125,10 +125,6 @@ library FeeMath {
     }
 
     return 0;
-  }
-
-  function provingCostPerMana(uint256 _numerator) internal pure returns (uint256) {
-    return fakeExponential(MINIMUM_PROVING_COST_PER_MANA, _numerator, PROVING_UPDATE_FRACTION);
   }
 
   function feeAssetPriceModifier(uint256 _numerator) internal pure returns (uint256) {

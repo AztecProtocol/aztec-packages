@@ -80,6 +80,9 @@ library Errors {
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
+  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
+  error Rollup__StartIsNotFirstBlockOfEpoch();
+  error Rollup__StartIsNotBuildingOnProven();
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
