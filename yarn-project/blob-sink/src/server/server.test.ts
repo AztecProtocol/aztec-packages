@@ -19,6 +19,13 @@ describe('BlobSinkService', () => {
     await service.stop();
   });
 
+  describe('status', () => {
+    it('should return 200', async () => {
+      const response = await request(service.getApp()).get('/status');
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('should store and retrieve a blob sidecar', () => {
     const blockId = '0x1234';
     let blob: Blob;

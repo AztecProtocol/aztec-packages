@@ -88,11 +88,15 @@ export class TXEService {
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
-  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
     (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
       await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
     ]);
+
+    if (!fromSingle(secret).equals(Fr.ZERO)) {
+      await this.createAccount(secret);
+    }
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);

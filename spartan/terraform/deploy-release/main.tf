@@ -75,7 +75,7 @@ resource "helm_release" "aztec-gke-cluster" {
   dynamic "set" {
     for_each = var.EXTERNAL_ETHEREUM_HOST != "" ? toset(["iterate"]) : toset([])
     content {
-      name  = "ethereum.externalHost"
+      name  = "ethereum.execution.externalHost"
       value = var.EXTERNAL_ETHEREUM_HOST
     }
   }

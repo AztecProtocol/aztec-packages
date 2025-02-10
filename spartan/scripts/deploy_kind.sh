@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # Helper script for deploying local KIND scenarios.
+# Overrides refers to overriding values in the values yaml file
 # Usage: ./deploy_kind.sh <namespace> <values_file=default.yaml>
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
 #   CHAOS_VALUES (default: "", no chaos installation)
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
+#   OVERRIDES (default: "", no overrides)
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -19,6 +21,7 @@ sepolia_deployment="${3:-false}"
 chaos_values="${CHAOS_VALUES:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
+overrides="${OVERRIDES:-}"
 
 if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
   echo "Aztec Docker image not found. It needs to be built."
@@ -57,6 +60,17 @@ if [ -z "$chaos_values" ]; then
   kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
 fi
 
+function generate_overrides {
+  local overrides="$1"
+  if [ -n "$overrides" ]; then
+    # Split the comma-separated string into an array and generate --set arguments
+    IFS=',' read -ra OVERRIDE_ARRAY <<< "$overrides"
+    for override in "${OVERRIDE_ARRAY[@]}"; do
+      echo "--set $override"
+    done
+  fi
+}
+
 # Some configuration values are set in the eth-devnet/config/config.yaml file
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
@@ -79,7 +93,7 @@ helm_set_args=(
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
   helm_set_args+=(
-    --set ethereum.externalHost="$EXTERNAL_ETHEREUM_HOST"
+    --set ethereum.execution.externalHost="$EXTERNAL_ETHEREUM_HOST"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
@@ -99,6 +113,7 @@ helm upgrade --install spartan ../aztec-network \
   --create-namespace \
   "${helm_set_args[@]}" \
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
+  $(generate_overrides "$overrides") \
   --values "../aztec-network/values/$values_file" \
   --wait \
   --wait-for-jobs=true \
