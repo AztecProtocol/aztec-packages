@@ -205,7 +205,7 @@ export class AvmSimulator {
 
       const endTotalTime = performance.now();
       const totalTime = endTotalTime - startTotalTime;
-      this.log.debug(`Total execution time: ${totalTime}ms`);
+      this.log.debug(`Core AVM simulation took ${totalTime}ms`);
 
       // Return results for processing by calling context
       return results;

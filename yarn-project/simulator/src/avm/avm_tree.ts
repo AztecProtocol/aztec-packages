@@ -7,6 +7,21 @@ import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foun
 import { strict as assert } from 'assert';
 import cloneDeep from 'lodash.clonedeep';
 
+const MAX_TREE_DEPTH = 128;
+
+/**
+ * Helper function to precompute zero hashes
+ */
+async function preComputeZeroHashes(): Promise<Fr[]> {
+  let currentHash = Fr.zero();
+  const zeroHashes: Fr[] = [];
+  for (let i = 0; i < MAX_TREE_DEPTH; i++) {
+    zeroHashes.push(currentHash);
+    currentHash = await poseidon2Hash([currentHash, currentHash]);
+  }
+  return zeroHashes;
+}
+
 /****************************************************/
 /****** Structs Used by the AvmEphemeralForest ******/
 /****************************************************/
@@ -554,6 +569,8 @@ export class EphemeralAvmTree {
   private tree: Tree;
   public frontier: Fr[];
 
+  private static precomputedZeroHashes: Fr[] | undefined;
+
   private constructor(private root: Leaf, public leafCount: bigint, public depth: number, private zeroHashes: Fr[]) {
     this.tree = root;
     this.frontier = [];
@@ -565,13 +582,12 @@ export class EphemeralAvmTree {
     treeDb: MerkleTreeReadOperations,
     merkleId: MerkleTreeId,
   ): Promise<EphemeralAvmTree> {
-    let zeroHash = Fr.zero();
-    // Can probably cache this elsewhere
-    const zeroHashes = [];
-    for (let i = 0; i < depth; i++) {
-      zeroHashes.push(zeroHash);
-      zeroHash = await poseidon2Hash([zeroHash, zeroHash]);
+    let zeroHashes = EphemeralAvmTree.precomputedZeroHashes;
+    if (zeroHashes === undefined) {
+      zeroHashes = await preComputeZeroHashes();
+      EphemeralAvmTree.precomputedZeroHashes = zeroHashes;
     }
+    const zeroHash = zeroHashes[depth];
     const tree = new EphemeralAvmTree(Leaf(zeroHash), forkedLeafCount, depth, zeroHashes);
     await tree.initializeFrontier(treeDb, merkleId);
     return tree;
