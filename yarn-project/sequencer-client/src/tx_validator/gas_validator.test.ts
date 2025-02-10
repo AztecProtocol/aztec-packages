@@ -1,10 +1,9 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { U128 } from '@aztec/foundation/abi';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -33,7 +32,7 @@ describe('GasTxValidator', () => {
     tx.data.feePayer = await AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     payer = tx.data.feePayer;
-    expectedBalanceSlot = await poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
+    expectedBalanceSlot = await computeFeePayerBalanceStorageSlot(payer);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 

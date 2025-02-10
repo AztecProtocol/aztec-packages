@@ -186,6 +186,9 @@ describe('sequencer', () => {
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
       return Promise.resolve([undefined]);
     });
+    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
+      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
+    });
 
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({
