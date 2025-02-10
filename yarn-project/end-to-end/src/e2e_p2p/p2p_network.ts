@@ -8,7 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';

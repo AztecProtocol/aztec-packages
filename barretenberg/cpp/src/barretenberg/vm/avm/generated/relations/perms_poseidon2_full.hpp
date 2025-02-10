@@ -87,6 +87,11 @@ class perm_pos2_fixed_pos2_perm_relation
     : public GenericPermutationRelation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos2_fixed_pos2_perm_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_full_sel_poseidon.is_zero() && in.poseidon2_sel_poseidon_perm_immediate.is_zero();
+    }
 };
 template <typename FF_>
 using perm_pos2_fixed_pos2_perm = GenericPermutation<perm_pos2_fixed_pos2_perm_permutation_settings, FF_>;
