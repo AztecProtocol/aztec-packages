@@ -58,11 +58,6 @@ class ECCVMProver {
     CommitmentLabels commitment_labels;
     ZKData zk_sumcheck_data;
 
-    Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;               // needed in both Shplonk rounds
-
-    Polynomial quotient_W;
-
     FF evaluation_challenge_x;
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
