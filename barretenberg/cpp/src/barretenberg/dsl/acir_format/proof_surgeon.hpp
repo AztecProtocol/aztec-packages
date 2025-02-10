@@ -35,9 +35,9 @@ class ProofSurgeon {
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::KZG_ACCUMULATOR_NUM_LIMBS;
         if constexpr (bb::HasIPAAccumulator<Flavor>) {
-            num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
+            num_public_inputs_to_extract -= bb::IPA_ACCUMULATOR_NUM_LIMBS;
         }
         debug("proof size: ", proof.size());
         debug("number of public inputs to extract: ", num_public_inputs_to_extract);

@@ -463,6 +463,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
     return result;
 }
 
+// HONK_RECURSION3
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
                                uint32_t honk_recursion,
@@ -636,6 +637,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
                 if (proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
                     proof_type_in != ROOT_ROLLUP_HONK) {
+                    // WORKTODO: flag to set proof types
                     if (honk_recursion == 1) {
                         proof_type_in = HONK;
                     } else if (honk_recursion == 2) {
@@ -813,6 +815,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, uint32_
                 if constexpr (std::is_same_v<T, Program::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::BlackBoxFuncCall>) {
+                    // HONK_RECURSION2
                     handle_blackbox_func_call(arg, af, honk_recursion, i);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
@@ -922,6 +925,7 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 }
 
 #ifndef __wasm__
+// HONK_RECURSION1
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
                                         uint32_t honk_recursion)

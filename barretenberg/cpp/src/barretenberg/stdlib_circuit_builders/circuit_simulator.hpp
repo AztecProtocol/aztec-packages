@@ -51,7 +51,7 @@ class CircuitSimulatorBN254 {
     static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
 
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
+    void add_pairing_point_accumulator(const KZGAccumulatorWitnessIndices& proof_element_limbs)
     {
 
         if (contains_pairing_point_accumulator) {
@@ -207,7 +207,7 @@ class CircuitSimulatorBN254 {
     void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
 
     // Public input indices which contain recursive proof information
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    KZGAccumulatorIndicesInPublicInputs pairing_point_accumulator_public_input_indices;
 };
 
 class SimulatorCircuitChecker {

@@ -54,13 +54,13 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Fourth key field is the whether the proof contains an aggregation object.
     builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t num_inner_public_inputs = public_inputs_size - bb::KZG_ACCUMULATOR_NUM_LIMBS;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
+        num_inner_public_inputs -= bb::IPA_ACCUMULATOR_NUM_LIMBS;
     }
 
     // We are making the assumption that the pairing point object is behind all the inner public inputs
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
+    for (size_t i = 0; i < bb::KZG_ACCUMULATOR_NUM_LIMBS; i++) {
         builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
         offset++;
     }
@@ -69,8 +69,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         // Key field is the whether the proof contains an aggregation object.
         builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
+        for (size_t i = 0; i < bb::IPA_ACCUMULATOR_NUM_LIMBS; i++) {
+            builder.assert_equal(builder.add_variable(num_inner_public_inputs + KZG_ACCUMULATOR_NUM_LIMBS + i),
                                  key_fields[offset].witness_index);
             offset++;
         }
@@ -98,7 +98,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
     // The aggregation object
-    PairingPointAccumulatorIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
+    KZGAccumulatorWitnessIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
     for (auto idx : agg_obj) {
         builder.assert_equal(idx, proof_fields[offset].witness_index);
         offset++;
@@ -106,7 +106,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // IPA claim
     if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+        for (size_t i = 0; i < bb::IPA_ACCUMULATOR_NUM_LIMBS; i++) {
             builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
             offset++;
         }
@@ -213,7 +213,7 @@ template <typename Flavor>
 HonkRecursionConstraintOutput create_honk_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    KZGAccumulatorWitnessIndices input_aggregation_object_indices,
     bool has_valid_witness_assignments)
 {
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -247,13 +247,13 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::KZG_ACCUMULATOR_NUM_LIMBS;
         if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
+            size_of_proof_with_no_pub_inputs -= bb::IPA_ACCUMULATOR_NUM_LIMBS;
         }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + bb::KZG_ACCUMULATOR_NUM_LIMBS;
         if constexpr (HasIPAAccumulator<Flavor>) {
-            total_num_public_inputs += bb::IPA_CLAIM_SIZE;
+            total_num_public_inputs += bb::IPA_ACCUMULATOR_NUM_LIMBS;
         }
         create_dummy_vkey_and_proof<typename Flavor::NativeFlavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
@@ -281,13 +281,13 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
 template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    KZGAccumulatorWitnessIndices input_aggregation_object_indices,
     bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    KZGAccumulatorWitnessIndices input_aggregation_object_indices,
     bool has_valid_witness_assignments);
 
 } // namespace acir_format

@@ -53,8 +53,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     class VerificationKey
         : public VerificationKey_<UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        bool contains_ipa_claim;                                // needs to be a circuit constant
-        IPAClaimPubInputIndices ipa_claim_public_input_indices; // needs to be a circuit constant
+        bool contains_ipa_claim;                                            // needs to be a circuit constant
+        IPAAccumulatorIndicesInPublicInputs ipa_claim_public_input_indices; // needs to be a circuit constant
 
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {

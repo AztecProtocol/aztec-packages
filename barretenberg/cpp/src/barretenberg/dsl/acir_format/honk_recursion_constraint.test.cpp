@@ -159,10 +159,10 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             std::vector<fr> proof_witnesses = inner_proof;
             size_t num_public_inputs_to_extract =
-                inner_circuit.get_public_inputs().size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+                inner_circuit.get_public_inputs().size() - bb::KZG_ACCUMULATOR_NUM_LIMBS;
             acir_format::PROOF_TYPE proof_type = acir_format::HONK;
             if constexpr (HasIPAAccumulator<Flavor>) {
-                num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
+                num_public_inputs_to_extract -= IPA_ACCUMULATOR_NUM_LIMBS;
                 proof_type = ROLLUP_HONK;
             }
 

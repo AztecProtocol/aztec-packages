@@ -69,7 +69,7 @@ class UltraVanillaClientIVC {
     std::shared_ptr<VK> previous_vk;
     Accumulator accumulator;
     std::array<curve::BN254::AffineElement, 2> accumulator_value;
-    PairingPointAccumulatorIndices accumulator_indices;
+    KZGAccumulatorWitnessIndices accumulator_indices;
     std::vector<std::shared_ptr<VK>> vk_cache;
 
     UltraVanillaClientIVC(const size_t dyadic_size = 1 << 20)

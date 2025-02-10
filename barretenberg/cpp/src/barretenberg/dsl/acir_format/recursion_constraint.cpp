@@ -41,12 +41,11 @@ void generate_dummy_proof() {}
  *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accumulator = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-PairingPointAccumulatorIndices create_recursion_constraints(
-    Builder& builder,
-    const RecursionConstraint& input,
-    const PairingPointAccumulatorIndices& input_aggregation_object,
-    const PairingPointAccumulatorIndices& nested_aggregation_object,
-    bool has_valid_witness_assignments)
+KZGAccumulatorWitnessIndices create_recursion_constraints(Builder& builder,
+                                                          const RecursionConstraint& input,
+                                                          const KZGAccumulatorWitnessIndices& input_aggregation_object,
+                                                          const KZGAccumulatorWitnessIndices& nested_aggregation_object,
+                                                          bool has_valid_witness_assignments)
 {
     const auto& nested_aggregation_indices = nested_aggregation_object;
     bool nested_aggregation_indices_all_zero = true;
@@ -185,7 +184,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_pairing_point_accumulator);
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::KZG_ACCUMULATOR_NUM_LIMBS; ++i) {
         if (vkey->contains_pairing_point_accumulator) {
             output.emplace_back(vkey->pairing_point_accumulator_public_input_indices[i]);
         } else {
@@ -237,7 +236,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_pairing_point_accumulator); // contains_pairing_point_accumulator
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::KZG_ACCUMULATOR_NUM_LIMBS; ++i) {
         output.emplace_back(0); // pairing_point_accumulator_public_input_indices
     }
 
@@ -337,11 +336,12 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                     // If we have a recursive proofs the public inputs must describe an aggregation object that
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
+                    // RECURSIVE5
                     if (contains_pairing_point_accumulator) {
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
-                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++k) {
+                        for (size_t k = 0; k < num_public_inputs - bb::KZG_ACCUMULATOR_NUM_LIMBS; ++k) {
                             fields.emplace_back(0);
                         }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
