@@ -511,10 +511,6 @@ export class TXE implements TypedOracle {
     return this.txeDatabase.getAuthWitness(messageHash);
   }
 
-  popCapsule(): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
-  }
-
   async getNotes(
     storageSlot: Fr,
     numSelects: number,

@@ -180,6 +180,9 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Randomly chosen slot for the bytecode capsule.
+pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 

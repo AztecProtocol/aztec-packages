@@ -65,13 +65,6 @@ export interface DBOracle extends CommitmentsDB {
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
-   * Retrieve a capsule from the capsule dispenser.
-   * @returns A promise that resolves to an array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   */
-  popCapsule(): Promise<Fr[]>;
-
-  /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
