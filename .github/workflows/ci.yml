@@ -578,7 +578,7 @@ jobs:
       - e2e-prover-full
       - kind-network-smoke
       - kind-network-test
-      # - boxes-test
+      - boxes-test
       # - testnet-installer
     if: always()
     outputs:
