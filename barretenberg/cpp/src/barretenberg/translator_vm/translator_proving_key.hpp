@@ -29,6 +29,7 @@ class TranslatorProvingKey {
 
     {
         ASSERT(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE == dyadic_circuit_size);
+        proving_key->polynomials = Flavor::ProverPolynomials(dyadic_circuit_size);
     }
 
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -92,7 +93,7 @@ class TranslatorProvingKey {
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
     {
-        const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
+        const size_t total_num_gates = std::max(circuit.num_gates + 1, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
         // Next power of 2
         mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
     }
@@ -104,5 +105,8 @@ class TranslatorProvingKey {
     void compute_concatenated_polynomials();
 
     void compute_translator_range_constraint_ordered_polynomials();
+
+    void compute_concatenated_polynomials_by_interleaving();
+    static void interleave(const RefVector<Polynomial>&, Polynomial&);
 };
 } // namespace bb

@@ -26,6 +26,69 @@ void ensure_non_zero(auto& polynomial)
     ASSERT_TRUE(has_non_zero_coefficient);
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * @brief Check that a given relation is satified for a set of polynomials
+ *
+ */
+template <typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
+{
+    for (size_t i = 0; i < circuit_size; i++) {
+        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+        SumcheckArrayOfValuesOverSubrelations result;
+        for (auto& element : result) {
+            element = 0;
+        }
+
+        // Evaluate each constraint in the relation and check that each is satisfied
+        Relation::accumulate(result, polynomials.get_row(i), params, 1);
+        for (auto& element : result) {
+            ASSERT_EQ(element, 0);
+        }
+    }
+}
+
+/**
+ * @brief Check that a given linearly dependent relation is satisfied for a set of polynomials
+ * @details We refer to a relation as linearly dependent if it defines a constraint on the sum across the full execution
+ * trace rather than at each individual row. For example, a subrelation of this type arises in the log derivative lookup
+ * argument.
+ *
+ * @tparam relation_idx Index into a tuple of provided relations
+ * @tparam Flavor
+ */
+template <typename Flavor, typename Relation>
+void check_linearly_dependent_relation(auto circuit_size, auto& polynomials, auto params)
+{
+    using AllValues = typename Flavor::AllValues;
+    // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
+    using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+    SumcheckArrayOfValuesOverSubrelations result;
+    for (auto& element : result) {
+        element = 0;
+    }
+
+    for (size_t i = 0; i < circuit_size; i++) {
+
+        // Extract an array containing all the polynomial evaluations at a given row i
+        AllValues evaluations_at_index_i;
+        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
+            eval = poly[i];
+        }
+
+        // Evaluate each constraint in the relation and check that each is satisfied
+        Relation::accumulate(result, evaluations_at_index_i, params, 1);
+    }
+
+    // Result accumulated across entire execution trace should be zero
+    for (auto& element : result) {
+        ASSERT_EQ(element, 0);
+    }
+}
+
+>>>>>>> mm/translator-interleaving
 template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
 {
     using FF = typename Flavor::FF;
