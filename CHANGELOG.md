@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.76.0...aztec-packages-v0.76.1) (2025-02-10)
+
+
+### Features
+
+* **perf:** Speed up construction of bbjs Frs & cache zero hashes in ephemeral trees ([#11851](https://github.com/AztecProtocol/aztec-packages/issues/11851)) ([2b5afe3](https://github.com/AztecProtocol/aztec-packages/commit/2b5afe3012210c56a5c058524121b9521da78fc2))
+
+
+### Bug Fixes
+
+* Actually fix pxe releases ([#11890](https://github.com/AztecProtocol/aztec-packages/issues/11890)) ([b22c9b9](https://github.com/AztecProtocol/aztec-packages/commit/b22c9b9e96c69243ee92efbb5ab602d4b4112423))
+* Bb pattern ([9fcff50](https://github.com/AztecProtocol/aztec-packages/commit/9fcff50bfbfd1f98b167ba3bc74dbe56f1745773))
+* Revert "feat(perf): speed up construction of bbjs Frs & cache zero hashes in ephemeral trees" ([#11893](https://github.com/AztecProtocol/aztec-packages/issues/11893)) ([99fdab9](https://github.com/AztecProtocol/aztec-packages/commit/99fdab9dcf39d25462aa26b5fd9adad5c09586f8))
+
+
+### Miscellaneous
+
+* Add blob lib to npm deploy ([#11891](https://github.com/AztecProtocol/aztec-packages/issues/11891)) ([bc10f17](https://github.com/AztecProtocol/aztec-packages/commit/bc10f1790569971c18632f4d332dfb8fbe179532))
+
 ## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.75.0...aztec-packages-v0.76.0) (2025-02-10)
 
 
