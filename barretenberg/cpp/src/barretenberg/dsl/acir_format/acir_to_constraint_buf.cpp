@@ -804,7 +804,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, uint32_
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
-    std::unordered_map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
+    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         auto gate = circuit.opcodes[i];
         std::visit(
