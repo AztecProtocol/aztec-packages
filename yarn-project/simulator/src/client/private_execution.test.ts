@@ -384,7 +384,6 @@ describe('Private Execution test suite', () => {
           nonce,
           storageSlot,
           valueNoteTypeId,
-          true,
           note,
         ),
       );
@@ -452,7 +451,6 @@ describe('Private Execution test suite', () => {
           nonce,
           storageSlot,
           valueNoteTypeId,
-          true,
           note,
         ),
       );
