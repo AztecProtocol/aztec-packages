@@ -37,7 +37,6 @@ template <typename Flavor> class RelationChecker {
 
         for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
 
-            // Evaluate each constraint in the relation and check that each is satisfied
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
             size_t subrelation_idx = 0;
 
@@ -73,8 +72,7 @@ template <typename Flavor> class RelationChecker {
         if constexpr (has_linearly_dependent) {
             size_t subrelation_idx = 0;
             for (auto& element : result) {
-                // Check for linearly dependent subrelation and ensure their result over the entire execution trace
-                // is 0
+                // Check that linearly dependent subrelation result is  0 over the entire execution trace
                 if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
                     info("RelationChecker: ",
                          label,

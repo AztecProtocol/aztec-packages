@@ -619,20 +619,10 @@ class TranslatorFlavor {
         // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
         ProverPolynomials(size_t circuit_size)
         {
-            size_t mini_circuit_size = circuit_size / CONCATENATION_GROUP_SIZE;
-            for (auto& group : get_groups_to_be_concatenated()) {
-                for (auto& poly : group) {
-                    poly = Polynomial{ mini_circuit_size - 1, circuit_size, 1 };
-                }
-            }
             for (auto& poly : get_to_be_shifted()) {
-                if (poly.is_empty()) {
-                    {
-                        poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                                           /*largest possible index*/ circuit_size,
-                                           /* offset */ 1 };
-                    }
-                }
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
             }
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
@@ -657,7 +647,7 @@ class TranslatorFlavor {
             PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial.get(row_idx);
+                result_field = polynomial[row_idx];
             }
             return result;
         }

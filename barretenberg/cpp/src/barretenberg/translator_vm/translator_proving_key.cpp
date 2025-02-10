@@ -91,19 +91,19 @@ void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polyno
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
  * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
- * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual concatenated wires, each of which represents a
- * subset or original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the
- * same length as concatenated ones. These polynomials have values within range, but they are also constrained by
- * the TranslatorFlavor's DeltaRangeConstraint relation, which ensures that sequential values differ by not more
- * than 3, the last value is the maximum and the first value is zero (zero at the start allows us not to dance
- * around shifts).
+ * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual concatenated wires, each of which represents a subset
+ * or original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the same length
+ * as concatenated ones. These polynomials have values within range, but they are also constrained by the
+ * TranslatorFlavor's DeltaRangeConstraint relation, which ensures that sequential values differ by not more than
+ * 3, the last value is the maximum and the first value is zero (zero at the start allows us not to dance around
+ * shifts).
  *
  * Ideally, we could simply rearrange the values in concatenated_.._0 ,..., concatenated_.._3 and get denominator
  * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
  * maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
- * wires for the sort constraint to hold.  So we also need a and extra denominator to store k ⋅ ( max_range / 3 + 1
- * ) values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅ ⋅
- * (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
+ * wires for the sort constraint to hold.  So we also need a and extra denominator to store k ⋅ ( max_range / 3 + 1 )
+ * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
+ * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
  * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < concatenated size
  *
  * @tparam Flavor

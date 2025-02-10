@@ -93,7 +93,7 @@ class TranslatorProvingKey {
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
     {
-        const size_t total_num_gates = std::max(circuit.num_gates + 1, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
+        const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
         // Next power of 2
         mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
     }

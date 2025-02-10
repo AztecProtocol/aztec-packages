@@ -22,7 +22,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
@@ -69,7 +68,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+        prover_polynomials, params, "TranslatorPermutationRelation");
 }
 
 TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
@@ -130,7 +130,8 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     });
 
     // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorDeltaRangeConstraintRelation");
 }
 
 /**
@@ -194,13 +195,16 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     prover_polynomials.accumulators_binary_limbs_3.at(1) = params.accumulated_result[3];
 
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorOpcodeConstraintRelation");
 
     // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        prover_polynomials, params, "TranslatorAccumulatorTransferRelation");
 
     // Check that Zero Constraint relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorZeroConstraintsRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorZeroConstraintsRelation<FF>>(
+        prover_polynomials, params, "TranslatorZeroConstraintsRelation");
 }
 /**
  * @brief Test the correctness of TranslatorFlavor's Decomposition Relation
@@ -542,7 +546,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     }
 
     // Check that Decomposition relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorDecompositionRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDecompositionRelation<FF>>(
+        prover_polynomials, params, "TranslatorDecompositionRelation");
 }
 
 /**
@@ -647,5 +652,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
+        prover_polynomials, params, "TranslatorNonNativeFieldRelation");
 }

@@ -91,5 +91,6 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    RelationChecker<TranslatorFlavor>::check<TranslatorPermutationRelation<FF>>(prover_polynomials, params);
+    RelationChecker<TranslatorFlavor>::check<TranslatorPermutationRelation<FF>>(
+        prover_polynomials, params, "TranslatorPermutationRelation");
 }
