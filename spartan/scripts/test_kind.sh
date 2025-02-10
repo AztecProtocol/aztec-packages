@@ -67,7 +67,7 @@ function cleanup() {
 
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
-  elif [ "$cleanup_cluster" = "true" ]; then
+  elif [ "$fresh_install" = "true" ]; then
     kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
   fi
 }
