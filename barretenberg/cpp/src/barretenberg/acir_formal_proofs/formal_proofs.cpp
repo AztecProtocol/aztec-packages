@@ -270,3 +270,18 @@ bool verify_gt(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     }
     return res;
 }
+
+bool verify_idiv(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    auto cr = idiv(a, b, bit_size, solver);
+    c != cr;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}

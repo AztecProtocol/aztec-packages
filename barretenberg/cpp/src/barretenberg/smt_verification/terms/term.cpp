@@ -429,6 +429,35 @@ STerm STerm::rotl(const uint32_t& n) const
     return { res, this->solver, this->type };
 }
 
+STerm STerm::truncate(const uint32_t& to_size)
+{
+    if (!this->operations.contains(OpType::EXTRACT) || !this->operations.contains(OpType::BITVEC_PAD)) {
+        info("EXTRACT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Op extraction = solver->term_manager.mkOp(this->operations.at(OpType::EXTRACT), { to_size, 0 });
+    cvc5::Term temp = solver->term_manager.mkTerm(extraction, { this->term });
+    cvc5::Op padding =
+        solver->term_manager.mkOp(this->operations.at(OpType::BITVEC_PAD),
+                                  { this->solver->bv_sort.getBitVectorSize() - temp.getSort().getBitVectorSize() });
+    cvc5::Term res = solver->term_manager.mkTerm(padding, { temp });
+    return { res, this->solver, this->type };
+}
+
+STerm STerm::extract_bit(const uint32_t& bit_index)
+{
+    if (!this->operations.contains(OpType::EXTRACT) || !this->operations.contains(OpType::BITVEC_PAD)) {
+        info("EXTRACT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Op extraction = solver->term_manager.mkOp(this->operations.at(OpType::EXTRACT), { bit_index, bit_index });
+    cvc5::Term temp = solver->term_manager.mkTerm(extraction, { this->term });
+    cvc5::Op padding =
+        solver->term_manager.mkOp(this->operations.at(OpType::BITVEC_PAD),
+                                  { this->solver->bv_sort.getBitVectorSize() - temp.getSort().getBitVectorSize() });
+    cvc5::Term res = solver->term_manager.mkTerm(padding, { temp });
+    return { res, this->solver, this->type };
+}
 /**
  * @brief Create an inclusion constraint
  *
