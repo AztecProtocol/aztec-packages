@@ -46,7 +46,7 @@ describe('prover/orchestrator', () => {
         previousBlockHeader = context.getPreviousBlockHeader();
       });
 
-      // TODO(#11870): Failed 'toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY)', reinstate. 
+      // TODO(#11870): Failed 'toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY)', reinstate.
       it.skip('calls root parity circuit only when ready', async () => {
         // create a custom L2 to L1 message
         const message = Fr.random();
