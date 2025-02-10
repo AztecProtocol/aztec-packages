@@ -74,6 +74,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 template class UltraVerifier_<UltraFlavor>;
 template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
+template class UltraVerifier_<UltraStarknetFlavor>;
 template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
