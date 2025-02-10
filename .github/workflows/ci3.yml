@@ -1,3 +1,4 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 name: CI3
 
 on:
