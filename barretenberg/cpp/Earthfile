@@ -248,6 +248,8 @@ bench:
   COPY +bench-client-ivc/* .
   END
   COPY ./scripts/ci/combine_benchmarks.py ./scripts/ci/combine_benchmarks.py
+  RUN cd ../acir_tests && VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh verify_honk_proof > ultra_honk_rec_verifier_memory.txt
+  SAVE ARTIFACT ultra_honk_rec_verifier_memory.txt
   RUN ./scripts/ci/combine_benchmarks.py \
     native client_ivc_17_in_20_release.json \
     native client_ivc_release.json \
@@ -256,6 +258,7 @@ bench:
     wasm ultra_honk_wasm.json \
     "" client_ivc_op_count.json \
     "" client_ivc_op_count_time.json \
+    wasm ultra_honk_rec_verifier_memory.txt \
     > bench.json
   SAVE ARTIFACT bench.json
 
