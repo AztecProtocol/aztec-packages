@@ -1,6 +1,7 @@
 use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData, address::AztecAddress,
-    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::root::root_from_sibling_path,
+    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::conditionally_assert_check_membership,
+    traits::ToField,
 };
 
 pub fn validate_contract_address(
@@ -22,23 +23,28 @@ pub fn validate_contract_address(
         private_call_data.public_keys,
     );
 
-    let protocol_contract_index = contract_address.to_field();
+    let contract_address_field = contract_address.to_field();
+    let is_protocol_contract = contract_address_field.lt(MAX_PROTOCOL_CONTRACTS as Field);
 
-    let computed_protocol_contract_tree_root = if (MAX_PROTOCOL_CONTRACTS as Field).lt(
-        protocol_contract_index,
-    ) {
-        0
-    } else {
-        root_from_sibling_path(
-            computed_address.to_field(),
-            protocol_contract_index,
-            private_call_data.protocol_contract_sibling_path,
-        )
-    };
-
+    // We either have a normal contract address, which must match the calculated address, or
+    // A computed protocol contract address which exists at the index held in call_context.contract_address.
     assert(
-        computed_address.eq(contract_address)
-            | computed_protocol_contract_tree_root.eq(protocol_contract_tree_root),
+        (!is_protocol_contract & computed_address.eq(contract_address))
+            | (
+                is_protocol_contract
+                    & private_call_data.protocol_contract_membership_witness.leaf_index.eq(
+                        contract_address_field,
+                    )
+            ),
         "computed contract address does not match expected one",
+    );
+
+    // A normal computed contract address
+    conditionally_assert_check_membership(
+        computed_address.to_field(),
+        is_protocol_contract,
+        private_call_data.protocol_contract_leaf,
+        private_call_data.protocol_contract_membership_witness,
+        protocol_contract_tree_root,
     );
 }
