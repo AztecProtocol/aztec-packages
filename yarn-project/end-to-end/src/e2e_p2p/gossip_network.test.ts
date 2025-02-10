@@ -43,6 +43,7 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
     });
 
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -83,6 +84,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -93,7 +95,7 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       contexts.push(context);
     }
 

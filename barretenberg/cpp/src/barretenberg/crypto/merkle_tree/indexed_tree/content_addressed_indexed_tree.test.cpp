@@ -33,6 +33,9 @@ using HashPolicy = Poseidon2HashPolicy;
 using Store = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 using TreeType = ContentAddressedIndexedTree<Store, HashPolicy>;
 
+using PublicDataStore = ContentAddressedCachedTreeStore<PublicDataLeafValue>;
+using PublicDataTreeType = ContentAddressedIndexedTree<PublicDataStore, Poseidon2HashPolicy>;
+
 using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
 using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallbackWithWitness;
 
@@ -2794,4 +2797,100 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_empty_block
         test_nullifier_tree_unwind(
             _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
     }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_public_data)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(3, 9), PublicDataLeafValue(5, 7) };
+    auto tree = PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       3       5        0       0       0       0
+     *  val       0       0       9       7        0       0       0       0
+     *  nextIdx   1       2       3       0        0       0       0       0
+     *  nextVal   1       3       5       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType leaf_0 = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType leaf_1 = create_indexed_public_data_leaf(1, 0, 2, 3);
+    IndexedPublicDataLeafType leaf_2 = create_indexed_public_data_leaf(3, 9, 3, 5);
+    IndexedPublicDataLeafType leaf_3 = create_indexed_public_data_leaf(5, 7, 0, 0);
+    check_size(tree, initial_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), leaf_0);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), leaf_1);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), leaf_2);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_full_prefilled_public_data)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    std::vector<PublicDataLeafValue> prefilled_values = {
+        PublicDataLeafValue(1, 2), PublicDataLeafValue(3, 4), PublicDataLeafValue(5, 6), PublicDataLeafValue(7, 8)
+    };
+    auto tree = PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       3       5        0       0       0       0
+     *  val       0       0       9       7        0       0       0       0
+     *  nextIdx   1       2       3       0        0       0       0       0
+     *  nextVal   1       3       5       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType leaf_0 = create_indexed_public_data_leaf(1, 2, 1, 3);
+    IndexedPublicDataLeafType leaf_1 = create_indexed_public_data_leaf(3, 4, 2, 5);
+    IndexedPublicDataLeafType leaf_2 = create_indexed_public_data_leaf(5, 6, 3, 7);
+    IndexedPublicDataLeafType leaf_3 = create_indexed_public_data_leaf(7, 8, 0, 1);
+    check_size(tree, initial_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), leaf_0);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), leaf_1);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), leaf_2);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_unsorted_public_data_should_fail)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    // The prefilled values are not sorted: 5 > 3.
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(5, 7), PublicDataLeafValue(3, 9) };
+    EXPECT_THROW(PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values), std::runtime_error);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_default_public_data_should_fail)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    // The first prefilled value is the same as one of the default values (1).
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(1, 9), PublicDataLeafValue(5, 7) };
+    EXPECT_THROW(PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values), std::runtime_error);
 }

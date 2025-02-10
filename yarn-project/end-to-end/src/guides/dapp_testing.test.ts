@@ -1,5 +1,5 @@
 // docs:start:imports
-import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 // docs:end:imports
 // docs:start:import_contract
@@ -19,32 +19,6 @@ describe('guides/dapp/testing', () => {
       const pxe = createPXEClient(PXE_URL);
       await waitForPXE(pxe);
       // docs:end:create_pxe_client
-    });
-
-    describe('token contract', () => {
-      let pxe: PXE;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
-      let token: TokenContract;
-
-      beforeEach(async () => {
-        pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
-          .send()
-          .deployed();
-      });
-
-      it('increases recipient funds on mint', async () => {
-        const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
-
-        const mintAmount = 20n;
-        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
-
-        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
-      });
     });
 
     describe('token contract with initial accounts', () => {
@@ -85,8 +59,7 @@ describe('guides/dapp/testing', () => {
 
       beforeAll(async () => {
         pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
+        [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
         token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
           .send()

@@ -4,6 +4,7 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  MerkleTreeId,
   SequencerConfigSchema,
   Tx,
   type TxHash,
@@ -16,7 +17,6 @@ import {
   BlockHeader,
   ContentCommitment,
   type ContractDataSource,
-  GENESIS_ARCHIVE_ROOT,
   Gas,
   type GlobalVariables,
   INITIAL_L2_BLOCK_NUM,
@@ -460,7 +460,6 @@ export class Sequencer {
         publicProcessorFork,
         this.contractDataSource,
         newGlobalVariables,
-        !!this.config.enforceFees,
         this.allowedInSetup,
       );
 
@@ -806,7 +805,8 @@ export class Sequencer {
 
       return { blockNumber: block.number, archive: block.archive.root };
     } else {
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive: new Fr(GENESIS_ARCHIVE_ROOT) };
+      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive };
     }
   }
 

@@ -19,8 +19,16 @@ export async function registerContractClass(
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
-  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   const registerer = await getRegistererContract(wallet);
-  await wallet.addCapsule(encodedBytecode);
-  return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, emitPublicBytecode);
+  const fn = registerer.methods.register(
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+    emitPublicBytecode,
+  );
+
+  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  fn.addCapsule(encodedBytecode);
+
+  return fn;
 }

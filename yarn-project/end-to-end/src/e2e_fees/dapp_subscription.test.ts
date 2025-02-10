@@ -8,7 +8,6 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
 import { type AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { type CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -37,7 +36,6 @@ describe('e2e_fees dapp_subscription', () => {
   let initialFPCGasBalance: bigint;
   let initialBananasPublicBalances: Balances; // alice, bob, fpc
   let initialBananasPrivateBalances: Balances; // alice, bob, fpc
-  let gasSettings: GasSettings;
 
   const t = new FeesTest('dapp_subscription');
 
@@ -65,12 +63,6 @@ describe('e2e_fees dapp_subscription', () => {
   });
 
   beforeAll(async () => {
-    await expectMapping(
-      t.getGasBalanceFn,
-      [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
-      [0n, 0n, FEE_FUNDING_FOR_TESTER_ACCOUNT, FEE_FUNDING_FOR_TESTER_ACCOUNT],
-    );
-
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address],
@@ -201,7 +193,7 @@ describe('e2e_fees dapp_subscription', () => {
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({ fee: { gasSettings, paymentMethod } })
+      .send({ fee: { paymentMethod } })
       .wait();
   }
 

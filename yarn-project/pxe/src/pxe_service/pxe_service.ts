@@ -137,10 +137,6 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
-  public addCapsule(capsule: Fr[]) {
-    return this.db.addCapsule(capsule);
-  }
-
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.db.getContractInstance(address);
   }
@@ -488,6 +484,7 @@ export class PXEService implements PXE {
     try {
       const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: false,
+        skipFeeEnforcement: false,
         profile: false,
         dryRun: false,
       });
@@ -503,7 +500,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
-    enforceFeePayment: boolean = true,
+    skipFeeEnforcement: boolean = false,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -527,6 +524,7 @@ export class PXEService implements PXE {
 
       const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: !profile,
+        skipFeeEnforcement,
         profile,
         dryRun: true,
       });
@@ -534,8 +532,8 @@ export class PXEService implements PXE {
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
-      if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
+      if (simulatePublic && publicInputs.forPublic) {
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
       }
 
       if (!skipTxValidation) {
@@ -793,11 +791,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
+  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -828,7 +826,7 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
@@ -838,6 +836,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
+      skipFeeEnforcement,
       profile,
       dryRun,
     });

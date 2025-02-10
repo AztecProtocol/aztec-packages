@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -21,8 +21,8 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
@@ -84,14 +84,9 @@ export class CrossChainMessagingTest {
 
     await this.snapshotManager.snapshot(
       '3_accounts',
-      addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        this.wallets = await Promise.all(
-          accountKeys.map(async ak => {
-            const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
-            return account.getWallet();
-          }),
-        );
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.accounts = this.wallets.map(w => w.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
 

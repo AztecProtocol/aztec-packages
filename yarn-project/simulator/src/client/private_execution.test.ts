@@ -132,6 +132,7 @@ describe('Private Execution test suite', () => {
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       argsOfCalls: [hashedArguments],
       authWitnesses: [],
+      capsules: [],
     });
 
     return acirSimulator.run(txRequest, artifact, contractAddress, msgSender);

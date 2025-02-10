@@ -36,8 +36,6 @@ export interface SequencerConfig {
   allowedInSetup?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
-  /** Whether to require every tx to have a fee payer */
-  enforceFees?: boolean;
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
@@ -65,7 +63,6 @@ export const SequencerConfigSchema = z.object({
   acvmBinaryPath: z.string().optional(),
   allowedInSetup: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
-  enforceFees: z.boolean().optional(),
   governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),
   enforceTimeTable: z.boolean().optional(),

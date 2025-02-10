@@ -101,14 +101,6 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
-  async popCapsule(): Promise<Fr[]> {
-    const capsule = await this.db.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule;
-  }
-
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.db.getNotes({
       contractAddress,

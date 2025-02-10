@@ -31,6 +31,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
+    protected readonly capsules: Fr[][],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
     protected log = createLogger('simulator:client_view_context'),
@@ -168,7 +169,11 @@ export class ViewDataOracle extends TypedOracle {
    * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    */
   public override popCapsule(): Promise<Fr[]> {
-    return this.db.popCapsule();
+    const capsule = this.capsules.pop();
+    if (!capsule) {
+      throw new Error('No capsules available.');
+    }
+    return Promise.resolve(capsule);
   }
 
   /**

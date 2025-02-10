@@ -1,9 +1,7 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AccountWalletWithSecretKey, type AztecAddress, type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { type Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-
-import { addAccounts } from '../fixtures/snapshot_manager.js';
 
 export interface TestWallets {
   pxe: PXE;
@@ -25,34 +23,9 @@ export async function setupTestWalletsWithTokens(
 
   const WALLET_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
-  let recipientWallet: AccountWalletWithSecretKey;
-
   const pxe = await createCompatibleClient(pxeUrl, logger);
 
-  {
-    const { accountKeys } = await addAccounts(1, logger, false)({ pxe });
-    const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
-
-    const completeAddress = await accountManagers[0].getCompleteAddress();
-    const partialAddress = completeAddress.partialAddress;
-    await pxe.registerAccount(accountKeys[0][0], partialAddress);
-    recipientWallet = await accountManagers[0].getWallet();
-    logger.verbose(`Recipient Wallet address: ${recipientWallet.getAddress()} registered`);
-  }
-
-  const { accountKeys } = await addAccounts(WALLET_COUNT, logger, false)({ pxe });
-  const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
-
-  const wallets = await Promise.all(
-    accountManagers.map(async (a, i) => {
-      const completeAddress = await a.getCompleteAddress();
-      const partialAddress = completeAddress.partialAddress;
-      await pxe.registerAccount(accountKeys[i][0], partialAddress);
-      const wallet = await a.getWallet();
-      logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
-      return wallet;
-    }),
-  );
+  const [recipientWallet, ...wallets] = (await getDeployedTestAccountsWallets(pxe)).slice(0, WALLET_COUNT + 1);
 
   logger.verbose(`Deploying TokenContract...`);
   const tokenContract = await TokenContract.deploy(

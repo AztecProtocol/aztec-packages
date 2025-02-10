@@ -52,6 +52,23 @@ export function injectCommands(
   db?: WalletDB,
   pxeWrapper?: PXEWrapper,
 ) {
+  program
+    .command('import-test-accounts')
+    .description('Import test accounts from pxe.')
+    .addOption(pxeOption)
+    .option('--json', 'Emit output as json')
+    .action(async options => {
+      if (!db) {
+        throw new Error(`A db is required to store the imported test accounts.`);
+      }
+
+      const { importTestAccounts } = await import('./import_test_accounts.js');
+      const { rpcUrl, json } = options;
+
+      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      await importTestAccounts(client, db, json, log);
+    });
+
   const createAccountCommand = program
     .command('create-account')
     .description(
@@ -590,7 +607,7 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .addOption(FeeOpts.paymentMethodOption().default('method=fee_juice'))
     .option(
       '-i --increased-fees <da=1,l2=1>',
       'The amounts by which the fees are increased',

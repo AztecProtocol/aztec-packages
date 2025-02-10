@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   BatchCall,
   L1FeeJuicePortalManager,
@@ -8,7 +8,7 @@ import {
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
   type L1Clients,
@@ -45,9 +45,7 @@ export async function bootstrapNetwork(
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
-  // setup a one-off account contract
-  const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-  const wallet = await account.deploy().getWallet();
+  const [wallet] = await getDeployedTestAccountsWallets(pxe);
 
   const l1Clients = createL1Clients(
     l1Url,

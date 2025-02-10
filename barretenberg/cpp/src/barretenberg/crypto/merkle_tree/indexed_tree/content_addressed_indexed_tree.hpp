@@ -57,7 +57,12 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 
     ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                 std::shared_ptr<ThreadPool> workers,
-                                const index_t& initial_size);
+                                const index_t& initial_size,
+                                const std::vector<LeafValueType>& prefilled_values);
+    ContentAddressedIndexedTree(std::unique_ptr<Store> store,
+                                std::shared_ptr<ThreadPool> workers,
+                                const index_t& initial_size)
+        : ContentAddressedIndexedTree(std::move(store), workers, initial_size, std::vector<LeafValueType>()){};
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
     ContentAddressedIndexedTree(ContentAddressedIndexedTree&& other) = delete;
     ~ContentAddressedIndexedTree() = default;
@@ -265,13 +270,18 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 };
 
 template <typename Store, typename HashingPolicy>
-ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(std::unique_ptr<Store> store,
-                                                                               std::shared_ptr<ThreadPool> workers,
-                                                                               const index_t& initial_size)
+ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
+    std::unique_ptr<Store> store,
+    std::shared_ptr<ThreadPool> workers,
+    const index_t& initial_size,
+    const std::vector<LeafValueType>& prefilled_values)
     : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers)
 {
     if (initial_size < 2) {
         throw std::runtime_error("Indexed trees must have initial size > 1");
+    }
+    if (prefilled_values.size() > initial_size) {
+        throw std::runtime_error("Number of prefilled values can't be more than initial size");
     }
     zero_hashes_.resize(depth_ + 1);
 
@@ -296,12 +306,23 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
 
     std::vector<IndexedLeafValueType> appended_leaves;
     std::vector<bb::fr> appended_hashes;
+    std::vector<LeafValueType> initial_set;
+    auto num_default_values = static_cast<uint32_t>(initial_size - prefilled_values.size());
+    for (uint32_t i = 0; i < num_default_values; ++i) {
+        initial_set.push_back(LeafValueType::padding(i));
+    }
+    initial_set.insert(initial_set.end(), prefilled_values.begin(), prefilled_values.end());
+    for (uint32_t i = num_default_values; i < initial_size; ++i) {
+        if (i > 0 && (uint256_t(initial_set[i].get_key()) <= uint256_t(initial_set[i - 1].get_key()))) {
+            const auto* msg = i == num_default_values ? "Prefilled values must not be the same as the default values"
+                                                      : "Prefilled values must be unique and sorted";
+            throw std::runtime_error(msg);
+        }
+    }
     // Inserts the initial set of leaves as a chain in incrementing value order
     for (uint32_t i = 0; i < initial_size; ++i) {
-        // Insert the zero leaf to the `leaves` and also to the tree at index 0.
-        bool last = i == (initial_size - 1);
-        IndexedLeafValueType initial_leaf =
-            IndexedLeafValueType(LeafValueType::padding(i), last ? 0 : i + 1, last ? 0 : i + 1);
+        uint32_t next_index = i == (initial_size - 1) ? 0 : i + 1;
+        auto initial_leaf = IndexedLeafValueType(initial_set[i], next_index, initial_set[next_index].get_key());
         fr leaf_hash = HashingPolicy::hash(initial_leaf.get_hash_inputs());
         appended_leaves.push_back(initial_leaf);
         appended_hashes.push_back(leaf_hash);

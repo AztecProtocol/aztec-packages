@@ -1,7 +1,6 @@
 export { Fr } from '@aztec/aztec.js/fields';
 export { createPXEClient } from '@aztec/aztec.js/rpc';
 export { getSchnorrAccount } from '@aztec/accounts/schnorr';
-export { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
 export {
   getDeployedTestAccountsWallets,
   INITIAL_TEST_SECRET_KEYS,

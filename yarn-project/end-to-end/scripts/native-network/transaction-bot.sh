@@ -24,15 +24,11 @@ until curl -s -X POST -H 'content-type: application/json' \
   $BOT_PXE_URL | grep -q '"enr:-'; do
   sleep 1
 done
-
-# Don't wait for l2 contracts if using EasyPrivateTokenContract
-if [ "${BOT_TOKEN_CONTRACT:-TokenContract}" != "EasyPrivateTokenContract" ]; then
-  echo "Waiting for l2 contracts to be deployed..."
-  until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ]; do
-    sleep 1
-  done
-  echo "Done waiting."
-fi
+echo "Waiting for l2 contracts to be deployed..."
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ]; do
+  sleep 1
+done
+echo "Done waiting."
 
 # Set environment variables
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
