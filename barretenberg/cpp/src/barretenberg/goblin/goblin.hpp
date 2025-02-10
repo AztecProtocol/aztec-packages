@@ -176,7 +176,8 @@ class GoblinProver {
             PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
 
             auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-            eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
+            // As is it used in ClientIVC, we make it fixed size = 2^{CONST_ECCVM_LOG_N}
+            eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder, /*fixed_size =*/true);
         }
         {
 

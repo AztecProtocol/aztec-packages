@@ -30,6 +30,7 @@ class ECCVMProver {
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
+                         const bool fixed_size = false,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
@@ -46,6 +47,8 @@ class ECCVMProver {
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+
+    bool fixed_size;
 
     TranslationEvaluations translation_evaluations;
 

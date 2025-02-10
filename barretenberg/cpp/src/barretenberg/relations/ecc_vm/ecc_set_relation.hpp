@@ -17,6 +17,13 @@ template <typename FF_> class ECCVMSetRelationImpl {
         3   // left-shiftable polynomial sub-relation
     };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        return (in.z_perm - in.z_perm_shift).is_zero();
+    }
+
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {
         auto t = s0 + s0;
