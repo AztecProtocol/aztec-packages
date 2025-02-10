@@ -25,9 +25,10 @@ template <typename Flavor> class RelationChecker {
     /**
      * @brief Check that a single specified relation is satisfied for a set of polynomials
      */
-    template <typename Relation>
+    template <typename Relation, bool has_linearly_dependent = false>
     static void check(const auto& polynomials, const auto& params, std::string label = "Relation")
     {
+
         // Define the appropriate accumulator type for the relation and initialize to zero
         typename Relation::SumcheckArrayOfValuesOverSubrelations result;
         for (auto& element : result) {
@@ -39,31 +40,53 @@ template <typename Flavor> class RelationChecker {
             // Evaluate each constraint in the relation and check that each is satisfied
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
             size_t subrelation_idx = 0;
+
             // Iterate over all the subrelation results and report if a linearly independent one failed
             for (auto& element : result) {
-                if (element != 0 && subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
-                    info("RelationChecker: ",
-                         label,
-                         " relation (subrelation idx: ",
-                         subrelation_idx,
-                         ") failed at row idx: ",
-                         i,
-                         ".");
-                    ASSERT(false);
+                if constexpr (has_linearly_dependent) {
+                    if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
+                        info("RelationChecker: ",
+                             label,
+                             " relation (subrelation idx: ",
+                             subrelation_idx,
+                             ") failed at row idx: ",
+                             i,
+                             ".");
+                        ASSERT(false);
+                    }
+                } else {
+                    if (element != 0) {
+                        info("RelationChecker: ",
+                             label,
+                             " relation (subrelation idx: ",
+                             subrelation_idx,
+                             ") failed at row idx: ",
+                             i,
+                             ".");
+                        ASSERT(false);
+                    }
                 }
                 subrelation_idx++;
             }
         }
 
-        size_t subrelation_idx = 0;
-        for (auto& element : result) {
-            // Check for linearly dependent subrelation and ensure their result over the entire execution trace is 0
-            if (element != 0 && !subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
-                info("RelationChecker: ", label, " linearly dependent subrelation idx: ", subrelation_idx, " failed.");
-                ASSERT(false);
+        if constexpr (has_linearly_dependent) {
+            size_t subrelation_idx = 0;
+            for (auto& element : result) {
+                // Check for linearly dependent subrelation and ensure their result over the entire execution trace
+                // is 0
+                if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
+                    info("RelationChecker: ",
+                         label,
+                         " linearly dependent subrelation idx: ",
+                         subrelation_idx,
+                         " failed.");
+                    ASSERT(false);
+                }
+                subrelation_idx++;
             }
         }
-    }
+    };
 };
 
 // Specialization for Ultra
@@ -85,7 +108,7 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         Base::check<Poseidon2InternalRelation<FF>>(polynomials, params, "Poseidon2Internal");
 
         // Linearly dependent relations (must be satisfied as a sum across all rows)
-        Base::check<LogDerivLookupRelation<FF>>(polynomials, params, "LogDerivLookup");
+        Base::check<LogDerivLookupRelation<FF>, true>(polynomials, params, "LogDerivLookup");
     }
 };
 
@@ -101,8 +124,9 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
 
         using FF = MegaFlavor::FF;
         Base::check<EccOpQueueRelation<FF>>(polynomials, params, "EccOpQueue");
-        Base::check<DatabusLookupRelation<FF>>(polynomials, params, "DatabusLookup");
+        Base::check<DatabusLookupRelation<FF>, true>(polynomials, params, "DatabusLookup");
     }
 };
-
 } // namespace bb
+
+// namespace bb
