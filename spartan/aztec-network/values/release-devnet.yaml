@@ -2,6 +2,7 @@ telemetry:
   enabled: true
 
 validator:
+  storageSize: "100Gi"
   replicas: 1
   sequencer:
     enforceFees: false # disabled until the bot can fund itself
@@ -11,9 +12,21 @@ validator:
 bootNode:
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.50"
 
 proverAgent:
-  replicas: 1
+  replicas: 8
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
 
 bot:
   followChain: "PENDING"
@@ -31,8 +44,10 @@ images:
 aztec:
   slotDuration: 36
   epochDuration: 32
-  realProofs: false
+  realProofs: true
+  extraAccounts: 9
+  extraAccountsStartIndex: 69
 
 jobs:
   deployL1Verifier:
-    enable: false
+    enable: true
