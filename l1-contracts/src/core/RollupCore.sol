@@ -53,7 +53,7 @@ struct Config {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
-  uint256 aztecEpochProofClaimWindowInL2Slots;
+  uint256 aztecProofSubmissionWindow;
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
@@ -150,8 +150,7 @@ contract RollupCore is
   ) Ownable(_ares) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
-    PROOF_SUBMISSION_WINDOW =
-      _config.aztecEpochDuration + _config.aztecEpochProofClaimWindowInL2Slots;
+    PROOF_SUBMISSION_WINDOW = _config.aztecProofSubmissionWindow;
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
@@ -330,9 +329,7 @@ contract RollupCore is
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
     interim.deadline = startEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
-    require(
-      interim.deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(), "past deadline"
-    );
+    require(interim.deadline > Timestamp.wrap(block.timestamp).slotFromTimestamp(), "past deadline");
 
     // By making sure that the previous block is in another epoch, we know that we were
     // at the start.

@@ -17,7 +17,7 @@ export type L1ContractsConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
-  aztecEpochProofClaimWindowInL2Slots: number;
+  aztecProofSubmissionWindow: number;
   /** The minimum stake for a validator. */
   minimumStake: bigint;
   /** The slashing quorum */
@@ -35,7 +35,7 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 24,
   aztecEpochDuration: 16,
   aztecTargetCommitteeSize: 48,
-  aztecEpochProofClaimWindowInL2Slots: 13,
+  aztecProofSubmissionWindow: 32, // you have a full epoch to submit a proof after the epoch to prove ends
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
@@ -64,10 +64,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  aztecEpochProofClaimWindowInL2Slots: {
-    env: 'AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS',
-    description: 'The number of L2 slots that we can wait for a proof of an epoch to be produced.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots),
+  aztecProofSubmissionWindow: {
+    env: 'AZTEC_PROOF_SUBMISSION_WINDOW',
+    description:
+      'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
   },
   minimumStake: {
     env: 'AZTEC_MINIMUM_STAKE',
