@@ -46,7 +46,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 
   # Set the test log. This key is globally unique.
   cat $tmp_file | redis_cli -x SETEX $log_key 604800 &>/dev/null
-  log_info=" ${yellow}$log_key${reset}"
+  log_info=" ${yellow}http://ci.aztec-labs.com/$log_key${reset}"
 fi
 
 if [ $code -eq 0 ]; then
