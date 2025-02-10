@@ -74,9 +74,11 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& tr
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
         proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }
+    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
