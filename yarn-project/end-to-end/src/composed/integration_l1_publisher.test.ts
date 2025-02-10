@@ -251,12 +251,12 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.stop();
   });
 
-  const makeProcessedTx = async (seed = 0x1): Promise<ProcessedTx> =>
+  const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
       version: fr(config.version),
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,

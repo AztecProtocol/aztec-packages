@@ -369,10 +369,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = local.node_p2p_private_keys[count.index]
         },
         {
-          name  = "P2P_MIN_PEERS"
-          value = var.P2P_MIN_PEERS
-        },
-        {
           name  = "P2P_MAX_PEERS"
           value = var.P2P_MAX_PEERS
         },

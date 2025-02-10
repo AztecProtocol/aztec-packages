@@ -86,6 +86,13 @@ class {{lookup_name}}_lookup_settings {
 template <typename FF_> class {{lookup_name}}_relation : public GenericLookupRelation<{{lookup_name}}_lookup_settings, FF_> {
     public:
         static constexpr std::string_view NAME = {{lookup_name}}_lookup_settings::NAME;
+
+        {{! TODO: This is a safe skippable condition, but there might be a better one. --}}
+        template <typename AllEntities> inline static bool skip(const AllEntities& in)
+        {
+            return in.{{lhs_selector}}.is_zero() && in.{{rhs_selector}}.is_zero();
+        }
+
 };
 template <typename FF_> using {{lookup_name}} = GenericLookup<{{lookup_name}}_lookup_settings, FF_>;
 

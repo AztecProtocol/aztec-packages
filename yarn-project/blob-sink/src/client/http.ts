@@ -72,8 +72,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    *
    * 1. First atttempts to get blobs from a configured blob sink
    * 2. If no blob sink is configured, attempts to get blobs from a configured consensus host
-
-   * // TODO(md): blow up?
+   *
    * 3. If none configured, fails
    *
    * @param blockHash - The block hash
@@ -117,6 +116,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     blockHashOrSlot: string | number,
     blobHashes: Buffer[],
     indices?: number[],
+    maxRetries = 10,
   ): Promise<Blob[]> {
     try {
       let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
@@ -132,36 +132,15 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        const preFilteredBlobsPromise = body.data
-          // Filter out blobs that did not come from our rollup
-          .filter((b: BlobJson) => {
-            const committment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
-            const blobHash = Blob.getEthVersionedBlobHash(committment);
-            return blobHashes.some(hash => hash.equals(blobHash));
-          })
-          // Attempt to deserialise the blob
-          // If we cannot decode it, then it is malicious and we should not use it
-          .map(async (b: BlobJson): Promise<Blob | undefined> => {
-            try {
-              return await Blob.fromJson(b);
-            } catch (err) {
-              if (err instanceof BlobDeserializationError) {
-                this.log.warn(`Failed to deserialise blob`, { commitment: b.kzg_commitment });
-                return undefined;
-              }
-              throw err;
-            }
-          });
-
-        // Second map is async, so we need to await it
-        const preFilteredBlobs = await Promise.all(preFilteredBlobsPromise);
-
-        // Filter out blobs that did not deserialise
-        const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
-          return b !== undefined;
-        });
-
-        return filteredBlobs;
+        const blobs = await getRelevantBlobs(body.data, blobHashes, this.log);
+        return blobs;
+      } else if (res.status === 404) {
+        // L1 slot may have been missed, try next few
+        if (!isNaN(Number(blockHashOrSlot)) && maxRetries > 0) {
+          const nextSlot = Number(blockHashOrSlot) + 1;
+          this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
+          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1);
+        }
       }
 
       this.log.debug(`Unable to get blob sidecar`, res.status);
@@ -246,6 +225,39 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     return undefined;
   }
+}
+
+async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger): Promise<Blob[]> {
+  const preFilteredBlobsPromise = data
+    // Filter out blobs that did not come from our rollup
+    .filter((b: BlobJson) => {
+      const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
+      const blobHash = Blob.getEthVersionedBlobHash(commitment);
+      return blobHashes.some(hash => hash.equals(blobHash));
+    })
+    // Attempt to deserialise the blob
+    // If we cannot decode it, then it is malicious and we should not use it
+    .map(async (b: BlobJson): Promise<Blob | undefined> => {
+      try {
+        return await Blob.fromJson(b);
+      } catch (err) {
+        if (err instanceof BlobDeserializationError) {
+          logger.warn(`Failed to deserialise blob`, { commitment: b.kzg_commitment });
+          return undefined;
+        }
+        throw err;
+      }
+    });
+
+  // Second map is async, so we need to await it
+  const preFilteredBlobs = await Promise.all(preFilteredBlobsPromise);
+
+  // Filter out blobs that did not deserialise
+  const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
+    return b !== undefined;
+  });
+
+  return filteredBlobs;
 }
 
 function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
