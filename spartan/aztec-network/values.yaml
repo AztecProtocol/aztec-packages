@@ -239,8 +239,8 @@ ethereum:
   # 10 times the default of 131072
   maxTxInputSizeBytes: "1310720"
   args: ""
-  externalHost: ""
   execution:
+    externalHost: ""
     service:
       port: 8545
       targetPort: 8545
@@ -258,6 +258,9 @@ ethereum:
       targetPort: 5052
     resources:
       requests:
+        memory: "4Gi"
+        cpu: "1.5"
+      limits:
         memory: "4Gi"
         cpu: "1.5"
     storageSize: "80Gi"
@@ -314,6 +317,19 @@ proverBroker:
 jobs:
   deployL1Verifier:
     enable: false
+
+blobSink:
+  enabled: false
+  replicas: 1
+  service:
+    nodePort: 5052
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+  dataStoreConfig:
+    dataDir: "/data"
+    storageSize: "8Gi"
+    dataStoreMapSize: "134217728" # 128 GB
 
 faucet:
   enabled: true

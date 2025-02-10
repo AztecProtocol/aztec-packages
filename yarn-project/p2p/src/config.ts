@@ -89,11 +89,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   transactionProtocol: string;
 
   /**
-   * The minimum number of peers (a peer count below this will cause the node to look for more peers)
-   */
-  minPeerCount: number;
-
-  /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
    */
   maxPeerCount: number;
@@ -248,11 +243,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Protocol identifier for transaction gossiping.',
     defaultValue: '/aztec/0.1.0',
   },
-  minPeerCount: {
-    env: 'P2P_MIN_PEERS',
-    description: 'The minimum number of peers to connect to.',
-    ...numberConfigHelper(10),
-  },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
@@ -372,10 +362,7 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<
-  P2PConfig,
-  'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
-> &
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
   ChainConfig;
@@ -383,7 +370,6 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'minPeerCount',
   'maxPeerCount',
   'udpListenAddress',
   'dataDirectory',

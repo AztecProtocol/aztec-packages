@@ -35,6 +35,15 @@ export class FieldReader {
   }
 
   /**
+   * Returns the current cursor position.
+   *
+   * @returns The current cursor position.
+   */
+  public get cursor() {
+    return this.index;
+  }
+
+  /**
    * Skips the next n fields.
    *
    * @param n - The number of fields to skip.
@@ -44,15 +53,6 @@ export class FieldReader {
       throw new Error('Not enough fields to be consumed.');
     }
     this.index += n;
-  }
-
-  /**
-   * Returns the current cursor position.
-   *
-   * @returns The current cursor position.
-   */
-  public get cursor() {
-    return this.index;
   }
 
   /**
