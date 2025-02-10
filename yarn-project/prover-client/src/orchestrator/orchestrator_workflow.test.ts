@@ -115,7 +115,7 @@ describe('prover/orchestrator', () => {
         orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
         const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        await context.setEndTreeRoots(txs);
+        await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
@@ -143,7 +143,7 @@ describe('prover/orchestrator', () => {
         getTubeSpy.mockReset();
 
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
-        await context.setEndTreeRoots(processedTxs);
+        await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
         const result = await orchestrator.finaliseEpoch();
