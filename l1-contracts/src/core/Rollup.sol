@@ -35,7 +35,8 @@ import {
   Signature,
   DataStructures,
   ExtRollupLib,
-  IntRollupLib
+  IntRollupLib,
+  EpochRewards
 } from "./RollupCore.sol";
 // solhint-enable no-unused-import
 
@@ -137,15 +138,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     );
   }
 
-  function getProofClaim()
-    external
-    view
-    override(IRollup)
-    returns (DataStructures.EpochProofClaim memory)
-  {
-    return rollupStore.proofClaim;
-  }
-
   /**
    * @notice Returns the computed public inputs for the given epoch proof.
    *
@@ -170,25 +162,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ExtRollupLib.getEpochProofPublicInputs(
       rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
-  }
-
-  /**
-   * @notice  Get the next epoch that can be claimed
-   * @dev     Will revert if the epoch has already been claimed or if there is no epoch to prove
-   */
-  function getClaimableEpoch() external view override(IRollup) returns (Epoch) {
-    Epoch epochToProve = getEpochToProve();
-    require(
-      // If the epoch has been claimed, it cannot be claimed again
-      rollupStore.proofClaim.epochToProve != epochToProve
-      // Edge case for if no claim has been made yet.
-      // We know that the bondProvider is always set,
-      // Since otherwise the claimEpochProofRight would have reverted,
-      // because the zero address cannot have deposited funds into escrow.
-      || rollupStore.proofClaim.bondProvider == address(0),
-      Errors.Rollup__ProofRightAlreadyClaimed()
-    );
-    return epochToProve;
   }
 
   /**
@@ -455,6 +428,57 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (Epoch)
   {
     return _slotNumber.epochFromSlot();
+  }
+
+  function getProofSubmissionWindow() external view override(IRollup) returns (uint256) {
+    return PROOF_SUBMISSION_WINDOW;
+  }
+
+  function getSequencerRewards(address _sequencer)
+    external
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    return sequencerRewards[_sequencer];
+  }
+
+  function getCollectiveProverRewardsForEpoch(Epoch _epoch)
+    external
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    return epochRewards[_epoch].rewards;
+  }
+
+  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
+    external
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    EpochRewards storage er = epochRewards[_epoch];
+    uint256 length = er.longestProvenLength;
+
+    if (er.subEpoch[length].hasSubmitted[_prover]) {
+      return er.rewards / er.subEpoch[length].summedCount;
+    }
+
+    return 0;
+  }
+
+  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
+    external
+    view
+    override(IRollup)
+    returns (bool)
+  {
+    return epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+  }
+
+  function getProvingCostPerMana() external view override(IRollup) returns (uint256) {
+    return provingCostPerMana;
   }
 
   /**

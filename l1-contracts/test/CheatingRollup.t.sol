@@ -6,11 +6,18 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup} from "./harnesses/Rollup.sol";
+import {IRollupCore, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {NaiveMerkle} from "./merkle/Naive.sol";
+import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -23,9 +30,6 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
-import {Strings} from "@oz/utils/Strings.sol";
-
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 
 // solhint-disable comprehensive-interface
@@ -34,7 +38,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
-contract MultiProofTest is RollupBase {
+contract CheatingRollupTest is RollupBase {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -84,28 +88,16 @@ contract MultiProofTest is RollupBase {
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal,
-          rewardDistributor,
-          testERC20,
-          bytes32(0),
-          bytes32(0),
-          address(this),
-          Config({
-            aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-            aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-            targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-            aztecEpochProofClaimWindowInL2Slots: TestConstants
-              .AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
-            minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-            slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-            slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-          })
+          feeJuicePortal, rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
         )
       )
     );
+    inbox = Inbox(address(rollup.INBOX()));
+    outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup));
 
+    merkleTestUtil = new MerkleTestUtil();
     _;
   }
 
@@ -113,51 +105,28 @@ contract MultiProofTest is RollupBase {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
-  function logStatus() public {
-    uint256 provenBlockNumber = rollup.getProvenBlockNumber();
-    uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
-    emit log_named_uint("proven block number", provenBlockNumber);
-    emit log_named_uint("pending block number", pendingBlockNumber);
+  // BRUH, what is this stuff?
+  function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
+    rollup.setAssumeProvenThroughBlockNumber(1);
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
-    address[2] memory provers = [address(bytes20("lasse")), address(bytes20("mitch"))];
-    address sequencer = address(bytes20("sequencer"));
+    _proposeBlock("mixed_block_1", 1);
+    _proposeBlock("mixed_block_2", 2);
 
-    emit log_named_decimal_uint("sequencer rewards", rollup.getSequencerRewards(sequencer), 18);
-    emit log_named_decimal_uint(
-      "prover rewards", rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), 18
-    );
-
-    for (uint256 i = 0; i < provers.length; i++) {
-      for (uint256 j = 1; j <= provenBlockNumber; j++) {
-        bool hasSubmitted = rollup.getHasSubmitted(Epoch.wrap(0), j, provers[i]);
-        if (hasSubmitted) {
-          emit log_named_string(
-            string.concat("prover has submitted proof up till block ", Strings.toString(j)),
-            string(abi.encode(provers[i]))
-          );
-        }
-      }
-      emit log_named_decimal_uint(
-        string.concat("prover ", string(abi.encode(provers[i])), " rewards"),
-        rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), provers[i]),
-        18
-      );
-    }
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 
-  function testMultiProof() public setUpFor("mixed_block_1") {
-    _proposeBlock("mixed_block_1", 1, 15e6);
-    _proposeBlock("mixed_block_2", 2, 15e6);
+  function testSetAssumeProvenAfterBlocksProcessed() public setUpFor("mixed_block_1") {
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
-    assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
+    _proposeBlock("mixed_block_1", 1);
+    _proposeBlock("mixed_block_2", 2);
+    rollup.setAssumeProvenThroughBlockNumber(1);
 
-    string memory name = "mixed_block_";
-    _proveBlocks(name, 1, 1, address(bytes20("lasse")));
-    _proveBlocks(name, 1, 1, address(bytes20("mitch")));
-    _proveBlocks(name, 1, 2, address(bytes20("mitch")));
-
-    logStatus();
-
-    assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 }
