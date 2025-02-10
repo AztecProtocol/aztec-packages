@@ -519,6 +519,10 @@ export async function setup(
       await aztecNode?.stop();
     }
 
+    if (proverNode) {
+      await proverNode.stop();
+    }
+
     if (acvmConfig?.cleanup) {
       // remove the temp directory created for the acvm
       logger.verbose(`Cleaning up ACVM state`);

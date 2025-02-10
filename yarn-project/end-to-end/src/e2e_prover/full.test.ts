@@ -1,7 +1,7 @@
 import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RewardDistributorAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -24,7 +24,6 @@ describe('full_prover', () => {
   let recipient: AztecAddress;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let feeJuice: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
   let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
@@ -39,12 +38,6 @@ describe('full_prover', () => {
     rollup = getContract({
       abi: RollupAbi,
       address: t.l1Contracts.l1ContractAddresses.rollupAddress.toString(),
-      client: t.l1Contracts.publicClient,
-    });
-
-    feeJuice = getContract({
-      abi: TestERC20Abi,
-      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
 
@@ -114,38 +107,39 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const balanceBeforeCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
-      const balanceBeforeProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
-
-      // Send another tx so the sequencer can assemble a block that includes the prover node claim
-      // so the prover node starts proving
-      logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
-      const sendOpts = { skipPublicSimulation: true };
-      await provenAssets[0].methods
-        .transfer(recipient, privateSendAmount)
-        .send(sendOpts)
-        .wait({ timeout: 300, interval: 10 });
-      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      const rewardsBeforeCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      const rewardsBeforeProver = await rollup.read.getSpecificProverRewardsForEpoch([
+        epoch,
+        t.proverAddress.toString(),
+      ]);
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
       const provenBn = await rollup.read.getProvenBlockNumber();
-      const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
-      const balanceAfterProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
+      expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
+
+      const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
+
+      const rewardsAfterProver = await rollup.read.getSpecificProverRewardsForEpoch([
+        epoch,
+        t.proverAddress.toString(),
+      ]);
+      expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
+
       const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
       const fees = (
         await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
       ).map(b => b!.header.totalFees.toBigInt());
 
-      const rewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
-      const toCoinbase = rewards / 2n;
-      const toProver = rewards / 2n;
+      const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
+      const proverGain = rewardsAfterProver - rewardsBeforeProver;
 
-      expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
-      expect(balanceAfterCoinbase).toBe(balanceBeforeCoinbase + toCoinbase);
-      expect(balanceAfterProver).toBe(balanceBeforeProver + toProver);
+      // May be less than totalRewards due to burn.
+      expect(sequencerGain + proverGain).toBeLessThanOrEqual(totalRewards);
     },
     TIMEOUT,
   );

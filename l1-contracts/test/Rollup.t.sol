@@ -270,7 +270,7 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
 
     // the same block is proposed, with the diff in slot number.
-    _proposeBlock("mixed_block_1", Epoch.wrap(2).toSlots().unwrap());
+    _proposeBlock("mixed_block_1", rollup.getProofSubmissionWindow() + 1);
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
