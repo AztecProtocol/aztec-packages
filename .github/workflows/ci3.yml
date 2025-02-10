@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   ci-amd64:
+    needs: configure
     runs-on: ubuntu-latest
     # condition: Always allow 'push' and 'workflow_dispatch' jobs.
     #   Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
@@ -43,6 +44,11 @@ jobs:
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Validate External Changes
+        if: github.event_name == 'pull_request_target'
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git diff --name-only origin/cl/ci3.3 HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
@@ -103,6 +109,11 @@ jobs:
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Validate External Changes
+        if: github.event_name == 'pull_request_target'
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git diff --name-only origin/cl/ci3.3 HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
