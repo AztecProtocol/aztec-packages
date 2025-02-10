@@ -1,10 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  deployFundedSchnorrAccount,
-  getDeployedTestAccountsWallets,
-  getInitialTestAccounts,
-  getInitialTestAccountsWallets,
-} from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   BatchCall,
