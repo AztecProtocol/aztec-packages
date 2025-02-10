@@ -19,7 +19,7 @@ use dep::types::{
     },
     hash::{accumulate_sha256, silo_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
-    traits::{Empty, is_empty, Serialize},
+    traits::{Empty, Serialize},
     utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
@@ -198,9 +198,7 @@ fn get_tx_effects_hash_input(
     let nullifiers = tx_effect.nullifiers;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
-    // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
-    let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
+    let public_data_update_requests = tx_effect.public_data_writes;
     let private_logs = tx_effect.private_logs;
     let public_logs = tx_effect.public_logs;
     let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
@@ -518,18 +516,4 @@ unconstrained fn get_tx_effects_hash_input_helper(
     tx_effects_hash_input[0] = generate_tx_start_field(offset as Field, revert_code);
 
     tx_effects_hash_input
-}
-
-// TODO remove this? The avm should be returning public data writes left aligned.
-fn get_all_update_requests_for_tx_effects(
-    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-    let mut all_update_requests: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
-        BoundedVec::new();
-    for update_request in all_public_data_update_requests {
-        if !is_empty(update_request) {
-            all_update_requests.push(update_request);
-        }
-    }
-    all_update_requests.storage()
 }
