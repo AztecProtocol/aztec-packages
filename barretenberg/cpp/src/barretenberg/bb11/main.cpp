@@ -296,16 +296,8 @@ int main(int argc, char* argv[])
         if (verify->parsed()) {
             return api.verify(flags, proof_path, vk_path) ? 0 : 1;
         }
-        if (write_arbitrary_valid_proof_and_vk_to_file->parsed()) {
-            api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_path);
-            return 0;
-        }
         if (contract->parsed()) {
             api.contract(flags, output_path, vk_path);
-            return 0;
-        }
-        if (write_recursion_inputs->parsed()) {
-            api.write_recursion_inputs(flags, bytecode_path, witness_path, output_path);
             return 0;
         }
         auto subcommands = app.get_subcommands();
