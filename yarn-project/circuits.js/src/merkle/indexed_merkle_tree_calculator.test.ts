@@ -129,7 +129,7 @@ describe('indexed merkle tree root calculator', () => {
     // Pick some value to find a witness for...
     const testIndex = 2;
     const testValue = values[testIndex];
-    const sortedValues = values.toSorted((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
     // ...and find its next value.
     const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || AztecAddress.ZERO;
 
@@ -165,7 +165,7 @@ describe('indexed merkle tree root calculator', () => {
 
     // Pick some value to find a low leaf for...
     const testValue = await AztecAddress.random();
-    const sortedValues = values.toSorted((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
     // ...and find its 'sandwich' values.
     const previousIndex = sortedValues.findIndex(
       (a, i) =>
