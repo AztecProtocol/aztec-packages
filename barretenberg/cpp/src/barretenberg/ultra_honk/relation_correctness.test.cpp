@@ -210,7 +210,10 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
         ensure_non_zero(selector);
     }
 
-    RelationChecker<Flavor>::check_all(decider_pk->proving_key.polynomials, decider_pk->relation_parameters);
+    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto params = decider_pk->relation_parameters;
+
+    RelationChecker<Flavor>::check_all(prover_polynomials, params);
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
