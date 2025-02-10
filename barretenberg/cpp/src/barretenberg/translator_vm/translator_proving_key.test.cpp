@@ -1,20 +1,15 @@
+#include "translator_proving_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
-#include "barretenberg/translator_vm/translator_prover.hpp"
-#include "barretenberg/translator_vm/translator_verifier.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
 
 namespace {
-using CircuitBuilder = TranslatorFlavor::CircuitBuilder;
-using Transcript = TranslatorFlavor::Transcript;
-using OpQueue = ECCOpQueue;
 using FF = TranslatorFlavor::Curve::ScalarField;
 auto& engine = numeric::get_debug_randomness();
 
@@ -93,4 +88,7 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
     // Check that permutation relation is satisfied across each row of the prover polynomials
     RelationChecker<TranslatorFlavor>::check<TranslatorPermutationRelation<FF>>(
         prover_polynomials, params, "TranslatorPermutationRelation");
+    // Check that delta range constraint relation is satisfied across each row of the prover polynomials
+    RelationChecker<TranslatorFlavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorOpcodeConstraintRelation");
 }
