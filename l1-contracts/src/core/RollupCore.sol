@@ -349,7 +349,7 @@ contract RollupCore is
     // End of `isAcceptable`
 
     // Start of verifying the proof
-    require(EpochProofLib.verifyEpochRootProof(rollupStore, _args), "proof is invalid");
+    require(ExtRollupLib.verifyEpochRootProof(rollupStore, _args), "proof is invalid");
     // End of verifying the proof
 
     interim.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
