@@ -1009,7 +1009,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         low_leaf.nextIndex = index_of_new_leaf;
                         low_leaf.nextValue = value;
                         store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
-                        store_->put_cached_leaf_by_index(index_of_new_leaf, new_leaf);
 
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
                         //           << std::endl;
