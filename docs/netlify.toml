@@ -23,30 +23,6 @@
     to = "developers/tutorials/codealong/js_tutorials/simple_dapp"
 
 [[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/typescript_glue_code"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/typescript_glue_code"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/withdrawing_to_l1"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/withdrawing_to_l1"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/minting_on_aztec"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/minting_on_aztec"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/depositing_to_aztec"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/depositing_to_aztec"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials//token_bridge/setup"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge/setup"
-
-[[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
     to = "/tutorials/codealong/contract_tutorials/crowdfunding_contract"
 
@@ -140,60 +116,64 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/developers/getting_started" 
+    to = "/developers/getting_started"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/developers/getting_started" 
+    to = "/developers/getting_started"
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started/*" 
+    to = "/developers/getting_started/*"
 
 [[redirects]]
     from = "/guides/developer_guides/getting_started/quickstart"
-    to = "/developers/getting_started" 
-    
+    to = "/developers/getting_started"
+
 [[redirects]]
     from = "/aztec/concepts_overview"
-    to = "/aztec" 
+    to = "/aztec"
 
 [[redirects]]
     from = "/aztec/concepts/accounts/authwit"
-    to = "/aztec/concepts/advanced/authwit" 
+    to = "/aztec/concepts/advanced/authwit"
 
 [[redirects]]
     from = "/aztec/concepts/storage/storage_slots"
-    to = "/aztec/concepts/advanced/storage/storage_slots" 
+    to = "/aztec/concepts/advanced/storage/storage_slots"
 
 [[redirects]]
     from = "/aztec/concepts/storage/trees/*"
-    to = "/aztec/concepts/advanced/storage/indexed_merkle_tree" 
+    to = "/aztec/concepts/advanced/storage/indexed_merkle_tree"
 
 [[redirects]]
     from = "/aztec/concepts/storage/partial_notes"
-    to = "/aztec/concepts/advanced/storage/partial_notes" 
+    to = "/aztec/concepts/advanced/storage/partial_notes"
 
 [[redirects]]
     from = "/aztec/concepts/circuits/*"
-    to = "/aztec/concepts/advanced/circuits" 
+    to = "/aztec/concepts/advanced/circuits"
 
 [[redirects]]
     from = "/tutorials/*"
-    to = "/developers/tutorials/*" 
+    to = "/developers/tutorials/*"
 
 [[redirects]]
     from = "/guides/*"
-    to = "/developers/guides/*" 
+    to = "/developers/guides/*"
 
 [[redirects]]
     from = "/reference/*"
-    to = "/developers/reference/*" 
+    to = "/developers/reference/*"
 
 [[redirects]]
     from = "/guides/privacy_considerations"
-    to = "/developers/reference/considerations/privacy_considerations" 
+    to = "/developers/reference/considerations/privacy_considerations"
 
 [[redirects]]
     from = "/reference/developer_references/limitations"
     to = "/developers/reference/considerations/limitations"
+
+[[redirects]]
+    from = "/tutorials/codealong/contract_tutorials/token_bridge/*"
+    to = "/tutorials/codealong/contract_tutorials/token_bridge"
