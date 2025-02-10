@@ -12,171 +12,49 @@ global I16_SERIALIZED_LEN: u32 = 1;
 global I32_SERIALIZED_LEN: u32 = 1;
 global I64_SERIALIZED_LEN: u32 = 1;
 
-impl Serialize<BOOL_SERIALIZED_LEN> for bool {
-    fn serialize(self) -> [Field; BOOL_SERIALIZED_LEN] {
-        [self as Field]
+impl Serialize<1> for Field {
+    fn write<let N: u32>(self, writer: &mut Writer<N>) {
+        writer.write(self);
     }
 }
 
-impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
-    fn deserialize(fields: [Field; BOOL_SERIALIZED_LEN]) -> bool {
-        fields[0] as bool
+impl Deserialize<1> for Field {
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+        reader.read()
     }
 }
 
-impl Serialize<U8_SERIALIZED_LEN> for u8 {
-    fn serialize(self) -> [Field; U8_SERIALIZED_LEN] {
-        [self as Field]
+impl Serialize<1> for bool {
+    fn write<let N: u32>(self, writer: &mut Writer<N>) {
+        writer.write(self as Field);
     }
 }
 
-impl Deserialize<U8_SERIALIZED_LEN> for u8 {
-    fn deserialize(fields: [Field; U8_SERIALIZED_LEN]) -> Self {
-        fields[0] as u8
+impl Deserialize<1> for bool {
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+        reader.read() == 1
     }
 }
 
-impl Serialize<U16_SERIALIZED_LEN> for u16 {
-    fn serialize(self) -> [Field; U16_SERIALIZED_LEN] {
-        [self as Field]
+impl Serialize<1> for u32 {
+    fn write<let N: u32>(self, writer: &mut Writer<N>) {
+        writer.write(self as Field);
     }
 }
 
-impl Deserialize<U16_SERIALIZED_LEN> for u16 {
-    fn deserialize(fields: [Field; U16_SERIALIZED_LEN]) -> Self {
-        fields[0] as u16
+impl Deserialize<1> for u32 {
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+        reader.read() as u32
     }
 }
 
-impl Serialize<U32_SERIALIZED_LEN> for u32 {
-    fn serialize(self) -> [Field; U32_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<U32_SERIALIZED_LEN> for u32 {
-    fn deserialize(fields: [Field; U32_SERIALIZED_LEN]) -> Self {
-        fields[0] as u32
-    }
-}
-
-impl Serialize<U64_SERIALIZED_LEN> for u64 {
-    fn serialize(self) -> [Field; U64_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<U64_SERIALIZED_LEN> for u64 {
-    fn deserialize(fields: [Field; U64_SERIALIZED_LEN]) -> Self {
-        fields[0] as u64
-    }
-}
-
-impl Serialize<U128_SERIALIZED_LEN> for U128 {
-    fn serialize(self) -> [Field; U128_SERIALIZED_LEN] {
-        // We use little-endian ordering to match the order in which U128 defines its limbs.
-        // This is necessary because of how Noir handles serialization:
-        // - When calling a contract function from TypeScript, the serialization in encoder.ts gets used and then Noir
-        //   deserializes using its intrinsic serialization logic (based on the limb order in the struct).
-        // - When calling a contract function from another function, the `serialize` method is invoked on the type
-        //   first.
-        // For this reason if we didn't use the ordering of U128 limbs here and in encoder.ts we would get an arguments
-        // hash mismatch.
-        [self.lo, self.hi]
-    }
-}
-
-impl Deserialize<U128_SERIALIZED_LEN> for U128 {
-    fn deserialize(fields: [Field; U128_SERIALIZED_LEN]) -> Self {
-        U128::from_u64s_le(fields[0] as u64, fields[1] as u64)
-    }
-}
-
-impl Serialize<FIELD_SERIALIZED_LEN> for Field {
-    fn serialize(self) -> [Field; FIELD_SERIALIZED_LEN] {
-        [self]
-    }
-}
-
-impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
-    fn deserialize(fields: [Field; FIELD_SERIALIZED_LEN]) -> Self {
-        fields[0]
-    }
-}
-
-impl Serialize<I8_SERIALIZED_LEN> for i8 {
-    fn serialize(self) -> [Field; I8_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<I8_SERIALIZED_LEN> for i8 {
-    fn deserialize(fields: [Field; I8_SERIALIZED_LEN]) -> Self {
-        fields[0] as i8
-    }
-}
-
-impl Serialize<I16_SERIALIZED_LEN> for i16 {
-    fn serialize(self) -> [Field; I16_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<I16_SERIALIZED_LEN> for i16 {
-    fn deserialize(fields: [Field; I16_SERIALIZED_LEN]) -> Self {
-        fields[0] as i16
-    }
-}
-
-impl Serialize<I32_SERIALIZED_LEN> for i32 {
-    fn serialize(self) -> [Field; I32_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<I32_SERIALIZED_LEN> for i32 {
-    fn deserialize(fields: [Field; I32_SERIALIZED_LEN]) -> Self {
-        fields[0] as i32
-    }
-}
-
-impl Serialize<I64_SERIALIZED_LEN> for i64 {
-    fn serialize(self) -> [Field; I64_SERIALIZED_LEN] {
-        [self as Field]
-    }
-}
-
-impl Deserialize<I64_SERIALIZED_LEN> for i64 {
-    fn deserialize(fields: [Field; I64_SERIALIZED_LEN]) -> Self {
-        fields[0] as i64
-    }
-}
-
-impl<T, let N: u32, let M: u32> Serialize<N * M> for [T; N]
+impl<T, let K: u32> Serialize<K + 1> for Option<T>
 where
-    T: Serialize<M>,
+    T: Serialize<K>,
 {
-    fn serialize(self) -> [Field; N * M] {
-        let mut result: [Field; N * M] = std::mem::zeroed();
-        let mut serialized: [Field; M] = std::mem::zeroed();
-        for i in 0..N {
-            serialized = self[i].serialize();
-            for j in 0..M {
-                result[i * M + j] = serialized[j];
-            }
-        }
-        result
-    }
-}
-
-impl<T, let N: u32, let M: u32> Deserialize<N * M> for [T; N]
-where
-    T: Deserialize<M>,
-{
-    fn deserialize(fields: [Field; N * M]) -> Self {
-        let mut reader = crate::utils::reader::Reader::new(fields);
-        let mut result: [T; N] = std::mem::zeroed();
-        reader.read_struct_array::<T, M, N>(Deserialize::deserialize, result)
+    fn write<let N: u32>(self, writer: &mut Writer<N>) {
+        self.is_some().write(writer);
+        self.unwrap_unchecked().write(writer);
     }
 }
 

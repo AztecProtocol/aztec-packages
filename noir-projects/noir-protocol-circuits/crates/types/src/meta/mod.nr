@@ -439,48 +439,88 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
-pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
-    let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[], false);
-    let aux_vars_for_serialization = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+comptime fn derive_serialize(s: StructDefinition) -> Quoted {
+    let struct_type = s.as_type();
+    let mut deserialize_lengths = &[];
+    let mut trait_constraints = &[];
+    let mut write_statements = &[];
+    let generic_types = s.generics().map(|generic: (Type, Option<Type>)| generic.0);
 
-    let field_serializations = fields.join(quote {,});
-    let serialized_len = fields.len();
-    quote {
-        impl Serialize<$serialized_len> for $typ {
-            fn serialize(self) -> [Field; $serialized_len] {
-                $aux_vars_for_serialization
-                [ $field_serializations ]
+    for field in s.fields(generic_types) {
+        let (field_name, field_type) = field;
+        let serialize_length_name = f"{field_name}_serialized_length".quoted_contents();
+        deserialize_lengths = deserialize_lengths.push_back(quote { $serialize_length_name });
+        trait_constraints =
+            trait_constraints.push_back(quote { $field_type: Serialize<$serialize_length_name> });
+        write_statements = write_statements.push_back(
+            quote {
+                Serialize::<$serialize_length_name>::write(self.$field_name, writer);
+        },
+        );
+    }
+    let mut impl_generics = generic_types.map(|g| quote {$g});
+    for length in deserialize_lengths {
+        impl_generics = impl_generics.push_back(quote { let $length: u32 });
+    }
+
+    let joined_impl_generics = impl_generics.join(quote {,});
+    let total_serialize_length = deserialize_lengths.join(quote {+});
+    let joined_trait_constraints = trait_constraints.join(quote {,});
+    let joined_write_statements = write_statements.join(quote {});
+    let result = quote {
+        impl<$joined_impl_generics> Serialize <$total_serialize_length> for $struct_type where $joined_trait_constraints {
+            fn write<let N: u32>(self, writer: &mut Writer<N>) {
+                $joined_write_statements
             }
         }
-    }
+    };
+    // println(result);
+
+    result
 }
 
-pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
-    let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
-    let serialized_len = fields.len();
-    let (deserialized, _) = generate_deserialize_from_fields(
-        quote { self },
-        typ,
-        quote { serialized },
-        0,
-        quote {},
-        quote {},
-        false,
-    );
-    quote {
-        impl Deserialize<$serialized_len> for $typ {
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
-                $deserialized
+comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
+    let struct_type = s.as_type();
+    let mut deserialize_lengths = &[];
+    let mut trait_constraints = &[];
+    let mut read_statements = &[];
+    let generic_types = s.generics().map(|generic: (Type, Option<Type>)| generic.0);
+
+    for field in s.fields(generic_types) {
+        let (field_name, field_type) = field;
+        let serialize_length_name = f"{field_name}_serialized_length".quoted_contents();
+        deserialize_lengths = deserialize_lengths.push_back(quote { $serialize_length_name });
+        trait_constraints =
+            trait_constraints.push_back(quote { $field_type: Deserialize<$serialize_length_name> });
+        read_statements = read_statements.push_back(
+            quote {
+              let $field_name = Deserialize::<$serialize_length_name>::read(reader);
+        },
+        );
+    }
+    let mut impl_generics = generic_types.map(|g| quote {$g});
+    for length in deserialize_lengths {
+        impl_generics = impl_generics.push_back(quote { let $length: u32 });
+    }
+
+    let joined_impl_generics = impl_generics.join(quote {,});
+    let total_serialize_length = deserialize_lengths.join(quote {+});
+    let joined_trait_constraints = trait_constraints.join(quote {,});
+    let joined_read_statements = read_statements.join(quote {});
+    let instantiation = s.fields_as_written().map(|field: (Quoted, Type)| field.0).join(quote {,});
+    let result = quote {
+        impl<$joined_impl_generics> Deserialize <$total_serialize_length> for $struct_type where $joined_trait_constraints {
+            fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+                $joined_read_statements
+                Self {
+                    $instantiation
+                }
             }
         }
-    }
+    };
+    println(result);
+
+    result
 }
 
 pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {

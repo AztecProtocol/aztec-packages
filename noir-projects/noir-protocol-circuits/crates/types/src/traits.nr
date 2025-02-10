@@ -154,84 +154,135 @@ impl FromField for U128 {
     }
 }
 
-// docs:start:serialize
-/// Trait for serializing Noir types into arrays of Fields.
-///
-/// An implementation of the Serialize trait has to follow Noir's intrinsic serialization (each member of a struct
-/// converted directly into one or more Fields without any packing or compression). This trait (and Deserialize) are
-/// typically used to communicate between Noir and TypeScript (via oracles and function arguments).
-///
-/// # On Following Noir's Intrinsic Serialization
-/// When calling a Noir function from TypeScript (TS), first the function arguments are serialized into an array
-/// of fields. This array is then included in the initial witness. Noir's intrinsic serialization is then used
-/// to deserialize the arguments from the witness. When the same Noir function is called from Noir this Serialize trait
-/// is used instead of the serialization in TS. For this reason we need to have a match between TS serialization,
-/// Noir's intrinsic serialization and the implementation of this trait. If there is a mismatch, the function calls
-/// fail with an arguments hash mismatch error message.
-///
-/// # Type Parameters
-/// * `N` - The length of the output Field array, known at compile time
-///
-/// # Example
-/// ```
-/// impl<let N: u32> Serialize<N> for str<N> {
-///     fn serialize(self) -> [Field; N] {
-///         let bytes = self.as_bytes();
-///         let mut fields = [0; N];
-///         for i in 0..bytes.len() {
-///             fields[i] = bytes[i] as Field;  // Each byte gets its own Field
-///         }
-///         fields
-///     }
-/// }
-/// ```
+pub struct Reader<let N: u32> {
+    data: [Field; N],
+    index: u32,
+}
+
+impl<let N: u32> Reader<N> {
+    fn new(data: [Field; N]) -> Self {
+        Self { data, index: 0 }
+    }
+
+    fn read(&mut self) -> Field {
+        let result = self.data[self.index];
+        self.index += 1;
+        result
+    }
+
+    fn finish(self) {
+        assert_eq(self.index, N);
+    }
+}
+
+pub struct Writer<let N: u32> {
+    data: [Field; N],
+    index: u32,
+}
+
+impl<let N: u32> Writer<N> {
+    fn new() -> Self {
+        Self { data: [0; N], index: 0 }
+    }
+
+    fn write(&mut self, val: Field) {
+        self.data[self.index] = val;
+        self.index += 1;
+    }
+
+    fn finish(self) -> [Field; N] {
+        assert_eq(self.index, N);
+        self.data
+    }
+}
+
 #[derive_via(derive_serialize)]
-pub trait Serialize<let N: u32> {
-    fn serialize(self) -> [Field; N];
-}
-// docs:end:serialize
-
-impl<let N: u32> Serialize<N> for str<N> {
-    fn serialize(self) -> [Field; N] {
-        let bytes = self.as_bytes();
-        let mut fields = [0; N];
-        for i in 0..bytes.len() {
-            fields[i] = bytes[i] as Field;
-        }
-        fields
-    }
+pub trait Serialize<let SERIALIZED_LEN: u32> {
+    fn write<let N: u32>(self, writer: &mut Writer<N>);
 }
 
-// docs:start:deserialize
-/// Trait for deserializing Noir types from arrays of Fields.
-///
-/// An implementation of the Deserialize trait has to follow Noir's intrinsic serialization (each member of a struct
-/// converted directly into one or more Fields without any packing or compression). This trait is typically used when
-/// deserializing return values from function calls in Noir. Since the same function could be called from TypeScript
-/// (TS), in which case the TS deserialization would get used, we need to have a match between the 2.
-///
-/// # Type Parameters
-/// * `N` - The length of the input Field array, known at compile time
-///
-/// # Example
-/// ```
-/// impl<let N: u32> Deserialize<N> for str<N> {
-///     fn deserialize(fields: [Field; N]) -> Self {
-///         str<N>::from(fields.map(|value| value as u8))
-///     }
-/// }
-/// ```
 #[derive_via(derive_deserialize)]
-pub trait Deserialize<let N: u32> {
-    fn deserialize(fields: [Field; N]) -> Self;
+pub trait Deserialize<let SERIALIZED_LEN: u32> {
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self;
 }
-// docs:end:deserialize
 
-impl<let N: u32> Deserialize<N> for str<N> {
-    fn deserialize(fields: [Field; N]) -> Self {
-        str<N>::from(fields.map(|value| value as u8))
+pub fn serialize<let N: u32, T>(val: T) -> [Field; N]
+where
+    T: Serialize<N>,
+{
+    let mut writer = Writer::new();
+    val.write(&mut writer);
+    writer.finish()
+}
+
+pub fn deserialize<let N: u32, T>(data: [Field; N]) -> T
+where
+    T: Deserialize<N>,
+{
+    let mut reader = Reader::new(data);
+    let val = T::read(&mut reader);
+    reader.finish();
+    val
+}
+
+impl<T, let K: u32> Deserialize<K + 1> for Option<T>
+where
+    T: Deserialize<K>,
+{
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+        let is_some = reader.read() == 1;
+        let val = T::read(reader);
+        if is_some {
+            Self::some(val)
+        } else {
+            Self::none()
+        }
     }
 }
+
+impl<T, let ITEM_COUNT: u32, let ITEM_LEN: u32> Serialize<ITEM_COUNT * ITEM_LEN> for [T; ITEM_COUNT]
+where
+    T: Serialize<ITEM_LEN>,
+{
+    fn write<let N: u32>(self, writer: &mut Writer<N>) {
+        for i in 0..ITEM_COUNT {
+            self[i].write(writer);
+        }
+    }
+}
+
+impl<T, let ITEM_COUNT: u32, let ITEM_LEN: u32> Deserialize<ITEM_COUNT * ITEM_LEN> for [T; ITEM_COUNT]
+where
+    T: Deserialize<ITEM_LEN>,
+{
+    fn read<let N: u32>(reader: &mut Reader<N>) -> Self {
+        let mut result = [std::mem::zeroed(); ITEM_COUNT];
+        for i in 0..ITEM_COUNT {
+            result[i] = T::read(reader);
+        }
+        result
+    }
+}
+
+// #[derive(Serialize, Deserialize, Eq)]
+// struct Bar {
+//     b: [Field; 1],
+//     d: u32,
+// }
+
+// #[derive(Serialize, Deserialize, Eq)]
+// struct Foo {
+//     c: Option<Bar>,
+//     d: u32,
+// }
+
+// #[test]
+// fn test_serialize_deserialize_foo() {
+//     let foo = Foo { c: Option::some(Bar { b: [1], d: 2 }), d: 3 };
+//     let serialized = serialize(foo);
+//     let deserialized = deserialize(serialized);
+//     assert_eq(foo, deserialized);
+// }
 
 /// Trait for efficiently packing and unpacking Noir types into and from arrays of Fields.
 ///
