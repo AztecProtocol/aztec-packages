@@ -13,6 +13,7 @@ export {
   computeInnerAuthWitHash,
   computeInnerAuthWitHashFromAction,
   type IntentAction,
+  type IntentInnerHash,
 } from './authwit.js';
 export { waitForPXE } from './pxe.js';
 export { waitForNode, createAztecNodeClient, type AztecNode } from './node.js';
