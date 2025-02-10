@@ -65,6 +65,57 @@ export async function mockBlock(blockNum: number, size: number, fork: MerkleTree
   };
 }
 
+export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOperations) {
+  const l2Block = L2Block.empty();
+  const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
+
+  l2Block.header.globalVariables.blockNumber = new Fr(blockNum);
+
+  // Sync the append only trees
+  {
+    const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
+      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    );
+    await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
+
+    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+  }
+
+  // Sync the indexed trees
+  {
+    // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
+    for (const txEffect of l2Block.body.txEffects) {
+      await fork.batchInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        txEffect.publicDataWrites.map(write => write.toBuffer()),
+        0,
+      );
+
+      const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
+
+      await fork.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        nullifiersPadded.map(nullifier => nullifier.toBuffer()),
+        NULLIFIER_SUBTREE_HEIGHT,
+      );
+    }
+  }
+
+  const state = await fork.getStateReference();
+  l2Block.header.state = state;
+  await fork.updateArchive(l2Block.header);
+
+  const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
+
+  l2Block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
+
+  return {
+    block: l2Block,
+    messages: l1ToL2Messages,
+  };
+}
+
 export async function mockBlocks(from: number, count: number, numTxs: number, worldState: NativeWorldStateService) {
   const tempFork = await worldState.fork(from - 1);
 

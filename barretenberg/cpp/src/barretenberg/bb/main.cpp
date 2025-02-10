@@ -1409,7 +1409,7 @@ int main(int argc, char* argv[])
             if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
                 api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
-                return 1;
+                return 0;
             }
 
             throw_or_abort("Invalid command passed to execute_command in bb");
@@ -1424,7 +1424,7 @@ int main(int argc, char* argv[])
 
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
-            execute_command(command, flags, api);
+            return execute_command(command, flags, api);
         } else if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove_and_verify_ultra_honk") {

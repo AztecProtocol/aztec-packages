@@ -48,7 +48,7 @@ export class BlobSinkServer {
   }
 
   private setupRoutes() {
-    // TODO(md): needed?
+    this.app.get('/status', this.status.bind(this));
     this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
@@ -70,6 +70,13 @@ export class BlobSinkServer {
   private handleGetBlockHeader(_req: Request, res: Response) {
     res.status(400).json({
       error: 'Not Supported',
+    });
+    return;
+  }
+
+  private status(_req: Request, res: Response) {
+    res.status(200).json({
+      message: 'Ok',
     });
     return;
   }
