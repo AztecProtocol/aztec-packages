@@ -151,7 +151,7 @@ contract MinimalFeeModel {
   }
 
   function getProvingCost() public view returns (uint256) {
-    return FeeMath.provingCostPerMana(feeHeaders[populatedThrough].proving_cost_per_mana_numerator);
+    return 100;
   }
 
   function getCurrentL1Fees() public view returns (L1Fees memory) {
