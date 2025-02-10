@@ -62,8 +62,6 @@ simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
 
-simple e2e_prover/full
-
 # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
 # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
 #
