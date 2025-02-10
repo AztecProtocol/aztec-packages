@@ -12,19 +12,13 @@ package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"
 
 published_version=$(npm show . version --tag $dist_tag 2>/dev/null | grep -vE '^@' || true)
-higher_version=$(npx semver ${version} ${published_version} | tail -1)
+higher_version=$(npx --yes semver ${version} ${published_version} | tail -1)
 
 # Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
 if [ "$version" == "$published_version" ]; then
   echo "Tagged $dist_tag version $version is equal to published $dist_tag version $published_version."
   echo "Skipping publish."
   exit 0
-fi
-
-# If the published version is > the given version, something's gone wrong.
-if [ -n "$published_version" ] && [ "$version" != "$higher_version" ]; then
-  echo "Tagged version $version is lower than published version $published_version."
-  exit 1
 fi
 
 # Update the package version in package.json.
@@ -38,7 +32,7 @@ done
 
 # Publish.
 if [ "$dry_run" -eq 1 ]; then
-  npm publish --dry-run --tag $dist_tag --access public
+  npm publish --ignore-scripts --dry-run --tag $dist_tag --access public
 else
   # Check if version exists.
   if npm view "$package_name@$version" version >/dev/null 2>&1; then
@@ -46,6 +40,6 @@ else
     npm dist-tag add $package_name@$version $dist_tag
   else
     # Publish new version.
-    npm publish --tag $dist_tag --access public
+    npm publish --ignore-scripts --tag $dist_tag --access public
   fi
 fi

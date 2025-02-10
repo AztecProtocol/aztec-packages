@@ -61,25 +61,24 @@ function test {
 }
 
 function release_git_push {
-  local ref_name="${REF_NAME:?REF_NAME not set but should have been resolved by source_refname}"
   local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
   # Initialize a new git repository, create an orphan branch, commit, and tag.
-  git init >/dev/null
+  git init &>/dev/null
   git checkout -b $COMMIT_HASH &>/dev/null
   git add .
-  git commit -m "Release $ref_name." >/dev/null
-  git tag -a "$ref_name" -m "Release $ref_name."
+  git commit -m "Release $REF_NAME." >/dev/null
+  git tag -a "$REF_NAME" -m "Release $REF_NAME."
   git remote add origin "$mirrored_repo_url" >/dev/null
   # Force push the tag.
-  git push origin --quiet --force "$ref_name" --tags
-  echo "Release complete ($ref_name)."
+  git push origin --quiet --force "$REF_NAME" --tags
+  echo "Release complete ($REF_NAME)."
 }
 
+# Publish to own repo with current tag or branch REF_NAME.
+# We support one use-case - using foundry to install our contracts from a certain tag.
+# We take our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
+# and push with the tag being equal to REF_NAME.
 function release {
-  # Publish to own repo with current tag or branch REF_NAME.
-  # We support one use-case - using foundry to install our contracts from a certain tag.
-  # We take the our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
-  # and push with the tag being equal to REF_NAME.
   echo_header "l1-contracts release"
 
   # Clean up our release directory.
@@ -93,6 +92,11 @@ function release {
 
   cd release-out
   release_git_push
+}
+
+function release_commit {
+  REF_NAME="commit-$COMMIT_HASH"
+  release
 }
 
 case "$cmd" in
@@ -109,8 +113,8 @@ case "$cmd" in
   "test")
     test
     ;;
-  "release")
-    release
+  release|release_commit)
+    $cmd
     ;;
   "test-cmds")
     test_cmds

@@ -346,10 +346,27 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - test: 4epochs.test.ts
-            values: ci
+          # - name: "reorg"
+          #   test: reorg.test.ts
+          #   values: ci.yaml
+          #   runner_type: 16core-tester-x86-high-memory
+          #   timeout: 60
+          - name: "4epochs"
+            test: 4epochs.test.ts
+            values: ci.yaml
             runner_type: 16core-tester-x86
             timeout: 40
+          - name: "4epochs-with-blob-sink"
+            test: 4epochs.test.ts
+            values: ci.yaml
+            overrides: "blobSink.enabled=true"
+            runner_type: 16core-tester-x86
+            timeout: 40
+          # - name: "gating-passive"
+          #   test: gating-passive.test.ts
+          #   values: ci.yaml
+          #   runner_type: 16core-tester-x86
+          #   timeout: 40
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -368,7 +385,7 @@ jobs:
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-              ./ci.sh test-kind-network ${{ matrix.config.test }} ${{ matrix.config.values }}
+              OVERRIDES="${{ matrix.config.overrides }}" INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
@@ -378,7 +395,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          name: kind-network-test-${{ matrix.config.name }}.log
           path: network-test.log
 
   bb-bench:

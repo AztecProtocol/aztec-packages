@@ -38,6 +38,71 @@ function test_cmds {
   done
 }
 
+# First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
+# Second argument is the tag name (e.g. v1.2.3, or commit-<hash>).
+# Third argument is the semver for package.json (e.g. 1.2.3 or 1.2.3-commit.<hash>)
+#
+#   v1.2.3    commit-123cafebabe
+#      |     /
+#   v1.2.2  commit-123deadbeef
+#      |   /
+#   v1.2.1
+#
+function release_git_push {
+  local branch_name=$1
+  local tag_name=$2
+  local version=$3
+  local mirrored_repo_url="git@github.com:AztecProtocol/aztec-starter-vanilla.git"
+
+  cd boxes/vanilla
+  rm -rf release-out && mkdir release-out
+  git archive HEAD | tar -x -C release-out
+  cd release-out
+
+  # Update the package version in package.json.
+  tmp=$(mktemp)
+  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+
+  # Update each dependent @aztec package version in package.json.
+  for pkg in $(jq --raw-output "(.dependencies // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
+    jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
+  done
+
+  git init &>/dev/null
+  git remote add origin "$mirrored_repo_url" &>/dev/null
+  git fetch origin --quiet
+
+  # Checkout the existing branch or create it if it doesn't exist.
+  if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
+    # Update branch reference without checkout.
+    git branch -f "$branch_name" origin/"$branch_name"
+    # Point HEAD to the branch.
+    git symbolic-ref HEAD refs/heads/"$branch_name"
+    # Move to latest commit, keep working tree.
+    git reset --soft origin/"$branch_name"
+  else
+    git checkout -b "$branch_name"
+  fi
+
+  git add .
+  git commit -m "Release $tag_name." >/dev/null
+  git tag -a "$tag_name" -m "Release $tag_name."
+  git push origin "$branch_name" --quiet
+  git push origin --quiet --force "$tag_name" --tags
+
+  echo "Release complete ($tag_name) on branch $branch_name."
+}
+
+function release {
+  echo_header "boxes release"
+  release_git_push master $REF_NAME ${REF_NAME#v}
+}
+
+function release_commit {
+  echo_header "boxes release commit"
+  release_git_push "$CURRENT_VERSION" "commit-$COMMIT_HASH" "$CURRENT_VERSION-commit.$COMMIT_HASH"
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -49,8 +114,8 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test")
-    test
+  test|release|release_commit)
+    $cmd
     ;;
   "test-cmds")
     test_cmds

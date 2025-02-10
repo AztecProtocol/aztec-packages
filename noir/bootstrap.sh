@@ -16,6 +16,15 @@ export js_projects="
 "
 export js_include=$(printf " --include %s" $js_projects)
 
+# Must be in dependency order.
+package_dirs=(
+  types
+  noir_js
+  noir_codegen
+  noirc_abi
+  acvm_js
+)
+
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0
@@ -145,22 +154,37 @@ function format {
   nargo fmt $arg
 }
 
-function release {
-  echo_header "noir release"
-  local version=${REF_NAME#v}
-  for project in $js_projects; do
-    jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
-    (cd $project && deploy_npm latest $version)
+function release_packages {
+  local dist_tag=$1
+  local version=$2
+  cd packages
+
+  for package in ${package_dirs[@]}; do
+    local path="$package"
+    [ ! -d "$path" ] && echo "Project path not found: $path" && exit 1
+    cd $path
+
+    # Rename package name @aztec/noir-<package> and update version.
+    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json && mv tmp.json package.json
+    jq --arg v $version '.version = $v' package.json >tmp.json && mv tmp.json package.json
+
+    # Update each dependent @noir-lang package version in package.json to point to renamed packages and versions.
+    for pkg in $(jq --raw-output '(.dependencies // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
+      new_pkg="@aztec/noir-${pkg#@noir-lang/}"
+      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.dependencies[$new] = $v | del(.dependencies[$old])' package.json > tmp.json && mv tmp.json package.json
+    done
+
+    deploy_npm $dist_tag $version
+    cd ..
   done
 }
 
+function release {
+  release_packages latest ${REF_NAME#v}
+}
+
 function release_commit {
-  echo_header "bb.js release commit"
-  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
-  for project in $js_projects; do
-    jq '.name |= sub("noir-lang"; "aztec")' $project/package.json > tmp.json && mv tmp.json $project/package.json
-    (cd $project && deploy_npm next $version)
-  done
+  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
 case "$cmd" in

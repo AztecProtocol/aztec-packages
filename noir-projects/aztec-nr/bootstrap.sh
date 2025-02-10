@@ -26,6 +26,9 @@ function test {
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | parallelise
+
+  # Run the macro compilation failure tests
+  ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
 }
 
 case "$cmd" in
@@ -34,6 +37,9 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "test-macro-compilation-failure")
+    ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

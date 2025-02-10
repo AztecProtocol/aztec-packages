@@ -76,6 +76,11 @@ template <typename FF_>
 class lookup_byte_lengths_relation : public GenericLookupRelation<lookup_byte_lengths_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_byte_lengths_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.binary_start.is_zero() && in.byte_lookup_sel_bin.is_zero();
+    }
 };
 template <typename FF_> using lookup_byte_lengths = GenericLookup<lookup_byte_lengths_lookup_settings, FF_>;
 
@@ -152,6 +157,11 @@ template <typename FF_>
 class lookup_byte_operations_relation : public GenericLookupRelation<lookup_byte_operations_lookup_settings, FF_> {
   public:
     static constexpr std::string_view NAME = lookup_byte_operations_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.binary_sel_bin.is_zero() && in.byte_lookup_sel_bin.is_zero();
+    }
 };
 template <typename FF_> using lookup_byte_operations = GenericLookup<lookup_byte_operations_lookup_settings, FF_>;
 

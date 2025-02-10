@@ -5,6 +5,10 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: true
+  # TODO: Will need to change these as ignition will be using them
+  l1DeploymentMnemonic: ""
+  validatorKeyIndexStart: 4
+  proverKeyIndexStart: 52
 
 images:
   aztec:
@@ -17,7 +21,8 @@ network:
 ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
-  externalHost:
+  execution:
+    externalHost:
   beacon:
     externalHost:
     apiKey: ""
@@ -36,13 +41,9 @@ validator:
     disabled: false
 
 bootNode:
-  seqPublisherPrivateKey:
   validator:
     disabled: true
   storageSize: "100Gi"
-
-proverNode:
-  proverPublisherPrivateKey:
 
 proverAgent:
   replicas: 60
