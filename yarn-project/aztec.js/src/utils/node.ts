@@ -16,4 +16,4 @@ export const waitForNode = async (node: AztecNode, logger?: Logger) => {
   }, 'RPC Get Node Info');
 };
 
-export { createAztecNodeClient, AztecNode } from '@aztec/circuit-types';
+export { createAztecNodeClient, type AztecNode } from '@aztec/circuit-types';

@@ -4,10 +4,10 @@ import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
-import { type Metrics } from '@aztec/telemetry-client';
+import { type MetricsType } from '@aztec/telemetry-client';
 import {
   type BenchmarkDataPoint,
-  type BenchmarkMetrics,
+  type BenchmarkMetricsType,
   type BenchmarkTelemetryClient,
 } from '@aztec/telemetry-client/bench';
 
@@ -23,7 +23,7 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
-    /** What metrics to export */ metrics: (Metrics | MetricFilter)[];
+    /** What metrics to export */ metrics: (MetricsType | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
@@ -49,7 +49,7 @@ export async function benchmarkSetup(
 }
 
 type MetricFilter = {
-  source: Metrics;
+  source: MetricsType;
   transform: (value: number) => number;
   name: string;
   unit?: string;
@@ -65,15 +65,15 @@ type GithubActionBenchmarkResult = {
 };
 
 function formatMetricsForGithubBenchmarkAction(
-  data: BenchmarkMetrics,
-  filter: (Metrics | MetricFilter)[],
+  data: BenchmarkMetricsType,
+  filter: (MetricsType | MetricFilter)[],
 ): GithubActionBenchmarkResult[] {
   const allFilters: MetricFilter[] = filter.map(f =>
     typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
   );
   return data.flatMap(meter => {
     return meter.metrics
-      .filter(metric => allFilters.map(f => f.source).includes(metric.name as Metrics))
+      .filter(metric => allFilters.map(f => f.source).includes(metric.name as MetricsType))
       .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
       .map(([metric, filter]) => ({
         name: `${meter.name}/${filter.name}`,

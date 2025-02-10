@@ -11,7 +11,7 @@ import {
 import { type Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
-export { SendMethodOptions };
+export type { SendMethodOptions };
 
 /**
  * Represents the options for simulating a contract function interaction.

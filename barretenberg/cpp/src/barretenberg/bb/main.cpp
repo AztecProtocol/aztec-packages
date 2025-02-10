@@ -1418,7 +1418,7 @@ int main(int argc, char* argv[])
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
-            writeStringToStdout(BB_VERSION);
+            std::cout << BB_VERSION << std::endl;
             return 0;
         }
 

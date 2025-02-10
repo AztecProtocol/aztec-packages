@@ -3,7 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-scripts/install_deps.sh
+scripts/install_deps.sh >&2
+
+hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
 function network_shaping {
   namespace="$1"
@@ -46,20 +48,32 @@ function gke {
   fi
 }
 
+function test_cmds {
+  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  if [ "${REF_NAME:-}" == "master" ]; then
+    # Note: commands that start with 'timeout ...' override the default timeout.
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
+  fi
+  echo "$hash ./spartan/bootstrap.sh test-local"
+}
+
+function test {
+  echo_header "spartan test"
+  test_cmds | parallelise
+}
+
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
     ;;
   "kind")
-    if kubectl config get-clusters | grep -q "^kind-kind$"; then
-      echo "Cluster 'kind' already exists. Skipping creation."
-    else
+    if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
       kind delete cluster || true
       kind create cluster
     fi
-    kubectl config use-context kind-kind || true
+    kubectl config use-context kind-kind >/dev/null || true
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh
@@ -83,11 +97,23 @@ case "$cmd" in
     network_shaping "$namespace" "$chaos_values"
     ;;
   "hash")
-    hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+    echo $hash
     ;;
-  "test-kind")
-    shift
-    scripts/test_kind.sh $@
+  "test-cmds")
+    test_cmds
+    ;;
+  "test")
+    test
+    ;;
+  "test-kind-smoke")
+    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
+    ;;
+  "test-kind-4epochs")
+    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    ;;
+  "test-local")
+    # Isolate network stack in docker.
+    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
     ;;
   "gke")
     gke

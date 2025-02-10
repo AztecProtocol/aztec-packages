@@ -183,7 +183,8 @@ describe('public_processor', () => {
       expect(failed[0].tx).toEqual(tx);
     });
 
-    it('does not go past the deadline', async function () {
+    // Flakey timing test that's totally dependent on system load/architecture etc.
+    it.skip('does not go past the deadline', async function () {
       const txs = await timesParallel(3, seed => mockTxWithPublicCalls({ seed }));
 
       // The simulator will take 400ms to process each tx

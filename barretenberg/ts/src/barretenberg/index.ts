@@ -11,8 +11,6 @@ import { RawBuffer } from '../types/raw_buffer.js';
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
 
-const debug = createDebug('bb.js:wasm');
-
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
   threads?: number;
@@ -54,7 +52,13 @@ export class Barretenberg extends BarretenbergApi {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath);
-    await wasm.init(module, threads, proxy(debug), options.memory?.initial, options.memory?.maximum);
+    await wasm.init(
+      module,
+      threads,
+      proxy(createDebug('bb.js:bb_wasm_async')),
+      options.memory?.initial,
+      options.memory?.maximum,
+    );
     return new Barretenberg(worker, wasm, options);
   }
 
@@ -103,7 +107,7 @@ export class BarretenbergSync extends BarretenbergApiSync {
   private static async new(wasmPath?: string) {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1, wasmPath);
-    await wasm.init(module, threads);
+    await wasm.init(module, threads, createDebug('bb.js:bb_wasm_sync'));
     return new BarretenbergSync(wasm);
   }
 

@@ -24,38 +24,46 @@ You can then continue to work within the browser, or reopen the codespace in you
 
 ## Building the build image
 
-If for some reason you want to build the images such as devbox yourself, follow these steps:
+To build the images you'll need docker. To install follow this guide: https://docs.docker.com/engine/install.
 
-### Install Docker
-
-If you don't already have docker installed, follow this guide: https://docs.docker.com/engine/install
-
-### Install earthly
-
-We use earthly to build things, follow this guide: https://earthly.dev/get-earthly
-
-### Build The Dev Container
-
-If you want to build entirely from scratch, you can do:
+To build the dev container on your local machine:
 
 ```
-$ earthly +devbox
+$ ./bootstrap.sh
 ```
 
 This will take significant time and compute however, as it builds several toolchains from the ground up.
-If you have a reasonable internet connection, leveraging the cache to avoid building maybe preferable.
+
+## Updating Dockerhub
+
+If the image needs to be changed, decide if the old image is still needed, in which case bump the version number.
+Only do this if essential. To rebuild images and push to dockerhub run:
 
 ```
-$ earthly --use-inline-cache +devbox
+$ ./bootstrap.sh ci
 ```
 
-### Building the sysbox
+This will launch x86 and arm machines to build the images, and then push them to Dockerhub.
+You will need `DOCKERHUB_PASSWORD` set in your environment.
 
-The sysbox is the image that internal aztec engineers run on the mainframe. A mainframe administrator can run:
+## AMI's
+
+CI uses AMI's with the image preloaded on them. To update the AMIs:
+
+- Start with a clean working tree.
+- Update dockerhub as above.
+- Rebuild the new ami's:
 
 ```
-$ earthly +sysbox
+$ ./bootstrap.sh amis
 ```
 
-This will rebuild the sysbox image, and once users perform a `sudo halt` their box should reboot with the new image.
-If the image tag changes, you'll need to update it in `/usr/local/bin/launch_sysbox`.
+- Update `./ci3/aws_request_instance` hardcoded AMI id's with the new ones given.
+- Commit.
+
+## Sysbox
+
+Internal aztec engineers use the mainframe.
+If the version number changed a mainframe administrator to update the `/usr/local/bin/launch_sysbox` script.
+
+Users will then need to perform a `sudo halt` to reboot with the new image.

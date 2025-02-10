@@ -4,10 +4,14 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash .rebuild_patterns ../noir-projects/.rebuild_patterns ../barretenberg/cpp/.rebuild_patterns)
+export hash=$(cache_content_hash \
+  .rebuild_patterns \
+  ../noir-projects/noir-protocol-circuits \
+  ../barretenberg/cpp/.rebuild_patterns
+)
 
 function build {
-  github_group "l1-contracts build"
+  echo_header "l1-contracts build"
   local artifact=l1-contracts-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
@@ -20,7 +24,7 @@ function build {
     git submodule update --init --recursive ./lib
 
     mkdir -p generated
-    # Copy from noir-projects. Bootstrap must hav
+    # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then
       cp "$rollup_verifier_path" generated/HonkVerifier.sol
@@ -43,26 +47,65 @@ function build {
 
     cache_upload $artifact out
   fi
-  github_endgroup
+}
+
+function test_cmds {
+  echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
+  echo "$hash cd l1-contracts && forge fmt --check"
+  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
 }
 
 function test {
-  set -eu
-  local test_flag=l1-contracts-test-$hash
-  test_should_run $test_flag || return 0
-
-  github_group "l1-contracts test"
-  solhint --config ./.solhint.json "src/**/*.sol"
-  forge fmt --check
-  forge test --no-match-contract UniswapPortalTest
-  cache_upload_flag $test_flag
-  github_endgroup
+  echo_header "l1-contracts test"
+  test_cmds | filter_test_cmds | parallelise
 }
-export -f test
+
+function release_git_push {
+  local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
+  # Initialize a new git repository, create an orphan branch, commit, and tag.
+  git init &>/dev/null
+  git checkout -b $COMMIT_HASH &>/dev/null
+  git add .
+  git commit -m "Release $REF_NAME." >/dev/null
+  git tag -a "$REF_NAME" -m "Release $REF_NAME."
+  git remote add origin "$mirrored_repo_url" >/dev/null
+  # Force push the tag.
+  git push origin --quiet --force "$REF_NAME" --tags
+  echo "Release complete ($REF_NAME)."
+}
+
+# Publish to own repo with current tag or branch REF_NAME.
+# We support one use-case - using foundry to install our contracts from a certain tag.
+# We take our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
+# and push with the tag being equal to REF_NAME.
+function release {
+  echo_header "l1-contracts release"
+
+  # Clean up our release directory.
+  rm -rf release-out && mkdir release-out
+
+  # Copy our git files to our release directory.
+  git archive HEAD | tar -x -C release-out
+
+  # Copy from noir-projects. Bootstrap must have ran in noir-projects.
+  cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
+
+  cd release-out
+  release_git_push
+}
+
+function release_commit {
+  REF_NAME="commit-$COMMIT_HASH"
+  release
+}
 
 case "$cmd" in
   "clean")
     git clean -fdx
+    ;;
+  "ci")
+    build
+    test
     ;;
   ""|"fast"|"full")
     build
@@ -70,12 +113,11 @@ case "$cmd" in
   "test")
     test
     ;;
-  "test-cmds")
-    echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  release|release_commit)
+    $cmd
     ;;
-  "ci")
-    build
-    denoise test
+  "test-cmds")
+    test_cmds
     ;;
   "hash")
     echo $hash

@@ -5,6 +5,7 @@ import {
   LmdbMetrics,
   type LmdbStatsCallback,
   Metrics,
+  type MetricsType,
   type TelemetryClient,
   type UpDownCounter,
 } from '@aztec/telemetry-client';
@@ -16,8 +17,8 @@ export enum PoolName {
 }
 
 type MetricsLabels = {
-  objectInMempool: Metrics;
-  objectSize: Metrics;
+  objectInMempool: MetricsType;
+  objectSize: MetricsType;
 };
 
 /**

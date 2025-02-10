@@ -5,7 +5,7 @@ if(WASM)
     add_compile_options(-fno-exceptions -fno-slp-vectorize)
 endif()
 
-if(NOT WASM AND NOT APPLE AND NOT ARM)
+if(NOT WASM AND NOT ARM)
     message(STATUS "Target architecture: ${TARGET_ARCH}")
     add_compile_options(-march=${TARGET_ARCH})
 endif()

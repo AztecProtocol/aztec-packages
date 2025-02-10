@@ -8,11 +8,11 @@ import {
 
 import { NoopTracer } from './noop.js';
 import {
-  type Attributes,
+  type AttributesType,
   type Gauge,
   type Histogram,
   type Meter,
-  type Metrics,
+  type MetricsType,
   type ObservableGauge,
   type ObservableUpDownCounter,
   type TelemetryClient,
@@ -20,7 +20,7 @@ import {
   type UpDownCounter,
 } from './telemetry.js';
 
-export type BenchmarkMetrics = {
+export type BenchmarkMetricsType = {
   name: string;
   metrics: {
     name: string;
@@ -57,7 +57,7 @@ export class BenchmarkTelemetryClient implements TelemetryClient {
     return true;
   }
 
-  getMeters(): BenchmarkMetrics {
+  getMeters(): BenchmarkMetricsType {
     return this.meters;
   }
 
@@ -75,23 +75,23 @@ class InMemoryPlainMeter implements Meter {
     this.metrics.forEach(metric => metric.clear());
   }
 
-  createGauge(name: Metrics, options?: MetricOptions | undefined): Gauge {
+  createGauge(name: MetricsType, options?: MetricOptions | undefined): Gauge {
     return this.createMetric('gauge', name, options);
   }
 
-  createObservableGauge(name: Metrics, options?: MetricOptions | undefined): ObservableGauge {
+  createObservableGauge(name: MetricsType, options?: MetricOptions | undefined): ObservableGauge {
     return this.createMetric('gauge', name, options);
   }
 
-  createHistogram(name: Metrics, options?: MetricOptions | undefined): Histogram {
+  createHistogram(name: MetricsType, options?: MetricOptions | undefined): Histogram {
     return this.createMetric('histogram', name, options);
   }
 
-  createUpDownCounter(name: Metrics, options?: MetricOptions | undefined): UpDownCounter {
+  createUpDownCounter(name: MetricsType, options?: MetricOptions | undefined): UpDownCounter {
     return this.createMetric('counter', name, options);
   }
 
-  createObservableUpDownCounter(name: Metrics, options?: MetricOptions | undefined): ObservableUpDownCounter {
+  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions | undefined): ObservableUpDownCounter {
     return this.createMetric('counter', name, options);
   }
 
@@ -102,17 +102,17 @@ class InMemoryPlainMeter implements Meter {
   }
 
   addBatchObservableCallback(
-    _callback: BatchObservableCallback<Attributes>,
-    _observables: Observable<Attributes>[],
+    _callback: BatchObservableCallback<AttributesType>,
+    _observables: Observable<AttributesType>[],
   ): void {}
 
   removeBatchObservableCallback(
-    _callback: BatchObservableCallback<Attributes>,
-    _observables: Observable<Attributes>[],
+    _callback: BatchObservableCallback<AttributesType>,
+    _observables: Observable<AttributesType>[],
   ): void {}
 }
 
-export type BenchmarkDataPoint = { value: number; attributes?: Attributes; context?: Context };
+export type BenchmarkDataPoint = { value: number; attributes?: AttributesType; context?: Context };
 
 class InMemoryPlainMetric {
   public readonly points: BenchmarkDataPoint[] = [];
@@ -131,11 +131,11 @@ class InMemoryPlainMetric {
     this.valueType = options?.valueType;
   }
 
-  add(value: number, attributes?: Attributes, context?: Context): void {
+  add(value: number, attributes?: AttributesType, context?: Context): void {
     this.points.push({ value, attributes, context });
   }
 
-  record(value: number, attributes?: Attributes, context?: Context): void {
+  record(value: number, attributes?: AttributesType, context?: Context): void {
     this.points.push({ value, attributes, context });
   }
 

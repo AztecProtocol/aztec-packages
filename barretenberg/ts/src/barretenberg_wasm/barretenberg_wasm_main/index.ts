@@ -7,7 +7,7 @@ import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/i
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 
-const debug = createDebug('bb.js:wasm');
+const debug = createDebug('bb.js:bb_wasm');
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.

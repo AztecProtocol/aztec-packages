@@ -1,6 +1,9 @@
 # Compiler files
 cache/
+# Artifacts for compile
 out/
+# Artifacts for release process
+release-out/
 
 # Ignores development broadcast logs
 !/broadcast
