@@ -16,9 +16,8 @@ pub contract ContractClassRegisterer {
     };
 
     use dep::aztec::{
-        context::PrivateContext,
-        macros::functions::private,
-        oracle::{logs::emit_contract_class_unencrypted_log_private, pxe_db},
+        context::PrivateContext, macros::functions::private,
+        oracle::logs::emit_contract_class_unencrypted_log_private,
     };
 
     use crate::events::{
@@ -31,6 +30,10 @@ pub contract ContractClassRegisterer {
             UnconstrainedFunction,
         },
     };
+
+    // docs:start:import_pop_capsule
+    use dep::aztec::oracle::pxe_db;
+    // docs:end:import_pop_capsule
 
     #[private]
     fn register(
