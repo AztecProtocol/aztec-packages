@@ -286,10 +286,10 @@ describe.each([
       );
 
       await Promise.all(promises);
-      expect(database.addProvingJob).toHaveBeenCalledTimes(3);
-      expect(database.addProvingJob).toHaveBeenNthCalledWith(1, expect.objectContaining({ epochNumber: 0 }));
-      expect(database.addProvingJob).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 1 }));
-      expect(database.addProvingJob).toHaveBeenNthCalledWith(
+      expect(database.addProvingJobs).toHaveBeenCalledTimes(3);
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(1, expect.objectContaining({ epochNumber: 0 }));
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 1 }));
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(
         3,
         expect.objectContaining({ epochNumber: 0 }),
         expect.objectContaining({ epochNumber: 0 }),
@@ -327,13 +327,13 @@ describe.each([
       );
 
       await Promise.all(promises);
-      expect(database.addProvingJob).toHaveBeenCalledTimes(2);
-      expect(database.addProvingJob).toHaveBeenNthCalledWith(
+      expect(database.addProvingJobs).toHaveBeenCalledTimes(2);
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({ epochNumber: 0 }),
         expect.objectContaining({ epochNumber: 0 }),
       );
-      expect(database.addProvingJob).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 0 }));
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 0 }));
     });
 
     it('correctly reports errors', async () => {
@@ -1093,7 +1093,7 @@ describe.each([
     it('re-enqueues proof requests on start', async () => {
       const id1 = makeRandomProvingJobId();
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -1101,7 +1101,7 @@ describe.each([
       });
 
       const id2 = makeRandomProvingJobId();
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1144,7 +1144,7 @@ describe.each([
     it('restores proof results on start', async () => {
       const id1 = makeRandomProvingJobId(1);
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -1152,7 +1152,7 @@ describe.each([
       });
 
       const id2 = makeRandomProvingJobId(2);
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1178,7 +1178,7 @@ describe.each([
     it('only re-enqueues unfinished jobs', async () => {
       const id1 = makeRandomProvingJobId();
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -1187,7 +1187,7 @@ describe.each([
       await database.setProvingJobResult(id1, makeOutputsUri());
 
       const id2 = makeRandomProvingJobId();
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1213,7 +1213,7 @@ describe.each([
       jest.spyOn(database, 'addProvingJob');
       await broker.enqueueProvingJob(job);
 
-      expect(database.addProvingJob).toHaveBeenCalledWith(job);
+      expect(database.addProvingJobs).toHaveBeenCalledWith(job);
     });
 
     it('does not retain job if database fails to save', async () => {
@@ -1307,7 +1307,7 @@ describe.each([
       await broker.reportProvingJobSuccess(id, makeOutputsUri());
 
       expect(database.setProvingJobResult).not.toHaveBeenCalled();
-      expect(database.addProvingJob).not.toHaveBeenCalled();
+      expect(database.addProvingJobs).not.toHaveBeenCalled();
     });
 
     it('does not save job error if job is unknown', async () => {
@@ -1320,7 +1320,7 @@ describe.each([
       await broker.reportProvingJobError(id, 'test error');
 
       expect(database.setProvingJobError).not.toHaveBeenCalled();
-      expect(database.addProvingJob).not.toHaveBeenCalled();
+      expect(database.addProvingJobs).not.toHaveBeenCalled();
     });
 
     it('cleans up old jobs periodically', async () => {

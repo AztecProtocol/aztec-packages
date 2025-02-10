@@ -228,7 +228,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.logger.verbose(`Writing jobs to disk batchSize=${currentBatch.jobs.length}`);
 
     try {
-      await this.database.addProvingJob(...currentBatch.jobs);
+      await this.database.addProvingJobs(...currentBatch.jobs);
       for (const job of currentBatch.jobs) {
         this.enqueueJobInternal(job);
       }
@@ -285,7 +285,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return Promise.resolve(this.#reportProvingJobProgress(id, startedAt, filter));
   }
 
-  async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
+  #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
     const jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
@@ -294,7 +294,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
         provingJobId: job.id,
       });
-      return jobStatus;
+      return Promise.resolve(jobStatus);
     }
 
     if (this.isJobStale(job)) {

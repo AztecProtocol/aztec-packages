@@ -20,7 +20,7 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return this.results.get(id);
   }
 
-  addProvingJob(...requests: ProvingJob[]): Promise<void> {
+  addProvingJobs(...requests: ProvingJob[]): Promise<void> {
     for (const req of requests) {
       this.jobs.set(req.id, req);
     }

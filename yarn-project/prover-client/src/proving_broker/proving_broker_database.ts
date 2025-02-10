@@ -8,7 +8,7 @@ export interface ProvingBrokerDatabase {
    * Saves a proof request so it can be retrieved later
    * @param requests - The proof request to save
    */
-  addProvingJob(...requests: ProvingJob[]): Promise<void>;
+  addProvingJobs(...requests: ProvingJob[]): Promise<void>;
 
   /**
    * Deletes all proving jobs belonging to epochs older than the given epoch

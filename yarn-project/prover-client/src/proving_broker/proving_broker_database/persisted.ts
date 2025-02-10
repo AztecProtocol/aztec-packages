@@ -140,7 +140,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  async addProvingJob(...jobs: ProvingJob[]): Promise<void> {
+  async addProvingJobs(...jobs: ProvingJob[]): Promise<void> {
     if (jobs.length === 0) {
       return;
     }
