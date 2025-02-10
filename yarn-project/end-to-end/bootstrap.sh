@@ -18,8 +18,8 @@ function test_cmds {
 
   # These are best ordered by longest running first as they're scheduled in order.
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
-  echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
-  echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full'"
+  echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
+  echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
   echo "$prefix simple e2e_authwit"

@@ -13,6 +13,8 @@ type=$1
 # Needs exporting for resolving in docker-compose.yml.
 export TEST=$2
 
+[ -n "${3:-}" ] && NAME_POSTFIX=_$3
+
 case "$type" in
   "simple")
     # Strip leading non alpha numerics and replace / with _ for the container name.
