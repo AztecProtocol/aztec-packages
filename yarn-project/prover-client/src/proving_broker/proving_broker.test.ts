@@ -54,6 +54,7 @@ describe.each([
       jobTimeoutMs,
       timeoutIntervalMs: brokerIntervalMs,
       maxRetries,
+      maxBatchSize: 2,
     });
   });
 
@@ -243,6 +244,144 @@ describe.each([
 
       const status = await broker.getProvingJobStatus(provingJob.id);
       expect(status).toEqual({ status: 'rejected', reason: String(error) });
+    });
+
+    it('batches writes by epoch number', async () => {
+      jest.spyOn(database, 'addProvingJobs');
+      const promises: Promise<unknown>[] = [];
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 1,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      await Promise.all(promises);
+      expect(database.addProvingJobs).toHaveBeenCalledTimes(3);
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(1, expect.objectContaining({ epochNumber: 0 }));
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 1 }));
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({ epochNumber: 0 }),
+        expect.objectContaining({ epochNumber: 0 }),
+      );
+    });
+
+    it('does not exceed the batch size', async () => {
+      jest.spyOn(database, 'addProvingJobs');
+      const promises: Promise<unknown>[] = [];
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      await Promise.all(promises);
+      expect(database.addProvingJobs).toHaveBeenCalledTimes(2);
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ epochNumber: 0 }),
+        expect.objectContaining({ epochNumber: 0 }),
+      );
+      expect(database.addProvingJobs).toHaveBeenNthCalledWith(2, expect.objectContaining({ epochNumber: 0 }));
+    });
+
+    it('correctly reports errors', async () => {
+      jest.spyOn(database, 'addProvingJobs').mockRejectedValueOnce(new Error('test'));
+      const promises: Promise<unknown>[] = [];
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      await expect(Promise.all(promises)).rejects.toBeDefined();
+    });
+
+    it('correctly returns job status for duplicates in batches', async () => {
+      const job = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 0,
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(job);
+
+      const promises: Promise<unknown>[] = [];
+      promises.push(broker.enqueueProvingJob(job));
+      promises.push(
+        broker.enqueueProvingJob({
+          id: makeRandomProvingJobId(),
+          type: ProvingRequestType.BASE_PARITY,
+          epochNumber: 0,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+
+      await expect(Promise.all(promises)).resolves.toEqual([{ status: 'in-queue' }, { status: 'not-found' }]);
     });
   });
 
@@ -954,7 +1093,7 @@ describe.each([
     it('re-enqueues proof requests on start', async () => {
       const id1 = makeRandomProvingJobId();
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -962,7 +1101,7 @@ describe.each([
       });
 
       const id2 = makeRandomProvingJobId();
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1005,7 +1144,7 @@ describe.each([
     it('restores proof results on start', async () => {
       const id1 = makeRandomProvingJobId(1);
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -1013,7 +1152,7 @@ describe.each([
       });
 
       const id2 = makeRandomProvingJobId(2);
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1039,7 +1178,7 @@ describe.each([
     it('only re-enqueues unfinished jobs', async () => {
       const id1 = makeRandomProvingJobId();
 
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id1,
         type: ProvingRequestType.BASE_PARITY,
         epochNumber: 1,
@@ -1048,7 +1187,7 @@ describe.each([
       await database.setProvingJobResult(id1, makeOutputsUri());
 
       const id2 = makeRandomProvingJobId();
-      await database.addProvingJob({
+      await database.addProvingJobs({
         id: id2,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         epochNumber: 2,
@@ -1071,16 +1210,16 @@ describe.each([
         inputsUri: makeInputsUri(),
       };
 
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
       await broker.enqueueProvingJob(job);
 
-      expect(database.addProvingJob).toHaveBeenCalledWith(job);
+      expect(database.addProvingJobs).toHaveBeenCalledWith(job);
     });
 
     it('does not retain job if database fails to save', async () => {
       await broker.start();
 
-      jest.spyOn(database, 'addProvingJob').mockRejectedValue(new Error('db error'));
+      jest.spyOn(database, 'addProvingJobs').mockRejectedValue(new Error('db error'));
       const id = makeRandomProvingJobId();
       await expect(
         broker.enqueueProvingJob({
@@ -1163,12 +1302,12 @@ describe.each([
       const id = makeRandomProvingJobId();
 
       jest.spyOn(database, 'setProvingJobResult');
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
 
       await broker.reportProvingJobSuccess(id, makeOutputsUri());
 
       expect(database.setProvingJobResult).not.toHaveBeenCalled();
-      expect(database.addProvingJob).not.toHaveBeenCalled();
+      expect(database.addProvingJobs).not.toHaveBeenCalled();
     });
 
     it('does not save job error if job is unknown', async () => {
@@ -1176,12 +1315,12 @@ describe.each([
       const id = makeRandomProvingJobId();
 
       jest.spyOn(database, 'setProvingJobError');
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
 
       await broker.reportProvingJobError(id, 'test error');
 
       expect(database.setProvingJobError).not.toHaveBeenCalled();
-      expect(database.addProvingJob).not.toHaveBeenCalled();
+      expect(database.addProvingJobs).not.toHaveBeenCalled();
     });
 
     it('cleans up old jobs periodically', async () => {
