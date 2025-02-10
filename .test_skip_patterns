@@ -133,5 +133,3 @@ p2p/src/services/reqresp/reqresp.test.ts
 prover-client/src/proving_broker/broker_prover_facade.test.ts
 prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
-
-./spartan/bootstrap.sh test-kind-smoke

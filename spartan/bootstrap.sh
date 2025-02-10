@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-scripts/install_deps.sh
+scripts/install_deps.sh >&2
 
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
