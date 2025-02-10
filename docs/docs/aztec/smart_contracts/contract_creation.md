@@ -3,7 +3,7 @@ title: Contract Deployment
 tags: [contracts, protocol]
 ---
 
-import Spec_Placeholder from '/components/snippet';
+import { Spec_Placeholder } from '/components/snippets';
 
 <Spec_Placeholder />
 

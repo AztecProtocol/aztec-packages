@@ -21,6 +21,7 @@ export type FeeOptions = {
   gasSettings: GasSettings;
 };
 
+// docs:start:user_fee_options
 /** Fee options as set by a user. */
 export type UserFeeOptions = {
   /** The fee payment method to use */
@@ -34,6 +35,7 @@ export type UserFeeOptions = {
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
   estimatedGasPadding?: number;
 };
+// docs:end:user_fee_options
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr

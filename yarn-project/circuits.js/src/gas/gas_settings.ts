@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
 
+// docs:start:gas_settings_vars
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
@@ -16,6 +17,7 @@ export class GasSettings {
     public readonly maxFeesPerGas: GasFees,
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
+  // docs:end:gas_settings_vars
 
   static get schema() {
     return z

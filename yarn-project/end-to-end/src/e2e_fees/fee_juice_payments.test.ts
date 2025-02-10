@@ -67,7 +67,9 @@ describe('e2e_fees Fee Juice payments', () => {
 
     it('claims bridged funds and pays with them on the same tx', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, bobAddress);
+      // docs:start:claim_and_pay
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobAddress, claim);
+      // docs:end:claim_and_pay
       const receipt = await feeJuiceContract
         .withWallet(bobWallet)
         .methods.check_balance(0n)
