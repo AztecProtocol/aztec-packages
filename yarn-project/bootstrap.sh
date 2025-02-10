@@ -68,11 +68,15 @@ function build {
   get_projects | compile_project
 
   cmds=(format)
-  if [ "${typecheck:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
+  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
+    # Fully type check and lint.
     cmds+=(
       'yarn tsc -b --emitDeclarationOnly'
       lint
     )
+  else
+    # We just need the type declarations required for downstream consumers.
+    cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
@@ -144,7 +148,7 @@ case "$cmd" in
     build
     ;;
   "full")
-    typecheck=1 build
+    TYPECHECK=1 build
     ;;
   "test-cmds")
     test_cmds
