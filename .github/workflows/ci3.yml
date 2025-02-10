@@ -41,29 +41,29 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           ./ci.sh ec2
-          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
-      - name: Store barretenberg benchmark result
-        if: github.ref == 'refs/heads/master'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: C++ Benchmark
-          tool: "googlecpp"
-          output-file-path: ./bench-out/bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
-          max-items-in-chart: 50
+          # ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+      # - name: Store barretenberg benchmark result
+      #   if: github.ref == 'refs/heads/master'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: C++ Benchmark
+      #     tool: "googlecpp"
+      #     output-file-path: ./bench-out/bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@ludamad @codygunton"
+      #     max-items-in-chart: 50
 
   ci-arm64:
     runs-on: ubuntu-latest
