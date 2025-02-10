@@ -27,7 +27,7 @@ set +e
 tmp_file=$(mktemp)
 trap "rm -f $tmp_file" EXIT
 if [[ "$test_cmd" = timeout* ]]; then
-  eval "$test_cmd" &> $tmp_file &
+  bash -c "$test_cmd" &> $tmp_file &
 else
   timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
 fi

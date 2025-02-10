@@ -103,5 +103,35 @@ simple flakey_e2e_inclusion_proofs_contract
 #       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
 simple e2e_prover_coordination
 
-# WORKTODO(adam) broken in master
-compose composed/e2e_aztec_js_browser
+# Vite tests just hang.
+boxes/scripts/run_test.sh vite
+
+# FAIL  src/orchestrator/orchestrator_workflow.test.ts (17.926 s)
+#  prover/orchestrator
+#    workflow
+#      with mock prover
+#        ✕ calls root parity circuit only when ready (488 ms)
+#      with simulated prover
+#        ✓ waits for block to be completed before enqueueing block root proof (7702 ms)
+#        ✓ can start tube proofs before adding processed txs (7547 ms)
+#
+#  ● prover/orchestrator › workflow › with mock prover › calls root parity circuit only when ready
+src/orchestrator/orchestrator_workflow.test.ts
+
+# FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
+#  prover/bb_prover/parity
+#    ✕ proves the parity circuits (30003 ms)
+#
+#  ● prover/bb_prover/parity › proves the parity circuits
+#
+#    thrown: "Exceeded timeout of 30000 ms for a test.
+#    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+prover-client/src/test/bb_prover_parity.test.ts
+
+
+p2p/src/services/reqresp/reqresp.test.ts
+prover-client/src/proving_broker/broker_prover_facade.test.ts
+prover-client/src/orchestrator/orchestrator_errors.test.ts
+sequencer-client/src/slasher/slasher_client.test.ts
+
+./spartan/bootstrap.sh test-kind-smoke
