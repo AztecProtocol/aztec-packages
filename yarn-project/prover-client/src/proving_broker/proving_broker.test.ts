@@ -247,7 +247,7 @@ describe.each([
     });
 
     it('batches writes by epoch number', async () => {
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
       const promises: Promise<unknown>[] = [];
       promises.push(
         broker.enqueueProvingJob({
@@ -297,7 +297,7 @@ describe.each([
     });
 
     it('does not exceed the batch size', async () => {
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
       const promises: Promise<unknown>[] = [];
       promises.push(
         broker.enqueueProvingJob({
@@ -337,7 +337,7 @@ describe.each([
     });
 
     it('correctly reports errors', async () => {
-      jest.spyOn(database, 'addProvingJob').mockRejectedValueOnce(new Error('test'));
+      jest.spyOn(database, 'addProvingJobs').mockRejectedValueOnce(new Error('test'));
       const promises: Promise<unknown>[] = [];
       promises.push(
         broker.enqueueProvingJob({
@@ -1210,7 +1210,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       };
 
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
       await broker.enqueueProvingJob(job);
 
       expect(database.addProvingJobs).toHaveBeenCalledWith(job);
@@ -1219,7 +1219,7 @@ describe.each([
     it('does not retain job if database fails to save', async () => {
       await broker.start();
 
-      jest.spyOn(database, 'addProvingJob').mockRejectedValue(new Error('db error'));
+      jest.spyOn(database, 'addProvingJobs').mockRejectedValue(new Error('db error'));
       const id = makeRandomProvingJobId();
       await expect(
         broker.enqueueProvingJob({
@@ -1302,7 +1302,7 @@ describe.each([
       const id = makeRandomProvingJobId();
 
       jest.spyOn(database, 'setProvingJobResult');
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
 
       await broker.reportProvingJobSuccess(id, makeOutputsUri());
 
@@ -1315,7 +1315,7 @@ describe.each([
       const id = makeRandomProvingJobId();
 
       jest.spyOn(database, 'setProvingJobError');
-      jest.spyOn(database, 'addProvingJob');
+      jest.spyOn(database, 'addProvingJobs');
 
       await broker.reportProvingJobError(id, 'test error');
 
