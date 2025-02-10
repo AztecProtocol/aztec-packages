@@ -15,6 +15,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
 import { validateL1Config } from '../validation.js';
+import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
@@ -68,9 +69,9 @@ export async function startProverNode(
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
-    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl);
+    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig));
   } else if (options.proverBroker) {
-    broker = await startProverBroker(options, signalHandlers, services, userLog);
+    ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
   } else {
     userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
     process.exit(1);
@@ -97,4 +98,5 @@ export async function startProverNode(
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
   await proverNode.start();
+  return { config: proverConfig };
 }

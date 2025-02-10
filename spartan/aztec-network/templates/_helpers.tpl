@@ -72,6 +72,10 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 
+{{- define "aztec-network.blobSinkUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-blob-sink.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.blobSink.service.nodePort }}
+{{- end -}}
+
 {{- define "aztec-network.metricsHost" -}}
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
@@ -142,7 +146,7 @@ Service Address Setup Container
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.externalHost }}"
+      value: "{{ .Values.ethereum.execution.externalHost }}"
     - name: ETHEREUM_PORT
       value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST

@@ -23,7 +23,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
-import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
+import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/test-helpers';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 

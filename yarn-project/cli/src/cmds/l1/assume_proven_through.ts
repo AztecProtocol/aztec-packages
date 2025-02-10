@@ -16,7 +16,7 @@ export async function assumeProvenThrough(
   const chain = createEthereumChain(l1RpcUrl, chainId);
   const { walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
 
-  const pxe = createPXEClient(rpcUrl, makeFetch([], true));
+  const pxe = createPXEClient(rpcUrl, {}, makeFetch([], true));
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 

@@ -12,7 +12,6 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -257,14 +256,6 @@ export interface DBOracle extends CommitmentsDB {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void>;
-
-  /**
-   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
-   * Returns null if no such log exists, and throws if more than one exists.
-   *
-   * @param tag - The log tag to search for.
-   */
-  getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

@@ -19,8 +19,6 @@ export class Jump extends Instruction {
     context.machineState.consumeGas(this.gasCost());
 
     context.machineState.pc = this.jumpOffset;
-
-    context.machineState.memory.assert({});
   }
 
   public override handlesPC(): boolean {
@@ -45,7 +43,7 @@ export class JumpI extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.condOffset];
@@ -58,8 +56,6 @@ export class JumpI extends Instruction {
     } else {
       context.machineState.pc = this.loc;
     }
-
-    memory.assert({ reads: 1, addressing });
   }
 
   public override handlesPC(): boolean {
@@ -85,8 +81,6 @@ export class InternalCall extends Instruction {
       returnPc: context.machineState.nextPc,
     });
     context.machineState.pc = this.loc;
-
-    context.machineState.memory.assert({});
   }
 
   public override handlesPC(): boolean {
@@ -112,8 +106,6 @@ export class InternalReturn extends Instruction {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
     context.machineState.pc = stackEntry.returnPc;
-
-    context.machineState.memory.assert({});
   }
 
   public override handlesPC(): boolean {

@@ -1,0 +1,66 @@
+aztec:
+  slotDuration: 36
+  epochDuration: 4
+  realProofs: false
+  l1DeploymentMnemonic: ""
+  validatorKeyIndexStart: 49
+  proverKeyIndexStart: 52
+
+ethereum:
+  chainId: "11155111"
+  l1GasPriceMax: 500
+  l1FixedPriorityFeePerGas: 3
+  execution:
+    externalHost: ""
+  beacon:
+    externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
+
+telemetry:
+  enabled: false
+
+validator:
+  l1FixedPriorityFeePerGas: 3
+  l1GasLimitBufferPercentage: 15
+  replicas: 3
+  validatorKeys:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+  validator:
+    disabled: false
+  sequencer:
+    enforceTimeTable: false
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 1
+
+bootNode:
+  validator:
+    disabled: true
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverAgent:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverNode:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"

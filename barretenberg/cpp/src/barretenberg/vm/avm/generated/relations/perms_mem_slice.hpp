@@ -70,6 +70,11 @@ template <typename FF_>
 class perm_slice_mem_relation : public GenericPermutationRelation<perm_slice_mem_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_slice_mem_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.slice_sel_mem_active.is_zero() && in.mem_sel_op_slice.is_zero();
+    }
 };
 template <typename FF_> using perm_slice_mem = GenericPermutation<perm_slice_mem_permutation_settings, FF_>;
 
