@@ -1,35 +1,12 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 #include <gtest/gtest.h>
 #include <unordered_set>
 using namespace bb;
-
-/**
- * @brief Check that a given relation is satified for a set of polynomials
- *
- * @tparam relation_idx Index into a tuple of provided relations
- * @tparam Flavor
- */
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
-{
-    for (size_t i = 0; i < circuit_size; i++) {
-        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        SumcheckArrayOfValuesOverSubrelations result;
-        for (auto& element : result) {
-            element = 0;
-        }
-
-        // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, polynomials.get_row(i), params, 1);
-        for (auto& element : result) {
-            ASSERT_EQ(element, 0);
-        }
-    }
-}
 
 class TranslatorRelationCorrectnessTests : public ::testing::Test {
   protected:
@@ -92,7 +69,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorPermutationRelation<FF>>(full_circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 }
 
 TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
@@ -153,7 +130,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     });
 
     // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorDeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(prover_polynomials, params);
 }
 
 /**
@@ -217,13 +194,13 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     prover_polynomials.accumulators_binary_limbs_3.at(1) = params.accumulated_result[3];
 
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorOpcodeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(prover_polynomials, params);
 
     // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorAccumulatorTransferRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(prover_polynomials, params);
 
     // Check that Zero Constraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorZeroConstraintsRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorZeroConstraintsRelation<FF>>(prover_polynomials, params);
 }
 /**
  * @brief Test the correctness of TranslatorFlavor's Decomposition Relation
@@ -565,7 +542,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     }
 
     // Check that Decomposition relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorDecompositionRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDecompositionRelation<FF>>(prover_polynomials, params);
 }
 
 /**
@@ -670,5 +647,5 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, TranslatorNonNativeFieldRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(prover_polynomials, params);
 }

@@ -1,6 +1,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -108,5 +109,5 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    check_relation<TranslatorFlavor, TranslatorPermutationRelation<FF>>(full_circuit_size, prover_polynomials, params);
+    RelationChecker<TranslatorFlavor>::check<TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 }

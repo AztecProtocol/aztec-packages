@@ -35,7 +35,7 @@ template <typename Flavor> class RelationChecker {
             element = 0;
         }
 
-        for (size_t i = 0; i < polynomials.w_l.virtual_size(); i++) {
+        for (size_t i = 0; i < polynomials.get_polynomial_size(); i++) {
 
             // Evaluate each constraint in the relation and check that each is satisfied
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
