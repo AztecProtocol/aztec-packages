@@ -23,7 +23,7 @@ template <typename FF_> class conversionImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.conversion_sel_to_radix_be * (FF(1) - new_term.conversion_sel_to_radix_be));
+            auto tmp = new_term.conversion_sel_to_radix_be * (FF(1) - new_term.conversion_sel_to_radix_be);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

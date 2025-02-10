@@ -32,6 +32,7 @@
     "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@viem/anvil": "^0.0.10",

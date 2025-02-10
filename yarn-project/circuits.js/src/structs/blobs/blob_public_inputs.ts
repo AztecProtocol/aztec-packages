@@ -1,6 +1,6 @@
+import { type Blob } from '@aztec/blob-lib';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { type Blob } from '@aztec/foundation/blob';
 import { sha256, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';

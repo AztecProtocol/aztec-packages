@@ -119,7 +119,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
+    vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
@@ -204,7 +204,7 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
   logger.verbose(`Creating PXE client to remote host ${PXE_URL}`);
-  const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], true));
+  const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], true));
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
@@ -716,6 +716,7 @@ export async function createAndSyncProverNode(
   const aztecNodeWithoutStop = {
     addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
     getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
   };
 
