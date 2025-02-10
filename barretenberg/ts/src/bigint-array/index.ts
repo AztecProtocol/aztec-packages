@@ -19,11 +19,12 @@ export function bufToBigIntBE(buf: Buffer) {
   );
 }
 
-export function toBufferBE(value: bigint, byteLength = 32): Buffer {
-  const buf = Buffer.alloc(byteLength);
-  buf.writeBigUInt64BE(value >> 192n, 0);
-  buf.writeBigUInt64BE((value >> 128n) & 0xffffffffffffffffn, 8);
-  buf.writeBigUInt64BE((value >> 64n) & 0xffffffffffffffffn, 16);
-  buf.writeBigUInt64BE(value & 0xffffffffffffffffn, 24);
-  return buf;
+export function toBufferBE(value: bigint, byteLength = 32) {
+  const bytes = new Uint8Array(byteLength);
+  const view = new DataView(bytes.buffer);
+  for (let i = 0; i < byteLength; i++) {
+    view.setUint8(byteLength - i - 1, Number(value & BigInt(0xff)));
+    value >>= BigInt(8);
+  }
+  return bytes;
 }
