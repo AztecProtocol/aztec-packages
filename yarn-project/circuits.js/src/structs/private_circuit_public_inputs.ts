@@ -26,9 +26,9 @@ import {
 import { BlockHeader } from '../structs/block_header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
+import { ContractClassLogData } from './contract_class_log_data.js';
 import { KeyValidationRequestAndGenerator } from './key_validation_request_and_generator.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
-import { LogHash } from './log_hash.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
@@ -111,10 +111,9 @@ export class PrivateCircuitPublicInputs {
      */
     public privateLogs: Tuple<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
     /**
-     * Hash of the contract class logs emitted in this function call.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Logs emitted from the contract class registerer in this function call.
      */
-    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogs: Tuple<ContractClassLogData, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -170,7 +169,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, ContractClassLogData),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -197,7 +196,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, ContractClassLogData),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -227,7 +226,7 @@ export class PrivateCircuitPublicInputs {
       PublicCallRequest.empty(),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, ContractClassLogData.empty),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -253,7 +252,7 @@ export class PrivateCircuitPublicInputs {
       this.publicTeardownCallRequest.isEmpty() &&
       isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.privateLogs) &&
-      isEmptyArray(this.contractClassLogsHashes) &&
+      isEmptyArray(this.contractClassLogs) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       this.historicalHeader.isEmpty() &&
@@ -284,7 +283,7 @@ export class PrivateCircuitPublicInputs {
       fields.publicTeardownCallRequest,
       fields.l2ToL1Msgs,
       fields.privateLogs,
-      fields.contractClassLogsHashes,
+      fields.contractClassLogs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.historicalHeader,

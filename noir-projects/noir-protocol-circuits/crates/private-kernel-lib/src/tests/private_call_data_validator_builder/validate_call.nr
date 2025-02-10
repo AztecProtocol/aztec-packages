@@ -48,11 +48,11 @@ fn validate_call_is_static_creating_private_logs_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "contract_class_logs_hashes must be empty for static calls")]
-fn validate_call_is_static_creating_contract_class_logs_hashes_fails() {
+#[test(should_fail_with = "contract_class_logs must be empty for static calls")]
+fn validate_call_is_static_creating_contract_class_logs_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.add_contract_class_log_hash(1, 2);
+    builder.private_call.add_contract_class_log([1]);
 
     builder.validate();
 }
@@ -61,7 +61,7 @@ fn validate_call_is_static_creating_contract_class_logs_hashes_fails() {
 fn validate_call_is_from_class_registerer_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_contract_class_log_hash(1, 2);
+    builder.private_call.add_contract_class_log([1]);
     // set the contract address to be some msg sender (!= REGISTERER_CONTRACT_ADDRESS)
     builder.private_call.contract_address = builder.private_call.msg_sender;
 

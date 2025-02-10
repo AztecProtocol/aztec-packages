@@ -7,7 +7,6 @@ import {
   type KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -44,7 +43,6 @@ import {
   type ReadRequestStatus,
   RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
-  ScopedLogHash,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedPrivateLogData,
@@ -64,7 +62,6 @@ import type {
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
-  LogHash as LogHashNoir,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
   NoteHash as NoteHashNoir,
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
@@ -90,10 +87,9 @@ import type {
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
-  ScopedLogHash as ScopedLogHashNoir,
+  Scoped as ScopedNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
-  Scoped as ScopedPrivateLogDataNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   TransientDataIndexHint as TransientDataIndexHintNoir,
   TxConstantData as TxConstantDataNoir,
@@ -102,6 +98,7 @@ import type {
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapContractClassLogDataToNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapFunctionSelectorFromNoir,
@@ -126,6 +123,8 @@ import {
   mapPrivateToRollupAccumulatedDataFromNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
+  mapScopedContractClassLogDataFromNoir,
+  mapScopedContractClassLogDataToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
   mapTupleFromNoir,
@@ -234,67 +233,17 @@ function mapPrivateLogDataFromNoir(data: PrivateLogDataNoir) {
   );
 }
 
-function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): ScopedPrivateLogDataNoir {
+function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): ScopedNoir<PrivateLogDataNoir> {
   return {
     inner: mapPrivateLogDataToNoir(data.inner),
     contract_address: mapAztecAddressToNoir(data.contractAddress),
   };
 }
 
-function mapScopedPrivateLogDataFromNoir(data: ScopedPrivateLogDataNoir) {
+function mapScopedPrivateLogDataFromNoir(data: ScopedNoir<PrivateLogDataNoir>) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
-  );
-}
-
-/**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
-  return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
-  return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
   );
 }
 
@@ -512,9 +461,9 @@ export function mapPrivateAccumulatedDataFromNoir(
     mapTupleFromNoir(privateAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
     mapTupleFromNoir(privateAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapScopedPrivateLogDataFromNoir),
     mapTupleFromNoir(
-      privateAccumulatedData.contract_class_logs_hashes,
+      privateAccumulatedData.contract_class_logs,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      mapScopedLogHashFromNoir,
+      mapScopedContractClassLogDataFromNoir,
     ),
     mapTupleFromNoir(
       privateAccumulatedData.public_call_requests,
@@ -535,7 +484,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     nullifiers: mapTuple(data.nullifiers, mapScopedNullifierToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     private_logs: mapTuple(data.privateLogs, mapScopedPrivateLogDataToNoir),
-    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
+    contract_class_logs: mapTuple(data.contractClassLogs, mapScopedContractClassLogDataToNoir),
     public_call_requests: mapTuple(data.publicCallRequests, mapCountedPublicCallRequestToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapPrivateCallRequestToNoir),
   };
@@ -567,7 +516,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(privateCircuitPublicInputs.publicTeardownCallRequest),
     l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.l2ToL1Msgs, mapL2ToL1MessageToNoir),
     private_logs: mapTuple(privateCircuitPublicInputs.privateLogs, mapPrivateLogDataToNoir),
-    contract_class_logs_hashes: mapTuple(privateCircuitPublicInputs.contractClassLogsHashes, mapLogHashToNoir),
+    contract_class_logs: mapTuple(privateCircuitPublicInputs.contractClassLogs, mapContractClassLogDataToNoir),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
@@ -704,7 +653,7 @@ export function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicA
     mapTupleFromNoir(data.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
     mapTupleFromNoir(data.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
-    mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
+    mapTupleFromNoir(data.contract_class_logs, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedContractClassLogDataFromNoir),
     mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
   );
 }

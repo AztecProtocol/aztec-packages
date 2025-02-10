@@ -13,7 +13,6 @@ import {
   SimulationError,
   TxEffect,
   TxHash,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
@@ -758,10 +757,6 @@ export class TXE implements TypedOracle {
   getTxRequestHash() {
     // Using block number itself is invalid since indexed trees come prefilled with the first slots.
     return new Fr(this.blockNumber + 6969);
-  }
-
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
-    throw new Error('Method not implemented.');
   }
 
   async callPrivateFunction(

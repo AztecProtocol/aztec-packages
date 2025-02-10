@@ -246,7 +246,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -342,7 +341,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
 

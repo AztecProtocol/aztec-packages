@@ -15,7 +15,7 @@ import {
   PublicDataWrite,
   PublicLog,
   RevertCode,
-  ScopedLogHash,
+  ScopedContractClassLogData,
   TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
@@ -134,7 +134,7 @@ export async function makeBloatedProcessedTx({
 }
 
 // Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
+function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogs: ScopedContractClassLogData[] }) {
   data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
-  data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
+  data.contractClassLogs.forEach((_, i) => (data.contractClassLogs[i] = ScopedContractClassLogData.empty()));
 }

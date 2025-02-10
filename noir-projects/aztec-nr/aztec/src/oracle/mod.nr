@@ -17,7 +17,6 @@ pub mod enqueue_public_function_call;
 pub mod block_header;
 pub mod notes;
 pub mod storage;
-pub mod logs;
 pub mod pxe_db;
 pub mod execution_cache;
 

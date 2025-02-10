@@ -59,15 +59,15 @@ pub unconstrained fn split_to_public(
         }
     }
 
-    let contract_class_logs_hashes = data.contract_class_logs_hashes;
-    for i in 0..contract_class_logs_hashes.max_len() {
-        if i < contract_class_logs_hashes.len() {
-            let contract_class_log_hash = contract_class_logs_hashes.get_unchecked(i);
-            let public_log_hash = contract_class_log_hash.expose_to_public();
-            if contract_class_log_hash.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.contract_class_logs_hashes.push(public_log_hash);
+    let contract_class_logs = data.contract_class_logs;
+    for i in 0..contract_class_logs.max_len() {
+        if i < contract_class_logs.len() {
+            let contract_class_log = contract_class_logs.get_unchecked(i);
+            let public_contract_class_log = contract_class_log.expose_to_public();
+            if contract_class_log.counter() < min_revertible_side_effect_counter {
+                non_revertible_builder.contract_class_logs.push(public_contract_class_log);
             } else {
-                revertible_builder.contract_class_logs_hashes.push(public_log_hash);
+                revertible_builder.contract_class_logs.push(public_contract_class_log);
             }
         }
     }

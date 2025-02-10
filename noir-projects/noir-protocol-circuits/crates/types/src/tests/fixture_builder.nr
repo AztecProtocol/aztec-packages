@@ -10,6 +10,7 @@ use crate::{
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
         constant_rollup_data::ConstantRollupData,
+        contract_class_log::ContractClassLogData,
         function_data::FunctionData,
         gas::Gas,
         gas_settings::GasSettings,
@@ -19,7 +20,6 @@ use crate::{
             PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
-        log_hash::{LogHash, ScopedLogHash},
         max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -43,9 +43,9 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
@@ -117,8 +117,7 @@ pub struct FixtureBuilder {
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    pub contract_class_log_preimages_length: Field,
+    pub contract_class_logs: BoundedVec<Scoped<ContractClassLogData>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
@@ -228,14 +227,12 @@ impl FixtureBuilder {
     }
 
     pub fn set_protocol_contract_root(&mut self) {
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree(0);
         self.protocol_contract_tree_root = tree.get_root();
     }
 
-    pub fn use_protocol_contract(&mut self) -> Self {
-        let contract_index = 1;
-
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+    pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
+        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree(contract_index);
         self.protocol_contract_tree_root = tree.get_root();
         self.protocol_contract_sibling_path = tree.get_sibling_path(contract_index);
 
@@ -372,8 +369,8 @@ impl FixtureBuilder {
             private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
                 l.inner
             })),
-            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.log_hash,
+            contract_class_logs: subarray(self.contract_class_logs.storage().map(
+                |l: Scoped<ContractClassLogData>| l.inner,
             )),
             historical_header: self.historical_header,
             tx_context: self.tx_context,
@@ -401,7 +398,7 @@ impl FixtureBuilder {
             nullifiers: self.nullifiers,
             l2_to_l1_msgs: self.l2_to_l1_msgs,
             private_logs: self.private_logs,
-            contract_class_logs_hashes: self.contract_class_logs_hashes,
+            contract_class_logs: self.contract_class_logs,
             public_call_requests: self.public_call_requests,
             private_call_stack: vec_reverse(self.private_call_requests),
         }
@@ -429,8 +426,8 @@ impl FixtureBuilder {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
+            contract_class_logs: self.contract_class_logs.storage().map(
+                |l: Scoped<ContractClassLogData>| l.expose_to_public(),
             ),
             public_call_requests: self.public_call_requests.storage().map(
                 |cr: Counted<PublicCallRequest>| cr.inner,
@@ -446,10 +443,9 @@ impl FixtureBuilder {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
+            contract_class_logs: self.contract_class_logs.storage().map(
+                |l: Scoped<ContractClassLogData>| l.expose_to_public(),
             ),
-            contract_class_log_preimages_length: self.contract_class_log_preimages_length,
         }
     }
 
@@ -886,10 +882,18 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_contract_class_log_hash(&mut self, hash: Field, length: Field) {
-        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
-        self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
-        self.contract_class_log_preimages_length += length;
+    pub fn add_contract_class_log<let N: u32>(&mut self, fields: [Field; N]) {
+        let mut log_fields = [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS];
+        for i in 0..N {
+            log_fields[i] = fields[i];
+        }
+        let log = ContractClassLogData {
+            log: Log { fields: log_fields },
+            counter: self.next_counter(),
+            log_size: N,
+        }
+            .scope(self.contract_address);
+        self.contract_class_logs.push(log);
     }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
@@ -1108,8 +1112,7 @@ impl Empty for FixtureBuilder {
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
             public_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
-            contract_class_log_preimages_length: 0,
+            contract_class_logs: BoundedVec::new(),
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),

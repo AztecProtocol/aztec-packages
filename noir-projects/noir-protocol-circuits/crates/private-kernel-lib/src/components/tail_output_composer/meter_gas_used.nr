@@ -1,10 +1,12 @@
 use dep::types::{
     abis::{
         accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        contract_class_log::{contract_class_log_array_length, ContractClassLogData},
         gas::Gas,
+        side_effect::scoped::Scoped,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
@@ -31,9 +33,18 @@ pub fn meter_gas_used(data: PrivateToRollupAccumulatedData) -> Gas {
     metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
-    let mut metered_da_bytes = metered_da_fields * DA_BYTES_PER_FIELD;
-    metered_da_bytes += data.contract_class_log_preimages_length as u32;
-    metered_l2_gas += data.contract_class_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
+    let num_contract_class_logs = contract_class_log_array_length(data.contract_class_logs);
+    // TODO: adding num_contract_class_logs * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS overflows gas limits,
+    // and is not accurate anyway, because we no longer pay gas in terms of bytes but of blob fields.
+    let contract_class_log_emitted_fields = data.contract_class_logs.fold(
+        0,
+        // Note: log_size is constrained to be correct in log.validate_log_size_hint(), called by each init and inner
+        |len, l: Scoped<ContractClassLogData>| len + l.inner.log_size,
+    );
+    metered_da_fields += contract_class_log_emitted_fields;
+    metered_l2_gas += num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+
+    let metered_da_bytes = metered_da_fields * DA_BYTES_PER_FIELD;
 
     Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas) + Gas::tx_overhead()
 }

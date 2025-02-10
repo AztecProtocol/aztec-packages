@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         accumulated_data::private_accumulated_data::PrivateAccumulatedData,
-        log_hash::ScopedLogHash,
+        contract_class_log::ContractClassLogData,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_call_request::PrivateCallRequest,
@@ -24,7 +24,7 @@ pub struct PrivateAccumulatedDataBuilder {
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
 
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub contract_class_logs: BoundedVec<Scoped<ContractClassLogData>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
 
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub private_call_stack: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -37,7 +37,7 @@ impl PrivateAccumulatedDataBuilder {
             nullifiers: self.nullifiers.storage(),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            contract_class_logs: self.contract_class_logs.storage(),
             public_call_requests: self.public_call_requests.storage(),
             private_call_stack: self.private_call_stack.storage(),
         }
@@ -51,7 +51,7 @@ impl Empty for PrivateAccumulatedDataBuilder {
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
+            contract_class_logs: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
             private_call_stack: BoundedVec::new(),
         }

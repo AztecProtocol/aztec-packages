@@ -165,6 +165,23 @@ export class Blob {
   }
 
   /**
+   * Get the encoded fields from multiple blobs.
+   *
+   * @dev This method takes into account trailing zeros
+   *
+   * @returns The encoded fields from the blobs.
+   */
+  static toEncodedFields(blobs: Blob[]): Fr[] {
+    try {
+      return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
+  }
+
+  /**
    * Get the commitment fields from the blob.
    *
    * The 48-byte commitment is encoded into two field elements:
