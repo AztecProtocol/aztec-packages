@@ -140,6 +140,26 @@ pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
 {
+    /// Safety: we constrain this array below
+    let result = unsafe { array_merge_helper(array1, array2) };
+    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
+    let array1_len = array_length(array1);
+    let mut add_from_left = true;
+    for i in 0..N {
+        add_from_left &= i != array1_len;
+        if add_from_left {
+            assert_eq(result[i], array1[i]);
+        } else {
+            assert_eq(result[i], array2[i - array1_len]);
+        }
+    }
+    result
+}
+
+unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty + Eq,
+{
     let mut result: [T; N] = [T::empty(); N];
     let mut i = 0;
     for elem in array1 {
