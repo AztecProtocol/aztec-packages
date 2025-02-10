@@ -38,6 +38,9 @@ export const MUTATING_MSG_TYPES = new Set([
   WorldStateMessageType.FINALISE_BLOCKS,
   WorldStateMessageType.UNWIND_BLOCKS,
   WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+  WorldStateMessageType.CREATE_CHECKPOINT,
+  WorldStateMessageType.COMMIT_CHECKPOINT,
+  WorldStateMessageType.REVERT_CHECKPOINT,
 ]);
 
 // This class implements the per-fork operation queue

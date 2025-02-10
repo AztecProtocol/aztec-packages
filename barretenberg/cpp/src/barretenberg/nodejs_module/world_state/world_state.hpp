@@ -64,6 +64,10 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     bool remove_historical(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool get_status(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+
+    bool checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool commit_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool revert_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
 };
 
 } // namespace bb::nodejs

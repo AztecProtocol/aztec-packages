@@ -35,6 +35,10 @@ export enum WorldStateMessageType {
 
   GET_STATUS,
 
+  CREATE_CHECKPOINT,
+  COMMIT_CHECKPOINT,
+  REVERT_CHECKPOINT,
+
   CLOSE = 999,
 }
 
@@ -450,6 +454,10 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
 
+  [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -485,6 +493,10 @@ export type WorldStateResponse = {
   [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
+
+  [WorldStateMessageType.CREATE_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };
