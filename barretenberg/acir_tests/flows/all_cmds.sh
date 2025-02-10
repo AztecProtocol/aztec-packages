@@ -4,7 +4,7 @@ set -eu
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
-
+######## WORKTODO: deprecated, plonk-only
 # Test we can perform the proof/verify flow.
 $BIN gates $FLAGS $BFLAG > /dev/null
 $BIN prove -o proof $FLAGS $BFLAG

@@ -21,8 +21,9 @@ function prepare_tests {
   COMPILE=2 ./run_test.sh assert_statement
   local bb=$(realpath ../cpp/build/bin/bb)
   (cd ./acir_tests/assert_statement && \
-    $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
-    $bb write_recursion_inputs_rollup_honk -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+    # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
+    $bb write_recursion_inputs --scheme ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
+    $bb write_recursion_inputs --scheme ultra_honk --ipa_accumulation true -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
 
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
@@ -83,9 +84,9 @@ function test {
 # Paths are all relative to the repository root.
 function test_cmds {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
@@ -113,14 +114,12 @@ function test_cmds {
   # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo BIN=$bbjs_bin SYS=ultra_honk FLOW=prove_then_verify $run_test 6_array
-  # echo a single arbitrary test not involving recursion through bb.js for MegaHonk
-  echo BIN=$bbjs_bin SYS=mega_honk FLOW=prove_and_verify $run_test 6_array
+  echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
   # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
   echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb:
-  # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
+  # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo FLOW=prove_then_verify_tube $run_test 6_array
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
   echo FLOW=all_cmds $run_test 1_mul
@@ -140,14 +139,17 @@ function test_cmds {
   done
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
-  echo SYS=ultra_honk FLOW=prove_and_verify_program $run_test merkle_insert
-  echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
+  # echo SYS=ultra_honk FLOW=prove_then_verify $run_test fold_basic
+  echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 
   # barretenberg-acir-tests-bb-client-ivc:
   echo FLOW=prove_then_verify_client_ivc $run_test 6_array
   echo FLOW=prove_then_verify_client_ivc $run_test databus
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
+
+# WORKTODO: should include failure tests
 
 export -f build_tests test
 

@@ -1,3 +1,4 @@
+#pragma once
 #include "get_bn254_crs.hpp"
 #include "get_grumpkin_crs.hpp"
 

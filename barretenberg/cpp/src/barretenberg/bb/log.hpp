@@ -18,7 +18,7 @@
  *
  * @param data The raw bytes that we want to write to stdout
  */
-inline void writeRawBytesToStdout(const std::vector<uint8_t>& data)
+inline void write_bytes_to_stdout(const std::vector<uint8_t>& data)
 {
     for (auto byte : data) {
         // Safety: a byte and a char occupy one byte
@@ -43,7 +43,7 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
         value >>= 8;
     }
 
-    writeRawBytesToStdout(bytes);
+    write_bytes_to_stdout(bytes);
 }
 
 /**
@@ -51,7 +51,7 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
  *
  * @param str The raw string to write to stdout
  */
-inline void writeStringToStdout(const std::string& str)
+inline void write_string_to_stdout(const std::string& str)
 {
     for (char ch : str) {
         std::cout.put(ch);

@@ -60,14 +60,13 @@ const [test, verifier] = await Promise.all([
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 
-const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
 export const compilationInput = {
   language: "Solidity",
   sources: {
     "Test.sol": {
       content: test,
     },
-    [verifierContract]: {
+    "Verifier.sol": {
       content: verifier,
     },
   },

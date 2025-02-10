@@ -1,11 +1,10 @@
 #!/bin/bash
 # prove_then_verify produces intermediate state. We use process substitution to make parallel safe.
-set -eu
+set -eux
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 [ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
-[ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
 
 # TODO: Use this when client ivc support write_vk. Currently it keeps its own flow.
 # case ${SYS:-} in
@@ -27,6 +26,32 @@ FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 # Test we can perform the proof/verify flow.
 # This ensures we test independent pk construction through real/garbage witness data paths.
 # We use process substitution pipes to avoid temporary files, which need cleanup, and can collide with parallelism.
-$BIN verify$SYS $FLAGS \
-    -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
-    -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
+
+case ${SYS:-} in
+  "")
+    [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
+    $BIN verify$SYS $FLAGS \
+        -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
+        -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
+    ;;
+  "ultra_honk")
+    FLAGS+=" --scheme $SYS --input_type ${INPUT_TYPE:-compiletime_stack} --output_type bytes --oracle_hash ${HASH:-poseidon2} --ipa_accumulation ${ROLLUP:-false}"
+    # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
+    $BIN verify $FLAGS \
+        -k <($BIN write_vk -o - $FLAGS $BFLAG) \
+        -p <($BIN prove --output_content proof -o - $FLAGS $BFLAG)
+    ;;
+  "ultra_honk_deprecated")
+    # deprecated flow is necessary until we finish C++ api refactor and then align ts api
+    SYS_DEP=_ultra_honk
+    $BIN verify$SYS_DEP $FLAGS \
+        -k <($BIN write_vk$SYS_DEP -o - $FLAGS $BFLAG) \
+        -p <($BIN prove$SYS_DEP -o - $FLAGS $BFLAG)
+    ;;
+  *)
+    [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
+    $BIN verify$SYS $FLAGS \
+        -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
+        -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
+    ;;
+esac

@@ -67,6 +67,8 @@ std::vector<uint8_t> AcirComposer::create_proof()
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
     if (builder_.is_recursive_circuit) {
+        // NOTE(recursive): here it determines which hash type is used for proving; implicit signal about position in a
+        // stack
         vinfo("creating recursive prover...");
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+############ WORKTODO: this file is not in use
+
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 set -eu
