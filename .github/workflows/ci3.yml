@@ -1,3 +1,4 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 name: CI3
 
 on:
@@ -5,10 +6,10 @@ on:
   push:
     branches:
       - master
-  # For AztecProtocol devs.
+  # For AztecProtocol devs. Allows editing workflow files.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
-  # For external devs.
+  # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
@@ -22,9 +23,10 @@ jobs:
   ci-amd64:
     needs: configure
     runs-on: ubuntu-latest
-    # condition: Always allow 'push' and 'workflow_dispatch' jobs.
-    #   Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #   Then, we must also have the correct label/draft conditions.
+    # condition:
+    #   - Always allow 'push' and 'workflow_dispatch' jobs.
+    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    #     Then, we must also have the correct label/draft conditions.
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
@@ -85,10 +87,11 @@ jobs:
 
   ci-arm64:
     runs-on: ubuntu-latest
-    # condition: Always allow 'push' and 'workflow_dispatch' jobs.
-    #   Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #   Then, we must also have the correct label/draft conditions.
-    #   **IMPORTANT** Then, unlike ci-amd64, if we aren't labeled 'arm64-ci', do nothing.
+    # condition:
+    #   - Always allow 'push' and 'workflow_dispatch' jobs.
+    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    #     Then, we must also have the correct label/draft conditions.
+    #     **IMPORTANT** Then, unlike ci-amd64, if we aren't labeled 'arm64-ci', do nothing.
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
