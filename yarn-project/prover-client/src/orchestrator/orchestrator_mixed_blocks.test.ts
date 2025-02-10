@@ -13,7 +13,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
   const runTest = async (numTxs: number) => {
     const txs = await timesParallel(numTxs, i => context.makeProcessedTx(i + 1));
-    await context.setEndTreeRoots(txs);
+    await context.setTreeRoots(txs);
 
     const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 

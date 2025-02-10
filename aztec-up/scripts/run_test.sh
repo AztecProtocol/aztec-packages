@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM
+trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM EXIT
 docker rm -f $1 &>/dev/null || true
 docker run --rm \
   -d \
