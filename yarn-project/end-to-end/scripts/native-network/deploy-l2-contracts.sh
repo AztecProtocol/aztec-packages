@@ -21,7 +21,7 @@ done
 echo "Done waiting."
 
 # TODO(AD): Add option for prover-enabled mode
-ARGS="--skipProofWait"
+ARGS="--skipProofWait --testAccounts"
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
