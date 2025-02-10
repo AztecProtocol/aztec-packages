@@ -131,10 +131,10 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return {
+    ...getP2PConfigFromEnv(),
     ...getDataConfigFromEnv(),
     ...getArchiverConfigFromEnv(),
     ...getProverEnvVars(),
-    ...getP2PConfigFromEnv(),
     ...getWorldStateConfigFromEnv(),
     ...getPublisherConfigFromEnv('PROVER'),
     ...getTxSenderConfigFromEnv('PROVER'),

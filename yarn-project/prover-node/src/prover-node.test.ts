@@ -17,13 +17,13 @@ import {
 } from '@aztec/circuit-types';
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
-import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
+import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/test-helpers';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -147,8 +147,21 @@ describe('prover-node', () => {
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
 
     // Archiver returns a bunch of fake blocks
+    l2BlockSource.getBlocks.mockImplementation((from, limit) => {
+      const startBlockIndex = blocks.findIndex(b => b.number === from);
+      if (startBlockIndex > -1) {
+        return Promise.resolve(blocks.slice(startBlockIndex, startBlockIndex + limit));
+      } else {
+        return Promise.resolve([]);
+      }
+    });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
+    l2BlockSource.getL2Tips.mockResolvedValue({
+      latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
+      proven: { number: 0, hash: undefined },
+      finalized: { number: 0, hash: undefined },
+    });
 
     // Coordination plays along and returns a tx whenever requested
     mockCoordination.getTxsByHash.mockImplementation(hashes =>
@@ -425,6 +438,15 @@ describe('prover-node', () => {
           ts: BigInt(Date.now()),
         });
 
+        await retryUntil(
+          async () => {
+            return (await proverNode.getP2P()!.getPeers()).length > 0;
+          },
+          'wait for peers to connect',
+          20,
+          1,
+        );
+
         // Check that the p2p client receives the quote (casted as any to access private property)
         const p2pEpochReceivedSpy = jest.spyOn((otherP2PClient as any).p2pService, 'processEpochProofQuoteFromPeer');
 
@@ -435,14 +457,15 @@ describe('prover-node', () => {
         await proverNode.handleEpochCompleted(epochNumber);
 
         // Wait for message to be propagated
-        await retry(
+        await retryUntil(
           // eslint-disable-next-line require-await
           async () => {
             // Check the other node received a quote via p2p
-            expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+            return p2pEpochReceivedSpy.mock.calls.length > 0;
           },
           'Waiting for quote to be received',
-          makeBackoff(times(20, () => 1)),
+          20,
+          1,
         );
 
         // We should be able to retreive the quote from the other node

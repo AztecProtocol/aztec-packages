@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../blob-sink"
     },
     {
@@ -29,6 +32,9 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../protocol-contracts"

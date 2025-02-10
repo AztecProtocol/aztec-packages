@@ -57,6 +57,11 @@ export default {
       label: "Build",
     },
     {
+      type: "doc",
+      label: "Get Inspired",
+      id: "developers/inspiration"
+    },
+    {
       type: "html",
       value: '<span class="sidebar-title">Getting Started</span>',
       className: "sidebar-title",
@@ -275,6 +280,7 @@ export default {
       items: [
         "protocol-specs/data-publication-and-availability/overview",
         "protocol-specs/data-publication-and-availability/published-data",
+        "protocol-specs/data-publication-and-availability/blobs",
       ],
     },
     {

@@ -32,7 +32,7 @@ export class ToRadixBE extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.srcOffset, this.radixOffset, this.numLimbsOffset, this.outputBitsOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -76,7 +76,5 @@ export class ToRadixBE extends Instruction {
     const outputType = outputBits != 0 ? Uint1 : Uint8;
     const res = limbArray.map(byte => new outputType(byte));
     memory.setSlice(dstOffset, res);
-
-    memory.assert({ reads: 4, writes: numLimbs, addressing });
   }
 }

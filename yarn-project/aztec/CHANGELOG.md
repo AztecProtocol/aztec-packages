@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.0...aztec-package-v0.76.1) (2025-02-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.75.0...aztec-package-v0.76.0) (2025-02-10)
+
+
+### Features
+
+* **spartan:** Blob sink in spartan ([#11307](https://github.com/AztecProtocol/aztec-packages/issues/11307)) ([d8e5bcc](https://github.com/AztecProtocol/aztec-packages/commit/d8e5bccfe674b4abfa6b645af4d62de976e7bf13))
+
+
+### Miscellaneous
+
+* Check versioning ([#11611](https://github.com/AztecProtocol/aztec-packages/issues/11611)) ([b33f1da](https://github.com/AztecProtocol/aztec-packages/commit/b33f1da9438672766ae8e266b2aa3bf7b5a8964f))
+* **p2p:** Remove min peers option ([#11789](https://github.com/AztecProtocol/aztec-packages/issues/11789)) ([cfb6797](https://github.com/AztecProtocol/aztec-packages/commit/cfb6797ec91a24052498236221372a607d7299be))
+
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.74.0...aztec-package-v0.75.0) (2025-02-06)
+
+
+### Miscellaneous
+
+* Playground name change ([#11720](https://github.com/AztecProtocol/aztec-packages/issues/11720)) ([c5cbf65](https://github.com/AztecProtocol/aztec-packages/commit/c5cbf659ffebff15d3609c0cb92d732133691ea0))
+
 ## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.73.0...aztec-package-v0.74.0) (2025-02-04)
 
 
