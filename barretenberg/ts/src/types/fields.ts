@@ -1,5 +1,5 @@
 import { randomBytes } from '../random/index.js';
-import { toBigIntBE, toBufferBE } from '../bigint-array/index.js';
+import { bufToBigIntBE, toBigIntBE, toBufferBE } from '../bigint-array/index.js';
 import { BufferReader, uint8ArrayToHexString } from '../serialize/index.js';
 
 // TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
@@ -15,9 +15,10 @@ export class Fr {
   static SIZE_IN_BYTES = 32;
   value: Uint8Array;
 
-  constructor(value: Uint8Array | bigint) {
+  constructor(value: Uint8Array | bigint | Buffer) {
     // We convert buffer value to bigint to be able to check it fits within modulus
-    const valueBigInt = typeof value === 'bigint' ? value : toBigIntBE(value);
+    const valueBigInt =
+      typeof value === 'bigint' ? value : value instanceof Buffer ? bufToBigIntBE(value) : toBigIntBE(value);
 
     if (valueBigInt > Fr.MAX_VALUE) {
       throw new Error(`Value 0x${valueBigInt.toString(16)} is greater or equal to field modulus.`);
