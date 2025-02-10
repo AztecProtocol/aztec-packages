@@ -5,26 +5,38 @@ on:
   push:
     branches:
       - master
+  # For AztecProtocol devs.
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-      - labeled
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  # For external devs.
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # On master the group id is the unique run_id so we get parallel runs.
+  # On master (handled by push event) the group id is the unique run_id so we get parallel runs.
   # On PR's the group id is the ref_name so only 1 can run at a time.
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   ci-amd64:
     runs-on: ubuntu-latest
+    # condition: Always allow 'push' and 'workflow_dispatch' jobs.
+    #   Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    #   Then, we must also have the correct label/draft conditions.
     if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        (
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+        ) &&
+        (
+          (github.event.action != 'labeled' && !github.event.pull_request.draft) ||
+          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+        )
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -48,26 +60,43 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           ./ci.sh ec2
-          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
-      - name: Store barretenberg benchmark result
-        if: github.ref == 'refs/heads/master'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: C++ Benchmark
-          tool: "googlecpp"
-          output-file-path: ./bench-out/bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@ludamad @codygunton"
-          max-items-in-chart: 50
+          # ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+      # - name: Store barretenberg benchmark result
+      #   if: github.event_name == 'push'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: C++ Benchmark
+      #     tool: "googlecpp"
+      #     output-file-path: ./bench-out/bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@ludamad @codygunton"
+      #     max-items-in-chart: 50
 
   ci-arm64:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    # condition: Always allow 'push' and 'workflow_dispatch' jobs.
+    #   Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    #   Then, we must also have the correct label/draft conditions.
+    #   **IMPORTANT** Then, unlike ci-amd64, if we aren't labeled 'arm64-ci', do nothing.
+    if: >
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        (
+          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+        ) &&
+        (
+          (github.event.action != 'labeled' && !github.event.pull_request.draft) ||
+          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+        ) &&
+        contains(github.event.pull_request.labels.*.name, 'arm64-ci')
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v3
