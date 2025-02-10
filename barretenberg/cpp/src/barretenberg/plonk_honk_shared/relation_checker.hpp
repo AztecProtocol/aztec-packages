@@ -17,7 +17,7 @@ template <typename Flavor> class RelationChecker {
     /**
      * @brief Check that the provided polynomials satisfy all relations for a given Flavor
      */
-    static bool check_all([[maybe_unused]] const auto& polynomials, [[maybe_unused]] const auto& params)
+    static void check_all([[maybe_unused]] const auto& polynomials, [[maybe_unused]] const auto& params)
     {
         // default; do nothing
     }
@@ -26,7 +26,7 @@ template <typename Flavor> class RelationChecker {
      * @brief Check that a single specified relation is satisfied for a set of polynomials
      */
     template <typename Relation>
-    static bool check(const auto& polynomials, const auto& params, std::string label = "Relation")
+    static void check(const auto& polynomials, const auto& params, std::string label = "Relation")
     {
         // Define the appropriate accumulator type for the relation and initialize to zero
         typename Relation::SumcheckArrayOfValuesOverSubrelations result;
