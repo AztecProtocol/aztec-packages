@@ -2,6 +2,7 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 
+#include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb11/cli11_formatter.hpp"
@@ -277,24 +278,15 @@ int main(int argc, char* argv[])
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
         if (check_witness->parsed()) {
-            // const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            // TODO(#7371): remove this (msgpack version...)
             api.check_witness(flags, bytecode_path, witness_path);
-            // WORKTODO: could throw if proving doesn't complete?
             return 0;
         }
         if (gates->parsed()) {
-            // const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            // TODO(#7371): remove this (msgpack version...)
             api.gates(flags, bytecode_path);
-            // WORKTODO: could throw if proving doesn't complete?
             return 0;
         }
         if (prove->parsed()) {
-            // const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            // TODO(#7371): remove this (msgpack version...)
             api.prove(flags, bytecode_path, witness_path, output_path);
-            // WORKTODO: could throw if proving doesn't complete?
             return 0;
         }
         if (write_vk->parsed()) {
@@ -326,6 +318,10 @@ int main(int argc, char* argv[])
     try {
         if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
+            return execute_command(api);
+        }
+        if (flags.scheme == "client_ivc") {
+            ClientIVCAPI api;
             return execute_command(api);
         }
         throw_or_abort(std::format("No handler for  scheme {}", flags.scheme));
