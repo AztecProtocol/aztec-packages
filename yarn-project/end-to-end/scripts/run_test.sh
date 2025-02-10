@@ -22,8 +22,8 @@ case "$type" in
     docker rm -f $name &>/dev/null || true
     docker run --rm \
       $name_arg \
-      --cpus=4 \
-      --memory 8g \
+      --cpus=${CPUS:-4} \
+      --memory=${MEM:-8g} \
       -v$(git rev-parse --show-toplevel):/root/aztec-packages \
       -v$HOME/.bb-crs:/root/.bb-crs \
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \

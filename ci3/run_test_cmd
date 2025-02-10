@@ -32,7 +32,7 @@ else
   timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
 fi
 timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM
+trap "kill -- -$timeout_pid" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
