@@ -893,6 +893,22 @@ int main(int argc, char* argv[])
     // const std::string vk_path = get_option(args, "-k", "./target/vk");
     std::string vk_path = "./target/vk";
 
+    // std::vector<std::string> args(argv + 1, argv + argc);
+    // debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
+    // verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
+    // if (args.empty()) {
+    //     std::cerr << "No command provided.\n";
+    //     return 1;
+    // }
+
+    // const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
+    uint32_t honk_recursion = 0;
+    // const bool recursive = flag_present(args, "--recursive");
+    bool recursive = true;
+    // const bool zk = flag_present(args, "--zk");
+    bool zk = false;
+    bool ipa_accumulation = false;
+
     const auto add_output_path_option = [&](CLI::App* subcommand, std::string output_path) {
         return subcommand->add_option("--output_path, -o",
                                       output_path,
@@ -1067,22 +1083,6 @@ int main(int argc, char* argv[])
     // WORKTODO doesn't make sense that this is set by -o but that's how it was
     std::string tube_proof_and_vk_path{ "./target" };
     add_output_path_option(OLD_API_verify_tube, tube_proof_and_vk_path);
-
-    // std::vector<std::string> args(argv + 1, argv + argc);
-    // debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
-    // verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
-    // if (args.empty()) {
-    //     std::cerr << "No command provided.\n";
-    //     return 1;
-    // }
-
-    // const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-    uint32_t honk_recursion = 0;
-    // const bool recursive = flag_present(args, "--recursive");
-    bool recursive = true;
-    // const bool zk = flag_present(args, "--zk");
-    bool zk = false;
-    bool ipa_accumulation = false;
 
     CLI11_PARSE(app, argc, argv);
 
