@@ -8,7 +8,7 @@ use dep::types::{
         L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    traits::is_empty,
+    traits::{Empty, is_empty},
     utils::arrays::array_length,
 };
 
