@@ -95,12 +95,13 @@ export class TXEService {
     ]);
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
-      await this.createAccount(secret);
+      await this.addAccount(artifact, instance, secret);
+    } else {
+      await (this.typedOracle as TXE).addContractInstance(instance);
+      await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
-    await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
     return toForeignCallResult([
       toArray([
         instance.salt,
@@ -137,6 +138,7 @@ export class TXEService {
   async createAccount(secret: ForeignCallSingle) {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const secretFr = fromSingle(secret);
+    // This is a footgun !
     const completeAddress = await keyStore.addAccount(secretFr, secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
