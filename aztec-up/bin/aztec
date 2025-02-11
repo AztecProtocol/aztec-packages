@@ -26,6 +26,9 @@ function cleanup {
 
 CALLED_FROM=$PWD
 
+# By default, force colors.
+export FORCE_COLOR=${FORCE_COLOR:-1}
+
 if [ "${1:-}" == "test" ]; then
   # Change working dir, so relative volume mounts are in the right place.
   cd $(dirname $0)/..
