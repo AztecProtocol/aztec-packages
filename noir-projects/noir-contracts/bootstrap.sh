@@ -172,7 +172,7 @@ function test_cmds {
 
 function test {
   # Starting txe servers with incrementing port numbers.
-  NUM_TXES=8
+  export NUM_TXES=8
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) >/dev/null &
