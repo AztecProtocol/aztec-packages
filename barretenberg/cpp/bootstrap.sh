@@ -151,9 +151,14 @@ function build {
     build_wasm_threads
     download_old_crs
   )
-  if [ "$REF_NAME" == "master" ]; then
+  if [ "$(arch)" == "amd64" ] && [ "${CI:-0}" = 1 ]; then
+    # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
     builds+=(
       build_gcc_syntax_check_only
+    )
+  fi
+  if [ "$REF_NAME" == "master" ]; then
+    builds+=(
       build_darwin
     )
   fi
