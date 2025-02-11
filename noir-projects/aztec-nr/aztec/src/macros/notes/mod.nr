@@ -285,8 +285,13 @@ pub(crate) comptime fn generate_note_export(
     }
 }
 
+/// Number of fixed generators used to ensure that we don't have a collision of indices in derive_generators(...) in
+/// the generate_multi_scalar_mul(...) function. If the indices collided this could result in a critical vulnerability
+/// (e.g. in case of G_slot collision with other another note field an attacker could move a note to an arbitrary
+/// slot).
 global NUM_FIXED_GENERATORS: u32 = 2;
 
+/// Generates G_slot and G_len generator point quotes.
 comptime fn generate_fixed_generators() -> (Quoted, Quoted) {
     let generators: [Point; NUM_FIXED_GENERATORS] =
         derive_generators("aztec_nr_generators".as_bytes(), 0);
@@ -329,6 +334,7 @@ comptime fn generate_multi_scalar_mul(
     let mut aux_vars_list = &[];
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
+        // We add NUM_FIXED_GENERATORS to the start index to avoid collision with fixed generators.
         let start_generator_index = NUM_FIXED_GENERATORS + index;
         let (serialization_fields, aux_vars) =
             generate_serialize_to_fields(field_name, typ, &[], true);
