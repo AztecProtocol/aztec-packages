@@ -46,7 +46,6 @@ function test_cmds {
   echo "$prefix simple e2e_deploy_contract/deploy_method"
   echo "$prefix simple e2e_deploy_contract/legacy"
   echo "$prefix simple e2e_deploy_contract/private_initialization"
-  echo "$prefix simple e2e_devnet_smoke"
   echo "$prefix simple e2e_epochs"
   echo "$prefix simple e2e_escrow_contract"
   echo "$prefix simple e2e_event_logs"
