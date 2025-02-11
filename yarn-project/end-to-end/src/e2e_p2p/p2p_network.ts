@@ -261,7 +261,6 @@ export class P2PNetworkTest {
       deployAccounts(1, this.logger, false),
       async ({ deployedAccounts }, { pxe }) => {
         this.deployedAccounts = deployedAccounts;
-        this.prefilledPublicData = (await getGenesisValues(deployedAccounts.map(a => a.address))).prefilledPublicData;
         const [account] = deployedAccounts;
         this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
       },
@@ -312,6 +311,11 @@ export class P2PNetworkTest {
 
   async setup() {
     this.ctx = await this.snapshotManager.setup();
+
+    this.prefilledPublicData = (
+      await getGenesisValues(this.ctx.initialFundedAccounts.map(a => a.address))
+    ).prefilledPublicData;
+
     this.startSyncMockSystemTimeInterval();
 
     this.gasUtils = new L1TxUtilsWithBlobs(
