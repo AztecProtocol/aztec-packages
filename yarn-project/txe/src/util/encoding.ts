@@ -27,6 +27,19 @@ export function fromArray(obj: ForeignCallArray) {
   return obj.map(str => Fr.fromBuffer(hexToBuffer(str)));
 }
 
+/**
+ * Converts an array of Noir unsigned integers to a single tightly-packed buffer.
+ * @param uintBitSize If it's an array of Noir u8's, put `8`, etc.
+ * @returns
+ */
+export function fromUintArray(obj: ForeignCallArray, uintBitSize: number) {
+  if (uintBitSize % 8 === 0) {
+    throw new Error(`u${uintBitSize} is not a supported type in Noir`);
+  }
+  const uintByteSize = uintBitSize / 8;
+  return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
+}
+
 export function toSingle(obj: Fr | AztecAddress) {
   return obj.toString().slice(2);
 }
