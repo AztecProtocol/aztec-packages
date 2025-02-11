@@ -36,7 +36,6 @@ pub contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::capsules,
         test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };

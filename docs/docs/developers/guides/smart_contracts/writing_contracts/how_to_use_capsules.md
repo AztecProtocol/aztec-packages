@@ -1,5 +1,5 @@
 ---
-title: Using the popCapsule Oracle
+title: Using the Capsules
 sidebar_position: 5
 tags: [functions, oracles]
 ---
@@ -10,10 +10,10 @@ tags: [functions, oracles]
 
 If it lies in the same directory as your smart contract, you can import it like this:
 
-#include_code import_pop_capsule noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr rust
+#include_code import_capsules noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr rust
 
 ### 2. Use it as any other oracle
 
 Now it becomes a regular oracle you can call like this:
 
-#include_code pop_capsule noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr rust
+#include_code load_capsule noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr rust
