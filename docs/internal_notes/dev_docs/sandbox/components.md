@@ -137,7 +137,6 @@ Implementation notes for this milestone:
 - Can be used as both the spending and decryption key for early development.
 
 ### Private Execution Environment (PXE)
-
 ![](https://hackmd.io/_uploads/ryS0sOLyh.png)
 
 Implements:

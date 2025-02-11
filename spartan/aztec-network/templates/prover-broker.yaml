@@ -27,13 +27,13 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-broker
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
       {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
@@ -137,6 +137,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-broker
 spec:
   type: ClusterIP
   selector:

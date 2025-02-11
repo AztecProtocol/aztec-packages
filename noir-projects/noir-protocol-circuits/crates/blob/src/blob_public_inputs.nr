@@ -1,5 +1,6 @@
 use crate::config::F;
-use bigint::BigNum;
+use bigint::{BigNum, bignum::BigNumTrait};
+use std::ops::Add;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
     traits::{Deserialize, Empty, Serialize},
@@ -49,7 +50,7 @@ impl BlobPublicInputs {
 
 impl Empty for BlobPublicInputs {
     fn empty() -> Self {
-        Self { z: 0, y: BigNum::new(), kzg_commitment: BlobCommitment::empty() }
+        Self { z: 0, y: BigNum::zero(), kzg_commitment: BlobCommitment::empty() }
     }
 }
 

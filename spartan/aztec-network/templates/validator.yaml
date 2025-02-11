@@ -35,11 +35,11 @@ spec:
       {{- end }}
 
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
@@ -237,6 +237,10 @@ spec:
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
@@ -273,6 +277,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-validator
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
 spec:
   clusterIP: None
   selector:

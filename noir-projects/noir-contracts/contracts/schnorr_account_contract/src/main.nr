@@ -5,7 +5,7 @@ mod public_key_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract SchnorrAccount {
+pub contract SchnorrAccount {
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
@@ -25,7 +25,9 @@ contract SchnorrAccount {
 
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_key
         signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        // docs:end:public_key
     }
 
     // Constructs the contract

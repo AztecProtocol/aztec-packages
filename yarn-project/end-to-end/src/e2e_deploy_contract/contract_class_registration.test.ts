@@ -21,7 +21,7 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, PublicKeys, computeContractClassId } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage, PublicKeys } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
@@ -76,7 +76,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
     // TODO(#10007) Remove this test as well.
     it('starts archiver with pre-registered common contracts', async () => {
-      const classId = await computeContractClassId(await getContractClassFromArtifact(TokenContractArtifact));
+      const { id: classId } = await getContractClassFromArtifact(TokenContractArtifact);
       // The node checks the registration nullifier
       expect(await aztecNode.getContractClass(classId)).toBeUndefined();
       // But the archiver does not

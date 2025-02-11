@@ -24,8 +24,8 @@ class IPATest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using ClaimBatcher = ShpleminiVerifier::ClaimBatcher;
-    using ClaimBatch = ShpleminiVerifier::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     static std::shared_ptr<CK> ck;
     static std::shared_ptr<VK> vk;
@@ -248,7 +248,12 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
 
-    auto instance_witness = MockWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 0,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -257,7 +262,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
@@ -265,12 +270,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point,
-                                            RefVector(instance_witness.unshifted_evals),
-                                            RefVector(instance_witness.shifted_evals),
-                                            RefVector(instance_witness.unshifted_commitments),
-                                            RefVector(instance_witness.to_be_shifted_commitments),
-                                            verifier_transcript);
+        GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
 
     const auto shplonk_verifier_claim =
         ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
@@ -283,7 +283,12 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto instance_witness = MockWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 0,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -292,14 +297,14 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        small_n, instance_witness.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
+        small_n, mock_claims.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -315,7 +320,12 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    auto instance_witness = MockWitnessGenerator(small_n, 4, 2, mle_opening_point, ck);
+    MockClaimGenerator mock_claims(small_n,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 2,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   mle_opening_point,
+                                   ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -325,7 +335,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, instance_witness.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
@@ -346,7 +356,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_n,
-                                                                                    instance_witness.claim_batcher,
+                                                                                    mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk->get_g1_identity(),
                                                                                     verifier_transcript,

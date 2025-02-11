@@ -4,23 +4,18 @@ title: Merge Rollup
 
 The Merge rollup circuit is our in-between circuit, it doesn't need to perform any state updates, but mainly check the consistency of its inputs.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph LR
 A[MergeRollupInputs] --> C[MergeRollupCircuit] --> B[BaseOrMergeRollupPublicInputs]
-</Mermaid>
 ```
+
+<!-- TODO: this is all very out of date -->
 
 ## Overview
 
 Below is a subset of the data structures figure from earlier for easy reference.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 classDiagram
 direction TB
 
@@ -75,7 +70,6 @@ class MergeRollupInputs {
 }
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
-</Mermaid>
 ```
 
 ### Validity Conditions
@@ -91,14 +85,16 @@ def MergeRollupCircuit(
     assert left.public_inputs.constants == right.public_inputs.constants
     assert left.public_inputs.end == right.public_inputs.start
     assert left.public_inputs.num_txs >= right.public_inputs.num_txs
+    assert left.public_inputs.end_sponge == right.public_inputs.start_sponge
 
     return BaseOrMergeRollupPublicInputs(
         type=1,
         num_txs=left.public_inputs.num_txs + right.public_inputs.num_txs,
-        txs_effect_hash=SHA256(left.public_inputs.txs_effect_hash | right.public_inputs.txs_effect_hash),
         out_hash=SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         start=left.public_inputs.start,
         end=right.public_inputs.end,
+        start_sponge=left.public_inputs.start_sponge,
+        end_sponge=right.public_inputs.end_sponge,
         constants=left.public_inputs.constants
     )
 ```

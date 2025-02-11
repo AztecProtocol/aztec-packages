@@ -1,6 +1,6 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import {
+  EthCheatCodes,
   createEthereumChain,
   getExpectedAddress,
   getL1ContractsConfigEnvVars,
@@ -58,7 +58,7 @@ export async function addL1Validator({
   });
 
   const stakingAsset = getContract({
-    address: await rollup.read.STAKING_ASSET(),
+    address: await rollup.read.getStakingAsset(),
     abi: TestERC20Abi,
     client: walletClient,
   });

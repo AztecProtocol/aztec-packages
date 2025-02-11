@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.externalHost }}
+{{- if and (not .Values.ethereum.execution.externalHost) .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,12 +17,12 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: faucet
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.gke }}
       nodeSelector:
         node-type: network
       {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
@@ -105,6 +105,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-faucet
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: faucet
 spec:
   type: ClusterIP
   selector:

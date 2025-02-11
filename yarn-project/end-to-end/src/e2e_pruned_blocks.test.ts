@@ -2,12 +2,12 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  type CheatCodes,
   type Logger,
   MerkleTreeId,
   type Wallet,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type CheatCodes } from '@aztec/aztec.js/utils';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from './fixtures/utils.js';

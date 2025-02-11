@@ -1,4 +1,4 @@
-import { MerkleTreeId, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
 import {
   type AvmCircuitPublicInputs,
   CallContext,
@@ -15,9 +15,8 @@ import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
@@ -44,10 +43,20 @@ export type TestEnqueuedCall = {
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
+  constructor(
+    private worldStateDB: WorldStateDB,
+    contractDataSource: SimpleContractDataSource,
+    merkleTrees: MerkleTreeWriteOperations,
+    skipContractDeployments: boolean,
+  ) {
+    super(contractDataSource, merkleTrees, skipContractDeployments);
+  }
+
   public static async create(skipContractDeployments = false): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
-    return new PublicTxSimulationTester(contractDataSource, merkleTrees, skipContractDeployments);
+    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
   }
 
   public async simulateTx(
@@ -61,8 +70,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     globals.timestamp = TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
 
-    const worldStateDB = new WorldStateDB(this.merkleTrees, this.contractDataSource);
-    const simulator = new PublicTxSimulator(this.merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
@@ -119,7 +127,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       feePayer,
     );
 
+    const startTime = performance.now();
     const avmResult = await simulator.simulate(tx);
+    const endTime = performance.now();
+    this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
     if (avmResult.revertCode.isOK()) {
       await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);
