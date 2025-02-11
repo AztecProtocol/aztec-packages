@@ -7,7 +7,7 @@ on:
         description: 'Username'
         required: true
       runner_type:
-        description: 'Runner type (optional)'
+        description: 'Runner type'
         default: builder-x86
         required: true
 jobs:
