@@ -496,6 +496,7 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+// Note hash generator index which can be used by custom implementations of NoteInterface::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -544,11 +545,10 @@ pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
 pub global GENERATOR_INDEX__TSK_M: u32 = 51;
 pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 56;
-
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 57;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 58;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;

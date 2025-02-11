@@ -119,14 +119,14 @@ comptime fn generate_note_interface(
         generate_multi_scalar_mul(prefixed_merged_fields);
 
     let new_generators = new_generators_list
-        .push_back(quote { aztec::generators::G_slot })
-        .push_back(quote { aztec::generators::G_len })
+        .push_front(quote { aztec::generators::G_len })
+        .push_front(quote { aztec::generators::G_slot })
         .join(quote {,});
 
     let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
-        .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
-        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
+        .push_front(quote { std::hash::from_field_unsafe($merged_fields_len) })
+        .push_front(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
         .join(quote {,});
 
     (

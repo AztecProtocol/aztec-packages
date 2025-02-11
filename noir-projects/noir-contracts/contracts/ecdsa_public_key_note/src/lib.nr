@@ -2,14 +2,11 @@ use dep::aztec::prelude::{NoteHeader, NoteInterface, NullifiableNote, PrivateCon
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_nullify, keys::getters::{get_nsk_app, get_public_keys},
-    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
+    protocol_types::{address::AztecAddress, constants::{GENERATOR_INDEX__NOTE_NULLIFIER, GENERATOR_INDEX__NOTE_HASH}, hash::poseidon2_hash_with_separator},
     macros::notes::note_custom_interface
 };
 
-use std::hash::from_field_unsafe;
-
 global ECDSA_PUBLIC_KEY_NOTE_LEN: u32 = 5;
-global NOTE_HASH_SEPARATOR: u32 = 1744684982; // Arbitrary generator index
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
@@ -83,7 +80,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
         // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
         // constraints.
-        poseidon2_hash_with_separator(self.pack_content(), NOTE_HASH_SEPARATOR)
+        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
     }
 }
 
