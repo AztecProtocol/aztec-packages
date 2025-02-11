@@ -48,8 +48,7 @@ class TranscriptManifest {
         }
     }
 
-    template <typename... Strings>
-    void add_challenge([[maybe_unused]] size_t round, [[maybe_unused]] Strings&... labels)
+    template <typename... Strings> void add_challenge(size_t round, Strings&... labels)
     {
         manifest[round].challenge_label = { labels... };
     }
@@ -66,9 +65,7 @@ class TranscriptManifest {
         call_add_challenge();
     }
 
-    void add_entry([[maybe_unused]] size_t round,
-                   [[maybe_unused]] const std::string& element_label,
-                   [[maybe_unused]] size_t element_size)
+    void add_entry(size_t round, const std::string& element_label, size_t element_size)
     {
         manifest[round].entries.emplace_back(element_label, element_size);
     }
