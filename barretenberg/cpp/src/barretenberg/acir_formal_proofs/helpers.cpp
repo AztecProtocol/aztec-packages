@@ -47,17 +47,37 @@ smt_circuit::STerm shr(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver:
 smt_circuit::STerm shl64(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    // 2^64 - 1
-    auto mask = smt_terms::BVConst("18446744073709551615", solver, 10);
-    auto res = shifted & mask;
+    auto res = shifted.truncate(63);
     return res;
 }
 
 smt_circuit::STerm shl32(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    // 2^32 - 1
-    auto mask = smt_terms::BVConst("4294967295", solver, 10);
-    auto res = shifted & mask;
+    auto res = shifted.truncate(31);
+    return res;
+}
+
+smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size, smt_solver::Solver* solver)
+{
+    // highest bit of v0 and v1 is sign bit
+    smt_circuit::STerm exponent = smt_terms::BVConst(std::to_string(bit_size), solver, 10);
+    auto sign_bit_v0 = v0.extract_bit(bit_size - 1);
+    auto sign_bit_v1 = v1.extract_bit(bit_size - 1);
+    auto res_sign_bit = sign_bit_v0 ^ sign_bit_v1;
+    res_sign_bit <<= bit_size - 1;
+    auto abs_value_v0 = v0.truncate(bit_size - 2);
+    auto abs_value_v1 = v1.truncate(bit_size - 2);
+    auto abs_res = abs_value_v0 / abs_value_v1;
+
+    // if abs_value_v0 == 0 then res = 0
+    // in our context we use idiv only once, so static name for the division result okay.
+    auto res = smt_terms::BVVar("res_signed_division", solver);
+    auto condition = smt_terms::Bool(abs_value_v0, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10));
+    auto eq1 = condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10)));
+    auto eq2 = !condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(res_sign_bit | abs_res, solver));
+
+    (eq1 | eq2).assert_term();
+
     return res;
 }
