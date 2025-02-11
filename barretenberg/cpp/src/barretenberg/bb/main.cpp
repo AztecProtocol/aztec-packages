@@ -1,8 +1,13 @@
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+
 #include "barretenberg/api/api.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_flag_types.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/bb11/cli11_formatter.hpp"
 #include "barretenberg/common/benchmark.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/timer.hpp"
@@ -871,182 +876,286 @@ bool flag_present(std::vector<std::string>& args, const std::string& flag)
     return std::find(args.begin(), args.end(), flag) != args.end();
 }
 
-std::string get_option(std::vector<std::string>& args, const std::string& option, const std::string& defaultValue)
-{
-    auto itr = std::find(args.begin(), args.end(), option);
-    return (itr != args.end() && std::next(itr) != args.end()) ? *(std::next(itr)) : defaultValue;
-}
-
 int main(int argc, char* argv[])
 {
-    std::vector<std::string> args(argv + 1, argv + argc);
-    debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
-    verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
-    if (args.empty()) {
-        std::cerr << "No command provided.\n";
-        return 1;
-    }
+    std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
+                       "programming language.";
+    CLI::App app{ name };
+    argv = app.ensure_utf8(argv);
+    app.formatter(std::make_shared<Formatter>());
 
-    const std::string command = args[0];
-    const std::string proof_system = get_option(args, "--scheme", "");
-    const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
-    const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-    const std::string proof_path = get_option(args, "-p", "./target/proof");
-    const std::string vk_path = get_option(args, "-k", "./target/vk");
-    const std::string pk_path = get_option(args, "-r", "./target/pk");
+    // const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
+    std::string bytecode_path = "./target/program.json";
+    // const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
+    std::string witness_path = "./target/witness.gz";
+    // const std::string proof_path = get_option(args, "-p", "./target/proof");
+    std::string proof_path = "./target/proof";
+    // const std::string vk_path = get_option(args, "-k", "./target/vk");
+    std::string vk_path = "./target/vk";
 
-    const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-    const bool recursive = flag_present(args, "--recursive");
-    const bool zk = flag_present(args, "--zk");
-    CRS_PATH = get_option(args, "-c", CRS_PATH);
-
-    vinfo(std::format("bb command is {} --scheme {}", command, proof_system));
-
-    const API::Flags flags = [&]() {
-        return API::Flags{
-            .zk = zk,
-            .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
-            .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
-            .oracle_hash_type = get_option(args, "--oracle_hash", "poseidon2"),
-            .output_data_type = get_option(args, "--output_data", "bytes"),
-            .input_type = get_option(args, "--input_type", "compiletime_stack"),
-            .output_content_type = get_option(args, "--output_content", "proof"),
-        };
-    }();
-
-    const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
-        info(flags);
-        if (command == "prove") {
-            const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            // TODO(#7371): remove this (msgpack version...)
-            api.prove(flags, bytecode_path, witness_path, output_dir);
-            // WORKTODO: could throw if proving doesn't complete?
-            return 0;
-        } else if (command == "verify") {
-            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
-        } else if (command == "prove_and_verify") {
-            return api.prove_and_verify(flags, bytecode_path, witness_path) ? 0 : 1;
-        } else if (command == "write_vk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            info("writing vk to ", output_path);
-            api.write_vk(flags, bytecode_path, output_path);
-            return 0;
-        } else if (command == "contract") {
-            const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
-            api.contract(flags, output_path, vk_path);
-            return 0;
-        } else {
-            throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
-            return 1;
-        }
+    const auto add_output_path_option = [&](CLI::App* subcommand, std::string output_path) {
+        return subcommand->add_option("--output_path, -o",
+                                      output_path,
+                                      "Directory to write files or path of file to write, depending on subcommand.");
     };
 
+    CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API gates_for_ivc
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "IOU");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API gates_mega_honk
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "IOU");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
+        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "IOU");
+    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
+    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API write_recursion_inputs_ultra_honk
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
+        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "IOU");
+    std::string recursion_inputs_output_path{ "./target" };
+    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API gates
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "IOU");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API prove
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "IOU");
+    std::string plonk_prove_output_path{ "./proofs/proof" };
+    add_output_path_option(OLD_API_prove, plonk_prove_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API prove_output_all
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "IOU");
+    std::string plonk_prove_output_all_output_path{ "./proofs" };
+    add_output_path_option(OLD_API_prove_output_all, plonk_prove_output_all_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API verify
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "IOU");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API prove_and_verify
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "IOU");
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API contract
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_contract = OLD_API->add_subcommand("contract", "IOU");
+    std::string plonk_contract_output_path{ "./target/contract.sol" };
+    add_output_path_option(OLD_API_contract, plonk_contract_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API write_vk
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "IOU");
+    std::string plonk_vk_output_path{ "./target/vk" };
+    add_output_path_option(OLD_API_write_vk, plonk_vk_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API write_pk
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "IOU");
+    std::string plonk_pk_output_path{ "./target/pk" };
+    add_output_path_option(OLD_API_write_pk, plonk_pk_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API proof_as_fields
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "IOU");
+    std::string plonk_proof_as_fields_output_path{ proof_path + "_fields.json" };
+    add_output_path_option(OLD_API_proof_as_fields, plonk_proof_as_fields_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API vk_as_fields
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "IOU");
+    std::string plonk_vk_as_fields_output_path{ vk_path + "_fields.json" };
+    add_output_path_option(OLD_API_vk_as_fields, plonk_vk_as_fields_output_path);
+
+#ifndef DISABLE_AZTEC_VM
+    std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
+    const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
+    };
+    std::filesystem::path avm_hints_path{ "./target/avm_hints.bin" };
+    const auto add_avm_hints_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--avm-hints", avm_hints_path, "");
+    };
+    std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
+    const auto add_avm_public_inputs_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--avm-public-inputs", avm_public_inputs_path, "");
+    };
+    extern std::filesystem::path avm_dump_trace_path;
+    const auto add_avm_dump_trace_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--avm-dump-trace", avm_dump_trace_path, "");
+    };
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm2_prove
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm2_prove = OLD_API->add_subcommand("avm2_prove", "IOU");
+    std::filesystem::path avm2_prove_output_path{ "./proofs" };
+    add_output_path_option(OLD_API_avm2_prove, avm2_prove_output_path);
+    add_avm_inputs_option(OLD_API_avm2_prove);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm2_check_circuit
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm2_check_circuit = OLD_API->add_subcommand("avm2_check_circuit", "IOU");
+    add_avm_inputs_option(OLD_API_avm2_check_circuit);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm2_verify
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm2_verify = OLD_API->add_subcommand("avm2_verify", "IOU");
+    add_avm_public_inputs_option(OLD_API_avm2_verify);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm_check_circuit
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm_check_circuit = OLD_API->add_subcommand("avm_check_circuit", "IOU");
+    add_avm_hints_option(OLD_API_avm_check_circuit);
+    add_avm_public_inputs_option(OLD_API_avm_check_circuit);
+    add_avm_dump_trace_option(OLD_API_avm_check_circuit);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm_prove
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm_prove = OLD_API->add_subcommand("avm_prove", "IOU");
+    std::filesystem::path avm_prove_output_path{ "./proofs" };
+    add_output_path_option(OLD_API_avm_prove, avm_prove_output_path);
+    add_avm_hints_option(OLD_API_avm_prove);
+    add_avm_public_inputs_option(OLD_API_avm_prove);
+    add_avm_dump_trace_option(OLD_API_avm_prove);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API avm_verify
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_avm_verify = OLD_API->add_subcommand("avm_verify", "IOU");
+#endif
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API prove_tube
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_prove_tube = OLD_API->add_subcommand("prove_tube", "IOU");
+    std::string prove_tube_output_path{ "./target" };
+    add_output_path_option(OLD_API_prove_tube, prove_tube_output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API verify_tube
+     ***************************************************************************************************************/
+    CLI::App* OLD_API_verify_tube = OLD_API->add_subcommand("verify_tube", "IOU");
+    // WORKTODO doesn't make sense that this is set by -o but that's how it was
+    std::string tube_proof_and_vk_path{ "./target" };
+    add_output_path_option(OLD_API_verify_tube, tube_proof_and_vk_path);
+
+    // std::vector<std::string> args(argv + 1, argv + argc);
+    // debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
+    // verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
+    // if (args.empty()) {
+    //     std::cerr << "No command provided.\n";
+    //     return 1;
+    // }
+
+    // const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
+    uint32_t honk_recursion = 0;
+    // const bool recursive = flag_present(args, "--recursive");
+    bool recursive = true;
+    // const bool zk = flag_present(args, "--zk");
+    bool zk = false;
+    bool ipa_accumulation = false;
+
+    CLI11_PARSE(app, argc, argv);
+
     try {
-        // Skip CRS initialization for any command which doesn't require the CRS.
-        if (command == "--version") {
-            write_string_to_stdout(BB_VERSION);
-            return 0;
-        }
         // CLIENT IVC
-        if (proof_system == "client_ivc") {
-            ClientIVCAPI api;
-            return execute_command(command, flags, api);
-        } else if (command == "gates_for_ivc") {
+        if (OLD_API_gates_for_ivc->parsed()) {
             gate_count_for_ivc(bytecode_path);
-        } else if (command == "gates_mega_honk") {
+        } else if (OLD_API_gates_mega_honk->parsed()) {
             gate_count<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
-        } else if (command == "write_arbitrary_valid_client_ivc_proof_and_vk_to_file") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(output_path);
+        } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
+            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
         }
         // ULTRA HONK
-        else if (proof_system == "ultra_honk") {
-            UltraHonkAPI api;
-            return execute_command(command, flags, api);
-        } else if (command == "write_recursion_inputs_ultra_honk") {
-            std::string output_path = get_option(args, "-o", "./target");
-            if (flags.ipa_accumulation) {
-                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path);
+        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
+            if (ipa_accumulation) {
+                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
+                    bytecode_path, witness_path, recursion_inputs_output_path);
             } else {
-                write_recursion_inputs_ultra_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+                write_recursion_inputs_ultra_honk<UltraFlavor>(
+                    bytecode_path, witness_path, recursion_inputs_output_path);
             }
         }
         // ULTRA PLONK
-        else if (command == "gates") {
+        else if (OLD_API_gates->parsed()) {
             gate_count<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
-        } else if (command == "prove") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs");
-            prove_output_all(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "verify") {
+        } else if (OLD_API_prove->parsed()) {
+            prove(bytecode_path, witness_path, plonk_prove_output_path, recursive);
+        } else if (OLD_API_prove_output_all->parsed()) {
+            prove_output_all(bytecode_path, witness_path, plonk_prove_output_all_output_path, recursive);
+        } else if (OLD_API_verify->parsed()) {
             return verify(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "prove_and_verify") {
+        } else if (OLD_API_prove_and_verify->parsed()) {
             return prove_and_verify(bytecode_path, recursive, witness_path) ? 0 : 1;
-        } else if (command == "contract") {
-            std::string output_path = get_option(args, "-o", "./target/contract.sol");
-            contract(output_path, vk_path);
-        } else if (command == "write_vk") {
-            std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk(bytecode_path, output_path, recursive);
-        } else if (command == "write_pk") {
-            std::string output_path = get_option(args, "-o", "./target/pk");
-            write_pk(bytecode_path, output_path, recursive);
-        } else if (command == "proof_as_fields") {
-            std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
-            proof_as_fields(proof_path, vk_path, output_path);
-        } else if (command == "vk_as_fields") {
-            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields(vk_path, output_path);
+        } else if (OLD_API_contract->parsed()) {
+            contract(plonk_contract_output_path, vk_path);
+        } else if (OLD_API_write_vk->parsed()) {
+            write_vk(bytecode_path, plonk_vk_output_path, recursive);
+        } else if (OLD_API_write_pk->parsed()) {
+            write_pk(bytecode_path, plonk_pk_output_path, recursive);
+        } else if (OLD_API_proof_as_fields->parsed()) {
+            proof_as_fields(proof_path, vk_path, plonk_proof_as_fields_output_path);
+        } else if (OLD_API_vk_as_fields->parsed()) {
+            vk_as_fields(vk_path, plonk_vk_as_fields_output_path);
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        else if (command == "avm2_prove") {
-            std::filesystem::path inputs_path = get_option(args, "--avm-inputs", "./target/avm_inputs.bin");
+        else if (OLD_API_avm2_prove->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            std::filesystem::path output_path = get_option(args, "-o", "./proofs");
-            avm2_prove(inputs_path, output_path);
-        } else if (command == "avm2_check_circuit") {
-            std::filesystem::path inputs_path = get_option(args, "--avm-inputs", "./target/avm_inputs.bin");
-            avm2_check_circuit(inputs_path);
-        } else if (command == "avm2_verify") {
-            std::filesystem::path public_inputs_path =
-                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
-            return avm2_verify(proof_path, public_inputs_path, vk_path) ? 0 : 1;
-        } else if (command == "avm_check_circuit") {
-            std::filesystem::path avm_public_inputs_path =
-                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
-            std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
-            extern std::filesystem::path avm_dump_trace_path;
-            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
+            avm2_prove(avm_inputs_path, avm2_prove_output_path);
+        } else if (OLD_API_avm2_check_circuit->parsed()) {
+            avm2_check_circuit(avm_inputs_path);
+        } else if (OLD_API_avm2_verify->parsed()) {
+            return avm2_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+        } else if (OLD_API_avm_check_circuit->parsed()) {
             avm_check_circuit(avm_public_inputs_path, avm_hints_path);
-        } else if (command == "avm_prove") {
-            std::filesystem::path avm_public_inputs_path =
-                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
-            std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
+        } else if (OLD_API_avm_prove->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            std::filesystem::path output_path = get_option(args, "-o", "./proofs");
-            extern std::filesystem::path avm_dump_trace_path;
-            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
-            avm_prove(avm_public_inputs_path, avm_hints_path, output_path);
-        } else if (command == "avm_verify") {
+            avm_prove(avm_public_inputs_path, avm_hints_path, avm_prove_output_path);
+        } else if (OLD_API_avm_verify->parsed()) {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         }
 #endif
         // TUBE
-        else if (command == "prove_tube") {
-            std::string output_path = get_option(args, "-o", "./target");
-            prove_tube(output_path);
-        } else if (command == "verify_tube") {
-            std::string output_path = get_option(args, "-o", "./target");
-            auto tube_proof_path = output_path + "/proof";
-            auto tube_vk_path = output_path + "/vk";
+        else if (OLD_API_prove_tube->parsed()) {
+            prove_tube(prove_tube_output_path);
+        } else if (OLD_API_verify_tube->parsed()) {
+            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
+            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = 1 }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
         } else {
-            std::cerr << "Unknown command: " << command << "\n";
+            info("No matcher for API command");
             return 1;
         }
     } catch (std::runtime_error const& err) {
