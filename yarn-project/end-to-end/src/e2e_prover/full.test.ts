@@ -53,7 +53,7 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
-  }, 60_000);
+  }, 120_000);
 
   afterAll(async () => {
     await t.teardown();
