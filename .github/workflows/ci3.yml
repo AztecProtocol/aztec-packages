@@ -21,7 +21,6 @@ concurrency:
 
 jobs:
   ci-amd64:
-    needs: configure
     runs-on: ubuntu-latest
     # condition:
     #   - Always allow 'push' and 'workflow_dispatch' jobs.
