@@ -67,7 +67,6 @@ export async function makeTestP2PClient(
     udpAnnounceAddress: addr,
     bootstrapNodes: peers,
     peerCheckIntervalMS: 1000,
-    minPeerCount: 1,
     maxPeerCount: 10,
     ...p2pConfigOverrides,
   } as P2PConfig & DataStoreConfig;

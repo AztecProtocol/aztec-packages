@@ -24,6 +24,9 @@ function test {
   while ! nc -z 127.0.0.1 45730 &>/dev/null; do sleep 1; done
 
   test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar --halt now,fail=1 'dump_fail {} >/dev/null')
+
+  # Run the macro compilation failure tests
+  ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
 }
 
 case "$cmd" in
@@ -32,6 +35,9 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "test-macro-compilation-failure")
+    ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
     ;;
   *)
     echo_stderr "Unknown command: $cmd"
