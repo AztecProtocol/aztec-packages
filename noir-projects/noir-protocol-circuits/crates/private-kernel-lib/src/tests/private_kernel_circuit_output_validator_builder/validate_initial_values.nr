@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::address::AztecAddress;
+use dep::types::{address::AztecAddress, traits::FromField};
 
 #[test]
 fn validate_initial_values_empty_data_succeeds() {
