@@ -110,6 +110,7 @@ describe('prover/orchestrator', () => {
       beforeEach(async () => {
         context = await TestContext.new(logger);
         ({ prover, orchestrator, globalVariables } = context);
+        previousBlockHeader = context.getPreviousBlockHeader();
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {

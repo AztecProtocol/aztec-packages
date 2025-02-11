@@ -1,6 +1,6 @@
 use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData, address::AztecAddress,
-    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::root::root_from_sibling_path,
+    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::root::root_from_sibling_path, traits::ToField,
 };
 
 pub fn validate_contract_address(

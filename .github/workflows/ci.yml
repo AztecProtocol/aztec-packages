@@ -95,8 +95,7 @@ jobs:
             noir:
               - 'noir/noir-repo/**'
             bb:
-              - 'barretenberg/cpp/**'
-              - 'barretenberg/acir_tests/**'
+              - 'barretenberg/**'
             noir-projects:
               - 'noir-projects/**'
             yarn-project:
