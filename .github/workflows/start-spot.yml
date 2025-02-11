@@ -6,6 +6,9 @@ on:
       username:
         description: 'Username (optional)'
         required: true
+      runner_type:
+        description: 'Runner type (optional)'
+        default: builder-x86
 jobs:
   start-build:
     uses: ./.github/workflows/setup-runner.yml
