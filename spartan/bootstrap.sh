@@ -85,7 +85,7 @@ case "$cmd" in
   "metrics-kind")
     metrics/install-kind.sh
     ;;
-  "metrics-prod")
+"metrics-prod")
     metrics/install-prod.sh
     ;;
   "network-shaping")
