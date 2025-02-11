@@ -61,11 +61,11 @@ export class TestBroker implements ProvingJobProducer {
     private proofStore: ProofStore = new InlineProofStore(),
     agentPollInterval = 100,
   ) {
+    this.broker = new ProvingBroker(new InMemoryBrokerDatabase());
     this.agents = times(
       agentCount,
       () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
     );
-    this.broker = new ProvingBroker(new InMemoryBrokerDatabase());
     this.facade = new BrokerCircuitProverFacade(this.broker, proofStore);
   }
 
