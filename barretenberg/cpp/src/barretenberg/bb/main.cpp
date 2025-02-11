@@ -295,10 +295,10 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
  * @param output_path Path to write the proof to
  * @param recursive Whether to use recursive proof generation of non-recursive
  */
-void prove(const std::string& bytecode_path,
-           const std::string& witness_path,
-           const std::string& output_path,
-           const bool recursive)
+void prove_ultra_plonk(const std::string& bytecode_path,
+                       const std::string& witness_path,
+                       const std::string& output_path,
+                       const bool recursive)
 {
     auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
     auto witness = get_witness(witness_path);
@@ -329,10 +329,10 @@ void prove(const std::string& bytecode_path,
  * @param output_path Directory into which we write the proof and verification key data
  * @param recursive Whether to a build SNARK friendly proof
  */
-void prove_output_all(const std::string& bytecode_path,
-                      const std::string& witness_path,
-                      const std::string& output_path,
-                      const bool recursive)
+void prove_output_all_ultra_plonk(const std::string& bytecode_path,
+                                  const std::string& witness_path,
+                                  const std::string& output_path,
+                                  const bool recursive)
 {
     auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
     auto witness = get_witness(witness_path);
@@ -390,7 +390,7 @@ void prove_output_all(const std::string& bytecode_path,
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-bool verify(const std::string& proof_path, const std::string& vk_path)
+bool verify_ultra_plonk(const std::string& proof_path, const std::string& vk_path)
 {
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
@@ -414,7 +414,9 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool prove_and_verify(const std::string& bytecode_path, const bool recursive, const std::string& witness_path)
+bool prove_and_verify_ultra_plonk(const std::string& bytecode_path,
+                                  const bool recursive,
+                                  const std::string& witness_path)
 {
     auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
     auto witness = get_witness(witness_path);
@@ -456,7 +458,7 @@ bool prove_and_verify(const std::string& bytecode_path, const bool recursive, co
  * @param output_path Path to write the contract to
  * @param vk_path Path to the file containing the serialized verification key
  */
-void contract(const std::string& output_path, const std::string& vk_path)
+void contract_ultra_plonk(const std::string& output_path, const std::string& vk_path)
 {
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
@@ -483,7 +485,7 @@ void contract(const std::string& output_path, const std::string& vk_path)
  * @param output_path Path to write the verification key to
  * @param recursive Whether to create a SNARK friendly circuit and key
  */
-void write_vk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
+void write_vk_ultra_plonk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
 {
     auto constraint_system = get_constraint_system(bytecode_path, false);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -502,7 +504,7 @@ void write_vk(const std::string& bytecode_path, const std::string& output_path, 
     }
 }
 
-void write_pk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
+void write_pk_ultra_plonk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
 {
     auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -871,49 +873,301 @@ bool avm2_verify(const std::filesystem::path& proof_path,
 }
 #endif
 
-bool flag_present(std::vector<std::string>& args, const std::string& flag)
-{
-    return std::find(args.begin(), args.end(), flag) != args.end();
-}
-
 int main(int argc, char* argv[])
 {
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
+
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
 
-    // const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
-    std::string bytecode_path = "./target/program.json";
-    // const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
-    std::string witness_path = "./target/witness.gz";
-    // const std::string proof_path = get_option(args, "-p", "./target/proof");
-    std::string proof_path = "./target/proof";
-    // const std::string vk_path = get_option(args, "-k", "./target/vk");
-    std::string vk_path = "./target/vk";
+    // If no arguments are provided, print help and exit.
+    if (argc == 1) {
+        std::cout << app.help() << std::endl;
+        return 0;
+    }
 
-    // std::vector<std::string> args(argv + 1, argv + argc);
-    // debug_logging = flag_present(args, "-d") || flag_present(args, "--debug_logging");
-    // verbose_logging = debug_logging || flag_present(args, "-v") || flag_present(args, "--verbose_logging");
-    // if (args.empty()) {
-    //     std::cerr << "No command provided.\n";
-    //     return 1;
-    // }
+    // prevent two or more subcommands being executed
+    app.require_subcommand(0, 1);
 
-    // const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-    uint32_t honk_recursion = 0;
-    // const bool recursive = flag_present(args, "--recursive");
-    bool recursive = true;
-    // const bool zk = flag_present(args, "--zk");
-    bool zk = false;
-    bool ipa_accumulation = false;
+    API::Flags flags{}; // default initialize to start
+    // Some paths, with defaults, that may or may not be set by commands
+    std::filesystem::path bytecode_path{ "./target/program.json" };
+    std::filesystem::path witness_path{ "./target/witness.gz" };
+    std::filesystem::path output_path{
+        "./out"
+    }; // sometimes a directory where things will be written, sometimes the path of a file to be written
+    std::filesystem::path proof_path{ "./target/proof" };
+    std::filesystem::path vk_path{ "./target/vk" };
+    flags.scheme = "ultra_honk";
+    flags.oracle_hash_type = "poseidon2";
+    flags.output_data_type = "bytes";
+    flags.crs_path = []() {
+        char* home = std::getenv("HOME");
+        std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
+        return base / ".bb-crs";
+    }();
 
-    const auto add_output_path_option = [&](CLI::App* subcommand, std::string output_path) {
+    /***************************************************************************************************************
+     * Subcommnd: OLD FLAG INFO
+     ***************************************************************************************************************/
+
+    // // const std::string bytecode_path = get_option(args, "-b", "./target/program.json");
+    // std::string bytecode_path = "./target/program.json";
+    // // const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
+    // std::string witness_path = "./target/witness.gz";
+    // // const std::string proof_path = get_option(args, "-p", "./target/proof");
+    // std::string proof_path = "./target/proof";
+    // // const std::string vk_path = get_option(args, "-k", "./target/vk");
+    // std::string vk_path = "./target/vk";
+
+    const auto add_output_path_option = [&](CLI::App* subcommand, std::string _output_path) {
         return subcommand->add_option("--output_path, -o",
-                                      output_path,
+                                      _output_path,
                                       "Directory to write files or path of file to write, depending on subcommand.");
     };
+
+    /***************************************************************************************************************
+     * Subcommnd: Adders for options that we will create for more than one subcommand
+     ***************************************************************************************************************/
+
+    const auto add_recursive_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--recursive", flags.recursive, "Do some things relating to recursive verification and KZG...");
+    };
+
+    const auto add_honk_recursion_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--honk_recursion",
+                                      flags.honk_recursion,
+                                      "Do some things relating to recursive verification, possibly IPA...");
+    };
+
+    const auto add_scheme_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option(
+                "--scheme, -s",
+                flags.scheme,
+                "The type of proof to be constructed. This can specify a proving system, an accumulation scheme, or a "
+                "particular type of circuit to be constructed and proven for some implicit scheme.")
+            ->envname("BB_SCHEME")
+            ->check(CLI::IsMember({ "client_ivc", "avm", "tube", "ultra_honk", "ultra_keccak_honk", "ultra_plonk" })
+                        .name("is_member"));
+    };
+
+    const auto add_crs_path_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--crs_dir, -c",
+                         flags.crs_path,
+                         "Path CRS directory. Missing CRS files will be retrieved from the internet.")
+            ->check(CLI::ExistingDirectory);
+    };
+
+    const auto add_oracle_hash_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--oracle_hash",
+                         flags.oracle_hash_type,
+                         "The hash function used to model a random oracle to the prover to produce verifier "
+                         "challenges. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
+                         "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
+                         "has a privileged position due to the existence of an EVM precompile.")
+            ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
+    };
+
+    // WORKTODO: more documentation on serialization etc
+    const auto add_output_data_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option(
+                "--output_data",
+                flags.output_data_type,
+                "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
+                "header information for deserialization. If fields, output a string representation of an array of of "
+                "elements of the finite field Fr which is the scalar field of BN254. This is needed for recursive "
+                "verification via Noir, where one must feed such a representation of both a verification key and a "
+                "proof as witness input to the verify_proof blackbox function. The option bytes_and_fields outputs two "
+                "representations of each output datum, one of each of the preceding times. The final option, "
+                "fields_msgpack, outputs a msgpack buffer of Fr elements--this is an efficien tbinary representation.")
+            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
+    };
+
+    const auto add_output_content_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--output_content",
+                         flags.output_content_type,
+                         "The data to be written. Options are: a proof, a verification key, or both.")
+            ->check(CLI::IsMember({ "proof", "vk", "proof_and_vk" }).name("is_member"));
+    };
+
+    const auto add_input_type_option = [&](CLI::App* subcommand) {
+        auto* input_type_option =
+            subcommand
+                ->add_option("--input_type",
+                             flags.input_type,
+                             "Is the input a single circuit, a compile-time stack or a run-time stack?")
+                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
+        return input_type_option;
+    };
+
+    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--ipa_accumulation",
+                                    flags.ipa_accumulation,
+                                    "Does the protocol accumulate/aggregate IPA (Inner Product Argument) claims?");
+    };
+
+    const auto add_zk_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--zk", flags.zk, "Use a zk version of --scheme, if available.");
+    };
+
+    const auto add_initialize_pairing_point_accumulator_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--initialize_accumulator",
+                                    flags.initialize_pairing_point_accumulator,
+                                    "Initialize pairing point accumulator.");
+    };
+
+    // WORKTODO: documentation of structure (JSON or msgpack of bytecodes; bytecodes are encoded...)
+    // WORKTODO: fine-grained validation?
+    // WORKTODO: bytecode path is a bad name since bytecode is sometimes actually just a field in the ACIR?
+    const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
+        subcommand->add_option("--bytecode_path, -b", bytecode_path, "Path to ACIR bytecode generated by Noir.")
+            ->check(CLI::ExistingFile);
+    };
+
+    // WORKTODO: documentation of structure (JSON or msgpack of bytecodes; bytecodes are encoded...)
+    const auto add_witness_path_option = [&](CLI::App* subcommand) {
+        subcommand->add_option("--witness_path, -w", witness_path, "Path to partial witness generated by Noir.")
+            ->check(CLI::ExistingFile);
+    };
+
+    const auto add_proof_path_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option(
+            "--proof_path, -p", proof_path, "Path to a proof.") /* ->check(CLI::ExistingFile) */;
+    };
+
+    const auto add_vk_path_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--vk_path, -k", vk_path, "Path to a verification key.")
+            /* ->check(CLI::ExistingFile) */;
+    };
+
+    /***************************************************************************************************************
+     * Top-level flags
+     ***************************************************************************************************************/
+    app.add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.");
+    app.add_flag("--debug_logging, --debug_logging_logging, -d", debug_logging, "Output all logs to stderr.");
+
+    /***************************************************************************************************************
+     * Subcommnd: version
+     ***************************************************************************************************************/
+    CLI::App* version = app.add_subcommand("version", "Print the version string.");
+
+    /***************************************************************************************************************
+     * Subcommnd: check_witness
+     ***************************************************************************************************************/
+    CLI::App* check_witness = app.add_subcommand(
+        "check_witness",
+        "A debugging tool to quickly check whether a witness is valid, i.e., whether it satisfies the circuit whose "
+        "bytecode is provided. Said differently, this command returns true if and only if the prove method would "
+        "return a proof that verifies. The result of this check DOES NOT convince a verifier of the result. The "
+        "function constructs the execution trace and iterates through it row-by-row/gate-by-gate, applying the "
+        "polynomial relations defining the various gate types and checks whether any row does not satisfy these.");
+
+    add_bytecode_path_option(check_witness);
+    add_witness_path_option(check_witness);
+
+    /***************************************************************************************************************
+     * Subcommand: gates
+     ***************************************************************************************************************/
+    CLI::App* gates = app.add_subcommand("gates",
+                                         "Construct a circuit from the given bytecode (in particular, expand black box "
+                                         "functions) and return the gate count information.");
+
+    add_bytecode_path_option(gates);
+
+    /***************************************************************************************************************
+     * Subcommnd: prove
+     ***************************************************************************************************************/
+    CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
+
+    prove->needs(add_scheme_option(prove));
+    add_crs_path_option(prove);
+    add_oracle_hash_option(prove);
+    add_output_data_option(prove);
+    add_output_content_option(prove);
+    add_input_type_option(prove);
+    add_zk_option(prove);
+    add_ipa_accumulation_flag(prove);
+    add_initialize_pairing_point_accumulator_option(prove);
+
+    prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
+
+    add_bytecode_path_option(prove);
+    add_witness_path_option(prove);
+    add_output_path_option(prove, output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: write_vk
+     ***************************************************************************************************************/
+    CLI::App* write_vk =
+        app.add_subcommand("write_vk",
+                           "Write the verification key of a circuit. The circuit is constructed using "
+                           "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
+                           "to expand ACIR black box opcodes), and no proof is constructed.");
+
+    write_vk->needs(add_scheme_option(write_vk));
+    add_output_data_option(write_vk);
+    add_input_type_option(write_vk);
+    add_crs_path_option(write_vk); // WORKTODO deprecated
+    add_initialize_pairing_point_accumulator_option(write_vk);
+    add_oracle_hash_option(write_vk);    // WORKTODO: why is this necessary?
+    add_ipa_accumulation_flag(write_vk); // WORKTODO: segfault without
+
+    add_bytecode_path_option(write_vk);
+    add_output_path_option(write_vk, output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: verify
+     ***************************************************************************************************************/
+    CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
+
+    verify->needs(add_scheme_option(verify));
+    add_crs_path_option(verify);
+    add_oracle_hash_option(verify);
+    add_zk_option(verify);
+    add_ipa_accumulation_flag(verify);
+    add_initialize_pairing_point_accumulator_option(verify);
+
+    add_proof_path_option(verify);
+    add_vk_path_option(verify);
+
+    /***************************************************************************************************************
+     * Subcommand: contract
+     ***************************************************************************************************************/
+    CLI::App* contract = app.add_subcommand("contract",
+                                            "Write a smart contract suitable for verifying proofs of circuit "
+                                            "satisfiability for the circuit with verification key at vk_path. Not all "
+                                            "hash types are implemented due to efficiency concerns.");
+
+    /***************************************************************************************************************
+     * Subcommand: write_arbitrary_valid_proof_and_vk_to_file
+     ***************************************************************************************************************/
+    // WORKTODO: make an option so its deprecatable
+    CLI::App* write_arbitrary_valid_proof_and_vk_to_file =
+        app.add_subcommand("write_arbitrary_valid_proof_and_vk_to_file", "");
+    write_arbitrary_valid_proof_and_vk_to_file->needs(add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file));
+    add_output_path_option(write_arbitrary_valid_proof_and_vk_to_file, output_path);
+
+    /***************************************************************************************************************
+     * Subcommand: write_recursion_inputs
+     ***************************************************************************************************************/
+    // WORKTODO: make an option so its deprecatable
+    CLI::App* write_recursion_inputs = app.add_subcommand("write_recursion_inputs", "");
+    write_recursion_inputs->needs(add_scheme_option(write_recursion_inputs));
+    add_bytecode_path_option(write_recursion_inputs);
+    add_witness_path_option(write_recursion_inputs);
+    add_output_path_option(write_recursion_inputs, output_path);
+
+    /***************************************************************************************************************
+     * Subcommnd: OLD_API
+     ***************************************************************************************************************/
 
     CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
 
@@ -926,6 +1180,8 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API gates_mega_honk
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "IOU");
+    add_recursive_flag(OLD_API_gates_mega_honk);
+    add_honk_recursion_option(OLD_API_gates_mega_honk);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
@@ -942,16 +1198,20 @@ int main(int argc, char* argv[])
         OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "IOU");
     std::string recursion_inputs_output_path{ "./target" };
     add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
+    add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API gates
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "IOU");
+    add_recursive_flag(OLD_API_gates);
+    add_honk_recursion_option(OLD_API_gates);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "IOU");
+    add_recursive_flag(OLD_API_prove);
     std::string plonk_prove_output_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_prove, plonk_prove_output_path);
 
@@ -959,6 +1219,7 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API prove_output_all
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "IOU");
+    add_recursive_flag(OLD_API_prove_output_all);
     std::string plonk_prove_output_all_output_path{ "./proofs" };
     add_output_path_option(OLD_API_prove_output_all, plonk_prove_output_all_output_path);
 
@@ -971,6 +1232,7 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API prove_and_verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "IOU");
+    add_recursive_flag(OLD_API_prove_and_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API contract
@@ -983,6 +1245,7 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API write_vk
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "IOU");
+    add_recursive_flag(OLD_API_write_vk);
     std::string plonk_vk_output_path{ "./target/vk" };
     add_output_path_option(OLD_API_write_vk, plonk_vk_output_path);
 
@@ -990,6 +1253,7 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API write_pk
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "IOU");
+    add_recursive_flag(OLD_API_write_pk);
     std::string plonk_pk_output_path{ "./target/pk" };
     add_output_path_option(OLD_API_write_pk, plonk_pk_output_path);
 
@@ -997,14 +1261,14 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API proof_as_fields
      ***************************************************************************************************************/
     CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "IOU");
-    std::string plonk_proof_as_fields_output_path{ proof_path + "_fields.json" };
+    std::string plonk_proof_as_fields_output_path{ proof_path / "_fields.json" };
     add_output_path_option(OLD_API_proof_as_fields, plonk_proof_as_fields_output_path);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API vk_as_fields
      ***************************************************************************************************************/
     CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "IOU");
-    std::string plonk_vk_as_fields_output_path{ vk_path + "_fields.json" };
+    std::string plonk_vk_as_fields_output_path{ vk_path / "_fields.json" };
     add_output_path_option(OLD_API_vk_as_fields, plonk_vk_as_fields_output_path);
 
 #ifndef DISABLE_AZTEC_VM
@@ -1084,21 +1348,67 @@ int main(int argc, char* argv[])
     std::string tube_proof_and_vk_path{ "./target" };
     add_output_path_option(OLD_API_verify_tube, tube_proof_and_vk_path);
 
+    /***************************************************************************************************************
+     * Build the CLI11 App
+     ***************************************************************************************************************/
+
     CLI11_PARSE(app, argc, argv);
+    info(flags);
+    verbose_logging = debug_logging || verbose_logging;
+
+    // prob this construction is too much
+    const auto execute_command = [&](API& api) {
+        if (check_witness->parsed()) {
+            api.check_witness(flags, bytecode_path, witness_path);
+            return 0;
+        }
+        if (gates->parsed()) {
+            api.gates(flags, bytecode_path);
+            return 0;
+        }
+        if (prove->parsed()) {
+            api.prove(flags, bytecode_path, witness_path, output_path);
+            return 0;
+        }
+        if (write_vk->parsed()) {
+            api.write_vk(flags, bytecode_path, output_path);
+            return 0;
+        }
+        if (verify->parsed()) {
+            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+        }
+        if (contract->parsed()) {
+            api.contract(flags, output_path, vk_path);
+            return 0;
+        }
+        auto subcommands = app.get_subcommands();
+        throw_or_abort(std::format("No handler for subcommand {}", subcommands[0]->get_name()));
+        return 1;
+    };
 
     try {
+        if (version->parsed()) {
+            write_string_to_stdout(BB_VERSION);
+            return 0;
+        }
         // CLIENT IVC
-        if (OLD_API_gates_for_ivc->parsed()) {
+        else if (flags.scheme == "client_ivc") {
+            ClientIVCAPI api;
+            return execute_command(api);
+        } else if (OLD_API_gates_for_ivc->parsed()) {
             gate_count_for_ivc(bytecode_path);
         } else if (OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
         }
         // ULTRA HONK
-        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
-            if (ipa_accumulation) {
+        else if (flags.scheme == "ultra_honk") {
+            UltraHonkAPI api;
+            return execute_command(api);
+        } else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
+            if (flags.ipa_accumulation) {
                 write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
                     bytecode_path, witness_path, recursion_inputs_output_path);
             } else {
@@ -1108,21 +1418,22 @@ int main(int argc, char* argv[])
         }
         // ULTRA PLONK
         else if (OLD_API_gates->parsed()) {
-            gate_count<UltraCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
         } else if (OLD_API_prove->parsed()) {
-            prove(bytecode_path, witness_path, plonk_prove_output_path, recursive);
+            prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
         } else if (OLD_API_prove_output_all->parsed()) {
-            prove_output_all(bytecode_path, witness_path, plonk_prove_output_all_output_path, recursive);
+            prove_output_all_ultra_plonk(
+                bytecode_path, witness_path, plonk_prove_output_all_output_path, flags.recursive);
         } else if (OLD_API_verify->parsed()) {
-            return verify(proof_path, vk_path) ? 0 : 1;
+            return verify_ultra_plonk(proof_path, vk_path) ? 0 : 1;
         } else if (OLD_API_prove_and_verify->parsed()) {
-            return prove_and_verify(bytecode_path, recursive, witness_path) ? 0 : 1;
+            return prove_and_verify_ultra_plonk(bytecode_path, flags.recursive, witness_path) ? 0 : 1;
         } else if (OLD_API_contract->parsed()) {
-            contract(plonk_contract_output_path, vk_path);
+            contract_ultra_plonk(plonk_contract_output_path, vk_path);
         } else if (OLD_API_write_vk->parsed()) {
-            write_vk(bytecode_path, plonk_vk_output_path, recursive);
+            write_vk_ultra_plonk(bytecode_path, plonk_vk_output_path, flags.recursive);
         } else if (OLD_API_write_pk->parsed()) {
-            write_pk(bytecode_path, plonk_pk_output_path, recursive);
+            write_pk_ultra_plonk(bytecode_path, plonk_pk_output_path, flags.recursive);
         } else if (OLD_API_proof_as_fields->parsed()) {
             proof_as_fields(proof_path, vk_path, plonk_proof_as_fields_output_path);
         } else if (OLD_API_vk_as_fields->parsed()) {

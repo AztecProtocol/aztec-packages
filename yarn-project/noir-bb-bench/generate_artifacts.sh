@@ -21,7 +21,7 @@ function compile {
   mv $circuit_path/target/$filename artifacts/
 
   local json_path="./artifacts/$filename"
-  local write_vk_cmd="write_vk --scheme ultra_honk -h 1"
+  local write_vk_cmd="write_vk --scheme ultra_honk --honk_recursion 1"
   local key_path="$key_dir/$name.vk.data.json"
   echo_stderr "Generating vk for circuit: $name..."
   SECONDS=0

@@ -10,13 +10,15 @@ class API {
     struct Flags {
         bool verbose{ false };
         bool zk{ false };
-        bool initialize_pairing_point_accumulator{ false };
-        bool ipa_accumulation{ false };
         std::filesystem::path crs_path{ "" };
+        bool recursive{ false };
+        bool initialize_pairing_point_accumulator{ false };
+        uint32_t honk_recursion{ 0 };
+        bool ipa_accumulation{ false };
         std::string scheme{ "" };
+        std::string input_type{ "" };
         std::string oracle_hash_type{ "" };
         std::string output_data_type{ "" };
-        std::string input_type{ "" };
         std::string output_content_type{ "" };
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
@@ -24,14 +26,17 @@ class API {
             os << "flags: [\n"
                << "  verbose: " << flags.verbose << "\n"
                << "  zk: " << flags.zk << "\n"
-               << "  scheme: " << flags.scheme << "\n"
-               << "  initialize_pairing_point_accumulator: " << flags.initialize_pairing_point_accumulator << "\n"
-               << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
-               << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
-               << "  output_type: " << flags.output_data_type << "\n"
+               << "  recursive: " << flags.recursive << "\n"
+               << "  initialize_pairing_point_accumulator: " << flags.initialize_pairing_point_accumulator << "\n"
+               << "  honk_recursion: " << flags.honk_recursion << "\n"
+               << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
+               << "  scheme: " << flags.scheme << "\n"
                << "  input_type: " << flags.input_type << "\n"
-               << "  output_content_type: " << flags.output_content_type << "\n]" << std::endl;
+               << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
+               << "  output_data_type: " << flags.output_data_type << "\n"
+               << "  output_content_type: " << flags.output_content_type << "\n"
+               << "]" << std::endl;
             return os;
         }
     };
