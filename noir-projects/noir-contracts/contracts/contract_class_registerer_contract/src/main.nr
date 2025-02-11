@@ -32,7 +32,7 @@ pub contract ContractClassRegisterer {
     };
 
     // docs:start:import_pop_capsule
-    use dep::aztec::oracle::pxe_db;
+    use dep::aztec::oracle::capsules;
     // docs:end:import_pop_capsule
 
     #[private]
@@ -46,7 +46,7 @@ pub contract ContractClassRegisterer {
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
@@ -125,7 +125,7 @@ pub contract ContractClassRegisterer {
         function_data: InnerPrivateFunction,
     ) {
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
@@ -171,7 +171,7 @@ pub contract ContractClassRegisterer {
         function_data: InnerUnconstrainedFunction,
     ) {
         let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
