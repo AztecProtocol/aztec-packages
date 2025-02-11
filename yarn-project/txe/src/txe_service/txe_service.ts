@@ -534,11 +534,11 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, values: ForeignCallArray) {
+  async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
     await this.typedOracle.storeCapsule(
       AztecAddress.fromField(fromSingle(contractAddress)),
       fromSingle(slot),
-      fromArray(values),
+      fromArray(capsule),
     );
     return toForeignCallResult([]);
   }

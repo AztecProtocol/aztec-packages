@@ -242,7 +242,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('deliverNote');
   }
 
-  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
     throw new OracleMethodNotAvailableError('storeCapsule');
   }
 

@@ -260,9 +260,12 @@ export interface DBOracle extends CommitmentsDB {
    * * If data was already stored at this slot, it is overwritten.
    * @param contractAddress - The contract address to scope the data under.
    * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
-   * @param values - The data to store.
+   * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
    */
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void>;
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Returns data previously stored via `storeCapsule` in the per-contract non-volatile database.

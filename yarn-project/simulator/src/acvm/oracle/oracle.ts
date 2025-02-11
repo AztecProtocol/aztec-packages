@@ -396,11 +396,11 @@ export class Oracle {
     return toACVMField(true);
   }
 
-  async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
+  async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]) {
     await this.typedOracle.storeCapsule(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       fromACVMField(slot),
-      values.map(fromACVMField),
+      capsule.map(fromACVMField),
     );
   }
 

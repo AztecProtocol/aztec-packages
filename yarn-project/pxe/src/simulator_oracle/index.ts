@@ -825,8 +825,8 @@ export class SimulatorOracle implements DBOracle {
     );
   }
 
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    return this.db.storeCapsule(contractAddress, slot, values);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    return this.db.storeCapsule(contractAddress, slot, capsule);
   }
 
   loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
