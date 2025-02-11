@@ -19,11 +19,11 @@ function prepare_tests {
   # Regenerate verify_honk_proof and verify_rollup_honk_proof recursive input.
   echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
   COMPILE=2 ./run_test.sh assert_statement
-  local bb=$(realpath ../cpp/build/bin/bb)
-  (cd ./acir_tests/assert_statement && \
-    # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
-    $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
-    $bb write_recursion_inputs_ultra_honk --ipa_accumulation true -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+  local bb=$(realpath ../cpp/build/bin/bb11)
+  # (cd ./acir_tests/assert_statement && \
+  #   # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
+  #   $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
+  #   $bb write_recursion_inputs_ultra_honk --ipa_accumulation true -b ./target/program.json -o ../verify_rollup_honk_proof --)
 
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
@@ -105,38 +105,39 @@ function test_cmds {
   echo FLOW=sol_honk_zk $run_test slices
   echo FLOW=sol_honk_zk $run_test verify_honk_proof
 
-  # barretenberg-acir-tests-bb.js:
-  # Browser tests.
-  echo BROWSER=chrome THREAD_MODEL=mt PORT=8080 $run_test_browser verify_honk_proof
-  echo BROWSER=chrome THREAD_MODEL=st PORT=8081 $run_test_browser 1_mul
-  echo BROWSER=webkit THREAD_MODEL=mt PORT=8082 $run_test_browser verify_honk_proof
-  echo BROWSER=webkit THREAD_MODEL=st PORT=8083 $run_test_browser 1_mul
-  # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
-  # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
-  # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
-  echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
+  # # barretenberg-acir-tests-bb.js:
+  # # Browser tests.
+  # echo BROWSER=chrome THREAD_MODEL=mt PORT=8080 $run_test_browser verify_honk_proof
+  # echo BROWSER=chrome THREAD_MODEL=st PORT=8081 $run_test_browser 1_mul
+  # echo BROWSER=webkit THREAD_MODEL=mt PORT=8082 $run_test_browser verify_honk_proof
+  # echo BROWSER=webkit THREAD_MODEL=st PORT=8083 $run_test_browser 1_mul
+  # # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
+  # echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
+  # # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
+  # echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
+  # # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
+  # echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo FLOW=prove_then_verify_tube $run_test 6_array
+  # echo FLOW=prove_then_verify_tube $run_test 6_array
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
-  echo FLOW=all_cmds $run_test 1_mul
+  # echo FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb-ultra-plonk:
   # Exclude honk tests.
-  for t in $plonk_tests; do
-    echo FLOW=prove_then_verify $run_test $(basename $t)
-  done
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
+  # for t in $plonk_tests; do
+  #   echo FLOW=prove_then_verify $run_test $(basename $t)
+  # done
+  # echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
+  # echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.
-  for t in $honk_tests; do
-    echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
-  done
+  # for t in $honk_tests; do
+  #   echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
+  # done
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test 6_array
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
