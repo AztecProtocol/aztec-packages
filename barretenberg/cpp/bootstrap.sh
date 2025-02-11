@@ -39,11 +39,13 @@ function build_darwin {
     if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
       echo "Downloading $osx_sdk..."
       local osx_sdk_url="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${osx_sdk}.tar.xz"
-      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK && sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
+      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK
+      sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
     fi
 
     rm -f build-darwin-$arch/CMakeCache.txt
-    cmake --preset darwin-$arch && cmake --build --preset darwin-$arch --target bb
+    cmake --preset darwin-$arch
+    cmake --build --preset darwin-$arch --target bb
     cache_upload barretenberg-darwin-$hash.tar.gz build-darwin-$arch/bin
   fi
 }
@@ -53,7 +55,8 @@ function build_wasm {
   set -eu
   if ! cache_download barretenberg-wasm-$hash.tar.gz; then
     rm -f build-wasm/CMakeCache.txt
-    cmake --preset wasm && cmake --build --preset wasm
+    cmake --preset wasm
+    cmake --build --preset wasm
     cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
   fi
 }
@@ -78,7 +81,8 @@ function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
     rm -f build-wasm-threads/CMakeCache.txt
-    cmake --preset wasm-threads && cmake --build --preset wasm-threads
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
   fi
 }
@@ -87,7 +91,9 @@ function build_wasm_threads {
 # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
 # TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
 function download_old_crs {
-  cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh
+  cd ./srs_db
+  ./download_ignition.sh 3
+  ./download_grumpkin.sh
 }
 
 function build_release {
@@ -151,7 +157,7 @@ function build {
       build_darwin
     )
   fi
-  parallel --line-buffered --tag denoise {} ::: ${builds[@]}
+  parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
 }
 
