@@ -49,12 +49,16 @@ function gke {
 }
 
 function test_cmds {
+  echo "$hash ./spartan/bootstrap.sh test-local"
+  if [ "$(arch)" == "arm64" ]; then
+    # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
+    return
+  fi
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "${REF_NAME:-}" == "master" ]; then
     # Note: commands that start with 'timeout ...' override the default timeout.
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
   fi
-  echo "$hash ./spartan/bootstrap.sh test-local"
 }
 
 function test {
