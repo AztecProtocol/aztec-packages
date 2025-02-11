@@ -711,10 +711,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit_block(TreeMeta& fina
                 persist_leaf_indices(*tx);
             }
             // If we are commiting a block, we need to persist the root, since the new block "references" this root
-            // However, if the root is the empty root we can't persist it, since it's not a real node
-            // We are abusing the trees in some tests, trying to add empty blocks to initial empty trees
-            // That is not expected behavior since the unwind operation will fail trying to decrease refcount
-            // for the empty root, which doesn't exist.
+            // However, if the root is the empty root we can't persist it, since it's not a real node and doesn't have
+            // nodes beneath it. We coujld store a 'dummy' node to represent it but then we have to work around the
+            // absence of a real tree elsewhere. So, if the tree is completely empty we do not store any node data, the
+            // only issue is this needs to be recognised when we unwind or remove historic blocks i.e. there will be no
+            // node date to remove for these blocks
             if (dataPresent || uncommittedMeta.size > 0) {
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
             }
@@ -887,21 +888,23 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
                                         committedMeta.finalisedBlockHeight));
     }
 
-    // commit the new finalised block
-    WriteTransactionPtr writeTx = create_write_transaction();
-    try {
-        committedMeta.finalisedBlockHeight = blockNumber;
-        // persist the new meta data
-        persist_meta(committedMeta, *writeTx);
-        writeTx->commit();
-    } catch (std::exception& e) {
-        writeTx->try_abort();
-        throw std::runtime_error(format("Unable to commit advance of finalised block: ",
-                                        blockNumber,
-                                        ". Tree name: ",
-                                        forkConstantData_.name_,
-                                        " Error: ",
-                                        e.what()));
+    {
+        // commit the new finalised block
+        WriteTransactionPtr writeTx = create_write_transaction();
+        try {
+            committedMeta.finalisedBlockHeight = blockNumber;
+            // persist the new meta data
+            persist_meta(committedMeta, *writeTx);
+            writeTx->commit();
+        } catch (std::exception& e) {
+            writeTx->try_abort();
+            throw std::runtime_error(format("Unable to commit advance of finalised block: ",
+                                            blockNumber,
+                                            ". Tree name: ",
+                                            forkConstantData_.name_,
+                                            " Error: ",
+                                            e.what()));
+        }
     }
 
     // commit successful, now also update the uncommitted meta
@@ -973,34 +976,39 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
                                             forkConstantData_.name_));
         }
     }
-    WriteTransactionPtr writeTx = create_write_transaction();
-    try {
-        // std::cout << "Removing block " << blockNumber << std::endl;
 
-        if (blockData.size > 0) {
-            // Remove the block's node and leaf data given the max index of the previous block
-            std::optional<index_t> maxIndex = std::optional<index_t>(previousBlockData.size);
-            remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
+    {
+        WriteTransactionPtr writeTx = create_write_transaction();
+        try {
+            // std::cout << "Removing block " << blockNumber << std::endl;
+
+            // If the tree was empty at the block being removed then we should not attempt to remove
+            // any nodes. (there were no nodes at the point this block was comitted)
+            if (blockData.size > 0) {
+                // Remove the block's node and leaf data given the max index of the previous block
+                std::optional<index_t> maxIndex = std::optional<index_t>(previousBlockData.size);
+                remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
+            }
+            // remove the block from the block data table
+            dataStore_->delete_block_data(blockNumber, *writeTx);
+            dataStore_->delete_block_index(blockData.size, blockData.blockNumber, *writeTx);
+            uncommittedMeta.unfinalisedBlockHeight = previousBlockData.blockNumber;
+            uncommittedMeta.size = previousBlockData.size;
+            uncommittedMeta.committedSize = previousBlockData.size;
+            uncommittedMeta.root = previousBlockData.root;
+            // std::cout << "New block root " << previousBlockData.root << std::endl;
+            //  commit this new meta data
+            persist_meta(uncommittedMeta, *writeTx);
+            writeTx->commit();
+        } catch (std::exception& e) {
+            writeTx->try_abort();
+            throw std::runtime_error(format("Unable to commit unwind of block: ",
+                                            blockNumber,
+                                            ". Tree name: ",
+                                            forkConstantData_.name_,
+                                            " Error: ",
+                                            e.what()));
         }
-        // remove the block from the block data table
-        dataStore_->delete_block_data(blockNumber, *writeTx);
-        dataStore_->delete_block_index(blockData.size, blockData.blockNumber, *writeTx);
-        uncommittedMeta.unfinalisedBlockHeight = previousBlockData.blockNumber;
-        uncommittedMeta.size = previousBlockData.size;
-        uncommittedMeta.committedSize = previousBlockData.size;
-        uncommittedMeta.root = previousBlockData.root;
-        // std::cout << "New block root " << previousBlockData.root << std::endl;
-        //  commit this new meta data
-        persist_meta(uncommittedMeta, *writeTx);
-        writeTx->commit();
-    } catch (std::exception& e) {
-        writeTx->try_abort();
-        throw std::runtime_error(format("Unable to commit unwind of block: ",
-                                        blockNumber,
-                                        ". Tree name: ",
-                                        forkConstantData_.name_,
-                                        " Error: ",
-                                        e.what()));
     }
 
     // now update the uncommitted meta
@@ -1042,7 +1050,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         if (blockNumber >= committedMeta.finalisedBlockHeight) {
             throw std::runtime_error(format("Unable to remove historical block: ",
                                             blockNumber,
-                                            " oldestHistoricBlock: ",
+                                            " finalisedBlockHeight: ",
                                             committedMeta.finalisedBlockHeight,
                                             ". Tree name: ",
                                             forkConstantData_.name_));
@@ -1055,25 +1063,31 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
                                             forkConstantData_.name_));
         }
     }
-    WriteTransactionPtr writeTx = create_write_transaction();
-    try {
-        std::optional<index_t> maxIndex = std::nullopt;
-        // remove the historical block's node data
-        remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
-        // remove the block's entry in the block table
-        dataStore_->delete_block_data(blockNumber, *writeTx);
-        // increment the oldest historical block number as committed data
-        committedMeta.oldestHistoricBlock++;
-        persist_meta(committedMeta, *writeTx);
-        writeTx->commit();
-    } catch (std::exception& e) {
-        writeTx->try_abort();
-        throw std::runtime_error(format("Unable to commit removal of historical block: ",
-                                        blockNumber,
-                                        ". Tree name: ",
-                                        forkConstantData_.name_,
-                                        " Error: ",
-                                        e.what()));
+    {
+        WriteTransactionPtr writeTx = create_write_transaction();
+        try {
+            // If the tree was empty at the block being removed then we should not attempt to remove
+            // any nodes. (there were no nodes at the point this block was comitted)
+            if (blockData.size > 0) {
+                // remove the historical block's node data
+                std::optional<index_t> maxIndex = std::nullopt;
+                remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
+            }
+            // remove the block's entry in the block table
+            dataStore_->delete_block_data(blockNumber, *writeTx);
+            // increment the oldest historical block number as committed data
+            committedMeta.oldestHistoricBlock++;
+            persist_meta(committedMeta, *writeTx);
+            writeTx->commit();
+        } catch (std::exception& e) {
+            writeTx->try_abort();
+            throw std::runtime_error(format("Unable to commit removal of historical block: ",
+                                            blockNumber,
+                                            ". Tree name: ",
+                                            forkConstantData_.name_,
+                                            " Error: ",
+                                            e.what()));
+        }
     }
 
     // commit was successful, update the uncommitted meta

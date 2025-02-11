@@ -168,6 +168,9 @@ void remove_historic_block(TreeType& tree, const block_number_t& blockNumber, bo
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
+        if (!response.success && expected_success) {
+            std::cout << "Failed to remove historic block " << response.message << std::endl;
+        }
         signal.signal_level();
     };
     tree.remove_historic_block(blockNumber, completion);
@@ -179,7 +182,7 @@ void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expect
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (!response.success) {
+        if (!response.success && expected_success) {
             std::cout << "Unwind failed: " << response.message << std::endl;
         }
         signal.signal_level();
@@ -1527,6 +1530,66 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_unwind_empty_
             check_historic_sibling_path(tree, 0, paths[1], 1);
             check_block_height(tree, blockNumber);
         }
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_remove_historic_empty_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    // The first path stored is the genesis state. This effectively makes everything 1 based.
+    std::vector<fr_sibling_path> paths(1, memdb.get_sibling_path(0));
+    index_t blockNumber = 0;
+    uint32_t batchSize = 64;
+
+    std::vector<std::vector<fr>> values;
+    // commit an empty block
+    values.emplace_back();
+    // then a non-empty block
+    values.push_back(create_values(batchSize));
+    // then 2 more empty blocks
+    values.emplace_back();
+    values.emplace_back();
+    // then a non-empty block
+    values.push_back(create_values(batchSize));
+
+    index_t index = 0;
+
+    for (auto& blockValues : values) {
+        add_values(tree, blockValues);
+        commit_tree(tree);
+
+        for (const auto& blockValue : blockValues) {
+            memdb.update_element(index++, blockValue);
+        }
+
+        ++blockNumber;
+
+        paths.push_back(memdb.get_sibling_path(0));
+
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_historic_sibling_path(tree, 0, paths[1], 1);
+        check_block_height(tree, blockNumber);
+    }
+
+    index_t blockToRemove = 1;
+
+    while (blockToRemove < blockNumber) {
+        finalise_block(tree, blockToRemove + 1);
+        // Remove the historic next block
+        remove_historic_block(tree, blockToRemove);
+
+        check_sibling_path(tree, 0, paths[blockNumber]);
+
+        check_historic_sibling_path(tree, 0, paths[blockToRemove + 1], blockToRemove + 1);
+        check_block_height(tree, blockNumber);
+        blockToRemove++;
     }
 }
 
