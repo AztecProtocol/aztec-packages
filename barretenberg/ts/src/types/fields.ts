@@ -1,5 +1,10 @@
 import { randomBytes } from '../random/index.js';
-import { bufToBigIntBE, toBigIntBE, toBufferBE } from '../bigint-array/index.js';
+import {
+  buffer32BytesToBigIntBE,
+  uint8ArrayToBigIntBE,
+  bigIntToBufferBE,
+  bigIntToUint8ArrayBE,
+} from '../bigint-array/index.js';
 import { BufferReader, uint8ArrayToHexString } from '../serialize/index.js';
 
 // TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
@@ -15,31 +20,36 @@ export class Fr {
   static SIZE_IN_BYTES = 32;
   value: Uint8Array;
 
-  constructor(value: Uint8Array | bigint | Buffer) {
+  constructor(value: Uint8Array | Buffer | bigint) {
     // We convert buffer value to bigint to be able to check it fits within modulus
     const valueBigInt =
-      typeof value === 'bigint' ? value : value instanceof Buffer ? bufToBigIntBE(value) : toBigIntBE(value);
+      typeof value === 'bigint'
+        ? value
+        : value instanceof Buffer
+        ? buffer32BytesToBigIntBE(value)
+        : uint8ArrayToBigIntBE(value);
 
     if (valueBigInt > Fr.MAX_VALUE) {
       throw new Error(`Value 0x${valueBigInt.toString(16)} is greater or equal to field modulus.`);
     }
 
-    this.value = typeof value === 'bigint' ? toBufferBE(value) : value;
+    this.value =
+      typeof value === 'bigint' ? bigIntToUint8ArrayBE(value) : value instanceof Buffer ? new Uint8Array(value) : value;
   }
 
   static random() {
-    const r = toBigIntBE(randomBytes(64)) % Fr.MODULUS;
+    const r = uint8ArrayToBigIntBE(randomBytes(64)) % Fr.MODULUS;
     return new this(r);
   }
 
-  static fromBuffer(buffer: Uint8Array | BufferReader) {
+  static fromBuffer(buffer: Uint8Array | Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(reader.readBytes(this.SIZE_IN_BYTES));
   }
 
   static fromBufferReduce(buffer: Uint8Array | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
+    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
   }
 
   static fromString(str: string) {
@@ -80,18 +90,18 @@ export class Fq {
   }
 
   static random() {
-    const r = toBigIntBE(randomBytes(64)) % Fq.MODULUS;
+    const r = uint8ArrayToBigIntBE(randomBytes(64)) % Fq.MODULUS;
     return new this(r);
   }
 
-  static fromBuffer(buffer: Uint8Array | BufferReader) {
+  static fromBuffer(buffer: Uint8Array | Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
+    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
   }
 
-  static fromBufferReduce(buffer: Uint8Array | BufferReader) {
+  static fromBufferReduce(buffer: Uint8Array | Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
+    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
   }
 
   static fromString(str: string) {
@@ -99,7 +109,7 @@ export class Fq {
   }
 
   toBuffer() {
-    return toBufferBE(this.value, Fq.SIZE_IN_BYTES);
+    return bigIntToBufferBE(this.value, Fq.SIZE_IN_BYTES);
   }
 
   toString() {
