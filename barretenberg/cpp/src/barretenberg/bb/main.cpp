@@ -908,7 +908,7 @@ int main(int argc, char* argv[])
             .initialize_pairing_point_accumulator = get_option(args, "--initialize_accumulator", "false") == "true",
             .ipa_accumulation = get_option(args, "--ipa_accumulation", "false") == "true",
             .oracle_hash_type = get_option(args, "--oracle_hash", "poseidon2"),
-            .output_data_type = get_option(args, "--output_type", "fields_msgpack"),
+            .output_data_type = get_option(args, "--output_data", "bytes"),
             .input_type = get_option(args, "--input_type", "compiletime_stack"),
             .output_content_type = get_option(args, "--output_content", "proof"),
         };

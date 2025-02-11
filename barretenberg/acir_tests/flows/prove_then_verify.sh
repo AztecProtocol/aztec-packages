@@ -4,7 +4,7 @@ set -eu
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
-[ "${RECURSIVE}" = "true" ] && FLAGS+=" --initialize_accumulator"
+[ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
 
 # TODO: Use this when client ivc support write_vk. Currently it keeps its own flow.
 # case ${SYS:-} in
@@ -35,13 +35,12 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+=" --scheme $SYS"
-    [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
-
-    # WORKTODO: issue with public inputs in a few of the stack tests; eg fold_complex_outputs
+    # WORKTODO: hash affects verification key, without it,
+    #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
+    FLAGS+=" --scheme $SYS --ipa_accumulation ${ROLLUP:-false} --oracle_hash ${HASH:-poseidon2}"
     $BIN verify $FLAGS \
-        -k <($BIN write_vk -o - $FLAGS $BFLAG --input_type ${INPUT_TYPE:-compiletime_stack} --output_data bytes) \
-        -p <($BIN prove --output_content proof --oracle_hash ${HASH:-poseidon2} -o - $FLAGS $BFLAG --input_type ${INPUT_TYPE:-compiletime_stack} --output_data bytes)
+        -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
+        -p <($BIN prove $FLAGS $BFLAG -o - )
   ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api
