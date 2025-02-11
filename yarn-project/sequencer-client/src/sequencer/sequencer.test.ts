@@ -28,6 +28,7 @@ import {
   GasFees,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
@@ -107,7 +108,11 @@ describe('sequencer', () => {
   };
 
   const processTxs = async (txs: Tx[]) => {
-    return await Promise.all(txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, globalVariables)));
+    return await Promise.all(
+      txs.map(tx =>
+        makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
+      ),
+    );
   };
 
   const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {

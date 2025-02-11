@@ -10,6 +10,7 @@ import {
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
+  AztecAddress,
   BLOBS_PER_BLOCK,
   BaseParityInputs,
   FIELDS_PER_BLOB,
@@ -24,6 +25,8 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PartialStateReference,
+  PublicDataTreeLeaf,
+  PublicDataWrite,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
@@ -62,6 +65,7 @@ import {
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
@@ -93,16 +97,31 @@ describe('LightBlockBuilder', () => {
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
 
+  let feePayer: AztecAddress;
+  let feePayerSlot: Fr;
+  let feePayerBalance: Fr;
+  const expectedTxFee = new Fr(0x2200);
+
   beforeAll(async () => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
-    db = await NativeWorldStateService.tmp();
   });
 
   beforeEach(async () => {
+    feePayer = await AztecAddress.random();
+    feePayerBalance = new Fr(10n ** 20n);
+    feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
+
+    db = await NativeWorldStateService.tmp(
+      undefined /* rollupAddress */,
+      true /* cleanupTmpDir */,
+      prefilledPublicData,
+    );
+
     globalVariables = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
     fork = await db.fork();
@@ -199,15 +218,21 @@ describe('LightBlockBuilder', () => {
     expect(header).toEqual(expectedHeader);
   });
 
-  const makeTx = (i: number) =>
-    makeBloatedProcessedTx({
+  const makeTx = (i: number) => {
+    feePayerBalance = new Fr(feePayerBalance.toBigInt() - expectedTxFee.toBigInt());
+    const feePaymentPublicDataWrite = new PublicDataWrite(feePayerSlot, feePayerBalance);
+
+    return makeBloatedProcessedTx({
       header: fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
       protocolContractTreeRoot,
       seed: i + 1,
+      feePayer,
+      feePaymentPublicDataWrite,
       privateOnly: true,
     });
+  };
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
@@ -287,6 +312,8 @@ describe('LightBlockBuilder', () => {
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
+      // Update `expectedTxFee` if the fee changes.
+      expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
       rollupOutputs.push(result.inputs);
     }
     return rollupOutputs;
