@@ -56,7 +56,6 @@ class ECCOpQueue {
     // This is to avoid expensive O(n) logic to compute the number of rows and muls during witness computation
     uint32_t cached_num_muls = 0;
     uint32_t cached_active_msm_count = 0;
-    uint32_t num_transcript_rows = 0;
     uint32_t num_precompute_table_rows = 0;
     uint32_t num_msm_rows = 0;
 
@@ -115,7 +114,6 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
-        num_transcript_rows += 1;
 
         update_cached_msms(raw_ops.back());
     }
@@ -212,7 +210,7 @@ class ECCOpQueue {
     size_t get_num_rows() const
     {
         // add 1 row to start and end of transcript and msm sections
-        const size_t transcript_rows = num_transcript_rows + 2;
+        const size_t transcript_rows = raw_ops.size() + 2;
         size_t msm_rows = num_msm_rows + 2;
         // add 1 row to start of precompute table section
         size_t precompute_rows = num_precompute_table_rows + 1;
@@ -248,7 +246,6 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
-        num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
 
         return ultra_op;
@@ -278,7 +275,6 @@ class ECCOpQueue {
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
-        num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
 
         return ultra_op;
@@ -304,7 +300,6 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
-        num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
 
         return ultra_op;
@@ -334,7 +329,6 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
-        num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
 
         return ultra_op;
