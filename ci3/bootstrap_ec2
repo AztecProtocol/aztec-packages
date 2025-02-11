@@ -25,9 +25,10 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 if [ "$REF_NAME" == "master" ]; then
-  instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
-else
+  # Allow parallelism on master by having the instance name be a commit.
   instance_name="$current_commit"
+else
+  instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
