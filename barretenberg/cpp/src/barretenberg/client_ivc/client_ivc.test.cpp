@@ -373,10 +373,10 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
     EXPECT_EQ(*civc_vk_2.mega.get(), *civc_vk_20.mega.get());
 
     // Check the equality of the ECCVM components of the ClientIVC VKeys.
-    EXPECT_EQ(*civc_vk_2.eccvm.get(), *civc_vk_2.eccvm.get());
+    EXPECT_EQ(*civc_vk_2.eccvm.get(), *civc_vk_20.eccvm.get());
 
     // Check the equality of the Translator components of the ClientIVC VKeys.
-    EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_2.translator.get());
+    EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_20.translator.get());
 };
 
 /**
