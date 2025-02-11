@@ -35,7 +35,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #completeAddressIndex: AztecAsyncMap<string, number>;
   #addressBook: AztecAsyncSet<string>;
   #authWitnesses: AztecAsyncMap<string, Buffer[]>;
-  #capsules: AztecAsyncArray<Buffer[]>;
   #notes: AztecAsyncMap<string, Buffer>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
   #nullifierToNoteId: AztecAsyncMap<string, string>;
@@ -78,7 +77,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#addressBook = db.openSet('address_book');
 
     this.#authWitnesses = db.openMap('auth_witnesses');
-    this.#capsules = db.openArray('capsules');
 
     this.#contractArtifacts = db.openMap('contract_artifacts');
     this.#contractInstances = db.openMap('contracts_instances');
@@ -187,15 +185,6 @@ export class KVPxeDatabase implements PxeDatabase {
   async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     const witness = await this.#authWitnesses.getAsync(messageHash.toString());
     return Promise.resolve(witness?.map(w => Fr.fromBuffer(w)));
-  }
-
-  async addCapsule(capsule: Fr[]): Promise<void> {
-    await this.#capsules.push(capsule.map(c => c.toBuffer()));
-  }
-
-  async popCapsule(): Promise<Fr[] | undefined> {
-    const val = await this.#capsules.pop();
-    return val?.map(b => Fr.fromBuffer(b));
   }
 
   async addNote(note: NoteDao, scope?: AztecAddress): Promise<void> {
@@ -652,7 +641,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    // In order to support overlaping source and destination regions we need to check the relative positions of source
+    // In order to support overlapping source and destination regions, we need to check the relative positions of source
     // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
     // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
     // indexes to avoid reading elements that've been overwritten.
