@@ -341,9 +341,8 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
  * @brief Perform accumulation with a structured trace and precomputed verification keys
  *
  */
-TEST_F(ClientIVCTests, VKsIndependenceTest)
+TEST_F(ClientIVCTests, VKIndependenceTest)
 {
-
     const size_t MIN_NUM_CIRCUITS = 2;
     // Folding more than 20 circuits requires to double the number of gates in Translator.
     const size_t MAX_NUM_CIRCUITS = 20;
@@ -357,26 +356,27 @@ TEST_F(ClientIVCTests, VKsIndependenceTest)
             ivc.accumulate(circuit);
         }
         ivc.prove();
-        return ivc.get_vk();
+        auto ivc_vk = ivc.get_vk();
+
+        // PCS verification keys will not match so set to null before comparing
+        ivc_vk.mega->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.translator->pcs_verification_key = nullptr;
+
+        return ivc_vk;
     };
 
     auto civc_vk_2 = generate_vk(MIN_NUM_CIRCUITS);
     auto civc_vk_20 = generate_vk(MAX_NUM_CIRCUITS);
 
-    auto compare_selectors = [&](const auto& selectors_1, const auto& selectors_2) {
-        for (auto [s1, s2] : zip_view(selectors_1, selectors_2)) {
-            EXPECT_EQ(s1, s2);
-        }
-    };
+    // Check the equality of the Mega components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_2.mega.get(), *civc_vk_20.mega.get());
 
-    // Check that the Mega selectors are fixed.
-    compare_selectors(civc_vk_2.mega->get_selectors(), civc_vk_20.mega->get_selectors());
+    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_2.eccvm.get(), *civc_vk_2.eccvm.get());
 
-    // Check that the ECCVM selectors are fixed.
-    compare_selectors(civc_vk_2.eccvm->get_all(), civc_vk_20.eccvm->get_all());
-
-    // Check that the Translator selectors are fixed.
-    compare_selectors(civc_vk_2.translator->get_all(), civc_vk_20.translator->get_all());
+    // Check the equality of the Translator components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_2.translator.get());
 };
 
 /**
