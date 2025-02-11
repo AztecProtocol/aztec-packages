@@ -18,7 +18,10 @@ using namespace smt_terms;
  */
 TEST(helpers, shl)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -42,7 +45,10 @@ TEST(helpers, shl)
  */
 TEST(helpers, shr)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -68,7 +74,10 @@ TEST(helpers, buggy_shr)
 {
     // using smt solver i found that 1879048194 >> 16 == 0
     // its strange...
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -92,7 +101,10 @@ TEST(helpers, buggy_shr)
  */
 TEST(helpers, pow2)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm z = pow2_8(x, &s);
@@ -113,7 +125,10 @@ TEST(helpers, pow2)
  */
 TEST(helpers, signed_div)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -137,7 +152,10 @@ TEST(helpers, signed_div)
  */
 TEST(helpers, signed_div_1)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -161,7 +179,10 @@ TEST(helpers, signed_div_1)
  */
 TEST(helpers, signed_div_2)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -185,7 +206,10 @@ TEST(helpers, signed_div_2)
  */
 TEST(helpers, shl_overflow)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             /*base=*/16,
+             /*bvsize=*/32);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -201,3 +225,4 @@ TEST(helpers, shl_overflow)
     // z == 1010 in binary
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000000");
 }
+-
