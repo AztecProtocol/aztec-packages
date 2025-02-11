@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       username:
-        description: 'Username (optional)'
+        description: 'Username'
         required: true
       runner_type:
         description: 'Runner type (optional)'
         default: builder-x86
+        required: true
 jobs:
   start-build:
     uses: ./.github/workflows/setup-runner.yml
