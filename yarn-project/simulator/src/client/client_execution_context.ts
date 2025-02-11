@@ -1,7 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
-  Capsule,
+  type Capsule,
   CountedContractClassLog,
   CountedPublicExecutionRequest,
   Note,
