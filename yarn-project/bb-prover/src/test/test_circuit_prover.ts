@@ -236,12 +236,14 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > {
-    return await this.simulate(
-      input,
-      'SingleTxBlockRootRollupArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
-      convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+    return await this.applyDelay(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP, () =>
+      this.simulate(
+        input,
+        'SingleTxBlockRootRollupArtifact',
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+        convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+      ),
     );
   }
 
