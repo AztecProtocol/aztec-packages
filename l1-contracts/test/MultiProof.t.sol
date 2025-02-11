@@ -4,20 +4,14 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./base/DecoderBase.sol";
 
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
-import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
@@ -25,6 +19,7 @@ import {
 
 import {Rollup, Config} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 
@@ -158,5 +153,33 @@ contract MultiProofTest is RollupBase {
     logStatus();
 
     assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+  }
+
+  function testNoHolesInProvenBlocks() public setUpFor("mixed_block_1") {
+    _proposeBlock("mixed_block_1", 1, 15e6);
+    _proposeBlock("mixed_block_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
+
+    string memory name = "mixed_block_";
+    _proveBlocksFail(
+      name,
+      2,
+      2,
+      address(bytes20("lasse")),
+      abi.encodeWithSelector(Errors.Rollup__StartIsNotBuildingOnProven.selector)
+    );
+  }
+
+  function testProofsAreInOneEpoch() public setUpFor("mixed_block_1") {
+    _proposeBlock("mixed_block_1", 1, 15e6);
+    _proposeBlock("mixed_block_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
+
+    string memory name = "mixed_block_";
+    _proveBlocksFail(
+      name,
+      1,
+      2,
+      address(bytes20("lasse")),
+      abi.encodeWithSelector(Errors.Rollup__StartAndEndNotSameEpoch.selector, 0, 1)
+    );
   }
 }

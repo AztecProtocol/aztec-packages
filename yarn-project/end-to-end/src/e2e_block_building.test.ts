@@ -574,8 +574,7 @@ describe('e2e_block_building', () => {
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
-      // Now move to a new epoch and past the proof claim window to cause a reorg
-      logger.info('Advancing past the proof claim window');
+      logger.info('Advancing past the proof submission window');
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1);
 

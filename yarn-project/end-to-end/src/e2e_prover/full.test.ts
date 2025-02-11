@@ -236,16 +236,6 @@ describe('full_prover', () => {
     logger.info(`Advancing from epoch ${epoch} to next epoch`);
     await cheatCodes.rollup.advanceToNextEpoch();
 
-    // Send another tx so the sequencer can assemble a block that includes the prover node claim
-    // so the prover node starts proving
-    logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
-    const sendOpts = { skipPublicSimulation: true };
-    await provenAssets[0].methods
-      .transfer(recipient, privateSendAmount)
-      .send(sendOpts)
-      .wait({ timeout: 300, interval: 10 });
-    tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);
     await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));

@@ -64,7 +64,7 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'claim' | 'governance-vote' | 'slashing-vote';
+type Action = 'propose' | 'governance-vote' | 'slashing-vote';
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -104,7 +104,6 @@ export class SequencerPublisher {
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
-  public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;

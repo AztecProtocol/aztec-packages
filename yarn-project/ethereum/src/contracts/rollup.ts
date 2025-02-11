@@ -34,14 +34,6 @@ export type L1RollupContractAddresses = Pick<
   | 'rewardDistributorAddress'
 >;
 
-export type EpochProofQuoteViemArgs = {
-  epochToProve: bigint;
-  validUntilSlot: bigint;
-  bondAmount: bigint;
-  prover: `0x${string}`;
-  basisPointFee: number;
-};
-
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 

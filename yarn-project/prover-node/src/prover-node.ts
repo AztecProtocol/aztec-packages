@@ -126,9 +126,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   /**
-   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and sends
-   * quotes for them, as well as monitors the claims for the epochs it has sent quotes for and starts proving jobs.
-   * This method returns once the prover node has deposited an initial bond into the escrow contract.
+   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
+   * starts proving jobs for them.
    */
   start() {
     this.txFetcher.start();

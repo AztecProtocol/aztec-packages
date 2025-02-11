@@ -50,12 +50,6 @@ type SpecificProverNodeConfig = {
   txGatheringMaxParallelRequests: number;
 };
 
-export type QuoteProviderConfig = {
-  quoteProviderBasisPointFee: number;
-  quoteProviderBondAmount: bigint;
-  quoteProviderUrl?: string;
-};
-
 const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',

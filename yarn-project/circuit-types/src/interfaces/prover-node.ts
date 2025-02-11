@@ -1,10 +1,6 @@
-import { type Signature } from '@aztec/foundation/eth-signature';
 import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
-
-// Required by ts to export the schema of EpochProofQuote
-export { type Signature };
 
 const EpochProvingJobState = [
   'initialized',
