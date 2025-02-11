@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <strings.h>
 #include <vector>
 
 using namespace bb;
@@ -178,6 +179,9 @@ void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expect
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
+        if (!response.success) {
+            std::cout << "Unwind failed: " << response.message << std::endl;
+        }
         signal.signal_level();
     };
     tree.unwind_block(blockNumber, completion);
@@ -425,10 +429,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
-    auto& random_engine = numeric::get_randomness();
+    // auto& random_engine = numeric::get_randomness();
 
     {
-        LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 50, _maxReaders);
+        LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 100, _maxReaders);
         std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
         ThreadPoolPtr pool = make_thread_pool(1);
@@ -1423,19 +1427,20 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, second);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_empty)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_full_of_zeros)
 {
     const size_t block_size = 16;
+    const uint32_t num_blocks = 2;
     // First we add 16 blocks worth pf zero leaves and unwind them all
     std::vector<fr> first(1024, fr::zero());
-    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, first);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, first);
     // now we add 1 block of zero leaves and the other blocks non-zero leaves and unwind them all
     std::vector<fr> second = create_values(1024);
     // set the first 16 values to be zeros
     for (size_t i = 0; i < block_size; i++) {
         second[i] = fr::zero();
     }
-    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, second);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, second);
 
     // now we add 2 block of zero leaves in the middle and the other blocks non-zero leaves and unwind them all
     std::vector<fr> third = create_values(1024);
@@ -1443,11 +1448,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_th
     for (size_t i = 0; i < block_size * 2; i++) {
         third[i + offset] = fr::zero();
     }
-    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, third);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, third);
 
     // Now we add a number of regular blocks and unwind
     std::vector<fr> fourth = create_values(1024);
-    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, fourth);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, fourth);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
@@ -1462,6 +1467,66 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_bl
         std::stringstream ss;
         ss << "DB " << actualSize;
         test_unwind(_directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_unwind_empty_blocks)
+{
+    std::string name = random_string();
+    constexpr uint32_t depth = 10;
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    // The first path stored is the genesis state. This effectively makes everything 1 based.
+    std::vector<fr_sibling_path> paths(1, memdb.get_sibling_path(0));
+    index_t blockNumber = 0;
+    uint32_t batchSize = 64;
+
+    std::vector<std::vector<fr>> values;
+    // commit an empty block
+    values.emplace_back();
+    // then a non-empty block
+    values.push_back(create_values(batchSize));
+    // then 2 more empty blocks
+    values.emplace_back();
+    values.emplace_back();
+    // then a non-empty block
+    values.push_back(create_values(batchSize));
+
+    index_t index = 0;
+
+    for (auto& blockValues : values) {
+        add_values(tree, blockValues);
+        commit_tree(tree);
+
+        for (const auto& blockValue : blockValues) {
+            memdb.update_element(index++, blockValue);
+        }
+
+        ++blockNumber;
+
+        paths.push_back(memdb.get_sibling_path(0));
+
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_historic_sibling_path(tree, 0, paths[1], 1);
+        check_block_height(tree, blockNumber);
+    }
+
+    while (blockNumber > 0) {
+        // Unwind the next block
+        unwind_block(tree, blockNumber);
+
+        --blockNumber;
+
+        check_sibling_path(tree, 0, paths[blockNumber]);
+
+        if (blockNumber > 0) {
+            check_historic_sibling_path(tree, 0, paths[1], 1);
+            check_block_height(tree, blockNumber);
+        }
     }
 }
 

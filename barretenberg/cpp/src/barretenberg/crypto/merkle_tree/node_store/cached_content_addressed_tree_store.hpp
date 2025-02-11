@@ -125,6 +125,11 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void get_meta(TreeMeta& m, ReadTransaction& tx, bool includeUncommitted) const;
 
     /**
+     * @brief Reads the uncommitted tree meta data
+     */
+    void get_meta(TreeMeta& m) const;
+
+    /**
      * @brief Reads the tree meta data, including uncommitted data if requested
      */
     bool get_block_data(const block_number_t& blockNumber, BlockPayload& blockData, ReadTransaction& tx) const;
@@ -147,7 +152,12 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Commits the uncommitted data to the underlying store
      */
-    void commit(TreeMeta& finalMeta, TreeDBStats& dbStats, bool asBlock = true);
+    void commit_block(TreeMeta& finalMeta, TreeDBStats& dbStats);
+
+    /**
+     * @brief Commits the initial state of uncommitted data to the underlying store
+     */
+    void commit_genesis_state();
 
     /**
      * @brief Rolls back the uncommitted state
@@ -570,12 +580,17 @@ void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m,
                                                               bool includeUncommitted) const
 {
     if (includeUncommitted) {
-        // Accessing meta_ under a lock
-        std::unique_lock lock(mtx_);
-        m = meta_;
+        get_meta(m);
         return;
     }
     read_persisted_meta(m, tx);
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m) const
+{
+    // Accessing meta_ under a lock
+    std::unique_lock lock(mtx_);
+    m = meta_;
 }
 
 template <typename LeafValueType>
@@ -629,8 +644,48 @@ fr ContentAddressedCachedTreeStore<LeafValueType>::get_current_root(ReadTransact
 // It is assumed that when these operations are being executed that no other state accessing operations
 // are in progress, hence no data synchronisation is used.
 
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_genesis_state()
+{
+    // In this call, we will store any node/leaf data that has been created so far
+    // We will also store a zeroth block
+    bool dataPresent = false;
+    TreeMeta meta;
+    // We don't allow commits using images/forks
+    if (forkConstantData_.initialised_from_block_.has_value()) {
+        throw std::runtime_error("Committing a fork is forbidden");
+    }
+    get_meta(meta);
+    auto currentRootIter = nodes_.find(meta.root);
+    dataPresent = currentRootIter != nodes_.end();
+    {
+        WriteTransactionPtr tx = create_write_transaction();
+        try {
+            if (dataPresent) {
+                persist_leaf_indices(*tx);
+                persist_node(std::optional<fr>(meta.root), 0, *tx);
+            }
+
+            // std::cout << "Initial root " << meta.root << " block height " << meta.unfinalisedBlockHeight <<
+            // std::endl;
+            BlockPayload block{ .size = meta.size, .blockNumber = meta.unfinalisedBlockHeight, .root = meta.root };
+            dataStore_->write_block_data(meta.unfinalisedBlockHeight, block, *tx);
+            dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
+
+            meta.committedSize = meta.size;
+            persist_meta(meta, *tx);
+            tx->commit();
+        } catch (std::exception& e) {
+            tx->try_abort();
+            throw std::runtime_error(
+                format("Unable to commit genesis data to tree: ", forkConstantData_.name_, " Error: ", e.what()));
+        }
+    }
+    // rolling back destroys all cache stores and also refreshes the cached meta_ from persisted state
+    rollback();
+}
+
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta, TreeDBStats& dbStats, bool asBlock)
+void ContentAddressedCachedTreeStore<LeafValueType>::commit_block(TreeMeta& finalMeta, TreeDBStats& dbStats)
 {
     bool dataPresent = false;
     TreeMeta uncommittedMeta;
@@ -642,14 +697,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
     {
         ReadTransactionPtr tx = create_read_transaction();
         // read both committed and uncommitted meta data
-        get_meta(uncommittedMeta, *tx, true);
+        get_meta(uncommittedMeta);
         get_meta(committedMeta, *tx, false);
-
-        // if the meta datas are different, we have uncommitted data
-        bool metaToCommit = committedMeta != uncommittedMeta;
-        if (!metaToCommit && !asBlock) {
-            return;
-        }
 
         auto currentRootIter = nodes_.find(uncommittedMeta.root);
         dataPresent = currentRootIter != nodes_.end();
@@ -666,21 +715,19 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             // We are abusing the trees in some tests, trying to add empty blocks to initial empty trees
             // That is not expected behavior since the unwind operation will fail trying to decrease refcount
             // for the empty root, which doesn't exist.
-            if (dataPresent || (asBlock && uncommittedMeta.size > 0)) {
+            if (dataPresent || uncommittedMeta.size > 0) {
                 persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
             }
-            if (asBlock) {
-                ++uncommittedMeta.unfinalisedBlockHeight;
-                if (uncommittedMeta.oldestHistoricBlock == 0) {
-                    uncommittedMeta.oldestHistoricBlock = 1;
-                }
-                // std::cout << "New root " << uncommittedMeta.root << std::endl;
-                BlockPayload block{ .size = uncommittedMeta.size,
-                                    .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                    .root = uncommittedMeta.root };
-                dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
-                dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
+            ++uncommittedMeta.unfinalisedBlockHeight;
+            if (uncommittedMeta.oldestHistoricBlock == 0) {
+                uncommittedMeta.oldestHistoricBlock = 1;
             }
+            // std::cout << "New root " << uncommittedMeta.root << std::endl;
+            BlockPayload block{ .size = uncommittedMeta.size,
+                                .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
+                                .root = uncommittedMeta.root };
+            dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+            dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
 
             uncommittedMeta.committedSize = uncommittedMeta.size;
             persist_meta(uncommittedMeta, *tx);
@@ -815,7 +862,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
     {
         // read both committed and uncommitted meta values
         ReadTransactionPtr tx = create_read_transaction();
-        get_meta(uncommittedMeta, *tx, true);
+        get_meta(uncommittedMeta);
         get_meta(committedMeta, *tx, false);
         if (!dataStore_->read_block_data(blockNumber, blockPayload, *tx)) {
             throw std::runtime_error(format("Unable to advance finalised block: ",
@@ -880,7 +927,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
     }
     {
         ReadTransactionPtr tx = create_read_transaction();
-        get_meta(uncommittedMeta, *tx, true);
+        get_meta(uncommittedMeta);
         get_meta(committedMeta, *tx, false);
         if (committedMeta != uncommittedMeta) {
             throw std::runtime_error(
@@ -930,9 +977,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
     try {
         // std::cout << "Removing block " << blockNumber << std::endl;
 
-        // Remove the block's node and leaf data given the max index of the previous block
-        std::optional<index_t> maxIndex = std::optional<index_t>(previousBlockData.size);
-        remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
+        if (blockData.size > 0) {
+            // Remove the block's node and leaf data given the max index of the previous block
+            std::optional<index_t> maxIndex = std::optional<index_t>(previousBlockData.size);
+            remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
+        }
         // remove the block from the block data table
         dataStore_->delete_block_data(blockNumber, *writeTx);
         dataStore_->delete_block_index(blockData.size, blockData.blockNumber, *writeTx);
@@ -980,7 +1029,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         // retrieve both the committed and uncommitted meta data, validate the provide block is the oldest historical
         // block
         ReadTransactionPtr tx = create_read_transaction();
-        get_meta(uncommittedMeta, *tx, true);
+        get_meta(uncommittedMeta);
         get_meta(committedMeta, *tx, false);
         if (blockNumber != committedMeta.oldestHistoricBlock) {
             throw std::runtime_error(format("Unable to remove historical block: ",
