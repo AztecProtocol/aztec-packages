@@ -71,10 +71,10 @@ case "$cmd" in
     # do nothing but the install_deps.sh above
     ;;
   "kind")
-    # Recreate KIND whenever our kubectl does not have it configured, or when we don't have nodes running (no kind-control-plane docker container)
-    if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps -a --format '{{.Names}}' | grep -qw "kind-control-plane"; then
-      kind delete cluster || true
-      retry kind create cluster --wait 45s
+    if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
+      # Sometimes, kubectl does not have our kind context yet kind registers it as existing
+      # Ensure our context exists in kubectl
+      retry "kind delete cluster || true; timeout -v 45s kind create cluster"
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane
