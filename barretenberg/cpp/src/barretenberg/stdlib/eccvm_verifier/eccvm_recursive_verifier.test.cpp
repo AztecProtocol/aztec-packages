@@ -103,7 +103,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
 
-        EXPECT(recursive_manifest.size() > 0);
+        ASSERT(recursive_manifest.size() > 0);
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
