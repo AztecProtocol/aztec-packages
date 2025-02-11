@@ -17,6 +17,8 @@ You can use this method to deploy your contracts to the sandbox or to a remote n
 
 Contracts can be deployed using the `aztec.js` library.
 
+### Generate the typescript artifact
+
 Compile the contract:
 
 ```bash
@@ -31,13 +33,19 @@ aztec codegen ./aztec-nargo/output/target/path -o src/artifacts
 
 This would create a typescript file like `Example.ts` in `./src/artifacts`.
 
-You can use the `Contract` class to deploy a contract:
+### Deploying
+
+Import the typescript artifact into your file.
+
+#include_code import_artifact yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
+
+Then you can use the `Contract` class **or** the [generated contract class](#using-generated-class) to deploy the contract.
+
+To use the `Contract` class to deploy a contract:
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
 
-Or you can use the generated contract class. See [below](#deploying-token-contract) for more details.
-
-### Deploy Arguments
+#### Deploy Arguments
 
 There are several optional arguments that can be passed:
 
@@ -47,9 +55,9 @@ Additionally the `.send()` method can have a few optional arguments too, which a
 
 #include_code deploy_options yarn-project/aztec.js/src/contract/deploy_method.ts typescript
 
-### Deploying token contract
+### Using generated contract class
 
-As a more complete example, here a `Token` contract deployment whose artifacts are included in the `@aztec/noir-contracts.js` package. You can use similar deployment syntax with your own contract by importing the TS artifact generated with `aztec codegen`
+As a more complete example, here a `Token` contract deployment whose artifacts are included in the `@aztec/noir-contracts.js` package. You can use similar deployment syntax with your own contract by importing the TS artifact generated with `aztec codegen`. This example uses the generated `TokenContract` to deploy.
 
 ```ts
 #include_code create_account_imports yarn-project/end-to-end/src/composed/docs_examples.test.ts raw
