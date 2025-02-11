@@ -76,7 +76,7 @@ case "$cmd" in
       # Ensure our context exists in kubectl
       retry "kind delete cluster || true; timeout -v 2m kind create cluster"
     fi
-    kubectl config use-context kind-kind >/dev/null || true
+    kubectl config use-context kind-kind || true
     docker update --restart=no kind-control-plane >/dev/null
     ;;
   "chaos-mesh")

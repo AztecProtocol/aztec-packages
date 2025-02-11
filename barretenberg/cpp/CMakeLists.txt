@@ -6,8 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    # Placeholder version.
-    VERSION 00000000.00000000.00000000
+    VERSION 0.76.2 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
