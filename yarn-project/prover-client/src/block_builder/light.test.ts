@@ -102,7 +102,7 @@ describe('LightBlockBuilder', () => {
   let feePayerBalance: Fr;
   const expectedTxFee = new Fr(0x2200);
 
-  beforeAll(async () => {
+  beforeAll(() => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
