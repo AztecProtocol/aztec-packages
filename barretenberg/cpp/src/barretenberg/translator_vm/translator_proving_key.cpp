@@ -53,6 +53,41 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
 }
 
 /**
+ * @brief Sequential method for computing the concatenated polynomials by interleaving.
+ *
+ * @note This is not currently used in the implementation.
+ */
+void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
+{
+    auto groups = proving_key->polynomials.get_groups_to_be_concatenated();
+    auto concatenated_polynomials = proving_key->polynomials.get_concatenated();
+
+    // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
+    // dividing by concatenation index
+    const size_t MINI_CIRCUIT_SIZE = concatenated_polynomials[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
+    ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == concatenated_polynomials[0].size());
+
+    for (auto [concatenated, group] : zip_view(concatenated_polynomials, groups)) {
+        interleave(group, concatenated);
+    }
+}
+
+/**
+ * @brief Construct a concatenated polynomial from a group of polynomials by interleaving.
+ */
+void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
+{
+
+    const size_t group_size = group.size();
+    const size_t group_polynomial_size = result.size() / group_size;
+    for (size_t j = result.start_index(); j < group_polynomial_size; j++) {
+        for (size_t k = 0; k < group_size; k++) {
+            result.at(k + j * group_size) = group[k][j];
+        }
+    }
+}
+
+/**
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
  * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
