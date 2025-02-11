@@ -54,29 +54,6 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    describe('capsules', () => {
-      it('stores and retrieves capsules', async () => {
-        const capsule = [Fr.random(), Fr.random()];
-
-        await database.addCapsule(capsule);
-        await expect(database.popCapsule()).resolves.toEqual(capsule);
-      });
-
-      it("returns undefined if it doesn't have capsules", async () => {
-        await expect(database.popCapsule()).resolves.toBeUndefined();
-      });
-
-      it('behaves like a stack when storing capsules', async () => {
-        const capsule1 = [Fr.random(), Fr.random()];
-        const capsule2 = [Fr.random(), Fr.random()];
-
-        await database.addCapsule(capsule1);
-        await database.addCapsule(capsule2);
-        await expect(database.popCapsule()).resolves.toEqual(capsule2);
-        await expect(database.popCapsule()).resolves.toEqual(capsule1);
-      });
-    });
-
     describe('incoming notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];

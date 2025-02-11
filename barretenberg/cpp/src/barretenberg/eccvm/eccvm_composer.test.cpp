@@ -98,6 +98,16 @@ TEST_F(ECCVMTests, BaseCase)
 
     ASSERT_TRUE(verified);
 }
+TEST_F(ECCVMTests, BaseCaseFixedSize)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProof proof = prover.construct_proof();
+    ECCVMVerifier verifier(prover.key);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
+}
 
 TEST_F(ECCVMTests, EqFails)
 {
@@ -107,6 +117,21 @@ TEST_F(ECCVMTests, EqFails)
 
     builder.op_queue->num_transcript_rows++;
     ECCVMProver prover(builder);
+
+    ECCVMProof proof = prover.construct_proof();
+    ECCVMVerifier verifier(prover.key);
+    bool verified = verifier.verify_proof(proof);
+    ASSERT_FALSE(verified);
+}
+
+TEST_F(ECCVMTests, EqFailsFixedSize)
+{
+    auto builder = generate_circuit(&engine);
+    // Tamper with the eq op such that the expected value is incorect
+    builder.op_queue->add_erroneous_equality_op_for_testing();
+
+    builder.op_queue->num_transcript_rows++;
+    ECCVMProver prover(builder, /*fixed_size = */ true);
 
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
