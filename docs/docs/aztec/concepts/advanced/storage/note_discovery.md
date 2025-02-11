@@ -14,7 +14,7 @@ In some existing protocols, the user downloads all possible notes and tries to d
 
 ### Off-chain communication
 
-Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted on-chain.
+Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted on-chain. Aztec apps will be able to choose this method if they wish.
 
 ## Aztec's solution: Note tagging
 
@@ -32,7 +32,7 @@ The sender and recipient share a predictable scheme for generating tags. The tag
 
 #### Discovering notes in Aztec contracts
 
-This note discovery scheme is implemented by Aztec contracts rather than by the PXE. This means that users can update or use other types of note discovery to suit their needs.
+This note discovery scheme will be implemented by Aztec contracts rather than by the PXE. This means that users can update or use other types of note discovery to suit their needs.
 
 ### Limitations
 
