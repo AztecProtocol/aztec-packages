@@ -225,4 +225,3 @@ TEST(helpers, shl_overflow)
     // z == 1010 in binary
     EXPECT_TRUE(vals["z"] == "00000000000000000000000000000000");
 }
--
