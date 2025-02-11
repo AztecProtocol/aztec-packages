@@ -14,5 +14,5 @@ jobs:
     uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ inputs.username }}
-      runner_type: builder-x86
+      runner_type: ${{ inputs.runner_type }}
     secrets: inherit
