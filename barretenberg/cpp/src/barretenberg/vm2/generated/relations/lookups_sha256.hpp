@@ -77,23 +77,14 @@ template <typename FF_>
 class lookup_sha256_round_constant_relation
     : public GenericLookupRelation<lookup_sha256_round_constant_lookup_settings, FF_> {
   public:
-    using Settings = lookup_sha256_round_constant_lookup_settings;
     static constexpr std::string_view NAME = lookup_sha256_round_constant_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.sha256_sel.is_zero() && in.precomputed_sel_sha256_compression.is_zero();
     }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
 };
+template <typename FF_>
+using lookup_sha256_round_constant = GenericLookup<lookup_sha256_round_constant_lookup_settings, FF_>;
 
 } // namespace bb::avm2

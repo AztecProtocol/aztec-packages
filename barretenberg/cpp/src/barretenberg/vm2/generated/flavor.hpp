@@ -77,12 +77,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 403;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 68;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 407;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 72;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 487;
+    static constexpr size_t NUM_ALL_ENTITIES = 495;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -107,6 +107,7 @@ class AvmFlavor {
         lookup_bitw_byte_lengths_relation<FF_>,
         lookup_bitw_byte_operations_relation<FF_>,
         lookup_bytecode_bytes_are_bytes_relation<FF_>,
+        lookup_bytecode_remaining_abs_diff_u16_relation<FF_>,
         lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,

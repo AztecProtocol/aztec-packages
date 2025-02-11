@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <ranges>
@@ -39,10 +40,12 @@ void BytecodeTraceBuilder::process_decomposition(
         auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
-        for (uint32_t i = 0; i < bytecode.size(); i++) {
+        for (uint32_t i = 0; i < bytecode_len; i++) {
             const uint32_t remaining = bytecode_len - i;
             const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
-            bool is_last = remaining == 1;
+            const uint32_t abs_diff = DECOMPOSE_WINDOW_SIZE > remaining ? DECOMPOSE_WINDOW_SIZE - remaining
+                                                                        : remaining - DECOMPOSE_WINDOW_SIZE;
+            const bool is_last = remaining == 1;
 
             trace.set(
                 row,
@@ -52,6 +55,9 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_pc, i },
                     { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
                     { C::bc_decomposition_bytes_remaining, remaining },
+                    { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
+                    { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
+                    { C::bc_decomposition_abs_diff, abs_diff },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
                     { C::bc_decomposition_bytes_to_read_unary, as_unary(bytes_to_read) },
                     { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },

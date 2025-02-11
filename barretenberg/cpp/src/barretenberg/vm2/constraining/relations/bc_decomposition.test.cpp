@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/generated/relations/bc_decomposition.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -31,6 +32,12 @@ std::vector<uint8_t> random_bytes(size_t n)
     return bytes;
 }
 
+void init_trace(TestTraceContainer& trace)
+{
+    // Add first row.
+    trace.set(C::precomputed_first_row, 0, 1);
+}
+
 TEST(BytecodeDecompositionConstrainingTest, EmptyRow)
 {
     TestTraceContainer trace({
@@ -43,6 +50,7 @@ TEST(BytecodeDecompositionConstrainingTest, EmptyRow)
 TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
 {
     TestTraceContainer trace;
+    init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
@@ -55,6 +63,7 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
 {
     // Bytecode is shorter than the sliding window.
     TestTraceContainer trace;
+    init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
@@ -66,6 +75,7 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
 {
     TestTraceContainer trace;
+    init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
@@ -79,6 +89,7 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
 {
     TestTraceContainer trace;
+    init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
