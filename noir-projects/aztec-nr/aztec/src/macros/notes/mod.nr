@@ -127,7 +127,7 @@ comptime fn generate_note_interface(
                 $note_type_id
             }
 
-            fn set_header(&mut self, header: $NOTE_HEADER_TYPE) {
+            fn set_header(&mut self) {
                 self.header = header;
             }
 
