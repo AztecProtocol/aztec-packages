@@ -25,7 +25,7 @@ jobs:
     # condition:
     #   - Always allow 'push' and 'workflow_dispatch' jobs.
     #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, we must also have the correct label/draft conditions.
+    #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
@@ -35,7 +35,7 @@ jobs:
           (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
         ) &&
         (
-          (github.event.action != 'labeled' && !github.event.pull_request.draft) ||
+          !github.event.pull_request.draft ||
           (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
         )
       )
@@ -100,7 +100,7 @@ jobs:
           (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
         ) &&
         (
-          (github.event.action != 'labeled' && !github.event.pull_request.draft) ||
+          !github.event.pull_request.draft ||
           (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
         ) &&
         contains(github.event.pull_request.labels.*.name, 'arm64-ci')
