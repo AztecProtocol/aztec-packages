@@ -907,7 +907,10 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
   }
 
-  public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<TxValidationResult> {
+  public async isValidTx(
+    tx: Tx,
+    { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
+  ): Promise<TxValidationResult> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
     const verifier = isSimulation ? undefined : this.proofVerifier;
@@ -916,6 +919,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       l1ChainId: this.l1ChainId,
       setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
+      skipFeeEnforcement,
     });
 
     return await validator.validateTx(tx);

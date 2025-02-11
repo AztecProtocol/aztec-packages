@@ -541,7 +541,8 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx, true))) {
+        const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+        if (validationResult.result === 'invalid') {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
