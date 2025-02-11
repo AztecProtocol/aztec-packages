@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/eccvm_row_tracker.hpp"
 namespace bb {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
@@ -48,6 +49,8 @@ class ECCOpQueue {
 
     std::array<Point, 4> ultra_ops_commitments;
 
+    EccvmRowTracker eccvm_row_tracker;
+
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
@@ -87,14 +90,7 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        raw_ops.emplace_back(ECCVMOperation{ .add = false,
-                                             .mul = false,
-                                             .eq = true,
-                                             .reset = true,
-                                             .base_point = Point::random_element(),
-                                             .z1 = 0,
-                                             .z2 = 0,
-                                             .mul_scalar_full = 0 });
+        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
     }
 
     /**
@@ -104,18 +100,10 @@ class ECCOpQueue {
      */
     void empty_row_for_testing()
     {
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
-            .mul = false,
-            .eq = false,
-            .reset = false,
-            .base_point = point_at_infinity,
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
+        raw_ops.emplace_back(ECCVMOperation{ .base_point = point_at_infinity });
 
         update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
     }
 
     Point get_accumulator() { return accumulator; }
@@ -219,6 +207,11 @@ class ECCOpQueue {
             precompute_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
         }
 
+        size_t num_rows = std::max(transcript_rows, std::max(msm_rows, precompute_rows));
+
+        info("num_rows: ", num_rows);
+        info("NEW num_rows: ", eccvm_row_tracker.get_num_rows());
+
         return std::max(transcript_rows, std::max(msm_rows, precompute_rows));
     }
 
@@ -232,23 +225,13 @@ class ECCOpQueue {
         // Update the accumulator natively
         accumulator = accumulator + to_add;
 
-        // Construct and store the operation in the ultra op format
-        UltraOp ultra_op = construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
-
         // Store the raw operation
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = true,
-            .mul = false,
-            .eq = false,
-            .reset = false,
-            .base_point = to_add,
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
+        raw_ops.emplace_back(ECCVMOperation{ .add = true, .base_point = to_add });
         update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
-        return ultra_op;
+        // Construct and store the operation in the ultra op format
+        return construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
     }
 
     /**
@@ -266,16 +249,14 @@ class ECCOpQueue {
 
         // Store the raw operation
         raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
             .mul = true,
-            .eq = false,
-            .reset = false,
             .base_point = to_mul,
             .z1 = ultra_op.z_1,
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
         update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         return ultra_op;
     }
@@ -286,23 +267,13 @@ class ECCOpQueue {
      */
     UltraOp no_op()
     {
-        // Construct and store the operation in the ultra op format
-        auto ultra_op = construct_and_populate_ultra_ops(NULL_OP, accumulator);
-
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
-            .mul = false,
-            .eq = false,
-            .reset = false,
-            .base_point = { 0, 0 },
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
+        raw_ops.emplace_back(ECCVMOperation{});
         update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
-        return ultra_op;
+        // Construct and store the operation in the ultra op format
+        return construct_and_populate_ultra_ops(NULL_OP, accumulator);
     }
 
     /**
@@ -315,23 +286,13 @@ class ECCOpQueue {
         auto expected = accumulator;
         accumulator.self_set_infinity();
 
-        // Construct and store the operation in the ultra op format
-        UltraOp ultra_op = construct_and_populate_ultra_ops(EQUALITY, expected);
-
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
-            .mul = false,
-            .eq = true,
-            .reset = true,
-            .base_point = expected,
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
+        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
         update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
-        return ultra_op;
+        // Construct and store the operation in the ultra op format
+        return construct_and_populate_ultra_ops(EQUALITY, expected);
     }
 
   private:
