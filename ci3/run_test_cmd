@@ -27,9 +27,9 @@ set +e
 tmp_file=$(mktemp)
 trap "rm -f $tmp_file" EXIT
 if [[ "$test_cmd" = timeout* ]]; then
-  bash -c "$test_cmd" &> $tmp_file &
+  bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &> $tmp_file &
 else
-  timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
+  timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &> $tmp_file &
 fi
 timeout_pid=$!
 trap "kill -- -$timeout_pid" SIGTERM SIGINT

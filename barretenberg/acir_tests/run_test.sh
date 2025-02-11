@@ -48,9 +48,9 @@ fi
 set +e
 SECONDS=0
 if [ "$VERBOSE" -eq 1 ]; then
-  output=$($flow_script 2>&1 | add_timestamps | tee /dev/stderr)
+  output=$($flow_script 2>&1 | tee /dev/stderr)
 else
-  output=$($flow_script 2>&1 | add_timestamps)
+  output=$($flow_script 2>&1)
 fi
 result=$?
 duration=$SECONDS

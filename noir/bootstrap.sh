@@ -168,12 +168,6 @@ function release_packages {
     jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json && mv tmp.json package.json
     jq --arg v $version '.version = $v' package.json >tmp.json && mv tmp.json package.json
 
-    # Update each dependent @noir-lang package version in package.json to point to renamed packages and versions.
-    for pkg in $(jq --raw-output '(.dependencies // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-      new_pkg="@aztec/noir-${pkg#@noir-lang/}"
-      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.dependencies[$new] = $v | del(.dependencies[$old])' package.json > tmp.json && mv tmp.json package.json
-    done
-
     deploy_npm $dist_tag $version
     cd ..
   done
