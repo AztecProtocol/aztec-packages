@@ -115,7 +115,6 @@ TEST_F(ECCVMTests, EqFails)
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
 
-    builder.op_queue->num_transcript_rows++;
     ECCVMProver prover(builder);
 
     ECCVMProof proof = prover.construct_proof();
@@ -130,7 +129,6 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
 
-    builder.op_queue->num_transcript_rows++;
     ECCVMProver prover(builder, /*fixed_size = */ true);
 
     ECCVMProof proof = prover.construct_proof();
