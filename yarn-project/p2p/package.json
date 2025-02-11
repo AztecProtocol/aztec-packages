@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./mocks": "./dest/mocks/index.js",
+    "./test-helpers": "./dest/test-helpers/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
     "./config": "./dest/config.js",
     "./msg_validators": "./dest/msg_validators/index.js"
