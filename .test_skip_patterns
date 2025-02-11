@@ -62,8 +62,6 @@ simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
 
-simple e2e_prover/full
-
 # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
 # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
 #
@@ -133,5 +131,3 @@ p2p/src/services/reqresp/reqresp.test.ts
 prover-client/src/proving_broker/broker_prover_facade.test.ts
 prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
-
-./spartan/bootstrap.sh test-kind-smoke

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.75.0...barretenberg.js-v0.76.0) (2025-02-10)
+
+
+### Bug Fixes
+
+* **bb.js:** Make wasm imports bundleable ([#11812](https://github.com/AztecProtocol/aztec-packages/issues/11812)) ([1af69a9](https://github.com/AztecProtocol/aztec-packages/commit/1af69a973ae878a38b7e6b81422fe7671e67d9e5))
+* Remove unnecessary console.log ([#11810](https://github.com/AztecProtocol/aztec-packages/issues/11810)) ([8a320bf](https://github.com/AztecProtocol/aztec-packages/commit/8a320bf69502662ca9403bd294e633b2d45a7869))
+
 ## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.74.0...barretenberg.js-v0.75.0) (2025-02-06)
 
 

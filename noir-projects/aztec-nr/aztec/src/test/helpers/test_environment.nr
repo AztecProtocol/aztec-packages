@@ -95,11 +95,29 @@ impl TestEnvironment {
         path: str<N>,
         name: str<M>,
     ) -> Deployer<N, M> {
-        Deployer { path, name, public_keys_hash: 0 }
+        Deployer { path, name, secret: 0 }
     }
 
     pub unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { path: "", name, public_keys_hash: 0 }
+        Deployer { path: "", name, secret: 0 }
+    }
+
+    // Deploying with public keys assumes secret != 0
+    pub unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(
+        _self: Self,
+        path: str<N>,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<N, M> {
+        Deployer { path, name, secret }
+    }
+
+    pub unconstrained fn deploy_self_with_public_keys<let M: u32>(
+        _self: Self,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<0, M> {
+        Deployer { path: "", name, secret }
     }
 
     pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
