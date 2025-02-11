@@ -37,7 +37,12 @@ case ${SYS:-} in
   "ultra_honk")
     # WORKTODO: hash affects verification key, without it,
     #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
-    FLAGS+=" --scheme $SYS --ipa_accumulation ${ROLLUP:-false} --oracle_hash ${HASH:-poseidon2}"
+    FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
+    [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
+
+    # $BIN prove $FLAGS $BFLAG -o target
+    # $BIN write_vk $FLAGS $BFLAG -o target
+    # $BIN verify $FLAGS  -k target/vk -p target/proof
     $BIN verify $FLAGS \
         -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
         -p <($BIN prove $FLAGS $BFLAG -o - )
