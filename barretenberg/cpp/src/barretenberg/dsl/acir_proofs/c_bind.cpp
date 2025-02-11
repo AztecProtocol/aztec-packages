@@ -395,6 +395,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
         return DeciderProvingKey(builder);
     }();
     VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
 
@@ -402,8 +403,6 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool c
 {
     using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
-
-    const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
 
     // lambda to free the builder
     DeciderProvingKey proving_key = [&] {
@@ -414,6 +413,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool c
         return DeciderProvingKey(builder);
     }();
     VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraKeccakHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
 
