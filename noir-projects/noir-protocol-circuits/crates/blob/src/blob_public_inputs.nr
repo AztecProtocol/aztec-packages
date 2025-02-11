@@ -1,5 +1,6 @@
 use crate::config::F;
-use bigint::BigNum;
+use bigint::{BigNum, bignum::BigNumTrait};
+use std::ops::Add;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
     traits::{Deserialize, Empty, Serialize},

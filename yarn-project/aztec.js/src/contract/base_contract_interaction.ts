@@ -1,4 +1,4 @@
-import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
+import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { type Fr, GasSettings } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -32,7 +32,7 @@ export type SendMethodOptions = {
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');
 
-  private capsules: Fr[][] = [];
+  private capsules: Capsule[] = [];
 
   constructor(protected wallet: Wallet) {}
 
@@ -170,7 +170,7 @@ export abstract class BaseContractInteraction {
    * Add data passed to the oracle calls during this contract interaction.
    * @param capsule - Data passed to oracle calls.
    */
-  public addCapsule(capsule: Fr[]) {
+  public addCapsule(capsule: Capsule) {
     this.capsules.push(capsule);
   }
 
@@ -178,7 +178,7 @@ export abstract class BaseContractInteraction {
    * Add data passed to the oracle calls during this contract interaction.
    * @param capsules - Data passed to oracle calls.
    */
-  public addCapsules(capsules: Fr[][]) {
+  public addCapsules(capsules: Capsule[]) {
     this.capsules.push(...capsules);
   }
 

@@ -5,11 +5,11 @@ import {
   AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
+  type Capsule,
   CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
   type DeployL1Contracts,
-  type Fr,
   type FunctionCall,
   type Logger,
   type PXE,
@@ -607,7 +607,7 @@ export async function publicDeployAccounts(
     ...instances.map(instance => deployInstance(sender, instance!)),
   ]);
   const calls: FunctionCall[] = await Promise.all(fns.map(fn => fn.request()));
-  const capsules: Fr[][] = fns.map(fn => fn.getCapsules()).flat();
+  const capsules: Capsule[] = fns.map(fn => fn.getCapsules()).flat();
 
   const batch = new BatchCall(sender, calls);
   batch.addCapsules(capsules);

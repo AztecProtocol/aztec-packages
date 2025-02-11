@@ -1,4 +1,4 @@
-import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type Capsule, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
   type ContractInstanceWithAddress,
@@ -139,7 +139,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     options: DeployOptions = {},
   ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
     const calls: FunctionCall[] = [];
-    const capsules: Fr[][] = [];
+    const capsules: Capsule[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
     const instance = await this.getInstance(options);
@@ -189,7 +189,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
     const { address } = await this.getInstance(options);
     const calls: FunctionCall[] = [];
-    const capsules: Fr[][] = [];
+    const capsules: Capsule[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,

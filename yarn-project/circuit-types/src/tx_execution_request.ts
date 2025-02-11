@@ -8,6 +8,7 @@ import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AuthWitness } from './auth_witness.js';
+import { Capsule } from './capsule.js';
 import { HashedValues } from './hashed_values.js';
 
 /**
@@ -44,9 +45,9 @@ export class TxExecutionRequest {
      */
     public authWitnesses: AuthWitness[],
     /**
-     * Data passed through the oracle calls during this tx execution.
+     * Read-only data passed through the oracle calls during this tx execution.
      */
-    public capsules: Fr[][],
+    public capsules: Capsule[],
   ) {}
 
   static get schema() {
@@ -58,7 +59,7 @@ export class TxExecutionRequest {
         txContext: TxContext.schema,
         argsOfCalls: z.array(HashedValues.schema),
         authWitnesses: z.array(AuthWitness.schema),
-        capsules: z.array(z.array(schemas.Fr)),
+        capsules: z.array(Capsule.schema),
       })
       .transform(TxExecutionRequest.from);
   }
@@ -101,7 +102,7 @@ export class TxExecutionRequest {
       this.txContext,
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
-      new Vector(this.capsules.map(c => new Vector(c))),
+      new Vector(this.capsules),
     );
   }
 
@@ -127,7 +128,7 @@ export class TxExecutionRequest {
       reader.readObject(TxContext),
       reader.readVector(HashedValues),
       reader.readVector(AuthWitness),
-      reader.readVector({ fromBuffer: () => reader.readVector(Fr) }),
+      reader.readVector(Capsule),
     );
   }
 
@@ -148,7 +149,10 @@ export class TxExecutionRequest {
       TxContext.empty(),
       [await HashedValues.random()],
       [AuthWitness.random()],
-      [[Fr.random(), Fr.random()], [Fr.random()]],
+      [
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random(), Fr.random()]),
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]),
+      ],
     );
   }
 
