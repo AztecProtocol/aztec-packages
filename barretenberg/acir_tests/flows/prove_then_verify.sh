@@ -1,6 +1,6 @@
 #!/bin/bash
 # prove_then_verify produces intermediate state. We use process substitution to make parallel safe.
-set -eu
+set -eux
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
@@ -39,13 +39,19 @@ case ${SYS:-} in
     #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
+    $BIN prove $FLAGS $BFLAG -o target
+    $BIN write_vk $FLAGS $BFLAG -o target
+    $BIN verify $FLAGS  -k target/vk -p target/proof
 
-    # $BIN prove $FLAGS $BFLAG -o target
+    # [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation true"
+    # $BIN prove $FLAGS $BFLAG -o target $([[ "${ROLLUP:-false}" == "true" ]] && echo '--ipa_accumulation')
     # $BIN write_vk $FLAGS $BFLAG -o target
-    # $BIN verify $FLAGS  -k target/vk -p target/proof
-    $BIN verify $FLAGS \
-        -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
-        -p <($BIN prove $FLAGS $BFLAG -o - )
+    # $BIN verify $FLAGS  -k target/vk -p target/proof $([[ "${ROLLUP:-false}" == "true" ]] && echo '--ipa_accumulation')
+
+
+    # $BIN verify $FLAGS \
+    #     -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
+    #     -p <($BIN prove $FLAGS $BFLAG -o - )
   ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api

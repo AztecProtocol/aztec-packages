@@ -31,7 +31,7 @@ class API {
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  output_type: " << flags.output_data_type << "\n"
                << "  input_type: " << flags.input_type << "\n"
-               << "  output_content_type: " << flags.output_content_type << "\n]";
+               << "  output_content_type: " << flags.output_content_type << "\n]" << std::endl;
             return os;
         }
     };

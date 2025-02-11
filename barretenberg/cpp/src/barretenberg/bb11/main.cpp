@@ -222,7 +222,8 @@ int main(int argc, char* argv[])
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk); // WORKTODO deprecated
     add_initialize_pairing_point_accumulator_option(write_vk);
-    add_oracle_hash_option(write_vk); // WORKTODO: why is this necessary?
+    add_oracle_hash_option(write_vk);    // WORKTODO: why is this necessary?
+    add_ipa_accumulation_flag(write_vk); // WORKTODO: segfault without
 
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk);
@@ -274,7 +275,7 @@ int main(int argc, char* argv[])
      * Build app
      ***************************************************************************************************************/
     CLI11_PARSE(app, argc, argv);
-    // info(flags);
+    info(flags);
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
