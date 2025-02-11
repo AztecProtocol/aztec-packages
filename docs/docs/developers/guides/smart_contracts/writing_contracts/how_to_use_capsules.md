@@ -4,7 +4,10 @@ sidebar_position: 5
 tags: [functions, oracles]
 ---
 
-Capsules provide a per-contract non-volatile database for storing arbitrary data that can be retrieved later. The data is scoped per contract address, so external contracts cannot access it.
+Capsules are a per-contract non-volatile database.
+It can be used for storing arbitrary data that can be retrieved later.
+The data is stored locally in PXE and it is scoped per contract address, so external contracts cannot access it.
+The capsule (data stored under a storage slot in the capsules database) persists until explicitly deleted with `delete`.
 
 The capsules module provides these main functions:
 
@@ -29,13 +32,16 @@ The data is stored per contract address and slot. When loading, you'll get back 
 
 ### 3. Copying data
 
-You can use `copy` to move contiguous entries between slots without repeated loads and stores. This supports overlapping source and destination regions.
+You can use `copy` to move contiguous entries between slots without repeated loads and stores.
+This supports overlapping source and destination regions.
 
-Note that all values are scoped per contract address, so external contracts cannot access them. The data persists until explicitly deleted with `delete`.
+Note that all values are scoped per contract address, so external contracts cannot access them.
 
 ### 4. Using CapsulesArray
 
-The `CapsulesArray<T>` type provides a dynamically sized array backed by capsules. It handles the storage layout and management automatically. The array stores its length at a base slot, with elements stored in consecutive slots after it.
+The `CapsulesArray<T>` type provides a dynamically sized array backed by capsules.
+It handles the storage layout and management automatically.
+The array stores its length at a base slot, with elements stored in consecutive slots after it.
 
 Key functions:
 
