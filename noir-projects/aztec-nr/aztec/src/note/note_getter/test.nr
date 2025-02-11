@@ -20,7 +20,7 @@ unconstrained fn setup() -> TestEnvironment {
 }
 
 unconstrained fn build_valid_note(value: Field) -> MockNote {
-    MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build()
+    MockNote::new(value).contract_address(get_contract_address()).build()
 }
 
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
@@ -173,7 +173,7 @@ unconstrained fn rejects_mismatched_address() {
     let mut env = setup();
     let mut context = env.private();
 
-    let note = MockNote::new(1).storage_slot(storage_slot).build(); // We're not setting the right contract address
+    let note = MockNote::new(1).build(); // We're not setting the right contract address
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 

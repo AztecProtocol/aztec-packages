@@ -163,9 +163,9 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
-        let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
+        let header = NoteHeader { contract_address, nonce: 0, note_hash_counter };
         note.set_header(header);
-        let note_hash = note.compute_note_hash();
+        let note_hash = note.compute_note_hash(storage_slot);
         let packed_content = Note::pack_content(*note);
         notify_created_note(
             storage_slot,
