@@ -162,8 +162,6 @@ where
             prev_fields = fields;
 
             let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
-            // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
             note_hashes.push(note_hash_for_read_request);
         };
