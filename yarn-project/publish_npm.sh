@@ -50,19 +50,22 @@ function deploy_package() {
 
   # Update the package version in package.json.
   TMP=$(mktemp)
-  jq --arg v $VERSION '.version = $v' package.json >$TMP && mv $TMP package.json
+  jq --arg v $VERSION '.version = $v' package.json >$TMP
+  mv $TMP package.json
 
   if [ -z "${STANDALONE:-}" ]; then
     # Update each dependent @aztec package version in package.json.
     for PKG in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
-      jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP && mv $TMP package.json
+      jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP
+      mv $TMP package.json
     done
 
     # TODO: Remove this after @noir package resolution is fixed
     if [[ "$PACKAGE_NAME" == "@aztec/pxe" ]]; then
       # Hardcodes "1.0.0-beta.1" for @noir-lang/types
       for PKG in $(jq --raw-output ".dependencies | keys[] | . == \"@noir-lang/types\")" package.json); do
-        jq ".dependencies[\"$PKG\"] = 1.0.0-beta.1" package.json >$TMP && mv $TMP package.json
+        jq ".dependencies[\"$PKG\"] = 1.0.0-beta.1" package.json >$TMP
+        mv $TMP package.json
       done
     fi
   fi

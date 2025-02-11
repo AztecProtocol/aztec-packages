@@ -67,7 +67,8 @@ function build_packages {
   rm -rf packages && mkdir -p packages
   for project in $js_projects; do
     p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$project\").location")
-    tar zxfv noir-repo/$p/package.tgz -C packages && mv packages/package packages/${project#*/}
+    tar zxfv noir-repo/$p/package.tgz -C packages
+    mv packages/package packages/${project#*/}
   done
 
   cache_upload noir-packages-$hash.tar.gz \
@@ -165,13 +166,16 @@ function release_packages {
     cd $path
 
     # Rename package name @aztec/noir-<package> and update version.
-    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json && mv tmp.json package.json
-    jq --arg v $version '.version = $v' package.json >tmp.json && mv tmp.json package.json
+    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json
+    mv tmp.json package.json
+    jq --arg v $version '.version = $v' package.json >tmp.json
+    mv tmp.json package.json
 
     # Update each dependent @noir-lang package version in package.json to point to renamed packages and versions.
     for pkg in $(jq --raw-output '(.dependencies // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
       new_pkg="@aztec/noir-${pkg#@noir-lang/}"
-      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.dependencies[$new] = $v | del(.dependencies[$old])' package.json > tmp.json && mv tmp.json package.json
+      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.dependencies[$new] = $v | del(.dependencies[$old])' package.json > tmp.json
+      mv tmp.json package.json
     done
 
     deploy_npm $dist_tag $version
