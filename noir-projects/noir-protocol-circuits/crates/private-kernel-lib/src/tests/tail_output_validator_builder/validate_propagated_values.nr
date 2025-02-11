@@ -1,5 +1,5 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
-use dep::types::address::AztecAddress;
+use dep::types::{address::AztecAddress, traits::FromField};
 
 /**
  * constants
