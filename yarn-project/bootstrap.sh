@@ -117,6 +117,11 @@ function release_packages {
   for package in $packages; do
     (cd $package && deploy_npm $1 $2)
   done
+  # Smoke test the deployed packages.
+  local dir=$(mktemp -d)
+  cd "$dir"
+  npm init -y
+  npm i @aztec/aztec.js@$2
 }
 
 function release {
