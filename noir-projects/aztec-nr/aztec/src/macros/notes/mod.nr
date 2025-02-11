@@ -118,15 +118,13 @@ comptime fn generate_note_interface(
     let (new_generators_list, new_scalars_list, _, new_aux_vars) =
         generate_multi_scalar_mul(prefixed_merged_fields);
 
-    let new_generators = new_generators_list
-        .push_front(quote { aztec::generators::G_len })
-        .push_front(quote { aztec::generators::G_slot })
-        .join(quote {,});
+    let (g_slot, g_len) = generate_fixed_generators();
+    let new_generators = new_generators_list.push_back(g_slot).push_back(g_len).join(quote {,});
 
     let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
-        .push_front(quote { std::hash::from_field_unsafe($merged_fields_len) })
-        .push_front(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
     (
@@ -287,6 +285,27 @@ pub(crate) comptime fn generate_note_export(
     }
 }
 
+global NUM_FIXED_GENERATORS: u32 = 2;
+
+comptime fn generate_fixed_generators() -> (Quoted, Quoted) {
+    let generators: [Point; NUM_FIXED_GENERATORS] =
+        derive_generators("aztec_nr_generators".as_bytes(), 0);
+
+    let g_slot_x = generators[0].x;
+    let g_slot_y = generators[0].y;
+    let g_len_x = generators[1].x;
+    let g_len_y = generators[1].y;
+
+    let g_slot = quote {
+        aztec::protocol_types::point::Point { x: $g_slot_x, y: $g_slot_y, is_infinite: false }
+    };
+    let g_len = quote {
+        aztec::protocol_types::point::Point { x: $g_len_x, y: $g_len_y, is_infinite: false }
+    };
+
+    (g_slot, g_len)
+}
+
 /// Generates quotes necessary for multi-scalar multiplication of `indexed_fields` (indexed struct fields). Returns
 /// a tuple containing quotes for generators, scalars, arguments and auxiliary variables. For more info on what are
 /// auxiliary variables and how they are used, see `generate_serialize_to_fields` function.
@@ -310,7 +329,7 @@ comptime fn generate_multi_scalar_mul(
     let mut aux_vars_list = &[];
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
-        let start_generator_index = index + 1;
+        let start_generator_index = NUM_FIXED_GENERATORS + index;
         let (serialization_fields, aux_vars) =
             generate_serialize_to_fields(field_name, typ, &[], true);
         for j in 0..serialization_fields.len() {
@@ -376,7 +395,12 @@ comptime fn generate_multi_scalar_mul(
 /// impl TokenNoteSetupPayload {
 ///     fn new(mut self, npk_m_hash: Field, randomness: Field, storage_slot: Field) -> TokenNoteSetupPayload {
 ///         let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
-///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot, aztec::generators::G_len],
+///             [
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... }
+///             ],
 ///             [
 ///                 std::hash::from_field_unsafe(npk_m_hash),
 ///                 std::hash::from_field_unsafe(randomness),
@@ -441,10 +465,9 @@ comptime fn generate_setup_payload(
         .append(new_args_list)
         .push_back(quote { storage_slot: Field })
         .join(quote {,});
-    let new_generators = new_generators_list
-        .push_back(quote { aztec::generators::G_slot })
-        .push_back(quote { aztec::generators::G_len })
-        .join(quote {,});
+
+    let (g_slot, g_len) = generate_fixed_generators();
+    let new_generators = new_generators_list.push_back(g_slot).push_back(g_len).join(quote {,});
     let merged_fields_len = indexed_fixed_fields.len() + indexed_nullable_fields.len() + 1; // +1 for storage_slot
     let new_scalars = new_scalars_list
         .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
