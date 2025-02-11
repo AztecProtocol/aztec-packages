@@ -1,5 +1,4 @@
-import { createColors } from 'colorette';
-import { isColorSupported } from 'colorette';
+import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
 import { type Writable } from 'stream';
