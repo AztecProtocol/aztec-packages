@@ -64,15 +64,5 @@ class API {
     virtual void contract(const Flags& flags,
                           const std::filesystem::path& output_path,
                           const std::filesystem::path& vk_path) = 0;
-
-    // WORKTODO: deprecate?
-    virtual void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
-                                                            const std::filesystem::path& output_dir) = 0;
-
-    // WORKTODO: deprecate? prover.toml is only a "toy" convenience anyway...
-    virtual void write_recursion_inputs(const API::Flags& flags,
-                                        const std::string& bytecode_path,
-                                        const std::string& witness_path,
-                                        const std::string& output_path) = 0;
 };
 } // namespace bb

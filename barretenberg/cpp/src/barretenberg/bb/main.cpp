@@ -190,6 +190,92 @@ void gate_count(const std::string& bytecode_path, bool recursive, uint32_t honk_
     write_bytes_to_stdout(data);
 }
 
+/**
+ * @brief Write an arbitrary but valid ClientIVC proof and VK to files
+ * @details used to test the prove_tube flow
+ *
+ * @param flags
+ * @param output_dir
+ */
+void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
+{
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+
+    // Construct and accumulate a series of mocked private function execution circuits
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    size_t NUM_CIRCUITS = 2;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc);
+        ivc.accumulate(circuit);
+    }
+
+    ClientIVC::Proof proof = ivc.prove();
+
+    // Write the proof and verification keys into the working directory in 'binary' format
+    vinfo("writing ClientIVC proof and vk...");
+    write_file(output_dir / "proof", to_buffer(proof));
+
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+};
+
+// ULTRA HONK
+/**
+ * @brief Write a toml file containing recursive verifier inputs for a given program + witness
+ *
+ * @tparam Flavor
+ * @param bytecode_path Path to the file containing the serialized circuit
+ * @param witness_path Path to the file containing the serialized witness
+ * @param output_path Path to write toml file
+ */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1172): update the flow to generate recursion inputs for
+// double_verify_honk_proof as well
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
+                                       const std::string& witness_path,
+                                       const std::string& output_path)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    uint32_t honk_recursion = 0;
+    bool ipa_accumulation = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+        ipa_accumulation = true;
+    }
+    const acir_format::ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+
+    acir_format::AcirProgram program;
+    program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
+    program.witness = get_witness(witness_path);
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Construct Honk proof and verification key
+    Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    std::vector<FF> proof = prover.construct_proof();
+    VerificationKey verification_key(prover.proving_key->proving_key);
+
+    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+    const std::string toml_content =
+        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
+
+    // Write all components to the TOML file
+    const std::string toml_path = output_path + "/Prover.toml";
+    write_file(toml_path, { toml_content.begin(), toml_content.end() });
+}
+
 // ULTRA PLONK
 
 /**
@@ -845,17 +931,9 @@ int main(int argc, char* argv[])
             info("writing vk to ", output_path);
             api.write_vk(flags, bytecode_path, output_path);
             return 0;
-        } else if (command == "write_arbitrary_valid_proof_and_vk_to_file") {
-            const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            api.write_arbitrary_valid_proof_and_vk_to_file(flags, output_dir);
-            return 0;
         } else if (command == "contract") {
             const std::filesystem::path output_path = get_option(args, "-o", "./contract.sol");
             api.contract(flags, output_path, vk_path);
-            return 0;
-        } else if (command == "write_recursion_inputs") {
-            const std::string output_path = get_option(args, "-o", "./target");
-            api.write_recursion_inputs(flags, bytecode_path, witness_path, output_path);
             return 0;
         } else {
             throw_or_abort(std::format("Command passed to execute_command in bb is {}", command));
@@ -877,11 +955,22 @@ int main(int argc, char* argv[])
             gate_count_for_ivc(bytecode_path);
         } else if (command == "gates_mega_honk") {
             gate_count<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
+        } else if (command == "write_arbitrary_valid_client_ivc_proof_and_vk_to_file") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(output_path);
+            return 0;
         }
         // ULTRA HONK
         else if (proof_system == "ultra_honk") {
             UltraHonkAPI api;
             return execute_command(command, flags, api);
+        } else if (command == "write_recursion_inputs_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./target");
+            if (flags.ipa_accumulation) {
+                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path);
+            } else {
+                write_recursion_inputs_ultra_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+            }
         }
         // ULTRA PLONK
         else if (command == "gates") {

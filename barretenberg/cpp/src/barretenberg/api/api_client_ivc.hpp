@@ -295,50 +295,6 @@ class ClientIVCAPI : public API {
         return verified;
     };
 
-    /**
-     * @brief Write an arbitrary but valid ClientIVC proof and VK to files
-     * @details used to test the prove_tube flow
-     *
-     * @param flags
-     * @param output_dir
-     */
-    void write_arbitrary_valid_proof_and_vk_to_file(const Flags& flags,
-                                                    const std::filesystem::path& output_dir) override
-    {
-        if (!(flags.output_data_type == "fields_msgpack")) {
-            throw_or_abort("No output_data_type or output_data_type not supported");
-        }
-
-        if (!(flags.input_type == "compiletime_stack" || flags.input_type == "runtime_stack")) {
-            throw_or_abort("No input_type or input_type not supported");
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        init_bn254_crs(1 << CONST_PG_LOG_N);
-        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-        ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
-
-        // Construct and accumulate a series of mocked private function execution circuits
-        PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-        size_t NUM_CIRCUITS = 2;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = circuit_producer.create_next_circuit(ivc);
-            ivc.accumulate(circuit);
-        }
-
-        ClientIVC::Proof proof = ivc.prove();
-
-        // Write the proof and verification keys into the working directory in 'binary' format
-        vinfo("writing ClientIVC proof and vk...");
-        write_file(output_dir / "proof", to_buffer(proof));
-
-        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-        auto translator_vk =
-            std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-        write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
-    };
-
     void gates([[maybe_unused]] const Flags& flags,
                [[maybe_unused]] const std::filesystem::path& bytecode_path) override
     {
@@ -359,14 +315,6 @@ class ClientIVCAPI : public API {
         ASSERT(flags.output_data_type == "bytes" || flags.output_data_type == "fields");
 
         write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path, output_path);
-    };
-
-    void write_recursion_inputs([[maybe_unused]] const Flags& flags,
-                                [[maybe_unused]] const std::string& bytecode_path,
-                                [[maybe_unused]] const std::string& witness_path,
-                                [[maybe_unused]] const std::string& output_path) override
-    {
-        throw_or_abort("API function not implemented; IVC is built in!");
     };
 
     virtual bool check_witness([[maybe_unused]] const Flags& flags,

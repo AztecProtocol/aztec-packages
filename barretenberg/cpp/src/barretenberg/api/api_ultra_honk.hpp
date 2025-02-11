@@ -415,46 +415,5 @@ class UltraHonkAPI : public API {
             info("contract written to: ", output_path);
         }
     };
-
-    /**
-     * @brief Write an arbitrary but valid ClientIVC proof and VK to files
-     * @details used to test the prove_tube flow
-     *
-     * @param flags
-     * @param output_dir
-     */
-    void write_arbitrary_valid_proof_and_vk_to_file([[maybe_unused]] const API::Flags& flags,
-                                                    [[maybe_unused]] const std::filesystem::path& output_dir) override
-    {
-        ASSERT("API function not implemented");
-    };
-
-    void write_recursion_inputs(const API::Flags& flags,
-                                const std::string& bytecode_path,
-                                const std::string& witness_path,
-                                const std::string& output_path) override
-    {
-        const bool ipa_accumulation = flags.ipa_accumulation;
-        const auto write_toml = [&](auto&& prover_output) {
-            // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
-            std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
-                prover_output.proof, prover_output.key, ipa_accumulation);
-            // Write all components to the TOML file
-            std::string toml_path = output_path + "/Prover.toml";
-            write_file(toml_path, { toml_content.begin(), toml_content.end() });
-        };
-        if (ipa_accumulation) {
-            info("proving with ipa_accumulation");
-            write_toml(_prove_rollup(/*vk_only*/ false, bytecode_path, witness_path));
-        } else if (flags.oracle_hash_type == "poseidon2") {
-            info("proving with poseidon2");
-            write_toml(_prove_poseidon2(flags, bytecode_path, witness_path));
-        } else if (flags.oracle_hash_type == "keccak") {
-            info("proving with keccak");
-            write_toml(_prove_keccak(/*vk_only*/ false, flags, bytecode_path, witness_path));
-        } else {
-            throw_or_abort("Invalid proving options specified in write_recursion_inputs");
-        };
-    }
 };
 } // namespace bb

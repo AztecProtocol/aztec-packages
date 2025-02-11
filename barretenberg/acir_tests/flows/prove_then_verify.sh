@@ -4,7 +4,7 @@ set -eu
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
-[ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
+[ "${RECURSIVE}" = "true" ] && FLAGS+=" --initialize_accumulator"
 
 # TODO: Use this when client ivc support write_vk. Currently it keeps its own flow.
 # case ${SYS:-} in
