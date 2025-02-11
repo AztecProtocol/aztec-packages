@@ -26,4 +26,4 @@ These are some of the important functions you'll need to use in your Aztec.js:
 - [Create an account with `@aztec/accounts`](./create_account.md)
 - [Deploy a contract](./deploy_contract.md)
 - [Simulate a function call](./call_view_function.md)
-- [Sign a transaction](./send_transaction.md)
+- [Send a transaction](./send_transaction.md)
