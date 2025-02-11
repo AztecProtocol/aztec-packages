@@ -25,7 +25,6 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <strings.h>
 #include <vector>
 
 using namespace bb;
@@ -168,9 +167,6 @@ void remove_historic_block(TreeType& tree, const block_number_t& blockNumber, bo
     Signal signal;
     auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (!response.success && expected_success) {
-            std::cout << "Failed to remove historic block " << response.message << std::endl;
-        }
         signal.signal_level();
     };
     tree.remove_historic_block(blockNumber, completion);
@@ -182,9 +178,6 @@ void unwind_block(TreeType& tree, const block_number_t& blockNumber, bool expect
     Signal signal;
     auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (!response.success && expected_success) {
-            std::cout << "Unwind failed: " << response.message << std::endl;
-        }
         signal.signal_level();
     };
     tree.unwind_block(blockNumber, completion);
@@ -432,7 +425,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
-    // auto& random_engine = numeric::get_randomness();
 
     {
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 100, _maxReaders);
@@ -1433,7 +1425,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_full_of_zeros)
 {
     const size_t block_size = 16;
-    const uint32_t num_blocks = 2;
+    const uint32_t num_blocks = 16;
     // First we add 16 blocks worth pf zero leaves and unwind them all
     std::vector<fr> first(1024, fr::zero());
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, first);
@@ -1490,6 +1482,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_unwind_empty_
 
     std::vector<std::vector<fr>> values;
     // commit an empty block
+    values.emplace_back();
+    // and another one
     values.emplace_back();
     // then a non-empty block
     values.push_back(create_values(batchSize));
@@ -1550,6 +1544,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_remove_histor
 
     std::vector<std::vector<fr>> values;
     // commit an empty block
+    values.emplace_back();
+    // and another one
     values.emplace_back();
     // then a non-empty block
     values.push_back(create_values(batchSize));

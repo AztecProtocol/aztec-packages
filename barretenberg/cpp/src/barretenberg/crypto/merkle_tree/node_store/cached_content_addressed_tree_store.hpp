@@ -647,7 +647,6 @@ fr ContentAddressedCachedTreeStore<LeafValueType>::get_current_root(ReadTransact
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_genesis_state()
 {
     // In this call, we will store any node/leaf data that has been created so far
-    // We will also store a zeroth block
     bool dataPresent = false;
     TreeMeta meta;
     // We don't allow commits using images/forks
@@ -655,6 +654,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         throw std::runtime_error("Committing a fork is forbidden");
     }
     get_meta(meta);
+
     auto currentRootIter = nodes_.find(meta.root);
     dataPresent = currentRootIter != nodes_.end();
     {
@@ -664,12 +664,6 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                 persist_leaf_indices(*tx);
                 persist_node(std::optional<fr>(meta.root), 0, *tx);
             }
-
-            // std::cout << "Initial root " << meta.root << " block height " << meta.unfinalisedBlockHeight <<
-            // std::endl;
-            BlockPayload block{ .size = meta.size, .blockNumber = meta.unfinalisedBlockHeight, .root = meta.root };
-            dataStore_->write_block_data(meta.unfinalisedBlockHeight, block, *tx);
-            dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
 
             meta.committedSize = meta.size;
             persist_meta(meta, *tx);
