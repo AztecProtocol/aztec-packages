@@ -63,9 +63,8 @@ function deploy_package() {
     # TODO: Remove this after @noir package resolution is fixed
     if [[ "$PACKAGE_NAME" == "@aztec/pxe" ]]; then
       # Hardcodes "1.0.0-beta.1" for @noir-lang/types
-      for PKG in $(jq --raw-output ".dependencies | keys[] | . == \"@noir-lang/types\")" package.json); do
-        jq ".dependencies[\"$PKG\"] = 1.0.0-beta.1" package.json >$TMP
-        mv $TMP package.json
+      for PKG in $(jq --raw-output ".dependencies | keys[] | select(. == \"@noir-lang/types\")" package.json); do
+        jq ".dependencies[\"$PKG\"] = \"1.0.0-beta.1\"" package.json >$TMP && mv $TMP package.json
       done
     fi
   fi
@@ -90,6 +89,7 @@ function deploy_package() {
 
 # New packages here should be added after the last package that they depend on
 deploy_package foundation
+deploy_package blob-lib
 deploy_package native
 deploy_package types
 deploy_package circuits.js
