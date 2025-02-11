@@ -105,14 +105,21 @@ contract RollupTest is RollupBase {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
-  function _testPrune() public setUpFor("mixed_block_1") {
+  function testPruneAfterPartial() public setUpFor("mixed_block_1") {
     _proposeBlock("mixed_block_1", 1);
-    warpToL2Slot(rollup.getProofSubmissionWindow() - 1);
+    _proposeBlock("mixed_block_2", 2);
+
+    warpToL2Slot(rollup.getProofSubmissionWindow());
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
-    warpToL2Slot(rollup.getProofSubmissionWindow());
+    _proveBlocks("mixed_block_", 1, 1, address(this));
+
+    warpToL2Slot(rollup.getProofSubmissionWindow() + 1);
     rollup.prune();
+
+    assertEq(rollup.getPendingBlockNumber(), 1);
+    assertEq(rollup.getProvenBlockNumber(), 1);
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
