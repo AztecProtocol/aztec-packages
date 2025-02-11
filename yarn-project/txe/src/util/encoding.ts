@@ -33,7 +33,7 @@ export function fromArray(obj: ForeignCallArray) {
  * @returns
  */
 export function fromUintArray(obj: ForeignCallArray, uintBitSize: number) {
-  if (uintBitSize % 8 === 0) {
+  if (uintBitSize % 8 !== 0) {
     throw new Error(`u${uintBitSize} is not a supported type in Noir`);
   }
   const uintByteSize = uintBitSize / 8;
