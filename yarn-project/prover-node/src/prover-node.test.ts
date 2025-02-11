@@ -230,9 +230,9 @@ describe('prover-node', () => {
       return super.triggerMonitors();
     }
 
-    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: bigint }[]> {
+    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
       return Promise.resolve(
-        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: j.epochNumber })),
+        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: Number(j.epochNumber) })),
       );
     }
   }

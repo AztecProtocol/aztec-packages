@@ -179,20 +179,21 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: bigint }[]> {
+  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
     return Promise.resolve(
       Array.from(this.jobs.entries()).map(([uuid, job]) => ({
         uuid,
         status: job.getState(),
-        epochNumber: job.getEpochNumber(),
+        epochNumber: Number(job.getEpochNumber()),
       })),
     );
   }
 
   protected async getActiveJobsForEpoch(
-    epochNumber: bigint,
+    epochBigInt: bigint,
   ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
     const jobs = await this.getJobs();
+    const epochNumber = Number(epochBigInt);
     return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
   }
 

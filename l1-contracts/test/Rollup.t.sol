@@ -879,11 +879,11 @@ contract RollupTest is RollupBase {
       _blockHash,
       bytes32(0), // WHAT ?
       bytes32(0), // WHAT ?
-      bytes32(bytes20(_prover))
+      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
     ];
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
-    fees[0] = bytes32(bytes20(_coinbase));
+    fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32
     fees[1] = bytes32(_fee);
 
     rollup.submitEpochRootProof(

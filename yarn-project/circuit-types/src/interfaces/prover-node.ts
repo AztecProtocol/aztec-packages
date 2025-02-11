@@ -30,7 +30,7 @@ export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)
 
 /** JSON RPC public interface to a prover node. */
 export interface ProverNodeApi {
-  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: bigint }[]>;
+  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]>;
 
   startProof(epochNumber: number): Promise<void>;
 
@@ -42,7 +42,7 @@ export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
   getJobs: z
     .function()
     .args()
-    .returns(z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.bigint() }))),
+    .returns(z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() }))),
 
   startProof: z.function().args(schemas.Integer).returns(z.void()),
 
