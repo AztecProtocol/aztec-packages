@@ -92,7 +92,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     this.batchQueue = new BatchQueue(
       (items, key) => this.commitWrites(items, key),
       config.proverBrokerBatchSize,
-      config.proverBrokerJobTimeoutMs,
+      config.proverBrokerBatchIntervalMs,
       createLogger('proving-client:proving-broker-database:batch-queue'),
     );
   }
