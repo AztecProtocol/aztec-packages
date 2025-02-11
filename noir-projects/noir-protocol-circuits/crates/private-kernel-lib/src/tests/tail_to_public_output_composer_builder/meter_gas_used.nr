@@ -7,6 +7,7 @@ use dep::types::{
         L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
 };
 
 #[test]

@@ -8,7 +8,7 @@ use dep::types::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
         private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
+        side_effect::{OrderedValue, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
@@ -26,6 +26,7 @@ impl TailOutputValidator {
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
+        /// Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
         TailOutputValidator::new_with_hints(output, previous_kernel, hints)
     }
