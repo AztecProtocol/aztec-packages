@@ -39,14 +39,7 @@ function lint {
   get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
 }
 
-export -f format lint get_projects
-
-function build {
-  echo_header "yarn-project build"
-
-  denoise "./bootstrap.sh clean-lite"
-  denoise "yarn install"
-
+function compile_all {
   compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
@@ -80,7 +73,15 @@ function build {
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
+}
 
+export -f compile_project format lint get_projects compile_all
+
+function build {
+  echo_header "yarn-project build"
+  denoise "./bootstrap.sh clean-lite"
+  denoise "yarn install"
+  denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
 }
 
