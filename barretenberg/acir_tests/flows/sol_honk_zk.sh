@@ -4,7 +4,7 @@ set -eux
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 BASE_FLAGS="-c $CRS_PATH $VFLAG"
-FLAGS=$BASE_FLAGS" --scheme ultra_honk --oracle_hash keccak --zk --output_data bytes_and_fields --output_content proof_and_vk -h 1"
+FLAGS=$BASE_FLAGS" --scheme ultra_honk --oracle_hash keccak --zk --output_type bytes_and_fields --output_content proof_and_vk -h 1"
 [ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
 
 outdir=$(mktemp -d)

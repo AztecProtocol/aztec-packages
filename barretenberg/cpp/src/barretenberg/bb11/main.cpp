@@ -32,7 +32,6 @@ int main(int argc, char* argv[])
     flags.scheme = "ultra_honk";
     flags.oracle_hash_type = "poseidon2";
     flags.output_data_type = "bytes";
-
     flags.crs_path = []() {
         char* home = std::getenv("HOME");
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
@@ -190,8 +189,6 @@ int main(int argc, char* argv[])
      * Subcommnd: prove
      ***************************************************************************************************************/
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
-    // set useful flag defaults
-    flags.output_content_type = "proof";
 
     add_verbose_flag(prove);
     prove->needs(add_scheme_option(prove));
@@ -218,7 +215,6 @@ int main(int argc, char* argv[])
                            "Write the verification key of a circuit. The circuit is constructed using "
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
                            "to expand ACIR black box opcodes), and no proof is constructed.");
-    // set useful flag defaults
 
     add_verbose_flag(write_vk);
     write_vk->needs(add_scheme_option(write_vk));
@@ -236,7 +232,6 @@ int main(int argc, char* argv[])
      * Subcommnd: verify
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
-    // set useful flag defaults
 
     add_verbose_flag(verify);
     verify->needs(add_scheme_option(verify));
@@ -256,7 +251,25 @@ int main(int argc, char* argv[])
                                             "Write a smart contract suitable for verifying proofs of circuit "
                                             "satisfiability for the circuit with verification key at vk_path. Not all "
                                             "hash types are implemented due to efficiency concerns.");
-    // set useful flag defaults
+
+    /***************************************************************************************************************
+     * Subcommand: write_arbitrary_valid_proof_and_vk_to_file
+     ***************************************************************************************************************/
+    // WORKTODO: make an option so its deprecatable
+    CLI::App* write_arbitrary_valid_proof_and_vk_to_file =
+        app.add_subcommand("write_arbitrary_valid_proof_and_vk_to_file", "");
+    write_arbitrary_valid_proof_and_vk_to_file->needs(add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file));
+    add_output_path_option(write_arbitrary_valid_proof_and_vk_to_file);
+
+    /***************************************************************************************************************
+     * Subcommand: write_arbitrary_valid_proof_and_vk_to_file
+     ***************************************************************************************************************/
+    // WORKTODO: make an option so its deprecatable
+    CLI::App* write_recursion_inputs = app.add_subcommand("write_recursion_inputs", "");
+    write_recursion_inputs->needs(add_scheme_option(write_recursion_inputs));
+    add_bytecode_path_option(write_recursion_inputs);
+    add_witness_path_option(write_recursion_inputs);
+    add_output_path_option(write_recursion_inputs);
 
     /***************************************************************************************************************
      * Build app

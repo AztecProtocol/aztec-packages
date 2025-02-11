@@ -113,10 +113,10 @@ function compile {
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
     local _vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive"
-    local vk_cmd="$_vk_cmd --output_data bytes | xxd -p -c 0"
+    local vk_cmd="$_vk_cmd --output_type bytes | xxd -p -c 0"
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
-    local vkf_cmd="$_vk_cmd --output_data fields"
+    local vkf_cmd="$_vk_cmd --output_type fields"
     echo_stderr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
 
