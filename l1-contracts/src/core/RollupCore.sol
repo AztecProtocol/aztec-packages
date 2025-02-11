@@ -356,7 +356,7 @@ contract RollupCore is
     // Mark that the prover has submitted a proof
     // Only do this if we are canonical for both fees and block rewards.
     if (interim.isFeeCanonical && interim.isRewardDistributorCanonical) {
-      interim.prover = address(bytes20(_args.args[6]));
+      interim.prover = address(bytes20(_args.args[6] << 96)); // The address is left padded within the bytes32
 
       interim.length = _args.end - _args.start + 1;
       EpochRewards storage er = epochRewards[endEpoch];
@@ -403,7 +403,8 @@ contract RollupCore is
           interim.fee -= interim.proverFee;
 
           er.rewards += interim.proverFee;
-          sequencerRewards[address(bytes20(_args.fees[i * 2]))] +=
+          // The address is left padded within the bytes32
+          sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
             (interim.blockRewardSequencer + interim.fee);
         }
 

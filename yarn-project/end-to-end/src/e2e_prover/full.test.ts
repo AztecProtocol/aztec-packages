@@ -1,7 +1,7 @@
 import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import { RewardDistributorAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -25,6 +25,8 @@ describe('full_prover', () => {
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
+  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -46,6 +48,18 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
+
+    feeJuicePortal = getContract({
+      abi: FeeJuicePortalAbi,
+      address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
+
+    feeJuiceToken = getContract({
+      abi: TestERC20Abi,
+      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
   }, 60_000);
 
   afterAll(async () => {
@@ -60,6 +74,17 @@ describe('full_prover', () => {
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
+
+      const balance = await feeJuiceToken.read.balanceOf([feeJuicePortal.address]);
+      logger.info(`Balance of fee juice token: ${balance}`);
+
+      expect(balance).toBeGreaterThan(0n);
+
+      const canonicalAddress = await feeJuicePortal.read.canonicalRollup();
+      logger.info(`Canonical address: ${canonicalAddress}`);
+      expect(canonicalAddress.toLowerCase()).toBe(
+        t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
+      );
 
       // Create the two transactions
       const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
@@ -112,14 +137,17 @@ describe('full_prover', () => {
         epoch,
         t.proverAddress.toString(),
       ]);
+      const oldProvenBlockNumber = await rollup.read.getProvenBlockNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
-      const provenBn = await rollup.read.getProvenBlockNumber();
-      expect(provenBn).toBe(await rollup.read.getPendingBlockNumber());
+      const newProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
+      expect(await rollup.read.getPendingBlockNumber()).toBe(newProvenBlockNumber);
 
+      logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
       const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
@@ -131,7 +159,10 @@ describe('full_prover', () => {
 
       const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
       const fees = (
-        await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
+        await Promise.all([
+          t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
+          t.aztecNode.getBlock(Number(newProvenBlockNumber)),
+        ])
       ).map(b => b!.header.totalFees.toBigInt());
 
       const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
