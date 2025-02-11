@@ -34,11 +34,35 @@ Bridges in Aztec involve several components across L1 and L2:
 
 `TokenPortal.sol` passes messages to Aztec both publicly and privately.
 
-Message content that is passed to Aztec is limited to a single field element (~254 bits), so if the message content is larger than that, it is hashed, and the message hash is passed an verified on the receiving contract. There is a utility function in the `Hash` library to hash messages (using `sha256`) to field elements.
+This diagram shows the logical flow of information among components involved in depositing to Aztec.
+
+```mermaid
+sequenceDiagram
+    participant L1 User
+    participant L1 TokenPortal
+    participant L1 Aztec Inbox
+    participant L2 Bridge Contract
+    participant L2 Token Contract
+
+    User->>TokenPortal: Deposit Tokens
+
+    Note over TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
+
+    TokenPortal->>Aztec Inbox: Send message
+    Note over Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
+
+    Aztec Inbox-->>L2 Bridge Contract: Forward message
+    Note over L2 Bridge Contract: 1. Verify message<br/>2. Process secret<br/>3. Decode mint parameters
+
+    L2 Bridge Contract->>L2 Token Contract: Call mint function
+    Note over L2 Token Contract: Mints tokens to<br/>specified recipient
+```
+
+Message content that is passed to Aztec is limited to a single field element (~254 bits), so if the message content is larger than that, it is hashed, and the message hash is passed and verified on the receiving contract. There is a utility function in the `Hash` library to hash messages (using `sha256`) to field elements.
 
 The Aztec message Inbox expects a recipient Aztec address that can consume the message (the corresponding L2 bridge contract), the Aztec version (similar to Ethereum's `chainId`), the message content hash (which includes the token recipient and amount in this case), and a `secretHash`, where the corresponding `secret` is used to consume the message on the receiving contract.
 
-So in summary, it deposits tokens to the portal, encodes a mint message, hashes it, and sends it to the Aztec rollup via the Inbox. The L2 token contract can then mint the tokens when it processes the message.
+So in summary, it deposits tokens to the portal, encodes a mint message, hashes it, and sends it to the Aztec rollup via the Inbox. The L2 token contract can then mint the tokens when the corresponding L2 bridge contract processes the message.
 
 Note that because L1 is public, everyone can inspect and figure out the contentHash and the recipient contract address.
 
@@ -126,6 +150,7 @@ Create a new directory for the tutorial and install the dependencies:
 mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
+echo "nodeLinker: node-modules" > .yarnrc.yml
 yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @aztec/types @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
@@ -222,6 +247,8 @@ Add the following code to `index.ts` to deploy the L2 bridge contract:
 
 #include_code deploy-l2-bridge /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
 
+Run `yarn start` to confirm that all of the contracts are deployed.
+
 ### Setup contracts
 
 Add the following code to `index.ts` to authorize the L2 bridge contract to mint tokens on the L2 token contract:
@@ -245,6 +272,8 @@ We have to send two additional transactions because the network must process 2 b
 Add the following code to `index.ts` to claim the tokens publicly on Aztec:
 
 #include_code claim /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+
+Run `yarn start` to confirm that tokens are claimed on Aztec.
 
 ### Withdraw
 
