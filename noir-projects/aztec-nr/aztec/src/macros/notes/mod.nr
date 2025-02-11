@@ -333,9 +333,13 @@ comptime fn generate_multi_scalar_mul(
     let mut args_list = &[];
     let mut aux_vars_list = &[];
     for i in 0..indexed_fields.len() {
-        let (field_name, typ, index) = indexed_fields[i];
+        // Destructure tuple containing:
+        // - field_name: the name of the struct field/member (as a Quoted type)
+        // - typ: the type of the struct field/member (as a Type)
+        // - field_start_index: index where this field starts in the serialized note array (as u32)
+        let (field_name, typ, field_start_index) = indexed_fields[i];
         // We add NUM_FIXED_GENERATORS to the start index to avoid collision with fixed generators.
-        let start_generator_index = NUM_FIXED_GENERATORS + index;
+        let start_generator_index = NUM_FIXED_GENERATORS + field_start_index;
         let (serialization_fields, aux_vars) =
             generate_serialize_to_fields(field_name, typ, &[], true);
         for j in 0..serialization_fields.len() {
