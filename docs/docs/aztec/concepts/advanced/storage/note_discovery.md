@@ -18,7 +18,7 @@ Another proposed solution is having the sender give the note content to the reci
 
 ## Aztec's solution: Note tagging
 
-Aztec introduces an approach that allows users to identify which notes are relevant to them by *tagging* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
+Aztec introduces an approach that allows users to identify which notes are relevant to them by having the sender *tag* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
 
 ### How it works
 
