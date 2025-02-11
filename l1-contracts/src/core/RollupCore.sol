@@ -27,7 +27,6 @@ import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {EpochProofLib} from "@aztec/core/libraries/RollupLibs/EpochProofLib.sol";
 import {
   ExtRollupLib,
   ValidateHeaderArgs,

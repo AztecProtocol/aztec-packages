@@ -118,7 +118,7 @@ describe('full_prover', () => {
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
       const provenBn = await rollup.read.getProvenBlockNumber();
-      expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
+      expect(provenBn).toBe(await rollup.read.getPendingBlockNumber());
 
       const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
