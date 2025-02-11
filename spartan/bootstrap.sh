@@ -71,7 +71,7 @@ case "$cmd" in
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
       kind delete cluster || true
-      retry kind create cluster --timeout 45s
+      retry kind create cluster --wait 45s
     fi
     kubectl config use-context kind-kind >/dev/null || true
     ;;
