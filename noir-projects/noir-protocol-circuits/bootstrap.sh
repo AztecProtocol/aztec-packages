@@ -89,7 +89,7 @@ function compile {
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     # --honk_recursion 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation true --honk_recursion 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
   elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
