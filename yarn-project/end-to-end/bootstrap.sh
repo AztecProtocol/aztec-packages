@@ -11,7 +11,8 @@ function test_cmds {
 
   # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
-  echo "$hash BENCH_OUTPUT=bench.json timeout -v 900s $run_test_script simple bench_build_block"
+  # Just running bench without capturing stats until benches are back up.
+  echo "$hash BENCH_OUTPUT=/dev/null timeout -v 900s $run_test_script simple bench_build_block"
   echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
 
