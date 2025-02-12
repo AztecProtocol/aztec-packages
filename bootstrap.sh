@@ -125,7 +125,12 @@ function test {
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
+      local j=0
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
+        [ $j == 60 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        sleep 1
+        ((j++))
+      done
   done
 
   # We will start half as many jobs as we have cpu's.
