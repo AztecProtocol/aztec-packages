@@ -10,12 +10,6 @@ project(
     VERSION 00000000.00000000.00000000
     LANGUAGES CXX C
 )
-# Insert version into `bb` config file
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp
-    @ONLY
-)
 
 # Add doxygen build command
 find_package(Doxygen)
