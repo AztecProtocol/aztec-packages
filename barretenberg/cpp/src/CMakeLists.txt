@@ -123,7 +123,6 @@ include(GNUInstallDirs)
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
-    $<TARGET_OBJECTS:api_objects>
     $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
@@ -185,6 +184,7 @@ if(NOT WASM)
     # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
 endif()
 
 add_library(
