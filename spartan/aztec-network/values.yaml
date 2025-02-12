@@ -81,23 +81,29 @@ bootNode:
       memory: "5Gi"
       cpu: "1.5"
   maxOldSpaceSize: "4608"
-  deployContracts: true # Set to false to use manual contract addresses
+  deployContracts: false # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
     # Only if we fail for 20 minutes straight do we call it botched
     # This gives enough time to sync
     failureThreshold: 120
   contracts:
-    rollupAddress: ""
-    registryAddress: ""
-    inboxAddress: ""
-    outboxAddress: ""
-    feeJuiceAddress: ""
-    feeJuicePortalAddress: ""
+    rollupAddress: "0x18d2ebf72d3ca5bf5b8e5d8490d995a02fa3e419"
+    registryAddress: "0xf81ebe2e9418ffc4bd2e4648c13a40eac75ad9e8"
+    inboxAddress: "0xfb61871abf207006851e3168bc84c291dc4458b3"
+    outboxAddress: "0x9719c1752129c70b7233957191136f849b469ba2"
+    feeJuiceAddress: "0x622ad50560810070dd352fc366c96657f09a9de3"
+    feeJuicePortalAddress: "0xbd405b14165c095a5df30840319f134529261c5e"
+    coinIssuerAddress: "0xffc3cd4d04ba9024828e47fc4911f1b93d34362d"
+    rewardDistributorAddress: "0x8b92d23fc38d9cc7e0e8603d1d90068c77dd39b8"
+    governanceProposerAddress: "0xe2a5d96ce01295e1a1b4496c2402fddd8e9f203b"
+    governanceAddress: "0x102abd574350ee27dc7b59fd83513d68e2239116"
+    slashFactoryAddress: "0x5ec295547c0c4a5a7d6e1557fe4fa7771b270b6d"
+    stakingAssetAddress: "0xc3aa9a9587cb12fe7d59077c72d1dad6f12e2d98"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   viemPollingInterval: 1000
-  stakingAssetAddress: ""
+
   storageSize: "1Gi"
   dataDir: "/data"
 
