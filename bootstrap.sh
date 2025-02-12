@@ -129,7 +129,7 @@ function test {
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
         [ $j == 60 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
         sleep 1
-        ((j++))
+        j=((j+1))
       done
   done
 
