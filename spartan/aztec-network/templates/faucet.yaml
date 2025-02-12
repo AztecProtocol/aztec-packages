@@ -88,8 +88,10 @@ spec:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
               value: faucet
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
           ports:

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.1...barretenberg-v0.76.2) (2025-02-11)
+
+
+### Bug Fixes
+
+* Note hash collision ([#11869](https://github.com/AztecProtocol/aztec-packages/issues/11869)) ([f289b7c](https://github.com/AztecProtocol/aztec-packages/commit/f289b7c038d399c30e17bc27a620860792416b9f))
+* Smt_verification: negative bitvecs, changed gates indicies. acir_formal_proofs: noir-style signed division ([#11649](https://github.com/AztecProtocol/aztec-packages/issues/11649)) ([4146496](https://github.com/AztecProtocol/aztec-packages/commit/41464968895be2ae0bfc9a0a554a3b6824252fd4))
+
+
+### Miscellaneous
+
+* Fixing the sizes of VMs in CIVC ([#11793](https://github.com/AztecProtocol/aztec-packages/issues/11793)) ([1afddbd](https://github.com/AztecProtocol/aztec-packages/commit/1afddbd0712ad268bcc82931cf91bbb067766cbe))
+
 ## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.0...barretenberg-v0.76.1) (2025-02-10)
 
 
