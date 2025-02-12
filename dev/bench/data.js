@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739365980802,
+  "lastUpdate": 1739374457594,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2c250c4f036bb879a7be9b38a57855b9b13e5297",
-          "message": "refactor(avm): get rid of CommitmentLabels class (#11523)\n\nWe already have them somewhere else.\n\nProving and verification pass.",
-          "timestamp": "2025-01-27T11:30:18Z",
-          "tree_id": "5b5e0344f233d1288c9258bb3043ae465536b233",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2c250c4f036bb879a7be9b38a57855b9b13e5297"
-        },
-        "date": 1737978425457,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19736.04044799998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16907.680948000005 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21686.289316,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18837.019760999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4463.368817000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4117.247356 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72212.561927,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72212562000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13531.520641000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13531521000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3112249082,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3112249082 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 147437927,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 147437927 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 148315666,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 148315666 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ed215e8d86eb9cc441bc60be090d0225d03e1fb3",
+          "message": "chore: use RelationChecker in relation correctness tests and add Translator interleaving test (#11878)\n\nThe RelationChecker was introduced as a debugging utility in a previous\r\nPR but was not actually used in relevant tests, leading to duplicated\r\ncode. This PR fixes that and aims to refine the check function in the\r\nutility. It also includes refactoring of stale code and adds a small\r\nsequential test that changing the interleaving strategy in translator\r\nwill not break the PermutationRelation and DeltaRangeConstraintRelation\r\n(the two relations that now operate on the concatenated polynomials)",
+          "timestamp": "2025-02-12T15:17:11Z",
+          "tree_id": "275ae60582d15f573dc4ea325d6f8feae00e9169",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed215e8d86eb9cc441bc60be090d0225d03e1fb3"
+        },
+        "date": 1739374449382,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19750.348890999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16850.706449 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21444.526182000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18797.480171 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4067.2636779999893,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3766.4752670000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75518.12293099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75518124000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14407.127980999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14407129000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2637187705,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2637187705 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133439767,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133439767 ns\nthreads: 1"
           }
         ]
       }
