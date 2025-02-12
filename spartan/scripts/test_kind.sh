@@ -68,13 +68,13 @@ function cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
-function copy_stern_to_log() {
-  stern spartan -n $namespace >logs/test_kind.log &
-  stern_pid=$!
-}
+# function copy_stern_to_log() {
+#   stern spartan -n $namespace >logs/test_kind.log &
+#   stern_pid=$!
+# }
 
 # Start capturing before we start our network deploy
-copy_stern_to_log
+# copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then

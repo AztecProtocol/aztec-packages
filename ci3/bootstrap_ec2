@@ -84,7 +84,6 @@ fi
 
 container_script=$(cat <<EOF
   set -euo pipefail
-  sudo sysctl fs.inotify.max_user_watches=65536
   # When restarting the container, just hang around.
   while [ -f started ]; do sleep 999; done
   touch started
@@ -117,6 +116,8 @@ EOF
 # We raise the default pid limit to 32k.
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  sudo sysctl fs.inotify.max_user_watches=1048576
+
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
   sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
