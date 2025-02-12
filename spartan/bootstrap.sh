@@ -74,7 +74,7 @@ case "$cmd" in
     if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
-      flock logs/kind-boot.lock kind create cluster
+      flock scripts/logs/kind-boot.lock kind create cluster
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
