@@ -8,25 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
 
-template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    PROFILE_THIS_NAME("populate_public_inputs_block");
-
-    // Update the public inputs block
-    for (const auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
 template <class Flavor>
 void TraceToPolynomials<Flavor>::populate(Builder& builder,
                                           typename Flavor::ProvingKey& proving_key,
@@ -74,9 +55,11 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& tr
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
         proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }
+    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
@@ -88,11 +71,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 {
 
     PROFILE_THIS_NAME("construct_trace_data");
-
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // Complete the public inputs execution trace block from builder.public_inputs
-        populate_public_inputs_block(builder);
-    }
 
     TraceData trace_data{ builder, proving_key };
 

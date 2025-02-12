@@ -143,6 +143,8 @@ export class L1FeeJuicePortalManager {
       hash: await this.contract.write.depositToAztecPublic(args),
     });
 
+    this.logger.info('Deposited to Aztec public successfully');
+
     const log = extractEvent(
       txReceipt.logs,
       this.contract.address,

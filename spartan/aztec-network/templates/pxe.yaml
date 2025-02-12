@@ -142,6 +142,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-pxe
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: pxe
 spec:
   type: ClusterIP
   selector:

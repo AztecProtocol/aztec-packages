@@ -1,4 +1,4 @@
-import { createColors } from 'colorette';
+import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
 import { type Writable } from 'stream';
@@ -113,7 +113,8 @@ export const levels = {
 };
 
 // Transport options for pretty logging to stderr via pino-pretty.
-const useColor = true;
+const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
+const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
 const { bold, reset } = createColors({ useColor });
 export const pinoPrettyOpts = {
   destination: 2,

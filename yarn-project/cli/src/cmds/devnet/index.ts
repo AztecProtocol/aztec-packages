@@ -22,6 +22,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option(
+      '-ai, --address-index <number>',
+      'The address index to use when calculating an address',
+      arg => BigInt(arg),
+      0n,
+    )
     .option('--json', 'Output the result as JSON')
     .action(async options => {
       const { bootstrapNetwork } = await import('./bootstrap_network.js');
@@ -31,6 +37,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options[l1ChainIdOption.attributeName()],
         options.l1PrivateKey,
         options.mnemonic,
+        options.addressIndex,
         options.json,
         log,
         debugLogger,
