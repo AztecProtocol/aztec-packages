@@ -19,10 +19,6 @@ concurrency:
   group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
-# TEMPORARY: Force all tests.
-env:
-  REF_NAME: master
-
 jobs:
   ci-amd64:
     runs-on: ubuntu-latest
