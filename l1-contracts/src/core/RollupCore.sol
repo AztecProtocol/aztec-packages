@@ -35,7 +35,7 @@ import {
 import {
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthX9,
+  FeeAssetPerEthE9,
   PriceLib
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {IntRollupLib} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
@@ -81,7 +81,7 @@ struct SubmitProofInterim {
   uint256 sequencerShare;
   bool isFeeCanonical;
   bool isRewardDistributorCanonical;
-  FeeAssetPerEthX9 feeAssetPrice;
+  FeeAssetPerEthE9 feeAssetPrice;
 }
 
 /**
@@ -552,7 +552,7 @@ contract RollupCore is
    *
    * @return The fee asset price
    */
-  function getFeeAssetPerEth() public view override(IRollupCore) returns (FeeAssetPerEthX9) {
+  function getFeeAssetPerEth() public view override(IRollupCore) returns (FeeAssetPerEthE9) {
     return IntRollupLib.getFeeAssetPerEth(
       rollupStore.blocks[rollupStore.tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
     );
@@ -596,7 +596,7 @@ contract RollupCore is
       rollupStore.blocks[blockOfInterest].feeHeader,
       getL1FeesAt(_timestamp),
       rollupStore.provingCostPerMana,
-      _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthX9.wrap(1e9),
+      _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthE9.wrap(1e9),
       TimeLib.getStorage().epochDuration
     );
   }

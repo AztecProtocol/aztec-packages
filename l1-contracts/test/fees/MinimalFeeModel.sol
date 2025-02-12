@@ -11,7 +11,7 @@ import {
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthX9,
+  FeeAssetPerEthE9,
   PriceLib
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
@@ -87,7 +87,7 @@ contract MinimalFeeModel {
     ) - total;
 
     // We emulate the cost being 1:1 if wanting the value in eth.
-    FeeAssetPerEthX9 feeAssetPrice = _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthX9.wrap(1e9);
+    FeeAssetPerEthE9 feeAssetPrice = _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthE9.wrap(1e9);
 
     return ManaBaseFeeComponents({
       data_cost: FeeAssetValue.unwrap(dataCost.toFeeAsset(feeAssetPrice)),
@@ -153,7 +153,7 @@ contract MinimalFeeModel {
     l1BaseFees.slot_of_change = (slot + LAG).unwrap();
   }
 
-  function getFeeAssetPerEth() public view returns (FeeAssetPerEthX9) {
+  function getFeeAssetPerEth() public view returns (FeeAssetPerEthE9) {
     return FeeMath.getFeeAssetPerEth(feeHeaders[populatedThrough].fee_asset_price_numerator);
   }
 

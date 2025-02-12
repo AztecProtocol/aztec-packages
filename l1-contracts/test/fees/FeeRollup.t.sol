@@ -40,7 +40,7 @@ import {
   FeeMath,
   MANA_TARGET,
   MINIMUM_CONGESTION_MULTIPLIER,
-  FeeAssetPerEthX9,
+  FeeAssetPerEthE9,
   EthValue
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
@@ -338,7 +338,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         );
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
-        uint256 feeAssetPrice = FeeAssetPerEthX9.unwrap(rollup.getFeeAssetPerEth());
+        uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
         ManaBaseFeeComponents memory components =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);

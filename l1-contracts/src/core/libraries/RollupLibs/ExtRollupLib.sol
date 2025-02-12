@@ -13,7 +13,7 @@ import {
   FeeHeader,
   L1FeeData,
   EthValue,
-  FeeAssetPerEthX9
+  FeeAssetPerEthE9
 } from "./FeeMath.sol";
 import {HeaderLib, Header} from "./HeaderLib.sol";
 import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
@@ -39,7 +39,7 @@ library ExtRollupLib {
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
     EthValue _provingCostPerMana,
-    FeeAssetPerEthX9 _feeAssetPrice,
+    FeeAssetPerEthE9 _feeAssetPrice,
     uint256 _epochDuration
   ) external view returns (ManaBaseFeeComponents memory) {
     return FeeMath.getManaBaseFeeComponentsAt(

@@ -37,7 +37,7 @@ import {
   ExtRollupLib,
   IntRollupLib,
   EpochRewards,
-  FeeAssetPerEthX9,
+  FeeAssetPerEthE9,
   EthValue,
   FeeAssetValue,
   PriceLib

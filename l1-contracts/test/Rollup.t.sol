@@ -20,7 +20,7 @@ import {
   SubmitEpochRootProofArgs,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthX9
+  FeeAssetPerEthE9
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
@@ -454,9 +454,9 @@ contract RollupTest is RollupBase {
       );
 
       {
-        FeeAssetPerEthX9 price = rollup.getFeeAssetPerEth();
+        FeeAssetPerEthE9 price = rollup.getFeeAssetPerEth();
         uint256 provingCosts = Math.mulDiv(
-          EthValue.unwrap(interim.provingCostPerManaInEth), FeeAssetPerEthX9.unwrap(price), 1e9
+          EthValue.unwrap(interim.provingCostPerManaInEth), FeeAssetPerEthE9.unwrap(price), 1e9
         );
         assertEq(
           provingCosts,

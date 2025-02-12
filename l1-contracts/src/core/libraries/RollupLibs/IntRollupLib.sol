@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {
-  FeeMath, ManaBaseFeeComponents, FeeHeader, MANA_TARGET, FeeAssetPerEthX9
+  FeeMath, ManaBaseFeeComponents, FeeHeader, MANA_TARGET, FeeAssetPerEthE9
 } from "./FeeMath.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
@@ -17,7 +17,7 @@ library IntRollupLib {
     return FeeMath.clampedAdd(_a, _b);
   }
 
-  function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthX9) {
+  function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthE9) {
     return FeeMath.getFeeAssetPerEth(_numerator);
   }
 

@@ -16,7 +16,7 @@ import {
   MAX_FEE_ASSET_PRICE_MODIFIER,
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue,
-  FeeAssetPerEthX9
+  FeeAssetPerEthE9
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -57,7 +57,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
       );
 
       assertEq(
-        FeeAssetPerEthX9.unwrap(model.getFeeAssetPerEth()),
+        FeeAssetPerEthE9.unwrap(model.getFeeAssetPerEth()),
         points[i].outputs.fee_asset_price_at_execution,
         "Computed fee asset price does not match expected value"
       );
@@ -122,7 +122,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
         // Get a hold of the values that is used for the next block
         L1Fees memory fees = model.getCurrentL1Fees();
-        uint256 feeAssetPrice = FeeAssetPerEthX9.unwrap(model.getFeeAssetPerEth());
+        uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(model.getFeeAssetPerEth());
         // We are assuming 3 blobs for all of these computations, as per the model.
         // 3 blobs because that can fit ~360 txs, or 10 tps.
         ManaBaseFeeComponents memory components = model.manaBaseFeeComponents(3, false);

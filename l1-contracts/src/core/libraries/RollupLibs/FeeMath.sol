@@ -52,7 +52,7 @@ type EthValue is uint256;
 type FeeAssetValue is uint256;
 
 // Precision of 1e9
-type FeeAssetPerEthX9 is uint256;
+type FeeAssetPerEthE9 is uint256;
 
 function addEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
   return EthValue.wrap(EthValue.unwrap(_a) + EthValue.unwrap(_b));
@@ -65,7 +65,7 @@ function subEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
 using {addEthValue as +, subEthValue as -} for EthValue global;
 
 library PriceLib {
-  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthX9 _feeAssetPerEth)
+  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthE9 _feeAssetPerEth)
     internal
     pure
     returns (EthValue)
@@ -74,13 +74,13 @@ library PriceLib {
       Math.mulDiv(
         FeeAssetValue.unwrap(_feeAssetValue),
         1e9,
-        FeeAssetPerEthX9.unwrap(_feeAssetPerEth),
+        FeeAssetPerEthE9.unwrap(_feeAssetPerEth),
         Math.Rounding.Ceil
       )
     );
   }
 
-  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthX9 _feeAssetPerEth)
+  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthE9 _feeAssetPerEth)
     internal
     pure
     returns (FeeAssetValue)
@@ -88,7 +88,7 @@ library PriceLib {
     return FeeAssetValue.wrap(
       Math.mulDiv(
         EthValue.unwrap(_ethValue),
-        FeeAssetPerEthX9.unwrap(_feeAssetPerEth),
+        FeeAssetPerEthE9.unwrap(_feeAssetPerEth),
         1e9,
         Math.Rounding.Ceil
       )
@@ -107,23 +107,23 @@ library FeeMath {
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
     EthValue _provingCostPerMana,
-    FeeAssetPerEthX9 _feeAssetPrice,
+    FeeAssetPerEthE9 _feeAssetPrice,
     uint256 _epochDuration
   ) internal view returns (ManaBaseFeeComponents memory) {
     uint256 excessMana = FeeMath.clampedAdd(
       _parentFeeHeader.excessMana + _parentFeeHeader.manaUsed, -int256(MANA_TARGET)
     );
 
-    EthValue dataCost = EthValue.wrap(
+    EthValue dataCostPerMana = EthValue.wrap(
       Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil)
     );
     uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
-    EthValue gasCost =
+    EthValue gasCostPerMana =
       EthValue.wrap(Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil));
 
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
-    EthValue total = dataCost + gasCost + _provingCostPerMana;
+    EthValue total = dataCostPerMana + gasCostPerMana + _provingCostPerMana;
     EthValue congestionCost = EthValue.wrap(
       Math.mulDiv(
         EthValue.unwrap(total),
@@ -136,8 +136,8 @@ library FeeMath {
     // @todo @lherskind. The following is a crime against humanity, but it makes it
     // very neat to plot etc from python, #10004 will fix it across the board
     return ManaBaseFeeComponents({
-      dataCost: FeeAssetValue.unwrap(dataCost.toFeeAsset(_feeAssetPrice)),
-      gasCost: FeeAssetValue.unwrap(gasCost.toFeeAsset(_feeAssetPrice)),
+      dataCost: FeeAssetValue.unwrap(dataCostPerMana.toFeeAsset(_feeAssetPrice)),
+      gasCost: FeeAssetValue.unwrap(gasCostPerMana.toFeeAsset(_feeAssetPrice)),
       provingCost: FeeAssetValue.unwrap(_provingCostPerMana.toFeeAsset(_feeAssetPrice)),
       congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(_feeAssetPrice)),
       congestionMultiplier: congestionMultiplier_
@@ -174,8 +174,8 @@ library FeeMath {
     return 0;
   }
 
-  function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthX9) {
-    return FeeAssetPerEthX9.wrap(
+  function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthE9) {
+    return FeeAssetPerEthE9.wrap(
       fakeExponential(MINIMUM_FEE_ASSET_PER_ETH, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION)
     );
   }
