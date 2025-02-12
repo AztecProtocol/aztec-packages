@@ -73,16 +73,19 @@ void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
 }
 
 /**
- * @brief Construct a concatenated polynomial from a group of polynomials by interleaving.
+ * @brief Construct a polynomial from a group of polynomial by interleaving their elements.
  */
 void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
 {
 
     const size_t group_size = group.size();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1250): Initialise the group polynomials on their
+    // correct sizes so we could call group[0].size() here
     const size_t group_polynomial_size = result.size() / group_size;
-    for (size_t j = result.start_index(); j < group_polynomial_size; j++) {
+    ASSERT(group_polynomial_size * group_size == result.size());
+    for (size_t j = group[0].start_index(); j < group_polynomial_size; j++) {
         for (size_t k = 0; k < group_size; k++) {
-            result.at(k + j * group_size) = group[k][j];
+            result.at(j * group_size + k) = group[k][j];
         }
     }
 }

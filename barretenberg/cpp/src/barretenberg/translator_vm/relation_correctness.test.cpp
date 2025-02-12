@@ -86,7 +86,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     // No relation parameters are used in this relation
     RelationParameters<FF> params;
 
-    ProverPolynomials prover_polynomials = Flavor::ProverPolynomials(circuit_size);
+    ProverPolynomials prover_polynomials(circuit_size);
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
@@ -157,7 +157,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     };
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials(circuit_size);
+    ProverPolynomials prover_polynomials(circuit_size);
     // Fill in lagrange even polynomial
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
@@ -225,7 +225,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     RelationParameters<FF> params;
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials(circuit_size);
+    ProverPolynomials prover_polynomials(circuit_size);
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
