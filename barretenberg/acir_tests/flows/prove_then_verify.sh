@@ -30,10 +30,10 @@ FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 case ${SYS:-} in
   "")
     [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
-    $BIN verify$SYS $FLAGS \
-        -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
-        -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
-    ;;
+    $BIN OLD_API verify$SYS $FLAGS \
+        -k <($BIN OLD_API write_vk$SYS -o - $FLAGS $BFLAG) \
+        -p <($BIN OLD_API prove$SYS -o - $FLAGS $BFLAG)
+  ;;
   "ultra_honk")
     # WORKTODO: hash affects verification key, without it,
     #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!

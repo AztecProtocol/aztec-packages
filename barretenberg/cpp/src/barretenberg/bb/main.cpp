@@ -1480,7 +1480,7 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
     print_active_subcommands(app);
     info(flags);
-    verbose_logging = debug_logging || verbose_logging;
+    verbose_logging = debug_logging || flags.verbose;
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
