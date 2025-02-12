@@ -171,6 +171,14 @@ function build {
   done
 }
 
+function bench {
+  if [ "$CI_FULL" -eq 0 ]; then
+    return
+  fi
+  barretenberg/cpp/bootstrap.sh bench
+  yarn-project/bootstrap.sh bench
+}
+
 function release {
   check_release
 
@@ -263,9 +271,10 @@ case "$cmd" in
   "ci")
     build
     test
+    bench
     release
     ;;
-  release|release_commit)
+  bench|release|release_commit)
     $cmd
     ;;
   *)

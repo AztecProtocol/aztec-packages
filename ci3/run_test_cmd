@@ -24,7 +24,7 @@ export VERBOSE=1
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 set +e
-tmp_file=$(mktemp)
+tmp_file=/tmp/$key
 trap "rm -f $tmp_file" EXIT
 if [[ "$test_cmd" = timeout* ]]; then
   bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &> $tmp_file &

@@ -17,8 +17,6 @@ function test_cmds {
 
   # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
-  # Just running bench without capturing stats until benches are back up.
-  echo "$hash BENCH_OUTPUT=/dev/null timeout -v 900s $run_test_script simple bench_build_block"
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
@@ -126,6 +124,12 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function bench {
+  mkdir -p bench-out
+  BENCH_OUTPUT=bench-out/bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block
+  cache_upload yarn-project-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bench.json
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -133,8 +137,8 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
-  "test")
-    test
+  test|bench)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -62,6 +62,9 @@ simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
 
+# Started failing with some AVM proof error...
+e2e_prover/full fake
+
 # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
 # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
 #
@@ -127,10 +130,8 @@ src/orchestrator/orchestrator_workflow.test.ts
 prover-client/src/test/bb_prover_parity.test.ts
 
 
+# yarn-project tests
 p2p/src/services/reqresp/reqresp.test.ts
 prover-client/src/proving_broker/broker_prover_facade.test.ts
 prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
-
-# Started failing...
-e2e_prover/full fake

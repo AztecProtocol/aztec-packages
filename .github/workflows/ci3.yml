@@ -67,7 +67,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           ./ci.sh ec2
-          # ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+          ./ci3/cache_download {barretenberg,yarn-project}-bench-results-$(git rev-parse HEAD).tar.gz
       # - name: Store barretenberg benchmark result
       #   if: github.event_name == 'push'
       #   continue-on-error: true
