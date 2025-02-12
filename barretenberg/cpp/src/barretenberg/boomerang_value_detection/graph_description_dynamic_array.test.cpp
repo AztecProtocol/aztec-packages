@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/primitives/memory/dynamic_array.hpp"
 
 using namespace bb;
+using namespace cdg;
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }
@@ -34,14 +35,8 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    if (variables_in_one_gate.size() > 0) {
-        for (const auto& elem : variables_in_one_gate) {
-            info("elem = ", elem);
-        }
-    } else {
-        info("variables_in_one_gate is empty");
-    }
     EXPECT_EQ(connected_components.size(), 1);
+    EXPECT_EQ(variables_in_one_gate.size(), 1);
 }
 
 TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency_methods) 
@@ -69,5 +64,5 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    graph.print_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }

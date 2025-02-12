@@ -18,6 +18,7 @@
 
 using namespace bb;
 using namespace bb::stdlib;
+using namespace cdg;
 
 using Builder = UltraCircuitBuilder;
 

@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using namespace cdg;
 
 TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_decompose)
 {
