@@ -252,10 +252,10 @@ case "$cmd" in
     build $cmd
   ;;
   "test-cmds")
-    test_cmds $@
+    test_cmds "$@"
   ;;
   "test")
-    test $@
+    test "$@"
   ;;
   "ci")
     build

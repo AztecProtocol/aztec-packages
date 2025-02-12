@@ -55,7 +55,7 @@ function test_cmds {
     return
   fi
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
-  if [ "${REF_NAME:-}" == "master" ]; then
+  if [ "$CI_FULL" -eq 1 ]; then
     # Note: commands that start with 'timeout ...' override the default timeout.
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
   fi

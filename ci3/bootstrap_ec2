@@ -4,8 +4,17 @@ source $ci3/source_refname
 
 cmd=${1:-"./bootstrap.sh ci"}
 arch=${ARCH:-amd64}
-cores=${CORES:-$([ "$arch" = "arm64" ] && echo 64 || echo 128)}
 NO_TERMINATE=${NO_TERMINATE:-0}
+
+if [ "$arch" == "arm64" ]; then
+  cores=64
+else
+  if [ "$CI_FULL" -eq 1 ]; then
+    cores=192
+  else
+    cores=128
+  fi
+fi
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {

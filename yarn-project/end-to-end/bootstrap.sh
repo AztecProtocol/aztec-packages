@@ -9,11 +9,15 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
 
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+  else
+    echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
+  fi
+
   # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
   echo "$hash BENCH_OUTPUT=bench.json timeout -v 900s $run_test_script simple bench_build_block"
-  echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
-  echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
