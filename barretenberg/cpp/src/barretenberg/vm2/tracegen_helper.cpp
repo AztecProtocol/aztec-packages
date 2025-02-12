@@ -183,7 +183,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
             std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_dummy_dynamic_lookup_settings>>(),
             std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
