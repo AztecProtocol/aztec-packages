@@ -11,7 +11,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
-
+using namespace cdg;
 /**
  * @brief this test checks graph description of the circuit with arithmetic gates
     the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
