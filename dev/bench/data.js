@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739376094551,
+  "lastUpdate": 1739390062355,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "17aec316c23ddc8d083c7d4be1d46365f965432e",
-          "message": "fix: Fix noir_bb browser tests (#11552)\n\nUpdate webpack config to use the non-inlined wasm",
-          "timestamp": "2025-01-28T11:10:39Z",
-          "tree_id": "15a21d2e0dc8f2adf55539c612b584f78b4f643a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17aec316c23ddc8d083c7d4be1d46365f965432e"
-        },
-        "date": 1738063817535,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19321.95581299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16532.151887999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21567.94571400002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18866.249681999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4453.446647000021,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4098.837003000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 74015.967166,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 74015967000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13507.817806000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13507818000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3077985847,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3077985847 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142155428,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142155428 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 141588284,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141588284 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6464059047f5e563b4a2207c72ea57d84f1b43cc",
+          "message": "feat: Native world state now supports checkpointing  (#11739)\n\nThis PR introduces checkpointing to the native world state. \r\n\r\nCheckpointing allows for state updates to be reverted to a previous\r\nstate. This can be done to an arbitrary depth.\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>",
+          "timestamp": "2025-02-12T19:37:48Z",
+          "tree_id": "3db75519add689febcf204a1e6ae96e5f7e5a2a7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6464059047f5e563b4a2207c72ea57d84f1b43cc"
+        },
+        "date": 1739390054847,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19758.472902999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16937.815788999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21385.89081500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18897.586096000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4075.264261000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3783.0714459999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75214.594814,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75214596000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14409.883042,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14409884000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2333407771,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2333407771 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133140235,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133140235 ns\nthreads: 1"
           }
         ]
       }
