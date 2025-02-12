@@ -32,6 +32,10 @@ function build_and_preview {
 
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
+  if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
+    return
+  fi
+
   echo_header "docs release preview"
 
   # Deploy and capture exit code and output.
