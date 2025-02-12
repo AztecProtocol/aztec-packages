@@ -12,8 +12,6 @@ import {
   type CompleteAddress,
   type DeployL1Contracts,
   EthAddress,
-  type Fq,
-  type Fr,
   type Logger,
   type PXE,
   createLogger,
