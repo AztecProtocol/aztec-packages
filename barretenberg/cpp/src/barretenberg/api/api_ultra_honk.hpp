@@ -14,11 +14,6 @@
 
 namespace bb {
 
-std::string to_json(const std::vector<bb::fr>& data)
-{
-    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-}
-
 /**
  * @brief Create a Honk a prover from program bytecode and an optional witness
  *
@@ -70,109 +65,32 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
     return prover;
 }
 
-class VectorCircuitSource : public CircuitSource<UltraFlavor> {
-    using Builder = UltraCircuitBuilder;
-    using VK = UltraFlavor::VerificationKey;
-    std::vector<acir_format::AcirProgram> stack;
-    std::vector<std::shared_ptr<VK>> vks;
-    uint32_t step{ 0 };
-
-  public:
-    VectorCircuitSource(const std::vector<acir_format::AcirProgram>& _stack,
-                        const std::vector<std::shared_ptr<VK>>& _vks = {})
-        : stack(std::move(_stack))
-        // use precomputed vks if they are provided, otherwise set them all to nullptr
-        , vks(_vks.size() > 0 ? _vks : std::vector<std::shared_ptr<VK>>(stack.size(), nullptr))
-    {}
-
-    size_t num_circuits() const override { return stack.size(); }
-
-    // build circuit from acir and partial witness
-    Output next() override
-    {
-        // If something more flexible is needed users can construct ivc fully manually, OR we could use a user-provided
-        // vector of ProgramMetadata's, but IMO these flags are very confusing and should be hidden in a context like
-        // this, where we have a single, local description of how they are set.
-        const auto metadata = [this]() {
-            if (num_circuits() == 1) {
-                info("case 1");
-                return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
-            } else if (step < num_circuits() - 1) {
-                info("case 2");
-                return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
-            } else { // final step
-                info("case 3");
-                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
-            }
-        }();
-        info("about to create circuit with metadata recursive = ",
-             metadata.recursive,
-             " and honk_recursion = ",
-             metadata.honk_recursion);
-        const Builder circuit = acir_format::create_circuit<Builder>(stack[step], metadata);
-        const auto& vk = vks[step]; // will be nullptr if no precomputed vks are provided
-        info("vk is nullptr: ", vk == nullptr);
-        ++step;
-        return { circuit, vk };
-    }
-};
-
 template <typename VK> struct ProofAndKey {
     HonkProof proof;
     VK key;
 };
 
 class UltraHonkAPI : public API {
-    static std::vector<acir_format::AcirProgram> _build_stack(const std::string& input_type,
-                                                              const std::filesystem::path& bytecode_path,
-                                                              const std::filesystem::path& witness_path)
+    static ProofAndKey<UltraFlavor::VerificationKey> _prove_poseidon2(const bool vk_only,
+                                                                      const API::Flags& flags,
+                                                                      const std::filesystem::path& bytecode_path,
+                                                                      const std::filesystem::path& witness_path)
     {
-        using namespace acir_format;
-
-        std::vector<AcirProgram> stack;
-
-        // WORKTODO: handle single circuit case here
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-        if (input_type == "compiletime_stack") {
-            auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/1);
-            // Accumulate the entire program stack into the IVC
-            while (!program_stack.empty()) {
-                auto stack_item = program_stack.back();
-                stack.push_back(AcirProgram{ stack_item.constraints, stack_item.witness });
-                program_stack.pop_back();
-            }
-        }
-
-        return stack;
-    };
-
-    ProofAndKey<UltraFlavor::VerificationKey> _prove_poseidon2(const API::Flags& flags,
-                                                               const std::filesystem::path& bytecode_path,
-                                                               const std::filesystem::path& witness_path)
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        static constexpr size_t PROVER_SRS_LOG_SIZE = 23;
-        init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
-        UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
-        info("instantiated ivc class");
-
-        std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
-        info("built stack");
-        VectorCircuitSource circuit_source{ stack };
-        info("created circuit source");
-
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
-        HonkProof proof = ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
-        return { proof, *ivc.previous_vk };
+        UltraProver prover =
+            compute_valid_prover<UltraFlavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
+
+        return { vk_only ? HonkProof() : prover.construct_proof(),
+                 UltraFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
-    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak_zk(const bool vk_only,
-                                                                       const API::Flags& flags,
-                                                                       const std::filesystem::path& bytecode_path,
-                                                                       const std::filesystem::path& witness_path)
+    static ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak_zk(
+        const bool vk_only,
+        const API::Flags& flags,
+        const std::filesystem::path& bytecode_path,
+        const std::filesystem::path& witness_path)
     {
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
@@ -184,10 +102,10 @@ class UltraHonkAPI : public API {
                  UltraKeccakZKFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
-    ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak(const bool vk_only,
-                                                                    const API::Flags& flags,
-                                                                    const std::filesystem::path& bytecode_path,
-                                                                    const std::filesystem::path& witness_path)
+    static ProofAndKey<UltraKeccakZKFlavor::VerificationKey> _prove_keccak(const bool vk_only,
+                                                                           const API::Flags& flags,
+                                                                           const std::filesystem::path& bytecode_path,
+                                                                           const std::filesystem::path& witness_path)
     {
         const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
         info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
@@ -199,9 +117,9 @@ class UltraHonkAPI : public API {
                  UltraKeccakFlavor::VerificationKey(prover.proving_key->proving_key) };
     }
 
-    ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const bool vk_only,
-                                                                  const std::filesystem::path& bytecode_path,
-                                                                  const std::filesystem::path& witness_path)
+    static ProofAndKey<UltraRollupFlavor::VerificationKey> _prove_rollup(const bool vk_only,
+                                                                         const std::filesystem::path& bytecode_path,
+                                                                         const std::filesystem::path& witness_path)
     {
         UltraProver_<UltraRollupFlavor> prover =
             compute_valid_prover<UltraRollupFlavor>(bytecode_path, witness_path, true);
@@ -269,7 +187,7 @@ class UltraHonkAPI : public API {
                 _prove_rollup(vk_only, bytecode_path, witness_path), output_data_type, output_content_type, output_dir);
         } else if (flags.oracle_hash_type == "poseidon2") {
             info("proving with poseidon2");
-            write(_prove_poseidon2(flags, bytecode_path, witness_path),
+            write(_prove_poseidon2(vk_only, flags, bytecode_path, witness_path),
                   output_data_type,
                   output_content_type,
                   output_dir);
@@ -350,23 +268,11 @@ class UltraHonkAPI : public API {
         return false;
     };
 
-    bool prove_and_verify(const API::Flags& flags,
-                          const std::filesystem::path& bytecode_path,
-                          const std::filesystem::path& witness_path) override
+    bool prove_and_verify([[maybe_unused]] const API::Flags& flags,
+                          [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                          [[maybe_unused]] const std::filesystem::path& witness_path) override
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        static constexpr size_t PROVER_SRS_LOG_SIZE = 20;
-        init_bn254_crs(1 << PROVER_SRS_LOG_SIZE);
-        UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
-
-        std::vector<acir_format::AcirProgram> stack = _build_stack(flags.input_type, bytecode_path, witness_path);
-        VectorCircuitSource circuit_source{ stack };
-
-        const bool initialize_pairing_point_accumulator = flags.initialize_pairing_point_accumulator;
-        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
-        const bool verified =
-            ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
-        return verified;
+        throw_or_abort("API function not implemented");
     };
 
     /**

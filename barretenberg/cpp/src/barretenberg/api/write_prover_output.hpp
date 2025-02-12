@@ -3,6 +3,11 @@
 #include "barretenberg/common/log.hpp"
 #include <filesystem>
 
+std::string to_json(const std::vector<bb::fr>& data)
+{
+    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
 namespace bb {
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
