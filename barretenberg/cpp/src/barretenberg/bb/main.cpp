@@ -1210,6 +1210,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(OLD_API_gates_for_ivc);
     add_debug_flag(OLD_API_gates_for_ivc);
     add_crs_path_option(OLD_API_gates_for_ivc);
+    add_bytecode_path_option(OLD_API_gates_for_ivc);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API gates_mega_honk
@@ -1220,6 +1221,7 @@ int main(int argc, char* argv[])
     add_crs_path_option(OLD_API_gates_mega_honk);
     add_recursive_flag(OLD_API_gates_mega_honk);
     add_honk_recursion_option(OLD_API_gates_mega_honk);
+    add_bytecode_path_option(OLD_API_gates_mega_honk);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
@@ -1255,6 +1257,7 @@ int main(int argc, char* argv[])
     add_crs_path_option(OLD_API_gates);
     add_recursive_flag(OLD_API_gates);
     add_honk_recursion_option(OLD_API_gates);
+    add_bytecode_path_option(OLD_API_gates);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove
@@ -1266,6 +1269,7 @@ int main(int argc, char* argv[])
     add_recursive_flag(OLD_API_prove);
     std::string plonk_prove_output_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_prove, plonk_prove_output_path);
+    add_bytecode_path_option(OLD_API_prove);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove_output_all
@@ -1277,6 +1281,7 @@ int main(int argc, char* argv[])
     add_recursive_flag(OLD_API_prove_output_all);
     std::string plonk_prove_output_all_output_path{ "./proofs" };
     add_output_path_option(OLD_API_prove_output_all, plonk_prove_output_all_output_path);
+    add_bytecode_path_option(OLD_API_prove_output_all);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API verify
@@ -1285,6 +1290,9 @@ int main(int argc, char* argv[])
     add_verbose_flag(OLD_API_verify);
     add_debug_flag(OLD_API_verify);
     add_crs_path_option(OLD_API_verify);
+    add_bytecode_path_option(OLD_API_verify);
+    add_proof_path_option(OLD_API_verify);
+    add_vk_path_option(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove_and_verify
@@ -1294,6 +1302,7 @@ int main(int argc, char* argv[])
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
     add_recursive_flag(OLD_API_prove_and_verify);
+    add_bytecode_path_option(OLD_API_prove_and_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API contract
@@ -1317,6 +1326,7 @@ int main(int argc, char* argv[])
     add_recursive_flag(OLD_API_write_vk);
     std::string plonk_vk_output_path{ "./target/vk" };
     add_output_path_option(OLD_API_write_vk, plonk_vk_output_path);
+    add_bytecode_path_option(OLD_API_write_vk);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API write_pk
@@ -1328,6 +1338,7 @@ int main(int argc, char* argv[])
     add_recursive_flag(OLD_API_write_pk);
     std::string plonk_pk_output_path{ "./target/pk" };
     add_output_path_option(OLD_API_write_pk, plonk_pk_output_path);
+    add_bytecode_path_option(OLD_API_write_pk);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API proof_as_fields
@@ -1359,6 +1370,7 @@ int main(int argc, char* argv[])
     add_crs_path_option(OLD_API_vk_as_fields);
     std::string plonk_vk_as_fields_output_path{ vk_path / "_fields.json" };
     add_output_path_option(OLD_API_vk_as_fields, plonk_vk_as_fields_output_path);
+    add_vk_path_option(OLD_API_vk_as_fields);
 
 #ifndef DISABLE_AZTEC_VM
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
