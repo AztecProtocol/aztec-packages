@@ -78,7 +78,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<ECCVMFlavor, ECCVMFlavor::LookupRelation>(
+    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
         pk->polynomials, relation_parameters, pk->circuit_size);
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
 
