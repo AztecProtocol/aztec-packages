@@ -81,16 +81,17 @@ mod test {
 
         let plaintext: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+        let plaintext_length = 10;
+
         // We append the mac to the plaintext. It doesn't necessarily have to be 32 bytes;
         // that's quite an extreme length. 16 bytes or 8 bytes might be sufficient, and would
         // save on data broadcasting costs.
-        let mut plaintext_with_mac = [0 as u8; 10 + 32];
-        for i in 0..10 {
+        let mut plaintext_with_mac = [0 as u8; 10 + 32]; // plaintext_length + mac_length
+        for i in 0..plaintext_length {
             plaintext_with_mac[i] = plaintext[i];
         }
-        let offset = 10;
         for i in 0..32 {
-            plaintext_with_mac[offset + i] = mac_as_bytes[i];
+            plaintext_with_mac[plaintext_length + i] = mac_as_bytes[i];
         }
 
         let ciphertext = aes128_encrypt(plaintext_with_mac, iv, sym_key);
@@ -111,7 +112,7 @@ mod test {
 
         let mut extracted_mac_as_bytes = [0 as u8; 32];
         for i in 0..32 {
-            extracted_mac_as_bytes[i] = received_plaintext[offset + i];
+            extracted_mac_as_bytes[i] = received_plaintext[plaintext_length + i];
         }
 
         // We expect this assertion to fail, because we used a bad sym key.
