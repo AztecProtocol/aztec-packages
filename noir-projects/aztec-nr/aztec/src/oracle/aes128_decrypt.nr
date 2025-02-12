@@ -53,6 +53,9 @@ mod test {
         assert_eq(received_plaintext_with_padding_removed.slice, plaintext.as_slice());
     }
 
+    global TEST_PLAINTEXT_LENGTH: u32 = 10;
+    global TEST_MAC_LENGTH: u32 = 32;
+
     #[test(should_fail_with = "mac does not match")]
     unconstrained fn aes_encrypt_then_decrypt_with_bad_sym_key_is_caught() {
         // The AES decryption oracle will not fail for any ciphertext; it will always
@@ -77,21 +80,19 @@ mod test {
 
         let mac_preimage = 0x42;
         let mac = std::hash::poseidon2::Poseidon2::hash([mac_preimage], 1);
-        let mac_as_bytes = mac.to_be_bytes::<32>();
+        let mac_as_bytes = mac.to_be_bytes::<TEST_MAC_LENGTH>();
 
-        let plaintext: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-        let plaintext_length = 10;
+        let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         // We append the mac to the plaintext. It doesn't necessarily have to be 32 bytes;
         // that's quite an extreme length. 16 bytes or 8 bytes might be sufficient, and would
         // save on data broadcasting costs.
-        let mut plaintext_with_mac = [0 as u8; 10 + 32]; // plaintext_length + mac_length
-        for i in 0..plaintext_length {
+        let mut plaintext_with_mac = [0 as u8; TEST_PLAINTEXT_LENGTH + TEST_MAC_LENGTH];
+        for i in 0..TEST_PLAINTEXT_LENGTH {
             plaintext_with_mac[i] = plaintext[i];
         }
-        for i in 0..32 {
-            plaintext_with_mac[plaintext_length + i] = mac_as_bytes[i];
+        for i in 0..TEST_MAC_LENGTH {
+            plaintext_with_mac[TEST_PLAINTEXT_LENGTH + i] = mac_as_bytes[i];
         }
 
         let ciphertext = aes128_encrypt(plaintext_with_mac, iv, sym_key);
@@ -110,9 +111,9 @@ mod test {
 
         let received_plaintext = aes128_decrypt_oracle_wrapper(ciphertext, iv, bad_sym_key);
 
-        let mut extracted_mac_as_bytes = [0 as u8; 32];
-        for i in 0..32 {
-            extracted_mac_as_bytes[i] = received_plaintext[plaintext_length + i];
+        let mut extracted_mac_as_bytes = [0 as u8; TEST_MAC_LENGTH];
+        for i in 0..TEST_MAC_LENGTH {
+            extracted_mac_as_bytes[i] = received_plaintext[TEST_PLAINTEXT_LENGTH + i];
         }
 
         // We expect this assertion to fail, because we used a bad sym key.
