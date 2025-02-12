@@ -33,6 +33,11 @@ export class BotFactory {
     if (config.flushSetupTransactions && !dependencies.node) {
       throw new Error(`Either a node client or node url must be provided if transaction flushing is requested`);
     }
+    if (config.senderPrivateKey && !dependencies.node) {
+      throw new Error(
+        `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
+      );
+    }
     if (!dependencies.pxe && !config.pxeUrl) {
       throw new Error(`Either a PXE client or a PXE URL must be provided`);
     }
@@ -90,7 +95,7 @@ export class BotFactory {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
-      this.log.verbose(`Sent tx with hash ${txHash.toString()}`);
+      this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
         await this.node!.flushTxs();
@@ -208,7 +213,7 @@ export class BotFactory {
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
   }
 
-  private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint, interval = 60) {
+  private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
     const l1RpcUrl = this.config.l1RpcUrl;
     if (!l1RpcUrl) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
@@ -220,7 +225,7 @@ export class BotFactory {
       );
     }
 
-    const { l1ChainId, protocolContractAddresses } = await this.pxe.getNodeInfo();
+    const { l1ChainId } = await this.pxe.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrl, l1ChainId);
     const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
 
@@ -228,25 +233,16 @@ export class BotFactory {
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
     this.log.info('Created a claim for L1 fee juice.');
 
-    // Wait for L1 message to arrive.
-    await retryUntil(
-      async () => {
-        try {
-          return await this.pxe.getL1ToL2MembershipWitness(
-            protocolContractAddresses.feeJuice,
-            Fr.fromHexString(claim.messageHash),
-            claim.claimSecret,
-          );
-        } catch (e) {
-          this.log.verbose(`No L1 to L2 message found yet. Checking again in ${interval}s.`);
-          return;
-        }
-      },
-      'wait_for_l1_message',
-      0,
-      interval,
-    );
+    // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+    await this.advanceL2Block();
+    await this.advanceL2Block();
 
     return claim;
+  }
+
+  private async advanceL2Block() {
+    const initialBlockNumber = await this.node!.getBlockNumber();
+    await this.node!.flushTxs();
+    await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
   }
 }
