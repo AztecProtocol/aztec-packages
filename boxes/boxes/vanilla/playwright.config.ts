@@ -30,7 +30,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'yarn serve --no-watch',
+    command: 'yarn serve',
     port: 5173,
   },
 });
