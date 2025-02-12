@@ -3,8 +3,11 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import fs from 'fs/promises';
 import { type Database, open } from 'lmdb';
 import forEach from 'mocha-each';
+import { tmpdir } from 'os';
+import path from 'path';
 
 import { LmdbAztecCounter } from './counter.js';
 
@@ -12,9 +15,18 @@ use(chaiAsPromised);
 
 describe('LmdbAztecCounter', () => {
   let db: Database;
+  let dir: string;
 
-  beforeEach(() => {
-    db = open({} as any);
+  beforeEach(async () => {
+    dir = path.join(tmpdir(), randomBytes(8).toString('hex'));
+    await fs.mkdir(dir, { recursive: true });
+    db = open({ path: dir } as any);
+  });
+
+  afterEach(async () => {
+    await db.drop();
+    await db.close();
+    await fs.rm(dir, { recursive: true, force: true });
   });
 
   forEach([

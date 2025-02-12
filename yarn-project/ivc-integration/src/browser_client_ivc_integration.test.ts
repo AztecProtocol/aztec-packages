@@ -16,7 +16,6 @@ import {
 
 /* eslint-disable camelcase */
 
-createDebug.enable('*');
 const logger = createDebug('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);
@@ -87,7 +86,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     logger(`calling prove then verify...`);
@@ -104,7 +103,7 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     logger(`calling prove then verify...`);

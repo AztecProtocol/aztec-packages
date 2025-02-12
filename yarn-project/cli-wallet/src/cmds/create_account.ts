@@ -33,7 +33,7 @@ export async function createAccount(
     publicKey,
   );
   const salt = account.getInstance().salt;
-  const { address, publicKeys, partialAddress } = account.getCompleteAddress();
+  const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
   if (json) {
@@ -49,7 +49,7 @@ export async function createAccount(
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
-    log(`Public key:      0x${publicKeys.toString()}`);
+    log(`Public key:      ${publicKeys.toString()}`);
     if (secretKey) {
       log(`Secret key:     ${secretKey.toString()}`);
     }
@@ -66,7 +66,7 @@ export async function createAccount(
   } else {
     const wallet = await account.getWallet();
     const sendOpts: DeployAccountOptions = {
-      ...feeOpts.toSendOpts(wallet),
+      ...(await feeOpts.toSendOpts(wallet)),
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,

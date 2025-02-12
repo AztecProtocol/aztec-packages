@@ -41,7 +41,7 @@ export async function getOrderedNoteItems(
   noteFields.sort((a, b) => a.index - b.index);
 
   // Now we insert the public fields into the note based on its indices defined in the ABI.
-  const modifiedNoteItems = privateNoteValues;
+  const modifiedNoteItems = [...privateNoteValues];
   let indexInPublicValues = 0;
   for (let i = 0; i < noteFields.length; i++) {
     const noteField = noteFields[i];

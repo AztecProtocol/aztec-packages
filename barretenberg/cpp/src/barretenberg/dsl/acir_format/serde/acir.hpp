@@ -424,8 +424,9 @@ struct BlackBoxOp {
     struct ToRadix {
         Program::MemoryAddress input;
         Program::MemoryAddress radix;
-        Program::HeapArray output;
-        bool output_bits;
+        Program::MemoryAddress output_pointer;
+        Program::MemoryAddress num_limbs;
+        Program::MemoryAddress output_bits;
 
         friend bool operator==(const ToRadix&, const ToRadix&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -4611,7 +4612,10 @@ inline bool operator==(const BlackBoxOp::ToRadix& lhs, const BlackBoxOp::ToRadix
     if (!(lhs.radix == rhs.radix)) {
         return false;
     }
-    if (!(lhs.output == rhs.output)) {
+    if (!(lhs.output_pointer == rhs.output_pointer)) {
+        return false;
+    }
+    if (!(lhs.num_limbs == rhs.num_limbs)) {
         return false;
     }
     if (!(lhs.output_bits == rhs.output_bits)) {
@@ -4646,7 +4650,8 @@ void serde::Serializable<Program::BlackBoxOp::ToRadix>::serialize(const Program:
 {
     serde::Serializable<decltype(obj.input)>::serialize(obj.input, serializer);
     serde::Serializable<decltype(obj.radix)>::serialize(obj.radix, serializer);
-    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
+    serde::Serializable<decltype(obj.output_pointer)>::serialize(obj.output_pointer, serializer);
+    serde::Serializable<decltype(obj.num_limbs)>::serialize(obj.num_limbs, serializer);
     serde::Serializable<decltype(obj.output_bits)>::serialize(obj.output_bits, serializer);
 }
 
@@ -4658,7 +4663,8 @@ Program::BlackBoxOp::ToRadix serde::Deserializable<Program::BlackBoxOp::ToRadix>
     Program::BlackBoxOp::ToRadix obj;
     obj.input = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
     obj.radix = serde::Deserializable<decltype(obj.radix)>::deserialize(deserializer);
-    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
+    obj.output_pointer = serde::Deserializable<decltype(obj.output_pointer)>::deserialize(deserializer);
+    obj.num_limbs = serde::Deserializable<decltype(obj.num_limbs)>::deserialize(deserializer);
     obj.output_bits = serde::Deserializable<decltype(obj.output_bits)>::deserialize(deserializer);
     return obj;
 }

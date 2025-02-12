@@ -39,8 +39,8 @@ impl ResetOutputValidatorBuilder {
     pub fn new() -> Self {
         let mut output = FixtureBuilder::new();
         let mut previous_kernel = FixtureBuilder::new();
-        output.set_first_nullifier();
-        previous_kernel.set_first_nullifier();
+        output.set_protocol_nullifier();
+        previous_kernel.set_protocol_nullifier();
         output.validation_requests_split_counter = Option::some(0);
         previous_kernel.validation_requests_split_counter = Option::some(0);
 
@@ -70,10 +70,8 @@ impl ResetOutputValidatorBuilder {
         self,
     ) -> PrivateValidationRequestProcessor<NOTE_HASH_PENDING_AMOUNT, NOTE_HASH_SETTLED_AMOUNT, NULLIFIER_PENDING_AMOUNT, NULLIFIER_SETTLED_AMOUNT, NULLIFIER_KEYS> {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        let note_hash_read_request_hints =
-            unsafe { self.note_hash_read_request_hints_builder.to_hints() };
-        let nullifier_read_request_hints =
-            unsafe { self.nullifier_read_request_hints_builder.to_hints() };
+        let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
+        let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
 
         PrivateValidationRequestProcessor {
             validation_requests: previous_kernel.validation_requests,
@@ -90,6 +88,7 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_hints(self) -> ResetOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+        /// Safety: This is only used in tests.
         unsafe {
             generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
         }

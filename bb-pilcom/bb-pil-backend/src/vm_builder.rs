@@ -36,7 +36,7 @@ struct ColumnGroups {
     shifted: Vec<String>,
     /// fixed + witness + shifted
     all_cols_with_shifts: Vec<String>,
-    /// Inverses from lookups and permuations
+    /// Inverses from lookups and permutations
     inverses: Vec<String>,
     /// Public inputs (in source order)
     public_inputs: Vec<(usize, String)>,
@@ -92,16 +92,24 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         public_inputs,
     } = get_all_col_names(analyzed, &permutations, &lookups);
 
+    let lookup_and_perm_file_names = lookups
+        .iter()
+        .map(|l| l.file_name.clone())
+        .chain(permutations.iter().map(|p| p.file_name.clone()))
+        .unique()
+        .sorted()
+        .collect_vec();
+
     // ----------------------- Create the full row files -----------------------
     bb_files.create_full_row_hpp(vm_name, &all_cols);
-    bb_files.create_full_row_cpp(vm_name, &all_cols);
 
     // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_hpp(
         vm_name,
         &relations,
-        &lookup_and_permutations_names,
         &inverses,
+        &lookup_and_permutations_names,
+        &lookup_and_perm_file_names,
         &fixed,
         &witness,
         &witnesses_without_inverses,

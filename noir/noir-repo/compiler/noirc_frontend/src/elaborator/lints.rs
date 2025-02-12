@@ -282,8 +282,8 @@ fn can_return_without_recursing(interner: &NodeInterner, func_id: FuncId, expr_i
             HirStatement::Semi(e) => check(e),
             // Rust doesn't seem to check the for loop body (it's bounds might mean it's never called).
             HirStatement::For(e) => check(e.start_range) && check(e.end_range),
-            HirStatement::Constrain(_)
-            | HirStatement::Comptime(_)
+            HirStatement::Loop(e) => check(e),
+            HirStatement::Comptime(_)
             | HirStatement::Break
             | HirStatement::Continue
             | HirStatement::Error => true,
@@ -309,6 +309,7 @@ fn can_return_without_recursing(interner: &NodeInterner, func_id: FuncId, expr_i
         HirExpression::MemberAccess(e) => check(e.lhs),
         HirExpression::Call(e) => check(e.func) && e.arguments.iter().cloned().all(check),
         HirExpression::MethodCall(e) => check(e.object) && e.arguments.iter().cloned().all(check),
+        HirExpression::Constrain(e) => check(e.0) && e.2.map(check).unwrap_or(true),
         HirExpression::Cast(e) => check(e.lhs),
         HirExpression::If(e) => {
             check(e.condition) && (check(e.consequence) || e.alternative.map(check).unwrap_or(true))
@@ -319,6 +320,7 @@ fn can_return_without_recursing(interner: &NodeInterner, func_id: FuncId, expr_i
         HirExpression::Lambda(_)
         | HirExpression::Literal(_)
         | HirExpression::Constructor(_)
+        | HirExpression::EnumConstructor(_)
         | HirExpression::Quote(_)
         | HirExpression::Unquote(_)
         | HirExpression::Comptime(_)

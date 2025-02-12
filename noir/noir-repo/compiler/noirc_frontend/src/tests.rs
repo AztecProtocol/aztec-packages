@@ -65,6 +65,9 @@ pub(crate) fn get_program(src: &str) -> (ParsedModule, Context, Vec<(Compilation
     )
 }
 
+/// Compile a program.
+///
+/// The stdlib is not available for these snippets.
 pub(crate) fn get_program_with_maybe_parser_errors(
     src: &str,
     allow_parser_errors: bool,
@@ -114,7 +117,7 @@ pub(crate) fn get_program_with_maybe_parser_errors(
         };
 
         let debug_comptime_in_file = None;
-        let error_on_unused_imports = true;
+        let pedantic_solving = true;
 
         // Now we want to populate the CrateDefMap using the DefCollector
         errors.extend(DefCollector::collect_crate_and_dependencies(
@@ -123,7 +126,7 @@ pub(crate) fn get_program_with_maybe_parser_errors(
             program.clone().into_sorted(),
             root_file_id,
             debug_comptime_in_file,
-            error_on_unused_imports,
+            pedantic_solving,
         ));
     }
     (program, context, errors)
@@ -897,9 +900,9 @@ fn find_lambda_captures(stmts: &[StmtId], interner: &NodeInterner, result: &mut 
             HirStatement::Expression(expr_id) => expr_id,
             HirStatement::Let(let_stmt) => let_stmt.expression,
             HirStatement::Assign(assign_stmt) => assign_stmt.expression,
-            HirStatement::Constrain(constr_stmt) => constr_stmt.0,
             HirStatement::Semi(semi_expr) => semi_expr,
             HirStatement::For(for_loop) => for_loop.block,
+            HirStatement::Loop(block) => block,
             HirStatement::Error => panic!("Invalid HirStatement!"),
             HirStatement::Break => panic!("Unexpected break"),
             HirStatement::Continue => panic!("Unexpected continue"),
@@ -1244,7 +1247,7 @@ fn resolve_fmt_strings() {
 fn monomorphize_program(src: &str) -> Result<Program, MonomorphizationError> {
     let (_program, mut context, _errors) = get_program(src);
     let main_func_id = context.def_interner.find_function("main").unwrap();
-    monomorphize(main_func_id, &mut context.def_interner)
+    monomorphize(main_func_id, &mut context.def_interner, false)
 }
 
 fn get_monomorphization_error(src: &str) -> Option<MonomorphizationError> {
@@ -1287,11 +1290,15 @@ fn lambda$f1(mut env$l1: (Field)) -> Field {
     check_rewrite(src, expected_rewrite);
 }
 
+// TODO(https://github.com/noir-lang/noir/issues/6780): currently failing
+// with a stack overflow
 #[test]
+#[ignore]
 fn deny_cyclic_globals() {
     let src = r#"
         global A: u32 = B;
         global B: u32 = A;
+
         fn main() {}
     "#;
 
@@ -1991,9 +1998,6 @@ fn numeric_generic_u16_array_size() {
     ));
 }
 
-// TODO(https://github.com/noir-lang/noir/issues/6238):
-// The EvaluatedGlobalIsntU32 warning is a stopgap
-// (originally from https://github.com/noir-lang/noir/issues/6125)
 #[test]
 fn numeric_generic_field_larger_than_u32() {
     let src = r#"
@@ -2006,29 +2010,16 @@ fn numeric_generic_field_larger_than_u32() {
         }
     "#;
     let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 2);
-    assert!(matches!(
-        errors[0].0,
-        CompilationError::TypeError(TypeCheckError::EvaluatedGlobalIsntU32 { .. }),
-    ));
-    assert!(matches!(
-        errors[1].0,
-        CompilationError::ResolverError(ResolverError::IntegerTooLarge { .. })
-    ));
+    assert_eq!(errors.len(), 0);
 }
 
-// TODO(https://github.com/noir-lang/noir/issues/6238):
-// The EvaluatedGlobalIsntU32 warning is a stopgap
-// (originally from https://github.com/noir-lang/noir/issues/6126)
 #[test]
 fn numeric_generic_field_arithmetic_larger_than_u32() {
     let src = r#"
         struct Foo<let F: Field> {}
 
-        impl<let F: Field> Foo<F> {
-            fn size(self) -> Field {
-                F
-            }
+        fn size<let F: Field>(_x: Foo<F>) -> Field {
+            F
         }
 
         // 2^32 - 1
@@ -2039,21 +2030,11 @@ fn numeric_generic_field_arithmetic_larger_than_u32() {
         }
 
         fn main() {
-            let _ = foo::<A>().size();
+            let _ = size(foo::<A>());
         }
     "#;
     let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 2);
-
-    assert!(matches!(
-        errors[0].0,
-        CompilationError::TypeError(TypeCheckError::EvaluatedGlobalIsntU32 { .. }),
-    ));
-
-    assert!(matches!(
-        errors[1].0,
-        CompilationError::ResolverError(ResolverError::UnusedVariable { .. })
-    ));
+    assert_eq!(errors.len(), 0);
 }
 
 #[test]
@@ -2180,24 +2161,10 @@ fn numeric_generics_type_kind_mismatch() {
     }
     "#;
     let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 3);
-
-    // TODO(https://github.com/noir-lang/noir/issues/6238):
-    // The EvaluatedGlobalIsntU32 warning is a stopgap
+    assert_eq!(errors.len(), 1);
     assert!(matches!(
         errors[0].0,
-        CompilationError::TypeError(TypeCheckError::EvaluatedGlobalIsntU32 { .. }),
-    ));
-
-    assert!(matches!(
-        errors[1].0,
         CompilationError::TypeError(TypeCheckError::TypeKindMismatch { .. }),
-    ));
-
-    // TODO(https://github.com/noir-lang/noir/issues/6238): see above
-    assert!(matches!(
-        errors[2].0,
-        CompilationError::TypeError(TypeCheckError::EvaluatedGlobalIsntU32 { .. }),
     ));
 }
 
@@ -2850,12 +2817,13 @@ fn duplicate_struct_field() {
     let errors = get_program_errors(src);
     assert_eq!(errors.len(), 1);
 
-    let CompilationError::DefinitionError(DefCollectorErrorKind::DuplicateField {
+    let CompilationError::DefinitionError(DefCollectorErrorKind::Duplicate {
+        typ: _,
         first_def,
         second_def,
     }) = &errors[0].0
     else {
-        panic!("Expected a duplicate field error, got {:?}", errors[0].0);
+        panic!("Expected a 'duplicate' error, got {:?}", errors[0].0);
     };
 
     assert_eq!(first_def.to_string(), "x");
@@ -2869,6 +2837,21 @@ fn duplicate_struct_field() {
 fn trait_constraint_on_tuple_type() {
     let src = r#"
         trait Foo<A> {
+            fn foo(self, x: A) -> bool;
+        }
+
+        pub fn bar<T, U, V>(x: (T, U), y: V) -> bool where (T, U): Foo<V> {
+            x.foo(y)
+        }
+
+        fn main() {}"#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn trait_constraint_on_tuple_type_pub_crate() {
+    let src = r#"
+        pub(crate) trait Foo<A> {
             fn foo(self, x: A) -> bool;
         }
 
@@ -2978,7 +2961,7 @@ fn uses_self_type_inside_trait() {
 fn uses_self_type_in_trait_where_clause() {
     let src = r#"
     pub trait Trait {
-        fn trait_func() -> bool;
+        fn trait_func(self) -> bool;
     }
 
     pub trait Foo where Self: Trait {
@@ -3033,13 +3016,13 @@ fn do_not_eagerly_error_on_cast_on_type_variable() {
 #[test]
 fn error_on_cast_over_type_variable() {
     let src = r#"
-    pub fn foo<T, U>(x: T, f: fn(T) -> U) -> U {
+    pub fn foo<T, U>(f: fn(T) -> U, x: T, ) -> U {
         f(x)
     }
 
     fn main() {
         let x = "a";
-        let _: Field = foo(x, |x| x as Field);
+        let _: Field = foo(|x| x as Field, x);
     }
     "#;
 
@@ -3219,20 +3202,20 @@ fn dont_infer_globals_to_u32_from_type_use() {
         }
     "#;
 
-    let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 3);
-    assert!(matches!(
-        errors[0].0,
-        CompilationError::ResolverError(ResolverError::UnspecifiedGlobalType { .. })
-    ));
-    assert!(matches!(
-        errors[1].0,
-        CompilationError::ResolverError(ResolverError::UnspecifiedGlobalType { .. })
-    ));
-    assert!(matches!(
-        errors[2].0,
-        CompilationError::ResolverError(ResolverError::UnspecifiedGlobalType { .. })
-    ));
+    let mut errors = get_program_errors(src);
+    assert_eq!(errors.len(), 6);
+    for (error, _file_id) in errors.drain(0..3) {
+        assert!(matches!(
+            error,
+            CompilationError::ResolverError(ResolverError::UnspecifiedGlobalType { .. })
+        ));
+    }
+    for (error, _file_id) in errors {
+        assert!(matches!(
+            error,
+            CompilationError::TypeError(TypeCheckError::TypeKindMismatch { .. })
+        ));
+    }
 }
 
 #[test]
@@ -3242,7 +3225,8 @@ fn dont_infer_partial_global_types() {
         pub global NESTED_ARRAY: [[Field; _]; 3] = [[]; 3];
         pub global STR: str<_> = "hi";
         pub global NESTED_STR: [str<_>] = &["hi"];
-        pub global FMT_STR: fmtstr<_, _> = f"hi {ARRAY}";
+        pub global FORMATTED_VALUE: str<5> = "there";
+        pub global FMT_STR: fmtstr<_, _> = f"hi {FORMATTED_VALUE}";
         pub global TUPLE_WITH_MULTIPLE: ([str<_>], [[Field; _]; 3]) = (&["hi"], [[]; 3]);
 
         fn main() { }
@@ -3318,13 +3302,9 @@ fn non_u32_as_array_length() {
     "#;
 
     let errors = get_program_errors(src);
-    assert_eq!(errors.len(), 2);
+    assert_eq!(errors.len(), 1);
     assert!(matches!(
         errors[0].0,
-        CompilationError::TypeError(TypeCheckError::EvaluatedGlobalIsntU32 { .. })
-    ));
-    assert!(matches!(
-        errors[1].0,
         CompilationError::TypeError(TypeCheckError::TypeKindMismatch { .. })
     ));
 }
@@ -3477,6 +3457,11 @@ fn arithmetic_generics_rounding_fail_on_struct() {
 
 #[test]
 fn unconditional_recursion_fail() {
+    // These examples are self recursive top level functions, which would actually
+    // not be inlined in the SSA (there is nothing to inline into but self), so it
+    // wouldn't panic due to infinite recursion, but the errors asserted here
+    // come from the compilation checks, which does static analysis to catch the
+    // problem before it even has a chance to cause a panic.
     let srcs = vec![
         r#"
         fn main() {
@@ -3893,4 +3878,495 @@ fn disallows_underscore_on_right_hand_side() {
     };
 
     assert_eq!(name, "_");
+}
+
+#[test]
+fn errors_on_cyclic_globals() {
+    let src = r#"
+    pub comptime global A: u32 = B;
+    pub comptime global B: u32 = A;
+
+    fn main() { }
+    "#;
+    let errors = get_program_errors(src);
+
+    assert!(errors.iter().any(|(error, _)| matches!(
+        error,
+        CompilationError::InterpreterError(InterpreterError::GlobalsDependencyCycle { .. })
+    )));
+    assert!(errors.iter().any(|(error, _)| matches!(
+        error,
+        CompilationError::ResolverError(ResolverError::DependencyCycle { .. })
+    )));
+}
+
+#[test]
+fn warns_on_unneeded_unsafe() {
+    let src = r#"
+    fn main() {
+        /// Safety: test
+        unsafe {
+            foo()
+        }
+    }
+
+    fn foo() {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::TypeError(TypeCheckError::UnnecessaryUnsafeBlock { .. })
+    ));
+}
+
+#[test]
+fn warns_on_nested_unsafe() {
+    let src = r#"
+    fn main() {
+        /// Safety: test
+        unsafe {
+            /// Safety: test
+            unsafe {
+                foo()
+            }
+        }
+    }
+
+    unconstrained fn foo() {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::TypeError(TypeCheckError::NestedUnsafeBlock { .. })
+    ));
+}
+
+#[test]
+fn mutable_self_call() {
+    let src = r#"
+    fn main() {
+        let mut bar = Bar {};
+        let _ = bar.bar();
+    }
+
+    struct Bar {}
+
+    impl Bar {
+        fn bar(&mut self) {
+            let _ = self;
+        }
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn checks_visibility_of_trait_related_to_trait_impl_on_method_call() {
+    let src = r#"
+    mod moo {
+        pub struct Bar {}
+    }
+
+    trait Foo {
+        fn foo(self);
+    }
+
+    impl Foo for moo::Bar {
+        fn foo(self) {}
+    }
+
+    fn main() {
+        let bar = moo::Bar {};
+        bar.foo();
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_method_call_function_type() {
+    let src = r#"
+    struct Foo {
+        value: Field,
+    }
+
+    impl Foo {
+        fn foo(self) -> Field {
+            self.value
+        }
+    }
+
+    struct Box<T> {
+        value: T,
+    }
+
+    impl<T> Box<T> {
+        fn map<U>(self, f: fn(T) -> U) -> Box<U> {
+            Box { value: f(self.value) }
+        }
+    }
+
+    fn main() {
+        let box = Box { value: Foo { value: 1 } };
+        let _ = box.map(|foo| foo.foo());
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_call_function_type() {
+    let src = r#"
+    struct Foo {
+        value: Field,
+    }
+
+    fn call(f: fn(Foo) -> Field) -> Field {
+        f(Foo { value: 1 })
+    }
+
+    fn main() {
+        let _ = call(|foo| foo.value);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_call_function_type_in_generic_call() {
+    let src = r#"
+    struct Foo {
+        value: Field,
+    }
+
+    fn call<T>(t: T, f: fn(T) -> Field) -> Field {
+        f(t)
+    }
+
+    fn main() {
+        let _ = call(Foo { value: 1 }, |foo| foo.value);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_call_function_type_as_alias() {
+    let src = r#"
+    struct Foo {
+        value: Field,
+    }
+
+    type MyFn = fn(Foo) -> Field;
+
+    fn call(f: MyFn) -> Field {
+        f(Foo { value: 1 })
+    }
+
+    fn main() {
+        let _ = call(|foo| foo.value);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_function_return_type() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    pub fn func() -> fn(Foo) -> Field {
+        |foo| foo.value
+    }
+
+    fn main() {
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_function_return_type_multiple_statements() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    pub fn func() -> fn(Foo) -> Field {
+        let _ = 1;
+        |foo| foo.value
+    }
+
+    fn main() {
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_function_return_type_when_inside_if() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    pub fn func() -> fn(Foo) -> Field {
+        if true {
+            |foo| foo.value
+        } else {
+            |foo| foo.value
+        }
+    }
+
+    fn main() {
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_variable_type() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    fn main() {
+      let _: fn(Foo) -> Field = |foo| foo.value;
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_variable_alias_type() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    type FooFn = fn(Foo) -> Field;
+
+    fn main() {
+      let _: FooFn = |foo| foo.value;
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_variable_double_alias_type() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    type FooFn = fn(Foo) -> Field;
+    type FooFn2 = FooFn;
+
+    fn main() {
+      let _: FooFn2 = |foo| foo.value;
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_variable_tuple_type() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    fn main() {
+      let _: (fn(Foo) -> Field, _) = (|foo| foo.value, 1);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn infers_lambda_argument_from_variable_tuple_type_aliased() {
+    let src = r#"
+    pub struct Foo {
+        value: Field,
+    }
+
+    type Alias = (fn(Foo) -> Field, Field);
+
+    fn main() {
+      let _: Alias = (|foo| foo.value, 1);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn regression_7088() {
+    // A test for code that initially broke when implementing inferring
+    // lambda parameter types from the function type related to the call
+    // the lambda is in (PR #7088).
+    let src = r#"
+    struct U60Repr<let N: u32, let NumSegments: u32> {}
+
+    impl<let N: u32, let NumSegments: u32> U60Repr<N, NumSegments> {
+        fn new<let NumFieldSegments: u32>(_: [Field; N * NumFieldSegments]) -> Self {
+            U60Repr {}
+        }
+    }
+
+    fn main() {
+        let input: [Field; 6] = [0; 6];
+        let _: U60Repr<3, 6> = U60Repr::new(input);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn error_with_duplicate_enum_variant() {
+    let src = r#"
+    enum Foo {
+        Bar(i32),
+        Bar(u8),
+    }
+
+    fn main() {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 2);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::DefinitionError(DefCollectorErrorKind::Duplicate { .. })
+    ));
+    assert!(matches!(
+        &errors[1].0,
+        CompilationError::ResolverError(ResolverError::UnusedItem { .. })
+    ));
+}
+
+#[test]
+fn errors_on_empty_loop_no_break() {
+    let src = r#"
+    fn main() {
+        /// Safety: test
+        unsafe {
+            foo()
+        }
+    }
+
+    unconstrained fn foo() {
+        loop {}
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::ResolverError(ResolverError::LoopWithoutBreak { .. })
+    ));
+}
+
+#[test]
+fn errors_on_loop_without_break() {
+    let src = r#"
+    fn main() {
+        /// Safety: test
+        unsafe {
+            foo()
+        }
+    }
+
+    unconstrained fn foo() {
+        let mut x = 1;
+        loop {
+            x += 1;
+            bar(x);
+        }
+    }
+
+    fn bar(_: Field) {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::ResolverError(ResolverError::LoopWithoutBreak { .. })
+    ));
+}
+
+#[test]
+fn errors_on_loop_without_break_with_nested_loop() {
+    let src = r#"
+    fn main() {
+        /// Safety: test
+        unsafe {
+            foo()
+        }
+    }
+
+    unconstrained fn foo() {
+        let mut x = 1;
+        loop {
+            x += 1;
+            bar(x);
+            loop {
+                x += 2;
+                break;
+            }
+        }
+    }
+
+    fn bar(_: Field) {}
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        &errors[0].0,
+        CompilationError::ResolverError(ResolverError::LoopWithoutBreak { .. })
+    ));
+}
+
+#[test]
+fn call_function_alias_type() {
+    let src = r#"
+    type Alias<Env> = fn[Env](Field) -> Field;
+
+    fn main() {
+        call_fn(|x| x + 1);
+    }
+
+    fn call_fn<Env>(f: Alias<Env>) {
+        assert_eq(f(0), 1);
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn errors_on_if_without_else_type_mismatch() {
+    let src = r#"
+    fn main() {
+        if true { 
+            1 
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::Context { err, .. }) = &errors[0].0 else {
+        panic!("Expected a Context error");
+    };
+    assert!(matches!(**err, TypeCheckError::TypeMismatch { .. }));
+}
+
+#[test]
+fn does_not_stack_overflow_on_many_comments_in_a_row() {
+    let src = "//\n".repeat(10_000);
+    assert_no_errors(&src);
 }

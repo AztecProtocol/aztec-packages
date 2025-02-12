@@ -1,6 +1,5 @@
 import createDebug from 'debug';
 import { randomBytes } from '../../random/index.js';
-import { killSelf } from '../helpers/index.js';
 
 const debug = createDebug('bb.js:wasm');
 
@@ -34,9 +33,8 @@ export class BarretenbergWasmBase {
           view.setBigUint64(out, ts, true);
         },
         proc_exit: () => {
-          this.logger('PANIC: proc_exit was called. This is maybe caused by "joining" with unstable wasi pthreads.');
-          this.logger(new Error().stack!);
-          killSelf();
+          this.logger('PANIC: proc_exit was called.');
+          throw new Error();
         },
       },
 

@@ -1,5 +1,5 @@
 import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -13,6 +13,7 @@ import {
   mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
+  mockNoteHashCount,
   mockNoteHashExists,
   mockNullifierExists,
   mockStorageRead,
@@ -20,7 +21,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = AztecAddress.random();
+  let address: AztecAddress;
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -28,7 +29,8 @@ describe('journal', () => {
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
@@ -79,16 +81,20 @@ describe('journal', () => {
       expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists);
     });
 
-    it('writeNoteHash works', () => {
-      persistableState.writeNoteHash(address, utxo);
+    it('writeNoteHash works', async () => {
+      mockNoteHashCount(trace, 1);
+      await persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ utxo);
+      const siloedNotehash = await siloNoteHash(address, utxo);
+      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 1);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
       expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
@@ -97,14 +103,14 @@ describe('journal', () => {
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
       expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      const siloedNullifier = siloNullifier(address, utxo);
+      const siloedNullifier = await siloNullifier(address, utxo);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
@@ -151,14 +157,14 @@ describe('journal', () => {
   describe('Getting bytecode', () => {
     it('Should get bytecode', async () => {
       const bytecode = Buffer.from('0xdeadbeef');
-      const bytecodeCommitment = computePublicBytecodeCommitment(bytecode);
+      const bytecodeCommitment = await computePublicBytecodeCommitment(bytecode);
       const contractInstance = SerializableContractInstance.default();
-      const contractClass = makeContractClassPublic();
+      const contractClass = await makeContractClassPublic();
 
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       mockGetContractClass(worldStateDB, contractClass);
-      mockGetBytecode(worldStateDB, bytecode);
+      await mockGetBytecode(worldStateDB, bytecode);
 
       const expectedContractClassPreimage = {
         artifactHash: contractClass.artifactHash,

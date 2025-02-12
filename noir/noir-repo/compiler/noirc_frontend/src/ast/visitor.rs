@@ -4,7 +4,7 @@ use noirc_errors::Span;
 use crate::{
     ast::{
         ArrayLiteral, AsTraitPath, AssignStatement, BlockExpression, CallExpression,
-        CastExpression, ConstrainStatement, ConstructorExpression, Expression, ExpressionKind,
+        CastExpression, ConstrainExpression, ConstructorExpression, Expression, ExpressionKind,
         ForLoopStatement, ForRange, Ident, IfExpression, IndexExpression, InfixExpression, LValue,
         Lambda, LetStatement, Literal, MemberAccessExpression, MethodCallExpression,
         ModuleDeclaration, NoirFunction, NoirStruct, NoirTrait, NoirTraitImpl, NoirTypeAlias, Path,
@@ -21,15 +21,17 @@ use crate::{
 };
 
 use super::{
-    ForBounds, FunctionReturnType, GenericTypeArgs, IntegerBitSize, ItemVisibility, Pattern,
-    Signedness, TraitBound, TraitImplItemKind, TypePath, UnresolvedGenerics,
-    UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression,
+    ForBounds, FunctionReturnType, GenericTypeArgs, IntegerBitSize, ItemVisibility,
+    MatchExpression, NoirEnumeration, Pattern, Signedness, TraitBound, TraitImplItemKind, TypePath,
+    UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
+    UnresolvedTypeExpression,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AttributeTarget {
     Module,
     Struct,
+    Enum,
     Trait,
     Function,
     Let,
@@ -142,6 +144,10 @@ pub trait Visitor {
         true
     }
 
+    fn visit_noir_enum(&mut self, _: &NoirEnumeration, _: Span) -> bool {
+        true
+    }
+
     fn visit_noir_type_alias(&mut self, _: &NoirTypeAlias, _: Span) -> bool {
         true
     }
@@ -216,6 +222,10 @@ pub trait Visitor {
         true
     }
 
+    fn visit_match_expression(&mut self, _: &MatchExpression, _: Span) -> bool {
+        true
+    }
+
     fn visit_tuple(&mut self, _: &[Expression], _: Span) -> bool {
         true
     }
@@ -284,7 +294,7 @@ pub trait Visitor {
         true
     }
 
-    fn visit_constrain_statement(&mut self, _: &ConstrainStatement) -> bool {
+    fn visit_constrain_statement(&mut self, _: &ConstrainExpression) -> bool {
         true
     }
 
@@ -293,6 +303,10 @@ pub trait Visitor {
     }
 
     fn visit_for_loop_statement(&mut self, _: &ForLoopStatement) -> bool {
+        true
+    }
+
+    fn visit_loop_statement(&mut self, _: &Expression) -> bool {
         true
     }
 
@@ -523,6 +537,7 @@ impl Item {
             }
             ItemKind::TypeAlias(noir_type_alias) => noir_type_alias.accept(self.span, visitor),
             ItemKind::Struct(noir_struct) => noir_struct.accept(self.span, visitor),
+            ItemKind::Enum(noir_enum) => noir_enum.accept(self.span, visitor),
             ItemKind::ModuleDecl(module_declaration) => {
                 module_declaration.accept(self.span, visitor);
             }
@@ -771,6 +786,28 @@ impl NoirStruct {
     }
 }
 
+impl NoirEnumeration {
+    pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
+        if visitor.visit_noir_enum(self, span) {
+            self.accept_children(visitor);
+        }
+    }
+
+    pub fn accept_children(&self, visitor: &mut impl Visitor) {
+        for attribute in &self.attributes {
+            attribute.accept(AttributeTarget::Enum, visitor);
+        }
+
+        for variant in &self.variants {
+            if let Some(parameters) = &variant.item.parameters {
+                for parameter in parameters {
+                    parameter.accept(visitor);
+                }
+            }
+        }
+    }
+}
+
 impl NoirTypeAlias {
     pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
         if visitor.visit_noir_type_alias(self, span) {
@@ -818,6 +855,9 @@ impl Expression {
             ExpressionKind::MethodCall(method_call_expression) => {
                 method_call_expression.accept(self.span, visitor);
             }
+            ExpressionKind::Constrain(constrain) => {
+                constrain.accept(visitor);
+            }
             ExpressionKind::Constructor(constructor_expression) => {
                 constructor_expression.accept(self.span, visitor);
             }
@@ -832,6 +872,9 @@ impl Expression {
             }
             ExpressionKind::If(if_expression) => {
                 if_expression.accept(self.span, visitor);
+            }
+            ExpressionKind::Match(match_expression) => {
+                match_expression.accept(self.span, visitor);
             }
             ExpressionKind::Tuple(expressions) => {
                 if visitor.visit_tuple(expressions, self.span) {
@@ -1040,6 +1083,22 @@ impl IfExpression {
     }
 }
 
+impl MatchExpression {
+    pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
+        if visitor.visit_match_expression(self, span) {
+            self.accept_children(visitor);
+        }
+    }
+
+    pub fn accept_children(&self, visitor: &mut impl Visitor) {
+        self.expression.accept(visitor);
+        for (pattern, branch) in &self.rules {
+            pattern.accept(visitor);
+            branch.accept(visitor);
+        }
+    }
+}
+
 impl Lambda {
     pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
         if visitor.visit_lambda(self, span) {
@@ -1092,9 +1151,6 @@ impl Statement {
             StatementKind::Let(let_statement) => {
                 let_statement.accept(visitor);
             }
-            StatementKind::Constrain(constrain_statement) => {
-                constrain_statement.accept(visitor);
-            }
             StatementKind::Expression(expression) => {
                 expression.accept(visitor);
             }
@@ -1103,6 +1159,11 @@ impl Statement {
             }
             StatementKind::For(for_loop_statement) => {
                 for_loop_statement.accept(visitor);
+            }
+            StatementKind::Loop(block, _) => {
+                if visitor.visit_loop_statement(block) {
+                    block.accept(visitor);
+                }
             }
             StatementKind::Comptime(statement) => {
                 if visitor.visit_comptime_statement(statement) {
@@ -1138,7 +1199,7 @@ impl LetStatement {
     }
 }
 
-impl ConstrainStatement {
+impl ConstrainExpression {
     pub fn accept(&self, visitor: &mut impl Visitor) {
         if visitor.visit_constrain_statement(self) {
             self.accept_children(visitor);

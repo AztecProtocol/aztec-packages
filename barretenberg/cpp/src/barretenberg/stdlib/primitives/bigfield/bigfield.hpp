@@ -15,6 +15,7 @@ template <typename Builder, typename T> class bigfield {
 
   public:
     using View = bigfield;
+    using CoefficientAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
 

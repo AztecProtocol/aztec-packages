@@ -2,11 +2,12 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { mockTx } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
+import { writeTestData } from '@aztec/foundation/testing/files';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
@@ -19,7 +20,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      prover = await BBNativeRollupProver.new(bbConfig, getTelemetryClient());
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
@@ -32,7 +33,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   it.each([
     [1, 1, 0, 2], // Epoch with a single block, requires one padding block proof
-    [2, 2, 0, 2], // Full epoch with two blocks
+    // [2, 2, 0, 2], // Full epoch with two blocks // TODO(#10678) disabled for time x resource usage on main runner
     // [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof; commented out to reduce running time
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',
@@ -45,20 +46,22 @@ describe('prover/bb_prover/full-rollup', () => {
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const globals = makeGlobals(blockNum);
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-        const txs = times(nonEmptyTxs, (i: number) => {
+        const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
-          const tx = mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+          const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
         });
 
         log.info(`Starting new block #${blockNum}`);
-        await context.orchestrator.startNewBlock(totalTxs, globals, l1ToL2Messages);
+
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, context.getPreviousBlockHeader(blockNum));
         log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.epochProver);
+        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
+        await context.orchestrator.addTxs(processed);
 
         log.info(`Setting block as completed`);
         await context.orchestrator.setBlockCompleted(blockNum);
@@ -82,12 +85,13 @@ describe('prover/bb_prover/full-rollup', () => {
         );
       }
     },
+    900000,
   );
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
   it.skip('proves all circuits', async () => {
     const numTransactions = 4;
-    const txs = times(numTransactions, (i: number) =>
+    const txs = await timesParallel(numTransactions, (i: number) =>
       mockTx(1000 * (i + 1), {
         numberOfNonRevertiblePublicCallRequests: 2,
         numberOfRevertiblePublicCallRequests: 1,
@@ -104,12 +108,14 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1, 1);
 
-    await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, l1ToL2Messages);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
-    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
+    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
+
+    await context.orchestrator.addTxs(processed);
 
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 

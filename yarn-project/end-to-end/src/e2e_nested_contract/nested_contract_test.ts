@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type CompleteAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
-import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
 import {
   type ISnapshotManager,
@@ -34,8 +35,12 @@ export class NestedContractTest {
    */
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
       this.accounts = await pxe.getRegisteredAccounts();
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
 

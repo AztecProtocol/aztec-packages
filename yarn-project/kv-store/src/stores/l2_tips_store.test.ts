@@ -2,7 +2,7 @@ import { type L2Block } from '@aztec/circuit-types';
 import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from 'chai';
 
@@ -12,13 +12,17 @@ describe('L2TipsStore', () => {
   let kvStore: AztecAsyncKVStore;
   let tipsStore: L2TipsStore;
 
-  beforeEach(() => {
-    kvStore = openTmpStore(true);
+  beforeEach(async () => {
+    kvStore = await openTmpStore('test', true);
     tipsStore = new L2TipsStore(kvStore, 'test');
   });
 
+  afterEach(async () => {
+    await kvStore.delete();
+  });
+
   const makeBlock = (number: number): L2Block =>
-    ({ number, header: { hash: () => new Fr(number) } as BlockHeader } as L2Block);
+    ({ number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block);
 
   const makeTip = (number: number) => ({ number, hash: number === 0 ? undefined : new Fr(number).toString() });
 

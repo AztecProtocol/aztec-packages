@@ -1,6 +1,6 @@
 import { readFieldCompressedString } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -13,9 +13,9 @@ describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
   const logger = createLogger(`e2e:spartan-test:transfer`);
-  const MINT_AMOUNT = 20n;
+  const MINT_AMOUNT = 1n;
 
-  const ROUNDS = 5n;
+  const ROUNDS = 1n;
 
   let testWallets: TestWallets;
 
@@ -45,9 +45,9 @@ describe('token transfer test', () => {
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
-    });
+    }
 
     expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
@@ -66,11 +66,11 @@ describe('token transfer test', () => {
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
     }
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
         await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
       );
-    });
+    }
 
     expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
       await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),

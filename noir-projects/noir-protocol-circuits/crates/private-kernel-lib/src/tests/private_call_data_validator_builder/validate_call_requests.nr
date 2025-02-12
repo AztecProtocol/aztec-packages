@@ -27,8 +27,9 @@ fn validate_public_call_requests_incorrect_msg_sender_for_regular_call_fails() {
 
     builder.private_call.append_public_call_requests(1);
     // Change the msg_sender to be the caller's msg_sender.
-    builder.private_call.public_call_requests.storage[0].inner.msg_sender =
-        builder.private_call.msg_sender;
+    let mut call_request = builder.private_call.public_call_requests.get(0);
+    call_request.inner.msg_sender = builder.private_call.msg_sender;
+    builder.private_call.public_call_requests.set(0, call_request);
 
     builder.validate();
 }
@@ -39,7 +40,9 @@ fn validate_public_call_requests_static_call_regular_call_fails() {
 
     builder.private_call.append_public_call_requests(1);
     // Tweak the request to be making a non-static call.
-    builder.private_call.public_call_requests.storage[0].inner.is_static_call = false;
+    let mut call_request = builder.private_call.public_call_requests.get(0);
+    call_request.inner.is_static_call = false;
+    builder.private_call.public_call_requests.set(0, call_request);
 
     builder.validate();
 }

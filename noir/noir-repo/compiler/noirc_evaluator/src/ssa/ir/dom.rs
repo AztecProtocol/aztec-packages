@@ -39,6 +39,7 @@ impl DominatorTreeNode {
 }
 
 /// The dominator tree for a single function.
+#[derive(Default)]
 pub(crate) struct DominatorTree {
     /// The nodes of the dominator tree
     ///
@@ -272,8 +273,8 @@ mod tests {
     use crate::ssa::{
         function_builder::FunctionBuilder,
         ir::{
-            basic_block::BasicBlockId, dfg::CallStack, dom::DominatorTree, function::Function,
-            instruction::TerminatorInstruction, map::Id, types::Type,
+            basic_block::BasicBlockId, call_stack::CallStackId, dom::DominatorTree,
+            function::Function, instruction::TerminatorInstruction, map::Id, types::Type,
         },
     };
 
@@ -284,7 +285,10 @@ mod tests {
         let block0_id = func.entry_block();
         func.dfg.set_block_terminator(
             block0_id,
-            TerminatorInstruction::Return { return_values: vec![], call_stack: CallStack::new() },
+            TerminatorInstruction::Return {
+                return_values: vec![],
+                call_stack: CallStackId::root(),
+            },
         );
         let mut dom_tree = DominatorTree::with_function(&func);
         assert!(dom_tree.dominates(block0_id, block0_id));

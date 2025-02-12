@@ -1,9 +1,11 @@
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type Network } from '@aztec/types/network';
@@ -28,13 +30,11 @@ export interface KernelProverConfig {
  * Configuration settings for the PXE.
  */
 export interface PXEConfig {
-  /** The interval to wait between polling for new blocks. */
-  l2BlockPollingIntervalMS: number;
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
 }
 
-export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig;
+export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
 
 export type CliPXEOptions = {
   /** External Aztec network to connect to. e.g. devnet */
@@ -47,11 +47,7 @@ export type CliPXEOptions = {
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
-  l2BlockPollingIntervalMS: {
-    env: 'PXE_BLOCK_POLLING_INTERVAL_MS',
-    description: 'The interval to wait between polling for new blocks.',
-    ...numberConfigHelper(1_000),
-  },
+  ...chainConfigMappings,
   l2StartingBlock: {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
@@ -106,7 +102,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
   ...dataConfigMappings,
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
-    parseEnv: (val: string) => ['1', 'true', 'TRUE'].includes(val) || !!process.env.NETWORK,
+    parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
   },

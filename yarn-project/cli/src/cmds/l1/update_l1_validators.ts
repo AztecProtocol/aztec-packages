@@ -1,8 +1,13 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
-import { MINIMUM_STAKE, createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
+import {
+  EthCheatCodes,
+  createEthereumChain,
+  getExpectedAddress,
+  getL1ContractsConfigEnvVars,
+  isAnvilTestChain,
+} from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -13,6 +18,7 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
+  withdrawerAddress?: EthAddress;
 }
 
 export interface LoggerArgs {
@@ -37,9 +43,11 @@ export async function addL1Validator({
   mnemonic,
   validatorAddress,
   rollupAddress,
+  withdrawerAddress,
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+  const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
   const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
@@ -50,24 +58,26 @@ export async function addL1Validator({
   });
 
   const stakingAsset = getContract({
-    address: await rollup.read.STAKING_ASSET(),
+    address: await rollup.read.getStakingAsset(),
     abi: TestERC20Abi,
     client: walletClient,
   });
 
   await Promise.all(
     [
-      await stakingAsset.write.mint([walletClient.account.address, MINIMUM_STAKE], {} as any),
-      await stakingAsset.write.approve([rollupAddress.toString(), MINIMUM_STAKE], {} as any),
+      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
     ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
   );
 
   dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
   const txHash = await rollup.write.deposit([
     validatorAddress.toString(),
-    validatorAddress.toString(),
-    validatorAddress.toString(),
-    MINIMUM_STAKE,
+    // TODO(#11451): custom forwarders
+    getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
+      .address,
+    withdrawerAddress?.toString() ?? validatorAddress.toString(),
+    config.minimumStake,
   ]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -152,7 +162,7 @@ export async function fastForwardEpochs({
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
-  const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
+  const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {

@@ -19,8 +19,8 @@
 #include <cstdint>
 #include <filesystem>
 #include <future>
-#include <gtest/gtest.h>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -124,26 +124,6 @@ fr_sibling_path get_historic_sibling_path(TypeOfTree& tree,
     return h;
 }
 
-template <typename TypeOfTree>
-fr_sibling_path get_sibling_path(TypeOfTree& tree,
-                                 index_t index,
-                                 bool includeUncommitted = true,
-                                 bool expected_success = true)
-{
-    fr_sibling_path h;
-    Signal signal;
-    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            h = response.inner.path;
-        }
-        signal.signal_level();
-    };
-    tree.get_sibling_path(index, completion, includeUncommitted);
-    signal.wait_for_level();
-    return h;
-}
-
 template <typename LeafValueType, typename TypeOfTree>
 IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree,
                                     index_t index,
@@ -193,90 +173,6 @@ GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
     tree.find_low_leaf(leaf.get_key(), blockNumber, includeUncommitted, completion);
     signal.wait_for_level();
     return low_leaf_info;
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_find_leaf_index(TypeOfTree& tree,
-                           const LeafValueType& leaf,
-                           index_t expected_index,
-                           bool expected_success,
-                           bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index(leaf, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_find_leaf_index_from(TypeOfTree& tree,
-                                const LeafValueType& leaf,
-                                index_t start_index,
-                                index_t expected_index,
-                                bool expected_success,
-                                bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_historic_find_leaf_index(TypeOfTree& tree,
-                                    const LeafValueType& leaf,
-                                    block_number_t blockNumber,
-                                    index_t expected_index,
-                                    bool expected_success,
-                                    bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index(leaf, blockNumber, includeUncommitted, completion);
-    signal.wait_for_level();
-}
-
-template <typename LeafValueType, typename TypeOfTree>
-void check_historic_find_leaf_index_from(TypeOfTree& tree,
-                                         const LeafValueType& leaf,
-                                         block_number_t blockNumber,
-                                         index_t start_index,
-                                         index_t expected_index,
-                                         bool expected_success,
-                                         bool includeUncommitted = true)
-{
-    Signal signal;
-    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_index, expected_index);
-        }
-        signal.signal_level();
-    };
-
-    tree.find_leaf_index_from(leaf, blockNumber, start_index, includeUncommitted, completion);
-    signal.wait_for_level();
 }
 
 template <typename LeafValueType, typename TypeOfTree>
@@ -625,18 +521,23 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 
     // check the committed state and that the uncommitted state is empty
     check_find_leaf_index(tree, NullifierLeafValue(10), 1 + initial_size, true, true);
-    check_find_leaf_index(tree, NullifierLeafValue(10), 0, false, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(10) }, { std::nullopt }, true, false);
 
-    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, true);
-    check_find_leaf_index(tree, NullifierLeafValue(15), 0, false, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(tree, { NullifierLeafValue(15) }, { std::nullopt }, true, true);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(15) }, { std::nullopt }, true, false);
 
     check_find_leaf_index(tree, NullifierLeafValue(40), 3 + initial_size, true, true);
     check_find_leaf_index(tree, NullifierLeafValue(30), 0 + initial_size, true, true);
     check_find_leaf_index(tree, NullifierLeafValue(20), 2 + initial_size, true, true);
 
-    check_find_leaf_index(tree, NullifierLeafValue(40), 0, false, false);
-    check_find_leaf_index(tree, NullifierLeafValue(30), 0, false, false);
-    check_find_leaf_index(tree, NullifierLeafValue(20), 0, false, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(40) }, { std::nullopt }, true, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(30) }, { std::nullopt }, true, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(20) }, { std::nullopt }, true, false);
 
     commit_tree(tree);
 
@@ -654,7 +555,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 
     // check the new uncommitted state
     check_find_leaf_index(tree, NullifierLeafValue(18), 5 + initial_size, true, true);
-    check_find_leaf_index(tree, NullifierLeafValue(18), 0, false, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(
+        tree, { NullifierLeafValue(18) }, { std::nullopt }, true, false);
 
     commit_tree(tree);
 
@@ -1854,8 +1756,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        std::move(store), workers, current_size);
+    using LocalTreeType =
+        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
+    auto tree = LocalTreeType(std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -1913,7 +1816,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
     check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
 
-    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
     check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
 
@@ -1965,7 +1868,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
+        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2109,7 +2013,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
 
     // should not exist in our image
     get_leaf<NullifierLeafValue>(treeAtBlock2, 35 + batch_size, false, false);
-    check_find_leaf_index(treeAtBlock2, batch3[4], 0, false);
+    check_find_leaf_index<NullifierLeafValue, TreeType>(treeAtBlock2, { batch3[4] }, { std::nullopt }, true);
 
     // now add the same values to our image
     add_values(treeAtBlock2, batch3);
@@ -2129,10 +2033,12 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     EXPECT_EQ(historicSiblingPath, block1SiblingPathIndex3);
     check_historic_find_leaf_index(treeAtBlock2, batch1[3], 1, 3 + batch_size, true);
     check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, true, true);
-    check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, false, false);
+    check_historic_find_leaf_index<NullifierLeafValue, TreeType>(
+        treeAtBlock2, { batch3[3] }, 2, { std::nullopt }, true, false);
 
     check_historic_find_leaf_index_from(treeAtBlock2, batch1[3], 2, 0, 3 + batch_size, true, false);
-    check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, false, false);
+    check_historic_find_leaf_index_from<NullifierLeafValue, TreeType>(
+        treeAtBlock2, { batch3[3] }, 2, 20 + batch_size, { std::nullopt }, true, false);
     check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, true, true);
 
     check_unfinalised_block_height(treeAtBlock2, 2);
@@ -2151,8 +2057,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        std::move(store), workers, current_size);
+    using LocalTreeType =
+        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
+    auto tree = LocalTreeType(std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -2268,7 +2175,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
+        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2288,7 +2196,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_remove_historical_blocks)
 
     // Historic queries against block 1 should no longer work
     check_historic_leaf(tree, leaf1AtBlock1, 1, 1, false);
-    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, false);
+    check_historic_find_leaf_index<PublicDataLeafValue, LocalTreeType>(
+        tree, { leaf1AtBlock1 }, 1, { std::nullopt }, false);
 
     // Queries against block 2 should work
     check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
@@ -2312,8 +2221,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
         std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
-    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
-        std::move(store), workers, current_size);
+    using LocalTreeType =
+        ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>;
+    auto tree = LocalTreeType(std::move(store), workers, current_size);
 
     /**
      * Intial state:
@@ -2477,7 +2387,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
 
     // should not be found at block 1
-    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    check_historic_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
+        tree, { PublicDataLeafValue(10, 20) }, 1, 0, { std::nullopt }, true);
     // should be found at block
     check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
 
@@ -2516,8 +2427,10 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_unwind_blocks)
     check_block_and_size_data(db, 3, current_size, true);
 
     // should fail to find the leaf at index 4
-    check_find_leaf_index(tree, PublicDataLeafValue(50, 8), 4, false);
-    check_find_leaf_index_from(tree, PublicDataLeafValue(50, 8), 0, 5, false);
+    check_find_leaf_index<PublicDataLeafValue, LocalTreeType>(
+        tree, { PublicDataLeafValue(50, 8) }, { std::nullopt }, true);
+    check_find_leaf_index_from<PublicDataLeafValue, LocalTreeType>(
+        tree, { PublicDataLeafValue(50, 8) }, 0, { std::nullopt }, true);
 
     // the leaf at index 2 should no longer be as it was after block 5
     EXPECT_NE(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
@@ -2797,8 +2710,8 @@ void test_nullifier_tree_unwind(std::string directory,
             // Trying to find leaves appended in the block that was removed should fail
             get_leaf<NullifierLeafValue>(tree, 1 + deletedBlockStartIndex, false, false);
 
-            check_find_leaf_index(
-                tree, leafValues[1 + deletedBlockStartIndexIntoLocalValues], 1 + deletedBlockStartIndex, false);
+            check_find_leaf_index<NullifierLeafValue, TreeType>(
+                tree, { leafValues[1 + deletedBlockStartIndexIntoLocalValues] }, { std::nullopt }, true);
         }
 
         for (index_t j = 0; j < numBlocks; j++) {
@@ -2817,10 +2730,15 @@ void test_nullifier_tree_unwind(std::string directory,
             const index_t expectedIndexInTree = leafIndex + batchSize;
             check_historic_leaf(
                 tree, leafValues[leafIndex], expectedIndexInTree, historicBlockNumber, expectedSuccess, false);
-            check_historic_find_leaf_index(
-                tree, leafValues[leafIndex], historicBlockNumber, expectedIndexInTree, expectedSuccess, false);
-            check_historic_find_leaf_index_from(
-                tree, leafValues[leafIndex], historicBlockNumber, 0, expectedIndexInTree, expectedSuccess, false);
+
+            std::vector<std::optional<index_t>> expectedResults;
+            if (expectedSuccess) {
+                expectedResults.emplace_back(std::make_optional(expectedIndexInTree));
+            }
+            check_historic_find_leaf_index<NullifierLeafValue, TreeType>(
+                tree, { leafValues[leafIndex] }, historicBlockNumber, expectedResults, expectedSuccess, true);
+            check_historic_find_leaf_index_from<NullifierLeafValue, TreeType>(
+                tree, { leafValues[leafIndex] }, historicBlockNumber, 0, expectedResults, expectedSuccess, true);
         }
     }
 }
@@ -2854,5 +2772,345 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_empty_block
         ss << "DB " << actualSize;
         test_nullifier_tree_unwind(
             _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_checkpoints)
+{
+    index_t initial_size = 2;
+    index_t current_size = initial_size;
+    ThreadPoolPtr workers = make_thread_pool(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> store =
+        std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        std::move(store), workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(30, 5));
+    check_size(tree, ++current_size);
+
+    /**
+     * Add new slot:value 10:20:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10        0       0       0       0
+     *  val       0       0       5       20        0       0       0       0
+     *  nextIdx   1       3       0       2         0       0       0       0
+     *  nextVal   1       10      0       30        0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(10, 20));
+    check_size(tree, ++current_size);
+
+    /**
+     * Update value at slot 30 to 6:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       0       0       0
+     *  val       0       0       6       20       0       0       0       0
+     *  nextIdx   1       3       0       2        0       0       0       0
+     *  nextVal   1       10      0       30       0       0       0       0
+     */
+    add_value_sequentially(tree, PublicDataLeafValue(30, 6));
+    // The size does not increase since sequential insertion doesn't pad
+    check_size(tree, current_size);
+    commit_tree(tree);
+
+    {
+        index_t fork_size = current_size;
+        std::unique_ptr<ContentAddressedCachedTreeStore<PublicDataLeafValue>> forkStore =
+            std::make_unique<ContentAddressedCachedTreeStore<PublicDataLeafValue>>(name, depth, db);
+        auto forkTree =
+            ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+                std::move(forkStore), workers, initial_size);
+
+        // Find the low leaf of slot 60
+        auto predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be at index 2
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
+
+        // checkpoint the fork
+        checkpoint_tree(forkTree);
+
+        /**
+         * Add new value slot:value 50:8:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(50, 8));
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Now revert the fork and see that it is rolled back to the checkpoint
+        revert_checkpoint_tree(forkTree);
+        check_size(forkTree, --fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 2
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
+
+        // checkpoint the fork again
+        checkpoint_tree(forkTree);
+
+        // We now advance the fork again by a few checkpoints
+
+        /**
+         * Add new value slot:value 50:8:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+
+        // Make the same change again, commit the checkpoint and see that the changes remain
+        add_value_sequentially(forkTree, PublicDataLeafValue(50, 8));
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Checkpoint again
+        checkpoint_tree(forkTree);
+
+        /**
+         * Update the value in slot 30 to 12:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       12      20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(30, 12));
+        check_size(forkTree, fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Checkpoint again
+        checkpoint_tree(forkTree);
+
+        /**
+         * Add a value at slot 45:15
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      45      0       0
+         *  val       0       0       12      20       8       15      0       0
+         *  nextIdx   1       3       5       2        0       4       0       0
+         *  nextVal   1       10      45      30       0       50      0       0
+         */
+        add_value_sequentially(forkTree, PublicDataLeafValue(45, 15));
+
+        check_size(forkTree, ++fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 5, 45));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 5), create_indexed_public_data_leaf(45, 15, 4, 50));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 5);
+
+        // Now commit the last checkpoint
+        commit_checkpoint_tree(forkTree);
+
+        // The state should be identical
+        check_size(forkTree, fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 12, 5, 45));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 5), create_indexed_public_data_leaf(45, 15, 4, 50));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 5);
+
+        // Now revert the fork and we should remove both the new slot 45 and the update to slot 30
+
+        /**
+         * We should revert to this state:
+         *
+         *  index     0       1       2       3        4       5       6       7
+         *  ---------------------------------------------------------------------
+         *  slot      0       1       30      10       50      0       0       0
+         *  val       0       0       6       20       8       0       0       0
+         *  nextIdx   1       3       4       2        0       0       0       0
+         *  nextVal   1       10      50      30       0       0       0       0
+         */
+
+        revert_checkpoint_tree(forkTree);
+
+        check_size(forkTree, --fork_size);
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 2), create_indexed_public_data_leaf(30, 6, 4, 50));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+        EXPECT_EQ(get_leaf<PublicDataLeafValue>(forkTree, 4), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+        // Find the low leaf of slot 60
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(60, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 4);
+
+        // Find the low leaf of slot 46
+        predecessor = get_low_leaf(forkTree, PublicDataLeafValue(46, 5));
+
+        // It should be back at index 4
+        EXPECT_EQ(predecessor.is_already_present, false);
+        EXPECT_EQ(predecessor.index, 2);
+    }
+}
+
+void advance_state(TreeType& fork, uint32_t size)
+{
+    std::vector<fr> values = create_values(size);
+    std::vector<NullifierLeafValue> leaves;
+    for (uint32_t j = 0; j < size; j++) {
+        leaves.emplace_back(values[j]);
+    }
+    add_values(fork, leaves);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, nullifiers_can_be_inserted_after_revert)
+{
+    index_t current_size = 2;
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 10;
+    std::string name = "Nullifier Tree";
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    auto tree = TreeType(std::move(store), workers, current_size);
+
+    {
+        std::unique_ptr<Store> forkStore = std::make_unique<Store>(name, depth, db);
+        auto forkTree = TreeType(std::move(forkStore), workers, current_size);
+
+        check_size(tree, current_size);
+
+        uint32_t size_to_insert = 8;
+        uint32_t num_insertions = 5;
+
+        for (uint32_t i = 0; i < num_insertions - 1; i++) {
+            advance_state(forkTree, size_to_insert);
+            current_size += size_to_insert;
+            check_size(forkTree, current_size);
+            checkpoint_tree(forkTree);
+        }
+
+        advance_state(forkTree, size_to_insert);
+        current_size += size_to_insert;
+        check_size(forkTree, current_size);
+        revert_checkpoint_tree(forkTree);
+
+        current_size -= size_to_insert;
+        check_size(forkTree, current_size);
+
+        commit_checkpoint_tree(forkTree);
+
+        check_size(forkTree, current_size);
+
+        advance_state(forkTree, size_to_insert);
+
+        current_size += size_to_insert;
+        check_size(forkTree, current_size);
     }
 }

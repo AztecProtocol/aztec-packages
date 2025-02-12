@@ -50,7 +50,7 @@ export const BLOCK_PARENT = 'aztec.block.parent';
 export const BLOCK_CANDIDATE_TXS_COUNT = 'aztec.block.candidate_txs_count';
 /** How many actual txs were included in this block */
 export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
-/** The block size (power of 2) */
+/** The block size */
 export const BLOCK_SIZE = 'aztec.block.size';
 /** How many blocks are included in this epoch */
 export const EPOCH_SIZE = 'aztec.epoch.size';
@@ -70,8 +70,12 @@ export const L1_TX_TYPE = 'aztec.l1.tx_type';
 export const L1_SENDER = 'aztec.l1.sender';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
+/** The reason for disconnecting a peer */
+export const P2P_GOODBYE_REASON = 'aztec.p2p.goodbye.reason';
 /** The proving job type */
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
+/** The proving job id */
+export const PROVING_JOB_ID = 'aztec.proving.job_id';
 
 export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 /** The prover-id in a root rollup proof. */
@@ -80,6 +84,8 @@ export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
 
 export const P2P_ID = 'aztec.p2p.id';
+export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
+export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_requests_count';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
@@ -89,8 +95,19 @@ export const TARGET_ADDRESS = 'aztec.address.target';
 export const SENDER_ADDRESS = 'aztec.address.sender';
 export const MANA_USED = 'aztec.mana.used';
 
+/** Whether a sync process is the initial run, which is usually slower than iterative ones. */
+export const INITIAL_SYNC = 'aztec.initial_sync';
+
 /** Identifier for the tables in a world state DB */
 export const WS_DB_DATA_TYPE = 'aztec.world_state.db_type';
 
 /** Identifier for component database (e.g. archiver, tx pool) */
 export const DB_DATA_TYPE = 'aztec.db_type';
+
+export const REVERTIBILITY = 'aztec.revertibility';
+
+export const GAS_DIMENSION = 'aztec.gas_dimension';
+
+export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
+
+export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';

@@ -25,6 +25,9 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     using Relations = bb::avm::AvmFlavor::Relations_<FF>;
 
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = NativeFlavor::USE_SHORT_MONOMIALS;
+
     static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
@@ -96,7 +99,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     };
 
     using WitnessCommitments = bb::avm::AvmFlavor::WitnessEntities<Commitment>;
-    using CommitmentLabels = bb::avm::AvmFlavor::CommitmentLabels;
     using VerifierCommitments = bb::avm::AvmFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };

@@ -13,7 +13,7 @@ export async function deployAccount(
   log: LogFn,
 ) {
   const out: Record<string, any> = {};
-  const { address, partialAddress, publicKeys } = account.getCompleteAddress();
+  const { address, partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, deployer, salt } = account.getInstance();
   const wallet = await account.getWallet();
   const secretKey = wallet.getSecretKey();
@@ -27,7 +27,7 @@ export async function deployAccount(
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
-    log(`Public key:      0x${publicKeys.toString()}`);
+    log(`Public key:      ${publicKeys.toString()}`);
     if (secretKey) {
       log(`Secret key:     ${secretKey.toString()}`);
     }
@@ -41,7 +41,7 @@ export async function deployAccount(
   let txReceipt;
 
   const sendOpts: DeployAccountOptions = {
-    ...feeOpts.toSendOpts(wallet),
+    ...(await feeOpts.toSendOpts(wallet)),
     skipInitialization: false,
   };
   if (feeOpts.estimateOnly) {

@@ -114,7 +114,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_token().simulate()).equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate()).token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
@@ -359,7 +359,7 @@ export class CrossChainTestHarness {
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
-    const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
+    const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
     // We poll isL1ToL2MessageSynced endpoint until the message is available
     await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
 

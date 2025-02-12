@@ -10,7 +10,9 @@ import {
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 
@@ -90,12 +92,16 @@ export class BlacklistTokenContractTest {
     jest.setTimeout(120_000);
 
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
       this.admin = this.wallets[0];
       this.other = this.wallets[1];
       this.blacklisted = this.wallets[2];
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(
@@ -199,7 +205,7 @@ export class BlacklistTokenContractTest {
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
+        const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);

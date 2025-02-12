@@ -7,7 +7,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
-import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
@@ -16,8 +16,8 @@ export interface MakeConsensusPayloadOptions {
   txHashes?: TxHash[];
 }
 
-const makeAndSignConsensusPayload = (
-  domainSeperator: SignatureDomainSeperator,
+const makeAndSignConsensusPayload = async (
+  domainSeparator: SignatureDomainSeparator,
   options?: MakeConsensusPayloadOptions,
 ) => {
   const {
@@ -33,19 +33,19 @@ const makeAndSignConsensusPayload = (
     txHashes,
   });
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeperator);
+  const hash = await getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
   const signature = signer.sign(hash);
 
   return { payload, signature };
 };
 
-export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeperator.blockProposal, options);
+export const makeBlockProposal = async (options?: MakeConsensusPayloadOptions): Promise<BlockProposal> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
   return new BlockProposal(payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeperator.blockAttestation, options);
+export const makeBlockAttestation = async (options?: MakeConsensusPayloadOptions): Promise<BlockAttestation> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
   return new BlockAttestation(payload, signature);
 };

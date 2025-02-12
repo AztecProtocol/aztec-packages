@@ -20,5 +20,6 @@ export class TXEDatabase extends KVPxeDatabase {
 
   async setAccount(key: AztecAddress, value: CompleteAddress) {
     await this.#accounts.set(key.toString(), value.toBuffer());
+    await this.addCompleteAddress(value);
   }
 }

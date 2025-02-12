@@ -38,7 +38,7 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  * @param buffer - Buffer to deserialize.
  * @returns Deserialized artifact.
  */
-export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
+export function contractArtifactFromBuffer(buffer: Buffer): Promise<ContractArtifact> {
   return jsonParseWithSchema(buffer.toString('utf-8'), ContractArtifactSchema);
 }
 
@@ -128,8 +128,8 @@ function generateFunctionArtifact(
   }
 
   let returnTypes: AbiType[] = [];
-  if (functionType === FunctionType.UNCONSTRAINED && fn.abi.return_type) {
-    returnTypes = [fn.abi.return_type.abi_type];
+  if (functionType === FunctionType.UNCONSTRAINED) {
+    returnTypes = fn.abi.return_type ? [fn.abi.return_type.abi_type] : returnTypes;
   } else {
     const pathToFind = `${contract.name}::${fn.name}_abi`;
     const abiStructs: AbiType[] = contract.outputs.structs['functions'];
@@ -220,7 +220,7 @@ function getStorageLayout(input: NoirCompiledContract) {
     const name = field.name;
     const slot = field.value.fields[0].value as IntegerValue;
     acc[name] = {
-      slot: slot.value,
+      slot: `0x${slot.value}`,
     };
     return acc;
   }, {});

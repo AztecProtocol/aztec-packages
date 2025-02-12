@@ -1,10 +1,11 @@
 pub mod interfaces;
+pub mod initialization_utils;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
     is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
 };
-use protocol_types::meta::flatten_to_fields;
+use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
@@ -64,18 +65,19 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
         .quoted_contents()
 }
 
 comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::mark_as_initialized_{fn_visibility}(&mut context);".quoted_contents()
+    f"dep::aztec::macros::functions::initialization_utils::mark_as_initialized_{fn_visibility}(&mut context);"
+        .quoted_contents()
 }
 
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);"
         .quoted_contents()
 }
 
@@ -84,6 +86,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
+
+    // If a function is further modified as unconstrained, we throw an error
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[private] but marked as unconstrained, remove unconstrained keyword",
+        );
+    }
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
@@ -242,13 +252,23 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     register_stub(f.module(), fn_stub);
 
+    // If a function is further modified as unconstrained, we throw an error
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[public] but marked as unconstrained, remove unconstrained keyword",
+        );
+    }
+
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
     let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len())
+        .map(|(name, typ): (Quoted, Type)| {
+            generate_serialize_to_fields(name, typ, &[], false).0.len()
+        })
         .fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
@@ -328,7 +348,12 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let module_has_storage = module_has_storage(f.module());
 
     let storage_init = if module_has_storage {
-        quote { let storage = Storage::init(context); }
+        quote {
+            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
+            // referenced. We instead ignore 'unused variable' warnings for it.
+            #[allow(unused_variables)]
+            let storage = Storage::init(context);
+        }
     } else {
         quote {}
     };

@@ -2,7 +2,7 @@ use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::ErrorSelector;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::ssa::ir::{basic_block::BasicBlockId, dfg::CallStack, function::FunctionId};
+use crate::ssa::ir::{basic_block::BasicBlockId, call_stack::CallStack, function::FunctionId};
 use crate::ErrorType;
 
 use super::procedures::ProcedureId;
@@ -27,7 +27,7 @@ pub(crate) struct GeneratedBrillig<F> {
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
     pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
     pub(crate) name: String,
-    pub(crate) procedure_locations: HashMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
+    pub(crate) procedure_locations: BTreeMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -61,7 +61,7 @@ pub(crate) struct BrilligArtifact<F> {
     /// This is created as artifacts are linked together and allows us to determine
     /// which opcodes originate from reusable procedures.s
     /// The range is inclusive for both start and end opcode locations.
-    pub(crate) procedure_locations: HashMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
+    pub(crate) procedure_locations: BTreeMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
 }
 
 /// A pointer to a location in the opcode.
@@ -75,6 +75,9 @@ pub(crate) enum LabelType {
     Function(FunctionId, Option<BasicBlockId>),
     /// Labels for intrinsic procedures
     Procedure(ProcedureId),
+    /// Label for initialization of globals
+    /// Stores a function ID referencing the entry point
+    GlobalInit(FunctionId),
 }
 
 impl std::fmt::Display for LabelType {
@@ -89,6 +92,9 @@ impl std::fmt::Display for LabelType {
             }
             LabelType::Entrypoint => write!(f, "Entrypoint"),
             LabelType::Procedure(procedure_id) => write!(f, "Procedure({:?})", procedure_id),
+            LabelType::GlobalInit(function_id) => {
+                write!(f, "Globals Initialization({function_id:?})")
+            }
         }
     }
 }
@@ -122,6 +128,10 @@ impl Label {
 
     pub(crate) fn procedure(procedure_id: ProcedureId) -> Self {
         Label { label_type: LabelType::Procedure(procedure_id), section: None }
+    }
+
+    pub(crate) fn globals_init(function_id: FunctionId) -> Self {
+        Label { label_type: LabelType::GlobalInit(function_id), section: None }
     }
 }
 
@@ -326,5 +336,10 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.call_stack = call_stack;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn take_labels(&mut self) -> HashMap<Label, usize> {
+        std::mem::take(&mut self.labels)
     }
 }

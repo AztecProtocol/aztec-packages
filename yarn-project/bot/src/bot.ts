@@ -9,8 +9,9 @@ import {
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { timesParallel } from '@aztec/foundation/collection';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -56,17 +57,21 @@ export class Bot {
 
     const calls: FunctionCall[] = [];
     if (isStandardTokenContract(token)) {
-      calls.push(...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()));
       calls.push(
-        ...times(publicTransfersPerTx, () =>
+        ...(await timesParallel(privateTransfersPerTx, () =>
+          token.methods.transfer(recipient, TRANSFER_AMOUNT).request(),
+        )),
+      );
+      calls.push(
+        ...(await timesParallel(publicTransfersPerTx, () =>
           token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        ),
+        )),
       );
     } else {
       calls.push(
-        ...times(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient, sender).request(),
-        ),
+        ...(await timesParallel(privateTransfersPerTx, () =>
+          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
+        )),
       );
     }
 
@@ -140,7 +145,8 @@ export class Bot {
       estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
     }
+    const baseFeePadding = 2; // Send 3x the current base fee
     this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { fee: { estimateGas, paymentMethod, gasSettings }, skipPublicSimulation };
+    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, skipPublicSimulation };
   }
 }

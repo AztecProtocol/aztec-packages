@@ -1,4 +1,4 @@
-import { type InBlock, type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -12,8 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
+import { type NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -37,31 +36,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   * @param capsule - An array of field elements representing the capsule.
-   */
-  addCapsule(capsule: Fr[]): Promise<void>;
-
-  /**
-   * Get the next capsule from the capsule dispenser.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   * @returns A promise that resolves to an array of field elements representing the capsule.
-   */
-  popCapsule(): Promise<Fr[] | undefined>;
-
-  /**
-   * Gets incoming notes based on the provided filter.
+   * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
-
-  /**
-   * Gets outgoing notes.
-   * @returns The outgoing notes.
-   */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]>;
+  getNotes(filter: NotesFilter): Promise<NoteDao[]>;
 
   /**
    * Adds a note to DB.
@@ -69,25 +48,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param scope - The scope to add the note under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNote(note: IncomingNoteDao, scope?: AztecAddress): Promise<void>;
+  addNote(note: NoteDao, scope?: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to DB.
    * @param note - The note to add.
    */
-  addNullifiedNote(note: IncomingNoteDao): Promise<void>;
+  addNullifiedNote(note: NoteDao): Promise<void>;
 
   /**
    * Adds an array of notes to DB.
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param incomingNotes - An array of notes which were decrypted as incoming.
-   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
+   * @param notes - An array of notes.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
+  addNotes(notes: NoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -96,7 +74,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<NoteDao[]>;
 
   /**
    * Gets the most recently processed block number.
@@ -127,24 +105,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   setHeader(header: BlockHeader): Promise<void>;
 
   /**
-   * Adds contact address to the database.
+   * Adds sender address to the database.
    * @param address - The address to add to the address book.
    * @returns A promise resolving to true if the address was added, false if it already exists.
    */
-  addContactAddress(address: AztecAddress): Promise<boolean>;
+  addSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Retrieves the list of contact addresses in the address book.
+   * Retrieves the list of sender addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): Promise<AztecAddress[]>;
+  getSenderAddresses(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact address from the database.
+   * Removes a sender address from the database.
    * @param address - The address to remove from the address book.
    * @returns A promise resolving to true if the address was removed, false if it does not exist.
    */
-  removeContactAddress(address: AztecAddress): Promise<boolean>;
+  removeSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
    * Adds complete address to the database.
@@ -167,19 +145,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
   getCompleteAddresses(): Promise<CompleteAddress[]>;
-
-  /**
-   * Updates up to which block number we have processed notes for a given public key.
-   * @param account - The account to set the synched block number for.
-   * @param blockNumber - The block number to set.
-   */
-  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void>;
-
-  /**
-   * Get the synched block number for a given public key.
-   * @param account - The account to get the synched block number for.
-   */
-  getSynchedBlockNumberForAccount(account: AztecAddress): Promise<number | undefined>;
 
   /**
    * Returns the estimated size in bytes of this db.
@@ -234,4 +199,44 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * is also required to deal with chain reorgs.
    */
   resetNoteSyncData(): Promise<void>;
+
+  /**
+   * Stores arbitrary information in a per-contract non-volatile database (called capsules), which can later
+   * be retrieved with `loadCapsule`. If data was already stored at this slot, it is overwritten.
+   * @param contractAddress - The contract address to scope the data under.
+   * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
+   * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
+   */
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void>;
+
+  /**
+   * Returns data previously stored via `storeCapsule` in the per-contract non-volatile database (called capsules).
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to read.
+   * @returns The stored data or `null` if no data is stored under the slot.
+   */
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
+
+  /**
+   * Deletes data in the per-contract non-volatile database (called capsules). Does nothing if no data was present.
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param slot - The slot in the database to delete.
+   */
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void>;
+
+  /**
+   * Copies a number of contiguous entries in the per-contract non-volatile database (called capsules). This allows for
+   * efficient data structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`.
+   * Supports overlapping source and destination regions (which will result in the overlapped source values being
+   * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
+   *
+   * @param contractAddress - The contract address under which the data is scoped.
+   * @param srcSlot - The first slot to copy from.
+   * @param dstSlot - The first slot to copy to.
+   * @param numEntries - The number of entries to copy.
+   */
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
 }

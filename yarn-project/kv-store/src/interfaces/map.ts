@@ -12,13 +12,6 @@ interface AztecBaseMap<K extends Key, V> {
   set(key: K, val: V): Promise<void>;
 
   /**
-   * Atomically swap the value at the given key
-   * @param key - The key to swap the value at
-   * @param fn - The function to swap the value with
-   */
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void>;
-
-  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set
@@ -62,6 +55,19 @@ export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * @param range - The range of keys to iterate over
    */
   keys(range?: Range<K>): IterableIterator<K>;
+
+  /**
+   * Clears the map.
+   */
+  clear(): Promise<void>;
+}
+
+export interface AztecMapWithSize<K extends Key, V> extends AztecMap<K, V> {
+  /**
+   * Gets the size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
 }
 
 /**
@@ -80,6 +86,14 @@ export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
    * @param val - The value to delete
    */
   deleteValue(key: K, val: V): Promise<void>;
+}
+
+export interface AztecMultiMapWithSize<K extends Key, V> extends AztecMultiMap<K, V> {
+  /**
+   * Gets the size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
 }
 
 /**

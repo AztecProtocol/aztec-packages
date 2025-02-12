@@ -15,27 +15,9 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 auto& engine = numeric::get_debug_randomness();
 
-std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
-{
-    std::vector<uint32_t> res;
-    for (fr& variable : variables) {
-        res.emplace_back(circuit_constructor.add_variable(variable));
-    }
-    return res;
-}
-
-void ensure_non_zero(auto& polynomial)
-{
-    bool has_non_zero_coefficient = false;
-    for (auto& coeff : polynomial) {
-        has_non_zero_coefficient |= !coeff.is_zero();
-    }
-    ASSERT_TRUE(has_non_zero_coefficient);
-}
-
 class TranslatorTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 } // namespace
 
@@ -70,13 +52,14 @@ TEST_F(TranslatorTests, Basic)
 
     auto circuit_builder = CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
-
-    TranslatorProver prover{ circuit_builder, prover_transcript };
+    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+    TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();
 
     auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
     verifier_transcript->template receive_from_prover<Fq>("init");
-    TranslatorVerifier verifier(prover.key, verifier_transcript);
+    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
+    TranslatorVerifier verifier(verification_key, verifier_transcript);
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }

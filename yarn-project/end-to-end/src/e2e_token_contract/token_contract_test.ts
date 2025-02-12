@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -45,9 +46,13 @@ export class TokenContractTest {
     jest.setTimeout(120_000);
 
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

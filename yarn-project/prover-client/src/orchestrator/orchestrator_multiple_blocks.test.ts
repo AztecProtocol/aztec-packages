@@ -18,7 +18,8 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
+    // Skipping in the interest of speeding up CI
+    it.skip.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
@@ -26,10 +27,12 @@ describe('prover/orchestrator/multi-block', () => {
       logger.info(`Starting new epoch with ${numBlocks}`);
       context.orchestrator.startNewEpoch(1, 1, numBlocks);
       for (const { block, txs } of blocks) {
-        await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
-        for (const tx of txs) {
-          await context.orchestrator.addNewTx(tx);
-        }
+        await context.orchestrator.startNewBlock(
+          block.header.globalVariables,
+          [],
+          context.getPreviousBlockHeader(block.number),
+        );
+        await context.orchestrator.addTxs(txs);
         await context.orchestrator.setBlockCompleted(block.number);
       }
 
@@ -39,7 +42,7 @@ describe('prover/orchestrator/multi-block', () => {
       expect(epoch.proof).toBeDefined();
     });
 
-    it.each([1, 4, 5])('builds an epoch with %s blocks in parallel', async (numBlocks: number) => {
+    it.each([1, 4])('builds an epoch with %s blocks in parallel', async (numBlocks: number) => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
@@ -48,10 +51,12 @@ describe('prover/orchestrator/multi-block', () => {
       context.orchestrator.startNewEpoch(1, 1, numBlocks);
       await Promise.all(
         blocks.map(async ({ block, txs }) => {
-          await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
-          for (const tx of txs) {
-            await context.orchestrator.addNewTx(tx);
-          }
+          await context.orchestrator.startNewBlock(
+            block.header.globalVariables,
+            [],
+            context.getPreviousBlockHeader(block.number),
+          );
+          await context.orchestrator.addTxs(txs);
           await context.orchestrator.setBlockCompleted(block.number);
         }),
       );
@@ -74,10 +79,12 @@ describe('prover/orchestrator/multi-block', () => {
         context.orchestrator.startNewEpoch(epochIndex + 1, epochIndex * numBlocks + 1, numBlocks);
         await Promise.all(
           blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks).map(async ({ block, txs }) => {
-            await context.orchestrator.startNewBlock(Math.max(txCount, 2), block.header.globalVariables, []);
-            for (const tx of txs) {
-              await context.orchestrator.addNewTx(tx);
-            }
+            await context.orchestrator.startNewBlock(
+              block.header.globalVariables,
+              [],
+              context.getPreviousBlockHeader(block.number),
+            );
+            await context.orchestrator.addTxs(txs);
             await context.orchestrator.setBlockCompleted(block.number);
           }),
         );

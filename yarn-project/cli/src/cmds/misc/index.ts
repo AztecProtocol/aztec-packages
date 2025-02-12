@@ -4,8 +4,6 @@ import { type Command } from 'commander';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 
-export * from './setup_contracts.js';
-
 export function injectCommands(program: Command, log: LogFn) {
   program
     .command('generate-keys')
@@ -45,7 +43,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
     .action(async (functionSignature: string) => {
       const { computeSelector } = await import('./compute_selector.js');
-      computeSelector(functionSignature, log);
+      await computeSelector(functionSignature, log);
     });
 
   program

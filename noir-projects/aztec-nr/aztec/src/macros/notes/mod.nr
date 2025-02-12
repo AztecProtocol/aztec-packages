@@ -1,9 +1,5 @@
-use crate::{
-    encrypted_logs::payload::OVERHEAD_SIZE,
-    note::{note_getter_options::PropertySelector, note_header::NoteHeader},
-    prelude::Point,
-};
-use protocol_types::meta::{flatten_to_fields, pack_from_fields};
+use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
+use protocol_types::meta::{generate_deserialize_from_fields, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
@@ -12,41 +8,37 @@ use std::{
 
 comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
-/// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
+/// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
-/// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
+/// in `TokenNote`), the index of where the packed member starts in the packed note and a flag indicating
 /// whether the field is nullable or not.
 pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-/// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
-/// and returning it as a `Field`.
-comptime fn compute_note_type_id(name: Quoted) -> Field {
-    let (name_as_str_quote, _) = name.as_str_quote();
+pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
-    unquote!(
-        quote {
-            let bytes = $name_as_str_quote.as_bytes();
-            let hash = protocol_types::hash::poseidon2_hash_bytes(bytes);
-            let hash_bytes = hash.to_be_bytes::<4>();
-            protocol_types::utils::field::field_from_bytes(hash_bytes, true)
-        },
-    )
+/// The note type id is set by enumerating the note types.
+comptime fn get_next_note_type_id() -> Field {
+    // We assert that the note type id fits within 7 bits
+    assert(
+        NOTE_TYPE_ID_COUNTER < 128 as u32,
+        "A contract can contain at most 128 different note types",
+    );
+
+    let note_type_id = NOTE_TYPE_ID_COUNTER as Field;
+    NOTE_TYPE_ID_COUNTER += 1;
+    note_type_id
 }
 
 /// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as quote along with
-/// the length of the serialized note.
+/// the length of the packed note.
 ///
 /// impl NoteInterface<N> for NoteStruct {
-///     fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 64] {
+///     fn pack_content(self) -> [Field; N] {
 ///         ...
 ///     }
 ///
-///     fn deserialize_content(value: [Field; N]) -> Self {
-///         ...
-///     }
-///
-///     fn serialize_content(self) -> [Field; N] {
+///     fn unpack_content(packed_content: [Field; N]) -> Self {
 ///         ...
 ///     }
 ///
@@ -66,6 +58,19 @@ comptime fn compute_note_type_id(name: Quoted) -> Field {
 ///         ...
 ///     }
 /// }
+///
+/// # On including length in note hash preimage
+/// For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
+/// However, due to elliptic curve symmetry about the x-axis, for any x-coordinate,
+/// there are two points with that x-coordinate. This means -C has the same hash (x-coord) as C,
+/// and the tuple [-a, -b, -c] produces the same hash as [a, b, c].
+///
+/// This property makes the hash trivially not collision resistant without including the length.
+/// By including the length l, the commitment becomes:
+/// C = a*G1 + b*G2 + c*G3 + l*G_len
+///
+/// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
+/// including the length protects against these collisions.
 comptime fn generate_note_interface(
     s: StructDefinition,
     note_type_id: Field,
@@ -75,10 +80,13 @@ comptime fn generate_note_interface(
     let name = s.name();
     let typ = s.as_type();
 
+    // In notes we care about DA costs so we enable packing
+    let packing_enabled = true;
+
     // First we compute note content serialization. We do that by passing the whole note struct
-    // to the `flatten_to_fields(...)` and omitting the header.
+    // to the `generate_serialize_to_fields(...)` and omitting the header.
     let (content_fields_list, content_aux_vars_list) =
-        flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
+        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], packing_enabled);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -90,12 +98,14 @@ comptime fn generate_note_interface(
     let content_fields = content_fields_list.join(quote {,});
     let content_len = content_fields_list.len();
 
-    let (deserialized_content, _) = pack_from_fields(
-        quote { self },
+    let (unpacked_content, _) = generate_deserialize_from_fields(
+        quote {},
         typ,
-        quote { value },
+        quote { packed_content }, // "packed_content" is argument of NoteInterface::unpack_content
         0,
-        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })],
+        quote {header},
+        quote { aztec::note::note_header::NoteHeader::empty() },
+        packing_enabled,
     );
 
     // Second we compute quotes for MSM
@@ -108,44 +118,25 @@ comptime fn generate_note_interface(
     let (new_generators_list, new_scalars_list, _, new_aux_vars) =
         generate_multi_scalar_mul(prefixed_merged_fields);
 
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let (g_slot, g_len) = generate_fixed_generators();
+    let new_generators = new_generators_list.push_back(g_slot).push_back(g_len).join(quote {,});
+
+    let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
         .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
     (
         quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
-                let serialized_note = self.serialize_content();
-
-                let mut buffer: [u8; $content_len * 32 + 64] = [0; $content_len * 32 + 64];
-
-                let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-                let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
-
-                for i in 0..32 {
-                    buffer[i] = storage_slot_bytes[i];
-                    buffer[32 + i] = note_type_id_bytes[i];
-                }
-
-                for i in 0..serialized_note.len() {
-                    let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-                    for j in 0..32 {
-                        buffer[64 + i * 32 + j] = bytes[j];
-                    }
-                }
-                buffer
-            }
-
-            fn deserialize_content(value: [Field; $content_len]) -> Self {
-                $deserialized_content
-            }
-
-            fn serialize_content(self) -> [Field; $content_len] {
+            fn pack_content(self) -> [Field; $content_len] {
                 $content_aux_vars
                 [$content_fields]
+            }
+
+            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
+                $unpacked_content
             }
 
             fn get_note_type_id() -> Field {
@@ -202,7 +193,8 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
     let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let non_header_fields =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
         .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
@@ -265,7 +257,7 @@ pub(crate) comptime fn generate_note_export(
     let mut hasher = Poseidon2Hasher::default();
     s.as_type().hash(&mut hasher);
     let hash = hasher.finish() as u32;
-    let global_export_name = f"{name}_{hash}_EXPORTS".quoted_contents();
+    let global_export_name = f"{name}_EXPORTS_{hash}".quoted_contents();
     let note_fields_name = f"{name}Fields_{hash}".quoted_contents();
     let (note_name_as_str, _) = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
@@ -293,9 +285,35 @@ pub(crate) comptime fn generate_note_export(
     }
 }
 
+/// Number of fixed generators used to ensure that we don't have a collision of indices in derive_generators(...) in
+/// the generate_multi_scalar_mul(...) function. If the indices collided this could result in a critical vulnerability
+/// (e.g. in case of G_slot collision with other another note field an attacker could move a note to an arbitrary
+/// slot).
+global NUM_FIXED_GENERATORS: u32 = 2;
+
+/// Generates G_slot and G_len generator point quotes.
+comptime fn generate_fixed_generators() -> (Quoted, Quoted) {
+    let generators: [Point; NUM_FIXED_GENERATORS] =
+        derive_generators("aztec_nr_generators".as_bytes(), 0);
+
+    let g_slot_x = generators[0].x;
+    let g_slot_y = generators[0].y;
+    let g_len_x = generators[1].x;
+    let g_len_y = generators[1].y;
+
+    let g_slot = quote {
+        aztec::protocol_types::point::Point { x: $g_slot_x, y: $g_slot_y, is_infinite: false }
+    };
+    let g_len = quote {
+        aztec::protocol_types::point::Point { x: $g_len_x, y: $g_len_y, is_infinite: false }
+    };
+
+    (g_slot, g_len)
+}
+
 /// Generates quotes necessary for multi-scalar multiplication of `indexed_fields` (indexed struct fields). Returns
 /// a tuple containing quotes for generators, scalars, arguments and auxiliary variables. For more info on what are
-/// auxiliary variables and how they are used, see `flatten_to_fields` function.
+/// auxiliary variables and how they are used, see `generate_serialize_to_fields` function.
 ///
 /// Example return values:
 /// generators_list: [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::Ga3, aztec::generators::Ga4]
@@ -315,11 +333,17 @@ comptime fn generate_multi_scalar_mul(
     let mut args_list = &[];
     let mut aux_vars_list = &[];
     for i in 0..indexed_fields.len() {
-        let (field_name, typ, index) = indexed_fields[i];
-        let start_generator_index = index + 1;
-        let (flattened_field, aux_vars) = flatten_to_fields(field_name, typ, &[]);
-        for j in 0..flattened_field.len() {
-            let flattened_as_field = flattened_field[j];
+        // Destructure tuple containing:
+        // - field_name: the name of the struct field/member (as a Quoted type)
+        // - typ: the type of the struct field/member (as a Type)
+        // - field_start_index: index where this field starts in the serialized note array (as u32)
+        let (field_name, typ, field_start_index) = indexed_fields[i];
+        // We add NUM_FIXED_GENERATORS to the start index to avoid collision with fixed generators.
+        let start_generator_index = NUM_FIXED_GENERATORS + field_start_index;
+        let (serialization_fields, aux_vars) =
+            generate_serialize_to_fields(field_name, typ, &[], true);
+        for j in 0..serialization_fields.len() {
+            let serialization_field = serialization_fields[j];
             let generator_index = start_generator_index + j;
 
             let generators: [Point; 1] =
@@ -332,8 +356,9 @@ comptime fn generate_multi_scalar_mul(
                 aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
                 },
             );
-            scalars_list =
-                scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
+            scalars_list = scalars_list.push_back(
+                quote { std::hash::from_field_unsafe($serialization_field) },
+            );
         }
         args_list = args_list.push_back(quote { $field_name: $typ });
         aux_vars_list = aux_vars_list.append(aux_vars);
@@ -348,9 +373,29 @@ comptime fn generate_multi_scalar_mul(
     (generators_list, scalars_list, args_list, aux_vars)
 }
 
+/// TODO: The macros shouldn't have a hard-coded opinion of a log layout; not even for partial notes.
+/// Since partial notes are about to be refactored, I won't tackle it yet.
+//
 /// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and hiding point.
 ///
-/// Example:
+/// # On including length in note hash preimage
+/// The hiding point is computed as a multi-scalar multiplication that includes the length of the preimage
+/// to protect against collisions due to elliptic curve symmetry.
+///
+/// When computing a note hash in the partial notes flow, we take the hiding point, add the nullable fields to it
+/// in public and then we take the x-coordinate of the point and use it as the note hash. E.g. for a given commitment
+/// C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x. However, due to elliptic curve symmetry about the x-axis,
+/// for any x-coordinate, there are two points with that x-coordinate. This means -C has the same hash (x-coord) as C,
+/// and the tuple [-a, -b, -c] produces the same hash as [a, b, c].
+///
+/// This property makes the hash trivially not collision resistant without including the length.
+/// By including the length l, the commitment becomes:
+/// C = a*G1 + b*G2 + c*G3 + l*G_len
+///
+/// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
+/// including the length protects against these collisions.
+///
+/// # Example function output
 /// ```
 /// struct TokenNoteSetupPayload {
 ///     log_plaintext: [u8; 160],
@@ -360,11 +405,17 @@ comptime fn generate_multi_scalar_mul(
 /// impl TokenNoteSetupPayload {
 ///     fn new(mut self, npk_m_hash: Field, randomness: Field, storage_slot: Field) -> TokenNoteSetupPayload {
 ///         let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
-///             [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::G_slot],
+///             [
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... },
+///                 Point { x: 0x..., y: 0x... }
+///             ],
 ///             [
 ///                 std::hash::from_field_unsafe(npk_m_hash),
 ///                 std::hash::from_field_unsafe(randomness),
-///                 std::hash::from_field_unsafe(storage_slot)
+///                 std::hash::from_field_unsafe(storage_slot),
+///                 std::hash::from_field_unsafe(3)
 ///             ]
 ///         );
 ///
@@ -376,10 +427,10 @@ comptime fn generate_multi_scalar_mul(
 ///             log_plaintext[32 + i] = note_type_id_bytes[i];
 ///         }
 ///
-///         let serialized_note = [npk_m_hash as Field, randomness as Field];
+///         let packed_note_content = [npk_m_hash as Field, randomness as Field];
 ///
-///         for i in 0..serialized_note.len() {
-///             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+///         for i in 0..packed_note_content.len() {
+///             let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
 ///             for j in 0..32 {
 ///                 log_plaintext[64 + i * 32 + j] = bytes[j];
 ///             }
@@ -392,17 +443,15 @@ comptime fn generate_multi_scalar_mul(
 ///     }
 ///
 ///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
-///         let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 ///
-///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
+///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::::compute_partial_public_log_payload(
 ///             context.this_address(),
-///             ovsk_app,
-///             recipient_keys.ovpk_m,
+///             self.log_plaintext,
 ///             recipient,
-///             self.log_plaintext
+///             sender
 ///         );
 ///
-///         aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+///         aztec::utils::bytes::be_bytes_31_to_fields(encrypted_log_bytes)
 ///     }
 ///
 /// impl aztec::protocol_types::traits::Empty for TokenNoteSetupPayload {
@@ -426,26 +475,33 @@ comptime fn generate_setup_payload(
         .append(new_args_list)
         .push_back(quote { storage_slot: Field })
         .join(quote {,});
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+
+    let (g_slot, g_len) = generate_fixed_generators();
+    let new_generators = new_generators_list.push_back(g_slot).push_back(g_len).join(quote {,});
+    let merged_fields_len = indexed_fixed_fields.len() + indexed_nullable_fields.len() + 1; // +1 for storage_slot
     let new_scalars = new_scalars_list
         .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
     // Then the log plaintext ones
     let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_plaintext =
+    let setup_log_plaintext: Quoted =
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
-    // Then we compute values for `encrypt_log(...)` function
-    let encrypted_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
+    // Then we compute values for `encrypt_log(...)` function.
+    // First, the length of the items that are broken into bytes:
+    let encrypted_log_bytes_length = 1 /* eph_pk_sign */
+        + 48 /* header_ciphertext */
         + log_plaintext_length /* log_plaintext */
-        + 2 /* log_plaintext_length */
-        + 14 /* AES padding */;
+        + 16
+        - (log_plaintext_length % 16); /* pkcs#7 aes padding */
+
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
-    let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
+    // Recall: ceil(x / y) = (x + y - 1) // y (integer division).
+    let encrypted_log_fields_length = 1 /* tag */
+        + 1 /* eph_pk.x */
+        + (encrypted_log_bytes_length + 30) / 31;
 
     (
         quote {
@@ -469,19 +525,13 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            pub fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
-
-                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
+            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
+                aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::compute_partial_public_log_payload(
                     context.this_address(),
-                    ovsk_app,
-                    ovpk,
+                    self.log_plaintext,
                     recipient,
                     sender,
-                    self.log_plaintext,
-                );
-
-                aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+                )
             }
         }
 
@@ -497,7 +547,7 @@ comptime fn generate_setup_payload(
 
 /// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
 /// storage slot from target function arguments, note type id from the note struct `s` and the fixed fields. The fixed
-/// fields are obtained by passing the whole note struct to the `flatten_to_fields(...)` function but omitting the
+/// fields are obtained by passing the whole note struct to the `generate_serialize_to_fields(...)` function but omitting the
 /// `NoteHeader` and the nullable fields.
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
@@ -507,11 +557,12 @@ comptime fn get_setup_log_plaintext_body(
     let name = s.name();
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
-    // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
+    // to the generate_serialize_to_fields function but we omit the NoteHeader and the nullable fields.
     let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
+    let (fields_list, aux_vars) =
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -534,10 +585,10 @@ comptime fn get_setup_log_plaintext_body(
         }
 
         $aux_vars_for_serialization
-        let serialized_note = [$fields];
+        let packed_note_content = [$fields];
 
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+        for i in 0..packed_note_content.len() {
+            let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
             for j in 0..32 {
                 log_plaintext[64 + i * 32 + j] = bytes[j];
             }
@@ -586,28 +637,29 @@ comptime fn get_setup_log_plaintext_body(
 ///     }
 ///
 ///     fn emit_log(self) {
-///         let setup_log_fields: [Field; 16] = self.context.storage_read(self.setup_log_slot);
+///         let setup_log_fields: [Field; 8] = self.context.storage_read(self.setup_log_slot);
 ///
-///         let setup_log: [u8; 481] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+///         let mut finalization_log = [0; 11];
 ///
-///         let mut finalization_log = [0; 513];
-///
-///         for i in 0..setup_log.len() {
-///             finalization_log[i] = setup_log[i];
+///         for i in 0..setup_log_fields.len() {
+///             finalization_log[i + 1] = setup_log_fields[i];
 ///         }
 ///
 ///         for i in 0..self.public_values.len() {
-///             let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-///             for j in 0..public_value_bytes.len() {
-///                 finalization_log[160 + i * 32 + j] = public_value_bytes[j];
-///             }
+///            finalization_log[i + 1 + 8] = self.public_values[j];
 ///         }
 ///
-///         self.context.emit_unencrypted_log(finalization_log);
+///         finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
+///                 (2 >> 8) as u8, 2 as u8, 0,
+///                 (8 >> 8) as u8, 8 as u8, 0,
+///                 (91 >> 8) as u8, 91 as u8,
+///                ], true);
+///
+///         self.context.emit_public_log(finalization_log);
 ///
 ///         // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
 ///         // the writes
-///         // self.context.storage_write(self.setup_log_slot, [0; 16]);
+///         // self.context.storage_write(self.setup_log_slot, [0; 8]);
 ///     }
 /// }
 ///
@@ -625,13 +677,14 @@ comptime fn generate_finalization_payload(
     let name = s.name();
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
-    // We compute serialization of the nullable fields which are to be emitted as an unencrypted log. We do that by
-    // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
+    // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
+    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
     let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
+    let (nullable_fields_list, aux_vars) =
+        generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -642,12 +695,15 @@ comptime fn generate_finalization_payload(
     };
 
     // We compute the log length and we concatenate the fields into a single quote.
-    let public_values_length = fields_list.len();
-    let fields = fields_list.join(quote {,});
+    let public_values_length = nullable_fields_list.len();
+    let nullable_fields = nullable_fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
-    let (generators_list, _, args_list, msm_aux_vars) =
-        generate_multi_scalar_mul(indexed_nullable_fields);
+    // Note 1: We ignore the `scalars_list` and `aux_vars` return values because it's not used by the `emit_note_hash`
+    // function. Instead, we use `public_values` (defined on the finalization payload struct) and the scalar list
+    // is computed in the for-loop below.
+    // Note 2: The `args_list` is not used for note hash MSM but instead for the `new` function.
+    let (generators_list, _, args_list, _) = generate_multi_scalar_mul(indexed_nullable_fields);
 
     // We generate scalars_list manually as we need it to refer self.public_values
     let mut scalars_list: [Quoted] = &[];
@@ -662,17 +718,21 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
-        + setup_log_plaintext_length
-        + 2 /* log_plaintext_length */
-        + 14 /* AES padding */;
-    // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
-    let setup_log_field_length = (setup_log_byte_length + 30) / 31;
-    let public_values_field_length = public_values_length * 32;
-    let finalization_log_byte_length =
-        1 /* public_values_length */ + setup_log_byte_length + public_values_field_length;
+
+    let setup_log_bytes_length = 1 /* eph_pk_sign */
+        + 48 /* header_ciphertext */
+        + setup_log_plaintext_length /* log_plaintext */
+        + 16
+        - (setup_log_plaintext_length % 16); /* pkcs#7 aes padding */
+
+    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // Recall: ceil(x / y) = (x + y - 1) // y (integer division).
+    let setup_log_fields_length = 1 /* tag */
+        + 1 /* eph_pk.x */
+        + (setup_log_bytes_length + 30) / 31;
+
+    let finalization_log_fields_length =
+        1 /* some length encodings (see below) */ + setup_log_fields_length + public_values_length;
 
     (
         quote {
@@ -691,7 +751,7 @@ comptime fn generate_finalization_payload(
                 self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
 
                 $aux_vars_for_serialization
-                self.public_values = [$fields];
+                self.public_values = [$nullable_fields];
 
                 self
             }
@@ -706,7 +766,6 @@ comptime fn generate_finalization_payload(
                 let hiding_point: aztec::prelude::Point = self.context.storage_read(self.hiding_point_slot);
                 assert(!aztec::protocol_types::traits::is_empty(hiding_point), "transfer not prepared");
 
-                $msm_aux_vars
                 let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
                     [$generators],
                     [$scalars]
@@ -723,33 +782,43 @@ comptime fn generate_finalization_payload(
             }
 
             pub fn emit_log(self) {
-                // We load the setup log from storage
-                let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
+                let max_log_len = aztec::protocol_types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
+                // Make sure we aren't overflowing the public log maximum
+                assert(
+                    $finalization_log_fields_length <= max_log_len,
+                    f"finalization public log must not exceed {max_log_len} fields",
+                );
 
-                // We convert the log from fields to bytes
-                let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+                // We load the setup log from storage
+                let setup_log_fields: [Field; $setup_log_fields_length] = self.context.storage_read(self.setup_log_slot);
 
                 // We append the public value to the log and emit it as unencrypted log
-                let mut finalization_log = [0; $finalization_log_byte_length];
+                let mut finalization_log = [0; $finalization_log_fields_length];
+
+                // Populate the first field with number of public values and private values:
+                // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+                finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
+                    ($public_values_length >> 8) as u8,
+                    $public_values_length as u8,
+                    0,
+                    ($setup_log_fields_length >> 8) as u8,
+                    $setup_log_fields_length as u8,
+                ], true);
+                let mut offset = 1;
 
                 // Iterate over the partial log and copy it to the final log
-                for i in 0..setup_log.len() {
-                    finalization_log[i + 1] = setup_log[i];
+                for i in 0..setup_log_fields.len() {
+                    finalization_log[offset + i] = setup_log_fields[i];
                 }
+                offset += setup_log_fields.len();
 
                 // Iterate over the public values and append them to the log
-                for i in 0..$public_values_length {
-                    let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-                    for j in 0..public_value_bytes.len() {
-                        finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
-                    }
+                for i in 0..self.public_values.len() {
+                    finalization_log[offset + i] = self.public_values[i];
                 }
 
-                // Populate the first byte with number of public values
-                finalization_log[0] = $public_values_length;
-
-                // We emit the finalization log via the unencrypted logs stream
-                self.context.emit_unencrypted_log(finalization_log);
+                // We emit the finalization log via the public logs stream
+                self.context.emit_public_log(finalization_log);
 
                 // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
                 // the writes
@@ -801,11 +870,11 @@ comptime fn generate_partial_note_impl(
     }
 }
 
-/// Registers a note struct `note` with the given `note_serialized_len`, `note_type_id`, `fixed_fields` and
+/// Registers a note struct `note` with the given `note_packed_len`, `note_type_id`, `fixed_fields` and
 /// `nullable_fields` in the global `NOTES` map.
 comptime fn register_note(
     note: StructDefinition,
-    note_serialized_len: u32,
+    note_packed_len: u32,
     note_type_id: Field,
     fixed_fields: [(Quoted, Type, u32)],
     nullable_fields: [(Quoted, Type, u32)],
@@ -820,7 +889,7 @@ comptime fn register_note(
         fields = fields.push_back((name, index, true));
     }
 
-    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id, fields));
+    NOTES.insert(note.as_type(), (note, note_packed_len, note_type_id, fields));
 }
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
@@ -833,7 +902,7 @@ comptime fn index_note_fields(
     let mut indexed_fixed_fields: [(Quoted, Type, u32)] = &[];
     let mut indexed_nullable_fields = &[];
     let mut counter: u32 = 0;
-    for field in s.fields() {
+    for field in s.fields_as_written() {
         let (name, typ) = field;
         if (typ != NOTE_HEADER_TYPE) {
             if nullable_fields.all(|field| field != name) {
@@ -842,23 +911,24 @@ comptime fn index_note_fields(
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
             }
         }
-        let (flattened, _) = flatten_to_fields(name, typ, &[]);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
-        counter += flattened.len();
+        counter += serialization_fields.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
 /// Injects `NoteHeader` to the note struct if not present.
 comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header = s.fields().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
+    let filtered_header =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
-        let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
+        let new_fields = s.fields_as_written().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Injects `NoteHeader` to the note struct `s` if not present and generates the following:
 /// - NoteTypeProperties
 /// - SetupPayload
 /// - FinalizationPayload
@@ -868,22 +938,25 @@ comptime fn inject_note_header(s: StructDefinition) {
 /// - Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
+///
+/// `nullable_fields` are a list of quotes passed in as varargs which are used to identify which fields/struct members
+/// in the partial note are nullable.
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
-    // member in the serialized note array.
+    // member in the packed note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
     // We inject NoteHeader if it's not present in the note struct.
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
+    let note_type_id = get_next_note_type_id();
     let (setup_payload_impl, setup_payload_name) =
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+    let (note_interface_impl, note_packed_len) = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -893,7 +966,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
@@ -921,8 +994,8 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+    let note_type_id = get_next_note_type_id();
+    let (note_interface_impl, note_packed_len) = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -930,7 +1003,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     );
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
@@ -951,7 +1024,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
-    let note_type_id = compute_note_type_id(s.name());
+    let note_type_id = get_next_note_type_id();
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(
         quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }
@@ -959,7 +1032,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     );
     let name = s.name();
 
-    let note_serialized_len = note_interface_impl
+    let note_packed_len = note_interface_impl
         .expect(f"Note {name} must implement NoteInterface trait")
         .trait_generic_args()[0]
         .as_constant()
@@ -968,7 +1041,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,

@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec-faucet"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -20,6 +23,9 @@
     },
     {
       "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-sink"
     },
     {
       "path": "../bot"

@@ -1,16 +1,17 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Claim {
+pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
+    // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
     struct Storage<Context> {
         // Address of a contract based on whose notes we distribute the rewards
@@ -27,13 +28,14 @@ contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: ValueNote, recipient: AztecAddress) {
+    fn claim(proof_note: UintNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
         );
+        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         let header = context.get_block_header();

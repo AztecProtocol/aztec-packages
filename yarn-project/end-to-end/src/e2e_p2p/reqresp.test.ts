@@ -65,6 +65,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -129,7 +130,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     );
 
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
-    const slotDuration = await rollupContract.read.SLOT_DURATION();
+    const slotDuration = await rollupContract.read.getSlotDuration();
 
     const proposers = [];
 

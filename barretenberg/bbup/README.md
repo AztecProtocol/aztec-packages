@@ -9,7 +9,7 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 BBup is an installer for whatever version of BB you may want. Install BBup with:
 
 ```bash
-curl -L bbup.dev | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
 ```
 
 > [!IMPORTANT]

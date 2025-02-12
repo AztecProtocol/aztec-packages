@@ -3,12 +3,12 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {

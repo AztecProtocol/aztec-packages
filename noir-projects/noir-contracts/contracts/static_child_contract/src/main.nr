@@ -2,12 +2,11 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract StaticChild {
+pub contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, view}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
@@ -37,7 +36,7 @@ contract StaticChild {
     #[public]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
         new_value
     }
 
@@ -46,11 +45,8 @@ contract StaticChild {
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
-
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             owner,
             context.msg_sender(),
         ));
@@ -59,19 +55,13 @@ contract StaticChild {
 
     // Modify a note
     #[private]
-    fn private_set_value(
-        new_value: Field,
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
-    ) -> Field {
+    fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
 
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_ovpk_m,
             owner,
-            outgoing_viewer,
+            sender,
         ));
         new_value
     }
@@ -94,7 +84,7 @@ contract StaticChild {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
         new_value
     }
 
@@ -104,7 +94,7 @@ contract StaticChild {
     fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
         new_value
     }
 }

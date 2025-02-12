@@ -1,7 +1,6 @@
 {
   "name": "@aztec/foundation",
   "version": "0.1.0",
-  "packageManager": "yarn@3.4.1",
   "type": "module",
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
@@ -16,6 +15,7 @@
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
+    "./crypto/sync": "./dest/crypto/sync/index.js",
     "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
@@ -24,8 +24,9 @@
     "./fs": "./dest/fs/index.js",
     "./buffer": "./dest/buffer/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
-    "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/server": "./dest/json-rpc/server/index.js",
+    "./json-rpc/undici": "./dest/json-rpc/client/undici.js",
     "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
@@ -47,10 +48,12 @@
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/files": "./dest/testing/files/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
-    "./string": "./dest/string/index.js"
+    "./string": "./dest/string/index.js",
+    "./message": "./dest/message/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -59,7 +62,7 @@
     "generate": "true",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -90,12 +93,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFilesAfterEnv": [
@@ -110,6 +108,7 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
+    "c-kzg": "4.0.0-alpha.1",
     "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
@@ -128,6 +127,7 @@
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
+    "undici": "^7.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -140,7 +140,6 @@
     "@types/koa": "^2.13.5",
     "@types/koa-bodyparser": "^4.3.10",
     "@types/koa-compress": "^4.0.3",
-    "@types/koa-cors": "^0.0.2",
     "@types/koa-router": "^7.4.4",
     "@types/koa__cors": "^4.0.0",
     "@types/leveldown": "^4.0.3",
@@ -164,7 +163,7 @@
     "supertest": "^6.3.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",

@@ -2,8 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { WASMSimulator } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 
 import { jest } from '@jest/globals';
 
@@ -28,8 +27,8 @@ describe('prover/orchestrator/failures', () => {
     let mockProver: ServerCircuitProver;
 
     beforeEach(() => {
-      mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
+      mockProver = new TestCircuitProver(new WASMSimulatorWithBlobs());
+      orchestrator = new ProvingOrchestrator(context.worldState, mockProver);
     });
 
     const run = async (message: string) => {
@@ -42,15 +41,17 @@ describe('prover/orchestrator/failures', () => {
       for (const { block, txs, msgs } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, block.header.globalVariables, msgs);
+          await orchestrator.startNewBlock(
+            block.header.globalVariables,
+            msgs,
+            context.getPreviousBlockHeader(block.number),
+          );
           let allTxsAdded = true;
-          for (const tx of txs) {
-            try {
-              await orchestrator.addNewTx(tx);
-            } catch (err) {
-              allTxsAdded = false;
-              break;
-            }
+          try {
+            await orchestrator.addTxs(txs);
+          } catch (err) {
+            allTxsAdded = false;
+            break;
           }
 
           if (!allTxsAdded) {

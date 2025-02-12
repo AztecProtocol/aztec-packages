@@ -44,15 +44,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using CommitmentLabels = Flavor::CommitmentLabels;
     using Shplemini = ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
 
     transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     if (circuit_size != key->circuit_size) {
@@ -61,7 +61,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Get commitments to VM wires
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -70,7 +70,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.gamma = gamm;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -85,59 +85,55 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (!sumcheck_verified.has_value() || !sumcheck_verified.value()) {
+    if (!output.verified) {
         vinfo("Sumcheck verification failed");
         return false;
     }
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
-                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+    std::vector<FF> mle_challenge(output.challenge.begin(),
+                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    if (main_kernel_inputs_evaluation != claimed_evaluations.main_kernel_inputs) {
+    if (main_kernel_inputs_evaluation != output.claimed_evaluations.main_kernel_inputs) {
         vinfo("main_kernel_inputs_evaluation failed");
         return false;
     }
     FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
-    if (main_kernel_value_out_evaluation != claimed_evaluations.main_kernel_value_out) {
+    if (main_kernel_value_out_evaluation != output.claimed_evaluations.main_kernel_value_out) {
         vinfo("main_kernel_value_out_evaluation failed");
         return false;
     }
     FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
-    if (main_kernel_side_effect_out_evaluation != claimed_evaluations.main_kernel_side_effect_out) {
+    if (main_kernel_side_effect_out_evaluation != output.claimed_evaluations.main_kernel_side_effect_out) {
         vinfo("main_kernel_side_effect_out_evaluation failed");
         return false;
     }
     FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
-    if (main_kernel_metadata_out_evaluation != claimed_evaluations.main_kernel_metadata_out) {
+    if (main_kernel_metadata_out_evaluation != output.claimed_evaluations.main_kernel_metadata_out) {
         vinfo("main_kernel_metadata_out_evaluation failed");
         return false;
     }
     FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
-    if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
+    if (main_calldata_evaluation != output.claimed_evaluations.main_calldata) {
         vinfo("main_calldata_evaluation failed");
         return false;
     }
     FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
-    if (main_returndata_evaluation != claimed_evaluations.main_returndata) {
+    if (main_returndata_evaluation != output.claimed_evaluations.main_returndata) {
         vinfo("main_returndata_evaluation failed");
         return false;
     }
 
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
-                                               Commitment::one(),
-                                               transcript);
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+    };
+    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
+        circuit_size, claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     const auto shplemini_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

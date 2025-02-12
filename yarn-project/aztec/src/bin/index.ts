@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { fileURLToPath } from '@aztec/aztec.js';
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
@@ -9,6 +8,7 @@ import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';

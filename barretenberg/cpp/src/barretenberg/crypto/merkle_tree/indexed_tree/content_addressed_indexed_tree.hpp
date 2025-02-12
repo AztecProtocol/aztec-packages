@@ -128,23 +128,6 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion) const;
 
     /**
-     * @brief Find the index of the provided leaf value if it exists
-     */
-    void find_leaf_index(
-        const LeafValueType& leaf,
-        bool includeUncommitted,
-        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
-
-    /**
-     * @brief Find the index of the provided leaf value if it exists, only considers indexed beyond the value provided
-     */
-    void find_leaf_index_from(
-        const LeafValueType& leaf,
-        const index_t& start_index,
-        bool includeUncommitted,
-        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
-
-    /**
      * @brief Find the leaf with the value immediately lower then the value provided
      */
     void find_low_leaf(const fr& leaf_key, bool includeUncommitted, const FindLowLeafCallback& on_completion) const;
@@ -153,25 +136,6 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
                   const block_number_t& blockNumber,
                   bool includeUncommitted,
                   const LeafCallback& completion) const;
-
-    /**
-     * @brief Find the index of the provided leaf value if it exists
-     */
-    void find_leaf_index(
-        const LeafValueType& leaf,
-        const block_number_t& blockNumber,
-        bool includeUncommitted,
-        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
-
-    /**
-     * @brief Find the index of the provided leaf value if it exists, only considers indexed beyond the value provided
-     */
-    void find_leaf_index_from(
-        const LeafValueType& leaf,
-        const block_number_t& blockNumber,
-        const index_t& start_index,
-        bool includeUncommitted,
-        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
     /**
      * @brief Find the leaf with the value immediately lower then the value provided
@@ -304,7 +268,7 @@ template <typename Store, typename HashingPolicy>
 ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                                                                std::shared_ptr<ThreadPool> workers,
                                                                                const index_t& initial_size)
-    : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers)
+    : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers, {}, false)
 {
     if (initial_size < 2) {
         throw std::runtime_error("Indexed trees must have initial size > 1");
@@ -320,10 +284,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
     zero_hashes_[0] = current;
 
     TreeMeta meta;
-    {
-        ReadTransactionPtr tx = store_->create_read_transaction();
-        store_->get_meta(meta, *tx, false);
-    }
+    store_->get_meta(meta);
 
     // if the tree already contains leaves then it's been initialised in the past
     if (meta.size > 0) {
@@ -357,15 +318,11 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
     if (!result.success) {
         throw std::runtime_error(format("Failed to initialise tree: ", result.message));
     }
-    {
-        ReadTransactionPtr tx = store_->create_read_transaction();
-        store_->get_meta(meta, *tx, true);
-    }
+    store_->get_meta(meta);
     meta.initialRoot = result.inner.root;
     meta.initialSize = result.inner.size;
     store_->put_meta(meta);
-    TreeDBStats stats;
-    store_->commit(meta, stats, false);
+    store_->commit_genesis_state();
 }
 
 template <typename Store, typename HashingPolicy>
@@ -380,7 +337,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
                     response.message = "Failed to find leaf hash for current root";
@@ -426,7 +383,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
                     response.message = format("Failed to find leaf hash for root of block ", blockNumber);
@@ -443,95 +400,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 response.inner.indexed_leaf = leaf.value();
             },
             completion);
-    };
-    workers_->enqueue(job);
-}
-
-template <typename Store, typename HashingPolicy>
-void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
-    const LeafValueType& leaf,
-    bool includeUncommitted,
-    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
-{
-    find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
-}
-
-template <typename Store, typename HashingPolicy>
-void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
-    const LeafValueType& leaf,
-    const block_number_t& blockNumber,
-    bool includeUncommitted,
-    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
-{
-    find_leaf_index_from(leaf, blockNumber, 0, includeUncommitted, on_completion);
-}
-
-template <typename Store, typename HashingPolicy>
-void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
-    const LeafValueType& leaf,
-    const index_t& start_index,
-    bool includeUncommitted,
-    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
-{
-    auto job = [=, this]() -> void {
-        execute_and_report<FindLeafIndexResponse>(
-            [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
-                RequestContext requestContext;
-                requestContext.includeUncommitted = includeUncommitted;
-                requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-                std::optional<index_t> leaf_index =
-                    store_->find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
-                response.success = leaf_index.has_value();
-                if (response.success) {
-                    response.inner.leaf_index = leaf_index.value();
-                } else {
-                    response.message = format("Index not found for leaf ", leaf);
-                }
-            },
-            on_completion);
-    };
-    workers_->enqueue(job);
-}
-
-template <typename Store, typename HashingPolicy>
-void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
-    const LeafValueType& leaf,
-    const block_number_t& blockNumber,
-    const index_t& start_index,
-    bool includeUncommitted,
-    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
-{
-    auto job = [=, this]() -> void {
-        execute_and_report<FindLeafIndexResponse>(
-            [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find leaf index from for block 0");
-                }
-                typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
-                BlockPayload blockData;
-                if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error(format("Unable to find leaf from index ",
-                                                    start_index,
-                                                    " for block ",
-                                                    blockNumber,
-                                                    ", failed to get block data."));
-                }
-                RequestContext requestContext;
-                requestContext.blockNumber = blockNumber;
-                requestContext.includeUncommitted = includeUncommitted;
-                requestContext.root = blockData.root;
-                std::optional<index_t> leaf_index =
-                    store_->find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
-                response.success = leaf_index.has_value();
-                if (response.success) {
-                    response.inner.leaf_index = leaf_index.value();
-                } else {
-                    response.message =
-                        format("Unable to find leaf from index ", start_index, " for block ", blockNumber);
-                }
-            },
-            on_completion);
     };
     workers_->enqueue(job);
 }
@@ -580,6 +448,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
+                requestContext.maxIndex = blockData.size;
                 std::pair<bool, index_t> result = store_->find_low_value(leaf_key, requestContext, *tx);
                 response.inner.index = result.second;
                 response.inner.is_already_present = result.first;
@@ -1042,7 +911,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
             {
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 TreeMeta meta;
-                store_->get_meta(meta, *tx, true);
+                store_->get_meta(meta);
                 RequestContext requestContext;
                 requestContext.includeUncommitted = true;
                 //  Ensure that the tree is not going to be overfilled
@@ -1096,8 +965,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                             // std::cout << "Failed to find low leaf" << std::endl;
                             throw std::runtime_error(format("Unable to insert values into tree ",
                                                             meta.name,
-                                                            " failed to find low leaf at index ",
-                                                            low_leaf_index));
+                                                            ", failed to find low leaf at index ",
+                                                            low_leaf_index,
+                                                            ", current size: ",
+                                                            meta.size));
                         }
                         // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
 
@@ -1450,7 +1321,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
             {
                 TreeMeta meta;
                 ReadTransactionPtr tx = store_->create_read_transaction();
-                store_->get_meta(meta, *tx, true);
+                store_->get_meta(meta);
 
                 index_t new_total_size = results->appended_leaves + meta.size;
                 meta.size = new_total_size;
@@ -1541,7 +1412,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
         [=, this](TypedResponse<SequentialInsertionGenerationResponse>& response) {
             TreeMeta meta;
             ReadTransactionPtr tx = store_->create_read_transaction();
-            store_->get_meta(meta, *tx, true);
+            store_->get_meta(meta);
 
             RequestContext requestContext;
             requestContext.includeUncommitted = true;
@@ -1585,7 +1456,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                     if (!low_leaf_hash.has_value()) {
                         throw std::runtime_error(format("Unable to insert values into tree ",
                                                         meta.name,
-                                                        " failed to find low leaf at index ",
+                                                        ", failed to find low leaf at index ",
                                                         low_leaf_index));
                     }
 

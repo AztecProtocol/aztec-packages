@@ -18,7 +18,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
     using DeciderPKs = DeciderProvingKeys_<Flavor, 2>;
     using ProtogalaxyProver = ProtogalaxyProver_<DeciderPKs>;
 
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
     const auto construct_key = [&]() {

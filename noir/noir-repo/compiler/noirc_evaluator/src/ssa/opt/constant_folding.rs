@@ -43,7 +43,7 @@ use crate::{
             dom::DominatorTree,
             function::{Function, FunctionId, RuntimeType},
             instruction::{Instruction, InstructionId},
-            types::Type,
+            types::{NumericType, Type},
             value::{Value, ValueId},
         },
         ssa_gen::Ssa,
@@ -96,45 +96,6 @@ impl Ssa {
 
         for function in self.functions.values_mut() {
             function.constant_fold(false, brillig_info);
-        }
-
-        // It could happen that we inlined all calls to a given brillig function.
-        // In that case it's unused so we can remove it. This is what we check next.
-        self.remove_unused_brillig_functions(brillig_functions)
-    }
-
-    fn remove_unused_brillig_functions(
-        mut self,
-        mut brillig_functions: BTreeMap<FunctionId, Function>,
-    ) -> Ssa {
-        // Remove from the above map functions that are called
-        for function in self.functions.values() {
-            for block_id in function.reachable_blocks() {
-                for instruction_id in function.dfg[block_id].instructions() {
-                    let instruction = &function.dfg[*instruction_id];
-                    let Instruction::Call { func: func_id, arguments: _ } = instruction else {
-                        continue;
-                    };
-
-                    let func_value = &function.dfg[*func_id];
-                    let Value::Function(func_id) = func_value else { continue };
-
-                    brillig_functions.remove(func_id);
-                }
-            }
-        }
-
-        // The ones that remain are never called: let's remove them.
-        for func_id in brillig_functions.keys() {
-            // We never want to remove the main function (it could be `unconstrained` or it
-            // could have been turned into brillig if `--force-brillig` was given).
-            // We also don't want to remove entry points.
-            if self.main_id == *func_id || self.entry_point_to_generated_index.contains_key(func_id)
-            {
-                continue;
-            }
-
-            self.functions.remove(func_id);
         }
 
         self
@@ -274,7 +235,7 @@ impl<'brillig> Context<'brillig> {
 
         // Default side effect condition variable with an enabled state.
         let mut side_effects_enabled_var =
-            function.dfg.make_constant(FieldElement::one(), Type::bool());
+            function.dfg.make_constant(FieldElement::one(), NumericType::bool());
 
         for instruction_id in instructions {
             self.fold_constants_into_instruction(
@@ -305,6 +266,7 @@ impl<'brillig> Context<'brillig> {
         let old_results = dfg.instruction_results(id).to_vec();
 
         // If a copy of this instruction exists earlier in the block, then reuse the previous results.
+        let runtime_is_brillig = dfg.runtime().is_brillig();
         if let Some(cache_result) =
             self.get_cached(dfg, dom, &instruction, *side_effects_enabled_var, block)
         {
@@ -312,10 +274,10 @@ impl<'brillig> Context<'brillig> {
                 CacheResult::Cached(cached) => {
                     // We track whether we may mutate MakeArray instructions before we deduplicate
                     // them but we still need to issue an extra inc_rc in case they're mutated afterward.
-                    if matches!(instruction, Instruction::MakeArray { .. }) {
+                    if runtime_is_brillig && matches!(instruction, Instruction::MakeArray { .. }) {
                         let value = *cached.last().unwrap();
                         let inc_rc = Instruction::IncrementRc { value };
-                        let call_stack = dfg.get_call_stack(id);
+                        let call_stack = dfg.get_instruction_call_stack_id(id);
                         dfg.insert_instruction_and_results(inc_rc, block, None, call_stack);
                     }
 
@@ -333,17 +295,22 @@ impl<'brillig> Context<'brillig> {
         };
 
         // First try to inline a call to a brillig function with all constant arguments.
-        let new_results = Self::try_inline_brillig_call_with_all_constants(
-            &instruction,
-            &old_results,
-            block,
-            dfg,
-            self.brillig_info,
-        )
-        // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
-        .unwrap_or_else(|| {
+        let new_results = if runtime_is_brillig {
             Self::push_instruction(id, instruction.clone(), &old_results, block, dfg)
-        });
+        } else {
+            // We only want to try to inline Brillig calls for Brillig entry points (functions called from an ACIR runtime).
+            Self::try_inline_brillig_call_with_all_constants(
+                &instruction,
+                &old_results,
+                block,
+                dfg,
+                self.brillig_info,
+            )
+            // Otherwise, try inserting the instruction again to apply any optimizations using the newly resolved inputs.
+            .unwrap_or_else(|| {
+                Self::push_instruction(id, instruction.clone(), &old_results, block, dfg)
+            })
+        };
 
         Self::replace_result_ids(dfg, &old_results, &new_results);
 
@@ -370,7 +337,7 @@ impl<'brillig> Context<'brillig> {
         dom: &mut DominatorTree,
         constraint_simplification_mapping: &HashMap<ValueId, SimplificationCache>,
     ) -> Instruction {
-        let instruction = dfg[instruction_id].clone();
+        let mut instruction = dfg[instruction_id].clone();
 
         // Alternate between resolving `value_id` in the `dfg` and checking to see if the resolved value
         // has been constrained to be equal to some simpler value in the current block.
@@ -398,9 +365,10 @@ impl<'brillig> Context<'brillig> {
         }
 
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
-        instruction.map_values(|value_id| {
+        instruction.map_values_mut(|value_id| {
             resolve_cache(block, dfg, dom, constraint_simplification_mapping, value_id)
-        })
+        });
+        instruction.map_values(|v| dfg.resolve(v))
     }
 
     /// Pushes a new [`Instruction`] into the [`DataFlowGraph`] which applies any optimizations
@@ -418,15 +386,19 @@ impl<'brillig> Context<'brillig> {
             .requires_ctrl_typevars()
             .then(|| vecmap(old_results, |result| dfg.type_of_value(*result)));
 
-        let call_stack = dfg.get_call_stack(id);
-        let new_results =
-            match dfg.insert_instruction_and_results(instruction, block, ctrl_typevars, call_stack)
-            {
-                InsertInstructionResult::SimplifiedTo(new_result) => vec![new_result],
-                InsertInstructionResult::SimplifiedToMultiple(new_results) => new_results,
-                InsertInstructionResult::Results(_, new_results) => new_results.to_vec(),
-                InsertInstructionResult::InstructionRemoved => vec![],
-            };
+        let call_stack = dfg.get_instruction_call_stack_id(id);
+        let new_results = match dfg.insert_instruction_and_results_if_simplified(
+            instruction,
+            block,
+            ctrl_typevars,
+            call_stack,
+            Some(id),
+        ) {
+            InsertInstructionResult::SimplifiedTo(new_result) => vec![new_result],
+            InsertInstructionResult::SimplifiedToMultiple(new_results) => new_results,
+            InsertInstructionResult::Results(_, new_results) => new_results.to_vec(),
+            InsertInstructionResult::InstructionRemoved => vec![],
+        };
         // Optimizations while inserting the instruction should not change the number of results.
         assert_eq!(old_results.len(), new_results.len());
 
@@ -557,7 +529,7 @@ impl<'brillig> Context<'brillig> {
         );
 
         match evaluation_result {
-            EvaluationResult::NotABrilligCall | EvaluationResult::CannotEvaluate(_) => None,
+            EvaluationResult::NotABrilligCall | EvaluationResult::CannotEvaluate => None,
             EvaluationResult::Evaluated(memory_values) => {
                 let mut memory_index = 0;
                 let new_results = vecmap(old_results, |old_result| {
@@ -598,14 +570,14 @@ impl<'brillig> Context<'brillig> {
         };
 
         if !arguments.iter().all(|argument| dfg.is_constant(*argument)) {
-            return EvaluationResult::CannotEvaluate(*func_id);
+            return EvaluationResult::CannotEvaluate;
         }
 
         let mut brillig_arguments = Vec::new();
         for argument in arguments {
             let typ = dfg.type_of_value(*argument);
             let Some(parameter) = type_to_brillig_parameter(&typ) else {
-                return EvaluationResult::CannotEvaluate(*func_id);
+                return EvaluationResult::CannotEvaluate;
             };
             brillig_arguments.push(parameter);
         }
@@ -614,12 +586,12 @@ impl<'brillig> Context<'brillig> {
         for return_id in func.returns().iter() {
             let typ = func.dfg.type_of_value(*return_id);
             if type_to_brillig_parameter(&typ).is_none() {
-                return EvaluationResult::CannotEvaluate(*func_id);
+                return EvaluationResult::CannotEvaluate;
             }
         }
 
         let Ok(generated_brillig) = gen_brillig_for(func, brillig_arguments, brillig) else {
-            return EvaluationResult::CannotEvaluate(*func_id);
+            return EvaluationResult::CannotEvaluate;
         };
 
         let mut calldata = Vec::new();
@@ -629,13 +601,14 @@ impl<'brillig> Context<'brillig> {
 
         let bytecode = &generated_brillig.byte_code;
         let foreign_call_results = Vec::new();
-        let black_box_solver = Bn254BlackBoxSolver;
+        let pedantic_solving = true;
+        let black_box_solver = Bn254BlackBoxSolver(pedantic_solving);
         let profiling_active = false;
         let mut vm =
             VM::new(calldata, bytecode, foreign_call_results, &black_box_solver, profiling_active);
         let vm_status: VMStatus<_> = vm.process_opcodes();
         let VMStatus::Finished { return_data_offset, return_data_size } = vm_status else {
-            return EvaluationResult::CannotEvaluate(*func_id);
+            return EvaluationResult::CannotEvaluate;
         };
 
         let memory =
@@ -655,7 +628,7 @@ impl<'brillig> Context<'brillig> {
         dfg: &mut DataFlowGraph,
     ) -> ValueId {
         match typ {
-            Type::Numeric(_) => {
+            Type::Numeric(typ) => {
                 let memory = memory_values[*memory_index];
                 *memory_index += 1;
 
@@ -709,6 +682,11 @@ impl<'brillig> Context<'brillig> {
 
         // Should we consider calls to slice_push_back and similar to be mutating operations as well?
         if let Store { value: array, .. } | ArraySet { array, .. } = instruction {
+            if function.dfg.is_global(*array) {
+                // Early return as we expect globals to be immutable.
+                return;
+            };
+
             let instruction = match &function.dfg[*array] {
                 Value::Instruction { instruction, .. } => &function.dfg[*instruction],
                 _ => return,
@@ -755,6 +733,7 @@ impl ResultCache {
     }
 }
 
+#[derive(Debug)]
 enum CacheResult<'a> {
     Cached(&'a [ValueId]),
     NeedToHoistToCommonBlock(BasicBlockId),
@@ -767,7 +746,7 @@ enum EvaluationResult {
     NotABrilligCall,
     /// The instruction was a call to a brillig function, but we couldn't evaluate it.
     /// This can occur in the situation where the brillig function reaches a "trap" or a foreign call opcode.
-    CannotEvaluate(FunctionId),
+    CannotEvaluate,
     /// The instruction was a call to a brillig function and we were able to evaluate it,
     /// returning evaluation memory values.
     Evaluated(Vec<MemoryValue<FieldElement>>),
@@ -827,9 +806,15 @@ fn simplify(dfg: &DataFlowGraph, lhs: ValueId, rhs: ValueId) -> Option<(ValueId,
 mod test {
     use std::sync::Arc;
 
+    use noirc_frontend::monomorphization::ast::InlineType;
+
     use crate::ssa::{
         function_builder::FunctionBuilder,
-        ir::{map::Id, types::Type},
+        ir::{
+            function::RuntimeType,
+            map::Id,
+            types::{NumericType, Type},
+        },
         opt::assert_normalized_ssa_equals,
         Ssa,
     };
@@ -853,7 +838,7 @@ mod test {
         assert_eq!(instructions.len(), 2); // The final return is not counted
 
         let v0 = main.parameters()[0];
-        let two = main.dfg.make_constant(2_u128.into(), Type::field());
+        let two = main.dfg.make_constant(2_u128.into(), NumericType::NativeField);
 
         main.dfg.set_value_from_id(v0, two);
 
@@ -889,7 +874,7 @@ mod test {
 
         // Note that this constant guarantees that `v0/constant < 2^8`. We then do not need to truncate the result.
         let constant = 2_u128.pow(8);
-        let constant = main.dfg.make_constant(constant.into(), Type::unsigned(16));
+        let constant = main.dfg.make_constant(constant.into(), NumericType::unsigned(16));
 
         main.dfg.set_value_from_id(v1, constant);
 
@@ -927,7 +912,7 @@ mod test {
 
         // Note that this constant does not guarantee that `v0/constant < 2^8`. We must then truncate the result.
         let constant = 2_u128.pow(8) - 1;
-        let constant = main.dfg.make_constant(constant.into(), Type::unsigned(16));
+        let constant = main.dfg.make_constant(constant.into(), NumericType::unsigned(16));
 
         main.dfg.set_value_from_id(v1, constant);
 
@@ -1039,7 +1024,7 @@ mod test {
                 return
             }
             ";
-        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = Ssa::from_str_simplifying(src).unwrap();
 
         let expected = "
             acir(inline) fn main f0 {
@@ -1147,8 +1132,9 @@ mod test {
 
         // Compiling main
         let mut builder = FunctionBuilder::new("main".into(), main_id);
+        builder.set_runtime(RuntimeType::Brillig(InlineType::default()));
         let v0 = builder.add_parameter(Type::unsigned(64));
-        let zero = builder.numeric_constant(0u128, Type::unsigned(64));
+        let zero = builder.numeric_constant(0u128, NumericType::unsigned(64));
         let typ = Type::Array(Arc::new(vec![Type::unsigned(64)]), 25);
 
         let array_contents = im::vector![
@@ -1317,6 +1303,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1345,6 +1332,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1373,6 +1361,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1402,6 +1391,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1431,6 +1421,7 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1465,6 +1456,85 @@ mod test {
             }
             ";
         let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
+        assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn inlines_brillig_call_with_entry_point_globals() {
+        let src = "
+        g0 = Field 2
+
+        acir(inline) fn main f0 {
+          b0():
+            v1 = call f1() -> Field
+            return v1
+        }
+
+        brillig(inline) fn one f1 {
+          b0():
+            v1 = add g0, Field 3
+            return v1
+        }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let mut ssa = ssa.dead_instruction_elimination();
+        let used_globals_map = std::mem::take(&mut ssa.used_globals);
+        let brillig = ssa.to_brillig_with_globals(false, used_globals_map);
+
+        let expected = "
+        g0 = Field 2
+
+        acir(inline) fn main f0 {
+          b0():
+            return Field 5
+        }
+        ";
+
+        let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
+        assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn inlines_brillig_call_with_non_entry_point_globals() {
+        let src = "
+        g0 = Field 2
+
+        acir(inline) fn main f0 {
+          b0():
+            v1 = call f1() -> Field
+            return v1
+        }
+
+        brillig(inline) fn entry_point f1 {
+          b0():
+            v1 = call f2() -> Field
+            return v1
+        }
+
+        brillig(inline) fn one f2 {
+          b0():
+            v1 = add g0, Field 3
+            return v1
+        }
+        ";
+        let ssa = Ssa::from_str(src).unwrap();
+        let mut ssa = ssa.dead_instruction_elimination();
+        let used_globals_map = std::mem::take(&mut ssa.used_globals);
+        let brillig = ssa.to_brillig_with_globals(false, used_globals_map);
+
+        let expected = "
+        g0 = Field 2
+
+        acir(inline) fn main f0 {
+          b0():
+            return Field 5
+        }
+        ";
+
+        let ssa = ssa.fold_constants_with_brillig(&brillig);
+        let ssa = ssa.remove_unreachable_functions();
         assert_normalized_ssa_equals(ssa, expected);
     }
 
@@ -1544,9 +1614,8 @@ mod test {
     fn deduplicates_side_effecting_intrinsics() {
         let src = "
         // After EnableSideEffectsIf removal:
-        acir(inline) fn main f0 {
+        brillig(inline) fn main f0 {
           b0(v0: Field, v1: Field, v2: u1):
-            v4 = call is_unconstrained() -> u1
             v7 = call to_be_radix(v0, u32 256) -> [u8; 1]    // `a.to_be_radix(256)`;
             inc_rc v7
             v8 = call to_be_radix(v0, u32 256) -> [u8; 1]    // duplicate load of `a`
@@ -1555,23 +1624,20 @@ mod test {
             v10 = mul v0, v9                                 // attaching `c` to `a`
             v11 = call to_be_radix(v10, u32 256) -> [u8; 1]  // calling `to_radix(c * a)`
             inc_rc v11
-            enable_side_effects v2                           // side effect var for `c` shifted down by removal
             return
         }
         ";
         let ssa = Ssa::from_str(src).unwrap();
         let expected = "
-        acir(inline) fn main f0 {
+        brillig(inline) fn main f0 {
           b0(v0: Field, v1: Field, v2: u1):
-            v4 = call is_unconstrained() -> u1
-            v7 = call to_be_radix(v0, u32 256) -> [u8; 1]
-            inc_rc v7
-            inc_rc v7
-            v8 = cast v2 as Field
-            v9 = mul v0, v8
-            v10 = call to_be_radix(v9, u32 256) -> [u8; 1]
-            inc_rc v10
-            enable_side_effects v2
+            v5 = call to_be_radix(v0, u32 256) -> [u8; 1]
+            inc_rc v5
+            inc_rc v5
+            v6 = cast v2 as Field
+            v7 = mul v0, v6
+            v8 = call to_be_radix(v7, u32 256) -> [u8; 1]
+            inc_rc v8
             return
         }
         ";
@@ -1622,5 +1688,101 @@ mod test {
         ";
         let ssa = ssa.fold_constants_using_constraints();
         assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn pure_call_is_deduplicated() {
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: Field):
+            v1 = call f1(v0) -> Field
+            v2 = call f1(v0) -> Field
+            constrain v1 == Field 0
+            constrain v2 == Field 0
+            return
+        }
+        acir(inline) fn foo f1 {
+          b0(v0: Field):
+            return v0
+        }
+        ";
+
+        let expected = "
+        acir(inline) predicate_pure fn main f0 {
+          b0(v0: Field):
+            v2 = call f1(v0) -> Field
+            constrain v2 == Field 0
+            return
+        }
+        acir(inline) pure fn foo f1 {
+          b0(v0: Field):
+            return v0
+        }
+        ";
+
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.purity_analysis().fold_constants_using_constraints();
+        assert_normalized_ssa_equals(ssa, expected);
+    }
+
+    #[test]
+    fn does_not_deduplicate_field_divisions_under_different_predicates() {
+        // Regression test for https://github.com/noir-lang/noir/issues/7283
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: Field, v1: Field, v2: u1):
+            enable_side_effects v2
+            v3 = div v1, v0
+            v4 = mul v3, v0
+            v5 = not v2
+            enable_side_effects v5
+            v6 = div v1, v0
+            return
+        }
+        ";
+
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.fold_constants();
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn does_not_deduplicate_unsigned_divisions_under_different_predicates() {
+        // Regression test for https://github.com/noir-lang/noir/issues/7283
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: u32, v1: u32, v2: u1):
+            enable_side_effects v2
+            v3 = div v1, v0
+            v4 = not v2
+            enable_side_effects v4
+            v5 = div v1, v0
+            return
+        }
+        ";
+
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.fold_constants();
+        assert_normalized_ssa_equals(ssa, src);
+    }
+
+    #[test]
+    fn does_not_deduplicate_signed_divisions_under_different_predicates() {
+        // Regression test for https://github.com/noir-lang/noir/issues/7283
+        let src = "
+        acir(inline) fn main f0 {
+          b0(v0: i32, v1: i32, v2: u1):
+            enable_side_effects v2
+            v3 = div v1, v0
+            v4 = not v2
+            enable_side_effects v4
+            v5 = div v1, v0
+            return
+        }
+        ";
+
+        let ssa = Ssa::from_str(src).unwrap();
+        let ssa = ssa.fold_constants();
+        assert_normalized_ssa_equals(ssa, src);
     }
 }

@@ -6,6 +6,15 @@ import { jsonStringify } from '../convert.js';
 
 const log = createLogger('json-rpc:json_rpc_client');
 
+export type JsonRpcFetch = (
+  host: string,
+  rpcMethod: string,
+  body: any,
+  useApiEndpoints: boolean,
+  extraHeaders?: Record<string, string>,
+  noRetry?: boolean,
+) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
+
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
@@ -21,8 +30,9 @@ export async function defaultFetch(
   rpcMethod: string,
   body: any,
   useApiEndpoints: boolean,
+  extraHeaders: Record<string, string> = {},
   noRetry = false,
-) {
+): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   try {
@@ -30,13 +40,13 @@ export async function defaultFetch(
       resp = await fetch(`${host}/${rpcMethod}`, {
         method: 'POST',
         body: jsonStringify(body),
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...extraHeaders },
       });
     } else {
       resp = await fetch(host, {
         method: 'POST',
         body: jsonStringify({ ...body, method: rpcMethod }),
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...extraHeaders },
       });
     }
   } catch (err) {
@@ -55,7 +65,7 @@ export async function defaultFetch(
   }
 
   if (!resp.ok) {
-    const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${responseJson.error.message}`;
+    const errorMessage = `Error ${resp.status} from server ${host} on ${rpcMethod}: ${responseJson.error.message}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -63,7 +73,7 @@ export async function defaultFetch(
     }
   }
 
-  return responseJson;
+  return { response: responseJson, headers: resp.headers };
 }
 
 /**
@@ -73,10 +83,17 @@ export async function defaultFetch(
  * @param log - Optional logger for logging attempts.
  * @returns A fetch function.
  */
-export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger) {
-  return async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean, noRetry?: boolean) => {
+export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger): typeof defaultFetch {
+  return async (
+    host: string,
+    rpcMethod: string,
+    body: any,
+    useApiEndpoints: boolean,
+    extraHeaders: Record<string, string> = {},
+    noRetry?: boolean,
+  ) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry ?? defaultNoRetry),
+      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, extraHeaders, noRetry ?? defaultNoRetry),
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,

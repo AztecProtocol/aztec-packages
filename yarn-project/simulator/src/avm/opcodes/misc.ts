@@ -32,20 +32,21 @@ export class DebugLog extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
     memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
+
+    const rawMessage = memory.getSlice(messageOffset, this.messageSize);
+    const fields = memory.getSlice(fieldsOffset, fieldsSize);
+
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
     context.machineState.consumeGas(this.gasCost(this.messageSize + fieldsSize));
-
-    const rawMessage = memory.getSlice(messageOffset, this.messageSize);
-    const fields = memory.getSlice(fieldsOffset, fieldsSize);
 
     // Interpret str<N> = [u8; N] to string.
     const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');
@@ -55,7 +56,5 @@ export class DebugLog extends Instruction {
     );
 
     DebugLog.logger.verbose(formattedStr);
-
-    memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
   }
 }

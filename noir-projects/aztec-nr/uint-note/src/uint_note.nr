@@ -5,13 +5,16 @@ use dep::aztec::{
     oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         hash::poseidon2_hash_with_separator,
+        traits::{Packable, Serialize},
     },
 };
 
 // docs:start:UintNote
 #[partial_note(quote {value})]
+#[derive(Serialize)]
 pub struct UintNote {
     // The amount of tokens in the note
     value: U128,
@@ -58,10 +61,10 @@ impl Eq for UintNote {
 
 impl UintNote {
     pub fn new(value: U128, owner: AztecAddress) -> Self {
-        // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
-        // malicious sender could use non-random values to make the note less private. But they already know the full
-        // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
-        // therefore assume that the sender will cooperate in the random value generation.
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
         Self { value, owner, randomness, header: NoteHeader::empty() }
     }

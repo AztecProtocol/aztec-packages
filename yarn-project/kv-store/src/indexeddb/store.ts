@@ -1,9 +1,9 @@
 import { type Logger } from '@aztec/foundation/log';
 
-import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
+import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import { type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key } from '../interfaces/common.js';
+import { type Key, type StoreSize } from '../interfaces/common.js';
 import { type AztecAsyncCounter } from '../interfaces/counter.js';
 import { type AztecAsyncMap, type AztecAsyncMultiMap } from '../interfaces/map.js';
 import { type AztecAsyncSet } from '../interfaces/set.js';
@@ -124,7 +124,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     return multimap;
   }
 
-  openCounter<K extends Key | Array<string | number>>(_name: string): AztecAsyncCounter<K> {
+  openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
     throw new Error('Method not implemented.');
   }
 
@@ -183,10 +183,15 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   /** Deletes this store and removes the database */
   delete() {
     this.#containers.clear();
-    return Promise.resolve(this.#rootDB.deleteObjectStore('data'));
+    this.#rootDB.close();
+    return deleteDB(this.#name);
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  estimateSize(): Promise<StoreSize> {
+    return Promise.resolve({ mappingSize: 0, actualSize: 0, numItems: 0 });
+  }
+
+  close(): Promise<void> {
+    return Promise.resolve();
   }
 }

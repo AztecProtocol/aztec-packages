@@ -1,5 +1,6 @@
 import { type AccountWallet, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
-import { AMMContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 

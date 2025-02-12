@@ -1,5 +1,6 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { BLOCK_HEADER_LENGTH } from '../constants.gen.js';
 import { makeHeader } from '../tests/factories.js';
@@ -25,10 +26,10 @@ describe('BlockHeader', () => {
     expect(res).toEqual(header);
   });
 
-  it('computes hash', () => {
+  it('computes hash', async () => {
     const seed = 9870243;
     const header = makeHeader(seed, undefined);
-    const hash = header.hash();
+    const hash = await header.hash();
     expect(hash).toMatchSnapshot();
   });
 
@@ -37,9 +38,9 @@ describe('BlockHeader', () => {
     expect(fields.length).toBe(BLOCK_HEADER_LENGTH);
   });
 
-  it('computes empty hash', () => {
+  it('computes empty hash', async () => {
     const header = BlockHeader.empty();
-    const hash = header.hash();
+    const hash = await header.hash();
     expect(hash).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

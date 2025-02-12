@@ -99,11 +99,24 @@ abstract class BaseField {
     return Boolean(this.toBigInt());
   }
 
+  /**
+   * Converts this field to a number.
+   * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
   toNumber(): number {
     const value = this.toBigInt();
     if (value > Number.MAX_SAFE_INTEGER) {
       throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
     }
+    return Number(value);
+  }
+
+  /**
+   * Converts this field to a number.
+   * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
+  toNumberUnsafe(): number {
+    const value = this.toBigInt();
     return Number(value);
   }
 
@@ -233,11 +246,30 @@ export class Fr extends BaseField {
   }
 
   /**
+   * Creates a Fr instance from a string.
+   * @param buf - the string to create a Fr from.
+   * @returns the Fr instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fr(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fr);
+    }
+
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
+  }
+
+  /**
    * Creates a Fr instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fr instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fr);
   }
 
@@ -286,19 +318,15 @@ export class Fr extends BaseField {
    * Computes a square root of the field element.
    * @returns A square root of the field element (null if it does not exist).
    */
-  sqrt(): Fr | null {
-    const wasm = BarretenbergSync.getSingleton().getWasm();
-    wasm.writeMemory(0, this.toBuffer());
-    wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
-    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
-    const isSqrt = isSqrtBuf[0] === 1;
+  async sqrt(): Promise<Fr | null> {
+    const wasm = (await BarretenbergSync.initSingleton()).getWasm();
+    const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
+    const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-
-    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
-    return Fr.fromBuffer(rootBuf);
+    return new Fr(Buffer.from(buf.slice(1)));
   }
 
   toJSON() {
@@ -369,11 +397,30 @@ export class Fq extends BaseField {
   }
 
   /**
+   * Creates a Fq instance from a string.
+   * @param buf - the string to create a Fq from.
+   * @returns the Fq instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fq(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fq);
+    }
+
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
+  }
+
+  /**
    * Creates a Fq instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fq instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fq);
   }
 

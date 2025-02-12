@@ -16,6 +16,7 @@ template <typename Flavor> struct UltraRecursiveVerifierOutput {
     using Builder = typename Flavor::CircuitBuilder;
     AggregationObject agg_obj;
     OpeningClaim<grumpkin<Builder>> ipa_opening_claim;
+    StdlibProof<Builder> ipa_proof;
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:

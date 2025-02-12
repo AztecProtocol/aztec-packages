@@ -18,7 +18,11 @@ export function describeAztecMap(
 
     beforeEach(async () => {
       store = await getStore();
-      map = store.openMultiMap<string | [number, string], string>('test');
+      map = store.openMultiMap<string, string>('test');
+    });
+
+    afterEach(async () => {
+      await store.delete();
     });
 
     async function get(key: Key, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
@@ -119,21 +123,6 @@ export function describeAztecMap(
       await map.deleteValue('foo', 'bar');
 
       expect(await getValues('foo')).to.deep.equal(['baz']);
-    });
-
-    it('supports tuple keys', async () => {
-      // Use a new map because key structure has changed
-      const tupleMap = store.openMap<[number, string], string>('test-tuple');
-
-      await tupleMap.set([5, 'bar'], 'val');
-      await tupleMap.set([0, 'foo'], 'val');
-
-      expect(await keys(undefined, tupleMap)).to.deep.equal([
-        [0, 'foo'],
-        [5, 'bar'],
-      ]);
-
-      expect(await get([5, 'bar'], tupleMap)).to.equal('val');
     });
 
     it('supports range queries', async () => {

@@ -1,8 +1,8 @@
 use crate::{
     nullifier_read_request_reset::{NullifierReadRequestHints, NullifierSettledReadHint},
-    reset::read_request::{PendingReadHint, ReadRequestStatus},
+    reset::read_request::{PendingReadHint, ReadRequestStatus, SettledReadHint},
 };
-use dep::types::constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX;
+use dep::types::{constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX, traits::Empty};
 
 pub struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     pub read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
@@ -14,25 +14,21 @@ impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NullifierReadReques
     pub fn new() -> Self {
         NullifierReadRequestHintsBuilder {
             read_request_statuses: [ReadRequestStatus::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-            pending_read_hints: BoundedVec {
-                storage: [
-                    PendingReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX); NUM_PENDING_HINTS
-                ],
-                len: 0,
-            },
-            settled_read_hints: BoundedVec {
-                storage: [
+            pending_read_hints: BoundedVec::from_parts_unchecked(
+                [PendingReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX); NUM_PENDING_HINTS],
+                0,
+            ),
+            settled_read_hints: BoundedVec::from_parts_unchecked(
+                [
                     NullifierSettledReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
                          NUM_SETTLED_HINTS
                     ],
-                    len: 0,
-                },
+                    0,
+                ),
             }
         }
 
-    pub unconstrained fn to_hints(
-        self,
-    ) -> NullifierReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    pub fn to_hints(self) -> NullifierReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
         NullifierReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage(),

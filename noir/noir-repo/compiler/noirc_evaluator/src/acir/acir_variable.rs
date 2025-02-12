@@ -23,7 +23,7 @@ use std::{borrow::Cow, hash::Hash};
 use crate::brillig::brillig_ir::artifact::GeneratedBrillig;
 use crate::errors::{InternalBug, InternalError, RuntimeError, SsaReport};
 use crate::ssa::ir::{
-    dfg::CallStack, instruction::Endian, types::NumericType, types::Type as SsaType,
+    call_stack::CallStack, instruction::Endian, types::NumericType, types::Type as SsaType,
 };
 
 use super::big_int::BigIntContext;
@@ -112,9 +112,6 @@ impl From<NumericType> for AcirType {
 pub(crate) struct AcirContext<F: AcirField, B: BlackBoxFunctionSolver<F>> {
     blackbox_solver: B,
 
-    /// Two-way map that links `AcirVar` to `AcirVarData`.
-    ///
-    /// The vars object is an instance of the `TwoWayMap`, which provides a bidirectional mapping between `AcirVar` and `AcirVarData`.
     vars: HashMap<AcirVar, AcirVarData<F>>,
 
     constant_witnesses: HashMap<F, Witness>,
@@ -544,6 +541,29 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
         Ok(())
     }
 
+    /// Constrains the `lhs` and `rhs` to be non-equal.
+    ///
+    /// This is done by asserting the existence of an inverse for the value `lhs - rhs`.
+    /// The constraint `(lhs - rhs) * inverse == 1` will only be satisfiable if `lhs` and `rhs` are non-equal.
+    pub(crate) fn assert_neq_var(
+        &mut self,
+        lhs: AcirVar,
+        rhs: AcirVar,
+        predicate: AcirVar,
+        assert_message: Option<AssertionPayload<F>>,
+    ) -> Result<(), RuntimeError> {
+        let diff_var = self.sub_var(lhs, rhs)?;
+
+        let _ = self.inv_var(diff_var, predicate)?;
+        if let Some(payload) = assert_message {
+            self.acir_ir
+                .assertion_payloads
+                .insert(self.acir_ir.last_acir_opcode_location(), payload);
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn vars_to_expressions_or_memory(
         &self,
         values: &[AcirValue],
@@ -593,7 +613,7 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
             }
             NumericType::Signed { bit_size } => {
                 let (quotient_var, _remainder_var) =
-                    self.signed_division_var(lhs, rhs, bit_size)?;
+                    self.signed_division_var(lhs, rhs, bit_size, predicate)?;
                 Ok(quotient_var)
             }
         }
@@ -954,6 +974,7 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
         offset: AcirVar,
         bits: u32,
     ) -> Result<(), RuntimeError> {
+        #[allow(unused_qualifications)]
         const fn num_bits<T>() -> usize {
             std::mem::size_of::<T>() * 8
         }
@@ -1029,6 +1050,7 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
         lhs: AcirVar,
         rhs: AcirVar,
         bit_size: u32,
+        predicate: AcirVar,
     ) -> Result<(AcirVar, AcirVar), RuntimeError> {
         // We derive the signed division from the unsigned euclidean division.
         // note that this is not euclidean division!
@@ -1058,7 +1080,7 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
 
         // Performs the division using the unsigned values of lhs and rhs
         let (q1, r1) =
-            self.euclidean_division_var(unsigned_lhs, unsigned_rhs, bit_size - 1, one)?;
+            self.euclidean_division_var(unsigned_lhs, unsigned_rhs, bit_size - 1, predicate)?;
 
         // Unsigned to signed: derive q and r from q1,r1 and the signs of lhs and rhs
         // Quotient sign is lhs sign * rhs sign, whose resulting sign bit is the XOR of the sign bits
@@ -1096,7 +1118,9 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
         };
 
         let (_, remainder_var) = match numeric_type {
-            NumericType::Signed { bit_size } => self.signed_division_var(lhs, rhs, bit_size)?,
+            NumericType::Signed { bit_size } => {
+                self.signed_division_var(lhs, rhs, bit_size, predicate)?
+            }
             _ => self.euclidean_division_var(lhs, rhs, bit_size, predicate)?,
         };
         Ok(remainder_var)
@@ -1423,7 +1447,7 @@ impl<F: AcirField, B: BlackBoxFunctionSolver<F>> AcirContext<F, B> {
                     }
                 }?;
                 output_count = input_size + (16 - input_size % 16);
-                (vec![], vec![F::from(output_count as u128)])
+                (vec![], vec![])
             }
             BlackBoxFunc::RecursiveAggregation => {
                 let proof_type_var = match inputs.pop() {

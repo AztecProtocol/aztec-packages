@@ -1,6 +1,5 @@
 use crate::{
     context::PrivateContext,
-    generators::Ga1 as G_val,
     note::{
         note_header::NoteHeader, note_interface::NoteInterface,
         utils::compute_note_hash_for_nullify,
@@ -9,10 +8,10 @@ use crate::{
 
 use crate::note::note_interface::NullifiableNote;
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    address::AztecAddress,
+    constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
 };
-use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global MOCK_NOTE_LENGTH: u32 = 1;
 
@@ -47,11 +46,11 @@ impl NullifiableNote for MockNote {
 }
 
 impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
-    fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
+    fn pack_content(self) -> [Field; MOCK_NOTE_LENGTH] {
         [self.value]
     }
 
-    fn deserialize_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
+    fn unpack_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
         Self { value: fields[0], header: NoteHeader::empty() }
     }
 
@@ -64,30 +63,8 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn get_note_type_id() -> Field {
-        // randomly chose note type id
-        4135
-    }
-
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
-        let serialized_note = self.serialize_content();
-
-        let mut buffer: [u8; MOCK_NOTE_LENGTH * 32 + 64] = [0; MOCK_NOTE_LENGTH * 32 + 64];
-
-        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = MockNote::get_note_type_id().to_be_bytes();
-
-        for i in 0..32 {
-            buffer[i] = storage_slot_bytes[i];
-            buffer[32 + i] = note_type_id_bytes[i];
-        }
-
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-            for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
-            }
-        }
-        buffer
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
     fn compute_note_hash(self: Self) -> Field {
@@ -95,9 +72,10 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
             self.header.storage_slot != 0,
             "Storage slot must be set before computing note hash",
         );
-        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
-        let value_scalar = from_field_unsafe(self.value);
-        multi_scalar_mul([G_val], [value_scalar]).x
+        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
+        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
+        // constraints.
+        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
     }
 }
 

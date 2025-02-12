@@ -176,7 +176,10 @@ export interface MerkleTreeReadOperations {
    * @param treeId - The tree for which the index should be returned.
    * @param value - The value to search for in the tree.
    */
-  findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined>;
+  findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]>;
 
   /**
    * Returns the first index containing a leaf value after `startIndex`.
@@ -184,11 +187,11 @@ export interface MerkleTreeReadOperations {
    * @param value - The value to search for in the tree.
    * @param startIndex - The index to start searching from (used when skipping nullified messages)
    */
-  findLeafIndexAfter<ID extends MerkleTreeId>(
+  findLeafIndicesAfter<ID extends MerkleTreeId>(
     treeId: ID,
-    value: MerkleTreeLeafType<ID>,
+    values: MerkleTreeLeafType<ID>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined>;
+  ): Promise<(bigint | undefined)[]>;
 
   /**
    * Gets the value for a leaf in the tree.
@@ -255,6 +258,21 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
    * Closes the database, discarding any uncommitted changes.
    */
   close(): Promise<void>;
+
+  /**
+   * Checkpoints the current fork state
+   */
+  createCheckpoint(): Promise<void>;
+
+  /**
+   * Commits the current checkpoint
+   */
+  commitCheckpoint(): Promise<void>;
+
+  /**
+   * Reverts the current checkpoint
+   */
+  revertCheckpoint(): Promise<void>;
 }
 
 /**

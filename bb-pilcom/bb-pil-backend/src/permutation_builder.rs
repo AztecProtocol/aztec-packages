@@ -8,6 +8,7 @@ use powdr_number::FieldElement;
 
 use handlebars::Handlebars;
 use serde_json::{json, Value as Json};
+use std::path::Path;
 
 use crate::utils::sanitize_name;
 
@@ -18,6 +19,8 @@ use crate::utils::sanitize_name;
 pub struct Permutation {
     /// The name of the lookup
     pub name: String,
+    /// The file name of the lookup
+    pub file_name: String,
     /// The inverse column name
     pub inverse: String,
     /// -> PermSide - the left side of the permutation
@@ -63,14 +66,27 @@ impl PermutationBuilder for BBFiles {
                     .clone()
                     .expect("Permutation name must be provided using attribute syntax")
                     .to_lowercase();
+                let file_name = format!(
+                    "perms_{}.hpp",
+                    perm.source
+                        .file_name
+                        .as_ref()
+                        .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
+                        .map(|stem| stem.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                        .replace(".pil", "")
+                );
                 Permutation {
                     name: name.clone(),
+                    file_name: file_name,
                     inverse: format!("{}_inv", &name),
                     left: get_perm_side(&perm.left),
                     right: get_perm_side(&perm.right),
                 }
             })
             .collect_vec();
+
+        let perms_per_file = permutations.iter().into_group_map_by(|p| &p.file_name);
 
         let mut handlebars = Handlebars::new();
 
@@ -81,12 +97,18 @@ impl PermutationBuilder for BBFiles {
             )
             .unwrap();
 
-        for permutation in permutations.iter() {
-            let data = create_permutation_settings_data(permutation, vm_name);
-            let perm_settings = handlebars.render("permutation.hpp", &data).unwrap();
+        for (file_name, perms) in perms_per_file {
+            let datas = perms
+                .iter()
+                .map(|perm| create_permutation_settings_data(perm))
+                .collect_vec();
+            let data_wrapper = json!({
+                "root_name": vm_name,
+                "perms": datas,
+            });
+            let perm_settings = handlebars.render("permutation.hpp", &data_wrapper).unwrap();
 
-            let file_name = format!("{}.hpp", permutation.name);
-            self.write_file(Some(&self.relations), &file_name, &perm_settings);
+            self.write_file(Some(&self.relations), file_name, &perm_settings);
         }
 
         permutations
@@ -101,7 +123,7 @@ pub fn get_inverses_from_permutations(permutations: &[Permutation]) -> Vec<Strin
         .collect()
 }
 
-fn create_permutation_settings_data(permutation: &Permutation, vm_name: &str) -> Json {
+fn create_permutation_settings_data(permutation: &Permutation) -> Json {
     let columns_per_set = permutation.left.cols.len();
 
     // This also will need to work for both sides of this !
@@ -138,12 +160,12 @@ fn create_permutation_settings_data(permutation: &Permutation, vm_name: &str) ->
     perm_entities.extend(rhs_cols);
 
     json!({
-        "root_name": vm_name,
         "perm_name": permutation.name,
         "columns_per_set": columns_per_set,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,
+        "inverses_col": permutation.inverse.clone(),
     })
 }
 

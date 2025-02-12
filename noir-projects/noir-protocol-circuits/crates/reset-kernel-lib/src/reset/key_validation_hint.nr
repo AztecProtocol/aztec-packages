@@ -1,8 +1,8 @@
-// TODO: For some reason this file requires `IndexedTreeLeafPreimage` but it's unclear why.
 use dep::types::{
     abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
-    hash::poseidon2_hash_with_separator, merkle_tree::IndexedTreeLeafPreimage, scalar::Scalar,
-    traits::Empty,
+    hash::poseidon2_hash_with_separator,
+    scalar::Scalar,
+    traits::{Empty, ToField},
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
@@ -85,7 +85,7 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
             verify_key_validation_request(key_validation_requests[hint.request_index], hint.sk_m);
         }
     }
-
+    /// Safety: the indices are constrained by the checks below.
     let hint_indexes: [u32; REQUEST_LEN] = unsafe { get_hint_indexes(hints) };
     let mut num_propagated = 0;
     for i in 0..REQUEST_LEN {

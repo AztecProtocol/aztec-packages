@@ -1,3 +1,44 @@
+opentelemetry-collector:
+  config:
+    exporters:
+      # debug:
+      #   verbosity: detailed
+      otlphttp/logs:
+        endpoint: http://metrics-loki.metrics:3100/otlp
+      otlp/tempo:
+        endpoint: http://metrics-tempo.metrics:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+    service:
+      pipelines:
+        logs:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlphttp/logs
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlp/tempo
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            # - debug
+
 loki:
   deploymentMode: SingleBinary
   loki:
@@ -15,11 +56,46 @@ loki:
             period: 24h
           object_store: filesystem # we're storing on filesystem so there's no real persistence here.
           schema: v13
+    limits_config:
+      ingestion_rate_mb: 4
+      ingestion_burst_size_mb: 6
+      max_global_streams_per_user: 5000
+      max_query_series: 500
+      max_query_lookback: 24h
+      max_query_length: 1h
+      max_query_parallelism: 8
+      query_timeout: 3m
   singleBinary:
     replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    persistence:
+      size: 10Gi
   read:
     replicas: 0
   backend:
     replicas: 0
   write:
     replicas: 0
+
+grafana:
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://metrics-loki.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

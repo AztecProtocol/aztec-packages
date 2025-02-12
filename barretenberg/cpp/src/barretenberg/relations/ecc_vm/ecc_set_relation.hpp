@@ -16,19 +16,13 @@ template <typename FF_> class ECCVMSetRelationImpl {
         22, // grand product construction sub-relation
         3   // left-shiftable polynomial sub-relation
     };
-    /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
-polynomials,
-     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
-     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
-     */
-    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        21, // grand product construction sub-relation
-        1   // left-shiftable polynomial sub-relation
-    };
 
-    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
-    static constexpr size_t ZK_RELATION_LENGTH = 43;
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        return (in.z_perm - in.z_perm_shift).is_zero();
+    }
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {

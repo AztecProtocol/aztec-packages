@@ -3,18 +3,17 @@
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -46,7 +45,9 @@ WorldState::WorldState(uint64_t thread_pool_size,
     , _forkId(CANONICAL_FORK_ID)
     , _initial_header_generator_point(initial_header_generator_point)
 {
-    create_canonical_fork(data_dir, map_size, thread_pool_size);
+    // We set the max readers to be high, at least the number of given threads or the default if higher
+    uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
+    create_canonical_fork(data_dir, map_size, maxReaders);
 }
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -121,7 +122,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     }
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
-        std::vector<bb::fr> initial_values{ compute_initial_archive(
+        std::vector<bb::fr> initial_values{ compute_initial_block_header_hash(
             get_state_reference(WorldStateRevision::committed(), fork, true), _initial_header_generator_point) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, _persistentStores->archiveStore);
@@ -874,9 +875,10 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
     return true;
 }
 
-bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
+bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point)
 {
-    // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
+    // NOTE: this hash operations needs to match the one in
+    // noir-project/noir-protocol-circuits/crates/types/src/block_header.nr
     return HashPolicy::hash({ generator_point,
                               // last archive - which, at genesis, is all 0s
                               0,
@@ -913,19 +915,19 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
 
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
 {
-    std::optional<index_t> leaf_index = std::nullopt;
+    std::vector<std::optional<index_t>> indices;
 
     try {
-        leaf_index = find_leaf_index(revision, MerkleTreeId::ARCHIVE, block_header_hash);
+        find_leaf_indices<fr>(revision, MerkleTreeId::ARCHIVE, { block_header_hash }, indices);
     } catch (std::runtime_error&) {
     }
 
-    if (!leaf_index.has_value()) {
+    if (indices.empty() || !indices[0].has_value()) {
         return false;
     }
 
     TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    return archive_state.meta.size == leaf_index.value() + 1;
+    return archive_state.meta.size == indices[0].value() + 1;
 }
 
 void WorldState::get_status_summary(WorldStateStatusSummary& status) const
@@ -983,6 +985,87 @@ bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaRespo
         }
     }
     return true;
+}
+
+void WorldState::checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::commit_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->commit_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::revert_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->revert_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
 }
 
 } // namespace bb::world_state

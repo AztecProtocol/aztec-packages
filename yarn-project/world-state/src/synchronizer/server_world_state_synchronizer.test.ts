@@ -8,11 +8,10 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, MerkleTreeCalculator } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -39,18 +38,17 @@ describe('ServerWorldStateSynchronizer', () => {
 
   const LATEST_BLOCK_NUMBER = 5;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     log = createLogger('world-state:test:server_world_state_synchronizer');
 
     // Seed l1 to l2 msgs
     l1ToL2Messages = times(randomInt(2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT), Fr.random);
 
     // Compute inHash for verification
-    inHash = new MerkleTreeCalculator(
-      L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      Buffer.alloc(32),
-      new SHA256Trunc().hash,
-    ).computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const calculator = await MerkleTreeCalculator.create(L1_TO_L2_MSG_SUBTREE_HEIGHT, Buffer.alloc(32), (lhs, rhs) =>
+      Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
+    );
+    inHash = await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
   });
 
   beforeEach(() => {
@@ -89,7 +87,7 @@ describe('ServerWorldStateSynchronizer', () => {
   const pushBlocks = async (from: number, to: number) => {
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
+      blocks: await timesParallel(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
     });
     server.latest.number = to;
   };
@@ -213,7 +211,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig, new NoopTelemetryClient());
+    super(merkleTrees, blockAndMessagesSource, worldStateConfig);
   }
 
   protected override createBlockStream(): L2BlockStream {

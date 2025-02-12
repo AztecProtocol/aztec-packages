@@ -15,12 +15,13 @@ pub struct TailToPublicOutputComposerBuilder {
 impl TailToPublicOutputComposerBuilder {
     pub fn new() -> Self {
         let mut previous_kernel = FixtureBuilder::new();
-        previous_kernel.set_first_nullifier(); // Need the first nullifier to silo note hashes.
+        previous_kernel.set_protocol_nullifier(); // Need the first nullifier to silo note hashes.
         TailToPublicOutputComposerBuilder { previous_kernel }
     }
 
     pub fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+        /// Safety: This is only used in tests.
         unsafe {
             let composer = TailToPublicOutputComposer::new(previous_kernel);
             composer.finish()

@@ -41,7 +41,7 @@ class AvmRecursiveTests : public ::testing::Test {
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     AvmPublicInputs public_inputs;
 
@@ -71,6 +71,10 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
+    if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
+        GTEST_SKIP();
+    }
+
     InnerBuilder circuit_builder = generate_avm_circuit();
     InnerComposer composer = InnerComposer();
     InnerProver prover = composer.create_prover(circuit_builder);

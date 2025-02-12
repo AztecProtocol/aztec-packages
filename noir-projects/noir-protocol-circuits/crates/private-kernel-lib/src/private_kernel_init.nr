@@ -18,6 +18,8 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     private_call: PrivateCallData,
+    is_private_only: bool,
+    first_nullifier_hint: Field,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -27,12 +29,16 @@ impl PrivateKernelInitCircuitPrivateInputs {
         protocol_contract_tree_root: Field,
         private_call: PrivateCallDataWithoutPublicInputs,
         app_public_inputs: PrivateCircuitPublicInputs,
+        is_private_only: bool,
+        first_nullifier_hint: Field,
     ) -> Self {
         Self {
             tx_request,
             vk_tree_root,
             protocol_contract_tree_root,
             private_call: private_call.to_private_call_data(app_public_inputs),
+            is_private_only,
+            first_nullifier_hint,
         }
     }
 
@@ -43,13 +49,20 @@ impl PrivateKernelInitCircuitPrivateInputs {
             private_call_public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root,
+            self.is_private_only,
+            self.first_nullifier_hint,
         )
             .with_private_call(private_call_public_inputs)
             .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.private_call.verify(true);
+        }
+
         // Generate output.
+        /// Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -69,6 +82,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
+                self.is_private_only,
+                self.first_nullifier_hint,
             );
         }
         output
@@ -102,6 +117,8 @@ mod tests {
                 private_call,
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
                 protocol_contract_tree_root: 0,
+                is_private_only: false,
+                first_nullifier_hint: 0,
             }
                 .execute()
         }

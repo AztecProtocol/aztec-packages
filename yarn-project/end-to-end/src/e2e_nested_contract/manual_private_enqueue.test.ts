@@ -1,5 +1,6 @@
 import { type AztecAddress, Fr } from '@aztec/aztec.js';
-import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
 import { NestedContractTest } from './nested_contract_test.js';
 
@@ -27,7 +28,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   it('enqueues a single public call', async () => {
     await parentContract.methods
-      .enqueue_call_to_child(childContract.address, childContract.methods.pub_inc_value.selector, 42n)
+      .enqueue_call_to_child(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
       .send()
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
@@ -38,7 +39,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
       parentContract.methods
         .enqueue_call_to_child(
           childContract.address,
-          (childContract.methods as any).pub_inc_value_internal.selector,
+          await (childContract.methods as any).pub_inc_value_internal.selector(),
           42n,
         )
         .prove(),
@@ -47,7 +48,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   it('enqueues multiple public calls', async () => {
     await parentContract.methods
-      .enqueue_call_to_child_twice(childContract.address, childContract.methods.pub_inc_value.selector, 42n)
+      .enqueue_call_to_child_twice(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
       .send()
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
@@ -55,7 +56,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   it('enqueues a public call with nested public calls', async () => {
     await parentContract.methods
-      .enqueue_call_to_pub_entry_point(childContract.address, childContract.methods.pub_inc_value.selector, 42n)
+      .enqueue_call_to_pub_entry_point(childContract.address, await childContract.methods.pub_inc_value.selector(), 42n)
       .send()
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
@@ -63,7 +64,11 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   it('enqueues multiple public calls with nested public calls', async () => {
     await parentContract.methods
-      .enqueue_calls_to_pub_entry_point(childContract.address, childContract.methods.pub_inc_value.selector, 42n)
+      .enqueue_calls_to_pub_entry_point(
+        childContract.address,
+        await childContract.methods.pub_inc_value.selector(),
+        42n,
+      )
       .send()
       .wait();
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));

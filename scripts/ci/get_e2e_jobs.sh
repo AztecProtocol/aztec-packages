@@ -10,7 +10,8 @@ LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {
-  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml
+  # prover full is ran standalone
+  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml | grep -v e2e_prover_full
 }
 
 # Read the full list from the YAML file
@@ -34,12 +35,14 @@ allow_list=(
   "e2e_max_block_number"
   "e2e_nested_contract"
   "e2e_ordering"
+  "e2e_pruned_blocks"
   "e2e_static_calls"
+  "e2e_token_bridge_tutorial_test"
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"
-  "e2e_prover_coordination"
   "e2e_lending_contract"
+  "e2e_p2p_gossip"
   "kind_network_smoke"
   "guides_dapp_testing"
   "guides_sample_dapp"
@@ -51,7 +54,7 @@ allow_list=(
 # Add labels from input to the allow_list, supports prefix matching
 # E.g:
 # e2e_p2p label will match e2e_p2p_gossip, e2e_p2p_rediscovery, e2e_p2p_reqresp etc.
-# e2e_prover label will match e2e_prover_fake_proofs, e2e_prover_coordination etc.
+# e2e_prover label will match e2e_prover_fake_proofs etc.
 IFS=',' read -r -a input_labels <<< "$LABELS"
 expanded_allow_list=()
 

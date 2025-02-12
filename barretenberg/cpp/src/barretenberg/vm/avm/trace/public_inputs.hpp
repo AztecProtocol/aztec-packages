@@ -38,6 +38,7 @@ struct GasSettings {
     Gas gas_limits;
     Gas teardown_gas_limits;
     GasFees max_fees_per_gas;
+    GasFees max_priority_fees_per_gas;
 };
 
 inline void read(uint8_t const*& it, GasSettings& gas_settings)
@@ -46,6 +47,7 @@ inline void read(uint8_t const*& it, GasSettings& gas_settings)
     read(it, gas_settings.gas_limits);
     read(it, gas_settings.teardown_gas_limits);
     read(it, gas_settings.max_fees_per_gas);
+    read(it, gas_settings.max_priority_fees_per_gas);
 }
 
 struct GlobalVariables {
@@ -228,30 +230,16 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_da
     read(it, accumulated_data.l2_to_l1_msgs);
 }
 
-struct LogHash {
-    FF value{};
-    uint32_t counter = 0;
-    FF length{};
-};
-
-inline void read(uint8_t const*& it, LogHash& log_hash)
-{
-    using serialize::read;
-    read(it, log_hash.value);
-    read(it, log_hash.counter);
-    read(it, log_hash.length);
-}
-
-struct ScopedLogHash {
-    LogHash log_hash;
+struct PublicLog {
     FF contract_address{};
+    std::array<FF, PUBLIC_LOG_DATA_SIZE_IN_FIELDS> log{};
 };
 
-inline void read(uint8_t const*& it, ScopedLogHash& scoped_log_hash)
+inline void read(uint8_t const*& it, PublicLog& public_log)
 {
     using serialize::read;
-    read(it, scoped_log_hash.log_hash);
-    read(it, scoped_log_hash.contract_address);
+    read(it, public_log.contract_address);
+    read(it, public_log.log);
 }
 
 struct PublicDataWrite {
@@ -280,9 +268,9 @@ struct AvmAccumulatedData {
      */
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
     /**
-     * The unencrypted logs emitted from the AVM execution.
+     * The public logs emitted from the AVM execution.
      */
-    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX> unencrypted_logs_hashes{};
+    std::array<PublicLog, MAX_PUBLIC_LOGS_PER_TX> public_logs{};
     /**
      * The public data writes made in the AVM execution.
      */
@@ -296,7 +284,7 @@ inline void read(uint8_t const*& it, AvmAccumulatedData& accumulated_data)
     read(it, accumulated_data.note_hashes);
     read(it, accumulated_data.nullifiers);
     read(it, accumulated_data.l2_to_l1_msgs);
-    read(it, accumulated_data.unencrypted_logs_hashes);
+    read(it, accumulated_data.public_logs);
     read(it, accumulated_data.public_data_writes);
 };
 
@@ -306,6 +294,7 @@ class AvmPublicInputs {
     TreeSnapshots start_tree_snapshots;
     Gas start_gas_used;
     GasSettings gas_settings;
+    FF fee_payer;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_setup_call_requests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> public_app_logic_call_requests;
     PublicCallRequest public_teardown_call_request;
@@ -330,6 +319,7 @@ class AvmPublicInputs {
         read(it, public_inputs.start_tree_snapshots);
         read(it, public_inputs.start_gas_used);
         read(it, public_inputs.gas_settings);
+        read(it, public_inputs.fee_payer);
         read(it, public_inputs.public_setup_call_requests);
         read(it, public_inputs.public_app_logic_call_requests);
         read(it, public_inputs.public_teardown_call_request);

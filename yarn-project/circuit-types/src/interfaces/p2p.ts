@@ -3,7 +3,7 @@ import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas'
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
+import { type P2PClientType } from '../p2p/client_type.js';
 import { Tx } from '../tx/tx.js';
 
 export type PeerInfo =
@@ -24,24 +24,7 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 ]);
 
 /** Exposed API to the P2P module. */
-export interface P2PApi {
-  /**
-   * Queries the Attestation pool for attestations for the given slot
-   *
-   * @param slot - the slot to query
-   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
-   * @returns BlockAttestations
-   */
-  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
-
-  /**
-   * Queries the EpochProofQuote pool for quotes for the given epoch
-   *
-   * @param epoch - the epoch to query
-   * @returns EpochProofQuotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
+export interface P2PApiWithoutAttestations {
   /**
    * Returns all pending transactions in the transaction pool.
    * @returns An array of Txs.
@@ -59,12 +42,26 @@ export interface P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 }
 
+export interface P2PClient extends P2PApiWithoutAttestations {
+  /**
+   * Queries the Attestation pool for attestations for the given slot
+   *
+   * @param slot - the slot to query
+   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
+   * @returns BlockAttestations
+   */
+  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+}
+
+export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
+  ? P2PClient & P2PApiWithoutAttestations
+  : P2PApiWithoutAttestations;
+
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getAttestationsForSlot: z
     .function()
     .args(schemas.BigInt, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),

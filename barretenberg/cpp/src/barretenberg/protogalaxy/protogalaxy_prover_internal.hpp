@@ -43,15 +43,40 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
         Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
-    using ExtendedUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+
+    /**
+     * @brief ShortUnivariates is an optimisation to improve the evaluation of Flavor relations when the output is a
+     * low-degree monomial
+     * @details Each Flavor relation is computed as a degree-Flavor::MAX_TOTAL_RELATION_LENGTH Univariate monomial in
+     * the Lagrange basis, however it is more efficient if the *input* monomials into the relation are not in this form,
+     * but are instead left as a degree-1 monomial using the *coefficient basis* (i.e. P(X) = a0 + a1.X)
+     *
+     * When computing relation algebra, it is typically more efficient to use the coefficient basis up to
+     * degree-2. If the degree must be extended beyond 2, then the monomials are converted into their higher-degree
+     * representation in the Lagrange basis.
+     *
+     * Not only is the relation algebra more efficient, but we do not have to perform a basis extension on all
+     * the Flavor polynomials each time the Flavor relation algebra is evaluated.
+     * Given the sparse representation of our circuits, many relations are skipped each row which means many polynomials
+     * can go unused. By skipping the basis extension entirely we avoid this unneccessary work.
+     *
+     * Tests indicates that utilizing ShortUnivariates speeds up the `benchmark_client_ivc.sh` benchmark by 10%
+     * @note This only works if DeciderPKs::NUM == 2. The whole protogalaxy class would require substantial revision to
+     * support more PKs so this should be adequate for now
+     */
+    using ShortUnivariates = typename Flavor::template ProverUnivariates<DeciderPKs::NUM>;
+
     using ExtendedUnivariates =
         typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
                                                                           /* SKIP_COUNT= */ DeciderPKs::NUM - 1>;
 
+    using ExtendedUnivariatesType =
+        std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariates>;
+
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
-    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
+
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
@@ -111,16 +136,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                            const RelationSeparator& alphas_,
-                                            const RelationParameters<FF>& relation_parameters)
+    Polynomial<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
+                                           const RelationSeparator& alphas_,
+                                           const RelationParameters<FF>& relation_parameters)
 
     {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
+        Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
             std::array<FF, NUM_SUBRELATIONS> tmp;
@@ -151,13 +176,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                         RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
                     // Sum against challenges alpha
-                    aggregated_relation_evaluations[idx] = process_subrelation_evaluations(
+                    aggregated_relation_evaluations.at(idx) = process_subrelation_evaluations(
                         evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
                 }
             }
         });
 
-        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
+        aggregated_relation_evaluations.at(0) += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
     }
@@ -238,7 +263,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& full_honk_evaluations)
+                                                              const Polynomial<FF>& full_honk_evaluations)
     {
 
         const size_t width = full_honk_evaluations.size() / 2;
@@ -292,18 +317,22 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
 
     template <size_t skip_count = 0>
-    static void extend_univariates(
-        std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>&
-            extended_univariates,
-        const DeciderPKs& keys,
-        const size_t row_idx)
+    BB_INLINE static void extend_univariates(ExtendedUnivariatesType& extended_univariates,
+                                             const DeciderPKs& keys,
+                                             const size_t row_idx)
     {
         PROFILE_THIS_NAME("PG::extend_univariates");
-        auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
-        for (auto [extended_univariate, incoming_univariate] :
-             zip_view(extended_univariates.get_all(), incoming_univariates)) {
-            incoming_univariate.template self_extend_from<NUM_KEYS>();
-            extended_univariate = std::move(incoming_univariate);
+
+        if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+            extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
+        } else {
+            auto incoming_univariates =
+                keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+            for (auto [extended_univariate, incoming_univariate] :
+                 zip_view(extended_univariates.get_all(), incoming_univariates)) {
+                incoming_univariate.template self_extend_from<NUM_KEYS>();
+                extended_univariate = std::move(incoming_univariate);
+            }
         }
     }
 
@@ -320,14 +349,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @param relation_parameters
      * @param scaling_factor
      */
-    template <typename TupleOfTuplesOfUnivariates_,
-              typename ExtendedUnivariates_,
-              typename Parameters,
-              size_t relation_idx = 0>
-    static void accumulate_relation_univariates(TupleOfTuplesOfUnivariates_& univariate_accumulators,
-                                                const ExtendedUnivariates_& extended_univariates,
-                                                const Parameters& relation_parameters,
-                                                const FF& scaling_factor)
+    template <size_t relation_idx = 0>
+    BB_INLINE static void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                          const ExtendedUnivariatesType& extended_univariates,
+                                                          const UnivariateRelationParameters& relation_parameters,
+                                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
@@ -350,10 +376,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
-            accumulate_relation_univariates<TupleOfTuplesOfUnivariates_,
-                                            ExtendedUnivariates_,
-                                            Parameters,
-                                            relation_idx + 1>(
+            accumulate_relation_univariates<relation_idx + 1>(
                 univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
         }
     }
@@ -369,17 +392,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @param gate_separators
      * @return ExtendedUnivariateWithRandomization
      */
-    template <typename Parameters, typename TupleOfTuples>
     ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
                                                          const GateSeparatorPolynomial<FF>& gate_separators,
-                                                         const Parameters& relation_parameters,
+                                                         const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateRelationSeparator& alphas,
-                                                         TupleOfTuples& univariate_accumulators)
+                                                         TupleOfTuplesOfUnivariates& univariate_accumulators)
     {
         PROFILE_THIS();
-
-        // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
-        constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
@@ -389,36 +408,30 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
-        using ThreadAccumulators = TupleOfTuples;
-        using ExtendedUnivatiatesType =
-            std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
+        using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
-        for (auto& accum : thread_univariate_accumulators) {
-            // just normal relation lengths
-            RelationUtils::zero_univariates(accum);
-        }
-
-        // Construct extended univariates containers; one per thread
-        std::vector<ExtendedUnivatiatesType> extended_univariates;
-        extended_univariates.resize(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
+            // Initialize the thread accumulator to 0
+            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedUnivariatesType extended_univariates;
+
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
             const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
                     // are still available for skipping relations, but all derived univariate will ignore those
                     // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
-                    constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
-                    extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
+                    constexpr size_t skip_count = DeciderPKs::NUM - 1;
+                    extend_univariates<skip_count>(extended_univariates, keys, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
@@ -426,7 +439,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                     // this function have already been folded. Moreover, linear-dependent relations that act over the
                     // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                    extended_univariates[thread_idx],
+                                                    extended_univariates,
                                                     relation_parameters, // these parameters have already been folded
                                                     pow_challenge);
                 }
@@ -443,20 +456,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             deoptimise_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(deoptimized_univariates, alphas);
-    }
-
-    /**
-     * @brief Compute combiner using univariates that do not avoid zero computation in case of valid incoming indices.
-     * @details This is only used for testing the combiner calculation.
-     */
-    ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
-        const DeciderPKs& keys,
-        const GateSeparatorPolynomial<FF>& gate_separators,
-        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas)
-    {
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
-        return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
     }
 
     ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,

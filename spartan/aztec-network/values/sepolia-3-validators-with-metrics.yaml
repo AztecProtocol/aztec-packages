@@ -1,0 +1,38 @@
+telemetry:
+  enabled: true
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false
+
+network:
+  setupL2Contracts: false
+  public: false
+
+ethereum:
+  l1DeploymentMnemonic:
+  proverKeyIndexStart: 0
+  validatorKeyIndexStart: 1
+  chainId: "11155111"
+  execution:
+    externalHost:
+  beacon:
+    externalHost:
+    apiKey:
+    apiKeyHeader:
+
+validator:
+  l1FixedPriorityFeePerGas: 2
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 500
+  replicas: 3
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
+
+bot:
+  txIntervalSeconds: 20

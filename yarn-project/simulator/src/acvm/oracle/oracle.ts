@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
@@ -19,25 +19,15 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async packArgumentsArray(args: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
-    return toACVMField(packed);
-  }
-
-  async packArguments(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(values.map(fromACVMField));
-    return toACVMField(packed);
-  }
-
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const hash = await this.typedOracle.storeInExecutionCache(values.map(fromACVMField));
+    return toACVMField(hash);
   }
 
-  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
-    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
-    return unpacked.map(toACVMField);
+  async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
+    const values = await this.typedOracle.loadFromExecutionCache(fromACVMField(returnsHash));
+    return values.map(toACVMField);
   }
 
   async getBlockNumber(): Promise<ACVMField> {
@@ -90,19 +80,6 @@ export class Oracle {
       );
     }
     return witness.map(toACVMField);
-  }
-
-  async getSiblingPath(
-    [blockNumber]: ACVMField[],
-    [treeId]: ACVMField[],
-    [leafIndex]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
-    const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeafIndex = fromACVMField(leafIndex);
-
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
-    return path.map(toACVMField);
   }
 
   async getNullifierMembershipWitness(
@@ -163,14 +140,6 @@ export class Oracle {
       throw new Error(`Authorization not found for message hash ${messageHashField}`);
     }
     return witness.map(toACVMField);
-  }
-
-  async popCapsule(): Promise<ACVMField[]> {
-    const capsule = await this.typedOracle.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule.map(toACVMField);
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
@@ -265,6 +234,11 @@ export class Oracle {
     [counter]: ACVMField[],
   ): Promise<ACVMField> {
     await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(noteHash), +counter);
+    return toACVMField(0);
+  }
+
+  async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    await this.typedOracle.notifyCreatedNullifier(fromACVMField(innerNullifier));
     return toACVMField(0);
   }
 
@@ -375,8 +349,8 @@ export class Oracle {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
-  async getAppTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.typedOracle.getAppTaggingSecretAsSender(
+  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
@@ -392,5 +366,80 @@ export class Oracle {
 
   async syncNotes() {
     await this.typedOracle.syncNotes();
+  }
+
+  async deliverNote(
+    [contractAddress]: ACVMField[],
+    [storageSlot]: ACVMField[],
+    [nonce]: ACVMField[],
+    content: ACVMField[],
+    [contentLength]: ACVMField[],
+    [noteHash]: ACVMField[],
+    [nullifier]: ACVMField[],
+    [txHash]: ACVMField[],
+    [recipient]: ACVMField[],
+  ): Promise<ACVMField> {
+    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
+    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
+    // Delivery might fail due to temporary issues, such as poor node connectivity.
+    await this.typedOracle.deliverNote(
+      AztecAddress.fromString(contractAddress),
+      fromACVMField(storageSlot),
+      fromACVMField(nonce),
+      fromBoundedVec(content, contentLength),
+      fromACVMField(noteHash),
+      fromACVMField(nullifier),
+      fromACVMField(txHash),
+      AztecAddress.fromString(recipient),
+    );
+
+    return toACVMField(true);
+  }
+
+  async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]) {
+    await this.typedOracle.storeCapsule(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+      capsule.map(fromACVMField),
+    );
+  }
+
+  async loadCapsule(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [tSize]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const values = await this.typedOracle.loadCapsule(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+    );
+
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (values === null) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return [toACVMField(0), Array(frToNumber(fromACVMField(tSize))).fill(toACVMField(0))];
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return [toACVMField(1), values.map(toACVMField)];
+    }
+  }
+
+  async deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]) {
+    await this.typedOracle.deleteCapsule(AztecAddress.fromField(fromACVMField(contractAddress)), fromACVMField(slot));
+  }
+
+  async copyCapsule(
+    [contractAddress]: ACVMField[],
+    [srcSlot]: ACVMField[],
+    [dstSlot]: ACVMField[],
+    [numEntries]: ACVMField[],
+  ) {
+    await this.typedOracle.copyCapsule(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(srcSlot),
+      fromACVMField(dstSlot),
+      frToNumber(fromACVMField(numEntries)),
+    );
   }
 }

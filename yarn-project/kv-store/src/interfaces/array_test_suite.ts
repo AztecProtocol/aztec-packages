@@ -20,6 +20,10 @@ export function describeAztecArray(
       arr = store.openArray<number>('test');
     });
 
+    afterEach(async () => {
+      await store.delete();
+    });
+
     async function length(sut: AztecAsyncArray<number> | AztecArray<number> = arr) {
       return isSyncStore(store) && !forceAsync
         ? (sut as AztecArray<number>).length
