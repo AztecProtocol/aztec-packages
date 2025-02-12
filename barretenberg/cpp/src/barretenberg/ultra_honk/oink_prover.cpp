@@ -59,10 +59,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
 
-#ifndef __wasm__
+    // #ifndef __wasm__
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
-#endif
+    // #endif
 }
 
 /**

@@ -17,10 +17,7 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
 
     // minimum size of execution trace due to everything else
-    size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
-    if constexpr (IsMegaFlavor<Flavor>) {
-        min_size_of_execution_trace += circuit.blocks.ecc_op.size();
-    }
+    size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
@@ -96,7 +93,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_table_lookup_polynomials_and_inverses");
+    PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
@@ -146,6 +143,7 @@ template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
+    PROFILE_THIS_NAME("allocate_databus_and_lookup_inverse_polynomials");
     proving_key.polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
@@ -237,6 +235,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  */
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+    requires IsMegaFlavor<Flavor>
 {
     auto& blocks = circuit.blocks;
     auto& overflow_block = circuit.blocks.overflow;
@@ -252,9 +251,19 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         uint32_t fixed_block_size = block.get_fixed_size();
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
-            ASSERT(!block.is_pub_inputs);
-            if constexpr (IsMegaFlavor<Flavor>) {
-                ASSERT(block != blocks.ecc_op);
+            if (block.is_pub_inputs) {
+                info("WARNING: Number of public inputs (",
+                     block_size,
+                     ") cannot exceed capacity specified in structured trace: ",
+                     fixed_block_size);
+                ASSERT(false);
+            }
+            if (block == blocks.ecc_op) {
+                info("WARNING: Number of ecc op gates (",
+                     block_size,
+                     ") cannot exceed capacity specified in structured trace: ",
+                     fixed_block_size);
+                ASSERT(false);
             }
 
             // Set has_overflow to true if at least one block exceeds its capacity
@@ -264,7 +273,6 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
             // records need to be updated to reflect their new position in the overflow block
             if (block.has_ram_rom) {
-
                 uint32_t overflow_cur_idx = overflow_block.trace_offset + static_cast<uint32_t>(overflow_block.size());
                 overflow_cur_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
                 uint32_t offset = overflow_cur_idx + 1; // +1 accounts for duplication of final gate
@@ -315,12 +323,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 
     // Set the fixed size of the overflow block to its current size
     if (overflow_block.size() > overflow_block.get_fixed_size()) {
-        info("WARNING: Structured trace overflowed beyond the prescribed fixed overflow size. This is valid in the "
-             "context of one-off VK/proof generation but not in the IVC setting. \nPrescribed overflow size: ",
-             overflow_block.get_fixed_size(),
-             ". \nActual overflow size: ",
-             overflow_block.size(),
-             "\n");
+        info("WARNING: Structured trace overflow mechanism in use. Performance may be degraded!");
         overflow_block.fixed_size = static_cast<uint32_t>(overflow_block.size());
         blocks.summarize();
     }

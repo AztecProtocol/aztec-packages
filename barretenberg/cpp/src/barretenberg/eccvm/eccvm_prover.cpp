@@ -13,10 +13,12 @@
 namespace bb {
 
 ECCVMProver::ECCVMProver(CircuitBuilder& builder,
+                         const bool fixed_size,
                          const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
+    , fixed_size(fixed_size)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -24,7 +26,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
 
     // Construct the proving key; populates all polynomials except for witness polys
-    key = std::make_shared<ProvingKey>(builder);
+    key = fixed_size ? std::make_shared<ProvingKey>(builder, fixed_size) : std::make_shared<ProvingKey>(builder);
 
     key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }
@@ -45,10 +47,19 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
-    auto wire_polys = key->polynomials.get_wires();
-    auto labels = commitment_labels.get_wires();
-    for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], key->commitment_key->commit(wire_polys[idx]));
+    // Commit to wires whose length is bounded by the real size of the ECCVM
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
+                                              commitment_labels.get_wires_without_accumulators())) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+        // ECCVM/Translator/MegaZK
+        PolynomialSpan<FF> wire_span = wire;
+        transcript->send_to_verifier(label, key->commitment_key->commit(wire_span.subspan(0, key->real_size)));
+    }
+
+    // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
+    for (const auto& [wire, label] :
+         zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
+        transcript->send_to_verifier(label, key->commitment_key->commit(wire));
     }
 }
 
@@ -58,6 +69,7 @@ void ECCVMProver::execute_wire_commitments_round()
  */
 void ECCVMProver::execute_log_derivative_commitments_round()
 {
+
     // Compute and add beta to relation parameters
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
@@ -71,7 +83,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
+    compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
         key->polynomials, relation_parameters, key->circuit_size);
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
                                  key->commitment_key->commit(key->polynomials.lookup_inverses));
@@ -95,6 +107,7 @@ void ECCVMProver::execute_grand_product_computation_round()
  */
 void ECCVMProver::execute_relation_check_rounds()
 {
+
     using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
@@ -199,8 +212,6 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
-
-    vinfo("computed opening proof");
 }
 
 ECCVMProof ECCVMProver::export_proof()

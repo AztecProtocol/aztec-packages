@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.1...barretenberg.js-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.0...barretenberg.js-v0.76.1) (2025-02-10)
+
+
+### Features
+
+* **perf:** Speed up construction of bbjs Frs & cache zero hashes in ephemeral trees ([#11851](https://github.com/AztecProtocol/aztec-packages/issues/11851)) ([2b5afe3](https://github.com/AztecProtocol/aztec-packages/commit/2b5afe3012210c56a5c058524121b9521da78fc2))
+
+
+### Bug Fixes
+
+* Revert "feat(perf): speed up construction of bbjs Frs & cache zero hashes in ephemeral trees" ([#11893](https://github.com/AztecProtocol/aztec-packages/issues/11893)) ([99fdab9](https://github.com/AztecProtocol/aztec-packages/commit/99fdab9dcf39d25462aa26b5fd9adad5c09586f8))
+
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.75.0...barretenberg.js-v0.76.0) (2025-02-10)
+
+
+### Bug Fixes
+
+* **bb.js:** Make wasm imports bundleable ([#11812](https://github.com/AztecProtocol/aztec-packages/issues/11812)) ([1af69a9](https://github.com/AztecProtocol/aztec-packages/commit/1af69a973ae878a38b7e6b81422fe7671e67d9e5))
+* Remove unnecessary console.log ([#11810](https://github.com/AztecProtocol/aztec-packages/issues/11810)) ([8a320bf](https://github.com/AztecProtocol/aztec-packages/commit/8a320bf69502662ca9403bd294e633b2d45a7869))
+
 ## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.74.0...barretenberg.js-v0.75.0) (2025-02-06)
 
 
