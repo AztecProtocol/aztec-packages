@@ -34,7 +34,7 @@ if [ $timeout -eq 0 ]; then
     exit 1
 fi
 
-# WORKTODO(AD) make sure this is ported in ci3.3
+# TODO: not ported in
 ## Pass through run the existing e2e test
 docker run \
     --network host \
