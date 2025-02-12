@@ -2,12 +2,9 @@ use dep::aztec::prelude::{NoteHeader, NoteInterface, NullifiableNote, PrivateCon
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_nullify, keys::getters::{get_nsk_app, get_public_keys},
-    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    macros::notes::note_custom_interface, generators::Ga1 as Gx_1, generators::Ga2 as Gx_2,
-    generators::Ga3 as Gy_1, generators::Ga4 as Gy_2, generators::Ga5 as G_owner, generators::G_slot
+    protocol_types::{address::AztecAddress, constants::{GENERATOR_INDEX__NOTE_NULLIFIER, GENERATOR_INDEX__NOTE_HASH}, hash::poseidon2_hash_with_separator},
+    macros::notes::note_custom_interface
 };
-
-use std::hash::from_field_unsafe;
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: u32 = 5;
 
@@ -80,18 +77,10 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn compute_note_hash(self) -> Field {
-        let packed_content = self.pack_content();
-        std::embedded_curve_ops::multi_scalar_mul(
-            [Gx_1, Gx_2, Gy_1, Gy_2, G_owner, G_slot],
-            [
-            from_field_unsafe(packed_content[0]),
-            from_field_unsafe(packed_content[1]),
-            from_field_unsafe(packed_content[2]),
-            from_field_unsafe(packed_content[3]),
-            from_field_unsafe(packed_content[4]),
-            from_field_unsafe(self.get_header().storage_slot)
-        ]
-        ).x
+        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
+        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
+        // constraints.
+        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
     }
 }
 

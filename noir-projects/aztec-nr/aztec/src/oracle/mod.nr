@@ -5,6 +5,7 @@
 pub mod aes128_decrypt;
 pub mod block_header;
 pub mod call_private_function;
+pub mod capsules;
 pub mod enqueue_public_function_call;
 pub mod execution;
 pub mod execution_cache;
@@ -18,7 +19,6 @@ pub mod key_validation_request;
 pub mod logs;
 pub mod note_discovery;
 pub mod notes;
-pub mod pxe_db;
 pub mod random;
 pub mod storage;
 

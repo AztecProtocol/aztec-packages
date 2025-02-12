@@ -14,10 +14,13 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
   MAX_PROVING_COST_MODIFIER,
-  MAX_FEE_ASSET_PRICE_MODIFIER
+  MAX_FEE_ASSET_PRICE_MODIFIER,
+  MINIMUM_CONGESTION_MULTIPLIER
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
+  using Math for uint256;
   using SlotLib for Slot;
 
   uint256 internal constant SLOT_DURATION = 36;
@@ -48,11 +51,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     // Then check that we get the same proving costs as the python model
 
     for (uint256 i = 0; i < points.length; i++) {
-      assertEq(
-        model.getProvingCost(),
-        points[i].outputs.mana_base_fee_components_in_wei.proving_cost,
-        "Computed proving cost does not match expected value"
-      );
+      assertEq(model.getProvingCost(), 100, "Computed proving cost does not match expected value");
       model.addSlot(
         OracleInput({
           provingCostModifier: points[i].oracle_input.proving_cost_modifier,
@@ -165,10 +164,11 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         // The fee header is the state that we are storing, so it is the value written at the block submission.
         FeeHeader memory feeHeader = model.getFeeHeader(point.block_header.slot_number);
 
+        point = manipulateProvingCost(point);
+
         // Ensure that we can reproduce the main parts of our test points.
         // For now, most of the block header is not actually stored in the fee model
         // but just needed to influence the other values and used for L1 state.
-
         assertEq(point.block_header.block_number, nextSlot, "invalid l2 block number");
         assertEq(point.block_header.l1_block_number, block.number, "invalid l1 block number");
         assertEq(point.block_header.slot_number, nextSlot, "invalid l2 slot number");
@@ -181,8 +181,10 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         );
         assertEq(point.outputs.l1_fee_oracle_output, fees, "l1 fee oracle output");
         assertEq(point.outputs.l1_gas_oracle_values, model.getL1GasOracleValues());
-        assertEq(point.outputs.mana_base_fee_components_in_wei, components);
-        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset);
+        assertEq(point.outputs.mana_base_fee_components_in_wei, components, "in_wei");
+        assertEq(
+          point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset"
+        );
 
         assertEq(point.parent_fee_header, parentFeeHeader);
 

@@ -10,7 +10,6 @@ import {
 } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
-  handleInitialEpochSync(epochNumber: bigint): Promise<void>;
   handleEpochCompleted(epochNumber: bigint): Promise<void>;
 }
 
@@ -48,7 +47,7 @@ export class EpochMonitor implements Traceable {
     if (!this.latestEpochNumber) {
       const epochNumber = await this.l2BlockSource.getL2EpochNumber();
       if (epochNumber > 0n) {
-        await this.handler?.handleInitialEpochSync(epochNumber - 1n);
+        await this.handler?.handleEpochCompleted(epochNumber - 1n);
       }
       this.latestEpochNumber = epochNumber;
       return;

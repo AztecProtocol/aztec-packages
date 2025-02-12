@@ -17,8 +17,8 @@ export function initTelemetryClient(config: TelemetryClientConfig): TelemetryCli
     return telemetry;
   }
 
-  if (config.metricsCollectorUrl || config.useGcloudObservability) {
-    log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
+  if (config.metricsCollectorUrl || config.useGcloudMetrics) {
+    log.info(`Using OpenTelemetry client ${config.useGcloudMetrics ? 'with GCP' : 'with custom collector'}`);
     telemetry = OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');

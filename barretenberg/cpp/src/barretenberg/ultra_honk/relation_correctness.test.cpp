@@ -1,4 +1,5 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
@@ -23,67 +24,6 @@ void ensure_non_zero(auto& polynomial)
         has_non_zero_coefficient |= !coeff.is_zero();
     }
     ASSERT_TRUE(has_non_zero_coefficient);
-}
-
-/**
- * @brief Check that a given relation is satified for a set of polynomials
- *
- * @tparam relation_idx Index into a tuple of provided relations
- */
-template <typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
-{
-    for (size_t i = 0; i < circuit_size; i++) {
-        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        SumcheckArrayOfValuesOverSubrelations result;
-        for (auto& element : result) {
-            element = 0;
-        }
-
-        // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, polynomials.get_row(i), params, 1);
-        for (auto& element : result) {
-            ASSERT_EQ(element, 0);
-        }
-    }
-}
-
-/**
- * @brief Check that a given linearly dependent relation is satisfied for a set of polynomials
- * @details We refer to a relation as linearly dependent if it defines a constraint on the sum across the full execution
- * trace rather than at each individual row. For example, a subrelation of this type arises in the log derivative lookup
- * argument.
- *
- * @tparam relation_idx Index into a tuple of provided relations
- * @tparam Flavor
- */
-template <typename Flavor, typename Relation>
-void check_linearly_dependent_relation(auto circuit_size, auto& polynomials, auto params)
-{
-    using AllValues = typename Flavor::AllValues;
-    // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-    using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-    SumcheckArrayOfValuesOverSubrelations result;
-    for (auto& element : result) {
-        element = 0;
-    }
-
-    for (size_t i = 0; i < circuit_size; i++) {
-
-        // Extract an array containing all the polynomial evaluations at a given row i
-        AllValues evaluations_at_index_i;
-        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
-            eval = poly[i];
-        }
-
-        // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, evaluations_at_index_i, params, 1);
-    }
-
-    // Result accumulated across entire execution trace should be zero
-    for (auto& element : result) {
-        ASSERT_EQ(element, 0);
-    }
 }
 
 template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
@@ -247,7 +187,6 @@ class UltraRelationCorrectnessTests : public ::testing::Test {
 TEST_F(UltraRelationCorrectnessTests, Ultra)
 {
     using Flavor = UltraFlavor;
-    using FF = typename Flavor::FF;
 
     // Create a builder and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
@@ -263,32 +202,23 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto& proving_key = decider_pk->proving_key;
-    auto circuit_size = proving_key.circuit_size;
 
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(proving_key.polynomials.q_arith);
-    ensure_non_zero(proving_key.polynomials.q_delta_range);
-    ensure_non_zero(proving_key.polynomials.q_lookup);
-    ensure_non_zero(proving_key.polynomials.q_elliptic);
-    ensure_non_zero(proving_key.polynomials.q_aux);
+    for (auto selector : proving_key.polynomials.get_gate_selectors()) {
+        ensure_non_zero(selector);
+    }
 
     auto& prover_polynomials = decider_pk->proving_key.polynomials;
     auto params = decider_pk->relation_parameters;
-    // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
+
+    RelationChecker<Flavor>::check_all(prover_polynomials, params);
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
 {
     using Flavor = MegaFlavor;
-    using FF = typename Flavor::FF;
 
     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
@@ -305,42 +235,20 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto& proving_key = decider_pk->proving_key;
-    auto circuit_size = proving_key.circuit_size;
 
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(proving_key.polynomials.q_arith);
-    ensure_non_zero(proving_key.polynomials.q_delta_range);
-    ensure_non_zero(proving_key.polynomials.q_lookup);
-    ensure_non_zero(proving_key.polynomials.q_elliptic);
-    ensure_non_zero(proving_key.polynomials.q_aux);
-    ensure_non_zero(proving_key.polynomials.q_busread);
-    ensure_non_zero(proving_key.polynomials.q_poseidon2_external);
-    ensure_non_zero(proving_key.polynomials.q_poseidon2_internal);
+    for (auto selector : proving_key.polynomials.get_gate_selectors()) {
+        ensure_non_zero(selector);
+    }
 
-    ensure_non_zero(proving_key.polynomials.calldata);
-    ensure_non_zero(proving_key.polynomials.calldata_read_counts);
-    ensure_non_zero(proving_key.polynomials.calldata_inverses);
-    ensure_non_zero(proving_key.polynomials.secondary_calldata);
-    ensure_non_zero(proving_key.polynomials.secondary_calldata_read_counts);
-    ensure_non_zero(proving_key.polynomials.secondary_calldata_inverses);
-    ensure_non_zero(proving_key.polynomials.return_data);
-    ensure_non_zero(proving_key.polynomials.return_data_read_counts);
-    ensure_non_zero(proving_key.polynomials.return_data_inverses);
-
+    // Check the databus entities are non-zero
+    for (auto selector : proving_key.polynomials.get_databus_entities()) {
+        ensure_non_zero(selector);
+    }
     auto& prover_polynomials = decider_pk->proving_key.polynomials;
     auto params = decider_pk->relation_parameters;
 
-    // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<DeltaRangeConstraintRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<EllipticRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<AuxiliaryRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<EccOpQueueRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<Poseidon2ExternalRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_relation<Poseidon2InternalRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_linearly_dependent_relation<Flavor, DatabusLookupRelation<FF>>(circuit_size, prover_polynomials, params);
-    check_linearly_dependent_relation<Flavor, LogDerivLookupRelation<FF>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check_all(prover_polynomials, params);
 }
