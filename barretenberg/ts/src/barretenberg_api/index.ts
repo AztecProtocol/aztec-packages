@@ -15,13 +15,25 @@ import { Fr, Fq, Point, Buffer32, Buffer128, Ptr } from '../types/index.js';
 import createDebug from 'debug';
 const log = createDebug('index-ts');
 
-function parseBigEndianU32Array(buffer: Uint8Array): number[] {
-  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-  const out: number[] = [];
-  for (let i = 0; i < buffer.byteLength; i += 4) {
-    out.push(dv.getUint32(i, false)); // false -> big-endian
-  }
-  return out;
+function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
+    const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+    let offset = 0;
+    let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+
+    if (hasSizePrefix) {
+      // Read the first 4 bytes as the size (big-endian).
+      count = dv.getUint32(0, /* littleEndian= */ false);
+      offset = 4;
+    }
+
+    const out: number[] = new Array(count);
+    for (let i = 0; i < count; i++) {
+      out[i] = dv.getUint32(offset, false);
+      offset += 4;
+    }
+
+    return out;
 }
 
 export class BarretenbergApi {
@@ -380,7 +392,7 @@ export class BarretenbergApi {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
 
-    return parseBigEndianU32Array(resultBuffer[0]);
+    return parseBigEndianU32Array(resultBuffer[0], /*hasSizePrefix=*/ true);
   }
 
   async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {

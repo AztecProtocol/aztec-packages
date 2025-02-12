@@ -115,5 +115,4 @@ WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out
 
 WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);
 
-// STARTER
 WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out);

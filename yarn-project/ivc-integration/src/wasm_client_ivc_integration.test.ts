@@ -69,13 +69,6 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelTailCircuit.bytecode,
     ];
 
-    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
-    const gateNumbers = await backend.gates();
-    logger('Gate numbers for each circuit:', gateNumbers);
-    // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
-    // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
-    // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
-
     logger('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger('built witness stack');
@@ -86,6 +79,25 @@ describe('Client IVC Integration', () => {
     expect(verifyResult).toEqual(true);
   });
 
+  it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
+    // Create ACIR bytecodes
+    const bytecodes = [
+      MockAppCreatorCircuit.bytecode,
+      MockPrivateKernelInitCircuit.bytecode,
+      MockPrivateKernelTailCircuit.bytecode,
+    ];
+
+    // Initialize AztecClientBackend with the given bytecodes
+    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+
+    // Compute the numbers of gates in each circuit
+    const gateNumbers = await backend.gates();
+    await backend.destroy();
+    logger('Gate numbers for each circuit:', gateNumbers);
+    // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
+    // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
+    // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
+  });
   // This test will verify a client IVC proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run

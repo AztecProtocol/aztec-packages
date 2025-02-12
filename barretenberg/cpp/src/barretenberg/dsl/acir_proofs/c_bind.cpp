@@ -446,8 +446,6 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
 
-// STARTER
-// Do I need the witness stack?
 WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out)
 {
 
