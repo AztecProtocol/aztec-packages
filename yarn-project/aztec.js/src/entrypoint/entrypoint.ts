@@ -1,4 +1,10 @@
-import { type AuthWitness, type FunctionCall, type HashedValues, type TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  type AuthWitness,
+  type Capsule,
+  type FunctionCall,
+  type HashedValues,
+  type TxExecutionRequest,
+} from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
@@ -17,7 +23,7 @@ export type ExecutionRequestInit = {
   /** Any transient hashed arguments for this execution */
   hashedArguments?: HashedValues[];
   /** Data passed through an oracle for this execution. */
-  capsules?: Fr[][];
+  capsules?: Capsule[];
   /** How the fee is going to be payed */
   fee: FeeOptions;
   /** An optional nonce. Used to repeat a previous tx with a higher fee so that the first one is cancelled */

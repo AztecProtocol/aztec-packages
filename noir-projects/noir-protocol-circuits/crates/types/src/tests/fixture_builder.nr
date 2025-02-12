@@ -33,6 +33,7 @@ use crate::{
         public_log::PublicLog,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, OrderedValue, scoped::Scoped},
+        tree_snapshots::TreeSnapshots,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -44,16 +45,15 @@ use crate::{
     block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
-        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, SHARED_MUTABLE_HASH_SEPARATOR,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT,
+        VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -62,7 +62,7 @@ use crate::{
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        compute_unique_siloed_note_hash, poseidon2_hash_with_separator, silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -74,15 +74,15 @@ use crate::{
     },
     public_keys::PublicKeys,
     shared_mutable::{
-        compute_scheduled_data_hash_slot, hash_scheduled_data,
         scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
     },
     storage::map::derive_storage_slot_in_map,
     tests::fixtures::{
         self, contract_functions::ContractFunction, contracts::ContractData,
         public_data_tree::empty_public_data_tree,
     },
-    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -184,6 +184,8 @@ pub struct FixtureBuilder {
 
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
+    pub start_snapshots: TreeSnapshots,
+    pub end_snapshots: TreeSnapshots,
 
     // Counters.
     pub min_revertible_side_effect_counter: u32,
@@ -440,13 +442,16 @@ impl FixtureBuilder {
                 next_index: 0,
             };
         } else {
-            let hashed_update = hash_scheduled_data(
+            let hashed_update = SharedMutableValues::new(
                 self.updated_class_id_value_change,
                 self.updated_class_id_delay_change,
-            );
+            )
+                .hash();
             let shared_mutable_slot =
                 derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
-            let hash_slot = compute_scheduled_data_hash_slot(shared_mutable_slot);
+            let hash_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
+                shared_mutable_slot,
+            );
             let hash_leaf_slot =
                 compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
             public_data_tree.update_leaf(
@@ -663,6 +668,8 @@ impl FixtureBuilder {
         result.public_inputs.reverted = reverted;
         result.public_inputs.global_variables = self.global_variables;
         result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+        result.public_inputs.start_tree_snapshots = self.start_snapshots;
+        result.public_inputs.end_tree_snapshots = self.end_snapshots;
 
         result
     }
@@ -1236,6 +1243,8 @@ impl Empty for FixtureBuilder {
             updated_class_id_value_change: ScheduledValueChange::empty(),
             updated_class_id_delay_change: ScheduledDelayChange::empty(),
             archive_tree: AppendOnlyTreeSnapshot::zero(),
+            start_snapshots: TreeSnapshots::empty(),
+            end_snapshots: TreeSnapshots::empty(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

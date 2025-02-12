@@ -49,6 +49,7 @@ import {
   TxValidationResultSchema,
 } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
@@ -410,8 +411,9 @@ export interface AztecNode
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
+  isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -581,7 +583,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
+  isValidTx: z
+    .function()
+    .args(
+      Tx.schema,
+      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
+    )
+    .returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 
@@ -601,6 +609,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
-export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
-  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
+export function createAztecNodeClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
+    namespaceMethods: 'node',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

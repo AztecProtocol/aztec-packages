@@ -5,11 +5,11 @@ import {
   AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
+  type Capsule,
   CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
   type DeployL1Contracts,
-  type Fr,
   type FunctionCall,
   type Logger,
   type PXE,
@@ -28,6 +28,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -40,7 +41,6 @@ import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
-import { getGenesisValues } from './genesis_values.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -607,7 +607,7 @@ export async function publicDeployAccounts(
     ...instances.map(instance => deployInstance(sender, instance!)),
   ]);
   const calls: FunctionCall[] = await Promise.all(fns.map(fn => fn.request()));
-  const capsules: Fr[][] = fns.map(fn => fn.getCapsules()).flat();
+  const capsules: Capsule[] = fns.map(fn => fn.getCapsules()).flat();
 
   const batch = new BatchCall(sender, calls);
   batch.addCapsules(capsules);

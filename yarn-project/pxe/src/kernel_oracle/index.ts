@@ -11,6 +11,7 @@ import {
   ScheduledDelayChange,
   ScheduledValueChange,
   UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
   UpdatedClassIdHints,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -59,9 +60,9 @@ export class KernelOracle implements ProvingDataOracle {
     return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
   }
 
-  public async getVkMembershipWitness(vk: VerificationKeyAsFields) {
-    const leafIndex = await getVKIndex(vk);
-    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex));
+  public getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = getVKIndex(vk);
+    return Promise.resolve(new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)));
   }
 
   async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
@@ -93,7 +94,7 @@ export class KernelOracle implements ProvingDataOracle {
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
 
-    const hashSlot = await computeSharedMutableHashSlot(sharedMutableSlot);
+    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceDeployer,

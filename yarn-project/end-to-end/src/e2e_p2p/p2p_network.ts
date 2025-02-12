@@ -10,13 +10,13 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { getGenesisValues } from '../fixtures/genesis_values.js';
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
   PROPOSER_PRIVATE_KEYS_START_INDEX,
@@ -261,7 +261,6 @@ export class P2PNetworkTest {
       deployAccounts(1, this.logger, false),
       async ({ deployedAccounts }, { pxe }) => {
         this.deployedAccounts = deployedAccounts;
-        this.prefilledPublicData = (await getGenesisValues(deployedAccounts.map(a => a.address))).prefilledPublicData;
         const [account] = deployedAccounts;
         this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
       },
@@ -312,6 +311,11 @@ export class P2PNetworkTest {
 
   async setup() {
     this.ctx = await this.snapshotManager.setup();
+
+    this.prefilledPublicData = (
+      await getGenesisValues(this.ctx.initialFundedAccounts.map(a => a.address))
+    ).prefilledPublicData;
+
     this.startSyncMockSystemTimeInterval();
 
     this.gasUtils = new L1TxUtilsWithBlobs(

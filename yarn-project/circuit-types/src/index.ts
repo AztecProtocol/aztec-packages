@@ -1,6 +1,7 @@
 export { CompleteAddress, GrumpkinScalar, type PartialAddress, type PublicKey } from '@aztec/circuits.js';
 export * from './auth_witness.js';
 export * from './body.js';
+export * from './capsule.js';
 export * from './function_call.js';
 export * from './global_variable_builder.js';
 export * from './interfaces/index.js';
@@ -26,3 +27,4 @@ export * from './in_block.js';
 export * from './nullifier_with_block_source.js';
 export * from './proving_error.js';
 export * from './epoch-helpers/index.js';
+export * from './versioning.js';

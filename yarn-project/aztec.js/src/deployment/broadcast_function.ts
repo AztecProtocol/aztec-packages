@@ -1,6 +1,8 @@
+import { Capsule } from '@aztec/circuit-types';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
   createUnconstrainedFunctionMembershipProof,
@@ -9,6 +11,7 @@ import {
 import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';
@@ -70,7 +73,13 @@ export async function broadcastPrivateFunction(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  fn.addCapsule(bytecode);
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      bytecode,
+    ),
+  );
 
   return fn;
 }
@@ -125,7 +134,13 @@ export async function broadcastUnconstrainedFunction(
     unconstrainedFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  fn.addCapsule(bytecode);
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      bytecode,
+    ),
+  );
 
   return fn;
 }

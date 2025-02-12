@@ -88,6 +88,7 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_hints(self) -> ResetOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+        /// Safety: This is only used in tests.
         unsafe {
             generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
         }

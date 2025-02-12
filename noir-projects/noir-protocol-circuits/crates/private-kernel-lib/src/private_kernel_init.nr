@@ -61,6 +61,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         }
 
         // Generate output.
+        /// Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.

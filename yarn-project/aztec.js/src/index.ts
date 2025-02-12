@@ -65,6 +65,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   Body,
+  Capsule,
   Comparator,
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,

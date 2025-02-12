@@ -11,6 +11,7 @@ use dep::types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -95,6 +96,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         };
 
         // Generate output.
+        /// Safety: The output is validated below by ResetOutputValidator.
         let (output, output_hints) = unsafe {
             self.generate_output(
                 validation_request_processor,
@@ -149,13 +151,13 @@ mod tests {
             note_hash::ScopedNoteHash,
             nullifier::ScopedNullifier,
             private_log::PrivateLogData,
-            side_effect::{OrderedValue, scoped::Scoped},
+            side_effect::{Ordered, OrderedValue, scoped::Scoped},
         },
         address::AztecAddress,
         hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        traits::is_empty_array,
+        traits::{Empty, FromField, is_empty_array},
         utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
@@ -235,6 +237,7 @@ mod tests {
             let mut nullifier = self.previous_kernel.nullifiers.get(nullifier_index);
             nullifier.nullifier.note_hash = note_hash.value;
             self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
+            /// Safety: this is only used in tests.
             let num_hints = unsafe {
                 find_index_hint(
                     self.transient_data_index_hints,

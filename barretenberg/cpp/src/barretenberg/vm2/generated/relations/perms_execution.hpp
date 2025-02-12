@@ -66,6 +66,11 @@ template <typename FF_>
 class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy_dynamic_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_dummy_dynamic_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+    }
 };
 template <typename FF_> using perm_dummy_dynamic = GenericPermutation<perm_dummy_dynamic_permutation_settings, FF_>;
 

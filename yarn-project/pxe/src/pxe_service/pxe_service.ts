@@ -42,11 +42,7 @@ import type {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import {
-  computeContractAddressFromInstance,
-  computeContractClassId,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
@@ -139,6 +135,10 @@ export class PXEService implements PXE {
 
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return this.db.getAuthWitness(messageHash);
+  }
+
+  public addCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]) {
+    return this.db.dbStore(contract, storageSlot, capsule);
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -236,7 +236,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+    const { id: contractClassId } = await getContractClassFromArtifact(artifact);
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -259,7 +259,7 @@ export class PXEService implements PXE {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
-      await this.db.addContractArtifact(contractClassId, artifact);
+      await this.db.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -565,7 +565,8 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx, true))) {
+        const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+        if (validationResult.result === 'invalid') {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }

@@ -93,7 +93,7 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
-      [...request.capsules],
+      request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.db,

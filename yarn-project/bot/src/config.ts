@@ -1,3 +1,4 @@
+import { type ComponentsVersions } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
@@ -8,6 +9,8 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { z } from 'zod';
 
@@ -220,4 +223,11 @@ export function getBotConfigFromEnv(): BotConfig {
 
 export function getBotDefaultConfig(): BotConfig {
   return getDefaultConfig<BotConfig>(botConfigMappings);
+}
+
+export function getVersions(): Partial<ComponentsVersions> {
+  return {
+    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
+  };
 }

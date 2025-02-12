@@ -70,7 +70,7 @@ describe('guides/writing_an_account_contract', () => {
     // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
-    // docs:start:account-contract-works
+    // docs:start:token-contract-deploy
     const token = await TokenContract.deploy(fundedWallet, fundedWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
       .send()
       .deployed();
@@ -82,7 +82,7 @@ describe('guides/writing_an_account_contract', () => {
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
-    // docs:end:account-contract-works
+    // docs:end:token-contract-deploy
     expect(balance).toEqual(50n);
 
     // docs:start:account-contract-fails

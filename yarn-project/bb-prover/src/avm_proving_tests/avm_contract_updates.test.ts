@@ -7,6 +7,7 @@ import {
   ScheduledDelayChange,
   ScheduledValueChange,
   UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
@@ -55,10 +56,10 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     await valueChange.writeToTree(sharedMutableSlot, writeToTree);
     await delayChange.writeToTree(sharedMutableSlot, writeToTree);
 
-    const updatePreimage = [...valueChange.toFields(), delayChange.toField()];
+    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
     const updateHash = await poseidon2Hash(updatePreimage);
 
-    const hashSlot = await computeSharedMutableHashSlot(sharedMutableSlot);
+    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
 
     await writeToTree(hashSlot, updateHash);
   };

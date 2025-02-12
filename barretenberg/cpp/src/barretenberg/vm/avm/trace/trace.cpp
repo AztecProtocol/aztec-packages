@@ -185,7 +185,7 @@ void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, 
     PublicDataReadTreeHint read_hint = instance.update_membership_hint;
 
     const FF shared_mutable_slot = Poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, instance.address });
-    const FF hash_slot = Poseidon2::hash({ SHARED_MUTABLE_HASH_SEPARATOR, shared_mutable_slot });
+    const FF hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
     const FF hash_leaf_slot =
         AvmMerkleTreeTraceBuilder::unconstrained_compute_public_tree_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
     bool exists = read_hint.leaf_preimage.slot == hash_leaf_slot;

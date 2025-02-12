@@ -1,9 +1,7 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR } from '../../constants.gen.js';
-
+// TODO(Alvaro) make this generic in the length of previous & post so it can be used with other things that are not 1 field sized
 export class ScheduledValueChange {
   constructor(public previous: Fr, public post: Fr, public blockOfChange: number) {}
 
@@ -33,12 +31,12 @@ export class ScheduledValueChange {
     return this.previous.isZero() && this.blockOfChange === 0 && this.post.isZero();
   }
 
-  static async computeSlot(sharedMutableSlot: Fr) {
-    return await poseidon2HashWithSeparator([sharedMutableSlot], SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR);
+  static computeSlot(sharedMutableSlot: Fr) {
+    return sharedMutableSlot.add(new Fr(1));
   }
 
   static async readFromTree(sharedMutableSlot: Fr, reader: (storageSlot: Fr) => Promise<Fr>) {
-    const baseValueSlot = await this.computeSlot(sharedMutableSlot);
+    const baseValueSlot = this.computeSlot(sharedMutableSlot);
     const fields = [];
     for (let i = 0; i < 3; i++) {
       fields.push(await reader(baseValueSlot.add(new Fr(i))));
@@ -47,7 +45,7 @@ export class ScheduledValueChange {
   }
 
   async writeToTree(sharedMutableSlot: Fr, writer: (storageSlot: Fr, value: Fr) => Promise<void>) {
-    const baseValueSlot = await ScheduledValueChange.computeSlot(sharedMutableSlot);
+    const baseValueSlot = ScheduledValueChange.computeSlot(sharedMutableSlot);
     const fields = this.toFields();
     for (let i = 0; i < 3; i++) {
       await writer(baseValueSlot.add(new Fr(i)), fields[i]);

@@ -280,6 +280,7 @@ export default {
       items: [
         "protocol-specs/data-publication-and-availability/overview",
         "protocol-specs/data-publication-and-availability/published-data",
+        "protocol-specs/data-publication-and-availability/blobs",
       ],
     },
     {

@@ -1,6 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
+  type Capsule,
   CountedContractClassLog,
   CountedPublicExecutionRequest,
   Note,
@@ -70,7 +71,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
-    capsules: Fr[][],
+    capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,

@@ -1,5 +1,4 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
@@ -18,16 +17,18 @@ export { sequencerClientConfigMappings, SequencerClientConfig };
  * The configuration the aztec node.
  */
 export type AztecNodeConfig = ArchiverConfig &
-  BlobSinkConfig &
   SequencerClientConfig &
   ValidatorClientConfig &
   ProverClientConfig &
   WorldStateConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
-  P2PConfig & {
+  P2PConfig &
+  DataStoreConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
-  } & DataStoreConfig;
+    /** Whether to populate the genesis state with initial fee juice for the test accounts */
+    testAccounts: boolean;
+  };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...archiverConfigMappings,
@@ -37,10 +38,14 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
   ...dataConfigMappings,
-  ...blobSinkConfigMapping,
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
+    ...booleanConfigHelper(),
+  },
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
     ...booleanConfigHelper(),
   },
 };

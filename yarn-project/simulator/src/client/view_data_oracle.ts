@@ -1,6 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
+  type Capsule,
   type CompleteAddress,
   type MerkleTreeId,
   type NoteStatus,
@@ -31,7 +32,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Fr[][],
+    protected readonly capsules: Capsule[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
     protected log = createLogger('simulator:client_view_context'),
@@ -161,19 +162,6 @@ export class ViewDataOracle extends TypedOracle {
     return Promise.resolve(
       this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ?? this.db.getAuthWitness(messageHash),
     );
-  }
-
-  /**
-   * Pops a capsule from the capsule dispenser
-   * @returns The capsule values
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   */
-  public override popCapsule(): Promise<Fr[]> {
-    const capsule = this.capsules.pop();
-    if (!capsule) {
-      throw new Error('No capsules available.');
-    }
-    return Promise.resolve(capsule);
   }
 
   /**
@@ -341,12 +329,15 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.dbStore(this.contractAddress, slot, values);
   }
 
-  public override dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public override async dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.dbLoad(this.contractAddress, slot);
+    return (
+      this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
+      (await this.db.dbLoad(this.contractAddress, slot))
+    );
   }
 
   public override dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {

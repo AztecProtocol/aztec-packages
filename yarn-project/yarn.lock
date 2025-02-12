@@ -96,6 +96,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -236,7 +237,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec@workspace:aztec":
+"@aztec/aztec@workspace:^, @aztec/aztec@workspace:aztec":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec@workspace:aztec"
   dependencies:
@@ -426,6 +427,7 @@ __metadata:
     "@aztec/entrypoints": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -472,6 +474,7 @@ __metadata:
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
+    "@types/koa": "npm:^2.15.0"
     "@types/lodash.clonedeep": "npm:^4.5.7"
     "@types/lodash.isequal": "npm:^4.5.6"
     "@types/lodash.omit": "npm:^4.5.9"
@@ -561,6 +564,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"
@@ -610,6 +614,7 @@ __metadata:
     0x: "npm:^5.7.0"
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
+    "@aztec/aztec": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
@@ -1040,6 +1045,8 @@ __metadata:
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
     "@chainsafe/enr": "npm:3.0.0"
@@ -1177,7 +1184,9 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -1399,7 +1408,6 @@ __metadata:
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/simulator": "workspace:^"
-    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -1481,6 +1489,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/native": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"

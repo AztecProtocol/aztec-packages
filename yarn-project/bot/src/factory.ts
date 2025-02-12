@@ -1,20 +1,20 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
-  FeeJuicePaymentMethod,
   createLogger,
   createPXEClient,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
-import { type BotConfig, SupportedTokenContracts } from './config.js';
+import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
@@ -41,7 +41,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
+    this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -61,28 +61,17 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
-    const salt = Fr.ONE;
-    const signingKey = deriveSigningKey(this.config.senderPrivateKey);
-    const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
-    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
-    if (isInit) {
-      this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
-      const wallet = await account.register();
-      return wallet;
+    let [wallet] = await getDeployedTestAccountsWallets(this.pxe);
+    if (wallet) {
+      this.log.info(`Using funded test account: ${wallet.getAddress()}`);
     } else {
-      this.log.info(`Initializing account at ${account.getAddress().toString()}`);
-      const paymentMethod = new FeeJuicePaymentMethod(account.getAddress());
-      const sentTx = account.deploy({ fee: { paymentMethod } });
-      const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      if (this.config.flushSetupTransactions) {
-        this.log.verbose('Flushing transactions');
-        await this.node!.flushTxs();
-      }
-      this.log.verbose('Waiting for account deployment to settle');
-      await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
-      return account.getWallet();
+      this.log.info('Registering funded test account');
+      const [account] = await getInitialTestAccounts();
+      const manager = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+      wallet = await manager.register();
+      this.log.info(`Funded test account registered: ${wallet.getAddress()}`);
     }
+    return wallet;
   }
 
   /**

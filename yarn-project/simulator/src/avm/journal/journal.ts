@@ -16,6 +16,7 @@ import {
   ScheduledValueChange,
   SerializableContractInstance,
   UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import {
@@ -749,7 +750,7 @@ export class AvmPersistableStateManager {
   async getContractUpdateHints(contractAddress: AztecAddress) {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
 
-    const hashSlot = await computeSharedMutableHashSlot(sharedMutableSlot);
+    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
 
     const {
       value: hash,
@@ -766,7 +767,7 @@ export class AvmPersistableStateManager {
 
     const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
 
-    const updatePreimage = [...valueChange.toFields(), delayChange.toField()];
+    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
 
     if (!hash.isZero()) {
       const hashed = await poseidon2Hash(updatePreimage);

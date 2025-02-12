@@ -397,7 +397,7 @@ export class PublicProcessor implements Traceable {
    * This is used in private only txs, since for txs with public calls
    * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite | undefined> {
+  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);

@@ -1,8 +1,6 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR } from '../../constants.gen.js';
 import { type UInt32 } from '../shared.js';
 
 export class ScheduledDelayChange {
@@ -45,17 +43,17 @@ export class ScheduledDelayChange {
     return this.toField().isEmpty();
   }
 
-  static async computeSlot(sharedMutableSlot: Fr) {
-    return await poseidon2HashWithSeparator([sharedMutableSlot], SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR);
+  static computeSlot(sharedMutableSlot: Fr) {
+    return sharedMutableSlot;
   }
 
   static async readFromTree(sharedMutableSlot: Fr, reader: (storageSlot: Fr) => Promise<Fr>) {
-    const delaySlot = await this.computeSlot(sharedMutableSlot);
+    const delaySlot = this.computeSlot(sharedMutableSlot);
     return ScheduledDelayChange.fromField(await reader(delaySlot));
   }
 
   async writeToTree(sharedMutableSlot: Fr, writer: (storageSlot: Fr, value: Fr) => Promise<void>) {
-    const delaySlot = await ScheduledDelayChange.computeSlot(sharedMutableSlot);
+    const delaySlot = ScheduledDelayChange.computeSlot(sharedMutableSlot);
     await writer(delaySlot, this.toField());
   }
 }

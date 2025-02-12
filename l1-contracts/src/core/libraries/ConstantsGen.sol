@@ -123,11 +123,9 @@ library Constants {
   uint256 internal constant MULTI_CALL_ENTRYPOINT_ADDRESS = 4;
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant ROUTER_ADDRESS = 6;
+  uint256 internal constant REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT = 79025834455612;
   uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
   uint256 internal constant UPDATED_CLASS_IDS_SLOT = 1;
-  uint256 internal constant SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR = 0;
-  uint256 internal constant SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR = 1;
-  uint256 internal constant SHARED_MUTABLE_HASH_SEPARATOR = 2;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =
@@ -312,4 +310,6 @@ library Constants {
   uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
   uint256 internal constant TWO_POW_64 = 18446744073709551616;
   uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
+  uint256 internal constant UPDATES_SCHEDULED_VALUE_CHANGE_LEN = 3;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 4;
 }

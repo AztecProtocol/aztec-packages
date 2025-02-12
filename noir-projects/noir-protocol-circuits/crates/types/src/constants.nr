@@ -184,14 +184,14 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Randomly chosen slot for the bytecode capsule.
+pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 
 // Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
-pub global SHARED_MUTABLE_VALUE_CHANGE_SEPARATOR: u32 = 0;
-pub global SHARED_MUTABLE_DELAY_CHANGE_SEPARATOR: u32 = 1;
-pub global SHARED_MUTABLE_HASH_SEPARATOR: u32 = 2;
 
 // CANONICAL DEFAULT KEYS
 // This below are:
@@ -774,6 +774,9 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 pub global TWO_POW_64: Field = 18446744073709551616;
 
 pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
+pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 3;
+// +1 for the delay change
+pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = UPDATES_SCHEDULED_VALUE_CHANGE_LEN + 1;
 
 mod test {
     use crate::constants::{

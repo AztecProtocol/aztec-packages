@@ -23,7 +23,7 @@ pub mod shared_mutable;
 pub mod content_commitment;
 pub mod block_header;
 
-mod tests;
+pub(crate) mod tests;
 
 pub mod state_reference;
 pub mod partial_state_reference;

@@ -1,4 +1,4 @@
-use crate::traits::{Empty, FromField, Packable, ToField};
+use crate::{traits::{Empty, Packable}, utils::arrays};
 use std::cmp::min;
 
 mod test;
@@ -139,19 +139,29 @@ impl<T> ScheduledValueChange<T> {
     }
 }
 
-impl<T> Packable<3> for ScheduledValueChange<T>
+// We store 2 Ts and one extra field for the block of change.
+impl<T, let N: u32> Packable<2 * N + 1> for ScheduledValueChange<T>
 where
-    T: ToField + FromField,
+    T: Packable<N>,
 {
-    fn pack(self) -> [Field; 3] {
-        [self.pre.to_field(), self.post.to_field(), self.block_of_change.to_field()]
+    fn pack(self) -> [Field; 2 * N + 1] {
+        let mut packed = [0; 2 * N + 1];
+        let pre_packed = self.pre.pack();
+        let post_packed = self.post.pack();
+
+        for i in 0..N {
+            packed[i] = pre_packed[i];
+            packed[N + i] = post_packed[i];
+        }
+        packed[2 * N] = self.block_of_change.to_field();
+        packed
     }
 
-    fn unpack(input: [Field; 3]) -> Self {
+    fn unpack(input: [Field; 2 * N + 1]) -> Self {
         Self {
-            pre: FromField::from_field(input[0]),
-            post: FromField::from_field(input[1]),
-            block_of_change: FromField::from_field(input[2]),
+            pre: T::unpack(arrays::subarray(input, 0)),
+            post: T::unpack(arrays::subarray(input, N)),
+            block_of_change: input[2 * N] as u32,
         }
     }
 }

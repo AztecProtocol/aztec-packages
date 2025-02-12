@@ -10,7 +10,6 @@ import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/s
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
-import { computeContractClassId } from '../contract/contract_class_id.js';
 import { PublicKeys } from '../types/public_keys.js';
 import {
   computeContractAddressFromInstance,
@@ -120,7 +119,6 @@ export async function getContractInstanceFromDeployParams(
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
   const contractClass = await getContractClassFromArtifact(artifact);
-  const contractClassId = await computeContractClassId(contractClass);
   const initializationHash =
     constructorArtifact && opts?.skipArgsDecoding
       ? await computeInitializationHashFromEncodedArgs(
@@ -131,8 +129,8 @@ export async function getContractInstanceFromDeployParams(
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
-    currentContractClassId: contractClassId,
-    originalContractClassId: contractClassId,
+    currentContractClassId: contractClass.id,
+    originalContractClassId: contractClass.id,
     initializationHash,
     publicKeys,
     salt,

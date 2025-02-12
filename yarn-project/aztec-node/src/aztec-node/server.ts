@@ -168,11 +168,6 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
-    // we identify the P2P transaction protocol by using the rollup contract address.
-    // this may well change in future
-    const rollupAddress = config.l1Contracts.rollupAddress;
-    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
-
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
       config,
@@ -912,7 +907,10 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
   }
 
-  public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<TxValidationResult> {
+  public async isValidTx(
+    tx: Tx,
+    { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
+  ): Promise<TxValidationResult> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
     const verifier = isSimulation ? undefined : this.proofVerifier;
@@ -921,6 +919,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       l1ChainId: this.l1ChainId,
       setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
+      skipFeeEnforcement,
     });
 
     return await validator.validateTx(tx);

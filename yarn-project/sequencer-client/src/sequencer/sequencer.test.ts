@@ -28,6 +28,7 @@ import {
   GasFees,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
@@ -107,7 +108,11 @@ describe('sequencer', () => {
   };
 
   const processTxs = async (txs: Tx[]) => {
-    return await Promise.all(txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, globalVariables)));
+    return await Promise.all(
+      txs.map(tx =>
+        makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
+      ),
+    );
   };
 
   const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {
@@ -185,6 +190,9 @@ describe('sequencer', () => {
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
       return Promise.resolve([undefined]);
+    });
+    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
+      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
     });
 
     p2p = mock<P2P>({

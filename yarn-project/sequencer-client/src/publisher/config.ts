@@ -1,3 +1,4 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { type L1ReaderConfig, type L1TxUtilsConfig, NULL_KEY, l1TxUtilsConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -25,17 +26,13 @@ export type TxSenderConfig = L1ReaderConfig & {
 /**
  * Configuration of the L1Publisher.
  */
-export type PublisherConfig = L1TxUtilsConfig & {
-  /**
-   * The interval to wait between publish retries.
-   */
-  l1PublishRetryIntervalMS: number;
-
-  /**
-   * The URL of the blob sink.
-   */
-  blobSinkUrl?: string;
-};
+export type PublisherConfig = L1TxUtilsConfig &
+  BlobSinkConfig & {
+    /**
+     * The interval to wait between publish retries.
+     */
+    l1PublishRetryIntervalMS: number;
+  };
 
 export const getTxSenderConfigMappings: (
   scope: 'PROVER' | 'SEQ',
@@ -89,11 +86,7 @@ export const getPublisherConfigMappings: (
     description: 'The interval to wait between publish retries.',
   },
   ...l1TxUtilsConfigMappings,
-  blobSinkUrl: {
-    env: 'BLOB_SINK_URL',
-    description: 'The URL of the blob sink.',
-    parseEnv: (val?: string) => val,
-  },
+  ...blobSinkConfigMapping,
 });
 
 export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {

@@ -26,6 +26,7 @@ import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
+import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { AuthWitness } from '../auth_witness.js';
@@ -109,6 +110,10 @@ describe('PXESchema', () => {
   it('getAuthWitness', async () => {
     const result = await context.client.getAuthWitness(Fr.random());
     expect(result).toEqual([expect.any(Fr)]);
+  });
+
+  it('addCapsule', async () => {
+    await context.client.addCapsule(address, Fr.random(), times(3, Fr.random));
   });
 
   it('registerAccount', async () => {
@@ -343,6 +348,12 @@ class MockPXE implements PXE {
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     expect(messageHash).toBeInstanceOf(Fr);
     return Promise.resolve([Fr.random()]);
+  }
+  addCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
+    expect(contract).toBeInstanceOf(AztecAddress);
+    expect(storageSlot).toBeInstanceOf(Fr);
+    expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
+    return Promise.resolve();
   }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);

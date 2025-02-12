@@ -1,9 +1,16 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { Fr, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  Fr,
+  GENESIS_ARCHIVE_ROOT,
+  GENESIS_BLOCK_HASH,
+  PublicDataTreeLeaf,
+} from '@aztec/circuits.js';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 
 import { NativeWorldStateService } from './native/index.js';
 
-export async function generateGenesisValues(prefilledPublicData: PublicDataTreeLeaf[]) {
+async function generateGenesisValues(prefilledPublicData: PublicDataTreeLeaf[]) {
   if (!prefilledPublicData.length) {
     return {
       genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
@@ -25,5 +32,33 @@ export async function generateGenesisValues(prefilledPublicData: PublicDataTreeL
   return {
     genesisArchiveRoot,
     genesisBlockHash,
+  };
+}
+
+export const defaultInitialAccountFeeJuice = new Fr(10n ** 22n);
+
+export async function getGenesisValues(
+  initialAccounts: AztecAddress[],
+  initialAccountFeeJuice = defaultInitialAccountFeeJuice,
+  genesisPublicData: PublicDataTreeLeaf[] = [],
+) {
+  // Top up the accounts with fee juice.
+  let prefilledPublicData = await Promise.all(
+    initialAccounts.map(
+      async address => new PublicDataTreeLeaf(await computeFeePayerBalanceLeafSlot(address), initialAccountFeeJuice),
+    ),
+  );
+
+  // Add user-defined public data
+  prefilledPublicData = prefilledPublicData.concat(genesisPublicData);
+
+  prefilledPublicData.sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
+
+  const { genesisBlockHash, genesisArchiveRoot } = await generateGenesisValues(prefilledPublicData);
+
+  return {
+    genesisArchiveRoot,
+    genesisBlockHash,
+    prefilledPublicData,
   };
 }

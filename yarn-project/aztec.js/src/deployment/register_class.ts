@@ -1,5 +1,12 @@
-import { MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { Capsule } from '@aztec/circuit-types';
+import {
+  Fr,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
 import { type ContractArtifact, bufferAsFields } from '@aztec/foundation/abi';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';
@@ -28,7 +35,13 @@ export async function registerContractClass(
   );
 
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-  fn.addCapsule(encodedBytecode);
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      encodedBytecode,
+    ),
+  );
 
   return fn;
 }

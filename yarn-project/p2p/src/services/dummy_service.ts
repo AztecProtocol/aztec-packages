@@ -88,6 +88,8 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
+  public bootstrapNodes: string[] = [];
+
   /**
    * Starts the dummy implementation.
    * @returns A resolved promise.

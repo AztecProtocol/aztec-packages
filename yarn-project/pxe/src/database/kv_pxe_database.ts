@@ -641,7 +641,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    // In order to support overlaping source and destination regions we need to check the relative positions of source
+    // In order to support overlapping source and destination regions, we need to check the relative positions of source
     // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
     // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
     // indexes to avoid reading elements that've been overwritten.

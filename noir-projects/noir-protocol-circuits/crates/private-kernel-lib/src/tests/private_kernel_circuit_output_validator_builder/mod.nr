@@ -12,9 +12,11 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
+        side_effect::OrderedValue,
     },
     constants::{DEFAULT_UPDATE_DELAY, PRIVATE_KERNEL_INIT_INDEX},
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
     transaction::tx_request::TxRequest,
 };
 
