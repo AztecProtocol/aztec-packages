@@ -45,3 +45,13 @@ smt_circuit::STerm shr(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver:
  * @return Result of (v0 << v1) without truncation
  */
 smt_circuit::STerm shl(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver);
+
+/**
+ * @brief Signed division in noir-style
+ * @param v0 Numerator
+ * @param v1 Denominator
+ * @param bit_size bit sizes of numerator and denominator
+ * @param solver SMT solver instance
+ * @return Result of (v0 / v1)
+ */
+smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size, smt_solver::Solver* solver);
