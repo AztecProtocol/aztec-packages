@@ -169,6 +169,8 @@ function build {
 }
 
 function release {
+  check_release
+
   projects=(
     barretenberg/cpp
     barretenberg/ts
