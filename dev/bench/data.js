@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739374457594,
+  "lastUpdate": 1739376094551,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac26e1dfebf7d9463065fa02a03d0a6eb779e591",
-          "message": "chore(avm): better namespace reporting (#11535)\n\nUsing the prefix until _ didn't always work, so I use the relation names now.\n\n```\nColumn sizes per namespace:\n  precomputed: 2097152 (~2^21)\n  execution: 6 (~2^3)\n  alu: 1 (~2^0)\n  bc_decomposition: 61945 (~2^16)\n  bc_retrieval: 1 (~2^0)\n  instr_fetching: 6 (~2^3)\n  range_check: 1 (~2^0)\n  lookup: 196608 (~2^18)\n  perm: 6 (~2^3)\n```",
-          "timestamp": "2025-01-27T18:14:57Z",
-          "tree_id": "9519e8f337b68bb59e6cc655c8b8bce293e6e528",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac26e1dfebf7d9463065fa02a03d0a6eb779e591"
-        },
-        "date": 1738002645812,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18924.700506999983,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15959.697497 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21547.21702300003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19306.798523 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4062.360423000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3738.07984 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75660.799069,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75660799000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14659.975545000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14659976000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3063890200,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3063890200 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133734462,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133734462 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 133439767,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133439767 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fdc2042d318eb00082c1f014066d4f177c5f72a1",
+          "message": "fix: Empty blocks can now be unwound (#11920)\n\nThis PR has the following changes:\r\n\r\n1. Fixes an issue where empty blocks added from the genesis state could\r\nnot be unwound.\r\n2. Refactors the retrieval of meta data so a transaction is not required\r\nif just reading uncommitted data.\r\n3. We now provide a specific method for committing the genesis state.",
+          "timestamp": "2025-02-12T15:26:54Z",
+          "tree_id": "53f8f4c77f4c3b0288b4349b8febb3eab0b2f5cc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fdc2042d318eb00082c1f014066d4f177c5f72a1"
+        },
+        "date": 1739376087227,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20615.668932000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17638.683384 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21653.675975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19037.451891 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4494.92410000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4212.206265 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80197.17479,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80197175000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13468.419773,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13468420000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2476523364,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2476523364 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141588284,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141588284 ns\nthreads: 1"
           }
         ]
       }
