@@ -12,8 +12,6 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 36;
-
 // This returns a number whose first n bits are set to 1.
 uint64_t as_unary(uint32_t n)
 {
@@ -32,10 +30,10 @@ void BytecodeTraceBuilder::process_decomposition(
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
-    uint8_t id = 0;
 
     for (const auto& event : events) {
         const auto& bytecode = *event.bytecode;
+        const auto id = event.bytecode_id;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
         auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
@@ -137,7 +135,6 @@ void BytecodeTraceBuilder::process_decomposition(
                 } });
             row++;
         }
-        id++;
     }
 }
 
