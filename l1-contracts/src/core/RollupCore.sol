@@ -27,7 +27,6 @@ import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {EpochProofLib} from "@aztec/core/libraries/RollupLibs/EpochProofLib.sol";
 import {
   ExtRollupLib,
   ValidateHeaderArgs,
@@ -53,7 +52,7 @@ struct Config {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
-  uint256 aztecEpochProofClaimWindowInL2Slots;
+  uint256 aztecProofSubmissionWindow;
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
@@ -150,8 +149,7 @@ contract RollupCore is
   ) Ownable(_ares) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
-    PROOF_SUBMISSION_WINDOW =
-      _config.aztecEpochDuration + _config.aztecEpochProofClaimWindowInL2Slots;
+    PROOF_SUBMISSION_WINDOW = _config.aztecProofSubmissionWindow;
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
@@ -358,7 +356,7 @@ contract RollupCore is
     // Mark that the prover has submitted a proof
     // Only do this if we are canonical for both fees and block rewards.
     if (interim.isFeeCanonical && interim.isRewardDistributorCanonical) {
-      interim.prover = address(bytes20(_args.args[6]));
+      interim.prover = address(bytes20(_args.args[6] << 96)); // The address is left padded within the bytes32
 
       interim.length = _args.end - _args.start + 1;
       EpochRewards storage er = epochRewards[endEpoch];
@@ -405,7 +403,8 @@ contract RollupCore is
           interim.fee -= interim.proverFee;
 
           er.rewards += interim.proverFee;
-          sequencerRewards[address(bytes20(_args.fees[i * 2]))] +=
+          // The address is left padded within the bytes32
+          sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
             (interim.blockRewardSequencer + interim.fee);
         }
 

@@ -136,7 +136,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecEpochProofClaimWindowInL2Slots: 16,
+        aztecProofSubmissionWindow: EPOCH_DURATION * 2,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
@@ -452,7 +452,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
           burnSum += manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
-          fees[feeIndex * 2] = bytes32(bytes20(coinbase));
+          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 

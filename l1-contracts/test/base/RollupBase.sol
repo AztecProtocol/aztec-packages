@@ -72,7 +72,7 @@ contract RollupBase is DecoderBase {
       endFull.block.blockHash,
       bytes32(0), // WHAT ?
       bytes32(0), // WHAT ?
-      bytes32(bytes20(_prover))
+      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
     ];
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
@@ -80,7 +80,7 @@ contract RollupBase is DecoderBase {
 
     uint256 size = endBlockNumber - startBlockNumber + 1;
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(bytes20(("sequencer")));
+      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the bytes32
       fees[i * 2 + 1] = bytes32(uint256(blockFees[startBlockNumber + i]));
 
       string memory blockName = string.concat(_name, Strings.toString(startBlockNumber + i));
