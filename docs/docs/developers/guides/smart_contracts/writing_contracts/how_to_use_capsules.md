@@ -37,9 +37,9 @@ This supports overlapping source and destination regions.
 
 Note that all values are scoped per contract address, so external contracts cannot access them.
 
-### 4. Using CapsulesArray
+### 4. Using CapsuleArray
 
-The `CapsulesArray<T>` type provides a dynamically sized array backed by capsules.
+The `CapsuleArray<T>` type provides a dynamically sized array backed by capsules.
 It handles the storage layout and management automatically.
 The array stores its length at a base slot, with elements stored in consecutive slots after it.
 
@@ -51,4 +51,4 @@ Key functions:
 - `get(index)` - Retrieves the value at the given index
 - `remove(index)` - Removes an element, shifting subsequent elements to maintain contiguous storage
 
-<!-- TODO: Document actual use case of CapsulesArray here once it's actually used. -->
+<!-- TODO: Document actual use case of CapsuleArray here once it's actually used. -->

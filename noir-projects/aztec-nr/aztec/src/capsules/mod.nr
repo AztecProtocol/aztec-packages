@@ -4,7 +4,7 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 /// A dynamically sized array backed by PXE's non-volatile database (called capsules). Values are persisted until
 /// deleted, so they can be e.g. stored during simulation of a transaction and later retrieved during witness
 /// generation. All values are scoped per contract address, so external contracts cannot access them.
-pub struct CapsulesArray<T> {
+pub struct CapsuleArray<T> {
     contract_address: AztecAddress,
     /// The base slot is where the array length is stored in capsules. Array elements are stored in consecutive slots
     /// after the base slot. For example, with base slot 5: the length is at slot 5, the first element (index 0) is at
@@ -12,11 +12,11 @@ pub struct CapsulesArray<T> {
     base_slot: Field,
 }
 
-impl<T, let N: u32> CapsulesArray<T>
+impl<T, let N: u32> CapsuleArray<T>
 where
     T: Serialize<N> + Deserialize<N>,
 {
-    /// Returns a CapsulesArray connected to a contract's capsules at a base slot. Array elements are stored in
+    /// Returns a CapsuleArray connected to a contract's capsules at a base slot. Array elements are stored in
     /// contiguous slots following the base slot, so there should be sufficient space between array base slots to
     /// accommodate elements. A reasonable strategy is to make the base slot a hash of a unique value.
     pub unconstrained fn at(contract_address: AztecAddress, base_slot: Field) -> Self {
@@ -44,7 +44,7 @@ where
 
     /// Retrieves the value stored in the array at `index`. Throws if the index is out of bounds.
     pub unconstrained fn get(self, index: u32) -> T {
-        assert(index < self.len(), "Attempted to read past the length of a CapsulesArray");
+        assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
         capsules::load(self.contract_address, self.slot_at(index)).unwrap()
     }
@@ -52,7 +52,7 @@ where
     /// Deletes the value stored in the array at `index`. Throws if the index is out of bounds.
     pub unconstrained fn remove(self, index: u32) {
         let current_length = self.len();
-        assert(index < current_length, "Attempted to delete past the length of a CapsulesArray");
+        assert(index < current_length, "Attempted to delete past the length of a CapsuleArray");
 
         // In order to be able to remove elements at arbitrary indices, we need to shift the entire contents of the
         // array past the removed element one slot backward so that we don't end up with a gap and preserve the
@@ -82,7 +82,7 @@ where
 
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::CapsulesArray;
+    use super::CapsuleArray;
     use protocol_types::address::AztecAddress;
 
     global SLOT: Field = 1230;
@@ -95,15 +95,15 @@ mod test {
     unconstrained fn empty_array() {
         let contract_address = setup();
 
-        let array: CapsulesArray<Field> = CapsulesArray::at(contract_address, SLOT);
+        let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT);
         assert_eq(array.len(), 0);
     }
 
-    #[test(should_fail_with = "Attempted to read past the length of a CapsulesArray")]
+    #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn empty_array_read() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         let _: Field = array.get(0);
     }
 
@@ -111,18 +111,18 @@ mod test {
     unconstrained fn array_push() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         array.push(5);
 
         assert_eq(array.len(), 1);
         assert_eq(array.get(0), 5);
     }
 
-    #[test(should_fail_with = "Attempted to read past the length of a CapsulesArray")]
+    #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn read_past_len() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         array.push(5);
 
         let _ = array.get(1);
@@ -132,7 +132,7 @@ mod test {
     unconstrained fn array_remove_last() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(5);
         array.remove(0);
@@ -144,7 +144,7 @@ mod test {
     unconstrained fn array_remove_some() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(7);
         array.push(8);
@@ -166,7 +166,7 @@ mod test {
     unconstrained fn array_remove_all() {
         let contract_address = setup();
 
-        let array = CapsulesArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(7);
         array.push(8);
