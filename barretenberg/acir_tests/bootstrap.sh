@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}

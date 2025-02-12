@@ -1105,6 +1105,7 @@ int main(int argc, char* argv[])
                                          "Construct a circuit from the given bytecode (in particular, expand black box "
                                          "functions) and return the gate count information.");
 
+    add_verbose_flag(gates);
     add_bytecode_path_option(gates);
 
     /***************************************************************************************************************
@@ -1112,11 +1113,12 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
+    add_verbose_flag(prove);
     add_scheme_option(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
     add_output_data_option(prove);
-    add_output_content_option(prove);
+    add_output_content_option(prove)->default_val("proof");
     add_input_type_option(prove);
     add_zk_option(prove);
     add_ipa_accumulation_flag(prove);
@@ -1125,6 +1127,7 @@ int main(int argc, char* argv[])
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
+    add_recursive_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -1137,6 +1140,7 @@ int main(int argc, char* argv[])
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
                            "to expand ACIR black box opcodes), and no proof is constructed.");
 
+    add_verbose_flag(write_vk);
     add_scheme_option(write_vk);
     add_output_data_option(write_vk);
     add_input_type_option(write_vk);
@@ -1145,6 +1149,7 @@ int main(int argc, char* argv[])
     add_oracle_hash_option(write_vk);    // WORKTODO: why is this necessary?
     add_ipa_accumulation_flag(write_vk); // WORKTODO: segfault without
     add_honk_recursion_option(write_vk);
+    add_recursive_flag(write_vk);
 
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk, output_path);
@@ -1154,6 +1159,7 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
+    add_verbose_flag(verify);
     add_scheme_option(verify);
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
@@ -1161,6 +1167,7 @@ int main(int argc, char* argv[])
     add_ipa_accumulation_flag(verify);
     add_initialize_pairing_point_accumulator_option(verify);
     add_honk_recursion_option(verify);
+    add_recursive_flag(verify);
 
     add_proof_path_option(verify);
     add_vk_path_option(verify);
@@ -1172,6 +1179,7 @@ int main(int argc, char* argv[])
                                             "Write a smart contract suitable for verifying proofs of circuit "
                                             "satisfiability for the circuit with verification key at vk_path. Not all "
                                             "hash types are implemented due to efficiency concerns.");
+    add_verbose_flag(contract);
     add_scheme_option(contract);
     add_crs_path_option(contract);
     add_zk_option(contract);
@@ -1184,6 +1192,7 @@ int main(int argc, char* argv[])
     // WORKTODO: make an option so its deprecatable
     CLI::App* write_arbitrary_valid_proof_and_vk_to_file =
         app.add_subcommand("write_arbitrary_valid_proof_and_vk_to_file", "");
+    add_verbose_flag(write_arbitrary_valid_proof_and_vk_to_file);
     add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file);
     add_output_path_option(write_arbitrary_valid_proof_and_vk_to_file, output_path);
 
