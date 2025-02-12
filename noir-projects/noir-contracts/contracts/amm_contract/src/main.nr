@@ -33,7 +33,7 @@ use dep::aztec::macros::aztec;
 ///   contract can trigger a reentrant call. This eliminates the following attack vector:
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
-contract AMM {
+pub contract AMM {
     use crate::{
         config::Config,
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},

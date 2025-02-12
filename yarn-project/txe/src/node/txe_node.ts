@@ -1,7 +1,6 @@
 import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
-  type EpochProofQuote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
@@ -568,6 +567,10 @@ export class TXENode implements AztecNode {
     throw new Error('TXE Node method getTxByHash not implemented');
   }
 
+  getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
+    throw new Error('TXE Node method getTxByHash not implemented');
+  }
+
   /**
    * Gets the storage value at the given contract storage slot.
    *
@@ -645,22 +648,6 @@ export class TXENode implements AztecNode {
    */
   getEncodedEnr(): Promise<string | undefined> {
     throw new Error('TXE Node method getEncodedEnr not implemented');
-  }
-
-  /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(_quote: EpochProofQuote): Promise<void> {
-    throw new Error('TXE Node method addEpochProofQuote not implemented');
-  }
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(_epoch: bigint): Promise<EpochProofQuote[]> {
-    throw new Error('TXE Node method getEpochProofQuotes not implemented');
   }
 
   /**

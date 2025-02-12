@@ -3,7 +3,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract MultiCallEntrypoint {
+pub contract MultiCallEntrypoint {
     use dep::authwit::entrypoint::app::AppPayload;
     use dep::aztec::macros::functions::private;
 

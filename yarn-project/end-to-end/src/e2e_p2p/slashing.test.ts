@@ -2,6 +2,7 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
+import { jest } from '@jest/globals';
 import fs from 'fs';
 import { getAddress, getContract, parseEventLogs } from 'viem';
 
@@ -9,6 +10,8 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
+
+jest.setTimeout(1000000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -33,7 +36,7 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
-        aztecEpochProofClaimWindowInL2Slots: 1,
+        aztecProofSubmissionWindow: 2,
         slashingQuorum,
         slashingRoundSize,
       },
@@ -66,7 +69,7 @@ describe('e2e_p2p_slashing', () => {
     });
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.read.SLASHER()),
+      address: getAddress(await rollup.read.getSlasher()),
       abi: SlasherAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
@@ -219,11 +222,7 @@ describe('e2e_p2p_slashing', () => {
     const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
       account: t.ctx.deployL1ContractsValues.walletClient.account,
     });
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: tx,
-    });
-
-    const receipt = await t.ctx.deployL1ContractsValues.publicClient.getTransactionReceipt({
+    const receipt = await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: tx,
     });
 

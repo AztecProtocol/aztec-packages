@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class lookup_opcode_gas_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_OPCODE_GAS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -85,7 +87,12 @@ class lookup_opcode_gas_lookup_settings {
 template <typename FF_>
 class lookup_opcode_gas_relation : public GenericLookupRelation<lookup_opcode_gas_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_OPCODE_GAS";
+    static constexpr std::string_view NAME = lookup_opcode_gas_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_is_gas_accounted.is_zero() && in.gas_sel_gas_cost.is_zero();
+    }
 };
 template <typename FF_> using lookup_opcode_gas = GenericLookup<lookup_opcode_gas_lookup_settings, FF_>;
 
@@ -93,6 +100,8 @@ template <typename FF_> using lookup_opcode_gas = GenericLookup<lookup_opcode_ga
 
 class lookup_l2_gas_rng_chk_0_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_L2_GAS_RNG_CHK_0";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -148,7 +157,12 @@ class lookup_l2_gas_rng_chk_0_lookup_settings {
 template <typename FF_>
 class lookup_l2_gas_rng_chk_0_relation : public GenericLookupRelation<lookup_l2_gas_rng_chk_0_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_L2_GAS_RNG_CHK_0";
+    static constexpr std::string_view NAME = lookup_l2_gas_rng_chk_0_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_is_gas_accounted.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_l2_gas_rng_chk_0 = GenericLookup<lookup_l2_gas_rng_chk_0_lookup_settings, FF_>;
 
@@ -156,6 +170,8 @@ template <typename FF_> using lookup_l2_gas_rng_chk_0 = GenericLookup<lookup_l2_
 
 class lookup_l2_gas_rng_chk_1_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_L2_GAS_RNG_CHK_1";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -211,7 +227,12 @@ class lookup_l2_gas_rng_chk_1_lookup_settings {
 template <typename FF_>
 class lookup_l2_gas_rng_chk_1_relation : public GenericLookupRelation<lookup_l2_gas_rng_chk_1_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_L2_GAS_RNG_CHK_1";
+    static constexpr std::string_view NAME = lookup_l2_gas_rng_chk_1_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_is_gas_accounted.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_l2_gas_rng_chk_1 = GenericLookup<lookup_l2_gas_rng_chk_1_lookup_settings, FF_>;
 
@@ -219,6 +240,8 @@ template <typename FF_> using lookup_l2_gas_rng_chk_1 = GenericLookup<lookup_l2_
 
 class lookup_da_gas_rng_chk_0_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_DA_GAS_RNG_CHK_0";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -274,7 +297,12 @@ class lookup_da_gas_rng_chk_0_lookup_settings {
 template <typename FF_>
 class lookup_da_gas_rng_chk_0_relation : public GenericLookupRelation<lookup_da_gas_rng_chk_0_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_DA_GAS_RNG_CHK_0";
+    static constexpr std::string_view NAME = lookup_da_gas_rng_chk_0_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_is_gas_accounted.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_da_gas_rng_chk_0 = GenericLookup<lookup_da_gas_rng_chk_0_lookup_settings, FF_>;
 
@@ -282,6 +310,8 @@ template <typename FF_> using lookup_da_gas_rng_chk_0 = GenericLookup<lookup_da_
 
 class lookup_da_gas_rng_chk_1_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_DA_GAS_RNG_CHK_1";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -337,7 +367,12 @@ class lookup_da_gas_rng_chk_1_lookup_settings {
 template <typename FF_>
 class lookup_da_gas_rng_chk_1_relation : public GenericLookupRelation<lookup_da_gas_rng_chk_1_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_DA_GAS_RNG_CHK_1";
+    static constexpr std::string_view NAME = lookup_da_gas_rng_chk_1_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.main_is_gas_accounted.is_zero() && in.main_sel_rng_16.is_zero();
+    }
 };
 template <typename FF_> using lookup_da_gas_rng_chk_1 = GenericLookup<lookup_da_gas_rng_chk_1_lookup_settings, FF_>;
 

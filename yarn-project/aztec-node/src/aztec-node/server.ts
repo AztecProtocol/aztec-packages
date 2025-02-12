@@ -4,7 +4,6 @@ import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EpochProofQuote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
@@ -59,6 +58,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -122,14 +122,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
 
-  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
-  }
-
-  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    return this.p2pClient.getEpochProofQuotes(epoch);
-  }
-
   public getL2Tips() {
     return this.blockSource.getL2Tips();
   }
@@ -162,11 +154,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
-
-    // we identify the P2P transaction protocol by using the rollup contract address.
-    // this may well change in future
-    const rollupAddress = config.l1Contracts.rollupAddress;
-    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
@@ -498,6 +485,15 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public getTxByHash(txHash: TxHash) {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalised chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]) {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
   /**

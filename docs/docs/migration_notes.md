@@ -6,7 +6,49 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+### 0.75.0
+
+### Changes to `TokenBridge` interface
+
+`get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
+### [Aztec.nr] `SharedMutable` can store size of packed length larger than 1
+
+`SharedMutable` has been modified such that now it can store type `T` which packs to a length larger than 1.
+This is a breaking change because now `SharedMutable` requires `T` to implement `Packable` trait instead of `ToField` and `FromField` traits.
+
+To implement the `Packable` trait for your type you can use the derive macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Packable)]
+pub struct YourType {
+    ...
+}
+```
+
+### [Aztec.nr] Introduction of `WithHash<T>`
+
+`WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
+This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
+This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
+
+`WithHash<T>` is leveraged by state variables like `PublicImmutable`.
+This is a breaking change because now we require values stored in `PublicImmutable` and `SharedMutable` to implement the `Eq` trait.
+
+To implement the `Eq` trait you can use the `#[derive(Eq)]` macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Eq)]
+pub struct YourType {
+    ...
+}
+```
+
+## 0.73.0
 
 ### [Token, FPC] Moving fee-related complexity from the Token to the FPC
 
@@ -237,6 +279,25 @@ For this reason we've decided to rename it:
 ### Noir contracts package no longer exposes artifacts as default export
 
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
+
+### Blobs
+We now publish the majority of DA in L1 blobs rather than calldata, with only contract class logs remaining as calldata. This replaces all code that touched the `txsEffectsHash`.
+In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
+
+```diff
+- let txs_effects_hash = sha256_to_field(left.txs_effects_hash, right.txs_effects_hash);
++ assert(left.end_sponge_blob.eq(right.start_sponge_blob));
++ let start_sponge_blob = left.start_sponge_blob;
++ let end_sponge_blob = right.end_sponge_blob;
+```
+This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
+On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
+
+```diff
+- bytes32 txsEffectsHash = TxsDecoder.decode(_body);
++ bytes32 blobHash = _validateBlob(blobInput);
+```
+Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
 
 ## 0.67.0
 

@@ -345,6 +345,17 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     return result;
 }
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
+{
+    // ensure that at least the last magnitude-many coefficients are virtual 0's
+    ASSERT((coefficients_.end_ + magnitude) <= virtual_size());
+    Polynomial result;
+    result.coefficients_ = coefficients_;
+    result.coefficients_.start_ += magnitude;
+    result.coefficients_.end_ += magnitude;
+    return result;
+}
+
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
 } // namespace bb
