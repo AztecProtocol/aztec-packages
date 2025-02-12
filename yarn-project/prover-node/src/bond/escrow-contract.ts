@@ -1,23 +1,13 @@
 import { EthAddress } from '@aztec/circuits.js';
-import { type L1Clients } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient } from '@aztec/ethereum';
 import { IProofCommitmentEscrowAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, getContract } from 'viem';
 
 export class EscrowContract {
-  private escrow: GetContractReturnType<
-    typeof IProofCommitmentEscrowAbi,
-    WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  >;
+  private escrow: GetContractReturnType<typeof IProofCommitmentEscrowAbi, ExtendedViemWalletClient>;
 
-  constructor(private readonly client: L1Clients['walletClient'], address: EthAddress) {
+  constructor(private readonly client: ExtendedViemWalletClient, address: EthAddress) {
     this.escrow = getContract({ address: address.toString(), abi: IProofCommitmentEscrowAbi, client });
   }
 

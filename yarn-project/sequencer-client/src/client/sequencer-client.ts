@@ -74,10 +74,10 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
-    const chain = createEthereumChain(rpcUrl, chainId);
+    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+    const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
+    const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(publicClient, walletClient, log, config);
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
@@ -110,7 +110,7 @@ export class SequencerClient {
       (await EpochCache.create(
         config.l1Contracts.rollupAddress,
         {
-          l1RpcUrl: rpcUrl,
+          l1RpcUrls: rpcUrls,
           l1ChainId: chainId,
           viemPollingIntervalMS: config.viemPollingIntervalMS,
           aztecSlotDuration: config.aztecSlotDuration,

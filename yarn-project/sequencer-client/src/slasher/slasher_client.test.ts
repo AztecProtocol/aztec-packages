@@ -39,7 +39,7 @@ describe('In-Memory Slasher Client', () => {
       l1Contracts: {
         slashFactoryAddress: EthAddress.ZERO,
       } as unknown as L1ContractAddresses,
-      l1RpcUrl: 'http://127.0.0.1:8545',
+      l1RpcUrls: ['http://127.0.0.1:8545'],
       l1ChainId: 1,
       viemPollingIntervalMS: 1000,
     };

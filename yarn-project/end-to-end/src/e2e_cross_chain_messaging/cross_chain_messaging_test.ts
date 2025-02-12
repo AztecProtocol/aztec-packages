@@ -10,12 +10,12 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { createL1Clients } from '@aztec/ethereum';
+import { type ViemPublicClient, createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -38,7 +38,7 @@ export class CrossChainMessagingTest {
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
 
-  publicClient!: PublicClient<HttpTransport, Chain> | undefined;
+  publicClient!: ViemPublicClient | undefined;
 
   user1Wallet!: AccountWallet;
   user2Wallet!: AccountWallet;

@@ -1,6 +1,6 @@
 import { retrieveL2ProofsFromRollup } from '@aztec/archiver/data-retrieval';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import {
@@ -14,7 +14,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type PublicClient, createPublicClient, fallback, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 import { type ProofVerifierConfig } from './config.js';
 
@@ -30,7 +30,7 @@ export class ProofVerifier implements Traceable {
 
   constructor(
     private config: ProofVerifierConfig,
-    private client: PublicClient,
+    private client: ViemPublicClient,
     private verifier: BBCircuitVerifier,
     telemetryClient: TelemetryClient,
     private logger: Logger,

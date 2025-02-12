@@ -1,14 +1,14 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { type PublicClient, createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
+import { createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrls: string[];
@@ -156,7 +156,7 @@ async function getL2ProofVerifiedEvents(
   lastBlockNum: bigint,
   batchSize: bigint,
   debugLog: Logger,
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   rollup: EthAddress,
 ) {
   let blockNum = startBlock;
@@ -176,7 +176,7 @@ async function getL2BlockEvents(
   lastBlockNum: bigint,
   batchSize: bigint,
   debugLog: Logger,
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   rollup: EthAddress,
 ) {
   let blockNum = startBlock;

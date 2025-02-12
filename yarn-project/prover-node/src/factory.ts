@@ -13,7 +13,7 @@ import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, getAddress, getContract, http } from 'viem';
+import { createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 import { createBondManager } from './bond/factory.js';
 import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
@@ -53,9 +53,9 @@ export async function createProverNode(
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
+  const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
 
   const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
 
@@ -118,9 +118,9 @@ function createQuoteProvider(config: QuoteProviderConfig) {
 
 function createQuoteSigner(config: ProverNodeConfig) {
   // REFACTOR: We need a package that just returns an instance of a rollup contract ready to use
-  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, l1Contracts } = config;
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const client = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
+  const { l1RpcUrls: rpcUrls, l1ChainId: chainId, l1Contracts } = config;
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const client = createPublicClient({ chain: chain.chainInfo, transport: fallback(rpcUrls.map(url => http(url))) });
   const address = getAddress(l1Contracts.rollupAddress.toString());
   const rollupContract = getContract({ address, abi: RollupAbi, client });
   const privateKey = config.publisherPrivateKey;

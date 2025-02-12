@@ -425,7 +425,7 @@ describe('e2e_synching', () => {
     });
     const publisher = new SequencerPublisher(
       {
-        l1RpcUrl: config.l1RpcUrl,
+        l1RpcUrls: config.l1RpcUrls,
         requiredConfirmations: 1,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKey: sequencerPK,

@@ -22,7 +22,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -115,7 +115,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: httpViemTransport(l1RpcUrl),
+      transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
     });
 
     watcher = new AnvilTestWatcher(new EthCheatCodes(l1RpcUrl), l1ContractAddresses.rollupAddress, publicClient);

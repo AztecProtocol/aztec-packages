@@ -11,6 +11,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { type ViemWalletClient } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
@@ -19,13 +20,10 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
-  type Account,
-  type Chain,
   type GetContractReturnType,
-  type HttpTransport,
   type PublicClient,
-  type WalletClient,
   createWalletClient,
+  fallback,
   getAddress,
   getContract,
   http,
@@ -45,17 +43,14 @@ describe('e2e_prover_coordination', () => {
   let wallet: AccountWalletWithSecretKey;
   let recipient: AztecAddress;
   let contract: StatefulTestContract;
-  let rollupContract: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, Chain, Account>>;
+  let rollupContract: GetContractReturnType<typeof RollupAbi, ViemWalletClient>;
   let publicClient: PublicClient;
   let publisherAddress: EthAddress;
-  let feeJuiceContract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
-  let escrowContract: GetContractReturnType<
-    typeof ProofCommitmentEscrowAbi,
-    WalletClient<HttpTransport, Chain, Account>
-  >;
+  let feeJuiceContract: GetContractReturnType<typeof TestERC20Abi, ViemWalletClient>;
+  let escrowContract: GetContractReturnType<typeof ProofCommitmentEscrowAbi, ViemWalletClient>;
 
   let proverSigner: Secp256k1Signer;
-  let proverWallet: WalletClient<HttpTransport, Chain, Account>;
+  let proverWallet: ViemWalletClient;
 
   let logger: Logger;
   let snapshotManager: ISnapshotManager;
@@ -118,7 +113,7 @@ describe('e2e_prover_coordination', () => {
     proverWallet = createWalletClient({
       account: privateKeyToAccount(proverKey.toString()),
       chain: foundry,
-      transport: http(ctx.aztecNodeConfig.l1RpcUrl),
+      transport: fallback(ctx.aztecNodeConfig.l1RpcUrls.map(url => http(url))),
     });
 
     const escrowAddress = await rollupContract.read.PROOF_COMMITMENT_ESCROW();

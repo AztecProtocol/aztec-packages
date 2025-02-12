@@ -30,7 +30,7 @@ const debugLogger = createLogger('e2e:spartan-test:upgrade_governance_proposer')
 describe('spartan_upgrade_governance_proposer', () => {
   let pxe: PXE;
   let nodeInfo: NodeInfo;
-  let ETHEREUM_HOSTS: string;
+  let ETHEREUM_HOSTS: string[];
   beforeAll(async () => {
     await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
@@ -44,7 +44,7 @@ describe('spartan_upgrade_governance_proposer', () => {
       containerPort: config.CONTAINER_ETHEREUM_PORT,
       hostPort: config.HOST_ETHEREUM_PORT,
     });
-    ETHEREUM_HOSTS = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+    ETHEREUM_HOSTS = [`http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`];
 
     const PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
     pxe = await createCompatibleClient(PXE_URL, debugLogger);

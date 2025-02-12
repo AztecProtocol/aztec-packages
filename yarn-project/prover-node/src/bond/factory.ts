@@ -1,5 +1,5 @@
 import { type EthAddress } from '@aztec/circuits.js';
-import { type L1Clients } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient } from '@aztec/ethereum';
 import { compact } from '@aztec/foundation/collection';
 
 import { BondManager } from './bond-manager.js';
@@ -9,7 +9,7 @@ import { TokenContract } from './token-contract.js';
 
 export async function createBondManager(
   escrowContractAddress: EthAddress,
-  client: L1Clients['walletClient'],
+  client: ExtendedViemWalletClient,
   overrides: Partial<ProverBondManagerConfig> = {},
 ) {
   const config = { ...getProverBondManagerConfigFromEnv(), ...compact(overrides) };
