@@ -115,6 +115,9 @@ function test_cmds {
 function test {
   echo_header "test all"
 
+  # Make sure KIND starts so it is running by the time we do spartan tests.
+  spartan/bootstrap.sh kind &>/dev/null &
+
   # Starting txe servers with incrementing port numbers.
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do

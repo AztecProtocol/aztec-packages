@@ -29,7 +29,7 @@ if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
 fi
 
 # Switch to a KIND cluster (will also pull in necessary dependencies)
-flock logs/kind-boot.lock ../bootstrap.sh kind
+../bootstrap.sh kind
 
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag

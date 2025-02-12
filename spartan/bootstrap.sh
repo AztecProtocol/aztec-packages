@@ -5,7 +5,7 @@ cmd=${1:-}
 
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
-scripts/install_deps.sh >&2
+flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
 function network_shaping {
   namespace="$1"
@@ -71,13 +71,14 @@ case "$cmd" in
     # do nothing but the install_deps.sh above
     ;;
   "kind")
-    if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
+    if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
-      retry "kind delete cluster || true; timeout -v 2m kind create cluster"
+      # As well if kind-control-plane has been killed, just recreate the cluster
+      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster"
     fi
     kubectl config use-context kind-kind >/dev/null || true
-    docker update --restart=no kind-control-plane >/dev/null
+    docker update --restart=no kind-control-plane >/dev/null || true
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh

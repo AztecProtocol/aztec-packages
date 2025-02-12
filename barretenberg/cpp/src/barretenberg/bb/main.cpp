@@ -41,6 +41,7 @@
 using namespace bb;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
+const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 const auto current_dir = current_path.filename().string();
 
 // Initializes without loading G1
@@ -1418,7 +1419,9 @@ int main(int argc, char* argv[])
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
-            std::cout << BB_VERSION << std::endl;
+            // Placeholder that we replace inside the binary as a pre-release step.
+            // Compared to the previous CMake injection strategy, this avoids full rebuilds.
+            std::cout << BB_VERSION_PLACEHOLDER << std::endl;
             return 0;
         }
 

@@ -17,7 +17,8 @@ function test_cmds {
 
   # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
-  echo "$hash BENCH_OUTPUT=bench.json timeout -v 900s $run_test_script simple bench_build_block"
+  # Just running bench without capturing stats until benches are back up.
+  echo "$hash BENCH_OUTPUT=/dev/null timeout -v 900s $run_test_script simple bench_build_block"
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
@@ -122,7 +123,7 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
