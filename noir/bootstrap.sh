@@ -67,7 +67,8 @@ function build_packages {
   rm -rf packages && mkdir -p packages
   for project in $js_projects; do
     p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$project\").location")
-    tar zxfv noir-repo/$p/package.tgz -C packages && mv packages/package packages/${project#*/}
+    tar zxfv noir-repo/$p/package.tgz -C packages
+    mv packages/package packages/${project#*/}
   done
 
   cache_upload noir-packages-$hash.tar.gz \
@@ -165,8 +166,10 @@ function release_packages {
     cd $path
 
     # Rename package name @aztec/noir-<package> and update version.
-    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json && mv tmp.json package.json
-    jq --arg v $version '.version = $v' package.json >tmp.json && mv tmp.json package.json
+    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json
+    mv tmp.json package.json
+    jq --arg v $version '.version = $v' package.json >tmp.json
+    mv tmp.json package.json
 
     deploy_npm $dist_tag $version
     cd ..

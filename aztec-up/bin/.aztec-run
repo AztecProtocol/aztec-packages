@@ -18,6 +18,9 @@ shift
 
 VERSION=${VERSION:-"latest"}
 
+# We default to colored logs.
+FORCE_COLOR=${FORCE_COLOR:-1}
+
 function warn {
   y="\033[33m"
   r="\033[0m"

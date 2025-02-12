@@ -119,10 +119,6 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getAuthWitness'));
   }
 
-  popCapsule(): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('popCapsule'));
-  }
-
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,

@@ -24,7 +24,12 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
+if [ "$REF_NAME" == "master" ]; then
+  # Allow parallelism on master by having the instance name be the commit.
+  instance_name="$current_commit"_$arch
+else
+  instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
+fi
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
@@ -70,6 +75,7 @@ fi
 
 container_script=$(cat <<EOF
   set -euo pipefail
+  sudo sysctl fs.inotify.max_user_watches=65536
   # When restarting the container, just hang around.
   while [ -f started ]; do sleep 999; done
   touch started
@@ -82,6 +88,7 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
   set -x
+  export CI_FULL=$CI_FULL
   ci3/aws_handle_evict "$cmd" $cmd_postfix
 EOF
 )

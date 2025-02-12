@@ -49,12 +49,16 @@ function gke {
 }
 
 function test_cmds {
+  echo "$hash ./spartan/bootstrap.sh test-local"
+  if [ "$(arch)" == "arm64" ]; then
+    # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
+    return
+  fi
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "${REF_NAME:-}" == "master" ]; then
     # Note: commands that start with 'timeout ...' override the default timeout.
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-4epochs"
   fi
-  echo "$hash ./spartan/bootstrap.sh test-local"
 }
 
 function test {
@@ -70,9 +74,10 @@ case "$cmd" in
     if ! kubectl config get-clusters | grep -q "^kind-kind$"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
-      retry "kind delete cluster || true; timeout -v 45s kind create cluster"
+      retry "kind delete cluster || true; timeout -v 2m kind create cluster"
     fi
     kubectl config use-context kind-kind >/dev/null || true
+    docker update --restart=no kind-control-plane >/dev/null
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh

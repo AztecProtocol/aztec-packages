@@ -9,21 +9,19 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
 
-  if [ "${REF_NAME:-}" == "master" ]; then
-    # Only executed on master due to being so heavy.
-    # Needs fixing.
-    # echo "$prefix $run_test_script simple e2e_prover/full"
-    true
-  fi
-
-  # These are best ordered by longest running first as they're scheduled in order.
+  # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
+  echo "$hash BENCH_OUTPUT=bench.json timeout -v 900s $run_test_script simple bench_build_block"
   echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
+  echo "$prefix simple e2e_amm"
   echo "$prefix simple e2e_authwit"
   echo "$prefix simple e2e_avm_simulator"
+
+  # blacklist_token_contract sub-tests
   echo "$prefix simple e2e_blacklist_token_contract/access_control"
   echo "$prefix simple e2e_blacklist_token_contract/burn"
   echo "$prefix simple e2e_blacklist_token_contract/minting"
@@ -31,50 +29,70 @@ function test_cmds {
   echo "$prefix simple e2e_blacklist_token_contract/transfer_private"
   echo "$prefix simple e2e_blacklist_token_contract/transfer_public"
   echo "$prefix simple e2e_blacklist_token_contract/unshielding"
+
   echo "$prefix simple e2e_bot"
   echo "$prefix simple e2e_card_game"
   echo "$prefix simple e2e_cheat_codes"
+
+  # cross_chain_messaging sub-tests
   echo "$prefix simple e2e_cross_chain_messaging/l1_to_l2"
   echo "$prefix simple e2e_cross_chain_messaging/l2_to_l1"
   echo "$prefix simple e2e_cross_chain_messaging/token_bridge_failure_cases"
   echo "$prefix simple e2e_cross_chain_messaging/token_bridge_private"
   echo "$prefix simple e2e_cross_chain_messaging/token_bridge_public"
+
   echo "$prefix simple e2e_crowdfunding_and_claim"
   echo "$prefix simple e2e_deploy_contract/contract_class_registration"
   echo "$prefix simple e2e_deploy_contract/deploy_method"
   echo "$prefix simple e2e_deploy_contract/legacy"
   echo "$prefix simple e2e_deploy_contract/private_initialization"
+  echo "$prefix simple e2e_epochs"
   echo "$prefix simple e2e_escrow_contract"
   echo "$prefix simple e2e_event_logs"
+
+  # fees sub-tests
   echo "$prefix simple e2e_fees/account_init"
   echo "$prefix simple e2e_fees/failures"
   echo "$prefix simple e2e_fees/fee_juice_payments"
   echo "$prefix simple e2e_fees/gas_estimation"
   echo "$prefix simple e2e_fees/private_payments"
+  echo "$prefix simple e2e_fees/public_payments"
+
   echo "$prefix simple e2e_keys"
   echo "$prefix simple e2e_l1_with_wall_time"
   echo "$prefix simple e2e_lending_contract"
   echo "$prefix simple e2e_max_block_number"
   echo "$prefix simple e2e_multiple_accounts_1_enc_key"
+
+  # nested_contract sub-tests
   echo "$prefix simple e2e_nested_contract/importer"
   echo "$prefix simple e2e_nested_contract/manual_private_call"
   echo "$prefix simple e2e_nested_contract/manual_private_enqueue"
   echo "$prefix simple e2e_nested_contract/manual_public"
+
   echo "$prefix simple e2e_nft"
   echo "$prefix simple e2e_non_contract_account"
   echo "$prefix simple e2e_note_getter"
   echo "$prefix simple e2e_ordering"
   echo "$prefix simple e2e_outbox"
+
+  # p2p sub-tests
   echo "$prefix simple e2e_p2p/gossip_network"
   echo "$prefix simple e2e_p2p/rediscovery"
   echo "$prefix simple e2e_p2p/reqresp"
+  echo "$prefix simple e2e_p2p/reex"
+  echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
+
   echo "$prefix simple e2e_private_voting_contract"
   echo "$prefix simple e2e_prover_coordination"
+  echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"
   echo "$prefix simple e2e_state_vars"
   echo "$prefix simple e2e_static_calls"
   echo "$prefix simple e2e_synching"
+
+  # token_contract sub-tests
   echo "$prefix simple e2e_token_contract/access_control"
   echo "$prefix simple e2e_token_contract/burn"
   echo "$prefix simple e2e_token_contract/minting"
@@ -85,8 +103,8 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_private"
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
-  echo "$prefix simple flakey_e2e_inclusion_proofs_contract"
 
+  # compose-based tests
   echo "$prefix compose composed/docs_examples"
   echo "$prefix compose composed/e2e_pxe"
   echo "$prefix compose composed/e2e_sandbox_example"
