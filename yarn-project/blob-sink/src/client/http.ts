@@ -2,7 +2,7 @@ import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
-import { RpcBlock, createPublicClient, fallback, http } from 'viem';
+import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';

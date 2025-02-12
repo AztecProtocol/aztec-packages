@@ -3,14 +3,9 @@ import { type Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode } from '@aztec/l1-artifacts';
 
 import {
-  type Account,
-  type Chain,
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
   encodeFunctionData,
   getContract,
 } from 'viem';

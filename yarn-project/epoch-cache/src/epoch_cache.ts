@@ -4,7 +4,7 @@ import {
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
 } from '@aztec/circuit-types';
-import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';

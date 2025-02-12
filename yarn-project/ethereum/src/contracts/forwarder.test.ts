@@ -7,14 +7,7 @@ import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
 import { type Anvil } from '@viem/anvil';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, encodeFunctionData, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

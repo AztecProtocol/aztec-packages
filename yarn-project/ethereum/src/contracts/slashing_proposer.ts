@@ -1,14 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import type { L1TxRequest } from '../l1_tx_utils.js';
 import type { ViemPublicClient } from '../types.js';

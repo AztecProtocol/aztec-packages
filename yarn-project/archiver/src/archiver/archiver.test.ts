@@ -12,15 +12,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Chain,
-  type HttpTransport,
-  type Log,
-  type PublicClient,
-  type Transaction,
-  encodeFunctionData,
-  toHex,
-} from 'viem';
+import { type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
 import { type ArchiverDataStore } from './archiver_store.js';

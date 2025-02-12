@@ -352,7 +352,7 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  if (!config.l1RpcUrls[0]) {
+  if (!config.l1RpcUrls?.length) {
     if (!isAnvilTestChain(chain.id)) {
       throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
     }

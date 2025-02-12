@@ -11,8 +11,8 @@ import {
 } from '@aztec/aztec.js';
 import {
   type DeployL1ContractsReturnType,
-  ViemPublicClient,
-  ViemWalletClient,
+  type ViemPublicClient,
+  type ViemWalletClient,
   deployL1Contract,
   extractEvent,
 } from '@aztec/ethereum';
