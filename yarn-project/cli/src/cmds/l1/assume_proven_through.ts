@@ -6,15 +6,15 @@ import { setAssumeProvenThrough } from '../../utils/aztec.js';
 
 export async function assumeProvenThrough(
   blockNumberOrLatest: number | undefined,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   rpcUrl: string,
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
   log: LogFn,
 ) {
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const { walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const { walletClient } = createL1Clients(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   const pxe = createPXEClient(rpcUrl, {}, makeFetch([], true));
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);

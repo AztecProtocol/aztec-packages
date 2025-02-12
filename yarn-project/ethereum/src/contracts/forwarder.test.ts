@@ -19,9 +19,10 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { type L1Clients, createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
+import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
+import type { ViemPublicClient, ViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 
@@ -34,8 +35,8 @@ describe('Forwarder', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let l2FeeJuiceAddress: AztecAddress;
-  let walletClient: L1Clients['walletClient'];
-  let publicClient: L1Clients['publicClient'];
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;
   let govProposerAddress: EthAddress;
@@ -51,9 +52,9 @@ describe('Forwarder', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ walletClient, publicClient } = createL1Clients(rpcUrl, privateKey));
+    ({ walletClient, publicClient } = createL1Clients([rpcUrl], privateKey));
 
-    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
+    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

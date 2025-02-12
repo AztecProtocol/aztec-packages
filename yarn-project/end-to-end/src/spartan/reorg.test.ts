@@ -41,7 +41,7 @@ describe('reorg test', () => {
   const MINT_AMOUNT = 2_000_000n;
   const SETUP_EPOCHS = 2;
   const TRANSFER_AMOUNT = 1n;
-  const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
+  const ETHEREUM_HOSTS = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
   const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
 
   let testWallets: TestWallets;
@@ -60,7 +60,7 @@ describe('reorg test', () => {
       hostPort: HOST_ETHEREUM_PORT,
     });
     testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),

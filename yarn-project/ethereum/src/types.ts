@@ -1,26 +1,18 @@
 import {
+  type Account,
   type Chain,
-  type Client,
+  type FallbackTransport,
   type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
   type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletRpcSchema,
+  type WalletClient,
 } from 'viem';
 
-/**
- * Type for a viem wallet and public client using a local private key.
- * Created as: `createWalletClient({ account: privateKeyToAccount(key), transport: http(url), chain }).extend(publicActions)`
- */
-export type ViemClient = Client<
-  HttpTransport,
-  Chain,
-  PrivateKeyAccount,
-  [...PublicRpcSchema, ...WalletRpcSchema],
-  PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
->;
-
 /** Type for a viem public client */
-export type ViemPublicClient = PublicClient<HttpTransport, Chain>;
+export type ViemPublicClient = PublicClient<FallbackTransport<HttpTransport[]>, Chain>;
+
+export type ViemWalletClient = WalletClient<FallbackTransport<HttpTransport[]>, Chain, Account>;
+
+export type L1Clients = {
+  publicClient: ViemPublicClient;
+  walletClient: ViemWalletClient;
+};

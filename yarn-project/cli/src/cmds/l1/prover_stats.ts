@@ -8,10 +8,10 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { type PublicClient, createPublicClient, getAbiItem, getAddress, http } from 'viem';
+import { type PublicClient, createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
-  l1RpcUrl: string;
+  l1RpcUrls: string[];
   chainId: number;
   l1RollupAddress: string | undefined;
   nodeUrl: string | undefined;
@@ -23,8 +23,18 @@ export async function proverStats(opts: {
   rawLogs: boolean;
 }) {
   const debugLog = createLogger('cli:prover_stats');
-  const { startBlock, chainId, l1RpcUrl, l1RollupAddress, batchSize, nodeUrl, provingTimeout, endBlock, rawLogs, log } =
-    opts;
+  const {
+    startBlock,
+    chainId,
+    l1RpcUrls,
+    l1RollupAddress,
+    batchSize,
+    nodeUrl,
+    provingTimeout,
+    endBlock,
+    rawLogs,
+    log,
+  } = opts;
   if (!l1RollupAddress && !nodeUrl) {
     throw new Error('Either L1 rollup address or node URL must be set');
   }
@@ -35,8 +45,8 @@ export async function proverStats(opts: {
         .getL1ContractAddresses()
         .then(a => a.rollupAddress);
 
-  const chain = createEthereumChain(l1RpcUrl, chainId).chainInfo;
-  const publicClient = createPublicClient({ chain, transport: http(l1RpcUrl) });
+  const chain = createEthereumChain(l1RpcUrls, chainId).chainInfo;
+  const publicClient = createPublicClient({ chain, transport: fallback(l1RpcUrls.map(url => http(url))) });
   const lastBlockNum = endBlock ?? (await publicClient.getBlockNumber());
   debugLog.verbose(`Querying events on rollup at ${rollup.toString()} from ${startBlock} up to ${lastBlockNum}`);
 

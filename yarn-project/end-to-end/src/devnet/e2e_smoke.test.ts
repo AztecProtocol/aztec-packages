@@ -37,7 +37,7 @@ const {
   PXE_URL,
   FAUCET_URL,
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
-  ETHEREUM_HOST,
+  ETHEREUM_HOSTS,
   PXE_PROVER_ENABLED = '0',
   USE_EMPTY_BLOCKS = '0',
 } = process.env;
@@ -67,8 +67,8 @@ describe('End-to-end tests for devnet', () => {
   beforeAll(async () => {
     logger = getLogger();
 
-    if (!ETHEREUM_HOST) {
-      throw new Error('ETHEREUM_HOST must be set');
+    if (!ETHEREUM_HOSTS) {
+      throw new Error('ETHEREUM_HOSTS must be set');
     }
 
     if (!AZTEC_CLI) {
@@ -163,7 +163,7 @@ describe('End-to-end tests for devnet', () => {
       claimSecret: { value: string };
       messageLeafIndex: string;
     }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
-      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-rpc-url': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
       'rpc-url': pxeUrl,
@@ -280,7 +280,7 @@ describe('End-to-end tests for devnet', () => {
 
   async function getL1Balance(address: string, token?: EthAddress): Promise<bigint> {
     const { balance } = await cli<{ balance: string }>('get-l1-balance', [address], {
-      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-rpc-url': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       token,
     });

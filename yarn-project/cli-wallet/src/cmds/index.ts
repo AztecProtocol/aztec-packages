@@ -5,7 +5,7 @@ import { createAztecNodeClient } from '@aztec/circuit-types';
 import { GasFees } from '@aztec/circuits.js';
 import { PublicKeys } from '@aztec/circuits.js/types';
 import {
-  ETHEREUM_HOST,
+  ETHEREUM_HOSTS,
   PRIVATE_KEY,
   addOptions,
   createSecretKeyOption,
@@ -321,10 +321,11 @@ export function injectCommands(
     .argument('<recipient>', 'Aztec address of the recipient.', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .requiredOption(
-      '--l1-rpc-url <string>',
-      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      ETHEREUM_HOST,
+    .requiredOption<string[]>(
+      '--l1-rpc-urls <string>',
+      'List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)',
+      (arg: string) => arg.split(','),
+      [ETHEREUM_HOSTS],
     )
     .option(
       '-m, --mnemonic <string>',
@@ -346,14 +347,14 @@ export function injectCommands(
     )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { rpcUrl, l1RpcUrl, l1ChainId, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
+      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
         client,
-        l1RpcUrl,
+        l1RpcUrls,
         l1ChainId,
         l1PrivateKey,
         mnemonic,

@@ -20,6 +20,7 @@ import {
   type HttpTransport,
   type PublicClient,
   createPublicClient,
+  fallback,
   getAddress,
   getContract,
   http,
@@ -127,10 +128,10 @@ export class SlasherClient extends WithTracer {
     this.synchedProvenBlockNumber = store.openSingleton('slasher_last_proven_l2_block');
 
     if (config.l1Contracts.slashFactoryAddress && config.l1Contracts.slashFactoryAddress !== EthAddress.ZERO) {
-      const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+      const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,
-        transport: http(chain.rpcUrl),
+        transport: fallback(chain.rpcUrls.map(url => http(url))),
         pollingInterval: config.viemPollingIntervalMS,
       });
 

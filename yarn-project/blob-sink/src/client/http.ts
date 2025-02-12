@@ -2,6 +2,8 @@ import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
+import { RpcBlock, createPublicClient, fallback, http } from 'viem';
+
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import { type BlobSinkClientInterface } from './interface.js';
@@ -80,7 +82,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @param indices - The indices of the blobs to get
    * @returns The blobs
    */
-  public async getBlobSidecar(blockHash: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
+  public async getBlobSidecar(blockHash: `0x${string}`, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
     let blobs: Blob[] = [];
 
     if (this.config.blobSinkUrl) {
@@ -166,36 +168,30 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @param blockHash - The block hash
    * @returns The slot number
    */
-  private async getSlotNumber(blockHash: string): Promise<number | undefined> {
+  private async getSlotNumber(blockHash: `0x${string}`): Promise<number | undefined> {
     if (!this.config.l1ConsensusHostUrl) {
       this.log.debug('No consensus host url configured');
       return undefined;
     }
 
-    if (!this.config.l1RpcUrl) {
+    if (!this.config.l1RpcUrls) {
       this.log.debug('No execution host url configured');
       return undefined;
     }
 
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
+    const client = createPublicClient({
+      transport: fallback(this.config.l1RpcUrls.map(url => http(url))),
+    });
     try {
-      const res = await this.fetch(`${this.config.l1RpcUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getBlockByHash',
-          params: [blockHash, /*tx flag*/ false],
-          id: 1,
-        }),
+      const res: RpcBlock = await client.request({
+        method: 'eth_getBlockByHash',
+        params: [blockHash, /*tx flag*/ false],
       });
 
-      if (res.ok) {
-        const body = await res.json();
-        parentBeaconBlockRoot = body.result.parentBeaconBlockRoot;
+      if (res.parentBeaconBlockRoot) {
+        parentBeaconBlockRoot = res.parentBeaconBlockRoot;
       }
     } catch (err) {
       this.log.error(`Error getting parent beacon block root`, err);

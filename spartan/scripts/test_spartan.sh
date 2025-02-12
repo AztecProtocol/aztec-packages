@@ -26,11 +26,11 @@ function get_load_balancer_url() {
 # Fetch the service URLs based on the namespace for injection in the test-transfer.sh
 export BOOTNODE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-boot-node-lb-tcp"):8080
 export PXE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-pxe-lb"):8080
-export ETHEREUM_HOST=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-ethereum-lb"):8545
+export ETHEREUM_HOSTS=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-ethereum-lb"):8545
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
-echo "ETHEREUM_HOST: $ETHEREUM_HOST"
+echo "ETHEREUM_HOSTS: $ETHEREUM_HOSTS"
 
 # hack to ensure L2 contracts are considered deployed
 touch $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env

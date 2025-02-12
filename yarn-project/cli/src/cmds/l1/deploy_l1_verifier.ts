@@ -8,7 +8,7 @@ import { type Hex, getContract } from 'viem';
 
 export async function deployUltraHonkVerifier(
   rollupAddress: Hex | undefined,
-  ethRpcUrl: string,
+  ethRpcUrls: string[],
   l1ChainId: string,
   privateKey: string | undefined,
   mnemonic: string,
@@ -23,9 +23,9 @@ export async function deployUltraHonkVerifier(
   }
 
   const { publicClient, walletClient } = createL1Clients(
-    ethRpcUrl,
+    ethRpcUrls,
     privateKey ?? mnemonic,
-    createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
+    createEthereumChain(ethRpcUrls, l1ChainId).chainInfo,
   );
 
   if (!rollupAddress && pxeRpcUrl) {
@@ -61,7 +61,7 @@ export async function deployUltraHonkVerifier(
 
 export async function deployMockVerifier(
   rollupAddress: Hex | undefined,
-  ethRpcUrl: string,
+  ethRpcUrls: string[],
   l1ChainId: string,
   privateKey: string | undefined,
   mnemonic: string,
@@ -70,9 +70,9 @@ export async function deployMockVerifier(
   debugLogger: Logger,
 ) {
   const { publicClient, walletClient } = createL1Clients(
-    ethRpcUrl,
+    ethRpcUrls,
     privateKey ?? mnemonic,
-    createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
+    createEthereumChain(ethRpcUrls, l1ChainId).chainInfo,
   );
   const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 

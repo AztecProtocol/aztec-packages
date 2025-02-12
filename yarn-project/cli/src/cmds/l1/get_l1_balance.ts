@@ -3,20 +3,23 @@ import { createEthereumChain } from '@aztec/ethereum';
 import { type LogFn } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, getContract, http } from 'viem';
+import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 
 export async function getL1Balance(
   who: EthAddress,
   token: EthAddress | undefined,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   chainId: number,
   json: boolean,
   log: LogFn,
 ) {
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const publicClient = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const publicClient = createPublicClient({
+    chain: chain.chainInfo,
+    transport: fallback(l1RpcUrls.map(url => http(url))),
+  });
 
   let balance = 0n;
   if (token) {

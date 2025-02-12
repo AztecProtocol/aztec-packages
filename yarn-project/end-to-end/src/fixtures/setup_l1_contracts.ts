@@ -14,7 +14,7 @@ export const setupL1Contracts = async (
   logger: Logger,
   args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators'> & L1ContractsConfig,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, {
+  const l1Data = await deployL1Contracts([l1RpcUrl], account, foundry, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,

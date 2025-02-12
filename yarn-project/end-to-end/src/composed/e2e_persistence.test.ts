@@ -9,7 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
 import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
-import { type DeployL1Contracts } from '@aztec/ethereum';
+import { type DeployL1ContractsReturnType } from '@aztec/ethereum';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -50,7 +50,7 @@ describe('Aztec persistence', () => {
   let dataDirectory: string;
 
   // state that is persisted between tests
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
 
   let context: EndToEndContext;
 

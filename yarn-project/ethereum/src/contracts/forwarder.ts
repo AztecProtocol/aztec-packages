@@ -15,12 +15,13 @@ import {
   getContract,
 } from 'viem';
 
-import { type L1Clients, deployL1Contract } from '../deploy_l1_contracts.js';
+import { deployL1Contract } from '../deploy_l1_contracts.js';
 import { type L1BlobInputs, type L1GasConfig, type L1TxRequest, type L1TxUtils } from '../l1_tx_utils.js';
+import type { L1Clients, ViemPublicClient, ViemWalletClient } from '../types.js';
 import { RollupContract } from './rollup.js';
 
 export class ForwarderContract {
-  private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, ViemPublicClient>;
 
   constructor(public readonly client: L1Clients['publicClient'], address: Hex, public readonly rollupAddress: Hex) {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
@@ -28,8 +29,8 @@ export class ForwarderContract {
 
   static async create(
     owner: Hex,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
-    publicClient: PublicClient<HttpTransport, Chain>,
+    walletClient: ViemWalletClient,
+    publicClient: ViemPublicClient,
     logger: Logger,
     rollupAddress: Hex,
   ) {

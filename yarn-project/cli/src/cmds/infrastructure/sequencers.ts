@@ -3,7 +3,7 @@ import { createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereu
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, getContract, http } from 'viem';
+import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
@@ -11,24 +11,27 @@ export async function sequencers(opts: {
   who?: string;
   mnemonic?: string;
   rpcUrl: string;
-  l1RpcUrl: string;
+  l1RpcUrls: string[];
   chainId: number;
   blockNumber?: number;
   log: LogFn;
   debugLogger: Logger;
 }) {
-  const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrl, chainId, log, debugLogger } = opts;
+  const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrls, chainId, log, debugLogger } = opts;
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const { l1ContractAddresses } = await client.getNodeInfo();
 
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const publicClient = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const publicClient = createPublicClient({
+    chain: chain.chainInfo,
+    transport: fallback(l1RpcUrls.map(url => http(url))),
+  });
 
   const walletClient = mnemonic
     ? createWalletClient({
         account: mnemonicToAccount(mnemonic),
         chain: chain.chainInfo,
-        transport: http(chain.rpcUrl),
+        transport: fallback(l1RpcUrls.map(url => http(url))),
       })
     : undefined;
 

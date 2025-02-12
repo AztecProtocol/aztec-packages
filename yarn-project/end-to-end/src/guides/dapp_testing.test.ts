@@ -10,7 +10,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
   describe('on local sandbox', () => {
@@ -98,7 +98,7 @@ describe('guides/dapp/testing', () => {
         await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = await CheatCodes.create(ETHEREUM_HOSTS, pxe);
         // The balances mapping is indexed by user address
         ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot

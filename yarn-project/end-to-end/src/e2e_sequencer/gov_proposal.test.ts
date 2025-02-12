@@ -1,7 +1,7 @@
 import { type AztecNode, type CheatCodes, type Logger, type PXE } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import {
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
@@ -21,7 +21,7 @@ describe('e2e_gov_proposal', () => {
   let teardown: () => Promise<void>;
   let pxe: PXE;
   let aztecNode: AztecNode;
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {

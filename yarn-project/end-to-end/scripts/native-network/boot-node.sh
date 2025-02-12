@@ -9,14 +9,13 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
-
 # Starts the Boot Node
 
 # Set environment variables
 export PORT=${PORT:-"8080"}
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="true"
@@ -32,7 +31,6 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 export OTEL_RESOURCE_ATTRIBUTES="service.name=boot-node"
 export VALIDATOR_PRIVATE_KEY=${VALIDATOR_PRIVATE_KEY:-"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"}
-
 
 echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do

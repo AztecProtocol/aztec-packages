@@ -4,17 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil } from '@viem/anvil';
-import {
-  type Abi,
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import { type Abi, createPublicClient, createWalletClient, fallback, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -22,6 +12,7 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
+import type { ViemPublicClient, ViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -37,8 +28,8 @@ export type PendingTransaction = {
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtilsWithBlobs;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
@@ -57,12 +48,12 @@ describe('GasUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
-      transport: http(rpcUrl),
+      transport: fallback([http(rpcUrl)]),
       chain: foundry,
     });
 
     walletClient = createWalletClient({
-      transport: http(rpcUrl),
+      transport: fallback([http(rpcUrl)]),
       chain: foundry,
       account,
     });

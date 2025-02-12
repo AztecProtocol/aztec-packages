@@ -14,6 +14,19 @@ const execAsync = promisify(exec);
 
 const logger = createLogger('e2e:k8s-utils');
 
+const ethereumHostsSchema = z.string().refine(
+  str =>
+    str.split(',').every(url => {
+      try {
+        new URL(url.trim());
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  'ETHEREUM_HOSTS must be a comma-separated list of valid URLs',
+);
+
 const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
@@ -28,7 +41,7 @@ const k8sLocalConfigSchema = z.object({
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
-  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  ETHEREUM_HOSTS: ethereumHostsSchema.optional(),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
 });
@@ -42,7 +55,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
 const directConfigSchema = z.object({
   PXE_URL: z.string().url('PXE_URL must be a valid URL'),
   NODE_URL: z.string().url('NODE_URL must be a valid URL'),
-  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL'),
+  ETHEREUM_HOSTS: ethereumHostsSchema,
   K8S: z.literal('false'),
 });
 

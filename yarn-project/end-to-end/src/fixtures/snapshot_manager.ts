@@ -186,7 +186,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrl);
+    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls[0]);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -315,7 +315,7 @@ async function setupFromFresh(
   logger.verbose('Starting anvil...');
   const res = await startAnvil(opts.ethereumSlotDuration);
   const anvil = res.anvil;
-  aztecNodeConfig.l1RpcUrl = res.rpcUrl;
+  aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
@@ -329,13 +329,13 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]);
 
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime);
   }
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     salt: opts.salt,
     ...deployL1ContractsArgs,
@@ -368,7 +368,7 @@ async function setupFromFresh(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );
@@ -408,7 +408,7 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls[0], pxe);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -462,10 +462,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
-  aztecNodeConfig.l1RpcUrl = rpcUrl;
+  aztecNodeConfig.l1RpcUrls = [rpcUrl];
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -482,10 +482,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]),
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,
   );
@@ -514,7 +514,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls[0], pxe);
 
   return {
     aztecNodeConfig,

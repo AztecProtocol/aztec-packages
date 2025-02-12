@@ -147,7 +147,7 @@ jobs:
 
           docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
             --rpc-url http://127.0.0.1:$PXE_PORT \
-            --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
+            --l1-rpc-urls http://127.0.0.1:$ETHEREUM_PORT \
             --l1-chain-id "$L1_CHAIN_ID" \
             --mnemonic "$MNEMONIC" \
             --json | tee ./basic_contracts.json

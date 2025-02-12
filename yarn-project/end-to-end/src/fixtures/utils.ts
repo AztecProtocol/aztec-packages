@@ -69,10 +69,10 @@ import {
   type Chain,
   type HDAccount,
   type Hex,
-  type HttpTransport,
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
+  fallback,
   getContract,
   http,
 } from 'viem';
@@ -111,13 +111,13 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 };
 
 export const setupL1Contracts = async (
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   account: HDAccount | PrivateKeyAccount,
   logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
+  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
@@ -210,21 +210,21 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
+  const walletClient = createWalletClient({
     account,
     chain: foundry,
-    transport: http(config.l1RpcUrl),
+    transport: fallback(config.l1RpcUrls.map(url => http(url))),
   });
   const publicClient = createPublicClient({
     chain: foundry,
-    transport: http(config.l1RpcUrl),
+    transport: fallback(config.l1RpcUrls.map(url => http(url))),
   });
   const deployL1ContractsValues: DeployL1Contracts = {
     l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls[0], pxeClient!);
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
@@ -352,19 +352,19 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  if (!config.l1RpcUrl) {
+  if (!config.l1RpcUrls[0]) {
     if (!isAnvilTestChain(chain.id)) {
-      throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
+      throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
     }
     if (PXE_URL) {
       throw new Error(
-        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+        `PXE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
       );
     }
 
     const res = await startAnvil(opts.ethereumSlotDuration);
     anvil = res.anvil;
-    config.l1RpcUrl = res.rpcUrl;
+    config.l1RpcUrls = [res.rpcUrl];
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -374,7 +374,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls[0]);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -413,7 +413,8 @@ export async function setup(
   config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
+    opts.deployL1ContractsValues ??
+    (await setupL1Contracts(config.l1RpcUrls, publisherHdAccount!, logger, opts, chain));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
@@ -449,7 +450,7 @@ export async function setup(
   const dateProvider = new TestDateProvider();
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrls[0]),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
     dateProvider,
@@ -510,7 +511,7 @@ export async function setup(
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls[0], pxe!);
 
   const teardown = async () => {
     await pxeTeardown();
@@ -760,7 +761,7 @@ export async function createAndSyncProverNode(
 }
 
 function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
   const l1TxUtils = new DelayedTxUtils(publicClient, walletClient, log, aztecNodeConfig);
@@ -773,7 +774,7 @@ export async function createForwarderContract(
   privateKey: `0x${string}`,
   rollupAddress: Hex,
 ) {
-  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
   const forwarderContract = await ForwarderContract.create(
     walletClient.account.address,
     walletClient,

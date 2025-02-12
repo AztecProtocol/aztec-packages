@@ -2,13 +2,37 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
-import { type PrivateKeyAccount, createWalletClient, getContract, http, publicActions } from 'viem';
+import {
+  type Chain,
+  type Client,
+  type HttpTransport,
+  type PrivateKeyAccount,
+  type PublicActions,
+  type PublicRpcSchema,
+  type WalletActions,
+  type WalletRpcSchema,
+  createWalletClient,
+  getContract,
+  http,
+  publicActions,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { type ViemClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
+
+/**
+ * Type for a viem wallet and public client using a local private key.
+ * Created as: `createWalletClient({ account: privateKeyToAccount(key), transport: http(url), chain }).extend(publicActions)`
+ */
+export type ViemClient = Client<
+  HttpTransport,
+  Chain,
+  PrivateKeyAccount,
+  [...PublicRpcSchema, ...WalletRpcSchema],
+  PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
+>;
 
 describe('tx_delayer', () => {
   let anvil: Anvil;

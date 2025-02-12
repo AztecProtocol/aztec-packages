@@ -18,7 +18,7 @@ services:
     working_dir: /root/aztec-packages/yarn-project/aztec
     command: "node ./dest/bin start --sandbox"
     environment:
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50
       P2P_BLOCK_CHECK_INTERVAL_MS: 50
@@ -46,7 +46,7 @@ services:
     environment:
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
       PXE_URL: http://aztec:8080
       VITE_AZTEC_NODE_URL: http://aztec:8080

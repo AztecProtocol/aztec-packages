@@ -43,14 +43,15 @@ export async function deployContractsToL1(
   contractDeployLogger = logger,
   opts: { assumeProvenThroughBlockNumber?: number; salt?: number } = {},
 ) {
-  const chain = aztecNodeConfig.l1RpcUrl
-    ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
-    : { chainInfo: localAnvil };
+  const chain =
+    aztecNodeConfig.l1RpcUrls.length > 0
+      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
+      : { chainInfo: localAnvil };
 
   await waitForPublicClient(aztecNodeConfig);
 
   const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrl,
+    aztecNodeConfig.l1RpcUrls,
     hdAccount,
     chain.chainInfo,
     contractDeployLogger,
@@ -84,6 +85,11 @@ export type SandboxConfig = AztecNodeConfig & {
  * @param config - Optional Sandbox settings.
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
+  // sandbox is meant for test envs. We should only need one l1RpcUrl
+  const l1RpcUrl = config.l1RpcUrls?.[0];
+  if (!l1RpcUrl) {
+    throw new Error('At least one L1 RPC URL is required');
+  }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
@@ -102,20 +108,17 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
     });
 
-    const chain = aztecNodeConfig.l1RpcUrl
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
+    const chain =
+      aztecNodeConfig.l1RpcUrls.length > 0
+        ? createEthereumChain([l1RpcUrl], aztecNodeConfig.l1ChainId)
+        : { chainInfo: localAnvil };
 
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
+      transport: httpViemTransport(l1RpcUrl),
     });
 
-    watcher = new AnvilTestWatcher(
-      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
-      l1ContractAddresses.rollupAddress,
-      publicClient,
-    );
+    watcher = new AnvilTestWatcher(new EthCheatCodes(l1RpcUrl), l1ContractAddresses.rollupAddress, publicClient);
     watcher.setIsSandbox(true);
     await watcher.start();
   }

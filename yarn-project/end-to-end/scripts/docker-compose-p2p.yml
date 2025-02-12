@@ -27,7 +27,7 @@ services:
       BENCHMARK: true
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       DEBUG: ${DEBUG:-""}
-      ETHEREUM_HOST: http://fork:8545
+      ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 500
       P2P_CHECK_INTERVAL: 50

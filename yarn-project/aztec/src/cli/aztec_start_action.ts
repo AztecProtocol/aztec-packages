@@ -35,7 +35,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
       l1Mnemonic: options.l1Mnemonic,
-      l1RpcUrl: options.l1RpcUrl,
+      l1RpcUrls: options.l1RpcUrls,
       l1Salt: nodeOptions.deployAztecContractsSalt,
     });
 

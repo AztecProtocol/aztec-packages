@@ -9,7 +9,7 @@ export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
   pxe: PXE,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -21,8 +21,8 @@ export async function bridgeL1FeeJuice(
   debugLogger: Logger,
 ) {
   // Prepare L1 client
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },

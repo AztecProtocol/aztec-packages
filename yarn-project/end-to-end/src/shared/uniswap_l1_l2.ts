@@ -9,7 +9,7 @@ import {
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
-import { type DeployL1Contracts, deployL1Contract, extractEvent } from '@aztec/ethereum';
+import { type DeployL1ContractsReturnType, deployL1Contract, extractEvent } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, RollupAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
@@ -58,7 +58,7 @@ export type UniswapSetupContext = {
   /** The sponsor wallet. */
   sponsorWallet: AccountWallet;
   /**  */
-  deployL1ContractsValues: DeployL1Contracts;
+  deployL1ContractsValues: DeployL1ContractsReturnType;
 };
 // docs:end:uniswap_l1_l2_test_setup_const
 
@@ -91,7 +91,7 @@ export const uniswapL1L2TestSuite = (
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
 
-    let deployL1ContractsValues: DeployL1Contracts;
+    let deployL1ContractsValues: DeployL1ContractsReturnType;
     let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
     let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, WalletClient<HttpTransport, Chain, Account>>;
     let uniswapPortalAddress: EthAddress;

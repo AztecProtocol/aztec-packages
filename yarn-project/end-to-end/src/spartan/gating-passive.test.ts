@@ -55,7 +55,7 @@ const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
-  const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
+  const ETHEREUM_HOSTS = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
   const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
 
   afterAll(async () => {
@@ -83,7 +83,7 @@ describe('a test that passively observes the network in the presence of network 
     });
 
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),

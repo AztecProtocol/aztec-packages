@@ -9,11 +9,11 @@ import {
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, getContract, http } from 'viem';
+import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export interface RollupCommandArgs {
-  rpcUrl: string;
+  rpcUrls: string[];
   chainId: number;
   privateKey?: string;
   mnemonic?: string;
@@ -37,7 +37,7 @@ export function generateL1Account() {
 }
 
 export async function addL1Validator({
-  rpcUrl,
+  rpcUrls,
   chainId,
   privateKey,
   mnemonic,
@@ -49,8 +49,8 @@ export async function addL1Validator({
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
   const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrl, chainId);
-  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const publicClient = getPublicClient(rpcUrls, chainId);
+  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -83,7 +83,7 @@ export async function addL1Validator({
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
-    const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+    const cheatCodes = new EthCheatCodes(rpcUrls[0], debugLogger);
     await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
   } else {
     const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
@@ -96,7 +96,7 @@ export async function addL1Validator({
 }
 
 export async function removeL1Validator({
-  rpcUrl,
+  rpcUrls,
   chainId,
   privateKey,
   mnemonic,
@@ -106,8 +106,8 @@ export async function removeL1Validator({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrl, chainId);
-  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const publicClient = getPublicClient(rpcUrls, chainId);
+  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -121,7 +121,7 @@ export async function removeL1Validator({
 }
 
 export async function pruneRollup({
-  rpcUrl,
+  rpcUrls,
   chainId,
   privateKey,
   mnemonic,
@@ -130,8 +130,8 @@ export async function pruneRollup({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrl, chainId);
-  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const publicClient = getPublicClient(rpcUrls, chainId);
+  const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -145,7 +145,7 @@ export async function pruneRollup({
 }
 
 export async function fastForwardEpochs({
-  rpcUrl,
+  rpcUrls,
   chainId,
   rollupAddress,
   numEpochs,
@@ -153,14 +153,14 @@ export async function fastForwardEpochs({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { numEpochs: bigint }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const publicClient = getPublicClient(rpcUrl, chainId);
+  const publicClient = getPublicClient(rpcUrls, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
     client: publicClient,
   });
 
-  const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+  const cheatCodes = new EthCheatCodes(rpcUrls[0], debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
   const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
@@ -178,9 +178,9 @@ export async function fastForwardEpochs({
   }
 }
 
-export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
   const config = getL1ContractsConfigEnvVars();
-  const publicClient = getPublicClient(rpcUrl, chainId);
+  const publicClient = getPublicClient(rpcUrls, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -215,13 +215,13 @@ function makeDualLog(log: LogFn, debugLogger: Logger) {
   };
 }
 
-function getPublicClient(rpcUrl: string, chainId: number) {
-  const chain = createEthereumChain(rpcUrl, chainId);
-  return createPublicClient({ chain: chain.chainInfo, transport: http(rpcUrl) });
+function getPublicClient(rpcUrls: string[], chainId: number) {
+  const chain = createEthereumChain(rpcUrls, chainId);
+  return createPublicClient({ chain: chain.chainInfo, transport: fallback(rpcUrls.map(url => http(url))) });
 }
 
 function getWalletClient(
-  rpcUrl: string,
+  rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string | undefined,
@@ -230,9 +230,9 @@ function getWalletClient(
     throw new Error('Either privateKey or mnemonic must be provided to create a wallet client');
   }
 
-  const chain = createEthereumChain(rpcUrl, chainId);
+  const chain = createEthereumChain(rpcUrls, chainId);
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  return createWalletClient({ account, chain: chain.chainInfo, transport: http(rpcUrl) });
+  return createWalletClient({ account, chain: chain.chainInfo, transport: fallback(rpcUrls.map(url => http(url))) });
 }

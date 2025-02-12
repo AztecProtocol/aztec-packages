@@ -1,6 +1,12 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import { type L1ReaderConfig, type L1TxUtilsConfig, NULL_KEY, l1TxUtilsConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type L1ReaderConfig,
+  type L1TxUtilsConfig,
+  NULL_KEY,
+  l1ReaderConfigMappings,
+  l1TxUtilsConfigMappings,
+} from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -37,16 +43,7 @@ export type PublisherConfig = L1TxUtilsConfig &
 export const getTxSenderConfigMappings: (
   scope: 'PROVER' | 'SEQ',
 ) => ConfigMappingsType<Omit<TxSenderConfig, 'l1Contracts'>> = (scope: 'PROVER' | 'SEQ') => ({
-  l1RpcUrl: {
-    env: 'ETHEREUM_HOST',
-    description: 'The RPC Url of the ethereum host.',
-  },
-  l1ChainId: {
-    env: 'L1_CHAIN_ID',
-    parseEnv: (val: string) => +val,
-    defaultValue: 31337,
-    description: 'The chain ID of the ethereum host.',
-  },
+  ...l1ReaderConfigMappings,
   customForwarderContractAddress: {
     env: `CUSTOM_FORWARDER_CONTRACT_ADDRESS`,
     parseEnv: (val: string) => EthAddress.fromString(val),
@@ -64,11 +61,6 @@ export const getTxSenderConfigMappings: (
     parseEnv: (val: string) => +val,
     defaultValue: 1,
     description: 'The number of confirmations required.',
-  },
-  viemPollingIntervalMS: {
-    env: `${scope}_VIEM_POLLING_INTERVAL_MS`,
-    description: 'The polling interval viem uses in ms',
-    ...numberConfigHelper(1_000),
   },
 });
 

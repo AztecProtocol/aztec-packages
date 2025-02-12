@@ -8,8 +8,8 @@ import {
 import { type TelemetryClientConfig, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 export type ProofVerifierConfig = {
-  /** The URL to an L1 node */
-  l1Url: string;
+  /** The URLs to an L1 node */
+  l1Urls: string[];
   /** The L1 chain ID */
   l1ChainId: number;
   /** Start block number */
@@ -30,9 +30,10 @@ export type ProofVerifierConfig = {
 
 export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig> = {
   ...telemetryClientConfigMappings,
-  l1Url: {
-    env: 'ETHEREUM_HOST',
+  l1Urls: {
+    env: 'ETHEREUM_HOSTS',
     description: 'The URL to an L1 node',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
   l1ChainId: {
     env: 'L1_CHAIN_ID',

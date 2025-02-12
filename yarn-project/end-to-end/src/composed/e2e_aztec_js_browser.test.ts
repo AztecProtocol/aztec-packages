@@ -27,7 +27,7 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
  *    4) start sandbox in another terminal: `cd yarn-project/aztec && yarn start:sandbox`,
  *    5) go to `yarn-project/end-to-end` and build the web packed package with `yarn build:web`,
  *    6) put your username in the path and run: `export CHROME_BIN="/mnt/user-data/USER_NAME/.cache/ms-playwright/chromium-1091/chrome-linux/chrome"`
- *    7) open new terminal and run `export ETHEREUM_HOST='http://localhost:8545/' && export PXE_URL='http://localhost:8080'`
+ *    7) open new terminal and run `export ETHEREUM_HOSTS='http://localhost:8545/' && export PXE_URL='http://localhost:8080'`
  *    8) go to `yarn-project/end-to-end` and run the test: `LOG_LEVEL=debug yarn test:e2e e2e_aztec_js_browser`
  *
  * Note 1: if you get browser executable not found error check the path from step 6 and fix it if necessary (browser version might have changed),

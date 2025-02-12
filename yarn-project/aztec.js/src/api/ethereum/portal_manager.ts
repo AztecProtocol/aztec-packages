@@ -1,22 +1,13 @@
 import { type PXE, type SiblingPath } from '@aztec/circuit-types';
 import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretHash } from '@aztec/circuits.js/hash';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  toFunctionSelector,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract, toFunctionSelector } from 'viem';
 
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {
@@ -53,13 +44,13 @@ export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
 
 /** Helper for managing an ERC20 on L1. */
 export class L1TokenManager {
-  private contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
+  private contract: GetContractReturnType<typeof TestERC20Abi, ViemWalletClient>;
 
   public constructor(
     /** Address of the ERC20 contract. */
     public readonly address: EthAddress,
-    private publicClient: PublicClient<HttpTransport, Chain>,
-    private walletClient: WalletClient<HttpTransport, Chain, Account>,
+    private publicClient: ViemPublicClient,
+    private walletClient: ViemWalletClient,
     private logger: Logger,
   ) {
     this.contract = getContract({
@@ -107,16 +98,13 @@ export class L1TokenManager {
 /** Helper for interacting with the FeeJuicePortal on L1. */
 export class L1FeeJuicePortalManager {
   private readonly tokenManager: L1TokenManager;
-  private readonly contract: GetContractReturnType<
-    typeof FeeJuicePortalAbi,
-    WalletClient<HttpTransport, Chain, Account>
-  >;
+  private readonly contract: GetContractReturnType<typeof FeeJuicePortalAbi, ViemWalletClient>;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    private readonly publicClient: PublicClient<HttpTransport, Chain>,
-    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
+    private readonly publicClient: ViemPublicClient,
+    private readonly walletClient: ViemWalletClient,
     private readonly logger: Logger,
   ) {
     this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
@@ -185,8 +173,8 @@ export class L1FeeJuicePortalManager {
    */
   public static async new(
     pxe: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    publicClient: ViemPublicClient,
+    walletClient: ViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
@@ -203,14 +191,14 @@ export class L1FeeJuicePortalManager {
 
 /** Helper for interacting with a test TokenPortal on L1 for sending tokens to L2. */
 export class L1ToL2TokenPortalManager {
-  protected readonly portal: GetContractReturnType<typeof TokenPortalAbi, WalletClient<HttpTransport, Chain, Account>>;
+  protected readonly portal: GetContractReturnType<typeof TokenPortalAbi, ViemWalletClient>;
   protected readonly tokenManager: L1TokenManager;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    protected publicClient: PublicClient<HttpTransport, Chain>,
-    protected walletClient: WalletClient<HttpTransport, Chain, Account>,
+    protected publicClient: ViemPublicClient,
+    protected walletClient: ViemWalletClient,
     protected logger: Logger,
   ) {
     this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
@@ -321,14 +309,14 @@ export class L1ToL2TokenPortalManager {
 
 /** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and bridging to L2. */
 export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
-  private readonly outbox: GetContractReturnType<typeof OutboxAbi, WalletClient<HttpTransport, Chain, Account>>;
+  private readonly outbox: GetContractReturnType<typeof OutboxAbi, ViemWalletClient>;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
     outboxAddress: EthAddress,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    publicClient: ViemPublicClient,
+    walletClient: ViemWalletClient,
     logger: Logger,
   ) {
     super(portalAddress, tokenAddress, publicClient, walletClient, logger);

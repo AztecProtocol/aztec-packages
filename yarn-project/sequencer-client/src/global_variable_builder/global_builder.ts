@@ -1,20 +1,12 @@
 import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import {
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 /**
  * Simple global variables builder.
@@ -22,20 +14,20 @@ import type * as chains from 'viem/chains';
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
 
-  private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
-  private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private rollupContract: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private publicClient: ViemPublicClient;
   private ethereumSlotDuration: number;
 
   constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
-    const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
+    const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
 
-    const chain = createEthereumChain(l1RpcUrl, chainId);
+    const chain = createEthereumChain(l1RpcUrls, chainId);
 
     this.ethereumSlotDuration = config.ethereumSlotDuration;
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: fallback(chain.rpcUrls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

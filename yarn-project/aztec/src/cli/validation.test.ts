@@ -19,7 +19,7 @@ describe('validation', () => {
     beforeAll(async () => {
       ({ anvil, rpcUrl: l1RpcUrl } = await startAnvil());
 
-      nodeConfig = { ...getDefaultConfig(aztecNodeConfigMappings), l1RpcUrl };
+      nodeConfig = { ...getDefaultConfig(aztecNodeConfigMappings), l1RpcUrls: [l1RpcUrl] };
       nodeConfig.aztecSlotDuration = 72; // Tweak config so we don't have just defaults
       const account = mnemonicToAccount(DefaultMnemonic);
       const deployed = await deployContractsToL1(nodeConfig, account, undefined, { salt: 1 });

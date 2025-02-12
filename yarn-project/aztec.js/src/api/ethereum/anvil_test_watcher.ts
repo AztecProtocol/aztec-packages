@@ -1,12 +1,12 @@
 import { type EthAddress } from '@aztec/circuits.js';
+import { type ViemPublicClient } from '@aztec/ethereum';
 import { type EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type GetContractReturnType, type HttpTransport, type PublicClient, getAddress, getContract } from 'viem';
-import type * as chains from 'viem/chains';
+import { GetContractReturnType, getAddress, getContract } from 'viem';
 
 /**
  * Represents a watcher for a rollup contract.
@@ -18,7 +18,7 @@ import type * as chains from 'viem/chains';
 export class AnvilTestWatcher {
   private isSandbox: boolean = false;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   private filledRunningPromise?: RunningPromise;
   private mineIfOutdatedPromise?: RunningPromise;
@@ -28,7 +28,7 @@ export class AnvilTestWatcher {
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
-    publicClient: PublicClient<HttpTransport, chains.Chain>,
+    publicClient: ViemPublicClient,
     private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({

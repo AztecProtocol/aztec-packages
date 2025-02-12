@@ -14,7 +14,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type PublicClient, createPublicClient, http } from 'viem';
+import { type PublicClient, createPublicClient, fallback, http } from 'viem';
 
 import { type ProofVerifierConfig } from './config.js';
 
@@ -48,8 +48,8 @@ export class ProofVerifier implements Traceable {
     const logger = createLogger('proof-verifier:block-verifier-bot');
     const verifier = await BBCircuitVerifier.new(config, logger);
     const client = createPublicClient({
-      chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,
-      transport: http(config.l1Url),
+      chain: createEthereumChain(config.l1Urls, config.l1ChainId).chainInfo,
+      transport: fallback(config.l1Urls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

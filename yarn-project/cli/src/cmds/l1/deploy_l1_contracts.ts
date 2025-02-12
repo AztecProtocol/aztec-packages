@@ -5,7 +5,7 @@ import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { deployAztecContracts } from '../../utils/aztec.js';
 
 export async function deployL1Contracts(
-  rpcUrl: string,
+  rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -19,7 +19,7 @@ export async function deployL1Contracts(
   const config = getL1ContractsConfigEnvVars();
 
   const { l1ContractAddresses } = await deployAztecContracts(
-    rpcUrl,
+    rpcUrls,
     chainId,
     privateKey,
     mnemonic,

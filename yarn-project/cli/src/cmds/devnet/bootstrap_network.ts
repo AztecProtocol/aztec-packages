@@ -35,7 +35,7 @@ const waitOpts: WaitOpts = {
 
 export async function bootstrapNetwork(
   pxeUrl: string,
-  l1Url: string,
+  l1Urls: string[],
   l1ChainId: string,
   l1PrivateKey: `0x${string}` | undefined,
   l1Mnemonic: string,
@@ -50,9 +50,9 @@ export async function bootstrapNetwork(
   const wallet = await account.deploy().getWallet();
 
   const l1Clients = createL1Clients(
-    l1Url,
+    l1Urls,
     l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Mnemonic,
-    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+    createEthereumChain(l1Urls, +l1ChainId).chainInfo,
   );
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);

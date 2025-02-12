@@ -12,4 +12,8 @@ export { getL1ContractAddresses } from './l1_contracts.js';
 export { RollupCheatCodes, EthCheatCodes } from './cheat_codes.js';
 export { ChainMonitor } from './chain_monitor.js';
 export { AnvilTestWatcher } from './anvil_test_watcher.js';
-export { deployL1Contract, deployL1Contracts, DeployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
+export {
+  deployL1Contract,
+  deployL1Contracts,
+  DeployL1ContractsReturnType as DeployL1Contracts,
+} from '@aztec/ethereum/deploy-l1-contracts';

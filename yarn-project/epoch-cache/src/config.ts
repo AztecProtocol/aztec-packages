@@ -7,7 +7,7 @@ import {
 
 export type EpochCacheConfig = Pick<
   L1ReaderConfig & L1ContractsConfig,
-  | 'l1RpcUrl'
+  | 'l1RpcUrls'
   | 'l1ChainId'
   | 'viemPollingIntervalMS'
   | 'aztecSlotDuration'

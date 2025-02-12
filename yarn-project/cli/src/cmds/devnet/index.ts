@@ -2,7 +2,7 @@ import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
-import { ETHEREUM_HOST, l1ChainIdOption, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
+import { ETHEREUM_HOSTS, l1ChainIdOption, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
@@ -10,10 +10,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .description('Bootstrap a new network')
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
-    .requiredOption(
-      '--l1-rpc-url <string>',
-      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      ETHEREUM_HOST,
+    .requiredOption<string[]>(
+      '--l1-rpc-urls <string>',
+      'List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)',
+      (arg: string) => arg.split(','),
+      [ETHEREUM_HOSTS],
     )
     .option('--l1-private-key <string>', 'The private key to use for deployment', process.env.PRIVATE_KEY)
     .option(
@@ -26,7 +27,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       const { bootstrapNetwork } = await import('./bootstrap_network.js');
       await bootstrapNetwork(
         options[pxeOption.attributeName()],
-        options.l1RpcUrl,
+        options.l1RpcUrls,
         options[l1ChainIdOption.attributeName()],
         options.l1PrivateKey,
         options.mnemonic,

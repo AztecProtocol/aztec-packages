@@ -19,7 +19,7 @@ You can also run it as a standalone node server with:
 yarn start
 ```
 
-It will look for a local Ethereum RPC to talk to but you can change this with the `ETHEREUM_HOST` environment variable.
+It will look for a local Ethereum RPC to talk to but you can change this with the `ETHEREUM_HOSTS` environment variable.
 
 ## Examples
 

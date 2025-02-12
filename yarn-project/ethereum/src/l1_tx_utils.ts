@@ -17,11 +17,13 @@ import {
   type BlockOverrides,
   type Chain,
   type ContractFunctionExecutionError,
+  type FallbackTransport,
   type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
+  type PublicClient,
   type StateOverride,
   type TransactionReceipt,
   type WalletClient,
@@ -30,7 +32,7 @@ import {
   hexToBytes,
 } from 'viem';
 
-import { type L1Clients } from './deploy_l1_contracts.js';
+// import { type L1Clients } from './deploy_l1_contracts.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -206,8 +208,8 @@ export class L1TxUtils {
   private interrupted = false;
 
   constructor(
-    public publicClient: L1Clients['publicClient'],
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public publicClient: PublicClient<FallbackTransport<HttpTransport[]>, Chain>,
+    public walletClient: WalletClient<FallbackTransport<HttpTransport[]>, Chain, Account>,
     protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {

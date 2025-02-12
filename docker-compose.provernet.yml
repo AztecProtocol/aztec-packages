@@ -3,11 +3,10 @@
 # Logs latest block numbers every 10 seconds.
 name: aztec-provernet
 services:
-
   # Anvil instance that serves as L1
   ethereum:
     image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
-    entrypoint: 'anvil --block-time 12 --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+    entrypoint: "anvil --block-time 12 --silent -p 8545 --host 0.0.0.0 --chain-id 31337"
     ports:
       - 8545:8545
 
@@ -18,7 +17,7 @@ services:
       - "8080:80"
     environment:
       LOG_LEVEL: info
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
       DEPLOY_AZTEC_CONTRACTS: 1
@@ -37,7 +36,7 @@ services:
     volumes:
       - ./log/aztec-node/:/usr/src/yarn-project/aztec/log:rw
     healthcheck:
-      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:80/status"]
       interval: 3s
       timeout: 30s
       start_period: 120s
@@ -58,7 +57,7 @@ services:
       - "8083:80"
     environment:
       LOG_LEVEL: verbose
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       PROVER_COORDINATION_NODE_URL: http://aztec-node
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
@@ -80,11 +79,11 @@ services:
       aztec-prover-broker:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:80/status"]
       interval: 3s
       timeout: 30s
       start_period: 120s
-    command: [ "start", "--prover-node", "--archiver" ]
+    command: ["start", "--prover-node", "--archiver"]
     restart: on-failure:5
 
   aztec-prover-broker:
@@ -95,11 +94,11 @@ services:
       LOG_LEVEL: verbose
       AZTEC_PORT: 80
     healthcheck:
-      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:80/status"]
       interval: 3s
       timeout: 30s
       start_period: 120s
-    command: [ "start", "--prover-broker" ]
+    command: ["start", "--prover-broker"]
     restart: on-failure:5
 
   # Prover agent that connects to the prover-node for fetching proving jobs and executing them
@@ -110,7 +109,7 @@ services:
       - "8090:80"
     environment:
       LOG_LEVEL: verbose
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       PROVER_BROKER_HOST: http://aztec-prover-broker
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
@@ -125,13 +124,13 @@ services:
     depends_on:
       aztec-prover-broker:
         condition: service_healthy
-    command: [ "start", "--prover-agent" ]
+    command: ["start", "--prover-agent"]
     deploy:
       mode: replicated
       replicas: 2
     restart: on-failure:5
     healthcheck:
-      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:80/status"]
       interval: 3s
       timeout: 30s
       start_period: 20s
@@ -144,7 +143,7 @@ services:
       - "8082:80"
     environment:
       LOG_LEVEL: info
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       AZTEC_NODE_URL: http://aztec-node
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
@@ -167,23 +166,23 @@ services:
       aztec-node:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      test: ["CMD", "curl", "-fSs", "http://127.0.0.1:80/status"]
       interval: 3s
       timeout: 30s
       start_period: 90s
     restart: on-failure:5
-    command: [ "start", "--bot", "--pxe" ]
+    command: ["start", "--bot", "--pxe"]
 
   # Simple watcher that logs the latest block numbers every few seconds using the CLI and the bot's PXE
   aztec-block-watcher:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     environment:
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
     depends_on:
       aztec-bot:
         condition: service_healthy
-    entrypoint: '/bin/bash -c'
+    entrypoint: "/bin/bash -c"
     command: >
       'while true; do node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js block-number -u http://aztec-bot | head -n2; sleep 10; done'
     restart: on-failure:5
@@ -194,7 +193,7 @@ services:
   aztec-cli:
     image: "aztecprotocol/${IMAGE:-aztec:master}"
     environment:
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       PXE_URL: http://aztec-bot
       L1_CHAIN_ID: 31337
     stdin_open: true

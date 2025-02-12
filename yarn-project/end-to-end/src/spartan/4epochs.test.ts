@@ -26,7 +26,7 @@ describe('token transfer test', () => {
 
   let testWallets: TestWallets;
   let PXE_URL: string;
-  let ETHEREUM_HOST: string;
+  let ETHEREUM_HOSTS: string;
 
   beforeAll(async () => {
     if (isK8sConfig(config)) {
@@ -44,16 +44,16 @@ describe('token transfer test', () => {
           containerPort: config.CONTAINER_ETHEREUM_PORT,
           hostPort: config.HOST_ETHEREUM_PORT,
         });
-        ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+        ETHEREUM_HOSTS = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
       } else {
-        if (!config.ETHEREUM_HOST) {
-          throw new Error('ETHEREUM_HOST must be set for sepolia runs');
+        if (!config.ETHEREUM_HOSTS) {
+          throw new Error('ETHEREUM_HOSTS must be set for sepolia runs');
         }
-        ETHEREUM_HOST = config.ETHEREUM_HOST;
+        ETHEREUM_HOSTS = config.ETHEREUM_HOSTS;
       }
     } else {
       PXE_URL = config.PXE_URL;
-      ETHEREUM_HOST = config.ETHEREUM_HOST;
+      ETHEREUM_HOSTS = config.ETHEREUM_HOSTS;
     }
 
     testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
@@ -68,7 +68,7 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
     const l1ContractAddresses = await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);

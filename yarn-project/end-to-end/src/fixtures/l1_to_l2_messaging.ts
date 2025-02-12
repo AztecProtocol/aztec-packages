@@ -1,23 +1,15 @@
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { InboxAbi } from '@aztec/l1-artifacts';
 
 import { expect } from '@jest/globals';
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  decodeEventLog,
-  getContract,
-} from 'viem';
+import { decodeEventLog, getContract } from 'viem';
 
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: WalletClient<HttpTransport, Chain, Account>;
-    publicClient: PublicClient<HttpTransport, Chain>;
+    walletClient: ViemWalletClient;
+    publicClient: ViemPublicClient;
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress'>;
   },
 ) {

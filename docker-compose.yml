@@ -48,7 +48,7 @@ services:
       OUTBOX_CONTRACT_ADDRESS: "0x3ec4b6c68a8c2ce4c78cdd465b3019b11a568d1d"
       FEE_JUICE_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
       FEE_JUICE_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
-      ETHEREUM_HOST:
+      ETHEREUM_HOSTS:
       P2P_TCP_LISTEN_ADDR: "0.0.0.0:9000"
       P2P_UDP_LISTEN_ADDR: "0.0.0.0:9001"
       P2P_TCP_ANNOUNCE_ADDR: ":9000"
@@ -64,7 +64,7 @@ services:
       - p2p-boot-node
     entrypoint: |
       /bin/sh -c '
-        export ETHEREUM_HOST=$$(cat /var/run/secrets/ethereum-host)
+        export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-host)
         export BOOTSTRAP_NODES=$$(cat /var/run/secrets/p2p-boot-node)
 
         test -z "$$PEER_ID_PRIVATE_KEY" -a ! -f /var/lib/aztec/p2p-private-key && node /usr/src/yarn-project/cli/dest/bin/index.js generate-p2p-private-key | head -1 | cut -d" " -f 3 | tee /var/lib/aztec/p2p-private-key || echo "Re-using existing P2P private key"
@@ -105,7 +105,7 @@ services:
       PXE_URL: http://pxe:8080
       NODE_NO_WARNINGS: 1
       SECRET_KEY:
-      ETHEREUM_HOST:
+      ETHEREUM_HOSTS:
     profiles:
       - cli
 
@@ -122,6 +122,6 @@ secrets:
   aztec-node-url:
     environment: AZTEC_NODE_URL
   ethereum-host:
-    environment: ETHEREUM_HOST
+    environment: ETHEREUM_HOSTS
   p2p-boot-node:
     environment: BOOTSTRAP_NODES
