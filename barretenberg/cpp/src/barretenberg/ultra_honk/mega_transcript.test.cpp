@@ -193,12 +193,14 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = TestFixture::construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(manifest_expected.size() > 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -229,6 +231,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -242,6 +245,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(prover_manifest.size() > 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         if (prover_manifest[round] != verifier_manifest[round]) {
             info("Prover/Verifier manifest discrepency in round ", round);
