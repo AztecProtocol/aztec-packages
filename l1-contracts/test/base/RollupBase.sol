@@ -196,7 +196,7 @@ contract RollupBase is DecoderBase {
       oracleInput: OracleInput(0, 0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, full.block.body, blobInputs);
+    rollup.propose(args, signatures, blobInputs);
 
     bytes32 l2ToL1MessageTreeRoot;
     uint32 numTxs = full.block.numTxs;
