@@ -260,7 +260,7 @@ comptime fn generate_process_log() -> Quoted {
                 |packed_note_content: BoundedVec<Field, _>, note_header, storage_slot, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
                     else {
-                        panic(f"Unknown note type id sklebivi {note_type_id}")
+                        panic(f"Unknown note type id {note_type_id}")
                     };
 
                     Option::some(
