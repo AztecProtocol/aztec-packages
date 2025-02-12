@@ -275,7 +275,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     std::shared_ptr<ThreadPool> workers,
     const index_t& initial_size,
     const std::vector<LeafValueType>& prefilled_values)
-    : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers)
+    : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers, {}, false)
 {
     if (initial_size < 2) {
         throw std::runtime_error("Indexed trees must have initial size > 1");
@@ -294,10 +294,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     zero_hashes_[0] = current;
 
     TreeMeta meta;
-    {
-        ReadTransactionPtr tx = store_->create_read_transaction();
-        store_->get_meta(meta, *tx, false);
-    }
+    store_->get_meta(meta);
 
     // if the tree already contains leaves then it's been initialised in the past
     if (meta.size > 0) {
@@ -342,15 +339,11 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     if (!result.success) {
         throw std::runtime_error(format("Failed to initialise tree: ", result.message));
     }
-    {
-        ReadTransactionPtr tx = store_->create_read_transaction();
-        store_->get_meta(meta, *tx, true);
-    }
+    store_->get_meta(meta);
     meta.initialRoot = result.inner.root;
     meta.initialSize = result.inner.size;
     store_->put_meta(meta);
-    TreeDBStats stats;
-    store_->commit(meta, stats, false);
+    store_->commit_genesis_state();
 }
 
 template <typename Store, typename HashingPolicy>
@@ -939,7 +932,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
             {
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 TreeMeta meta;
-                store_->get_meta(meta, *tx, true);
+                store_->get_meta(meta);
                 RequestContext requestContext;
                 requestContext.includeUncommitted = true;
                 //  Ensure that the tree is not going to be overfilled
@@ -1347,7 +1340,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_seq
             {
                 TreeMeta meta;
                 ReadTransactionPtr tx = store_->create_read_transaction();
-                store_->get_meta(meta, *tx, true);
+                store_->get_meta(meta);
 
                 index_t new_total_size = results->appended_leaves + meta.size;
                 meta.size = new_total_size;
@@ -1438,7 +1431,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
         [=, this](TypedResponse<SequentialInsertionGenerationResponse>& response) {
             TreeMeta meta;
             ReadTransactionPtr tx = store_->create_read_transaction();
-            store_->get_meta(meta, *tx, true);
+            store_->get_meta(meta);
 
             RequestContext requestContext;
             requestContext.includeUncommitted = true;
