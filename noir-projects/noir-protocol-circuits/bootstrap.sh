@@ -169,7 +169,7 @@ function build {
 
 function test_cmds {
   find crates -iname Nargo.toml | xargs dirname | \
-    parallel "cd {} && $NARGO test --list-tests --silence-warnings" | sort | \
+    parallel "cd {} && $(realpath $NARGO) test --list-tests --silence-warnings" | sort | \
     while read -r package test; do
       echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
     done

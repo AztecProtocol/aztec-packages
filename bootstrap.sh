@@ -141,7 +141,9 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
-  test_cmds $@ | parallelise $((num_cpus / 2))
+  tests=$(test_cmds $@)
+  echo "Gathered $(echo "$tests" | wc -l) tests."
+  echo "$tests" | parallelise $((num_cpus / 2))
 }
 
 function build {
@@ -170,6 +172,8 @@ function build {
 }
 
 function release {
+  check_release
+
   projects=(
     barretenberg/cpp
     barretenberg/ts
@@ -251,10 +255,10 @@ case "$cmd" in
     build $cmd
   ;;
   "test-cmds")
-    test_cmds $@
+    test_cmds "$@"
   ;;
   "test")
-    test $@
+    test "$@"
   ;;
   "ci")
     build

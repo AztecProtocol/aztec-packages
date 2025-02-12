@@ -133,7 +133,7 @@ function build_release {
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
-  if [ "$REF_NAME" == "master" ]; then
+  if [ "$CI_FULL" -eq 1 ]; then
     update_bb_version build-darwin-$arch/bin/bb > build-darwin-$arch/bin/bb.replaced
     chmod +x build-darwin-$arch/bin/bb.replaced
     tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin --transform 's/.replaced//' bb.replaced
@@ -157,7 +157,7 @@ function build {
       build_gcc_syntax_check_only
     )
   fi
-  if [ "$REF_NAME" == "master" ]; then
+  if [ "$CI_FULL" -eq 1 ]; then
     builds+=(
       build_darwin
     )
