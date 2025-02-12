@@ -4,7 +4,6 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
 
 using namespace bb;

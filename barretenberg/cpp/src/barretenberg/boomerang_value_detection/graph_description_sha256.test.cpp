@@ -5,7 +5,6 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include "barretenberg/numeric/bitop/rotate.hpp"

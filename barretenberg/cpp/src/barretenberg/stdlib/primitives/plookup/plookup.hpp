@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include <array>
 #include <vector>
