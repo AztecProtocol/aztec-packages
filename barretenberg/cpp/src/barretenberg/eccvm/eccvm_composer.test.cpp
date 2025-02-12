@@ -78,7 +78,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<ECCVMFlavor, ECCVMFlavor::LookupRelation>(
+    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
         pk->polynomials, relation_parameters, pk->circuit_size);
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
 
@@ -98,6 +98,16 @@ TEST_F(ECCVMTests, BaseCase)
 
     ASSERT_TRUE(verified);
 }
+TEST_F(ECCVMTests, BaseCaseFixedSize)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProof proof = prover.construct_proof();
+    ECCVMVerifier verifier(prover.key);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
+}
 
 TEST_F(ECCVMTests, EqFails)
 {
@@ -107,6 +117,21 @@ TEST_F(ECCVMTests, EqFails)
 
     builder.op_queue->num_transcript_rows++;
     ECCVMProver prover(builder);
+
+    ECCVMProof proof = prover.construct_proof();
+    ECCVMVerifier verifier(prover.key);
+    bool verified = verifier.verify_proof(proof);
+    ASSERT_FALSE(verified);
+}
+
+TEST_F(ECCVMTests, EqFailsFixedSize)
+{
+    auto builder = generate_circuit(&engine);
+    // Tamper with the eq op such that the expected value is incorect
+    builder.op_queue->add_erroneous_equality_op_for_testing();
+
+    builder.op_queue->num_transcript_rows++;
+    ECCVMProver prover(builder, /*fixed_size = */ true);
 
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);

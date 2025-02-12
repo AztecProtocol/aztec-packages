@@ -13,7 +13,6 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -118,10 +117,6 @@ export abstract class TypedOracle {
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
     throw new OracleMethodNotAvailableError('getAuthWitness');
-  }
-
-  popCapsule(): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('popCapsule');
   }
 
   getNotes(
@@ -247,23 +242,19 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('deliverNote');
   }
 
-  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getLogByTag');
+  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('storeCapsule');
   }
 
-  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbStore');
+  loadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('loadCapsule');
   }
 
-  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    throw new OracleMethodNotAvailableError('dbLoad');
+  deleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('deleteCapsule');
   }
 
-  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbDelete');
-  }
-
-  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbCopy');
+  copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('copyCapsule');
   }
 }

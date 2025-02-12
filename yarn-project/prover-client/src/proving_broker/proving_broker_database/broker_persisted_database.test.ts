@@ -1,6 +1,7 @@
 import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
 import { toArray } from '@aztec/foundation/iterable';
 
+import { jest } from '@jest/globals';
 import { existsSync } from 'fs';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -23,6 +24,8 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerJobMaxRetries: 1,
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
+      proverBrokerBatchSize: 1,
+      proverBrokerBatchIntervalMs: 10,
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -265,6 +268,134 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const allJobs = await toArray(secondDb.allProvingJobs());
     expect(allJobs.length).toBe(numJobs);
     expectArrayEquivalence(expectedJobs, allJobs);
+  });
+
+  describe('Batching', () => {
+    let commitSpy: jest.SpiedFunction<KVBrokerDatabase['commitWrites']>;
+    let batchSize: number;
+    beforeEach(async () => {
+      await db.close();
+      batchSize = 5;
+
+      config = {
+        dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+        dataDirectory: directory,
+        proverBrokerJobMaxRetries: 1,
+        proverBrokerJobTimeoutMs: 1000,
+        proverBrokerPollIntervalMs: 1000,
+        proverBrokerBatchSize: batchSize,
+        proverBrokerBatchIntervalMs: 10,
+      };
+      db = await KVBrokerDatabase.new(config);
+      commitSpy = jest.spyOn(db, 'commitWrites');
+    });
+
+    it('batches jobs in a single transaction', async () => {
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < batchSize; i++) {
+        const id = makeRandomProvingJobId(42);
+        promises.push(
+          db.addProvingJob({
+            id,
+            epochNumber: 42,
+            type: ProvingRequestType.BASE_PARITY,
+            inputsUri: makeInputsUri(),
+          }),
+        );
+      }
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('batches job results in a single transaction', async () => {
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < batchSize; i++) {
+        const id = makeRandomProvingJobId(42);
+        promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
+      }
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('mixes jobs and results', async () => {
+      const promises: Promise<void>[] = [];
+      promises.push(
+        db.addProvingJob({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+      promises.push(
+        db.addProvingJob({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+      promises.push(
+        db.addProvingJob({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+      promises.push(db.setProvingJobError(makeRandomProvingJobId(42), 'test'));
+      promises.push(db.setProvingJobResult(makeRandomProvingJobId(42), 'test' as ProofUri));
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('flushes partial batches', async () => {
+      const promises: Promise<void>[] = [];
+
+      promises.push(
+        db.addProvingJob({
+          id: makeRandomProvingJobId(42),
+          epochNumber: 42,
+          type: ProvingRequestType.BASE_PARITY,
+          inputsUri: makeInputsUri(),
+        }),
+      );
+      promises.push(db.setProvingJobError(makeRandomProvingJobId(42), 'test'));
+      promises.push(db.setProvingJobResult(makeRandomProvingJobId(42), 'test' as ProofUri));
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('splits writes over multiple batches', async () => {
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < 2 * batchSize; i++) {
+        const id = makeRandomProvingJobId(42);
+        promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
+      }
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('splits writes across epochs', async () => {
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < batchSize / 2; i++) {
+        const id = makeRandomProvingJobId(42);
+        promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
+      }
+
+      for (let i = 0; i < batchSize / 2; i++) {
+        const id = makeRandomProvingJobId(43);
+        promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
+      }
+
+      await Promise.all(promises);
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });
 

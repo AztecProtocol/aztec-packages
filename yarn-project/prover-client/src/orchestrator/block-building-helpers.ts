@@ -16,7 +16,6 @@ import {
   type GlobalVariables,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MerkleTreeCalculator,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -42,7 +41,6 @@ import {
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
-  PublicBaseStateDiffHints,
 } from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -139,39 +137,6 @@ export const buildBaseRollupHints = runInSpan(
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
     if (tx.avmProvingRequest) {
-      // Build public base rollup hints
-      const stateDiffHints = PublicBaseStateDiffHints.from({
-        nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-          i < nullifierWitnessLeaves.length
-            ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-            : NullifierLeafPreimage.empty(),
-        ),
-        nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-          i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
-            ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
-            : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
-        ),
-        sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
-        sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
-        noteHashSubtreeSiblingPath,
-        nullifierSubtreeSiblingPath,
-        lowPublicDataWritesPreimages: padArrayEnd(
-          txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
-          PublicDataTreeLeafPreimage.empty(),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        ),
-        lowPublicDataWritesMembershipWitnesses: padArrayEnd(
-          txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-          MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        ),
-        publicDataTreeSiblingPaths: padArrayEnd(
-          txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths,
-          makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO),
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        ),
-      });
-
       const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
@@ -181,9 +146,7 @@ export const buildBaseRollupHints = runInSpan(
       );
 
       return PublicBaseRollupHints.from({
-        start,
         startSpongeBlob: inputSpongeBlob,
-        stateDiffHints,
         archiveRootMembershipWitness,
         constants,
       });
@@ -441,7 +404,7 @@ export const getConstantRollupData = runInSpan(
   'getConstantRollupData',
   async (_span, globalVariables: GlobalVariables, db: MerkleTreeReadOperations): Promise<ConstantRollupData> => {
     return ConstantRollupData.from({
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
       globalVariables,
