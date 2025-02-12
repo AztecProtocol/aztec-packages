@@ -355,6 +355,7 @@ export const PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
 export const TWO_POW_64 = 18446744073709551616n;
 export const DEFAULT_UPDATE_DELAY = 3600;
 export const UPDATES_SCHEDULED_VALUE_CHANGE_LEN = 3;
+export const SCHEDULED_DELAY_CHANGE_PCKD_LEN = 1;
 export const UPDATES_SHARED_MUTABLE_VALUES_LEN = 4;
 export enum GeneratorIndex {
   NOTE_HASH = 1,

@@ -311,5 +311,6 @@ library Constants {
   uint256 internal constant TWO_POW_64 = 18446744073709551616;
   uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
   uint256 internal constant UPDATES_SCHEDULED_VALUE_CHANGE_LEN = 3;
+  uint256 internal constant SCHEDULED_DELAY_CHANGE_PCKD_LEN = 1;
   uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 4;
 }

@@ -207,9 +207,10 @@ void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, 
 
     // update_preimage is validated, now validate the contract class id
     FF expected_current_class_id;
-    const FF prev_value = instance.update_preimage[0];
-    const FF next_value = instance.update_preimage[1];
-    const uint32_t block_of_change = static_cast<uint32_t>(instance.update_preimage[2]);
+    const FF prev_value = instance.update_preimage[SCHEDULED_DELAY_CHANGE_PCKD_LEN + 0];
+    const FF next_value = instance.update_preimage[SCHEDULED_DELAY_CHANGE_PCKD_LEN + 1];
+    const uint32_t block_of_change =
+        static_cast<uint32_t>(instance.update_preimage[SCHEDULED_DELAY_CHANGE_PCKD_LEN + 2]);
 
     // Fourth item is related to update delays which we don't care.
     if (static_cast<uint32_t>(public_inputs.global_variables.block_number) < block_of_change) {

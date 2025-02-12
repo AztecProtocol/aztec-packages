@@ -1,9 +1,8 @@
+use crate::constants::SCHEDULED_DELAY_CHANGE_PCKD_LEN;
 use crate::traits::{Empty, Packable};
 use std::cmp::min;
 
 mod test;
-
-pub(crate) global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
 
 // This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.

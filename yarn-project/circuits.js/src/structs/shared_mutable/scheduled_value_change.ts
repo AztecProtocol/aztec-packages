@@ -1,6 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '../../constants.gen.js';
+
 // TODO(Alvaro) make this generic in the length of previous & post so it can be used with other things that are not 1 field sized
 export class ScheduledValueChange {
   constructor(public previous: Fr, public post: Fr, public blockOfChange: number) {}
@@ -32,7 +34,7 @@ export class ScheduledValueChange {
   }
 
   static computeSlot(sharedMutableSlot: Fr) {
-    return sharedMutableSlot.add(new Fr(1));
+    return sharedMutableSlot.add(new Fr(SCHEDULED_DELAY_CHANGE_PCKD_LEN));
   }
 
   static async readFromTree(sharedMutableSlot: Fr, reader: (storageSlot: Fr) => Promise<Fr>) {
