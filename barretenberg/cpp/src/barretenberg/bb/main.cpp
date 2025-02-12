@@ -1186,26 +1186,6 @@ int main(int argc, char* argv[])
     add_output_path_option(contract, output_path);
 
     /***************************************************************************************************************
-     * Subcommand: write_arbitrary_valid_proof_and_vk_to_file
-     ***************************************************************************************************************/
-    // WORKTODO: make an option so its deprecatable
-    CLI::App* write_arbitrary_valid_proof_and_vk_to_file =
-        app.add_subcommand("write_arbitrary_valid_proof_and_vk_to_file", "");
-    add_verbose_flag(write_arbitrary_valid_proof_and_vk_to_file);
-    add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file);
-    add_output_path_option(write_arbitrary_valid_proof_and_vk_to_file, output_path);
-
-    // /***************************************************************************************************************
-    //  * Subcommand: write_recursion_inputs
-    //  ***************************************************************************************************************/
-    // // WORKTODO: make an option so its deprecatable
-    // CLI::App* write_recursion_inputs = app.add_subcommand("write_recursion_inputs", "");
-    // write_recursion_inputs->needs(add_scheme_option(write_recursion_inputs));
-    // add_bytecode_path_option(write_recursion_inputs);
-    // add_witness_path_option(write_recursion_inputs);
-    // add_output_path_option(write_recursion_inputs, output_path);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API
      ***************************************************************************************************************/
 
