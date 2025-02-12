@@ -3,12 +3,13 @@ set -eux
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
-BASE_FLAGS="-c $CRS_PATH $VFLAG"
-FLAGS=$BASE_FLAGS" --scheme ultra_honk --oracle_hash keccak --zk --output_data bytes_and_fields --output_content proof_and_vk --honk_recursion 1"
+FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk --zk"
 [ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
+PROTOCOL_FLAGS=" --honk_recursion 1 --oracle_hash keccak"
 
-outdir=$(mktemp -d)
-trap "rm -rf $outdir" EXIT
+outdir=$PWD
+# outdir=$(mktemp -d)
+# trap "rm -rf $outdir" EXIT
 
 # Export the paths to the environment variables for the js test runner
 export PROOF="$outdir/proof"
@@ -17,9 +18,9 @@ export VK="$outdir/vk"
 export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove -o $outdir $FLAGS $BFLAG -o $outdir
-$BIN verify -k $VK -p $PROOF $FLAGS # useful for debugging
-$BIN contract $FLAGS -k $VK -o $VERIFIER_CONTRACT
+$BIN prove -o $outdir $FLAGS $BFLAG $PROTOCOL_FLAGS --output_data bytes_and_fields --output_content proof_and_vk
+$BIN verify -k $VK -p $PROOF $FLAGS $PROTOCOL_FLAGS
+$BIN contract $FLAGS -k $VK -o $VERIFIER_CONTRACT --zk
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$outdir/Verifier.sol"

@@ -1121,12 +1121,12 @@ int main(int argc, char* argv[])
     add_zk_option(prove);
     add_ipa_accumulation_flag(prove);
     add_initialize_pairing_point_accumulator_option(prove);
-
-    prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
-
+    add_honk_recursion_option(prove);
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
+
+    prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
     /***************************************************************************************************************
      * Subcommnd: write_vk
@@ -1144,6 +1144,7 @@ int main(int argc, char* argv[])
     add_initialize_pairing_point_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);    // WORKTODO: why is this necessary?
     add_ipa_accumulation_flag(write_vk); // WORKTODO: segfault without
+    add_honk_recursion_option(write_vk);
 
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk, output_path);
@@ -1159,6 +1160,7 @@ int main(int argc, char* argv[])
     add_zk_option(verify);
     add_ipa_accumulation_flag(verify);
     add_initialize_pairing_point_accumulator_option(verify);
+    add_honk_recursion_option(verify);
 
     add_proof_path_option(verify);
     add_vk_path_option(verify);
