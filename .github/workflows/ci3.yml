@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - ci3-fake-master
   # For AztecProtocol devs. Allows editing workflow files.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -18,6 +19,9 @@ concurrency:
   # On PR's the group id is the ref_name so only 1 can run at a time.
   group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
+
+env:
+  REF_NAME: master
 
 jobs:
   ci-amd64:
@@ -130,3 +134,32 @@ jobs:
           LOG_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2
+
+  ci-grind:
+    runs-on: ubuntu-latest
+    needs: ci-amd64
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        number: [1, 2, 3, 4, 5]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ARCH: amd64
+          LOG_ID: ${{ github.run_id }}
+          INSTANCE_TYPE: ${{  }}
+        run: |
+          ./ci.sh ec2-test

@@ -39,6 +39,7 @@ if [ "$REF_NAME" == "master" ]; then
 else
   instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
+
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
