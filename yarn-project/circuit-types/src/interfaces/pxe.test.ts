@@ -112,7 +112,7 @@ describe('PXESchema', () => {
   });
 
   it('addCapsule', async () => {
-    await context.client.addCapsule(times(3, Fr.random));
+    await context.client.addCapsule(address, Fr.random(), times(3, Fr.random));
   });
 
   it('registerAccount', async () => {
@@ -344,7 +344,9 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     return Promise.resolve([Fr.random()]);
   }
-  addCapsule(capsule: Fr[]): Promise<void> {
+  addCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
+    expect(contract).toBeInstanceOf(AztecAddress);
+    expect(storageSlot).toBeInstanceOf(Fr);
     expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
     return Promise.resolve();
   }
