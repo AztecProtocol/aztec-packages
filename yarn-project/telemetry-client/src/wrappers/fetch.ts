@@ -14,7 +14,7 @@ import { ATTR_JSONRPC_METHOD, ATTR_JSONRPC_REQUEST_ID } from '../vendor/attribut
  * @param log - Optional logger for logging attempts.
  * @returns A fetch function.
  */
-export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, log?: Logger) {
+export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, fetch = defaultFetch, log?: Logger) {
   return (
     host: string,
     rpcMethod: string,
@@ -35,7 +35,7 @@ export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, log?
           const headers = { ...extraHeaders };
           propagation.inject(context.active(), headers);
           return await retry(
-            () => defaultFetch(host, rpcMethod, body, useApiEndpoints, headers, noRetry ?? defaultNoRetry),
+            () => fetch(host, rpcMethod, body, useApiEndpoints, headers, noRetry ?? defaultNoRetry),
             `JsonRpcClient request ${rpcMethod} to ${host}`,
             makeBackoff(retries),
             log,
