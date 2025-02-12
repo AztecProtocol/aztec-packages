@@ -41,9 +41,10 @@ impl NullifiableNote for TransparentNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self, _storage_slot: Field) -> Field {
-        // compute_nullifier ignores both of its parameters so we can reuse it here
-        self.compute_nullifier(zeroed(), zeroed())
+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        // compute_nullifier ignores context so we can reuse it here
+        self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
 }
 
