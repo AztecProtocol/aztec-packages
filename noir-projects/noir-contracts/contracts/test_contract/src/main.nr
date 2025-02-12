@@ -36,7 +36,6 @@ pub contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::pxe_db,
         test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
@@ -483,16 +482,6 @@ pub contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
-    }
-
-    unconstrained fn store_in_pxe_db(key: Field, arbitrary_struct: MockStruct) {
-        pxe_db::store(context.this_address(), key, arbitrary_struct);
-    }
-
-    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 2] {
-        let maybe_arbitrary_struct: Option<MockStruct> = pxe_db::load(context.this_address(), key);
-        let arbitrary_struct = maybe_arbitrary_struct.unwrap_or(MockStruct::new(0, 0));
-        arbitrary_struct.serialize()
     }
 
     #[private]

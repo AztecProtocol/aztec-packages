@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.1...aztec-package-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **logging:** Support explicit FORCE_COLOR parameter ([#11902](https://github.com/AztecProtocol/aztec-packages/issues/11902)) ([3b3f859](https://github.com/AztecProtocol/aztec-packages/commit/3b3f859f53bba6aa5cabf9f79dd210d326045e70))
+
 ## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.0...aztec-package-v0.76.1) (2025-02-10)
 
 

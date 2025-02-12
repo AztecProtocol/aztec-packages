@@ -31,9 +31,9 @@ pub contract ContractClassRegisterer {
         },
     };
 
-    // docs:start:import_pop_capsule
-    use dep::aztec::oracle::pxe_db;
-    // docs:end:import_pop_capsule
+    // docs:start:import_capsules
+    use dep::aztec::oracle::capsules;
+    // docs:end:import_capsules
 
     #[private]
     fn register(
@@ -44,15 +44,15 @@ pub contract ContractClassRegisterer {
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
-        // docs:start:pop_capsule
+        // docs:start:load_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };
-        // docs:end:pop_capsule
+        // docs:end:load_capsule
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
         let bytecode_length_in_fields: u32 =
@@ -125,7 +125,7 @@ pub contract ContractClassRegisterer {
         function_data: InnerPrivateFunction,
     ) {
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
@@ -171,7 +171,7 @@ pub contract ContractClassRegisterer {
         function_data: InnerUnconstrainedFunction,
     ) {
         let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = unsafe {
-            pxe_db::load(
+            capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
