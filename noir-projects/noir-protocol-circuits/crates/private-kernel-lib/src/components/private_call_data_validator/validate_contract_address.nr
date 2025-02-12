@@ -39,7 +39,9 @@ pub fn validate_contract_address(
         "computed contract address does not match expected one",
     );
 
-    // A normal computed contract address
+    // A non-protocol computed contract address is checked for non-membership below using protocol_contract_leaf as a low leaf.
+    // A protocol contract address is checked for membership below where protocol_contract_leaf contains the
+    // computed_address at the index given by contract_address.
     conditionally_assert_check_membership(
         computed_address.to_field(),
         is_protocol_contract,

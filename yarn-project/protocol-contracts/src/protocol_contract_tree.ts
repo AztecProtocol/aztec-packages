@@ -1,12 +1,10 @@
 import {
   type AztecAddress,
   type IndexedMerkleTree,
-  MembershipWitness,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
+  type PROTOCOL_CONTRACT_TREE_HEIGHT,
   type ProtocolContractLeafPreimage,
 } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { assertLength } from '@aztec/foundation/serialize';
 
 import { buildProtocolContractTree } from './build_protocol_contract_tree.js';
 import { isProtocolContract } from './protocol_contract.js';
@@ -40,10 +38,5 @@ export async function getProtocolContractLeafAndMembershipWitness(address: Aztec
     const hashed = (await poseidon2Hash(lowLeaf.toHashInputs())).toBuffer();
     witness = tree.getMembershipWitness(hashed);
   }
-  witness = new MembershipWitness<typeof PROTOCOL_CONTRACT_TREE_HEIGHT>(
-    PROTOCOL_CONTRACT_TREE_HEIGHT,
-    witness.leafIndex,
-    assertLength(witness.siblingPath, PROTOCOL_CONTRACT_TREE_HEIGHT),
-  );
   return { lowLeaf, witness };
 }
