@@ -40,7 +40,7 @@ source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id
 # Construct base command
 COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js \
   deploy-l1-contracts \
-  --rpc-urls $ETHEREUM_HOSTS \
+  --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-chain-id $L1_CHAIN_ID \
   --salt $SALT"
 
