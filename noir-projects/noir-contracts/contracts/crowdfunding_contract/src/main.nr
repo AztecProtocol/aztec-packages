@@ -78,9 +78,9 @@ pub contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let mut note = UintNote::new(amount, donor);
+        let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
+        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
             &mut context,
             donor,
             donor,

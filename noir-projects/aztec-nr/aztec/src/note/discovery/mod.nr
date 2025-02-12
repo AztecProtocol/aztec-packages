@@ -1,8 +1,8 @@
 use std::static_assert;
 
 use crate::{
-    context::unconstrained_context::UnconstrainedContext, note::note_header::NoteHeader,
-    oracle::note_discovery::deliver_note, utils::array,
+    context::unconstrained_context::UnconstrainedContext, oracle::note_discovery::deliver_note,
+    utils::array,
 };
 
 use dep::protocol_types::{
@@ -35,8 +35,8 @@ pub struct NoteHashesAndNullifier {
 ///         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
 ///             MyNoteType::unpack_content,
-///             note_header,
-///             true,
+///             contract_address,
+///             nonce,
 ///             storage_slot,
 ///             packed_note_content.storage(),
 ///         )
@@ -58,7 +58,7 @@ pub unconstrained fn do_process_log<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, NoteHeader, Field, Field) -> Option<NoteHashesAndNullifier>,
+    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashesAndNullifier>,
 ) {
     let (storage_slot, note_type_id, packed_note_content) =
         destructure_log_plaintext(log_plaintext);
@@ -69,12 +69,11 @@ pub unconstrained fn do_process_log<Env>(
         |expected_unique_note_hash, i| {
             let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
-            let header = NoteHeader::new(context.this_address(), candidate_nonce);
-
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
                 packed_note_content,
-                header,
+                context.this_address(),
+                candidate_nonce,
                 storage_slot,
                 note_type_id,
             )
