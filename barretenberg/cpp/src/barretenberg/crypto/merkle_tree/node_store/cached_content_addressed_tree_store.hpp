@@ -635,7 +635,6 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         throw std::runtime_error("Committing a fork is forbidden");
     }
     get_meta(meta);
-
     NodePayload rootPayload;
     dataPresent = cache_.get_node(meta.root, rootPayload);
     {
@@ -663,14 +662,15 @@ template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::commit_block(TreeMeta& finalMeta, TreeDBStats& dbStats)
 {
     bool dataPresent = false;
-    TreeMeta uncommittedMeta;
+    TreeMeta meta;
 
     // We don't allow commits using images/forks
     if (forkConstantData_.initialised_from_block_.has_value()) {
         throw std::runtime_error("Committing a fork is forbidden");
     }
+    get_meta(meta);
     NodePayload rootPayload;
-    dataPresent = cache_.get_node(uncommittedMeta.root, rootPayload);
+    dataPresent = cache_.get_node(meta.root, rootPayload);
     {
         WriteTransactionPtr tx = create_write_transaction();
         try {
@@ -685,22 +685,20 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit_block(TreeMeta& fina
             // absence of a real tree elsewhere. So, if the tree is completely empty we do not store any node data, the
             // only issue is this needs to be recognised when we unwind or remove historic blocks i.e. there will be no
             // node date to remove for these blocks
-            if (dataPresent || uncommittedMeta.size > 0) {
-                persist_node(std::optional<fr>(uncommittedMeta.root), 0, *tx);
+            if (dataPresent || meta.size > 0) {
+                persist_node(std::optional<fr>(meta.root), 0, *tx);
             }
-            ++uncommittedMeta.unfinalisedBlockHeight;
-            if (uncommittedMeta.oldestHistoricBlock == 0) {
-                uncommittedMeta.oldestHistoricBlock = 1;
+            ++meta.unfinalisedBlockHeight;
+            if (meta.oldestHistoricBlock == 0) {
+                meta.oldestHistoricBlock = 1;
             }
             // std::cout << "New root " << uncommittedMeta.root << std::endl;
-            BlockPayload block{ .size = uncommittedMeta.size,
-                                .blockNumber = uncommittedMeta.unfinalisedBlockHeight,
-                                .root = uncommittedMeta.root };
-            dataStore_->write_block_data(uncommittedMeta.unfinalisedBlockHeight, block, *tx);
+            BlockPayload block{ .size = meta.size, .blockNumber = meta.unfinalisedBlockHeight, .root = meta.root };
+            dataStore_->write_block_data(meta.unfinalisedBlockHeight, block, *tx);
             dataStore_->write_block_index_data(block.blockNumber, block.size, *tx);
 
-            uncommittedMeta.committedSize = uncommittedMeta.size;
-            persist_meta(uncommittedMeta, *tx);
+            meta.committedSize = meta.size;
+            persist_meta(meta, *tx);
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
@@ -708,7 +706,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit_block(TreeMeta& fina
                 format("Unable to commit data to tree: ", forkConstantData_.name_, " Error: ", e.what()));
         }
     }
-    finalMeta = uncommittedMeta;
+    finalMeta = meta;
 
     // rolling back destroys all cache stores and also refreshes the cached meta_ from persisted state
     rollback();
