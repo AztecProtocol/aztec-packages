@@ -3,12 +3,13 @@ import { Agent, type Dispatcher } from 'undici';
 import { createLogger } from '../../log/pino-logger.js';
 import { NoRetryError } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
+import { type JsonRpcFetch } from './fetch.js';
 
 const log = createLogger('json-rpc:json_rpc_client:undici');
 
 export { Agent };
 
-export function makeUndiciFetch(client = new Agent()) {
+export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
   return async (
     host: string,
     rpcMethod: string,
@@ -55,6 +56,20 @@ export function makeUndiciFetch(client = new Agent()) {
       }
     }
 
-    return responseJson;
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(resp.headers)) {
+      if (typeof value === 'string') {
+        headers.append(key, value);
+      } else if (Array.isArray(value)) {
+        for (const v of value) {
+          headers.append(key, v);
+        }
+      }
+    }
+
+    return {
+      response: responseJson,
+      headers,
+    };
   };
 }
