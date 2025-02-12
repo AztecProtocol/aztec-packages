@@ -29,13 +29,9 @@ describe.each([
       proverBrokerJobMaxRetries: 1,
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
-      proverBrokerBatchIntervalMs: 10,
-      proverBrokerBatchSize: 1,
     };
     const database = await KVBrokerDatabase.new(config);
-    const cleanup = () => {
-      return database.close();
-    };
+    const cleanup = () => {};
     return { database, cleanup };
   },
 ])('ProvingBroker', createDb => {
@@ -247,44 +243,6 @@ describe.each([
 
       const status = await broker.getProvingJobStatus(provingJob.id);
       expect(status).toEqual({ status: 'rejected', reason: String(error) });
-    });
-
-    it('correctly returns job status for concurrent writes', async () => {
-      const job = {
-        id: makeRandomProvingJobId(),
-        type: ProvingRequestType.BASE_PARITY,
-        epochNumber: 0,
-        inputsUri: makeInputsUri(),
-      };
-
-      await broker.enqueueProvingJob(job);
-
-      const promises: Promise<unknown>[] = [];
-      promises.push(broker.enqueueProvingJob(job));
-      promises.push(
-        broker.enqueueProvingJob({
-          id: makeRandomProvingJobId(),
-          type: ProvingRequestType.BASE_PARITY,
-          epochNumber: 0,
-          inputsUri: makeInputsUri(),
-        }),
-      );
-      promises.push(broker.enqueueProvingJob(job));
-      promises.push(
-        broker.enqueueProvingJob({
-          id: makeRandomProvingJobId(),
-          type: ProvingRequestType.BASE_PARITY,
-          epochNumber: 0,
-          inputsUri: makeInputsUri(),
-        }),
-      );
-
-      await expect(Promise.all(promises)).resolves.toEqual([
-        { status: 'in-queue' },
-        { status: 'not-found' },
-        { status: 'in-queue' },
-        { status: 'not-found' },
-      ]);
     });
   });
 

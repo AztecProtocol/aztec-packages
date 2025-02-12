@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { PriorityMemoryQueue } from '@aztec/foundation/queue';
+import { PriorityMemoryQueue, SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type TelemetryClient,
@@ -110,6 +110,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   private epochHeight = 0;
   private maxEpochsToKeepResultsFor = 1;
 
+  private requestQueue: SerialQueue = new SerialQueue();
   private started = false;
 
   public constructor(
@@ -172,6 +173,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     this.cleanupPromise.start();
 
+    this.requestQueue.start();
+
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
@@ -183,27 +186,28 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn('ProvingBroker not started');
       return Promise.resolve();
     }
+    await this.requestQueue.cancel();
     await this.cleanupPromise.stop();
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
-    return this.#enqueueProvingJob(job);
+    return this.requestQueue.put(() => this.#enqueueProvingJob(job));
   }
 
   public cancelProvingJob(id: ProvingJobId): Promise<void> {
-    return this.#cancelProvingJob(id);
+    return this.requestQueue.put(() => this.#cancelProvingJob(id));
   }
 
   public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
-    return Promise.resolve(this.#getProvingJobStatus(id));
+    return this.requestQueue.put(() => this.#getProvingJobStatus(id));
   }
 
   public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
-    return this.#getCompletedJobs(ids);
+    return this.requestQueue.put(() => this.#getCompletedJobs(ids));
   }
 
   public getProvingJob(filter?: ProvingJobFilter): Promise<GetProvingJobResponse | undefined> {
-    return Promise.resolve(this.#getProvingJob(filter));
+    return this.requestQueue.put(() => this.#getProvingJob(filter));
   }
 
   public reportProvingJobSuccess(
@@ -211,7 +215,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     value: ProofUri,
     filter?: ProvingJobFilter,
   ): Promise<GetProvingJobResponse | undefined> {
-    return this.#reportProvingJobSuccess(id, value, filter);
+    return this.requestQueue.put(() => this.#reportProvingJobSuccess(id, value, filter));
   }
 
   public reportProvingJobError(
@@ -220,7 +224,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     retry = false,
     filter?: ProvingJobFilter,
   ): Promise<GetProvingJobResponse | undefined> {
-    return this.#reportProvingJobError(id, err, retry, filter);
+    return this.requestQueue.put(() => this.#reportProvingJobError(id, err, retry, filter));
   }
 
   public reportProvingJobProgress(
@@ -228,19 +232,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     startedAt: number,
     filter?: ProvingJobFilter,
   ): Promise<{ job: ProvingJob; time: number } | undefined> {
-    return Promise.resolve(this.#reportProvingJobProgress(id, startedAt, filter));
+    return this.requestQueue.put(() => this.#reportProvingJobProgress(id, startedAt, filter));
   }
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    const jobStatus = this.#getProvingJobStatus(job.id);
+    const jobStatus = await this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
       this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
         provingJobId: job.id,
       });
-      return Promise.resolve(jobStatus);
+      return jobStatus;
     }
 
     if (this.isJobStale(job)) {
@@ -287,19 +291,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  #getProvingJobStatus(id: ProvingJobId): ProvingJobStatus {
+  #getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     const result = this.resultsCache.get(id);
     if (result) {
-      return result;
+      return Promise.resolve(result);
     } else {
       // no result yet, check if we know the item
       const item = this.jobsCache.get(id);
 
       if (!item) {
-        return { status: 'not-found' };
+        return Promise.resolve({ status: 'not-found' });
       }
 
-      return { status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' };
+      return Promise.resolve({ status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' });
     }
   }
 
@@ -551,7 +555,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
-      await this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep);
+      await this.requestQueue.put(() => this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep));
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }

@@ -15,10 +15,6 @@ export const ProverBrokerConfig = z.object({
   dataDirectory: z.string().optional(),
   /** The size of the data store map */
   dataStoreMapSizeKB: z.number(),
-  /** The prover broker may batch jobs together before writing to the database */
-  proverBrokerBatchSize: z.number(),
-  /** How often the job batches get flushed */
-  proverBrokerBatchIntervalMs: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -39,16 +35,6 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     env: 'PROVER_BROKER_JOB_MAX_RETRIES',
     description: 'If starting a prover broker locally, the max number of retries per proving job',
     ...numberConfigHelper(3),
-  },
-  proverBrokerBatchSize: {
-    env: 'PROVER_BROKER_BATCH_SIZE',
-    description: 'The prover broker writes jobs to disk in batches',
-    ...numberConfigHelper(100),
-  },
-  proverBrokerBatchIntervalMs: {
-    env: 'PROVER_BROKER_BATCH_INTERVAL_MS',
-    description: 'How often to flush batches to disk',
-    ...numberConfigHelper(50),
   },
   ...dataConfigMappings,
 };
