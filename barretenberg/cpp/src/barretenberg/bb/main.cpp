@@ -914,6 +914,9 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
+    // Lambda function to ensure the builder gets freed before generating the vk. Vk generation requires initialing the
+    // pippenger runtime state which leads to it being the peak, when its functionality is purely for debugging purposes
+    // here.
     auto prover = [&] {
         const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
         acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
