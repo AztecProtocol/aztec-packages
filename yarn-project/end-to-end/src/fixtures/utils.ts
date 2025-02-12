@@ -520,6 +520,10 @@ export async function setup(
       await aztecNode?.stop();
     }
 
+    if (proverNode) {
+      await proverNode.stop();
+    }
+
     if (acvmConfig?.cleanup) {
       // remove the temp directory created for the acvm
       logger.verbose(`Cleaning up ACVM state`);
@@ -715,7 +719,6 @@ export async function createAndSyncProverNode(
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
   const aztecNodeWithoutStop = {
-    addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
     getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
     getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
@@ -740,10 +743,6 @@ export async function createAndSyncProverNode(
     proverNodeMaxPendingJobs: 10,
     proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
-    quoteProviderBasisPointFee: 100,
-    quoteProviderBondAmount: 1000n,
-    proverMinimumEscrowAmount: 1000n,
-    proverTargetEscrowAmount: 2000n,
     txGatheringTimeoutMs: 60000,
     txGatheringIntervalMs: 1000,
     txGatheringMaxParallelRequests: 100,
@@ -756,7 +755,7 @@ export async function createAndSyncProverNode(
     archiver: archiver as Archiver,
     l1TxUtils,
   });
-  await proverNode.start();
+  proverNode.start();
   return proverNode;
 }
 

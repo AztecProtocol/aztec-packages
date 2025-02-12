@@ -167,8 +167,10 @@ Service Address Setup Container
       value: "{{ .Values.proverNode.service.nodePort }}"
     - name: PROVER_BROKER_PORT
       value: "{{ .Values.proverBroker.service.nodePort }}"
-    - name: USE_GCLOUD_OBSERVABILITY
-      value: "{{ .Values.telemetry.useGcloudObservability }}"
+    - name: USE_GCLOUD_LOGGING
+      value: "{{ .Values.telemetry.useGcloudLogging }}"
+    - name: USE_GCLOUD_METRICS
+      value: "{{ .Values.telemetry.useGcloudMetrics }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:

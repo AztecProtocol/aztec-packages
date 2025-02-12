@@ -24,14 +24,6 @@ export type L1RollupContractAddresses = Pick<
   | 'rewardDistributorAddress'
 >;
 
-export type EpochProofQuoteViemArgs = {
-  epochToProve: bigint;
-  validUntilSlot: bigint;
-  bondAmount: bigint;
-  prover: `0x${string}`;
-  basisPointFee: number;
-};
-
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
@@ -84,8 +76,8 @@ export class RollupContract {
   }
 
   @memoize
-  getClaimDurationInL2Slots() {
-    return this.rollup.read.CLAIM_DURATION_IN_L2_SLOTS();
+  getProofSubmissionWindow() {
+    return this.rollup.read.getProofSubmissionWindow();
   }
 
   @memoize
@@ -158,10 +150,6 @@ export class RollupContract {
     return this.rollup.read.getBlock([blockNumber]);
   }
 
-  getProofCommitmentEscrow() {
-    return this.rollup.read.PROOF_COMMITMENT_ESCROW();
-  }
-
   getTips() {
     return this.rollup.read.getTips();
   }
@@ -212,6 +200,7 @@ export class RollupContract {
   getEpochProofPublicInputs(
     args: readonly [
       bigint,
+      bigint,
       readonly [
         `0x${string}`,
         `0x${string}`,
@@ -228,63 +217,11 @@ export class RollupContract {
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }
-  public async getProofClaim() {
-    const {
-      epochToProve,
-      basisPointFee,
-      bondAmount,
-      bondProvider: bondProviderHex,
-      proposerClaimant: proposerClaimantHex,
-    } = await this.rollup.read.getProofClaim();
-
-    const bondProvider = EthAddress.fromString(bondProviderHex);
-    const proposerClaimant = EthAddress.fromString(proposerClaimantHex);
-
-    if (bondProvider.isZero() && proposerClaimant.isZero() && epochToProve === 0n) {
-      return undefined;
-    }
-
-    return {
-      epochToProve,
-      basisPointFee,
-      bondAmount,
-      bondProvider,
-      proposerClaimant,
-    };
-  }
-
-  async getClaimableEpoch(): Promise<bigint | undefined> {
-    try {
-      return await this.rollup.read.getClaimableEpoch();
-    } catch (err: unknown) {
-      throw formatViemError(err);
-    }
-  }
 
   public async getEpochToProve(): Promise<bigint | undefined> {
     try {
       return await this.rollup.read.getEpochToProve();
     } catch (err: unknown) {
-      throw formatViemError(err);
-    }
-  }
-
-  public async validateProofQuote(
-    quote: {
-      quote: EpochProofQuoteViemArgs;
-      signature: ViemSignature;
-    },
-    account: `0x${string}` | Account,
-    slotDuration: bigint | number,
-  ): Promise<void> {
-    if (typeof slotDuration === 'number') {
-      slotDuration = BigInt(slotDuration);
-    }
-    const timeOfNextL1Slot = BigInt((await this.client.getBlock()).timestamp + slotDuration);
-    const args = [timeOfNextL1Slot, quote] as const;
-    try {
-      await this.rollup.read.validateEpochProofRightClaimAtTime(args, { account });
-    } catch (err) {
       throw formatViemError(err);
     }
   }

@@ -415,7 +415,8 @@ export async function getProofFromSubmitProofTx(
   if (functionName === 'submitEpochRootProof') {
     const [decodedArgs] = args as readonly [
       {
-        epochSize: bigint;
+        start: bigint;
+        end: bigint;
         args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
         fees: readonly Hex[];
         aggregationObject: Hex;

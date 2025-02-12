@@ -12,7 +12,6 @@ import {
 export enum PoolName {
   TX_POOL = 'TxPool',
   ATTESTATION_POOL = 'AttestationPool',
-  EPOCH_PROOF_QUOTE_POOL = 'EpochProofQuotePool',
 }
 
 type MetricsLabels = {
@@ -35,11 +34,6 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
     return {
       objectInMempool: Metrics.MEMPOOL_ATTESTATIONS_COUNT,
       objectSize: Metrics.MEMPOOL_ATTESTATIONS_SIZE,
-    };
-  } else if (name === PoolName.EPOCH_PROOF_QUOTE_POOL) {
-    return {
-      objectInMempool: Metrics.MEMPOOL_PROVER_QUOTE_COUNT,
-      objectSize: Metrics.MEMPOOL_PROVER_QUOTE_SIZE,
     };
   }
 

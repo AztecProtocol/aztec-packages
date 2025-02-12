@@ -4,7 +4,6 @@ import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EpochProofQuote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
@@ -121,14 +120,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
-  }
-
-  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
-  }
-
-  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    return this.p2pClient.getEpochProofQuotes(epoch);
   }
 
   public getL2Tips() {
