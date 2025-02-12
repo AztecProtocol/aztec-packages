@@ -6,7 +6,7 @@ source $ci3/source_redis
 cmd=$1
 # Remove the rebuild hash (first field) that is in front of the test command.
 test_cmd="${cmd#* }"
-key=$(hash_str "$cmd")
+key=$(hash_str_orig "$cmd")
 
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
