@@ -117,6 +117,7 @@ function test_cmds {
   echo "$prefix compose guides/dapp_testing"
   echo "$prefix compose guides/up_quick_start"
   echo "$prefix compose guides/writing_an_account_contract"
+  echo "$prefix compose e2e_token_bridge_tutorial_test"
 }
 
 function test {

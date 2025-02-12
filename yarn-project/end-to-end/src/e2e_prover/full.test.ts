@@ -1,7 +1,7 @@
-import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -24,8 +24,9 @@ describe('full_prover', () => {
   let recipient: AztecAddress;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let feeJuice: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
   let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
+  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -42,15 +43,21 @@ describe('full_prover', () => {
       client: t.l1Contracts.publicClient,
     });
 
-    feeJuice = getContract({
-      abi: TestERC20Abi,
-      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
-      client: t.l1Contracts.publicClient,
-    });
-
     rewardDistributor = getContract({
       abi: RewardDistributorAbi,
       address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
+
+    feeJuicePortal = getContract({
+      abi: FeeJuicePortalAbi,
+      address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
+
+    feeJuiceToken = getContract({
+      abi: TestERC20Abi,
+      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
   }, 120_000);
@@ -67,6 +74,17 @@ describe('full_prover', () => {
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
+
+      const balance = await feeJuiceToken.read.balanceOf([feeJuicePortal.address]);
+      logger.info(`Balance of fee juice token: ${balance}`);
+
+      expect(balance).toBeGreaterThan(0n);
+
+      const canonicalAddress = await feeJuicePortal.read.canonicalRollup();
+      logger.info(`Canonical address: ${canonicalAddress}`);
+      expect(canonicalAddress.toLowerCase()).toBe(
+        t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
+      );
 
       // Create the two transactions
       const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
@@ -114,50 +132,45 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const balanceBeforeCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
-      const balanceBeforeProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
-
-      // Wait until the prover node submits a quote
-      logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
-      await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
-
-      // Send another tx so the sequencer can assemble a block that includes the prover node claim
-      // so the prover node starts proving
-      logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
-      const sendOpts = { skipPublicSimulation: true };
-      await provenAssets[0].methods
-        .transfer(recipient, privateSendAmount)
-        .send(sendOpts)
-        .wait({ timeout: 300, interval: 10 });
-      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-
-      // Expect the block to have a claim
-      const claim = await cheatCodes.rollup.getProofClaim();
-      expect(claim).toBeDefined();
-      expect(claim?.epochToProve).toEqual(epoch);
+      const rewardsBeforeCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      const rewardsBeforeProver = await rollup.read.getSpecificProverRewardsForEpoch([
+        epoch,
+        t.proverAddress.toString(),
+      ]);
+      const oldProvenBlockNumber = await rollup.read.getProvenBlockNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
-      const provenBn = await rollup.read.getProvenBlockNumber();
-      const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
-      const balanceAfterProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
+      const newProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
+      expect(await rollup.read.getPendingBlockNumber()).toBe(newProvenBlockNumber);
+
+      logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
+      const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
+
+      const rewardsAfterProver = await rollup.read.getSpecificProverRewardsForEpoch([
+        epoch,
+        t.proverAddress.toString(),
+      ]);
+      expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
+
       const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
       const fees = (
-        await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
+        await Promise.all([
+          t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
+          t.aztecNode.getBlock(Number(newProvenBlockNumber)),
+        ])
       ).map(b => b!.header.totalFees.toBigInt());
 
-      const rewards = fees.map(fee => fee + blockReward);
-      const toProver = rewards
-        .map(reward => (reward * claim!.basisPointFee) / 10_000n)
-        .reduce((acc, fee) => acc + fee, 0n);
-      const toCoinbase = rewards.reduce((acc, reward) => acc + reward, 0n) - toProver;
+      const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
+      const proverGain = rewardsAfterProver - rewardsBeforeProver;
 
-      expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
-      expect(balanceAfterCoinbase).toBe(balanceBeforeCoinbase + toCoinbase);
-      expect(balanceAfterProver).toBe(balanceBeforeProver + toProver);
-      expect(claim!.bondProvider).toEqual(t.proverAddress);
+      // May be less than totalRewards due to burn.
+      expect(sequencerGain + proverGain).toBeLessThanOrEqual(totalRewards);
     },
     TIMEOUT,
   );
@@ -222,25 +235,6 @@ describe('full_prover', () => {
     const epoch = await cheatCodes.rollup.getEpoch();
     logger.info(`Advancing from epoch ${epoch} to next epoch`);
     await cheatCodes.rollup.advanceToNextEpoch();
-
-    // Wait until the prover node submits a quote
-    logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
-    await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
-
-    // Send another tx so the sequencer can assemble a block that includes the prover node claim
-    // so the prover node starts proving
-    logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
-    const sendOpts = { skipPublicSimulation: true };
-    await provenAssets[0].methods
-      .transfer(recipient, privateSendAmount)
-      .send(sendOpts)
-      .wait({ timeout: 300, interval: 10 });
-    tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-
-    // Expect the block to have a claim
-    const claim = await cheatCodes.rollup.getProofClaim();
-    expect(claim).toBeDefined();
-    expect(claim?.epochToProve).toEqual(epoch);
 
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);

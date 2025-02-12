@@ -242,19 +242,19 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
   }
 
-  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('dbStore'));
+  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('storeCapsule'));
   }
 
-  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    return Promise.reject(new OracleMethodNotAvailableError('dbLoad'));
+  loadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    return Promise.reject(new OracleMethodNotAvailableError('loadCapsule'));
   }
 
-  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('dbDelete'));
+  deleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('deleteCapsule'));
   }
 
-  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('dbCopy'));
+  copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('copyCapsule'));
   }
 }

@@ -22,8 +22,6 @@ contracts=(
   "FeeJuicePortal"
   "MockVerifier"
   "IVerifier"
-  "IProofCommitmentEscrow"
-  "ProofCommitmentEscrow"
   "CoinIssuer"
   "RewardDistributor"
   "GovernanceProposer"

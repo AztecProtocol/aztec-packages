@@ -84,6 +84,7 @@ async function initUltraPlonk(
 ) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
   const circuitSize = await getGatesUltra(bytecodePath, recursive, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
@@ -112,6 +113,7 @@ async function initUltraPlonk(
 async function initUltraHonk(bytecodePath: string, recursive: boolean, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraHonk function
   const circuitSize = await getGatesUltra(bytecodePath, recursive, /*honkRecursion=*/ true, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin

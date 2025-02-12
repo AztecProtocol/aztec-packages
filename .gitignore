@@ -30,3 +30,6 @@ tmux-client-*.log
 
 # parallel
 joblog.txt
+
+docs/.yarn/install-state.gz
+docs/docs/protocol-specs/public-vm/gen/
