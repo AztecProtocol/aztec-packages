@@ -337,13 +337,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     bool initialised = false;
 
-#ifndef NO_MULTITHREADING
-
-    // The multitables initialisation procedure is not thread-safe, so we need to make sure only 1 thread gets to
-    // initialize them.
-    static std::mutex multi_table_mutex;
-#endif
-
     void populate_public_inputs_block();
 
     void process_non_native_field_multiplications();

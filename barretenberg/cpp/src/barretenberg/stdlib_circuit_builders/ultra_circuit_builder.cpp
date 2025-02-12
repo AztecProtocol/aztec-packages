@@ -26,6 +26,13 @@
 
 namespace bb {
 
+#ifndef NO_MULTITHREADING
+
+// The multitables initialisation procedure is not thread-safe, so we need to make sure only 1 thread gets to
+// initialize them.
+std::mutex multi_table_mutex;
+#endif
+
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_nonzero)
 {
@@ -3454,9 +3461,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     msgpack::pack(buffer, cir);
     return buffer;
 }
-
-template <> std::mutex UltraCircuitBuilder_<UltraExecutionTraceBlocks>::multi_table_mutex;
-template <> std::mutex UltraCircuitBuilder_<MegaExecutionTraceBlocks>::multi_table_mutex;
 
 template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
