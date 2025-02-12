@@ -87,6 +87,7 @@ container_script=$(cat <<EOF
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
+  export CI_FULL=$CI_FULL
   ci3/aws_handle_evict "$cmd" $cmd_postfix
 EOF
 )

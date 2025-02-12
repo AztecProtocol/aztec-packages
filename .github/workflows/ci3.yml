@@ -16,7 +16,7 @@ on:
 concurrency:
   # On master (handled by push event) the group id is the unique run_id so we get parallel runs.
   # On PR's the group id is the ref_name so only 1 can run at a time.
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
     #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
     #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
     if: >
-      github.ref_name == 'master' ||
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (
         (
@@ -69,7 +69,7 @@ jobs:
           ./ci.sh ec2
           # ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
       # - name: Store barretenberg benchmark result
-      #   if: github.ref_name == 'master'
+      #   if: github.event_name == 'push'
       #   continue-on-error: true
       #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
       #   with:
@@ -92,7 +92,7 @@ jobs:
     #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
     #     Then, **unlike ci-amd64**, if we aren't labeled 'arm64-ci', do nothing.
     if: >
-      github.ref_name == 'master' ||
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (
         (

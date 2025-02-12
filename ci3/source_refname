@@ -29,6 +29,16 @@ if [ -z "${REF_NAME:-}" ]; then
   [ -z "${REF_NAME:-}" ] && exit 1
 fi
 
+if [ -z "${CI_FULL:-}" ]; then
+  if git describe --tags --exact-match >/dev/null 2>&1; then
+    export CI_FULL=1
+  elif [ "$REF_NAME" = "master" ]; then
+    export CI_FULL=1
+  else
+    export CI_FULL=0
+  fi
+fi
+
 if [ -z "${COMMIT_HASH:-}" ]; then
   export COMMIT_HASH=$(git rev-parse HEAD)
 fi
