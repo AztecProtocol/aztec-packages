@@ -64,7 +64,7 @@ class MegaFlavor {
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
-                                  //   bb::EccOpQueueRelation<FF>,
+                                  bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;

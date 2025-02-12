@@ -20,9 +20,8 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
-        // The prover can skip execution of this relation altogether since an honest input will lead to a zero
-        // contribution at every row, even when the selector lagrange_ecc_op is on
-        return true;
+        // The prover can skip execution of this relation if the ecc op selector is identically zero
+        return in.lagrange_ecc_op.is_zero();
     }
 
     /**
