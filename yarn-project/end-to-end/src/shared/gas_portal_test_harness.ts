@@ -9,10 +9,10 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
+import { ViemPublicClient } from '@aztec/ethereum';
+import { ViemWalletClient } from '@aztec/ethereum';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
@@ -25,8 +25,8 @@ export interface IGasBridgingTestHarness {
 export interface FeeJuicePortalTestingHarnessFactoryConfig {
   aztecNode: AztecNode;
   pxeService: PXE;
-  publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  publicClient: ViemPublicClient;
+  walletClient: ViemWalletClient;
   wallet: Wallet;
   logger: Logger;
   mockL1?: boolean;
@@ -96,9 +96,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Underlying token for portal tests. */
     public l1FeeJuiceAddress: EthAddress,
     /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
+    public publicClient: ViemPublicClient,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public walletClient: ViemWalletClient,
   ) {
     this.feeJuicePortalManager = new L1FeeJuicePortalManager(
       this.feeJuicePortalAddress,

@@ -9,24 +9,19 @@ import {
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
-import { type DeployL1ContractsReturnType, deployL1Contract, extractEvent } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  ViemPublicClient,
+  ViemWalletClient,
+  deployL1Contract,
+  extractEvent,
+} from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, RollupAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-  toFunctionSelector,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
@@ -50,9 +45,9 @@ export type UniswapSetupContext = {
   /** Logger instance named as the current test. */
   logger: Logger;
   /** Viem Public client instance. */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: ViemPublicClient;
   /** Viem Wallet Client instance. */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: ViemWalletClient;
   /** The owner wallet. */
   ownerWallet: AccountWallet;
   /** The sponsor wallet. */
@@ -78,8 +73,8 @@ export const uniswapL1L2TestSuite = (
     let pxe: PXE;
     let logger: Logger;
 
-    let walletClient: WalletClient<HttpTransport, Chain, Account>;
-    let publicClient: PublicClient<HttpTransport, Chain>;
+    let walletClient: ViemWalletClient;
+    let publicClient: ViemPublicClient;
 
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
@@ -92,8 +87,8 @@ export const uniswapL1L2TestSuite = (
     let wethCrossChainHarness: CrossChainTestHarness;
 
     let deployL1ContractsValues: DeployL1ContractsReturnType;
-    let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
-    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, WalletClient<HttpTransport, Chain, Account>>;
+    let rollup: GetContractReturnType<typeof RollupAbi, ViemWalletClient>;
+    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ViemWalletClient>;
     let uniswapPortalAddress: EthAddress;
     let uniswapL2Contract: UniswapContract;
 

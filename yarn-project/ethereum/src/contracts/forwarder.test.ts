@@ -41,7 +41,7 @@ describe('Forwarder', () => {
   let l1TxUtils: L1TxUtils;
   let govProposerAddress: EthAddress;
   let tokenAddress: EthAddress;
-  let tokenContract: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let tokenContract: GetContractReturnType<typeof TestERC20Abi, ViemPublicClient>;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:forwarder');
     // this is the 6th address that gets funded by the junk mnemonic

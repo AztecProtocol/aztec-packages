@@ -2,7 +2,7 @@ import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
 import { GENESIS_ARCHIVE_ROOT, PrivateLog } from '@aztec/circuits.js';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -66,7 +66,7 @@ describe('Archiver', () => {
       .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
       .reduce((accum, num) => accum + num, 0);
 
-  let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
+  let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
   let archiverStore: ArchiverDataStore;
@@ -99,7 +99,7 @@ describe('Archiver', () => {
   beforeEach(async () => {
     logger = createLogger('archiver:test');
     now = +new Date();
-    publicClient = mock<PublicClient<HttpTransport, Chain>>({
+    publicClient = mock<ViemPublicClient>({
       // Return a block with a reasonable timestamp
       getBlock: ((args: any) => ({
         timestamp: args.blockNumber * BigInt(DefaultL1ContractsConfig.ethereumSlotDuration) + BigInt(now),

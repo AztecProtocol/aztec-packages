@@ -7,24 +7,19 @@ import {
   type L2Tips,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import {
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  type ViemPublicClient,
+  createEthereumChain,
+} from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  fallback,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 /**
  * Enum defining the possible states of the Slasher client.
@@ -101,8 +96,7 @@ export class SlasherClient extends WithTracer {
 
   private slashEvents: SlashEvent[] = [];
 
-  protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, PublicClient<HttpTransport, Chain>> =
-    undefined;
+  protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, ViemPublicClient> = undefined;
 
   // The amount to slash for a prune.
   // Note that we set it to 0, such that no actual slashing will happen, but the event will be fired,

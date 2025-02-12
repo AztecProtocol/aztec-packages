@@ -18,7 +18,7 @@ import {
   deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -48,8 +48,8 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
  */
 export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  walletClient: ViemWalletClient,
+  publicClient: ViemPublicClient,
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
   underlyingERC20Address?: EthAddress,
@@ -142,8 +142,8 @@ export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
     pxeService: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    publicClient: ViemPublicClient,
+    walletClient: ViemWalletClient,
     wallet: AccountWallet,
     logger: Logger,
     underlyingERC20Address?: EthAddress,
@@ -205,9 +205,9 @@ export class CrossChainTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20Address: EthAddress,
     /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
+    public publicClient: ViemPublicClient,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public walletClient: ViemWalletClient,
 
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,
