@@ -2,7 +2,9 @@ include "precomputed.pil";
 
 // This file owns the bytecode columns, and other helper columns.
 // TODO: This does NOT support empty bytecode.
-// TODO: Fully constrain.
+// TODO: Fully constrain. In particular, the last bytecode of the trace might be truncated
+//       and not finish with last_of_contract being activated. We expect this to be constrained
+//       by bytecode hashing.
 namespace bc_decomposition;
 
 pol commit sel;
