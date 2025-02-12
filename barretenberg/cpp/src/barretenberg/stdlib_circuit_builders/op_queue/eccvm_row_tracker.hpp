@@ -6,23 +6,22 @@
 namespace bb {
 
 /**
- * @brief
- *
- * @details
+ * @brief Class for tracking the number of rows in the ECCVM circuit and the number of muls performed as the op queue is
+ * populated.
+ * @details This is to avoid expensive O(n) logic to compute the number of rows and muls during witness computation
  */
 class EccvmRowTracker {
     using Curve = curve::BN254;
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-  public:
-    // as we populate the op_queue, we track the number of rows in each circuit section,
-    // as well as the number of multiplications performed.
-    // This is to avoid expensive O(n) logic to compute the number of rows and muls during witness computation
     uint32_t cached_num_muls = 0;
     uint32_t cached_active_msm_count = 0;
     uint32_t num_transcript_rows = 0;
     uint32_t num_precompute_table_rows = 0;
     uint32_t num_msm_rows = 0;
+
+  public:
+    [[nodiscard]] uint32_t get_number_of_muls() const { return cached_num_muls + cached_active_msm_count; }
 
     /**
      * @brief Get the number of rows in the 'msm' column section of the ECCVM associated with a single multiscalar

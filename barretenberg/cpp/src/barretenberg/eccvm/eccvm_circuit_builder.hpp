@@ -40,10 +40,7 @@ class ECCVMCircuitBuilder {
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
         : op_queue(op_queue){};
 
-    [[nodiscard]] uint32_t get_number_of_muls() const
-    {
-        return op_queue->eccvm_row_tracker.cached_num_muls + op_queue->eccvm_row_tracker.cached_active_msm_count;
-    }
+    [[nodiscard]] uint32_t get_number_of_muls() const { return op_queue->get_number_of_muls(); }
 
     std::vector<MSM> get_msms() const
     {

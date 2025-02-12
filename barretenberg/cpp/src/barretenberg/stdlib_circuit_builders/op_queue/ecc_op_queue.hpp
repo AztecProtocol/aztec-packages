@@ -49,12 +49,28 @@ class ECCOpQueue {
 
     std::array<Point, 4> ultra_ops_commitments;
 
+    // Tracks numer of muls and size of eccvm in real time as the op queue is updated
+    EccvmRowTracker eccvm_row_tracker;
+
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    EccvmRowTracker eccvm_row_tracker; // WORKTODO: make private
-
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
+
+    /**
+     * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
+     */
+    size_t get_num_msm_rows() const { return eccvm_row_tracker.get_num_msm_rows(); }
+
+    /**
+     * @brief Get the number of rows for the current ECCVM circuit
+     */
+    size_t get_num_rows() const { return eccvm_row_tracker.get_num_rows(); }
+
+    /**
+     * @brief get number of muls for the current ECCVM circuit
+     */
+    uint32_t get_number_of_muls() const { return eccvm_row_tracker.get_number_of_muls(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): Can remove this with better handling of scalar
     // mul against 0
@@ -147,20 +163,6 @@ class ECCOpQueue {
         }
         return result;
     }
-
-    /**
-     * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
-     *
-     * @return size_t
-     */
-    size_t get_num_msm_rows() const { return eccvm_row_tracker.get_num_msm_rows(); }
-
-    /**
-     * @brief Get the number of rows for the current ECCVM circuit
-     *
-     * @return size_t
-     */
-    size_t get_num_rows() const { return eccvm_row_tracker.get_num_rows(); }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
