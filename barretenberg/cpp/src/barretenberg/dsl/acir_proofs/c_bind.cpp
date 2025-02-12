@@ -448,25 +448,22 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
 
 // STARTER
 // Do I need the witness stack?
-WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint32_t** totals)
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out)
 {
-    using Program = acir_format::AcirProgram;
 
     std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
     const acir_format::ProgramMetadata metadata{ ivc };
-
-    size_t program_counter = 0;
     for (auto& bincode : acirs) {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(bincode), /*honk_recursion=*/0) };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0) };
         auto builder = acir_format::create_circuit(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        totals[program_counter][0] = htonl((uint32_t)builder.get_finalized_total_circuit_size());
-        program_counter++;
+        totals.push_back(static_cast<uint32_t>(builder.get_finalized_total_circuit_size()));
     }
+    auto totalsBytes = to_buffer<false>(totals);
 
-    // return a pointer total such that total[i][0] is the finalized size of the ith circuit in a acir_stack
+    *out = to_heap_buffer(totals);
 }

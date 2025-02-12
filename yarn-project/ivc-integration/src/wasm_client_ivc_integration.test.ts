@@ -1,3 +1,5 @@
+import { AztecClientBackend } from '@aztec/bb.js';
+
 import { jest } from '@jest/globals';
 
 /* eslint-disable camelcase */
@@ -39,7 +41,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const tx = {
       number_of_calls: '0x1',
     };
@@ -67,14 +69,9 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelTailCircuit.bytecode,
     ];
 
-    const { AztecClientBackend } = await import('@aztec/bb.js');
     const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
     const gateNumbers = await backend.gates();
-
-    logger('Gate numbers for each circuit:');
-    gateNumbers.forEach((gateCount, index) => {
-      logger(`Circuit ${index + 1}: ${gateCount} gates`);
-    });
+    logger('Gate numbers for each circuit:', gateNumbers);
     // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
     // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
     // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)

@@ -9,6 +9,9 @@ import {
   reconstructHonkProof,
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
+import createDebug from 'debug';
+
+const debug = createDebug('backend-ts');
 
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't

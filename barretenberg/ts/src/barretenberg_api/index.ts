@@ -12,6 +12,17 @@ import {
   OutputType,
 } from '../serialize/index.js';
 import { Fr, Fq, Point, Buffer32, Buffer128, Ptr } from '../types/index.js';
+import createDebug from 'debug';
+const log = createDebug('index-ts');
+
+function parseBigEndianU32Array(buffer: Uint8Array): number[] {
+  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const out: number[] = [];
+  for (let i = 0; i < buffer.byteLength; i += 4) {
+    out.push(dv.getUint32(i, false)); // false -> big-endian
+  }
+  return out;
+}
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmWorker | BarretenbergWasmMain) {}
@@ -362,14 +373,14 @@ export class BarretenbergApi {
     acirVec: Uint8Array[]
   ): Promise<number[]> {
     const inArgs = [acirVec].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()/* TODO: need to determine this number at runtime or set a max */];
-    const result = await this.wasm.callWasmExport(
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const resultBuffer = await this.wasm.callWasmExport(
       'acir_gates_aztec_client',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as [number, number];
+
+    return parseBigEndianU32Array(resultBuffer[0]);
   }
 
   async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {
