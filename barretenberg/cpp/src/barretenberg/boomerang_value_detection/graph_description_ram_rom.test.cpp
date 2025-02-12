@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 
 using namespace bb;
+using namespace cdg;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
@@ -39,7 +40,7 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    graph.print_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
@@ -63,7 +64,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    graph.print_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
@@ -109,5 +110,5 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    graph.print_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
