@@ -150,7 +150,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             let note_header = aztec::prelude::NoteHeader::new(contract_address, nonce);
             $if_statements
             else {
-                panic(f"Unknown note type ID")
+                panic(f"Unknown note type ID: {note_type_id}")
             }
         }
     } else {
@@ -163,9 +163,9 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         unconstrained fn compute_note_hash_and_optionally_a_nullifier(
             contract_address: aztec::protocol_types::address::AztecAddress,
             nonce: Field,
+            storage_slot: Field,
             note_type_id: Field,
             compute_nullifier: bool,
-            storage_slot: Field,
             packed_note_content: [Field; $max_note_content_length],
         ) -> pub [Field; 4] {
             $body
@@ -260,7 +260,7 @@ comptime fn generate_process_log() -> Quoted {
                 |packed_note_content: BoundedVec<Field, _>, note_header, storage_slot, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
                     else {
-                        panic(f"Unknown note type id {note_type_id}")
+                        panic(f"Unknown note type id sklebivi {note_type_id}")
                     };
 
                     Option::some(
