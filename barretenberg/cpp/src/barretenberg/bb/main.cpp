@@ -873,6 +873,21 @@ bool avm2_verify(const std::filesystem::path& proof_path,
 }
 #endif
 
+// Helper function to recursively print active subcommands for CLI11 app debugging
+void print_active_subcommands(const CLI::App& app, const std::string& prefix = "command: ")
+{
+
+    // get_subcommands() returns a vector of pointers to subcommands
+    for (auto subcmd : app.get_subcommands()) {
+        // Check if this subcommand was activated (nonzero count)
+        if (subcmd->count() > 0) {
+            info(prefix, subcmd->get_name());
+            // Recursively print any subcommands of this subcommand
+            print_active_subcommands(*subcmd, prefix + "  ");
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
@@ -922,7 +937,7 @@ int main(int argc, char* argv[])
     // // const std::string vk_path = get_option(args, "-k", "./target/vk");
     // std::string vk_path = "./target/vk";
 
-    const auto add_output_path_option = [&](CLI::App* subcommand, std::string _output_path) {
+    const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
                                       _output_path,
                                       "Directory to write files or path of file to write, depending on subcommand.");
@@ -957,7 +972,7 @@ int main(int argc, char* argv[])
 
     const auto add_crs_path_option = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_option("--crs_dir, -c",
+            ->add_option("--crs_path, -c",
                          flags.crs_path,
                          "Path CRS directory. Missing CRS files will be retrieved from the internet.")
             ->check(CLI::ExistingDirectory);
@@ -1048,11 +1063,21 @@ int main(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) */;
     };
 
+    const auto add_verbose_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.");
+    };
+
+    const auto add_debug_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--debug_logging, --debug_logging_logging, -d", debug_logging, "Output debug logs to stderr.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
-    app.add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.");
-    app.add_flag("--debug_logging, --debug_logging_logging, -d", debug_logging, "Output all logs to stderr.");
+    add_verbose_flag(&app);
+    add_debug_flag(&app);
+    add_crs_path_option(&app);
 
     /***************************************************************************************************************
      * Subcommnd: version
@@ -1087,7 +1112,7 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
-    prove->needs(add_scheme_option(prove));
+    add_scheme_option(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
     add_output_data_option(prove);
@@ -1112,7 +1137,7 @@ int main(int argc, char* argv[])
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
                            "to expand ACIR black box opcodes), and no proof is constructed.");
 
-    write_vk->needs(add_scheme_option(write_vk));
+    add_scheme_option(write_vk);
     add_output_data_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk); // WORKTODO deprecated
@@ -1128,7 +1153,7 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
-    verify->needs(add_scheme_option(verify));
+    add_scheme_option(verify);
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
     add_zk_option(verify);
@@ -1152,7 +1177,7 @@ int main(int argc, char* argv[])
     // WORKTODO: make an option so its deprecatable
     CLI::App* write_arbitrary_valid_proof_and_vk_to_file =
         app.add_subcommand("write_arbitrary_valid_proof_and_vk_to_file", "");
-    write_arbitrary_valid_proof_and_vk_to_file->needs(add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file));
+    add_scheme_option(write_arbitrary_valid_proof_and_vk_to_file);
     add_output_path_option(write_arbitrary_valid_proof_and_vk_to_file, output_path);
 
     // /***************************************************************************************************************
@@ -1175,11 +1200,17 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API gates_for_ivc
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "IOU");
+    add_verbose_flag(OLD_API_gates_for_ivc);
+    add_debug_flag(OLD_API_gates_for_ivc);
+    add_crs_path_option(OLD_API_gates_for_ivc);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API gates_mega_honk
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "IOU");
+    add_verbose_flag(OLD_API_gates_mega_honk);
+    add_debug_flag(OLD_API_gates_mega_honk);
+    add_crs_path_option(OLD_API_gates_mega_honk);
     add_recursive_flag(OLD_API_gates_mega_honk);
     add_honk_recursion_option(OLD_API_gates_mega_honk);
 
@@ -1188,6 +1219,9 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
         OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "IOU");
+    add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
+    add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
+    add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     std::string arbitrary_valid_proof_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
 
@@ -1196,6 +1230,9 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
         OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "IOU");
+    add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
+    add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
+    add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
     std::string recursion_inputs_output_path{ "./target" };
     add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
     add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
@@ -1206,6 +1243,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API gates
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "IOU");
+    add_verbose_flag(OLD_API_gates);
+    add_debug_flag(OLD_API_gates);
+    add_crs_path_option(OLD_API_gates);
     add_recursive_flag(OLD_API_gates);
     add_honk_recursion_option(OLD_API_gates);
 
@@ -1213,6 +1253,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API prove
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "IOU");
+    add_verbose_flag(OLD_API_prove);
+    add_debug_flag(OLD_API_prove);
+    add_crs_path_option(OLD_API_prove);
     add_recursive_flag(OLD_API_prove);
     std::string plonk_prove_output_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_prove, plonk_prove_output_path);
@@ -1221,6 +1264,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API prove_output_all
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "IOU");
+    add_verbose_flag(OLD_API_prove_output_all);
+    add_debug_flag(OLD_API_prove_output_all);
+    add_crs_path_option(OLD_API_prove_output_all);
     add_recursive_flag(OLD_API_prove_output_all);
     std::string plonk_prove_output_all_output_path{ "./proofs" };
     add_output_path_option(OLD_API_prove_output_all, plonk_prove_output_all_output_path);
@@ -1229,24 +1275,38 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "IOU");
+    add_verbose_flag(OLD_API_verify);
+    add_debug_flag(OLD_API_verify);
+    add_crs_path_option(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove_and_verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "IOU");
+    add_verbose_flag(OLD_API_prove_and_verify);
+    add_debug_flag(OLD_API_prove_and_verify);
+    add_crs_path_option(OLD_API_prove_and_verify);
     add_recursive_flag(OLD_API_prove_and_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API contract
      ***************************************************************************************************************/
     CLI::App* OLD_API_contract = OLD_API->add_subcommand("contract", "IOU");
+    add_verbose_flag(OLD_API_contract);
+    add_debug_flag(OLD_API_contract);
+    add_crs_path_option(OLD_API_contract);
     std::string plonk_contract_output_path{ "./target/contract.sol" };
     add_output_path_option(OLD_API_contract, plonk_contract_output_path);
+    add_bytecode_path_option(OLD_API_contract);
+    add_vk_path_option(OLD_API_contract);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API write_vk
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "IOU");
+    add_verbose_flag(OLD_API_write_vk);
+    add_debug_flag(OLD_API_write_vk);
+    add_crs_path_option(OLD_API_write_vk);
     add_recursive_flag(OLD_API_write_vk);
     std::string plonk_vk_output_path{ "./target/vk" };
     add_output_path_option(OLD_API_write_vk, plonk_vk_output_path);
@@ -1255,6 +1315,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API write_pk
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "IOU");
+    add_verbose_flag(OLD_API_write_pk);
+    add_debug_flag(OLD_API_write_pk);
+    add_crs_path_option(OLD_API_write_pk);
     add_recursive_flag(OLD_API_write_pk);
     std::string plonk_pk_output_path{ "./target/pk" };
     add_output_path_option(OLD_API_write_pk, plonk_pk_output_path);
@@ -1263,13 +1326,30 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API proof_as_fields
      ***************************************************************************************************************/
     CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "IOU");
-    std::string plonk_proof_as_fields_output_path{ proof_path / "_fields.json" };
-    add_output_path_option(OLD_API_proof_as_fields, plonk_proof_as_fields_output_path);
+    add_verbose_flag(OLD_API_proof_as_fields);
+    add_debug_flag(OLD_API_proof_as_fields);
+    add_crs_path_option(OLD_API_proof_as_fields);
+    std::string plonk_proof_as_fields_output_path;
+    auto* output_path_option = add_output_path_option(OLD_API_proof_as_fields, plonk_proof_as_fields_output_path);
+    add_proof_path_option(OLD_API_proof_as_fields);
+    add_vk_path_option(OLD_API_proof_as_fields);
+    // Attach a final callback to the subcommand (or the main app) that will run after parsing.
+    // This callback will update the output path default if the user did not supply an explicit value.
+    OLD_API_proof_as_fields->final_callback([&]() {
+        // If the output option was not set (i.e. its count is 0), update it.
+        if (output_path_option->count() == 0) {
+            // Update the default output based on the (possibly changed) proof_path.
+            plonk_proof_as_fields_output_path = proof_path.stem().string() + "_fields.json";
+        }
+    });
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API vk_as_fields
      ***************************************************************************************************************/
     CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "IOU");
+    add_verbose_flag(OLD_API_vk_as_fields);
+    add_debug_flag(OLD_API_vk_as_fields);
+    add_crs_path_option(OLD_API_vk_as_fields);
     std::string plonk_vk_as_fields_output_path{ vk_path / "_fields.json" };
     add_output_path_option(OLD_API_vk_as_fields, plonk_vk_as_fields_output_path);
 
@@ -1295,6 +1375,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API avm2_prove
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm2_prove = OLD_API->add_subcommand("avm2_prove", "IOU");
+    add_verbose_flag(OLD_API_avm2_prove);
+    add_debug_flag(OLD_API_avm2_prove);
+    add_crs_path_option(OLD_API_avm2_prove);
     std::filesystem::path avm2_prove_output_path{ "./proofs" };
     add_output_path_option(OLD_API_avm2_prove, avm2_prove_output_path);
     add_avm_inputs_option(OLD_API_avm2_prove);
@@ -1303,18 +1386,27 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API avm2_check_circuit
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm2_check_circuit = OLD_API->add_subcommand("avm2_check_circuit", "IOU");
+    add_verbose_flag(OLD_API_avm2_check_circuit);
+    add_debug_flag(OLD_API_avm2_check_circuit);
+    add_crs_path_option(OLD_API_avm2_check_circuit);
     add_avm_inputs_option(OLD_API_avm2_check_circuit);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API avm2_verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm2_verify = OLD_API->add_subcommand("avm2_verify", "IOU");
+    add_verbose_flag(OLD_API_avm2_verify);
+    add_debug_flag(OLD_API_avm2_verify);
+    add_crs_path_option(OLD_API_avm2_verify);
     add_avm_public_inputs_option(OLD_API_avm2_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API avm_check_circuit
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm_check_circuit = OLD_API->add_subcommand("avm_check_circuit", "IOU");
+    add_verbose_flag(OLD_API_avm_check_circuit);
+    add_debug_flag(OLD_API_avm_check_circuit);
+    add_crs_path_option(OLD_API_avm_check_circuit);
     add_avm_hints_option(OLD_API_avm_check_circuit);
     add_avm_public_inputs_option(OLD_API_avm_check_circuit);
     add_avm_dump_trace_option(OLD_API_avm_check_circuit);
@@ -1323,6 +1415,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API avm_prove
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm_prove = OLD_API->add_subcommand("avm_prove", "IOU");
+    add_verbose_flag(OLD_API_avm_prove);
+    add_debug_flag(OLD_API_avm_prove);
+    add_crs_path_option(OLD_API_avm_prove);
     std::filesystem::path avm_prove_output_path{ "./proofs" };
     add_output_path_option(OLD_API_avm_prove, avm_prove_output_path);
     add_avm_hints_option(OLD_API_avm_prove);
@@ -1333,12 +1428,18 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API avm_verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_avm_verify = OLD_API->add_subcommand("avm_verify", "IOU");
+    add_verbose_flag(OLD_API_avm_verify);
+    add_debug_flag(OLD_API_avm_verify);
+    add_crs_path_option(OLD_API_avm_verify);
 #endif
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove_tube
      ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_tube = OLD_API->add_subcommand("prove_tube", "IOU");
+    CLI ::App* OLD_API_prove_tube = OLD_API->add_subcommand("prove_tube", "IOU");
+    add_verbose_flag(OLD_API_prove_tube);
+    add_debug_flag(OLD_API_prove_tube);
+    add_crs_path_option(OLD_API_prove_tube);
     std::string prove_tube_output_path{ "./target" };
     add_output_path_option(OLD_API_prove_tube, prove_tube_output_path);
 
@@ -1346,6 +1447,9 @@ int main(int argc, char* argv[])
      * Subcommnd: OLD_API verify_tube
      ***************************************************************************************************************/
     CLI::App* OLD_API_verify_tube = OLD_API->add_subcommand("verify_tube", "IOU");
+    add_verbose_flag(OLD_API_verify_tube);
+    add_debug_flag(OLD_API_verify_tube);
+    add_crs_path_option(OLD_API_verify_tube);
     // WORKTODO doesn't make sense that this is set by -o but that's how it was
     std::string tube_proof_and_vk_path{ "./target" };
     add_output_path_option(OLD_API_verify_tube, tube_proof_and_vk_path);
@@ -1355,6 +1459,7 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+    print_active_subcommands(app);
     info(flags);
     verbose_logging = debug_logging || verbose_logging;
 
@@ -1468,7 +1573,7 @@ int main(int argc, char* argv[])
             UltraHonkAPI api;
             return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
         } else {
-            info("No matcher for API command");
+            info("No match for API command");
             return 1;
         }
     } catch (std::runtime_error const& err) {
