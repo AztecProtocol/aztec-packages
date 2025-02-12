@@ -21,64 +21,64 @@ contract AvmGadgetsTest {
 
     #[public]
     fn sha256_hash_10(data: [u8; 10]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_20(data: [u8; 20]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_30(data: [u8; 30]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_40(data: [u8; 40]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_50(data: [u8; 50]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_60(data: [u8; 60]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_70(data: [u8; 70]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_80(data: [u8; 80]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_90(data: [u8; 90]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_100(data: [u8; 100]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_255(data: [u8; 255]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_256(data: [u8; 256]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_511(data: [u8; 511]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
     #[public]
     fn sha256_hash_512(data: [u8; 512]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
 
     #[public]
     fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::sha256_var(data, data.len() as u64)
     }
 
     #[public]
