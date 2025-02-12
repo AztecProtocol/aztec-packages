@@ -7,9 +7,10 @@ on:
     branches:
       - master
       - ci3-fake-master
-  # For AztecProtocol devs. Allows editing workflow files.
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  # WORKTODO reinstate
+  # # For AztecProtocol devs. Allows editing workflow files.
+  # pull_request:
+  #   types: [opened, synchronize, reopened, ready_for_review, labeled]
   # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -20,6 +21,7 @@ concurrency:
   group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
+# WORKTODO remove
 env:
   REF_NAME: master
 
