@@ -168,12 +168,12 @@ unconstrained fn applies_filter_before_constraining() {
     assert_eq(context.note_hash_read_requests.len(), 1);
 }
 
-#[test(should_fail_with = "Mismatch note header storage slot.")]
-unconstrained fn rejects_mismatched_storage_slot() {
+#[test(should_fail_with = "Mismatch note header contract address.")]
+unconstrained fn rejects_mismatched_address() {
     let mut env = setup();
     let mut context = env.private();
 
-    let note = MockNote::new(1).contract_address(get_contract_address()).build(); // We're not setting the right storage slot
+    let note = MockNote::new(1).build(); // We're not setting the right contract address
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
