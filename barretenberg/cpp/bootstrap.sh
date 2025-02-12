@@ -279,9 +279,9 @@ function bench {
     wasm ./bench-out/ultra_honk_wasm.json \
     "" ./bench-out/client_ivc_op_count.json \
     "" ./bench-out/client_ivc_op_count_time.json \
-    > ./bench-out/bench.json
+    > ./bench-out/bb-bench.json
 
-    cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bench.json
+    cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bb-bench.json
 }
 
 # Upload assets to release.

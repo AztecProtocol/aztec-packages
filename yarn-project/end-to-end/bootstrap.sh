@@ -127,8 +127,8 @@ function test {
 
 function bench {
   mkdir -p bench-out
-  BENCH_OUTPUT=bench-out/bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block
-  cache_upload yarn-project-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bench.json
+  BENCH_OUTPUT=bench-out/yp-bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block
+  cache_upload yarn-project-bench-results-$COMMIT_HASH.tar.gz ./bench-out/yp-bench.json
 }
 
 case "$cmd" in

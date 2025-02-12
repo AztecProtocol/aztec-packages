@@ -71,22 +71,42 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           ./ci.sh ec2
-          ./ci3/cache_download {barretenberg,yarn-project}-bench-results-$(git rev-parse HEAD).tar.gz
-      # - name: Store barretenberg benchmark result
-      #   if: github.event_name == 'push'
-      #   continue-on-error: true
-      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-      #   with:
-      #     name: C++ Benchmark
-      #     tool: "googlecpp"
-      #     output-file-path: ./bench-out/bench.json
-      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-      #     auto-push: true
-      #     alert-threshold: "105%"
-      #     comment-on-alert: true
-      #     fail-on-alert: false
-      #     alert-comment-cc-users: "@ludamad @codygunton"
-      #     max-items-in-chart: 50
+      - name: Download benchmarks
+        if: github.event_name == 'push'
+        run: |
+          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+          ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+      - name: Store barretenberg benchmark result
+        if: github.event_name == 'push'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: C++ Benchmark
+          tool: "googlecpp"
+          output-file-path: ./bench-out/bb-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
+      - name: Store yarn project benchmark result
+        if: github.event_name == 'push'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "End-to-end Benchmark"
+          benchmark-data-dir-path: "dev/e2e-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/yp-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
 
   ci-arm64:
     runs-on: ubuntu-latest
