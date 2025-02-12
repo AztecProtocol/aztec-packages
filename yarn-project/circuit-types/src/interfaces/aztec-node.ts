@@ -37,7 +37,6 @@ import {
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import {
@@ -442,18 +441,6 @@ export interface AztecNode
   getEncodedEnr(): Promise<string | undefined>;
 
   /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
-  /**
    * Adds a contract class bypassing the registerer.
    * TODO(#10007): Remove this method.
    * @param contractClass - The class to register.
@@ -600,10 +587,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   flushTxs: z.function().returns(z.void()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
-
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
 
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),

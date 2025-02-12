@@ -30,6 +30,8 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: false
+  extraAccounts: 9
+  extraAccountsStartIndex: 69
 
 jobs:
   deployL1Verifier:

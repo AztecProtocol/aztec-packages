@@ -41,7 +41,6 @@ import {
 } from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { type TxValidationResult } from '../tx/index.js';
@@ -348,15 +347,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe('enr:-');
   });
 
-  it('addEpochProofQuote', async () => {
-    await context.client.addEpochProofQuote(EpochProofQuote.random());
-  });
-
-  it('getEpochProofQuotes', async () => {
-    const response = await context.client.getEpochProofQuotes(1n);
-    expect(response).toEqual([expect.any(EpochProofQuote)]);
-  });
-
   it('addContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
@@ -613,14 +603,6 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    expect(quote).toBeInstanceOf(EpochProofQuote);
-    return Promise.resolve();
-  }
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    expect(epoch).toEqual(1n);
-    return Promise.resolve([EpochProofQuote.random()]);
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();

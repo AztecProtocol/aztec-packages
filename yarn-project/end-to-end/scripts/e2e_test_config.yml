@@ -54,7 +54,6 @@ tests:
   # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
   # e2e_pending_note_hashes_contract: {}
   e2e_private_voting_contract: {}
-  e2e_prover_coordination: {}
   e2e_prover_fake_proofs:
     test_path: 'e2e_prover/full.test.ts'
     env:

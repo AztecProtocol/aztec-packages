@@ -61,7 +61,6 @@ function test_cmds {
   # echo "$run_test simple-flake e2e_p2p/upgrade_governance_proposer"
   echo "$run_test simple e2e_private_voting_contract"
   # echo "FAKE_PROOFS=1 $run_test simple-flake e2e_prover/full"
-  echo "$run_test simple e2e_prover_coordination"
   echo "$run_test simple e2e_public_testnet_transfer"
   echo "$run_test simple e2e_state_vars"
   echo "$run_test simple e2e_static_calls"

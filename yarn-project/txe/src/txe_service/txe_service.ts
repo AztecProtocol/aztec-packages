@@ -95,12 +95,13 @@ export class TXEService {
     ]);
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
-      await this.createAccount(secret);
+      await this.addAccount(artifact, instance, secret);
+    } else {
+      await (this.typedOracle as TXE).addContractInstance(instance);
+      await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
-    await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
     return toForeignCallResult([
       toArray([
         instance.salt,
@@ -137,6 +138,7 @@ export class TXEService {
   async createAccount(secret: ForeignCallSingle) {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const secretFr = fromSingle(secret);
+    // This is a footgun !
     const completeAddress = await keyStore.addAccount(secretFr, secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
@@ -532,17 +534,20 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async dbStore(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, values: ForeignCallArray) {
-    await this.typedOracle.dbStore(
+  async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
+    await this.typedOracle.storeCapsule(
       AztecAddress.fromField(fromSingle(contractAddress)),
       fromSingle(slot),
-      fromArray(values),
+      fromArray(capsule),
     );
     return toForeignCallResult([]);
   }
 
-  async dbLoad(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
-    const values = await this.typedOracle.dbLoad(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+  async loadCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
+    const values = await this.typedOracle.loadCapsule(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+    );
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
@@ -554,18 +559,18 @@ export class TXEService {
     }
   }
 
-  async dbDelete(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
-    await this.typedOracle.dbDelete(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+  async deleteCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
+    await this.typedOracle.deleteCapsule(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     return toForeignCallResult([]);
   }
 
-  async dbCopy(
+  async copyCapsule(
     contractAddress: ForeignCallSingle,
     srcSlot: ForeignCallSingle,
     dstSlot: ForeignCallSingle,
     numEntries: ForeignCallSingle,
   ) {
-    await this.typedOracle.dbCopy(
+    await this.typedOracle.copyCapsule(
       AztecAddress.fromField(fromSingle(contractAddress)),
       fromSingle(srcSlot),
       fromSingle(dstSlot),

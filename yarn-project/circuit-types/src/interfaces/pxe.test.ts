@@ -42,7 +42,6 @@ import {
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
@@ -112,8 +111,8 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(Fr)]);
   });
 
-  it('addCapsule', async () => {
-    await context.client.addCapsule(address, Fr.random(), times(3, Fr.random));
+  it('storeCapsule', async () => {
+    await context.client.storeCapsule(address, Fr.random(), times(3, Fr.random));
   });
 
   it('registerAccount', async () => {
@@ -311,7 +310,7 @@ describe('PXESchema', () => {
   });
 
   it('getPrivateEvents', async () => {
-    const result = await context.client.getPrivateEvents<EpochProofQuote>(
+    const result = await context.client.getPrivateEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -321,7 +320,7 @@ describe('PXESchema', () => {
   });
 
   it('getPublicEvents', async () => {
-    const result = await context.client.getPublicEvents<EpochProofQuote>(
+    const result = await context.client.getPublicEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -349,7 +348,7 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     return Promise.resolve([Fr.random()]);
   }
-  addCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(storageSlot).toBeInstanceOf(Fr);
     expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
