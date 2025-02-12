@@ -6,6 +6,7 @@ use dep::types::{
     abis::nullifier_leaf_preimage::NullifierLeafPreimage,
     constants::{MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT},
     merkle_tree::MembershipWitness,
+    traits::Empty,
 };
 
 pub struct NullifierSettledReadHint {
@@ -61,7 +62,7 @@ mod tests {
         hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
-        traits::is_empty_array,
+        traits::{Empty, FromField, Hash, is_empty_array},
     };
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> {
@@ -182,6 +183,7 @@ mod tests {
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
+            /// Safety: this is only used in tests.
             let unverified_read_requests = unsafe { self.get_unverified_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
@@ -198,7 +200,7 @@ mod tests {
     #[test]
     fn verify_reset_nullifier_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
-
+        /// Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert(is_empty_array(unverified_read_requests));
 
@@ -213,6 +215,7 @@ mod tests {
         builder.read_request_statuses[4] = ReadRequestStatus::empty();
 
         let read_requests = builder.read_requests;
+        /// Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert_array_eq(
             unverified_read_requests,

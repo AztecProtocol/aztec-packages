@@ -1,24 +1,24 @@
-use crate::oracle::pxe_db;
+use crate::oracle::capsules;
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
-/// A dynamically sized array backed by PXE's non-volatile database. Values are persisted until deleted, so they can be
-/// e.g. stored during simulation of a transaction and later retrieved during witness generation. All values are scoped
-/// per contract address, so external contracts cannot access them.
-pub struct DBArray<T> {
+/// A dynamically sized array backed by PXE's non-volatile database (called capsules). Values are persisted until
+/// deleted, so they can be e.g. stored during simulation of a transaction and later retrieved during witness
+/// generation. All values are scoped per contract address, so external contracts cannot access them.
+pub struct CapsuleArray<T> {
     contract_address: AztecAddress,
-    /// An array's base slot is the slot in PXE's database in which the array length is stored. Array elements are
-    /// stored contiguously in the following slots, so e.g. if the base slot is 5, then the length is stored at slot 5,
-    /// the first element (index 0) at slot 6, the second (index 1) at slot 7, and so on.
+    /// The base slot is where the array length is stored in capsules. Array elements are stored in consecutive slots
+    /// after the base slot. For example, with base slot 5: the length is at slot 5, the first element (index 0) is at
+    /// slot 6, the second element (index 1) is at slot 7, and so on.
     base_slot: Field,
 }
 
-impl<T, let N: u32> DBArray<T>
+impl<T, let N: u32> CapsuleArray<T>
 where
     T: Serialize<N> + Deserialize<N>,
 {
-    /// Returns a DBArray connected to a contact's PXE database at a base database slot. Array elements are be stored at
+    /// Returns a CapsuleArray connected to a contract's capsules at a base slot. Array elements are stored in
     /// contiguous slots following the base slot, so there should be sufficient space between array base slots to
-    /// accomodate elements. A reasonable strategy is to make the base slot a hash of a unique value.
+    /// accommodate elements. A reasonable strategy is to make the base slot a hash of a unique value.
     pub unconstrained fn at(contract_address: AztecAddress, base_slot: Field) -> Self {
         Self { contract_address, base_slot }
     }
@@ -26,7 +26,7 @@ where
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
         // An uninitialized array defaults to a length of 0.
-        pxe_db::load(self.contract_address, self.base_slot).unwrap_or(0) as u32
+        capsules::load(self.contract_address, self.base_slot).unwrap_or(0) as u32
     }
 
     /// Stores a value at the end of the array.
@@ -35,31 +35,31 @@ where
 
         // The slot corresponding to the index `current_length` is the first slot immediately after the end of the
         // array, which is where we want to place the new value.
-        pxe_db::store(self.contract_address, self.slot_at(current_length), value);
+        capsules::store(self.contract_address, self.slot_at(current_length), value);
 
         // Then we simply update the length.
         let new_length = current_length + 1;
-        pxe_db::store(self.contract_address, self.base_slot, new_length);
+        capsules::store(self.contract_address, self.base_slot, new_length);
     }
 
     /// Retrieves the value stored in the array at `index`. Throws if the index is out of bounds.
     pub unconstrained fn get(self, index: u32) -> T {
-        assert(index < self.len(), "Attempted to read past the length of a DBArray");
+        assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
-        pxe_db::load(self.contract_address, self.slot_at(index)).unwrap()
+        capsules::load(self.contract_address, self.slot_at(index)).unwrap()
     }
 
     /// Deletes the value stored in the array at `index`. Throws if the index is out of bounds.
     pub unconstrained fn remove(self, index: u32) {
         let current_length = self.len();
-        assert(index < current_length, "Attempted to delete past the length of a DBArray");
+        assert(index < current_length, "Attempted to delete past the length of a CapsuleArray");
 
         // In order to be able to remove elements at arbitrary indices, we need to shift the entire contents of the
         // array past the removed element one slot backward so that we don't end up with a gap and preserve the
         // contiguous slots. We can skip this when deleting the last element however.
         if index != current_length - 1 {
-            // The souce and destination regions overlap, but `copy` supports this.
-            pxe_db::copy(
+            // The source and destination regions overlap, but `copy` supports this.
+            capsules::copy(
                 self.contract_address,
                 self.slot_at(index + 1),
                 self.slot_at(index),
@@ -69,8 +69,8 @@ where
 
         // We can now delete the last element (which has either been copied to the slot immediately before it, or was
         // the element we meant to delete in the first place) and update the length.
-        pxe_db::delete(self.contract_address, self.slot_at(current_length - 1));
-        pxe_db::store(self.contract_address, self.base_slot, current_length - 1);
+        capsules::delete(self.contract_address, self.slot_at(current_length - 1));
+        capsules::store(self.contract_address, self.base_slot, current_length - 1);
     }
 
     unconstrained fn slot_at(self, index: u32) -> Field {
@@ -82,7 +82,7 @@ where
 
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::DBArray;
+    use super::CapsuleArray;
     use protocol_types::address::AztecAddress;
 
     global SLOT: Field = 1230;
@@ -95,15 +95,15 @@ mod test {
     unconstrained fn empty_array() {
         let contract_address = setup();
 
-        let array: DBArray<Field> = DBArray::at(contract_address, SLOT);
+        let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT);
         assert_eq(array.len(), 0);
     }
 
-    #[test(should_fail_with = "Attempted to read past the length of a DBArray")]
+    #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn empty_array_read() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         let _: Field = array.get(0);
     }
 
@@ -111,18 +111,18 @@ mod test {
     unconstrained fn array_push() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         array.push(5);
 
         assert_eq(array.len(), 1);
         assert_eq(array.get(0), 5);
     }
 
-    #[test(should_fail_with = "Attempted to read past the length of a DBArray")]
+    #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn read_past_len() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
         array.push(5);
 
         let _ = array.get(1);
@@ -132,7 +132,7 @@ mod test {
     unconstrained fn array_remove_last() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(5);
         array.remove(0);
@@ -144,7 +144,7 @@ mod test {
     unconstrained fn array_remove_some() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(7);
         array.push(8);
@@ -166,7 +166,7 @@ mod test {
     unconstrained fn array_remove_all() {
         let contract_address = setup();
 
-        let array = DBArray::at(contract_address, SLOT);
+        let array = CapsuleArray::at(contract_address, SLOT);
 
         array.push(7);
         array.push(8);

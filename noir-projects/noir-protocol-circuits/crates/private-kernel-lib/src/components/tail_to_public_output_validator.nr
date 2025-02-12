@@ -31,6 +31,7 @@ impl TailToPublicOutputValidator {
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
+        /// Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
         TailToPublicOutputValidator { output, previous_kernel, hints }
     }

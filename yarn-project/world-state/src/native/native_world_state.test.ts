@@ -1,4 +1,4 @@
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -21,7 +21,7 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { assertSameState, compareChains, mockBlock } from '../test/utils.js';
+import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
@@ -359,7 +359,10 @@ describe('NativeWorldState', () => {
       }
     });
 
-    it('Can re-org', async () => {
+    it.each([
+      ['1-tx blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockBlock(blockNumber, 1, fork)],
+      ['empty blocks', (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(blockNumber, fork)],
+    ])('Can re-org %s', async (_, genBlock) => {
       const nonReorgState = await NativeWorldStateService.tmp();
       const sequentialReorgState = await NativeWorldStateService.tmp();
       let fork = await ws.fork();
@@ -372,7 +375,7 @@ describe('NativeWorldState', () => {
       // advance 3 chains by 8 blocks, 2 of the chains go to 16 blocks
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
-        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const { block, messages } = await genBlock(blockNumber, fork);
         const status = await ws.handleL2BlockAndMessages(block, messages);
         blockStats.push(status);
         const blockFork = await ws.fork();

@@ -87,8 +87,10 @@ spec:
               value: "{{ .Values.blobSink.dataStoreConfig.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
               value: "{{ .Values.blobSink.dataStoreConfig.dataStoreMapSize }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
           ports:
             - containerPort: {{ .Values.blobSink.service.nodePort }}
           resources:
