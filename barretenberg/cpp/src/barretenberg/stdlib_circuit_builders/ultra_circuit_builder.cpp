@@ -34,6 +34,12 @@ std::mutex multi_table_mutex;
 #endif
 
 template <typename ExecutionTrace>
+std::array<plookup::MultiTable, plookup::MultiTableId::NUM_MULTI_TABLES>
+    UltraCircuitBuilder_<ExecutionTrace>::MULTI_TABLES;
+
+template <typename ExecutionTrace> bool UltraCircuitBuilder_<ExecutionTrace>::initialised = false;
+
+template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_nonzero)
 {
     /**
