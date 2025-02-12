@@ -8,6 +8,8 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 
 if [ "$arch" == "arm64" ]; then
   cores=64
+  # Allow for 90 minutes as ARM has less cores.
+  export AWS_SHUTDOWN_TIME=90
 else
   if [ "$CI_FULL" -eq 1 ]; then
     cores=192

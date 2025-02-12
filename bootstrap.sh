@@ -175,8 +175,8 @@ function bench {
   if [ "$CI_FULL" -eq 0 ]; then
     return
   fi
-  barretenberg/cpp/bootstrap.sh bench
-  yarn-project/bootstrap.sh bench
+  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "yarn-project/end-to-end/bootstrap.sh bench"
 }
 
 function release {
