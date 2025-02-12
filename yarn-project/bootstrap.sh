@@ -40,6 +40,7 @@ function lint {
 }
 
 function compile_all {
+  local hash=$(hash)
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
