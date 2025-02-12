@@ -67,6 +67,7 @@ function cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
+# TODO reenable
 stern_pid=""
 # function copy_stern_to_log() {
 #   stern spartan -n $namespace >logs/test_kind.log &

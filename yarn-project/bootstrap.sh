@@ -80,7 +80,7 @@ function compile_all {
   cat joblog.txt
 
   if [ ${CI:-0} = 1 ]; then
-    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --exclude-standard | grep -v '^node_modules/')
+    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
   fi
 }
 
