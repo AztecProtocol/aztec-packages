@@ -4,19 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       cluster:
-        description: The cluster to deploy to, e.g. aztec-gke-private
+        description: The cluster to deploy to, e.g. aztec-gke-public
         required: true
-        default: "aztec-gke-private"
+        default: "aztec-gke-public"
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
+        default: "devnet-canary"
       aztec_docker_image:
         description: The Aztec Docker image to use
         required: true
+        default: "aztecprotocol/aztec"
       deployment_mnemonic_secret_name:
         description: The name of the secret which holds the boot node's contract deployment mnemonic
         required: true
-        default: testnet-deployment-mnemonic
+        default: junk-mnemonic
       deployment_salt:
         description: The salt to use for this deployment. Defaults to random
         required: false
@@ -131,6 +133,8 @@ jobs:
 
           rm helm_values.json
 
+          ADDRESS_INDEX=69
+
           kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &>/dev/null &
           port_forward_pids+=($!)
 
@@ -150,6 +154,7 @@ jobs:
             --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
             --l1-chain-id "$L1_CHAIN_ID" \
             --mnemonic "$MNEMONIC" \
+            --address-index "$ADDRESS_INDEX" \
             --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json

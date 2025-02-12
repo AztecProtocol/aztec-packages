@@ -118,10 +118,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getAuthWitness');
   }
 
-  popCapsule(): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('popCapsule');
-  }
-
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,
@@ -241,19 +237,19 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('deliverNote');
   }
 
-  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbStore');
+  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('storeCapsule');
   }
 
-  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    throw new OracleMethodNotAvailableError('dbLoad');
+  loadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('loadCapsule');
   }
 
-  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbDelete');
+  deleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('deleteCapsule');
   }
 
-  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('dbCopy');
+  copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('copyCapsule');
   }
 }

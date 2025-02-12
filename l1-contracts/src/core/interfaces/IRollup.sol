@@ -8,18 +8,15 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {
-  EpochProofQuote,
-  SignedEpochProofQuote
-} from "@aztec/core/libraries/RollupLibs/EpochProofQuoteLib.sol";
-import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 struct SubmitEpochRootProofArgs {
-  uint256 epochSize;
-  bytes32[7] args;
+  uint256 start; // inclusive
+  uint256 end; // inclusive
+  bytes32[7] args; // @todo These are obhorrent and so easy to mess up with wrong padding.
   bytes32[] fees;
   bytes blobPublicInputs;
   bytes aggregationObject;
@@ -44,6 +41,17 @@ struct L1GasOracleValues {
   Slot slotOfChange;
 }
 
+struct SubEpochRewards {
+  uint256 summedCount;
+  mapping(address prover => bool proofSubmitted) hasSubmitted;
+}
+
+struct EpochRewards {
+  uint256 longestProvenLength;
+  uint256 rewards;
+  mapping(uint256 length => SubEpochRewards) subEpoch;
+}
+
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
@@ -53,7 +61,6 @@ struct RollupStore {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
-  DataStructures.EpochProofClaim proofClaim;
   IVerifier epochProofVerifier;
 }
 
@@ -82,30 +89,14 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
-  event ProofRightClaimed(
-    Epoch indexed epoch,
-    address indexed bondProvider,
-    address indexed proposer,
-    uint256 bondAmount,
-    Slot currentSlot
-  );
 
   function prune() external;
   function updateL1GasFeeOracle() external;
-
-  function claimEpochProofRight(SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
     bytes calldata _blobInput
-  ) external;
-
-  function proposeAndClaim(
-    ProposeArgs calldata _args,
-    Signature[] memory _signatures,
-    bytes calldata _blobInput,
-    SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
@@ -119,8 +110,6 @@ interface IRollupCore {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function quoteToDigest(EpochProofQuote memory _quote) external view returns (bytes32);
-
   function getFeeAssetPrice() external view returns (uint256);
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
 
@@ -128,9 +117,6 @@ interface IRollupCore {
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
   function getEpochToProve() external view returns (Epoch);
 
-  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
-    external
-    view;
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
 }
 
@@ -149,17 +135,14 @@ interface IRollup is IRollupCore {
       Epoch provenEpochNumber
     );
 
-  function getProofClaim() external view returns (DataStructures.EpochProofClaim memory);
-
   function getEpochProofPublicInputs(
-    uint256 _epochSize,
+    uint256 _start,
+    uint256 _end,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-
-  function getClaimableEpoch() external view returns (Epoch);
 
   function validateHeader(
     bytes calldata _header,
@@ -185,4 +168,19 @@ interface IRollup is IRollupCore {
   function getPendingBlockNumber() external view returns (uint256);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
   function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
+
+  function getSequencerRewards(address _sequencer) external view returns (uint256);
+  function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
+  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
+    external
+    view
+    returns (uint256);
+  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
+    external
+    view
+    returns (bool);
+
+  function getProofSubmissionWindow() external view returns (uint256);
+
+  function getProvingCostPerMana() external view returns (uint256);
 }

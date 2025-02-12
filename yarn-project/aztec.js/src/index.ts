@@ -41,14 +41,14 @@ export {
   EthAddress,
   Fq,
   Fr,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
   GlobalVariables,
   GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
   NodeInfo,
   Point,
   PublicKeys,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
 
 export { computeSecretHash } from '@aztec/circuits.js/hash';
@@ -67,12 +67,12 @@ export {
   Body,
   Comparator,
   EncryptedLogPayload,
-  EpochProofQuote,
-  EpochProofQuotePayload,
   EventMetadata,
   EventType,
   ExtendedNote,
   FunctionCall,
+  getTimestampRangeForEpoch,
+  HashedValues,
   L1Actor,
   L1EventPayload,
   L1NotePayload,
@@ -81,8 +81,9 @@ export {
   L2Block,
   LogId,
   MerkleTreeId,
+  merkleTreeIds,
+  mockTx,
   Note,
-  HashedValues,
   SiblingPath,
   Tx,
   TxExecutionRequest,
@@ -90,14 +91,10 @@ export {
   TxReceipt,
   TxStatus,
   UniqueNote,
-  getTimestampRangeForEpoch,
-  merkleTreeIds,
-  mockEpochProofQuote,
-  mockTx,
   type LogFilter,
-  type PXE,
   type PartialAddress,
   type PublicKey,
+  type PXE,
 } from '@aztec/circuit-types';
 
 // TODO: These kinds of things have no place on our public api.
@@ -118,10 +115,10 @@ export { fileURLToPath } from '@aztec/foundation/url';
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
-export * from './api/cheat_codes.js';
-export * from './api/fee.js';
 export * from './api/addresses.js';
+export * from './api/cheat_codes.js';
 export * from './api/ethereum/index.js';
+export * from './api/fee.js';
 export * from './api/log.js';
 // Granular export, even if not in the api folder
 export * from './contract/index.js';

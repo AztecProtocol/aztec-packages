@@ -40,7 +40,6 @@ allow_list=(
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"
-  "e2e_prover_coordination"
   "e2e_lending_contract"
   "e2e_p2p_gossip"
   "kind_network_smoke"
@@ -54,7 +53,7 @@ allow_list=(
 # Add labels from input to the allow_list, supports prefix matching
 # E.g:
 # e2e_p2p label will match e2e_p2p_gossip, e2e_p2p_rediscovery, e2e_p2p_reqresp etc.
-# e2e_prover label will match e2e_prover_fake_proofs, e2e_prover_coordination etc.
+# e2e_prover label will match e2e_prover_fake_proofs etc.
 IFS=',' read -r -a input_labels <<< "$LABELS"
 expanded_allow_list=()
 

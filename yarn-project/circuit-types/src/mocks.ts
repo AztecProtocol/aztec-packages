@@ -3,7 +3,6 @@ import {
   CallContext,
   ClientIvcProof,
   type ContractInstanceWithAddress,
-  EthAddress,
   GasFees,
   GasSettings,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -20,8 +19,7 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
-import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { Note } from './logs/index.js';
@@ -31,8 +29,6 @@ import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
 } from './private_execution_result.js';
-import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
-import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 import { TxEffect } from './tx_effect.js';
@@ -176,24 +172,6 @@ export const mockSimulatedTx = async (seed = 1) => {
     },
   );
   return new TxSimulationResult(privateExecutionResult, tx.data, output);
-};
-
-export const mockEpochProofQuote = (
-  epochToProve: bigint,
-  validUntilSlot?: bigint,
-  bondAmount?: bigint,
-  proverAddress?: EthAddress,
-  basisPointFee?: number,
-) => {
-  const quotePayload: EpochProofQuotePayload = new EpochProofQuotePayload(
-    epochToProve,
-    validUntilSlot ?? randomBigInt(10000n),
-    bondAmount ?? randomBigInt(10000n) + 1000n,
-    proverAddress ?? EthAddress.random(),
-    basisPointFee ?? randomInt(100),
-  );
-  const sig: Signature = Signature.empty();
-  return new EpochProofQuote(quotePayload, sig);
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({

@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {
   IRollupCore,
   ITestRollup,
@@ -14,7 +13,9 @@ import {
   RollupStore,
   L1GasOracleValues,
   L1FeeData,
-  SubmitEpochRootProofArgs
+  SubmitEpochRootProofArgs,
+  SubEpochRewards,
+  EpochRewards
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -29,11 +30,9 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   ExtRollupLib,
   ValidateHeaderArgs,
-  Header,
-  SignedEpochProofQuote,
-  SubmitEpochRootProofInterimValues
+  Header
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
-import {IntRollupLib, EpochProofQuote} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
+import {IntRollupLib} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -41,22 +40,42 @@ import {ValidatorSelectionLib} from
   "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Slasher} from "@aztec/core/staking/Slasher.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 struct Config {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
-  uint256 aztecEpochProofClaimWindowInL2Slots;
+  uint256 aztecProofSubmissionWindow;
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+}
+
+// @note https://www.youtube.com/watch?v=glN0W8WogK8
+struct SubmitProofInterim {
+  Slot deadline;
+  uint256 length;
+  uint256 totalBurn;
+  address prover;
+  uint256 feesToClaim;
+  uint256 fee;
+  uint256 proverFee;
+  uint256 burn;
+  uint256 blockRewardsAvailable;
+  uint256 blockRewardSequencer;
+  uint256 blockRewardProver;
+  uint256 added;
+  uint256 sequencerShare;
+  bool isFeeCanonical;
+  bool isRewardDistributorCanonical;
+  uint256 feeAssetPrice;
 }
 
 /**
@@ -85,10 +104,6 @@ contract RollupCore is
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
 
-  // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
-  // for justification of CLAIM_DURATION_IN_L2_SLOTS.
-  uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
-
   // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
@@ -96,11 +111,12 @@ contract RollupCore is
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   bool public immutable IS_FOUNDRY_TEST;
 
-  uint256 public immutable CLAIM_DURATION_IN_L2_SLOTS;
+  // The number of slots, measured from the beginning on an epoch, that a proof will be accepted within.
+  uint256 internal immutable PROOF_SUBMISSION_WINDOW;
+
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
-  IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
   IRewardDistributor public immutable REWARD_DISTRIBUTOR;
@@ -118,6 +134,10 @@ contract RollupCore is
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
+  mapping(address => uint256) internal sequencerRewards;
+  mapping(Epoch => EpochRewards) internal epochRewards;
+  uint256 internal provingCostPerMana = 100;
+
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
@@ -129,6 +149,8 @@ contract RollupCore is
   ) Ownable(_ares) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
+    PROOF_SUBMISSION_WINDOW = _config.aztecProofSubmissionWindow;
+
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
@@ -137,14 +159,10 @@ contract RollupCore is
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
-    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(
-      ASSET, address(this), _config.aztecSlotDuration, _config.aztecEpochDuration
-    );
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
-    CLAIM_DURATION_IN_L2_SLOTS = _config.aztecEpochProofClaimWindowInL2Slots;
 
     IS_FOUNDRY_TEST = VM_ADDRESS.code.length > 0;
 
@@ -271,24 +289,6 @@ contract RollupCore is
   }
 
   /**
-   * @notice  Publishes the body and propose the block
-   * @dev     `eth_log_handlers` rely on this function
-   *
-   * @param _args - The arguments to propose the block
-   * @param _signatures - Signatures from the validators
-   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
-   */
-  function proposeAndClaim(
-    ProposeArgs calldata _args,
-    Signature[] memory _signatures,
-    bytes calldata _blobInput,
-    SignedEpochProofQuote calldata _quote
-  ) external override(IRollupCore) {
-    propose(_args, _signatures, _blobInput);
-    claimEpochProofRight(_quote);
-  }
-
-  /**
    * @notice  Submit a proof for an epoch in the pending chain
    *
    * @dev     Will emit `L2ProofVerified` if the proof is valid
@@ -318,58 +318,118 @@ contract RollupCore is
       _prune();
     }
 
-    // We want to compute the two epoch values before hand. Could we do partial interim?
-    // We compute these in here to avoid a lot of pain with linking libraries and passing
-    // external functions into internal functions as args.
-    SubmitEpochRootProofInterimValues memory interimValues;
-    interimValues.previousBlockNumber = rollupStore.tips.provenBlockNumber;
-    interimValues.endBlockNumber = interimValues.previousBlockNumber + _args.epochSize;
+    SubmitProofInterim memory interim;
 
-    // @note The _getEpochForBlock is expected to revert if the block is beyond pending.
-    //       If this changes you are gonna get so rekt you won't believe it.
-    //       I mean proving blocks that have been pruned rekt.
-    interimValues.startEpoch = getEpochForBlock(interimValues.previousBlockNumber + 1);
-    interimValues.epochToProve = getEpochForBlock(interimValues.endBlockNumber);
+    // Start of `isAcceptable`
+    Epoch startEpoch = getEpochForBlock(_args.start);
+    // This also checks for existence of the block.
+    Epoch endEpoch = getEpochForBlock(_args.end);
 
-    uint256 endBlockNumber = ExtRollupLib.submitEpochRootProof(
-      rollupStore,
-      _args,
-      interimValues,
-      PROOF_COMMITMENT_ESCROW,
-      FEE_JUICE_PORTAL,
-      REWARD_DISTRIBUTOR,
-      ASSET,
-      CUAUHXICALLI
+    require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
+
+    interim.deadline = startEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
+    require(
+      interim.deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(), "past deadline"
     );
-    emit L2ProofVerified(endBlockNumber, _args.args[6]);
+
+    // By making sure that the previous block is in another epoch, we know that we were
+    // at the start.
+    Epoch parentEpoch = getEpochForBlock(_args.start - 1);
+
+    require(startEpoch > Epoch.wrap(0) || _args.start == 1, "invalid first epoch proof");
+
+    bool isStartOfEpoch = _args.start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
+    require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
+
+    bool isStartBuildingOnProven = _args.start - 1 <= rollupStore.tips.provenBlockNumber;
+    require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
+
+    // End of `isAcceptable`
+
+    // Start of verifying the proof
+    require(ExtRollupLib.verifyEpochRootProof(rollupStore, _args), "proof is invalid");
+    // End of verifying the proof
+
+    interim.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+    interim.isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
+
+    // Mark that the prover has submitted a proof
+    // Only do this if we are canonical for both fees and block rewards.
+    if (interim.isFeeCanonical && interim.isRewardDistributorCanonical) {
+      interim.prover = address(bytes20(_args.args[6] << 96)); // The address is left padded within the bytes32
+
+      interim.length = _args.end - _args.start + 1;
+      EpochRewards storage er = epochRewards[endEpoch];
+      SubEpochRewards storage sr = er.subEpoch[interim.length];
+      sr.summedCount += 1;
+
+      // Using the prover id to ensure proof only gets added once
+      require(!sr.hasSubmitted[interim.prover], "go away");
+      sr.hasSubmitted[interim.prover] = true;
+
+      if (interim.length > er.longestProvenLength) {
+        interim.added = interim.length - er.longestProvenLength;
+        interim.blockRewardsAvailable = interim.isRewardDistributorCanonical
+          ? REWARD_DISTRIBUTOR.claimBlockRewards(address(this), interim.added)
+          : 0;
+        interim.sequencerShare = interim.blockRewardsAvailable / 2;
+        interim.blockRewardSequencer = interim.sequencerShare / interim.added;
+        interim.blockRewardProver = interim.blockRewardsAvailable - interim.sequencerShare;
+
+        for (uint256 i = er.longestProvenLength; i < interim.length; i++) {
+          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
+
+          (interim.fee, interim.burn) = interim.isFeeCanonical
+            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
+            : (0, 0);
+
+          interim.feesToClaim += interim.fee;
+          interim.fee -= interim.burn;
+          interim.totalBurn += interim.burn;
+
+          // Compute the proving fee in the fee asset
+          {
+            // @todo likely better for us to store this if we can pack it better
+            interim.feeAssetPrice = IntRollupLib.feeAssetPriceModifier(
+              rollupStore.blocks[_args.start + i - 1].feeHeader.feeAssetPriceNumerator
+            );
+          }
+          interim.proverFee = Math.min(
+            feeHeader.manaUsed
+              * Math.mulDiv(provingCostPerMana, interim.feeAssetPrice, 1e9, Math.Rounding.Ceil),
+            interim.fee
+          );
+
+          interim.fee -= interim.proverFee;
+
+          er.rewards += interim.proverFee;
+          // The address is left padded within the bytes32
+          sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
+            (interim.blockRewardSequencer + interim.fee);
+        }
+
+        er.rewards += interim.blockRewardProver;
+
+        er.longestProvenLength = interim.length;
+
+        FEE_JUICE_PORTAL.distributeFees(address(this), interim.feesToClaim);
+      }
+
+      // @todo Get the block rewards for
+
+      if (interim.totalBurn > 0 && interim.isFeeCanonical) {
+        ASSET.transfer(CUAUHXICALLI, interim.totalBurn);
+      }
+    }
+
+    // Update the proven block number
+    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
+
+    emit L2ProofVerified(_args.end, _args.args[6]);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
     ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
-  }
-
-  function claimEpochProofRight(SignedEpochProofQuote calldata _quote) public override(IRollupCore) {
-    validateEpochProofRightClaimAtTime(Timestamp.wrap(block.timestamp), _quote);
-
-    Slot currentSlot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
-    Epoch epochToProve = getEpochToProve();
-
-    // We don't currently unstake,
-    // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
-    // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.prover, _quote.quote.bondAmount);
-
-    rollupStore.proofClaim = DataStructures.EpochProofClaim({
-      epochToProve: epochToProve,
-      basisPointFee: _quote.quote.basisPointFee,
-      bondAmount: _quote.quote.bondAmount,
-      bondProvider: _quote.quote.prover,
-      proposerClaimant: msg.sender
-    });
-
-    emit ProofRightClaimed(
-      epochToProve, _quote.quote.prover, msg.sender, _quote.quote.bondAmount, currentSlot
-    );
   }
 
   /**
@@ -524,44 +584,9 @@ contract RollupCore is
     return ExtRollupLib.getManaBaseFeeComponentsAt(
       rollupStore.blocks[blockOfInterest].feeHeader,
       getL1FeesAt(_timestamp),
+      provingCostPerMana,
       _inFeeAsset ? getFeeAssetPrice() : 1e9,
       TimeLib.getStorage().epochDuration
-    );
-  }
-
-  function quoteToDigest(EpochProofQuote memory _quote)
-    public
-    view
-    override(IRollupCore)
-    returns (bytes32)
-  {
-    return _hashTypedDataV4(IntRollupLib.computeQuoteHash(_quote));
-  }
-
-  function validateEpochProofRightClaimAtTime(Timestamp _ts, SignedEpochProofQuote calldata _quote)
-    public
-    view
-    override(IRollupCore)
-  {
-    Slot currentSlot = _ts.slotFromTimestamp();
-    address currentProposer = ValidatorSelectionLib.getProposerAt(
-      StakingLib.getStorage(), currentSlot, currentSlot.epochFromSlot()
-    );
-    Epoch epochToProve = getEpochToProve();
-    uint256 posInEpoch = TimeLib.positionInEpoch(currentSlot);
-    bytes32 digest = quoteToDigest(_quote.quote);
-
-    ExtRollupLib.validateEpochProofRightClaimAtTime(
-      currentSlot,
-      currentProposer,
-      epochToProve,
-      posInEpoch,
-      _quote,
-      digest,
-      rollupStore.proofClaim,
-      CLAIM_DURATION_IN_L2_SLOTS,
-      PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST,
-      PROOF_COMMITMENT_ESCROW
     );
   }
 
@@ -602,33 +627,13 @@ contract RollupCore is
       return false;
     }
 
-    Slot currentSlot = _ts.slotFromTimestamp();
     Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
-    Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
+    Slot deadline = oldestPendingEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
 
-    // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
-    // we prune the pending chain back to the end of epoch 1 if:
-    // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
-    // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
-    bool inClaimPhase = currentSlot
-      < startSlotOfPendingEpoch + TimeLib.toSlots(Epoch.wrap(1))
-        + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
-
-    bool claimExists = currentSlot < startSlotOfPendingEpoch + TimeLib.toSlots(Epoch.wrap(2))
-      && rollupStore.proofClaim.epochToProve == oldestPendingEpoch
-      && rollupStore.proofClaim.proposerClaimant != address(0);
-
-    if (inClaimPhase || claimExists) {
-      // If we are in the claim phase, do not prune
-      return false;
-    }
-    return true;
+    return deadline < _ts.slotFromTimestamp();
   }
 
   function _prune() internal {
-    // TODO #8656
-    delete rollupStore.proofClaim;
-
     uint256 pending = rollupStore.tips.pendingBlockNumber;
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
@@ -754,22 +759,6 @@ contract RollupCore is
         && _blockNumber <= rollupStore.tips.pendingBlockNumber
     ) {
       rollupStore.tips.provenBlockNumber = _blockNumber;
-
-      // If this results on a new epoch, create a fake claim for it
-      // Otherwise nextEpochToProve will report an old epoch
-      Epoch epoch = getEpochForBlock(_blockNumber);
-      if (
-        Epoch.unwrap(epoch) == 0
-          || Epoch.unwrap(epoch) > Epoch.unwrap(rollupStore.proofClaim.epochToProve)
-      ) {
-        rollupStore.proofClaim = DataStructures.EpochProofClaim({
-          epochToProve: epoch,
-          basisPointFee: 0,
-          bondAmount: 0,
-          bondProvider: address(0),
-          proposerClaimant: msg.sender
-        });
-      }
     }
   }
 }
