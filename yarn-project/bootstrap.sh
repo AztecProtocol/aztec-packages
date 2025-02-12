@@ -84,7 +84,7 @@ function compile_all {
   fi
 }
 
-export -f compile_project format lint get_projects compile_all
+export -f compile_project format lint get_projects compile_all hash
 
 function build {
   echo_header "yarn-project build"
