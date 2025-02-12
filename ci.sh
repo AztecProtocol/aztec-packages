@@ -74,7 +74,7 @@ case "$cmd" in
     ;;
   "ec2-no-cache")
     # Same as ec2, but disable the build and test cache.
-    bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci}"
+    bootstrap_ec2 "NO_CACHE=1 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci}"
     ;;
   "ec2-test")
     # Same as ec2, but don't use the test cache.

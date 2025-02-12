@@ -33,12 +33,10 @@ case "${1:-}" in
     # Forces yarn immutability, jest snapshot immutability, etc.
     export CI=1
     # Being in CI implies use of cache, and enables denoising.
-    export USE_CACHE=${USE_CACHE:-1}
     export DENOISE=${DENOISE:-1}
     ;;
-  ""|"fast")
-    export USE_CACHE=${USE_CACHE:-1}
-    ;;
+  "full")
+    export NO_CACHE=${NO_CACHE:-1}
   release)
     check_release
     ;;

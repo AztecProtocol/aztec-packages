@@ -237,7 +237,7 @@ jobs:
         run: |
           until docker info &>/dev/null; do sleep 1; done
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-          export CI=1 USE_CACHE=1
+          export CI=1 NO_CACHE=0
           artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
@@ -263,7 +263,7 @@ jobs:
         run: |
           until docker info &>/dev/null; do sleep 1; done
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-          export CI=1 USE_CACHE=1
+          export CI=1 NO_CACHE=0
           artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
@@ -309,7 +309,7 @@ jobs:
           ttl: 50
           runner_type: 32core-tester-x86
           run: |
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             artifact="e2e-prover-full-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
@@ -336,7 +336,7 @@ jobs:
           run: |
             until docker info &>/dev/null; do sleep 1; done
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
               scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
               ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
@@ -360,7 +360,7 @@ jobs:
         env:
           GITHUB_LOG: 1
           CI: 1
-          USE_CACHE: 1
+          NO_CACHE: 0
         run: |
           export BRANCH=${{ needs.configure.outputs.username }}-bb-native-tests
           if ci3/test_should_run barretenberg-test-$(./barretenberg/cpp/bootstrap.sh hash); then
@@ -440,7 +440,7 @@ jobs:
           ttl: ${{ matrix.config.timeout }}
           run: |
             until docker info &>/dev/null; do sleep 1; done
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             artifact="kind-network-${{matrix.config.test}}-$(./spartan/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
@@ -473,7 +473,7 @@ jobs:
           runner_type: builder-x86
           run: |
             export CI=1
-            export USE_CACHE=1
+            export NO_CACHE=0
             # We gate the build with this
             if ci3/test_should_run bb-bench-$(./barretenberg/cpp/bootstrap.sh hash); then
               scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
@@ -486,7 +486,7 @@ jobs:
           runner_type: 16core-tester-x86
           run: |
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             if ci3/test_should_run bb-bench-$HASH; then
               scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
               ci3/cache_upload_flag bb-bench-$HASH
@@ -524,7 +524,7 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
           run: |
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
               ./bootstrap.sh test-boxes
             fi
@@ -544,7 +544,7 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
           run: |
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             scripts/earthly-ci +prover-client-with-cache
 
   # testnet-installer:
