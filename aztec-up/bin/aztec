@@ -34,75 +34,59 @@ function get_env_vars {
     grep -oP "'\K[^']+(?=')" | tr '\n' ' '
 }
 
-# Function to parse the TypeScript file
-function parse_ts_file {
-  grep -oE "\| '[^']+'" "$LOCAL_TS_FILE" | sed "s/| '//; s/'//g" >"$LOCAL_ENV_VAR_FILE"
-}
-
-function cleanup {
-  get_compose $@ down
-}
-
-CALLED_FROM=$PWD
-
-# By default, force colors.
-export FORCE_COLOR=${FORCE_COLOR:-1}
-
-if [ "${1:-}" == "test" ]; then
-  # Change working dir, so relative volume mounts are in the right place.
-  cd $(dirname $0)/..
-  # Compose file to use
-  FILE_ARG="-f $HOME/.aztec/docker-compose.test.yml"
-
-  # Set trap to catch SIGINT and call the cleanup function.
-  trap "cleanup $FILE_ARG" SIGINT
-
-  # Aztec contract test args for nargo
-  export TEST_ARGS="$@ --silence-warnings --oracle-resolver http://txe:8081"
-  export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  export WORKDIR=$CALLED_FROM
-  get_compose -p aztec-test $FILE_ARG up --force-recreate --remove-orphans --abort-on-container-exit
-elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
-  # Change working dir, so relative volume mounts are in the right place.
-  cd $(dirname $0)/..
-  # Compose file to use
-  FILE_ARG="-f $HOME/.aztec/docker-compose.sandbox.yml"
-
-  # Set trap to catch SIGINT and call the cleanup function.
-  trap "cleanup $FILE_ARG" SIGINT
-
-  get_compose -p sandbox $FILE_ARG up --force-recreate --remove-orphans
-elif [ "${1:-}" == "start" ]; then
-  # export ENV_VARS_TO_INJECT=$(<.aztec_cli_vars)
-
-  # Grab env vars from aztec project
-  if [[ ! -f "$LOCAL_ENV_VAR_FILE" ]]; then
-    echo "No env vars file found, creating one..."
-    # Create temp container
-    temp_container_id=$(docker create aztecprotocol/aztec:$VERSION)
-    # Copy env vars file from container
-    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE &> /dev/null
-    # Remove temp container
-    docker rm $temp_container_id &> /dev/null
-
-    # Parse the TypeScript file
-    parse_ts_file
-    rm $LOCAL_TS_FILE
-  fi
-
-  # Read env vars from file
-  readarray -t ENV_VARS_TO_INJECT <"$LOCAL_ENV_VAR_FILE"
-  export ENV_VARS_TO_INJECT="${ENV_VARS_TO_INJECT[*]}"
-  ENV_VARS_TO_INJECT="${ENV_VARS_TO_INJECT[*]}" INHERIT_USER=0 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
-elif [ "${1:-}" == "flamegraph" ]; then
-  docker run -it \
-    --entrypoint /usr/bin/flamegraph.sh \
-    --env PROFILER_PATH=/usr/bin/noir-profiler \
-    --env BACKEND_PATH=/usr/bin/bb \
-    --env SERVE=${SERVE:-0} \
-    $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
-    -v $(realpath $(dirname $2))/:/tmp \
-    aztecprotocol/aztec-nargo:$VERSION /tmp/$(basename $2) $3
-else
-  ENV_VARS_TO_INJECT="SECRET_KEY" SKIP_PORT_ASSIGNMENT=1 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
-fi
+case ${1:-} in
+  test)
+    shift
+    # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
+    # Or just make this a first class command on aztec cli?
+    # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
+    exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
+      while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
+      export NARGO_FOREIGN_CALL_TIMEOUT=300000
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $@
+    "
+    ;;
+  start)
+    export ENV_VARS_TO_INJECT="$(get_env_vars)"
+    # Opens the requested port on the container.
+    export AZTEC_PORT=${AZTEC_PORT:-8080}
+    if [ "${2:-}" == "--sandbox" ]; then
+      # TODO: This entire special case should go away.
+      # Sandbox mode should start it's own anvil.
+      # We should not have to provide a binary path and working dir.
+      # Why is this not just determined and chosen at runtime?
+      # In fact almost none of these should not have to be set if we have sensible defaults.
+      export BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+      export BB_WORKING_DIRECTORY=/tmp/bb
+      export L1_CHAIN_ID=31337
+      export ARCHIVER_POLLING_INTERVAL_MS=500
+      export P2P_BLOCK_CHECK_INTERVAL_MS=500
+      export SEQ_TX_POLLING_INTERVAL_MS=500
+      export WS_BLOCK_CHECK_INTERVAL_MS=500
+      export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
+      export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
+      export LOG_LEVEL=${LOG_LEVEL:-info}
+      exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --host 0.0.0.0 --silent &
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
+      "
+    else
+      exec $(dirname $0)/.aztec-run aztec-start \
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    fi
+    ;;
+  flamegraph)
+    docker run -it \
+      --entrypoint /usr/src/noir-projects/noir-contracts/scripts/flamegraph.sh \
+      --env SERVE=${SERVE:-0} \
+      $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
+      -v $(realpath $(dirname $2))/:/tmp \
+      aztecprotocol/aztec /tmp/$(basename $2) $3
+    ;;
+  *)
+    export ENV_VARS_TO_INJECT="SECRET_KEY"
+    exec $(dirname $0)/.aztec-run aztec \
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    ;;
+esac
