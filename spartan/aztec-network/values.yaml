@@ -245,6 +245,8 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
     resources:
       requests:
         memory: "4Gi"
