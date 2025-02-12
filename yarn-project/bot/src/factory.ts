@@ -5,11 +5,15 @@ import {
   BatchCall,
   type DeployMethod,
   type DeployOptions,
+  FeeJuicePaymentMethodWithClaim,
+  L1FeeJuicePortalManager,
   createLogger,
   createPXEClient,
+  retryUntil,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
@@ -61,6 +65,44 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
+    if (this.config.senderPrivateKey) {
+      return await this.setupAccountWithPrivateKey(this.config.senderPrivateKey);
+    } else {
+      return await this.setupTestAccount();
+    }
+  }
+
+  private async setupAccountWithPrivateKey(privateKey: Fr) {
+    const salt = Fr.ONE;
+    const signingKey = deriveSigningKey(privateKey);
+    const account = await getSchnorrAccount(this.pxe, privateKey, signingKey, salt);
+    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
+    if (isInit) {
+      this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
+      const wallet = await account.register();
+      return wallet;
+    } else {
+      const address = account.getAddress();
+      this.log.info(`Deploying account at ${address}`);
+
+      const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
+
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
+      const sentTx = account.deploy({ fee: { paymentMethod } });
+      const txHash = await sentTx.getTxHash();
+      this.log.verbose(`Sent tx with hash ${txHash.toString()}`);
+      if (this.config.flushSetupTransactions) {
+        this.log.verbose('Flushing transactions');
+        await this.node!.flushTxs();
+      }
+      this.log.verbose('Waiting for account deployment to settle');
+      await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Account deployed at ${address}`);
+      return account.getWallet();
+    }
+  }
+
+  private async setupTestAccount() {
     let [wallet] = await getDeployedTestAccountsWallets(this.pxe);
     if (wallet) {
       this.log.info(`Using funded test account: ${wallet.getAddress()}`);
@@ -164,5 +206,47 @@ export class BotFactory {
     }
     this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+  }
+
+  private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint, interval = 60) {
+    const l1RpcUrl = this.config.l1RpcUrl;
+    if (!l1RpcUrl) {
+      throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
+    }
+    const mnemonicOrPrivateKey = this.config.l1Mnemonic || this.config.l1PrivateKey;
+    if (!mnemonicOrPrivateKey) {
+      throw new Error(
+        'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
+      );
+    }
+
+    const { l1ChainId, protocolContractAddresses } = await this.pxe.getNodeInfo();
+    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+    this.log.info('Created a claim for L1 fee juice.');
+
+    // Wait for L1 message to arrive.
+    await retryUntil(
+      async () => {
+        try {
+          return await this.pxe.getL1ToL2MembershipWitness(
+            protocolContractAddresses.feeJuice,
+            Fr.fromHexString(claim.messageHash),
+            claim.claimSecret,
+          );
+        } catch (e) {
+          this.log.verbose(`No L1 to L2 message found yet. Checking again in ${interval}s.`);
+          return;
+        }
+      },
+      'wait_for_l1_message',
+      0,
+      interval,
+    );
+
+    return claim;
   }
 }
