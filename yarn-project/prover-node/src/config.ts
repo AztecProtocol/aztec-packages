@@ -2,7 +2,6 @@ import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/con
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
 import {
   type ConfigMappingsType,
-  bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
@@ -24,7 +23,6 @@ import {
 } from '@aztec/sequencer-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
@@ -35,8 +33,6 @@ export type ProverNodeConfig = ArchiverConfig &
   TxSenderConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
-  ProverBondManagerConfig &
-  QuoteProviderConfig &
   SpecificProverNodeConfig & {
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
     testAccounts: boolean;
@@ -49,12 +45,6 @@ type SpecificProverNodeConfig = {
   txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringMaxParallelRequests: number;
-};
-
-export type QuoteProviderConfig = {
-  quoteProviderBasisPointFee: number;
-  quoteProviderBondAmount: bigint;
-  quoteProviderUrl?: string;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -90,24 +80,6 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
   },
 };
 
-const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
-  quoteProviderBasisPointFee: {
-    env: 'QUOTE_PROVIDER_BASIS_POINT_FEE',
-    description: 'The basis point fee to charge for providing quotes',
-    ...numberConfigHelper(100),
-  },
-  quoteProviderBondAmount: {
-    env: 'QUOTE_PROVIDER_BOND_AMOUNT',
-    description: 'The bond amount to charge for providing quotes',
-    ...bigintConfigHelper(1000n),
-  },
-  quoteProviderUrl: {
-    env: 'QUOTE_PROVIDER_URL',
-    description:
-      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
-  },
-};
-
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...dataConfigMappings,
   ...archiverConfigMappings,
@@ -117,13 +89,11 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
-  ...quoteProviderConfigMappings,
-  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
   testAccounts: {
     env: 'TEST_ACCOUNTS',
     description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(false),
   },
 };
 
