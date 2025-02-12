@@ -8,7 +8,7 @@ mod note;
 mod event;
 mod oracle;
 mod state_vars;
-mod pxe_db;
+mod capsules;
 mod prelude;
 mod encrypted_logs;
 mod unencrypted_logs;
