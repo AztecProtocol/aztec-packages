@@ -206,7 +206,7 @@ export function injectCommands(
       wallet,
       artifactPath,
       json,
-      publicKey ? PublicKeys.fromString(publicKey) : undefined,
+      publicKey,
       args,
       salt,
       typeof init === 'string' ? init : undefined,
