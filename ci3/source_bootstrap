@@ -37,6 +37,7 @@ case "${1:-}" in
     ;;
   "full")
     export NO_CACHE=${NO_CACHE:-1}
+    ;;
   release)
     check_release
     ;;
