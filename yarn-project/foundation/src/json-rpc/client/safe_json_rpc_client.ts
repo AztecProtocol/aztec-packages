@@ -2,12 +2,12 @@ import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
-import { defaultFetch } from './fetch.js';
+import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 export type SafeJsonRpcClientOptions = {
   useApiEndpoints?: boolean;
   namespaceMethods?: string | false;
-  fetch?: typeof defaultFetch;
+  fetch?: JsonRpcFetch;
   log?: Logger;
   onResponse?: (res: {
     response: any;

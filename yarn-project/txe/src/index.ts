@@ -28,6 +28,7 @@ import {
   fromArray,
   fromSingle,
   toForeignCallResult,
+  toSingle,
 } from './util/encoding.js';
 
 const TXESessions = new Map<number, TXEService>();
@@ -68,11 +69,13 @@ class TXEDispatcher {
     );
 
     const decodedArgs = fromArray(inputs[4] as ForeignCallArray);
-    const publicKeysHashFr = fromSingle(inputs[5] as ForeignCallSingle);
+    const secret = fromSingle(inputs[5] as ForeignCallSingle);
+    const publicKeys = secret.equals(Fr.ZERO) ? PublicKeys.default() : (await deriveKeys(secret)).publicKeys;
+    const publicKeysHash = await publicKeys.hash();
 
     const cacheKey = `${pathStr}-${contractName}-${initializer}-${decodedArgs
       .map(arg => arg.toString())
-      .join('-')}-${publicKeysHashFr}`;
+      .join('-')}-${publicKeysHash.toString()}`;
 
     let artifact;
     let instance;
@@ -105,21 +108,22 @@ class TXEDispatcher {
       this.logger.debug(`Loading compiled artifact ${artifactPath}`);
       artifact = loadContractArtifact(JSON.parse(await readFile(artifactPath, 'utf-8')));
       this.logger.debug(
-        `Deploy ${artifact.name} with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHashFr}`,
+        `Deploy ${
+          artifact.name
+        } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
       );
       instance = await getContractInstanceFromDeployParams(artifact, {
         constructorArgs: decodedArgs,
         skipArgsDecoding: true,
         salt: Fr.ONE,
-        // TODO: Modify this to allow for passing public keys.
-        publicKeys: PublicKeys.default(),
+        publicKeys,
         constructorArtifact: initializer ? initializer : undefined,
         deployer: AztecAddress.ZERO,
       });
       TXEArtifactsCache.set(cacheKey, { artifact, instance });
     }
 
-    inputs.splice(0, 2, artifact, instance);
+    inputs.splice(0, 2, artifact, instance, toSingle(secret));
   }
 
   async #processAddAccountInputs({ inputs }: TXEForeignCallInput) {

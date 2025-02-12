@@ -83,11 +83,15 @@ export interface PXE {
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
+   * Adds a capsule.
+   * @param contract - The address of the contract to add the capsule to.
+   * @param storageSlot - The storage slot to add the capsule to.
    * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
    */
-  addCapsule(capsule: Fr[]): Promise<void>;
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -464,7 +468,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.Fr)
     .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
+  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),

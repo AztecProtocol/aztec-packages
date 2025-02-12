@@ -105,7 +105,7 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it.skip('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const tx = {
       number_of_calls: '0x2',
     };

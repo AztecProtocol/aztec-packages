@@ -1,6 +1,9 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  AztecAddress,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
   createUnconstrainedFunctionMembershipProof,
@@ -57,7 +60,11 @@ export async function broadcastPrivateFunction(
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
 
-  await wallet.addCapsule(bytecode);
+  await wallet.storeCapsule(
+    AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
+    new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+    bytecode,
+  );
 
   const registerer = await getRegistererContract(wallet);
   return Promise.resolve(
@@ -115,7 +122,11 @@ export async function broadcastUnconstrainedFunction(
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
 
-  await wallet.addCapsule(bytecode);
+  await wallet.storeCapsule(
+    AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
+    new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+    bytecode,
+  );
 
   const registerer = await getRegistererContract(wallet);
   return registerer.methods.broadcast_unconstrained_function(
