@@ -158,7 +158,6 @@ abstract class BaseField {
 
 /**
  * Constructs a field from a Buffer of BufferReader.
- * TODO: should we not throw an error if the size of the input buffer exceeds BaseField.SIZE_IN_BYTES?
  * It maybe not read the full 32 bytes if the Buffer is shorter, but it will padded in BaseField constructor.
  */
 export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
