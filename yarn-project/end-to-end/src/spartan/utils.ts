@@ -107,7 +107,7 @@ export async function startPortForward({
     if (str.includes('Starting port forward')) {
       logger.info(str);
     } else {
-      logger.debug(str);
+      logger.silent(str);
     }
   });
   process.stderr?.on('data', data => {

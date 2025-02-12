@@ -2,7 +2,6 @@ import {
   BlockAttestation,
   BlockProposal,
   type ClientProtocolCircuitVerifier,
-  EpochProofQuote,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
@@ -48,7 +47,6 @@ import { createLibp2p } from 'libp2p';
 
 import { type P2PConfig } from '../../config.js';
 import { type MemPools } from '../../mem_pools/interface.js';
-import { EpochProofQuoteValidator } from '../../msg_validators/epoch_proof_quote_validator/index.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import {
   DataTxValidator,
@@ -95,7 +93,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   // Message validators
   private attestationValidator: AttestationValidator;
   private blockProposalValidator: BlockProposalValidator;
-  private epochProofQuoteValidator: EpochProofQuoteValidator;
 
   // Request and response sub service
   public reqresp: ReqResp;
@@ -143,7 +140,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
-    this.epochProofQuoteValidator = new EpochProofQuoteValidator(epochCache);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.warn(
@@ -265,11 +261,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [EpochProofQuote.p2pTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
@@ -343,7 +334,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
       [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
       [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
-      [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
     };
     // When running bandwidth benchmarks, we use send blobs of data we do not want to validate
     // NEVER switch this off in production
@@ -507,10 +497,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       const block = BlockProposal.fromBuffer(Buffer.from(message.data));
       await this.processBlockFromPeer(block);
     }
-    if (message.topic == EpochProofQuote.p2pTopic) {
-      const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
-      await this.processEpochProofQuoteFromPeer(epochProofQuote);
-    }
 
     return;
   }
@@ -592,17 +578,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }))
   private async broadcastAttestation(attestation: BlockAttestation) {
     await this.propagate(attestation);
-  }
-
-  private async processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote) {
-    const epoch = epochProofQuote.payload.epochToProve;
-    const prover = epochProofQuote.payload.prover.toString();
-    const p2pMessageIdentifier = await epochProofQuote.p2pMessageIdentifier();
-    this.logger.verbose(
-      `Received epoch proof quote ${p2pMessageIdentifier} by prover ${prover} for epoch ${epoch} from external peer.`,
-      { quote: epochProofQuote.toInspect(), p2pMessageIdentifier },
-    );
-    this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -713,25 +688,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const isValid = await this.validateBlockProposal(propagationSource, block);
     this.logger.trace(`validatePropagatedBlock: ${isValid}`, {
       [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
-      [Attributes.P2P_ID]: propagationSource.toString(),
-    });
-    return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
-  }
-
-  /**
-   * Validate an epoch proof quote from a peer.
-   * @param propagationSource - The peer ID of the peer that sent the epoch proof quote.
-   * @param msg - The epoch proof quote message.
-   * @returns True if the epoch proof quote is valid, false otherwise.
-   */
-  private async validatePropagatedEpochProofQuoteFromMessage(
-    propagationSource: PeerId,
-    msg: Message,
-  ): Promise<TopicValidatorResult> {
-    const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(msg.data));
-    const isValid = await this.validateEpochProofQuote(propagationSource, epochProofQuote);
-    this.logger.trace(`validatePropagatedEpochProofQuote: ${isValid}`, {
-      [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
     });
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
@@ -900,25 +856,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }))
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);
-    if (severity) {
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Validate an epoch proof quote.
-   *
-   * @param epochProofQuote - The epoch proof quote to validate.
-   * @returns True if the epoch proof quote is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateEpochProofQuote', (_peerId, epochProofQuote) => ({
-    [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
-  }))
-  public async validateEpochProofQuote(peerId: PeerId, epochProofQuote: EpochProofQuote): Promise<boolean> {
-    const severity = await this.epochProofQuoteValidator.validate(epochProofQuote);
     if (severity) {
       this.peerManager.penalizePeer(peerId, severity);
       return false;

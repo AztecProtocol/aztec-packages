@@ -60,7 +60,6 @@ services:
       LOG_LEVEL: verbose
       ETHEREUM_HOST: http://ethereum:8545
       PROVER_COORDINATION_NODE_URL: http://aztec-node
-      L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
       ARCHIVER_POLLING_INTERVAL_MS: 1000
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 1000
