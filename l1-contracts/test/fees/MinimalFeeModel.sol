@@ -12,11 +12,17 @@ import {
   EthValue,
   FeeAssetValue,
   FeeAssetPerEthE9,
-  PriceLib
+  PriceLib,
+  FeeHeader,
+  L1FeeData,
+  ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
-  ManaBaseFeeComponents, L1Fees, L1GasOracleValues, FeeHeader
+  ManaBaseFeeComponentsModel,
+  L1FeesModel,
+  L1GasOracleValuesModel,
+  FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -25,7 +31,6 @@ import {Timestamp, TimeLib, Slot, SlotLib} from "@aztec/core/libraries/TimeLib.s
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
 // is simpler to compare etc.
-
 contract MinimalFeeModel {
   using FeeMath for OracleInput;
   using FeeMath for uint256;
@@ -46,65 +51,62 @@ contract MinimalFeeModel {
   uint256 public populatedThrough = 0;
   mapping(uint256 slotNumber => FeeHeader feeHeader) public feeHeaders;
 
-  L1GasOracleValues public l1BaseFees;
+  L1GasOracleValuesModel public l1BaseFees;
 
   EthValue public provingCost = EthValue.wrap(100);
 
   constructor(uint256 _slotDuration, uint256 _epochDuration) {
-    feeHeaders[0] = FeeHeader({excess_mana: 0, fee_asset_price_numerator: 0, mana_used: 0});
+    feeHeaders[0] = FeeHeader(0, 0, 0, 0);
 
-    l1BaseFees.pre = L1Fees({base_fee: 1 gwei, blob_fee: 1});
-    l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
+    l1BaseFees.pre = L1FeesModel({base_fee: 1 gwei, blob_fee: 1});
+    l1BaseFees.post = L1FeesModel({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
     l1BaseFees.slot_of_change = LIFETIME.unwrap();
 
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
   }
 
-  function getL1GasOracleValues() public view returns (L1GasOracleValues memory) {
+  function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {
     return l1BaseFees;
   }
 
   // For all of the estimations we have been using `3` blobs.
-  function manaBaseFeeComponents(uint256 _blobsUsed, bool _inFeeAsset)
+  function manaBaseFeeComponents(bool _inFeeAsset)
     public
     view
-    returns (ManaBaseFeeComponents memory)
+    returns (ManaBaseFeeComponentsModel memory)
   {
-    L1Fees memory fees = getCurrentL1Fees();
-    EthValue dataCost = EthValue.wrap(
-      Math.mulDiv(_blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, MANA_TARGET, Math.Rounding.Ceil)
-    );
-    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
-      + L1_GAS_PER_EPOCH_VERIFIED / TimeLib.getStorage().epochDuration;
-    EthValue gasCost =
-      EthValue.wrap(Math.mulDiv(gasUsed, fees.base_fee, MANA_TARGET, Math.Rounding.Ceil));
-
-    uint256 congestionMultiplier = FeeMath.congestionMultiplier(calcExcessMana());
-
-    EthValue total = dataCost + gasCost + provingCost;
-    EthValue congestionCost = EthValue.wrap(
-      EthValue.unwrap(total) * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER
-    ) - total;
-
-    // We emulate the cost being 1:1 if wanting the value in eth.
+    L1FeesModel memory fees = getCurrentL1Fees();
     FeeAssetPerEthE9 feeAssetPrice = _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthE9.wrap(1e9);
 
-    return ManaBaseFeeComponents({
-      data_cost: FeeAssetValue.unwrap(dataCost.toFeeAsset(feeAssetPrice)),
-      gas_cost: FeeAssetValue.unwrap(gasCost.toFeeAsset(feeAssetPrice)),
-      proving_cost: FeeAssetValue.unwrap(provingCost.toFeeAsset(feeAssetPrice)),
-      congestion_cost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(feeAssetPrice)),
-      congestion_multiplier: congestionMultiplier
+    ManaBaseFeeComponents memory components = FeeMath.getManaBaseFeeComponentsAt(
+      feeHeaders[populatedThrough],
+      L1FeeData({baseFee: fees.base_fee, blobFee: fees.blob_fee}),
+      provingCost,
+      feeAssetPrice,
+      TimeLib.getStorage().epochDuration
+    );
+
+    return ManaBaseFeeComponentsModel({
+      data_cost: components.dataCost,
+      gas_cost: components.gasCost,
+      proving_cost: components.provingCost,
+      congestion_cost: components.congestionCost,
+      congestion_multiplier: components.congestionMultiplier
     });
   }
 
-  function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeader memory) {
-    return feeHeaders[_slotNumber];
+  function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
+    FeeHeader memory feeHeader = feeHeaders[_slotNumber];
+    return FeeHeaderModel({
+      fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
+      excess_mana: feeHeader.excessMana,
+      mana_used: feeHeader.manaUsed
+    });
   }
 
   function calcExcessMana() internal view returns (uint256) {
     FeeHeader storage parent = feeHeaders[populatedThrough];
-    return (parent.excess_mana + parent.mana_used).clampedAdd(-int256(MANA_TARGET));
+    return (parent.excessMana + parent.manaUsed).clampedAdd(-int256(MANA_TARGET));
   }
 
   function addSlot(OracleInput memory _oracleInput) public {
@@ -120,11 +122,12 @@ contract MinimalFeeModel {
     uint256 excessMana = calcExcessMana();
 
     feeHeaders[++populatedThrough] = FeeHeader({
-      fee_asset_price_numerator: parent.fee_asset_price_numerator.clampedAdd(
+      feeAssetPriceNumerator: parent.feeAssetPriceNumerator.clampedAdd(
         _oracleInput.feeAssetPriceModifier
       ),
-      mana_used: _manaUsed,
-      excess_mana: excessMana
+      manaUsed: _manaUsed,
+      excessMana: excessMana,
+      congestionCost: 0
     });
   }
 
@@ -149,15 +152,15 @@ contract MinimalFeeModel {
 
     // If we are at or beyond the scheduled change, we need to update the "current" value
     l1BaseFees.pre = l1BaseFees.post;
-    l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
+    l1BaseFees.post = L1FeesModel({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
     l1BaseFees.slot_of_change = (slot + LAG).unwrap();
   }
 
   function getFeeAssetPerEth() public view returns (FeeAssetPerEthE9) {
-    return FeeMath.getFeeAssetPerEth(feeHeaders[populatedThrough].fee_asset_price_numerator);
+    return FeeMath.getFeeAssetPerEth(feeHeaders[populatedThrough].feeAssetPriceNumerator);
   }
 
-  function getCurrentL1Fees() public view returns (L1Fees memory) {
+  function getCurrentL1Fees() public view returns (L1FeesModel memory) {
     Slot slot = getCurrentSlot();
     if (slot < Slot.wrap(l1BaseFees.slot_of_change)) {
       return l1BaseFees.pre;

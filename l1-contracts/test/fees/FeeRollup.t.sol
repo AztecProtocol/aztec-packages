@@ -45,13 +45,14 @@ import {
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {
-  FeeHeader as FeeHeaderModel,
-  ManaBaseFeeComponents as ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
-import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
 

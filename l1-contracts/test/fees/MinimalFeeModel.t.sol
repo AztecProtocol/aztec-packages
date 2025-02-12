@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {OracleInput, FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
-  ManaBaseFeeComponents,
-  L1Fees,
-  FeeHeader
+  ManaBaseFeeComponentsModel,
+  L1FeesModel,
+  FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
+  OracleInput,
+  FeeMath,
   MAX_FEE_ASSET_PRICE_MODIFIER,
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue,
@@ -92,7 +93,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
       if (model.getCurrentSlot() == nextSlot) {
         TestPoint memory expected = points[nextSlot.unwrap() - 1];
-        L1Fees memory fees = model.getCurrentL1Fees();
+        L1FeesModel memory fees = model.getCurrentL1Fees();
 
         assertEq(expected.block_header.l1_block_number, block.number, "invalid l1 block number");
         assertEq(expected.block_header.block_number, nextSlot.unwrap(), "invalid l2 block number");
@@ -121,13 +122,14 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         );
 
         // Get a hold of the values that is used for the next block
-        L1Fees memory fees = model.getCurrentL1Fees();
+        L1FeesModel memory fees = model.getCurrentL1Fees();
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(model.getFeeAssetPerEth());
         // We are assuming 3 blobs for all of these computations, as per the model.
         // 3 blobs because that can fit ~360 txs, or 10 tps.
-        ManaBaseFeeComponents memory components = model.manaBaseFeeComponents(3, false);
-        ManaBaseFeeComponents memory componentsFeeAsset = model.manaBaseFeeComponents(3, true);
-        FeeHeader memory parentFeeHeader = model.getFeeHeader(point.block_header.slot_number - 1);
+        ManaBaseFeeComponentsModel memory components = model.manaBaseFeeComponents(false);
+        ManaBaseFeeComponentsModel memory componentsFeeAsset = model.manaBaseFeeComponents(true);
+        FeeHeaderModel memory parentFeeHeader =
+          model.getFeeHeader(point.block_header.slot_number - 1);
 
         model.addSlot(
           OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
@@ -135,7 +137,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         );
 
         // The fee header is the state that we are storing, so it is the value written at the block submission.
-        FeeHeader memory feeHeader = model.getFeeHeader(point.block_header.slot_number);
+        FeeHeaderModel memory feeHeader = model.getFeeHeader(point.block_header.slot_number);
 
         // Ensure that we can reproduce the main parts of our test points.
         // For now, most of the block header is not actually stored in the fee model

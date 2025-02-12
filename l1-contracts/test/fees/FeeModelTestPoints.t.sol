@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
-import {OracleInput as FeeMathOracleInput} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {OracleInput} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {
   MAX_FEE_ASSET_PRICE_MODIFIER,
   MINIMUM_CONGESTION_MULTIPLIER
@@ -13,7 +13,9 @@ import {Math} from "@oz/utils/math/Math.sol";
 
 // Remember that foundry json parsing is alphabetically done, so you MUST
 // sort the struct fields alphabetically or prepare for a headache.
-
+// We keep these structs separate from the ones used in the rollup, to avoid issues
+// due to this quirk. For example, it might be the cheapest to storage the vars
+// in certain order for packing purposes, but this a headache if they must be alphabetical.
 struct L1Metadata {
   uint256 base_fee;
   uint256 blob_fee;
@@ -21,28 +23,28 @@ struct L1Metadata {
   uint256 timestamp;
 }
 
-struct L1Fees {
+struct L1FeesModel {
   uint256 base_fee;
   uint256 blob_fee;
 }
 
-struct FeeHeader {
+struct FeeHeaderModel {
   uint256 excess_mana;
   uint256 fee_asset_price_numerator;
   uint256 mana_used;
 }
 
-struct OracleInput {
+struct OracleInputModel {
   int256 fee_asset_price_modifier;
 }
 
-struct L1GasOracleValues {
-  L1Fees post;
-  L1Fees pre;
+struct L1GasOracleValuesModel {
+  L1FeesModel post;
+  L1FeesModel pre;
   uint256 slot_of_change;
 }
 
-struct ManaBaseFeeComponents {
+struct ManaBaseFeeComponentsModel {
   uint256 congestion_cost;
   uint256 congestion_multiplier;
   uint256 data_cost;
@@ -50,7 +52,7 @@ struct ManaBaseFeeComponents {
   uint256 proving_cost;
 }
 
-struct BlockHeader {
+struct BlockHeaderModel {
   uint256 blobs_needed;
   uint256 block_number;
   uint256 l1_block_number;
@@ -62,18 +64,18 @@ struct BlockHeader {
 
 struct TestPointOutputs {
   uint256 fee_asset_price_at_execution;
-  L1Fees l1_fee_oracle_output;
-  L1GasOracleValues l1_gas_oracle_values;
-  ManaBaseFeeComponents mana_base_fee_components_in_fee_asset;
-  ManaBaseFeeComponents mana_base_fee_components_in_wei;
+  L1FeesModel l1_fee_oracle_output;
+  L1GasOracleValuesModel l1_gas_oracle_values;
+  ManaBaseFeeComponentsModel mana_base_fee_components_in_fee_asset;
+  ManaBaseFeeComponentsModel mana_base_fee_components_in_wei;
 }
 
 struct TestPoint {
-  BlockHeader block_header;
-  FeeHeader fee_header;
-  OracleInput oracle_input;
+  BlockHeaderModel block_header;
+  FeeHeaderModel fee_header;
+  OracleInputModel oracle_input;
   TestPointOutputs outputs;
-  FeeHeader parent_fee_header;
+  FeeHeaderModel parent_fee_header;
 }
 
 struct FullFeeData {
@@ -101,29 +103,32 @@ contract FeeModelTestPoints is TestBase {
     }
   }
 
-  function assertEq(L1Fees memory a, L1Fees memory b) internal pure {
+  function assertEq(L1FeesModel memory a, L1FeesModel memory b) internal pure {
     assertEq(a.base_fee, b.base_fee, "base_fee mismatch");
     assertEq(a.blob_fee, b.blob_fee, "blob_fee mismatch");
   }
 
-  function assertEq(L1Fees memory a, L1Fees memory b, string memory _message) internal pure {
+  function assertEq(L1FeesModel memory a, L1FeesModel memory b, string memory _message)
+    internal
+    pure
+  {
     assertEq(a.base_fee, b.base_fee, string.concat(_message, "base_fee mismatch"));
     assertEq(a.blob_fee, b.blob_fee, string.concat(_message, "blob_fee mismatch"));
   }
 
-  function assertEq(L1GasOracleValues memory a, L1GasOracleValues memory b) internal pure {
+  function assertEq(L1GasOracleValuesModel memory a, L1GasOracleValuesModel memory b) internal pure {
     assertEq(a.post, b.post, "post ");
     assertEq(a.pre, b.pre, "pre ");
     assertEq(a.slot_of_change, b.slot_of_change, "slot_of_change mismatch");
   }
 
-  function assertEq(OracleInput memory a, FeeMathOracleInput memory b) internal pure {
+  function assertEq(OracleInputModel memory a, OracleInput memory b) internal pure {
     assertEq(
       a.fee_asset_price_modifier, b.feeAssetPriceModifier, "fee_asset_price_modifier mismatch"
     );
   }
 
-  function assertEq(FeeHeader memory a, FeeHeader memory b) internal pure {
+  function assertEq(FeeHeaderModel memory a, FeeHeaderModel memory b) internal pure {
     assertEq(a.excess_mana, b.excess_mana, "excess_mana mismatch");
     assertEq(
       a.fee_asset_price_numerator, b.fee_asset_price_numerator, "fee_asset_price_numerator mismatch"
@@ -132,8 +137,8 @@ contract FeeModelTestPoints is TestBase {
   }
 
   function assertEq(
-    ManaBaseFeeComponents memory a,
-    ManaBaseFeeComponents memory b,
+    ManaBaseFeeComponentsModel memory a,
+    ManaBaseFeeComponentsModel memory b,
     string memory _message
   ) internal pure {
     assertEq(
