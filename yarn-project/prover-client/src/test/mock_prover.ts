@@ -44,7 +44,6 @@ import {
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 
-import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
@@ -53,7 +52,6 @@ import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_databas
 export class TestBroker implements ProvingJobProducer {
   private broker: ProvingBroker;
   private agents: ProvingAgent[];
-  public facade: BrokerCircuitProverFacade;
 
   constructor(
     agentCount: number,
@@ -66,19 +64,16 @@ export class TestBroker implements ProvingJobProducer {
       agentCount,
       () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
     );
-    this.facade = new BrokerCircuitProverFacade(this.broker, proofStore);
   }
 
   public async start() {
     await this.broker.start();
     this.agents.forEach(agent => agent.start());
-    this.facade.start();
   }
 
   public async stop() {
     await Promise.all(this.agents.map(agent => agent.stop()));
     await this.broker.stop();
-    await this.facade.stop();
   }
 
   public getProofStore(): ProofStore {
