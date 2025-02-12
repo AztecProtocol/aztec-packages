@@ -34,6 +34,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
 {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
+
     uint32_t honk_recursion = 0;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
@@ -43,15 +44,20 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecode_path,
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
-    if (!witness_path.empty()) {
-        program.witness = get_witness(witness_path);
-    }
+    // Lambda function to ensure the builder gets freed before generating the vk. Vk generation requires initialing the
+    // pippenger runtime state which leads to it being the peak, when its functionality is purely for debugging purposes
+    // here.
+    auto prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+        acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
+        if (!witness_path.empty()) {
+            program.witness = get_witness(witness_path);
+        }
+        auto builder = acir_format::create_circuit<Builder>(program, metadata);
+        return Prover{ builder };
+    }();
 
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-    auto prover = Prover{ builder };
     size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
     if constexpr (Flavor::HasZK) {
         // Ensure there are enough points to commit to the libra polynomials required for zero-knowledge sumcheck

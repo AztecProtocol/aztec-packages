@@ -876,7 +876,6 @@ bool avm2_verify(const std::filesystem::path& proof_path,
 // Helper function to recursively print active subcommands for CLI11 app debugging
 void print_active_subcommands(const CLI::App& app, const std::string& prefix = "command: ")
 {
-
     // get_subcommands() returns a vector of pointers to subcommands
     for (auto subcmd : app.get_subcommands()) {
         // Check if this subcommand was activated (nonzero count)

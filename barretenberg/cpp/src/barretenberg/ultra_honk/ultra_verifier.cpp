@@ -16,6 +16,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     transcript = std::make_shared<Transcript>(proof);
     info("instantiated transcript");
+    transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     info("instantiated oink verifier");
     oink_verifier.verify();
@@ -61,7 +62,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             };
 
             // verify the ipa_proof with this claim
-            auto ipa_transcript = std::make_shared<Transcript>(ipa_proof);
+            ipa_transcript = std::make_shared<Transcript>(ipa_proof);
+            ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
             bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
             if (!ipa_result) {
                 return false;

@@ -23,7 +23,8 @@ storage:
 telemetry:
   enabled: false
   otelCollectorEndpoint:
-  useGcloudObservability: false
+  useGcloudLogging: true
+  useGcloudMetrics: false
   excludeMetrics: "system"
 
 images:
