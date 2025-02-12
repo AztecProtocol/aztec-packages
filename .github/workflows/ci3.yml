@@ -180,6 +180,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
-          INSTANCE_TYPE: ${{  }}
+          INSTANCE_POSTFIX: ${{ strategy.matrix.number }}
         run: |
           ./ci.sh ec2-test

@@ -1,19 +1,23 @@
+# THIS IS NO LONGER USED
+# PLEASE FAMILARIZE YOURSELF WITH ci3.yml
+# SEE ROOT README.md FOR DETAILS.
+
 name: CI
 on:
-  push:
-    branches:
-      - master
-      - provernet ./bootstrap.sh
-      - "*/ci-push*"
-  merge_group:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-      - labeled
-    branches-ignore: [devnet]
+  # push:
+  #   branches:
+  #     - master
+  #     - provernet
+  #     - "*/ci-push*"
+  # merge_group:
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - reopened
+  #     - synchronize
+  #     - ready_for_review
+  #     - labeled
+  #   branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
 
