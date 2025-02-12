@@ -6,15 +6,14 @@ namespace range_check(256);
     #[skippable_if]
     sel = 0;
 
-
-    // Witnesses 
+    // Witnesses
     // Value to range check
     pol commit value;
     // Number of bits to check against (this number must be <=128)
     pol commit rng_chk_bits;
 
     // Bit Size Columns
-    // It is enforced (further down) that the selected column is the lowest multiple of 16 that is greater than rng_chk_bits 
+    // It is enforced (further down) that the selected column is the lowest multiple of 16 that is greater than rng_chk_bits
     // e.g., rng_chk_bits = 10 ===> is_lte_u16, rng_chk_bits = 100 ==> is_lte_u112
     // If rng_chk_bits is a multiple of 16, a prover is able to choose either is_lte_xx or is_lte_xx(+16), since the dynamic register will prove 0
     // This isn't a concern and only costs the prover additional compute.
@@ -52,19 +51,30 @@ namespace range_check(256);
     pol commit u16_r7;
 
     // In each of these relations, the u16_r7 register contains the most significant 16 bits of value.
-    pol X_0 = is_lte_u16 * u16_r7;
-    pol X_1 = is_lte_u32 * (u16_r0 + u16_r7 * 2**16);
-    pol X_2 = is_lte_u48 * (u16_r0 + u16_r1 * 2**16 + u16_r7 * 2**32);
-    pol X_3 = is_lte_u64 * (u16_r0 + u16_r1 * 2**16 + u16_r2 * 2**32 + u16_r7 * 2**48);
-    pol X_4 = is_lte_u80 * (u16_r0 + u16_r1 * 2**16 + u16_r2 * 2**32 + u16_r3 * 2**48 + u16_r7 * 2**64);
-    pol X_5 = is_lte_u96 * (u16_r0 + u16_r1 * 2**16 + u16_r2 * 2**32 + u16_r3 * 2**48 + u16_r4 * 2**64 + u16_r7 * 2**80);
-    pol X_6 = is_lte_u112 * (u16_r0 + u16_r1 * 2**16 + u16_r2 * 2**32 + u16_r3 * 2**48 + u16_r4 * 2**64 + u16_r5 * 2**80 + u16_r7 * 2**96);
-    pol X_7 = is_lte_u128 * (u16_r0 + u16_r1 * 2**16 + u16_r2 * 2**32 + u16_r3 * 2**48 + u16_r4 * 2**64 + u16_r5 * 2**80 + u16_r6 * 2**96 + u16_r7 * 2**112);
+    pol PX_0 = 0;
+    pol R7_0 = u16_r7;
+    pol PX_1 = u16_r0;
+    pol R7_1 = R7_0 * 2**16;
+    pol PX_2 = PX_1 + u16_r1 * 2**16;
+    pol R7_2 = R7_1 * 2**16;
+    pol PX_3 = PX_2 + u16_r2 * 2**32;
+    pol R7_3 = R7_2 * 2**16;
+    pol PX_4 = PX_3 + u16_r3 * 2**48;
+    pol R7_4 = R7_3 * 2**16;
+    pol PX_5 = PX_4 + u16_r4 * 2**64;
+    pol R7_5 = R7_4 * 2**16;
+    pol PX_6 = PX_5 + u16_r5 * 2**80;
+    pol R7_6 = R7_5 * 2**16;
+    pol PX_7 = PX_6 + u16_r6 * 2**96;
+    pol R7_7 = R7_6 * 2**16;
     // NOTE: when doing a smaller range check (like is_lte_u48 which only uses u16_r0, u16_r1 and u16_r7),
     // the values of inactive registers (u16_r2...6) are unconstrained
 
-    // Since the is_lte_x are mutually exclusive, only one of the Xs will be non-zero
-    pol RESULT = X_0 + X_1 + X_2 + X_3 + X_4 + X_5 + X_6 + X_7;
+    // Since the is_lte_x are mutually exclusive, only one of the terms will be non-zero
+    pol RESULT = is_lte_u16  * (PX_0 + R7_0) + is_lte_u32  * (PX_1 + R7_1) +
+                 is_lte_u48  * (PX_2 + R7_2) + is_lte_u64  * (PX_3 + R7_3) +
+                 is_lte_u80  * (PX_4 + R7_4) + is_lte_u96  * (PX_5 + R7_5) +
+                 is_lte_u112 * (PX_6 + R7_6) + is_lte_u128 * (PX_7 + R7_7);
 
     // Enforce that value can be derived from whichever slice registers are activated by an is_lte flag
     #[CHECK_RECOMPOSITION]
@@ -87,7 +97,7 @@ namespace range_check(256);
     // [CALCULATION STEPS]
     // 1) Calculate dyn_rng_chk_bits from the table above
     // 2) Calculate dyn_rng_chk_pow_2 = 2^dyn_rng_chk_bits
-    // 3) Calculate dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1 
+    // 3) Calculate dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1
 
     // [ASSERTIONS]
     // 1) Assert 0 <= dyn_rng_chk_bits <= 16 (i.e. dyn_rng_chk_bits supports up to a 16-bit number)
@@ -123,7 +133,6 @@ namespace range_check(256);
     // 2) u16_r0 = 3, while all other registers including u16_r7 (the dynamic one) are set to zero - passing #[CHECK_RECOMPOSITION]
     // 3) dyn_rng_chk_bits = 100 - 112 = -12, as per the table above - this fails #[LOOKUP_RNG_CHK_POW_2]
 
-
     // The number of bits that need to be dynamically range checked.
     pol commit dyn_rng_chk_bits;
     // Valid values for dyn_rng_chk_bits are in the range [0, 16]
@@ -137,7 +146,6 @@ namespace range_check(256);
     sel {dyn_rng_chk_bits, dyn_rng_chk_pow_2} in precomputed.sel_range_8 {precomputed.clk, precomputed.power_of_2};
     // NOTE: `sel_range_8` is chosen because it gives us rows [0, 256] which will give us all of the powers we need (plus many we don't need)
 
-
     // Now we need to perform the dynamic range check itself
     // We check that u16_r7 < dyn_rng_chk_pow_2 ==> dyn_rng_chk_pow_2 - u16_r7 - 1 >= 0
     pol commit dyn_diff;
@@ -147,8 +155,7 @@ namespace range_check(256);
     #[LOOKUP_RNG_CHK_DIFF]
     sel { dyn_diff } in precomputed.sel_range_16 { precomputed.clk };
 
-
-    // Lookup relations. 
+    // Lookup relations.
     // We only need these relations while we do not support pol in the LHS selector
     pol commit sel_r0_16_bit_rng_lookup;
     pol commit sel_r1_16_bit_rng_lookup;
@@ -160,34 +167,34 @@ namespace range_check(256);
 
     // The lookups are cumulative - i.e. every value greater than 16 bits involve sel_r0_16_bit_rng_lookup
     // Note that the lookup for the u16_r7 is always active (dynamic range check)
-    sel_r0_16_bit_rng_lookup - (is_lte_u32 + is_lte_u48 + is_lte_u64 + is_lte_u80 + is_lte_u96 + is_lte_u112 + is_lte_u128) = 0;
-    sel_r1_16_bit_rng_lookup - (is_lte_u48 + is_lte_u64 + is_lte_u80 + is_lte_u96 + is_lte_u112 + is_lte_u128) = 0;
-    sel_r2_16_bit_rng_lookup - (is_lte_u64 + is_lte_u80 + is_lte_u96 + is_lte_u112 + is_lte_u128) = 0;
-    sel_r3_16_bit_rng_lookup - (is_lte_u80 + is_lte_u96 + is_lte_u112 + is_lte_u128) = 0;
-    sel_r4_16_bit_rng_lookup - (is_lte_u96 + is_lte_u112 + is_lte_u128) = 0;
-    sel_r5_16_bit_rng_lookup - (is_lte_u112 + is_lte_u128) = 0;
-    sel_r6_16_bit_rng_lookup - is_lte_u128 = 0;
+    pol CUM_LTE_128 = is_lte_u128;
+    pol CUM_LTE_112 = is_lte_u112 + CUM_LTE_128;
+    pol CUM_LTE_96 = is_lte_u96 + CUM_LTE_112;
+    pol CUM_LTE_80 = is_lte_u80 + CUM_LTE_96;
+    pol CUM_LTE_64 = is_lte_u64 + CUM_LTE_80;
+    pol CUM_LTE_48 = is_lte_u48 + CUM_LTE_64;
+    pol CUM_LTE_32 = is_lte_u32 + CUM_LTE_48;
+    sel_r0_16_bit_rng_lookup - CUM_LTE_32 = 0;
+    sel_r1_16_bit_rng_lookup - CUM_LTE_48 = 0;
+    sel_r2_16_bit_rng_lookup - CUM_LTE_64 = 0;
+    sel_r3_16_bit_rng_lookup - CUM_LTE_80 = 0;
+    sel_r4_16_bit_rng_lookup - CUM_LTE_96 = 0;
+    sel_r5_16_bit_rng_lookup - CUM_LTE_112 = 0;
+    sel_r6_16_bit_rng_lookup - CUM_LTE_128 = 0;
 
     #[LOOKUP_RNG_CHK_IS_R0_16_BIT]
     sel_r0_16_bit_rng_lookup { u16_r0 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R1_16_BIT]
     sel_r1_16_bit_rng_lookup { u16_r1 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R2_16_BIT]
     sel_r2_16_bit_rng_lookup { u16_r2 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R3_16_BIT]
     sel_r3_16_bit_rng_lookup { u16_r3 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R4_16_BIT]
     sel_r4_16_bit_rng_lookup { u16_r4 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R5_16_BIT]
     sel_r5_16_bit_rng_lookup { u16_r5 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R6_16_BIT]
     sel_r6_16_bit_rng_lookup { u16_r6 } in precomputed.sel_range_16 { precomputed.clk };
-
     #[LOOKUP_RNG_CHK_IS_R7_16_BIT]
     sel { u16_r7 } in precomputed.sel_range_16 { precomputed.clk };

@@ -88,15 +88,20 @@ export class TXEService {
     return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
   }
 
-  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
     (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
       await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
     ]);
 
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
-    await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+    if (!fromSingle(secret).equals(Fr.ZERO)) {
+      await this.addAccount(artifact, instance, secret);
+    } else {
+      await (this.typedOracle as TXE).addContractInstance(instance);
+      await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    }
+
     return toForeignCallResult([
       toArray([
         instance.salt,
@@ -133,6 +138,7 @@ export class TXEService {
   async createAccount(secret: ForeignCallSingle) {
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const secretFr = fromSingle(secret);
+    // This is a footgun !
     const completeAddress = await keyStore.addAccount(secretFr, secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
