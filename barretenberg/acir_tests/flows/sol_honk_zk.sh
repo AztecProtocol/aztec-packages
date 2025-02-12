@@ -7,9 +7,8 @@ FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk --zk"
 [ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
 PROTOCOL_FLAGS=" --honk_recursion 1 --oracle_hash keccak"
 
-outdir=$PWD
-# outdir=$(mktemp -d)
-# trap "rm -rf $outdir" EXIT
+outdir=$(mktemp -d)
+trap "rm -rf $outdir" EXIT
 
 # Export the paths to the environment variables for the js test runner
 export PROOF="$outdir/proof"

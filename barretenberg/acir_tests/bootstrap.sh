@@ -123,15 +123,15 @@ function test_cmds {
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo FLOW=prove_then_verify_tube $run_test 6_array
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
-  echo FLOW=all_cmds $run_test 1_mul
+  echo NATIVE=1 FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb-ultra-plonk:
   # Exclude honk tests.
   for t in $plonk_tests; do
-    echo FLOW=prove_then_verify $run_test $(basename $t)
+    echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
   done
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
+  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
+  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.

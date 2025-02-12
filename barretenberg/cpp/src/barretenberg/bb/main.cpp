@@ -1302,6 +1302,7 @@ int main(int argc, char* argv[])
     add_bytecode_path_option(OLD_API_verify);
     add_proof_path_option(OLD_API_verify);
     add_vk_path_option(OLD_API_verify);
+    add_recursive_flag(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommnd: OLD_API prove_and_verify
