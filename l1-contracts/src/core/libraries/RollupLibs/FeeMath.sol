@@ -8,19 +8,15 @@ import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 
 import {Errors} from "../Errors.sol";
 
-// These values are taken from the model, but mostly pulled out of the ass
-uint256 constant MINIMUM_PROVING_COST_PER_MANA = 5415357955;
-uint256 constant MAX_PROVING_COST_MODIFIER = 1000000000;
-uint256 constant PROVING_UPDATE_FRACTION = 100000000000;
-
-uint256 constant MINIMUM_FEE_ASSET_PRICE = 10000000000;
-uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1000000000;
-uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100000000000;
+// The lowest number of fee asset per eth is 10 with a precision of 1e9.
+uint256 constant MINIMUM_FEE_ASSET_PER_ETH = 10e9;
+uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1e9;
+uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100e9;
 
 uint256 constant L1_GAS_PER_BLOCK_PROPOSED = 150000;
 uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
 
-uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1000000000;
+uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1e9;
 uint256 constant MANA_TARGET = 100000000;
 uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
 
@@ -28,7 +24,6 @@ uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
 struct OracleInput {
-  int256 provingCostModifier;
   int256 feeAssetPriceModifier;
 }
 
@@ -44,7 +39,6 @@ struct FeeHeader {
   uint256 excessMana;
   uint256 feeAssetPriceNumerator;
   uint256 manaUsed;
-  uint256 provingCostPerManaNumerator;
   uint256 congestionCost;
 }
 
@@ -53,51 +47,104 @@ struct L1FeeData {
   uint256 blobFee;
 }
 
+type EthValue is uint256;
+
+type FeeAssetValue is uint256;
+
+// Precision of 1e9
+type FeeAssetPerEthX9 is uint256;
+
+function addEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
+  return EthValue.wrap(EthValue.unwrap(_a) + EthValue.unwrap(_b));
+}
+
+function subEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
+  return EthValue.wrap(EthValue.unwrap(_a) - EthValue.unwrap(_b));
+}
+
+using {addEthValue as +, subEthValue as -} for EthValue global;
+
+library PriceLib {
+  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthX9 _feeAssetPerEth)
+    internal
+    pure
+    returns (EthValue)
+  {
+    return EthValue.wrap(
+      Math.mulDiv(
+        FeeAssetValue.unwrap(_feeAssetValue),
+        1e9,
+        FeeAssetPerEthX9.unwrap(_feeAssetPerEth),
+        Math.Rounding.Ceil
+      )
+    );
+  }
+
+  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthX9 _feeAssetPerEth)
+    internal
+    pure
+    returns (FeeAssetValue)
+  {
+    return FeeAssetValue.wrap(
+      Math.mulDiv(
+        EthValue.unwrap(_ethValue),
+        FeeAssetPerEthX9.unwrap(_feeAssetPerEth),
+        1e9,
+        Math.Rounding.Ceil
+      )
+    );
+  }
+}
+
 library FeeMath {
   using Math for uint256;
   using SafeCast for int256;
   using SafeCast for uint256;
   using SignedMath for int256;
+  using PriceLib for EthValue;
 
   function getManaBaseFeeComponentsAt(
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
-    uint256 _provingCostPerMana,
-    uint256 _feeAssetPrice,
+    EthValue _provingCostPerMana,
+    FeeAssetPerEthX9 _feeAssetPrice,
     uint256 _epochDuration
   ) internal view returns (ManaBaseFeeComponents memory) {
     uint256 excessMana = FeeMath.clampedAdd(
       _parentFeeHeader.excessMana + _parentFeeHeader.manaUsed, -int256(MANA_TARGET)
     );
 
-    uint256 dataCost =
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil);
+    EthValue dataCost = EthValue.wrap(
+      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil)
+    );
     uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
-    uint256 gasCost = Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil);
+    EthValue gasCost =
+      EthValue.wrap(Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil));
 
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
-    uint256 total = dataCost + gasCost + _provingCostPerMana;
-    uint256 congestionCost = Math.mulDiv(
-      total, congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor
+    EthValue total = dataCost + gasCost + _provingCostPerMana;
+    EthValue congestionCost = EthValue.wrap(
+      Math.mulDiv(
+        EthValue.unwrap(total),
+        congestionMultiplier_,
+        MINIMUM_CONGESTION_MULTIPLIER,
+        Math.Rounding.Floor
+      )
     ) - total;
 
     // @todo @lherskind. The following is a crime against humanity, but it makes it
     // very neat to plot etc from python, #10004 will fix it across the board
     return ManaBaseFeeComponents({
-      dataCost: Math.mulDiv(dataCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      gasCost: Math.mulDiv(gasCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      provingCost: Math.mulDiv(_provingCostPerMana, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      congestionCost: Math.mulDiv(congestionCost, _feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      dataCost: FeeAssetValue.unwrap(dataCost.toFeeAsset(_feeAssetPrice)),
+      gasCost: FeeAssetValue.unwrap(gasCost.toFeeAsset(_feeAssetPrice)),
+      provingCost: FeeAssetValue.unwrap(_provingCostPerMana.toFeeAsset(_feeAssetPrice)),
+      congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(_feeAssetPrice)),
       congestionMultiplier: congestionMultiplier_
     });
   }
 
   function assertValid(OracleInput memory _self) internal pure returns (bool) {
-    require(
-      SignedMath.abs(_self.provingCostModifier) <= MAX_PROVING_COST_MODIFIER,
-      Errors.FeeMath__InvalidProvingCostModifier()
-    );
     require(
       SignedMath.abs(_self.feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
       Errors.FeeMath__InvalidFeeAssetPriceModifier()
@@ -127,8 +174,10 @@ library FeeMath {
     return 0;
   }
 
-  function feeAssetPriceModifier(uint256 _numerator) internal pure returns (uint256) {
-    return fakeExponential(MINIMUM_FEE_ASSET_PRICE, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION);
+  function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthX9) {
+    return FeeAssetPerEthX9.wrap(
+      fakeExponential(MINIMUM_FEE_ASSET_PER_ETH, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION)
+    );
   }
 
   function congestionMultiplier(uint256 _numerator) internal pure returns (uint256) {

@@ -14,7 +14,14 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "./harnesses/Rollup.sol";
-import {IRollupCore, BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  IRollupCore,
+  BlockLog,
+  SubmitEpochRootProofArgs,
+  EthValue,
+  FeeAssetValue,
+  FeeAssetPerEthX9
+} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
@@ -203,7 +210,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
@@ -231,7 +238,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
@@ -297,7 +304,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, data.body, data.blobInputs);
@@ -324,14 +331,15 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, data.body, data.blobInputs);
   }
 
   struct TestBlockFeeStruct {
-    uint256 provingCostPerMana;
+    EthValue provingCostPerManaInEth;
+    FeeAssetValue provingCostPerManaInFeeAsset;
     uint256 baseFee;
     uint256 feeAmount;
     uint256 portalBalance;
@@ -344,7 +352,8 @@ contract RollupTest is RollupBase {
 
     DecoderBase.Data memory data = load("mixed_block_1").block;
     interim.portalBalance = testERC20.balanceOf(address(feeJuicePortal));
-    interim.provingCostPerMana = rollup.getProvingCostPerMana();
+    interim.provingCostPerManaInEth = rollup.getProvingCostPerManaInEth();
+    interim.provingCostPerManaInFeeAsset = rollup.getProvingCostPerManaInFeeAsset();
     interim.manaUsed = 1e6;
 
     // Progress time as necessary
@@ -375,7 +384,7 @@ contract RollupTest is RollupBase {
         header: header,
         archive: data.archive,
         blockHash: data.blockHash,
-        oracleInput: OracleInput(0, 0),
+        oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
       rollup.propose(args, signatures, data.body, data.blobInputs);
@@ -444,12 +453,22 @@ contract RollupTest is RollupBase {
         interim.feeAmount
       );
 
-      uint256 provingCosts = Math.mulDiv(interim.provingCostPerMana, rollup.getFeeAssetPrice(), 1e9);
+      {
+        FeeAssetPerEthX9 price = rollup.getFeeAssetPerEth();
+        uint256 provingCosts = Math.mulDiv(
+          EthValue.unwrap(interim.provingCostPerManaInEth), FeeAssetPerEthX9.unwrap(price), 1e9
+        );
+        assertEq(
+          provingCosts,
+          FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset),
+          "invalid proving costs"
+        );
+      }
 
-      uint256 expectedProverReward =
-        rewardDistributor.BLOCK_REWARD() / 2 + provingCosts * interim.manaUsed;
-      uint256 expectedSequencerReward =
-        rewardDistributor.BLOCK_REWARD() / 2 + interim.feeAmount - provingCosts * interim.manaUsed;
+      uint256 expectedProverReward = rewardDistributor.BLOCK_REWARD() / 2
+        + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
+      uint256 expectedSequencerReward = rewardDistributor.BLOCK_REWARD() / 2 + interim.feeAmount
+        - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
       assertEq(
         rollup.getSequencerRewards(data.decodedHeader.globalVariables.coinbase),
@@ -657,7 +676,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, body, data.blobInputs);
@@ -679,7 +698,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, body, data.blobInputs);
@@ -701,7 +720,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, body, data.blobInputs);
@@ -728,7 +747,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       blockHash: data.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
     rollup.propose(args, signatures, body, new bytes(144));

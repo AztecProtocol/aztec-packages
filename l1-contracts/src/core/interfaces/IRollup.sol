@@ -10,6 +10,9 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {
+  FeeAssetPerEthX9, EthValue, FeeAssetValue
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
@@ -62,6 +65,9 @@ struct RollupStore {
   bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
   IVerifier epochProofVerifier;
+  mapping(address => uint256) sequencerRewards;
+  mapping(Epoch => EpochRewards) epochRewards;
+  EthValue provingCostPerMana;
 }
 
 struct CheatDepositArgs {
@@ -93,6 +99,8 @@ interface IRollupCore {
   function prune() external;
   function updateL1GasFeeOracle() external;
 
+  function setProvingCostPerMana(EthValue _provingCostPerMana) external;
+
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
@@ -111,7 +119,7 @@ interface IRollupCore {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function getFeeAssetPrice() external view returns (uint256);
+  function getFeeAssetPerEth() external view returns (FeeAssetPerEthX9);
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
 
   function canPrune() external view returns (bool);
@@ -183,5 +191,7 @@ interface IRollup is IRollupCore {
 
   function getProofSubmissionWindow() external view returns (uint256);
 
-  function getProvingCostPerMana() external view returns (uint256);
+  function getProvingCostPerManaInEth() external view returns (EthValue);
+
+  function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
 }

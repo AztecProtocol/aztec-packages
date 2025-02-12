@@ -13,9 +13,10 @@ import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
-  MAX_PROVING_COST_MODIFIER,
   MAX_FEE_ASSET_PRICE_MODIFIER,
-  MINIMUM_CONGESTION_MULTIPLIER
+  MINIMUM_CONGESTION_MULTIPLIER,
+  EthValue,
+  FeeAssetPerEthX9
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -46,63 +47,34 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION);
   }
 
-  function test_computeProvingCost() public {
-    // For every test point, add the oracle input to the model
-    // Then check that we get the same proving costs as the python model
-
-    for (uint256 i = 0; i < points.length; i++) {
-      assertEq(model.getProvingCost(), 100, "Computed proving cost does not match expected value");
-      model.addSlot(
-        OracleInput({
-          provingCostModifier: points[i].oracle_input.proving_cost_modifier,
-          feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier
-        })
-      );
-    }
-  }
-
-  function test_computeFeeAssetPrice() public {
+  function test_computeFeeAssetPerEth() public {
     // For every test point, add the oracle input to the model
     // Then check that we get the same fee asset price as the python model
 
     for (uint256 i = 0; i < points.length; i++) {
+      model.setProvingCost(
+        EthValue.wrap(points[i].outputs.mana_base_fee_components_in_fee_asset.proving_cost)
+      );
+
       assertEq(
-        model.getFeeAssetPrice(),
+        FeeAssetPerEthX9.unwrap(model.getFeeAssetPerEth()),
         points[i].outputs.fee_asset_price_at_execution,
         "Computed fee asset price does not match expected value"
       );
       model.addSlot(
-        OracleInput({
-          provingCostModifier: points[i].oracle_input.proving_cost_modifier,
-          feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier
-        })
+        OracleInput({feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier})
       );
     }
   }
 
   function test_invalidOracleInput() public {
-    uint256 provingBoundary = MAX_PROVING_COST_MODIFIER + 1;
     uint256 feeAssetPriceBoundary = MAX_FEE_ASSET_PRICE_MODIFIER + 1;
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidProvingCostModifier.selector));
-    model.addSlot(
-      OracleInput({provingCostModifier: int256(provingBoundary), feeAssetPriceModifier: 0})
-    );
-
-    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidProvingCostModifier.selector));
-    model.addSlot(
-      OracleInput({provingCostModifier: -int256(provingBoundary), feeAssetPriceModifier: 0})
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidFeeAssetPriceModifier.selector));
+    model.addSlot(OracleInput({feeAssetPriceModifier: int256(feeAssetPriceBoundary)}));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidFeeAssetPriceModifier.selector));
-    model.addSlot(
-      OracleInput({provingCostModifier: 0, feeAssetPriceModifier: int256(feeAssetPriceBoundary)})
-    );
-
-    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidFeeAssetPriceModifier.selector));
-    model.addSlot(
-      OracleInput({provingCostModifier: 0, feeAssetPriceModifier: -int256(feeAssetPriceBoundary)})
-    );
+    model.addSlot(OracleInput({feeAssetPriceModifier: -int256(feeAssetPriceBoundary)}));
   }
 
   function test_photograph() public {
@@ -142,11 +114,15 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
       model.photograph();
 
       if (model.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        uint256 index = nextSlot.unwrap() - 1;
+        TestPoint memory point = points[index];
+        model.setProvingCost(
+          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
+        );
 
         // Get a hold of the values that is used for the next block
         L1Fees memory fees = model.getCurrentL1Fees();
-        uint256 feeAssetPrice = model.getFeeAssetPrice();
+        uint256 feeAssetPrice = FeeAssetPerEthX9.unwrap(model.getFeeAssetPerEth());
         // We are assuming 3 blobs for all of these computations, as per the model.
         // 3 blobs because that can fit ~360 txs, or 10 tps.
         ManaBaseFeeComponents memory components = model.manaBaseFeeComponents(3, false);
@@ -154,17 +130,12 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         FeeHeader memory parentFeeHeader = model.getFeeHeader(point.block_header.slot_number - 1);
 
         model.addSlot(
-          OracleInput({
-            provingCostModifier: point.oracle_input.proving_cost_modifier,
-            feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
-          }),
+          OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
           point.block_header.mana_spent
         );
 
         // The fee header is the state that we are storing, so it is the value written at the block submission.
         FeeHeader memory feeHeader = model.getFeeHeader(point.block_header.slot_number);
-
-        point = manipulateProvingCost(point);
 
         // Ensure that we can reproduce the main parts of our test points.
         // For now, most of the block header is not actually stored in the fee model

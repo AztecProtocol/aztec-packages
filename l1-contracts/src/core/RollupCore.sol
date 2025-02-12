@@ -32,6 +32,12 @@ import {
   ValidateHeaderArgs,
   Header
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
+import {
+  EthValue,
+  FeeAssetValue,
+  FeeAssetPerEthX9,
+  PriceLib
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {IntRollupLib} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
@@ -75,7 +81,7 @@ struct SubmitProofInterim {
   uint256 sequencerShare;
   bool isFeeCanonical;
   bool isRewardDistributorCanonical;
-  uint256 feeAssetPrice;
+  FeeAssetPerEthX9 feeAssetPrice;
 }
 
 /**
@@ -83,7 +89,7 @@ struct SubmitProofInterim {
  * @author Aztec Labs
  * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
- * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
+ * @dev WARNING: This contract is VERY close to the size limit
  */
 contract RollupCore is
   EIP712("Aztec Rollup", "1"),
@@ -96,6 +102,8 @@ contract RollupCore is
   using ProposeLib for ProposeArgs;
   using IntRollupLib for uint256;
   using IntRollupLib for ManaBaseFeeComponents;
+
+  using PriceLib for EthValue;
 
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -134,10 +142,6 @@ contract RollupCore is
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
-  mapping(address => uint256) internal sequencerRewards;
-  mapping(Epoch => EpochRewards) internal epochRewards;
-  uint256 internal provingCostPerMana = 100;
-
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
@@ -169,16 +173,11 @@ contract RollupCore is
     rollupStore.epochProofVerifier = new MockVerifier();
     rollupStore.vkTreeRoot = _vkTreeRoot;
     rollupStore.protocolContractTreeRoot = _protocolContractTreeRoot;
+    rollupStore.provingCostPerMana = EthValue.wrap(100);
 
     // Genesis block
     rollupStore.blocks[0] = BlockLog({
-      feeHeader: FeeHeader({
-        excessMana: 0,
-        feeAssetPriceNumerator: 0,
-        manaUsed: 0,
-        provingCostPerManaNumerator: 0,
-        congestionCost: 0
-      }),
+      feeHeader: FeeHeader({excessMana: 0, feeAssetPriceNumerator: 0, manaUsed: 0, congestionCost: 0}),
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       slotNumber: Slot.wrap(0)
@@ -188,6 +187,14 @@ contract RollupCore is
       post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)}),
       slotOfChange: LIFETIME
     });
+  }
+
+  function setProvingCostPerMana(EthValue _provingCostPerMana)
+    external
+    override(IRollupCore)
+    onlyOwner
+  {
+    rollupStore.provingCostPerMana = _provingCostPerMana;
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
@@ -359,7 +366,7 @@ contract RollupCore is
       interim.prover = address(bytes20(_args.args[6] << 96)); // The address is left padded within the bytes32
 
       interim.length = _args.end - _args.start + 1;
-      EpochRewards storage er = epochRewards[endEpoch];
+      EpochRewards storage er = rollupStore.epochRewards[endEpoch];
       SubEpochRewards storage sr = er.subEpoch[interim.length];
       sr.summedCount += 1;
 
@@ -390,13 +397,13 @@ contract RollupCore is
           // Compute the proving fee in the fee asset
           {
             // @todo likely better for us to store this if we can pack it better
-            interim.feeAssetPrice = IntRollupLib.feeAssetPriceModifier(
+            interim.feeAssetPrice = IntRollupLib.getFeeAssetPerEth(
               rollupStore.blocks[_args.start + i - 1].feeHeader.feeAssetPriceNumerator
             );
           }
           interim.proverFee = Math.min(
             feeHeader.manaUsed
-              * Math.mulDiv(provingCostPerMana, interim.feeAssetPrice, 1e9, Math.Rounding.Ceil),
+              * FeeAssetValue.unwrap(rollupStore.provingCostPerMana.toFeeAsset(interim.feeAssetPrice)),
             interim.fee
           );
 
@@ -404,7 +411,7 @@ contract RollupCore is
 
           er.rewards += interim.proverFee;
           // The address is left padded within the bytes32
-          sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
+          rollupStore.sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
             (interim.blockRewardSequencer + interim.fee);
         }
 
@@ -545,8 +552,8 @@ contract RollupCore is
    *
    * @return The fee asset price
    */
-  function getFeeAssetPrice() public view override(IRollupCore) returns (uint256) {
-    return IntRollupLib.feeAssetPriceModifier(
+  function getFeeAssetPerEth() public view override(IRollupCore) returns (FeeAssetPerEthX9) {
+    return IntRollupLib.getFeeAssetPerEth(
       rollupStore.blocks[rollupStore.tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
     );
   }
@@ -588,8 +595,8 @@ contract RollupCore is
     return ExtRollupLib.getManaBaseFeeComponentsAt(
       rollupStore.blocks[blockOfInterest].feeHeader,
       getL1FeesAt(_timestamp),
-      provingCostPerMana,
-      _inFeeAsset ? getFeeAssetPrice() : 1e9,
+      rollupStore.provingCostPerMana,
+      _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthX9.wrap(1e9),
       TimeLib.getStorage().epochDuration
     );
   }
@@ -749,9 +756,6 @@ contract RollupCore is
           _args.oracleInput.feeAssetPriceModifier
         ),
         manaUsed: uint256(bytes32(_args.header[0x0268:0x0288])),
-        provingCostPerManaNumerator: parentFeeHeader.provingCostPerManaNumerator.clampedAdd(
-          _args.oracleInput.provingCostModifier
-        ),
         congestionCost: _congestionCost
       })
     });

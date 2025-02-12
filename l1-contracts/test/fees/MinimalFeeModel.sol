@@ -8,7 +8,11 @@ import {
   MANA_TARGET,
   L1_GAS_PER_BLOCK_PROPOSED,
   L1_GAS_PER_EPOCH_VERIFIED,
-  MINIMUM_CONGESTION_MULTIPLIER
+  MINIMUM_CONGESTION_MULTIPLIER,
+  EthValue,
+  FeeAssetValue,
+  FeeAssetPerEthX9,
+  PriceLib
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
@@ -25,6 +29,7 @@ import {Timestamp, TimeLib, Slot, SlotLib} from "@aztec/core/libraries/TimeLib.s
 contract MinimalFeeModel {
   using FeeMath for OracleInput;
   using FeeMath for uint256;
+  using PriceLib for EthValue;
   using SlotLib for Slot;
   using TimeLib for Timestamp;
 
@@ -43,13 +48,10 @@ contract MinimalFeeModel {
 
   L1GasOracleValues public l1BaseFees;
 
+  EthValue public provingCost = EthValue.wrap(100);
+
   constructor(uint256 _slotDuration, uint256 _epochDuration) {
-    feeHeaders[0] = FeeHeader({
-      excess_mana: 0,
-      fee_asset_price_numerator: 0,
-      mana_used: 0,
-      proving_cost_per_mana_numerator: 0
-    });
+    feeHeaders[0] = FeeHeader({excess_mana: 0, fee_asset_price_numerator: 0, mana_used: 0});
 
     l1BaseFees.pre = L1Fees({base_fee: 1 gwei, blob_fee: 1});
     l1BaseFees.post = L1Fees({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
@@ -69,25 +71,29 @@ contract MinimalFeeModel {
     returns (ManaBaseFeeComponents memory)
   {
     L1Fees memory fees = getCurrentL1Fees();
-    uint256 dataCost =
-      Math.mulDiv(_blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, MANA_TARGET, Math.Rounding.Ceil);
+    EthValue dataCost = EthValue.wrap(
+      Math.mulDiv(_blobsUsed * BLOB_GAS_PER_BLOB, fees.blob_fee, MANA_TARGET, Math.Rounding.Ceil)
+    );
     uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + _blobsUsed * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / TimeLib.getStorage().epochDuration;
-    uint256 gasCost = Math.mulDiv(gasUsed, fees.base_fee, MANA_TARGET, Math.Rounding.Ceil);
-    uint256 provingCost = getProvingCost();
+    EthValue gasCost =
+      EthValue.wrap(Math.mulDiv(gasUsed, fees.base_fee, MANA_TARGET, Math.Rounding.Ceil));
 
     uint256 congestionMultiplier = FeeMath.congestionMultiplier(calcExcessMana());
 
-    uint256 total = dataCost + gasCost + provingCost;
-    uint256 congestionCost = (total * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER) - total;
+    EthValue total = dataCost + gasCost + provingCost;
+    EthValue congestionCost = EthValue.wrap(
+      EthValue.unwrap(total) * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER
+    ) - total;
 
-    uint256 feeAssetPrice = _inFeeAsset ? getFeeAssetPrice() : 1e9;
+    // We emulate the cost being 1:1 if wanting the value in eth.
+    FeeAssetPerEthX9 feeAssetPrice = _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthX9.wrap(1e9);
 
     return ManaBaseFeeComponents({
-      data_cost: Math.mulDiv(dataCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      gas_cost: Math.mulDiv(gasCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      proving_cost: Math.mulDiv(provingCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
-      congestion_cost: Math.mulDiv(congestionCost, feeAssetPrice, 1e9, Math.Rounding.Ceil),
+      data_cost: FeeAssetValue.unwrap(dataCost.toFeeAsset(feeAssetPrice)),
+      gas_cost: FeeAssetValue.unwrap(gasCost.toFeeAsset(feeAssetPrice)),
+      proving_cost: FeeAssetValue.unwrap(provingCost.toFeeAsset(feeAssetPrice)),
+      congestion_cost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(feeAssetPrice)),
       congestion_multiplier: congestionMultiplier
     });
   }
@@ -114,15 +120,16 @@ contract MinimalFeeModel {
     uint256 excessMana = calcExcessMana();
 
     feeHeaders[++populatedThrough] = FeeHeader({
-      proving_cost_per_mana_numerator: parent.proving_cost_per_mana_numerator.clampedAdd(
-        _oracleInput.provingCostModifier
-      ),
       fee_asset_price_numerator: parent.fee_asset_price_numerator.clampedAdd(
         _oracleInput.feeAssetPriceModifier
       ),
       mana_used: _manaUsed,
       excess_mana: excessMana
     });
+  }
+
+  function setProvingCost(EthValue _provingCost) public {
+    provingCost = _provingCost;
   }
 
   /**
@@ -146,12 +153,8 @@ contract MinimalFeeModel {
     l1BaseFees.slot_of_change = (slot + LAG).unwrap();
   }
 
-  function getFeeAssetPrice() public view returns (uint256) {
-    return FeeMath.feeAssetPriceModifier(feeHeaders[populatedThrough].fee_asset_price_numerator);
-  }
-
-  function getProvingCost() public view returns (uint256) {
-    return 100;
+  function getFeeAssetPerEth() public view returns (FeeAssetPerEthX9) {
+    return FeeMath.getFeeAssetPerEth(feeHeaders[populatedThrough].fee_asset_price_numerator);
   }
 
   function getCurrentL1Fees() public view returns (L1Fees memory) {
