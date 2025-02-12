@@ -49,18 +49,10 @@ class ECCOpQueue {
 
     std::array<Point, 4> ultra_ops_commitments;
 
-    EccvmRowTracker eccvm_row_tracker;
-
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    // as we populate the op_queue, we track the number of rows in each circuit section,
-    // as well as the number of multiplications performed.
-    // This is to avoid expensive O(n) logic to compute the number of rows and muls during witness computation
-    uint32_t cached_num_muls = 0;
-    uint32_t cached_active_msm_count = 0;
-    uint32_t num_precompute_table_rows = 0;
-    uint32_t num_msm_rows = 0;
+    EccvmRowTracker eccvm_row_tracker; // WORKTODO: make private
 
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
 
@@ -102,7 +94,6 @@ class ECCOpQueue {
     {
         raw_ops.emplace_back(ECCVMOperation{ .base_point = point_at_infinity });
 
-        update_cached_msms(raw_ops.back());
         eccvm_row_tracker.update_cached_msms(raw_ops.back());
     }
 
@@ -158,62 +149,18 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Get the number of rows in the 'msm' column section of the ECCVM associated with a single multiscalar
-     * multiplication.
-     *
-     * @param msm_size
-     * @return uint32_t
-     */
-    static uint32_t num_eccvm_msm_rows(const size_t msm_size)
-    {
-        const size_t rows_per_wnaf_digit =
-            (msm_size / eccvm::ADDITIONS_PER_ROW) + ((msm_size % eccvm::ADDITIONS_PER_ROW != 0) ? 1 : 0);
-        const size_t num_rows_for_all_rounds =
-            (eccvm::NUM_WNAF_DIGITS_PER_SCALAR + 1) * rows_per_wnaf_digit; // + 1 round for skew
-        const size_t num_double_rounds = eccvm::NUM_WNAF_DIGITS_PER_SCALAR - 1;
-        const size_t num_rows_for_msm = num_rows_for_all_rounds + num_double_rounds;
-
-        return static_cast<uint32_t>(num_rows_for_msm);
-    }
-
-    /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
      *
      * @return size_t
      */
-    size_t get_num_msm_rows() const
-    {
-        size_t msm_rows = num_msm_rows + 2;
-        if (cached_active_msm_count > 0) {
-            msm_rows += num_eccvm_msm_rows(cached_active_msm_count);
-        }
-        return msm_rows;
-    }
+    size_t get_num_msm_rows() const { return eccvm_row_tracker.get_num_msm_rows(); }
 
     /**
      * @brief Get the number of rows for the current ECCVM circuit
      *
      * @return size_t
      */
-    size_t get_num_rows() const
-    {
-        // add 1 row to start and end of transcript and msm sections
-        const size_t transcript_rows = raw_ops.size() + 2;
-        size_t msm_rows = num_msm_rows + 2;
-        // add 1 row to start of precompute table section
-        size_t precompute_rows = num_precompute_table_rows + 1;
-        if (cached_active_msm_count > 0) {
-            msm_rows += num_eccvm_msm_rows(cached_active_msm_count);
-            precompute_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
-        }
-
-        size_t num_rows = std::max(transcript_rows, std::max(msm_rows, precompute_rows));
-
-        info("num_rows: ", num_rows);
-        info("NEW num_rows: ", eccvm_row_tracker.get_num_rows());
-
-        return std::max(transcript_rows, std::max(msm_rows, precompute_rows));
-    }
+    size_t get_num_rows() const { return eccvm_row_tracker.get_num_rows(); }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
@@ -227,7 +174,6 @@ class ECCOpQueue {
 
         // Store the raw operation
         raw_ops.emplace_back(ECCVMOperation{ .add = true, .base_point = to_add });
-        update_cached_msms(raw_ops.back());
         eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         // Construct and store the operation in the ultra op format
@@ -255,7 +201,6 @@ class ECCOpQueue {
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
-        update_cached_msms(raw_ops.back());
         eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         return ultra_op;
@@ -269,7 +214,6 @@ class ECCOpQueue {
     {
         // Store raw operation
         raw_ops.emplace_back(ECCVMOperation{});
-        update_cached_msms(raw_ops.back());
         eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         // Construct and store the operation in the ultra op format
@@ -288,7 +232,6 @@ class ECCOpQueue {
 
         // Store raw operation
         raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
-        update_cached_msms(raw_ops.back());
         eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         // Construct and store the operation in the ultra op format
@@ -296,44 +239,6 @@ class ECCOpQueue {
     }
 
   private:
-    /**
-     * @brief Update cached_active_msm_count or update other row counts and reset cached_active_msm_count.
-     * @details To the OpQueue, an MSM is a sequence of successive mul opcodes (note that mul might better be called
-     * mul_add--its effect on the accumulator is += scalar * point).
-     *
-     * @param op
-     */
-    void update_cached_msms(const ECCVMOperation& op)
-    {
-        if (op.mul) {
-            if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
-                cached_active_msm_count++;
-            }
-            if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
-                cached_active_msm_count++;
-            }
-        } else if (cached_active_msm_count != 0) {
-            num_msm_rows += num_eccvm_msm_rows(cached_active_msm_count);
-            num_precompute_table_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
-            cached_num_muls += cached_active_msm_count;
-            cached_active_msm_count = 0;
-        }
-    }
-
-    /**
-     * @brief Get the precompute table row count for single msm object
-     *
-     * @param msm_count
-     * @return uint32_t
-     */
-    static uint32_t get_precompute_table_row_count_for_single_msm(const size_t msm_count)
-    {
-        constexpr size_t num_precompute_rows_per_scalar =
-            eccvm::NUM_WNAF_DIGITS_PER_SCALAR / eccvm::WNAF_DIGITS_PER_ROW;
-        const size_t num_rows_for_precompute_table = msm_count * num_precompute_rows_per_scalar;
-        return static_cast<uint32_t>(num_rows_for_precompute_table);
-    }
-
     /**
      * @brief Given an ecc operation and its inputs, decompose into ultra format and populate ultra_ops
      *

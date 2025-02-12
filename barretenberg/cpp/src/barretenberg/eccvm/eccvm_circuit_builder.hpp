@@ -42,7 +42,7 @@ class ECCVMCircuitBuilder {
 
     [[nodiscard]] uint32_t get_number_of_muls() const
     {
-        return op_queue->cached_num_muls + op_queue->cached_active_msm_count;
+        return op_queue->eccvm_row_tracker.cached_num_muls + op_queue->eccvm_row_tracker.cached_active_msm_count;
     }
 
     std::vector<MSM> get_msms() const
