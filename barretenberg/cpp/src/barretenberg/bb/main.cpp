@@ -1170,6 +1170,11 @@ int main(int argc, char* argv[])
                                             "Write a smart contract suitable for verifying proofs of circuit "
                                             "satisfiability for the circuit with verification key at vk_path. Not all "
                                             "hash types are implemented due to efficiency concerns.");
+    add_scheme_option(contract);
+    add_crs_path_option(contract);
+    add_zk_option(contract);
+    add_vk_path_option(contract);
+    add_output_path_option(contract, output_path);
 
     /***************************************************************************************************************
      * Subcommand: write_arbitrary_valid_proof_and_vk_to_file

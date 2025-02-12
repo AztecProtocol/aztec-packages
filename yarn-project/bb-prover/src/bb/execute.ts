@@ -306,7 +306,7 @@ export async function generateProof(
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
     const args = getArgs(flavor).concat([
-      '--output_type',
+      '--output_data',
       'bytes_and_fields',
       '--output_content',
       'proof_and_vk',

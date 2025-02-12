@@ -26,9 +26,9 @@ function compile {
   echo_stderr "Generating vk for circuit: $name..."
   SECONDS=0
   local _vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive"
-    local vk_cmd="$_vk_cmd --output_type bytes | xxd -p -c 0"
+    local vk_cmd="$_vk_cmd --output_data bytes | xxd -p -c 0"
   vk=$(dump_fail "$vk_cmd")
-  local vkf_cmd="$_vk_cmd --output_type fields"
+  local vkf_cmd="$_vk_cmd --output_data fields"
   vk_fields=$(dump_fail "$vkf_cmd")
   jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
   echo "Key output at: $key_path (${SECONDS}s)"
