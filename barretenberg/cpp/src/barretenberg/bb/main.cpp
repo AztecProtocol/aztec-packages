@@ -41,7 +41,7 @@
 using namespace bb;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
-const const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
+const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 const auto current_dir = current_path.filename().string();
 
 // Initializes without loading G1
