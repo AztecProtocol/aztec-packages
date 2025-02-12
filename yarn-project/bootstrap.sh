@@ -40,6 +40,9 @@ function lint {
 }
 
 function compile_all {
+  if cache_download yarn-project-$hash.tar.gz; then
+    return
+  fi
   compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
@@ -73,6 +76,10 @@ function compile_all {
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
+
+  if [ ${CI:-0} = 1 ]; then
+    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --exclude-standard | grep -v '^node_modules/')
+  fi
 }
 
 export -f compile_project format lint get_projects compile_all
