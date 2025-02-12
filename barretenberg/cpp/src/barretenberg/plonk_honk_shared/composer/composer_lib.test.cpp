@@ -40,7 +40,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     auto right_idx = builder.add_variable(right);
 
     // create a single lookup from the uint32 XOR table
-    auto accumulators = plookup::get_lookup_accumulators(UINT32_XOR, left, right, /*is_2_to_1_lookup*/ true);
+    auto accumulators = builder.get_lookup_accumulators(UINT32_XOR, left, right, /*is_2_to_1_lookup*/ true);
     builder.create_gates_from_plookup_accumulators(UINT32_XOR, accumulators, left_idx, right_idx);
 
     EXPECT_EQ(builder.lookup_tables.size(), 2);       // we only used two tables, first for 6 bits, second for 2 bits

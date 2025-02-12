@@ -23,7 +23,7 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
     auto key_b = key_b_in.normalize();
     Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
     const plookup::ReadData<bb::fr> lookup_data =
-        plookup::get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
+        ctx->get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
 
     const bool is_key_a_constant = key_a.is_constant();
     plookup::ReadData<field_t<Builder>> lookup;

@@ -232,10 +232,10 @@ void fill_lookup_block(Builder& builder)
                        plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
         const auto input_lo =
             uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_HI, input_hi);
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_LO, input_lo);
+        builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+        builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+        builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_HI, input_hi);
+        builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_LO, input_lo);
 
         // bit ops
         plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);

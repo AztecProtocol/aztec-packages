@@ -322,7 +322,8 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_with_plookup_accumulators)
     const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+    const auto sequence_data_lo =
+        circuit_builder.get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     const auto lookup_witnesses = circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);

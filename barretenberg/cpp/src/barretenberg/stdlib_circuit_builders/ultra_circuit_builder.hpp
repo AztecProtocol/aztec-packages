@@ -332,6 +332,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<fr> ipa_proof;
 
+    // TODO(@zac-williamson) convert these into static const members of a struct
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+    std::array<plookup::MultiTable, plookup::MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+    bool initialised = false;
+
+#ifndef NO_MULTITHREADING
+
+    // The multitables initialisation procedure is not thread-safe, so we need to make sure only 1 thread gets to
+    // initialize them.
+    static std::mutex multi_table_mutex;
+#endif
+
     void populate_public_inputs_block();
 
     void process_non_native_field_multiplications();
@@ -752,13 +765,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
 
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
-    plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
         const plookup::ReadData<FF>& read_values,
         const uint32_t key_a_index,
         std::optional<uint32_t> key_b_index = std::nullopt);
+
+    void init_multi_tables();
+
+    const plookup::MultiTable& get_multitable(plookup::MultiTableId id);
+
+    plookup::ReadData<bb::fr> get_lookup_accumulators(plookup::MultiTableId id,
+                                                      const bb::fr& key_a,
+                                                      const bb::fr& key_b = 0,
+                                                      bool is_2_to_1_lookup = false);
+
+    plookup::BasicTable create_basic_table(plookup::BasicTableId id, size_t index);
 
     /**
      * Generalized Permutation Methods

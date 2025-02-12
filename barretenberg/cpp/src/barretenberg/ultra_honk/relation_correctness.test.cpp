@@ -67,9 +67,9 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
     const auto sequence_data_hi =
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+        circuit_builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
     const auto sequence_data_lo =
-        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+        circuit_builder.get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);

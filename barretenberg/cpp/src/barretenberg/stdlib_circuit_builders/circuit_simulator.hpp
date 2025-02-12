@@ -103,6 +103,14 @@ class CircuitSimulatorBN254 {
         return {};
     };
 
+    plookup::ReadData<bb::fr> get_lookup_accumulators([[maybe_unused]] plookup::MultiTableId id,
+                                                      [[maybe_unused]] const bb::fr& key_a,
+                                                      [[maybe_unused]] const bb::fr& key_b = 0,
+                                                      [[maybe_unused]] bool is_2_to_1_lookup = false)
+    {
+        return {};
+    }
+
     std::vector<uint32_t> decompose_into_default_range(
         [[maybe_unused]] const uint32_t variable_index,
         [[maybe_unused]] const uint64_t num_bits,
