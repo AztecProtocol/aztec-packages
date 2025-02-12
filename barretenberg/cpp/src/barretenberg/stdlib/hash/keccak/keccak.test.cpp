@@ -1,7 +1,7 @@
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "../../primitives/plookup/plookup.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "keccak.hpp"
 #include <gtest/gtest.h>
 
