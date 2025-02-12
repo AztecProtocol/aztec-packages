@@ -49,7 +49,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only origin/cl/ci3.3 HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
@@ -115,7 +115,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only origin/cl/ci3.3 HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
