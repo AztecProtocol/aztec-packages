@@ -10,7 +10,7 @@ where
     store_oracle(contract_address, slot, serialized);
 }
 
-/// Returns data previously stored via `dbStore` in the per-contract non-volatile database. Returns Option::none() if
+/// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns Option::none() if
 /// nothing was stored at the given slot.
 pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, slot: Field) -> Option<T>
 where
@@ -26,7 +26,7 @@ pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
 }
 
 /// Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
-/// structures by avoiding repeated calls to `dbLoad` and `dbStore`.
+/// structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`.
 /// Supports overlapping source and destination regions (which will result in the overlapped source values being
 /// overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
 pub unconstrained fn copy(
@@ -38,7 +38,7 @@ pub unconstrained fn copy(
     copy_oracle(contract_address, src_slot, dst_slot, num_entries);
 }
 
-#[oracle(dbStore)]
+#[oracle(storeCapsule)]
 unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
@@ -52,17 +52,17 @@ unconstrained fn store_oracle<let N: u32>(
 /// require for the oracle resolver to know the shape of T (e.g. if T were a struct of 3 u32 values then the expected
 /// response shape would be 3 single items, whereas it were a struct containing `u32, [Field;10], u32` then the expected
 /// shape would be single, array, single.). Instead, we return the serialization and deserialize in Noir.
-#[oracle(dbLoad)]
+#[oracle(loadCapsule)]
 unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     array_len: u32,
 ) -> Option<[Field; N]> {}
 
-#[oracle(dbDelete)]
+#[oracle(deleteCapsule)]
 unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field) {}
 
-#[oracle(dbCopy)]
+#[oracle(copyCapsule)]
 unconstrained fn copy_oracle(
     contract_address: AztecAddress,
     src_slot: Field,
@@ -76,7 +76,7 @@ mod test {
     // oracles are hooked up correctly.
 
     use crate::{
-        oracle::pxe_db::{copy, delete, load, store},
+        oracle::capsules::{copy, delete, load, store},
         test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
     };
     use protocol_types::{address::AztecAddress, traits::{FromField, ToField}};
