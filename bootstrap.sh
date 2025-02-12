@@ -115,6 +115,9 @@ function test_cmds {
 function test {
   echo_header "test all"
 
+  # Make sure KIND starts so it is running by the time we do spartan tests.
+  spartan/bootstrap.sh kind &>/dev/null &
+
   # Starting txe servers with incrementing port numbers.
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -129,7 +132,7 @@ function test {
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
         [ $j == 60 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
         sleep 1
-        ((j++))
+        j=$((j+1))
       done
   done
 
