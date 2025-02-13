@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739451917630,
+  "lastUpdate": 1739452909175,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d120cbe852e4d182f499f99f3cd2bcbe69139d16",
-          "message": "fix: Fuzzer value mutation and instruction write (#11570)\n\nThis pr fixes two issues in fuzzers:\r\n\r\n- `mutateFieldElement` \r\n\r\nPreviously in 2/3 cases the value was not mutated at all. The rest of\r\nthe cases were handled by LibFuzzer completely. Now it's not.\r\n\r\n\r\n- `writeInstruciton`\r\n\r\nThe value that was written using `memcpy` was parsed incorrectly by\r\n`field::serialize_from_buffer`.",
-          "timestamp": "2025-01-30T23:44:33+03:00",
-          "tree_id": "a0c8bfb3b1c98227a4e5cab88c333f637a0c4b31",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d120cbe852e4d182f499f99f3cd2bcbe69139d16"
-        },
-        "date": 1738271401482,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19432.045724000032,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16532.336044999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21921.358182000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19430.957736 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4212.391630000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3854.9158070000008 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75002.674347,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75002674000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14848.363000000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14848364000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3232912435,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3232912435 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141857476,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141857476 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 132330572,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132330572 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "domuradical@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "domuradical@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "distinct": false,
+          "id": "d246cc15018c274f19245ecb265a47d1b29a0e34",
+          "message": "Merge remote-tracking branch 'origin/master' into ci3-release-test",
+          "timestamp": "2025-02-13T12:43:30Z",
+          "tree_id": "d1ff4074788357fe88993c67462d22f037bfed02",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d246cc15018c274f19245ecb265a47d1b29a0e34"
+        },
+        "date": 1739452893389,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18364.56830899988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16299.085409 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18707.920687000296,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16394.771189 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4073.3246640002108,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3181.764426 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55097.61531100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55097618000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11357.524494,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11357548000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1823060326,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1823060326 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133866437,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133866437 ns\nthreads: 1"
           }
         ]
       }
