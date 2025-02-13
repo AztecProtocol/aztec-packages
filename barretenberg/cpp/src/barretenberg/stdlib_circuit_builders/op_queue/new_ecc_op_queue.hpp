@@ -34,12 +34,11 @@ class NewECCOpQueue {
     // Tracks numer of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
-    // WORKTODO: instead of chunk maybe segment? subtable?
-    struct UltraTableChunk {
+    struct UltraSubtable {
         std::array<std::vector<fr>, 4> columns;
-        std::unique_ptr<UltraTableChunk> prev;
+        std::unique_ptr<UltraSubtable> prev;
 
-        UltraTableChunk(const size_t size_hint = 0)
+        UltraSubtable(const size_t size_hint = 0)
         {
             // reserve space for the columns
             for (auto& column : columns) {
@@ -68,38 +67,38 @@ class NewECCOpQueue {
         }
     };
 
-    std::unique_ptr<UltraTableChunk> head = std::make_unique<UltraTableChunk>();
+    std::unique_ptr<UltraSubtable> current_ultra_subtable = std::make_unique<UltraSubtable>();
 
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    void append_ultra_op(const UltraOp& op) { head->append_operation(op); }
+    void append_ultra_op(const UltraOp& op) { current_ultra_subtable->append_operation(op); }
 
-    size_t ultra_ops_size() const
+    size_t ultra_ops_table_size() const
     {
         size_t total_size = 0;
-        for (auto* chunk = head.get(); chunk != nullptr; chunk = chunk->prev.get()) {
-            total_size += chunk->size();
+        for (auto* subtable = current_ultra_subtable.get(); subtable != nullptr; subtable = subtable->prev.get()) {
+            total_size += subtable->size();
         }
         return total_size;
     }
 
-    void concatenate_subtable(const size_t size_hint = 0)
+    void concatenate_ultra_subtable(const size_t size_hint = 0)
     {
-        auto new_head = std::make_unique<UltraTableChunk>(size_hint); // new empty table chunk
-        new_head->prev = std::move(head);                             // link new chunk to current head
-        head = std::move(new_head);                                   // update head
+        auto new_ultra_subtable = std::make_unique<UltraSubtable>(size_hint); // new empty subtable
+        new_ultra_subtable->prev = std::move(current_ultra_subtable);         // link new subtable to current subtable
+        current_ultra_subtable = std::move(new_ultra_subtable);               // update current subtable
     }
 
     void populate_ultra_ops_table(std::array<std::span<Fr>, ULTRA_OPS_TABLE_WIDTH>& ultra_ops_table)
     {
         size_t i = 0;
-        for (auto* chunk = head.get(); chunk != nullptr; chunk = chunk->prev.get()) {
-            for (size_t j = 0; j < chunk->size(); ++j) {
-                ultra_ops_table[0][i] = chunk->columns[0][j];
-                ultra_ops_table[1][i] = chunk->columns[1][j];
-                ultra_ops_table[2][i] = chunk->columns[2][j];
-                ultra_ops_table[3][i] = chunk->columns[3][j];
+        for (auto* subtable = current_ultra_subtable.get(); subtable != nullptr; subtable = subtable->prev.get()) {
+            for (size_t j = 0; j < subtable->size(); ++j) {
+                ultra_ops_table[0][i] = subtable->columns[0][j];
+                ultra_ops_table[1][i] = subtable->columns[1][j];
+                ultra_ops_table[2][i] = subtable->columns[2][j];
+                ultra_ops_table[3][i] = subtable->columns[3][j];
                 ++i;
             }
         }
@@ -288,7 +287,7 @@ class NewECCOpQueue {
         }
 
         append_to_ultra_ops(ultra_op);
-        head->append_operation(ultra_op);
+        current_ultra_subtable->append_operation(ultra_op);
 
         return ultra_op;
     }

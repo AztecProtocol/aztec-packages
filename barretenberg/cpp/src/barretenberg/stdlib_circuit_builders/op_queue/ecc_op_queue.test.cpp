@@ -26,11 +26,11 @@ class ECCOpQueueTest : public ::testing::Test {
             table[3].push_back(op.z_2);
         }
 
-        // Construct the mock ultra ops table such that the chunks appear in reverse order, as if prepended
-        MockUltraOpsTable(const auto& ops_chunks)
+        // Construct the= ultra ops table such that the subtables appear in reverse order, as if prepended
+        MockUltraOpsTable(const auto& subtable_ops)
         {
-            for (auto& ops_chunk : std::ranges::reverse_view(ops_chunks)) {
-                for (const auto& op : ops_chunk) {
+            for (auto& ops : std::ranges::reverse_view(subtable_ops)) {
+                for (const auto& op : ops) {
                     append(op);
                 }
             }
@@ -113,54 +113,52 @@ TEST(ECCOpQueueTest, New)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
 
-TEST(ECCOpQueueTest, NewConstruction)
+TEST(ECCOpQueueTest, ConcatenatedTableConstruction)
 {
-    // Construct chunks of ultra ops, each representing the set of ops added by a single circuit
-    const size_t NUM_CHUNKS = 3;
-    std::array<std::vector<UltraOp>, NUM_CHUNKS> ultra_ops_chunks;
-    std::array<size_t, NUM_CHUNKS> chunk_sizes = { 4, 2, 7 };
-    for (auto [chunk, size] : zip_view(ultra_ops_chunks, chunk_sizes)) {
-        for (size_t i = 0; i < size; ++i) {
-            chunk.push_back(ECCOpQueueTest::random_ultra_op());
+    // Construct sets of ultra ops, each representing those added by a single circuit
+    const size_t NUM_SUBTABLES = 3;
+    std::array<std::vector<UltraOp>, NUM_SUBTABLES> subtable_ultra_ops;
+    std::array<size_t, NUM_SUBTABLES> subtable_op_counts = { 4, 2, 7 };
+    for (auto [subtable_ops, op_count] : zip_view(subtable_ultra_ops, subtable_op_counts)) {
+        for (size_t i = 0; i < op_count; ++i) {
+            subtable_ops.push_back(ECCOpQueueTest::random_ultra_op());
         }
     }
 
-    // Construct the mock ultra ops table which contains the chunks ordered in reverse (as if prepended)
-    ECCOpQueueTest::MockUltraOpsTable mock_table(ultra_ops_chunks);
+    // Construct the mock ultra ops table which contains the subtables ordered in reverse (as if prepended)
+    ECCOpQueueTest::MockUltraOpsTable expected_ultra_ops_table(subtable_ultra_ops);
 
     // Construct the concatenated table internal to the op queue
     NewECCOpQueue op_queue;
-    for (const auto& chunk : ultra_ops_chunks) {
-        for (const auto& op : chunk) {
+    for (const auto& subtable_ops : subtable_ultra_ops) {
+        for (const auto& op : subtable_ops) {
             op_queue.append_ultra_op(op);
         }
-        op_queue.concatenate_subtable();
+        op_queue.concatenate_ultra_subtable();
     }
 
-    // Compute the expected total table size as the sum of the chink sizes times 2
+    // Compute the expected total table size as the sum of the subtable op counts times 2
     size_t expected_table_size = 0;
-    for (const auto& size : chunk_sizes) {
-        expected_table_size += size * 2;
+    for (const auto& count : subtable_op_counts) {
+        expected_table_size += count * 2;
     }
 
-    EXPECT_EQ(op_queue.ultra_ops_size(), expected_table_size);
-    EXPECT_EQ(mock_table.size(), expected_table_size);
+    // Check that the ultra ops table internal to the op queue has the correct size
+    EXPECT_EQ(op_queue.ultra_ops_table_size(), expected_table_size);
 
+    // Define a storage for the genuine ultra ops table and populate using the data stored in the op queue
     std::array<std::vector<fr>, 4> ultra_ops_table;
-    for (auto& column : ultra_ops_table) {
-        column.resize(expected_table_size);
-    }
-
     std::array<std::span<fr>, 4> ultra_ops_table_spans;
     for (auto [column_span, column] : zip_view(ultra_ops_table_spans, ultra_ops_table)) {
+        column.resize(expected_table_size);
         column_span = column;
     }
-
     op_queue.populate_ultra_ops_table(ultra_ops_table_spans);
 
     // ultra_ops_table[2][3] += 1;
 
-    for (auto [expected_column, column] : zip_view(mock_table.table, ultra_ops_table)) {
+    // Check that the ultra ops table constructed by the op queue matches the expected table
+    for (auto [expected_column, column] : zip_view(expected_ultra_ops_table.table, ultra_ops_table)) {
         for (auto [expected_value, value] : zip_view(expected_column, column)) {
             EXPECT_EQ(expected_value, value);
         }
