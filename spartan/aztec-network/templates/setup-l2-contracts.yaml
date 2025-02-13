@@ -88,8 +88,8 @@ spec:
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
-            - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.execution.externalHost }}"
+            - name: EXTERNAL_ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
             - name: ETHEREUM_PORT
               value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST

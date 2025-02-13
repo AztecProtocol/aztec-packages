@@ -113,7 +113,7 @@ aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofCl
 env_args=()
 if [ "$sepolia_run" = "true" ]; then
   env_args+=(
-    -e ETHEREUM_HOSTS="$EXTERNAL_ETHEREUM_HOST"
+    -e ETHEREUM_HOSTS="$EXTERNAL_ETHEREUM_HOSTS"
     -e SEPOLIA_RUN="true"
   )
 fi

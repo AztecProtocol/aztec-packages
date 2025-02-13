@@ -16,7 +16,7 @@ ethereum:
   validatorKeyIndexStart: 1
   chainId: "11155111"
   execution:
-    externalHost:
+    externalHosts:
   beacon:
     externalHost:
     apiKey:

@@ -64,7 +64,7 @@ function generate_overrides {
   local overrides="$1"
   if [ -n "$overrides" ]; then
     # Split the comma-separated string into an array and generate --set arguments
-    IFS=',' read -ra OVERRIDE_ARRAY <<< "$overrides"
+    IFS=',' read -ra OVERRIDE_ARRAY <<<"$overrides"
     for override in "${OVERRIDE_ARRAY[@]}"; do
       echo "--set $override"
     done
@@ -93,7 +93,7 @@ helm_set_args=(
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
   helm_set_args+=(
-    --set ethereum.execution.externalHost="$EXTERNAL_ETHEREUM_HOST"
+    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"

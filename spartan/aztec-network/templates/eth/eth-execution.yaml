@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.execution.externalHost }}
+{{- if not .Values.ethereum.execution.externalHosts }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

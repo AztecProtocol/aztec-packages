@@ -70,7 +70,7 @@ ethereum:
   l1FixedPriorityFeePerGas: 3
   deployL1ContractsPrivateKey:
   execution:
-    externalHost:
+    externalHosts:
     resources:
       requests:
         memory: "1Gi"

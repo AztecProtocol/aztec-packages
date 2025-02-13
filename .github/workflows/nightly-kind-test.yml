@@ -19,7 +19,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
+  EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
   EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
   GCP_API_KEY_HEADER: "X-goog-api-key"
 jobs:
@@ -121,7 +121,7 @@ jobs:
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
 
               # Set the sepolia run variables
-              export EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
+              export EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}

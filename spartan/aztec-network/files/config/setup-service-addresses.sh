@@ -81,8 +81,8 @@ function get_service_address() {
 }
 
 # Configure Ethereum execution client address
-if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
-  ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
+if [ "${EXTERNAL_ETHEREUM_HOSTS}" != "" ]; then
+  ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOSTS}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
   ETHEREUM_ADDR=$(get_load_balancer_ip "eth-execution" "${ETHEREUM_PORT}")
 else
