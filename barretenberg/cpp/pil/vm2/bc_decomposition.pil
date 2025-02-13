@@ -12,10 +12,6 @@ sel * (1 - sel) = 0;
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
 sel = 0;
-// REMARK ON SKIPPABLE: Some relations were "augmented" with factor sel in order to
-// be skippable. On the other hand, all boolean relations have no sel factor.
-// TODO: Determine whether skippable condition should be more complex or
-//       all relations be augmented with sel factor.
 
 // Size of the sliding window.
 // This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
@@ -60,17 +56,21 @@ sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) +
 #[BC_DEC_PC_ZERO_INITIALIZATION]
 (precomputed.first_row + last_of_contract) * pc' = 0;
 
+// Allows to decrease the degree of relations #[BC_DEC_PC_INCREMENT], #[BC_DEC_BYTES_REMAINING_DECREMENT], #[BC_DEC_ID_CONSTANT]
+// Mutual exclusivity allows to use an addition for a logical OR.
+last_of_contract * precomputed.first_row = 0;
+
 // pc evolution (increment within bytecode)
 #[BC_DEC_PC_INCREMENT]
-sel * (1 - last_of_contract) * (pc' - pc - 1) = 0;
+(1 - last_of_contract - precomputed.first_row) * (pc' - pc - 1) = 0;
 
 // bytes_remaining evolution (decrement within bytecode)
 #[BC_DEC_BYTES_REMAINING_DECREMENT]
-sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
+(1 - last_of_contract - precomputed.first_row) * (bytes_remaining' - bytes_remaining + 1) = 0;
 
 // TODO: Clarify the need for maintaining the bytecode id constant within a given contract
 #[BC_DEC_ID_CONSTANT]
-sel * (1 - last_of_contract) * (id' - id) = 0;
+(1 - last_of_contract - precomputed.first_row) * (id' - id) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
 #[LOOKUP_BYTECODE_BYTES_ARE_BYTES]
