@@ -15,7 +15,7 @@ import {
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 
