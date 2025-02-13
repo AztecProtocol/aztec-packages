@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739465963402,
+  "lastUpdate": 1739476141297,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84741533+jewelofchaos9@users.noreply.github.com",
-            "name": "defkit",
-            "username": "jewelofchaos9"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dddab22934b3abb798dbf204bccb68b557ee2193",
-          "message": "fix:  barretenber/stdlib/logic bugs (#11651)\n\nChunks are underconstrained if chunk_size  != 32\r\n`a == a_chunk[0] + a_chunk[1] * 2**32  + a_chunk[2] * 2**64...`\r\nTaking \r\n`a_chunk[0]  == a & (2 ** 33 - 1)`\r\n`a_chunk[1] == (a >> 33) & (2 ** 31 - 1)` \r\nWe receive valid witness\r\n\r\n---------\r\n\r\nCo-authored-by: root <root@ip-172-31-2-58.eu-central-1.compute.internal>",
-          "timestamp": "2025-02-03T13:07:41Z",
-          "tree_id": "ab294b01e45ef16fa73f9015cf489ef9726192b3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193"
-        },
-        "date": 1738589199409,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19571.291003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16750.087306 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21533.471905999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18712.34356 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4535.5377549999785,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4158.643636000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72923.275393,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72923275000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13573.823908000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13573824000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3058357023,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3058357023 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142811330,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142811330 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 147715099,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 147715099 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be1b563ffe99689af45c9241a1d94d53de1c4e35",
+          "message": "chore: op wires index from 0 (#11986)\n\nThe ecc op relation in Mega is designed to check that the ecc op data\nhas been duplicated across the wires and ecc_op_wires. Because the wires\nneed to be shifted, they contain a zero row, meaning the ecc op data is\nstored starting from index 1. Prior to this PR, the op wires also stored\nthe data this way, even though they dont need to be shifted. Its more\nconvenient for the ecc op wires to index from zero. This is achieved by\nsimply utilizing the shifted wires in the relation so that we check\necc_op_wire[i] = wire[i+1].\n\nNote: also fixes an incorrect skip condition in the EccOpRelation that\nwas not caught prior due to an unrelated bug that will be fixed in\nanother PR.",
+          "timestamp": "2025-02-13T12:31:44-07:00",
+          "tree_id": "8a0820276c52745ef79a215c3bdb37b28429aa03",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be1b563ffe99689af45c9241a1d94d53de1c4e35"
+        },
+        "date": 1739476133902,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20560.81565299996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17695.849037000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21682.422184000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18906.432971000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4472.108256000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4163.633242 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73320.063362,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73320063000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13456.631414999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13456632000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2611656601,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2611656601 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142926815,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142926815 ns\nthreads: 1"
           }
         ]
       }
