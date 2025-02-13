@@ -35,9 +35,7 @@ function test {
 
 function test_cmds {
   for browser in chromium webkit; do
-    # TODO(#11874): reinstate once fixed, failing since b33f1da9
-    #for box in vanilla react vite; do
-    for box in vanilla react; do
+    for box in vanilla react vite; do
       echo "boxes/scripts/run_test.sh $box $browser"
     done
   done

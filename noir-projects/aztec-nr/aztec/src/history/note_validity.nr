@@ -6,6 +6,7 @@ trait ProveNoteValidity {
     fn prove_note_validity<Note, let N: u32>(
         header: BlockHeader,
         note: Note,
+        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
@@ -13,12 +14,17 @@ trait ProveNoteValidity {
 }
 
 impl ProveNoteValidity for BlockHeader {
-    fn prove_note_validity<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_validity<Note, let N: u32>(
+        self,
+        note: Note,
+        storage_slot: Field,
+        context: &mut PrivateContext,
+    )
     where
         Note: NoteInterface<N> + NullifiableNote,
     {
-        self.prove_note_inclusion(note);
-        self.prove_note_not_nullified(note, context);
+        self.prove_note_inclusion(note, storage_slot);
+        self.prove_note_not_nullified(note, storage_slot, context);
     }
 }
 
