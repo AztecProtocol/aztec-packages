@@ -54,7 +54,7 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn compute_note_hash(self) -> Field {
+///     fn compute_note_hash(self, storage_slot: Field) -> Field {
 ///         ...
 ///     }
 /// }
@@ -123,7 +123,7 @@ comptime fn generate_note_interface(
 
     let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
-        .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
         .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
@@ -151,7 +151,7 @@ comptime fn generate_note_interface(
                 self.header
             }
 
-            fn compute_note_hash(self) -> Field {
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
                 $new_aux_vars
                 let point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],

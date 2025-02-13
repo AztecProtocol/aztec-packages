@@ -20,12 +20,12 @@ import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
   type L1ContractAddresses,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';

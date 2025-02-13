@@ -278,7 +278,9 @@ Code is formatted using `clang-format` and the `./cpp/format.sh` script which is
 
 ### Testing
 
-Each module has its own tests. e.g. To build and run `ecc` tests:
+Each module has its own tests. See `./cpp/scripts/bb-tests.sh` for an exhaustive list of test module names.
+
+e.g. To build and run `ecc` tests:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use

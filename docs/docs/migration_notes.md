@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.76.0
+## TBD
 
 ### The tree of protocol contract addresses is now an indexed tree
 
@@ -34,6 +34,59 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 +     private_call_data.protocol_contract_membership_witness,
 +     protocol_contract_tree_root,
 + );
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+We are in a process of discontinuing `NoteHeader` from notes.
+This led us to do the following changes to `NoteInterface`:
+
+```diff
+pub trait NullifiableNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field;
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
+}
+
+pub trait NoteInterface<let N: u32> {
+-    fn compute_note_hash(self) -> Field;
++    fn compute_note_hash(self, storage_slot: Field) -> Field;
+}
+```
+
+If you are using `#[note]` or `#[partial_note(...)]` macros this should not affect you as these functions are auto-generated.
+If you use `#[note_custom_interface]` macro you will need to update your notes.
+These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
+
+```diff
++ use dep::aztec::protocol_types::utils::arrays::array_concat;
+
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+...
+-    fn compute_note_hash(self) -> Field {
++    fn compute_note_hash(self, storage_slot: Field) -> Field {
+-        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
++        let inputs = array_concat(self.pack_content(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
+}
+
+impl NullifiableNote for EcdsaPublicKeyNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
++        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
 ```
 
 ## 0.75.0

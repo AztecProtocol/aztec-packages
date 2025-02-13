@@ -82,6 +82,7 @@ function test_cmds {
   echo "$run_test compose composed/e2e_pxe"
   echo "$run_test compose composed/e2e_sandbox_example"
   echo "$run_test compose composed/integration_l1_publisher"
+  echo "$run_test compose e2e_token_bridge_tutorial_test"
   echo "$run_test compose sample-dapp/index"
   echo "$run_test compose sample-dapp/ci/index"
   echo "$run_test compose guides/dapp_testing"

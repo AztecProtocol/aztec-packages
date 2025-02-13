@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.2...barretenberg-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* **avm:** Sequential lookup resolution ([#11769](https://github.com/AztecProtocol/aztec-packages/issues/11769)) ([3980f6c](https://github.com/AztecProtocol/aztec-packages/commit/3980f6cb58f51723296c1db3e6228c242377c935))
+* Native world state now supports checkpointing  ([#11739](https://github.com/AztecProtocol/aztec-packages/issues/11739)) ([6464059](https://github.com/AztecProtocol/aztec-packages/commit/6464059047f5e563b4a2207c72ea57d84f1b43cc))
+
+
+### Bug Fixes
+
+* Empty blocks can now be unwound ([#11920](https://github.com/AztecProtocol/aztec-packages/issues/11920)) ([fdc2042](https://github.com/AztecProtocol/aztec-packages/commit/fdc2042d318eb00082c1f014066d4f177c5f72a1))
+* Lmdb cmake race condition ([#11959](https://github.com/AztecProtocol/aztec-packages/issues/11959)) ([031200d](https://github.com/AztecProtocol/aztec-packages/commit/031200db80fcb77fcf4d04ca9bd6c535dbbbd92c))
+* Memory fragmentation fixes to cut UltraHonk memory usage by 26% ([#11895](https://github.com/AztecProtocol/aztec-packages/issues/11895)) ([b4e2264](https://github.com/AztecProtocol/aztec-packages/commit/b4e2264a9a7df027f5266f1f88b014bd72af76f0))
+
+
+### Miscellaneous
+
+* Only take FF (and not Flavor) in compute_logderivative_inverse ([#11938](https://github.com/AztecProtocol/aztec-packages/issues/11938)) ([bbbded3](https://github.com/AztecProtocol/aztec-packages/commit/bbbded313eef8d7dd8c42a658d7076d1ead4d761))
+* Op queue cleanup ([#11925](https://github.com/AztecProtocol/aztec-packages/issues/11925)) ([082ed66](https://github.com/AztecProtocol/aztec-packages/commit/082ed66bee121c29621e73540e930c6162ff9e8c))
+* Use RelationChecker in relation correctness tests and add Translator interleaving test ([#11878](https://github.com/AztecProtocol/aztec-packages/issues/11878)) ([ed215e8](https://github.com/AztecProtocol/aztec-packages/commit/ed215e8d86eb9cc441bc60be090d0225d03e1fb3))
+
 ## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.1...barretenberg-v0.76.2) (2025-02-11)
 
 
