@@ -141,7 +141,6 @@ export async function makeCall(
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [
       await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
-      await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
     ]);
   } else {
     return new BatchCall(context.wallet, [
