@@ -11,24 +11,28 @@ use dep::protocol_types::hash::{
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(
     note_with_header: Note,
+    storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
     let header = note_with_header.get_header();
-    let note_hash_for_nullify = compute_note_hash_for_nullify(note_with_header);
+    let note_hash_for_nullify = compute_note_hash_for_nullify(note_with_header, storage_slot);
     let inner_nullifier = note_with_header.compute_nullifier(context, note_hash_for_nullify);
 
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_read_request<Note, let N: u32>(note: Note) -> Field
+pub fn compute_note_hash_for_read_request<Note, let N: u32>(
+    note: Note,
+    storage_slot: Field,
+) -> Field
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    let note_hash = note.compute_note_hash();
+    let note_hash = note.compute_note_hash(storage_slot);
     let header = note.get_header();
     let nonce = header.nonce;
     let counter = header.note_hash_counter;
@@ -108,11 +112,11 @@ where
 //     }
 // }
 
-pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note) -> Field
+pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note, storage_slot: Field) -> Field
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note);
+    let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
     compute_note_hash_for_nullify_internal(note, note_hash_for_read_request)
 }
 
@@ -120,6 +124,7 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32,
     unpack_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     compute_nullifier: bool,
+    storage_slot: Field,
     packed_note_content: [Field; S],
 ) -> [Field; 4]
 where
@@ -128,12 +133,12 @@ where
     let mut note = unpack_content(array::subarray(packed_note_content, 0));
     note.set_header(note_header);
 
-    let note_hash = note.compute_note_hash();
+    let note_hash = note.compute_note_hash(storage_slot);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, note_hash);
     let unique_note_hash = compute_unique_note_hash(note_header.nonce, siloed_note_hash);
 
     let inner_nullifier = if compute_nullifier {
-        note.compute_nullifier_without_context()
+        note.compute_nullifier_without_context(storage_slot)
     } else {
         0
     };
