@@ -4,6 +4,10 @@
 
 namespace bb::plookup {
 
+// TODO(@zac-williamson) convert these into static const members of a struct
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::unique_ptr<std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES>> MULTI_TABLES;
+
 const MultiTable& get_multitable(MultiTableId id);
 
 ReadData<bb::fr> get_lookup_accumulators(MultiTableId id,
