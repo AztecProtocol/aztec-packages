@@ -66,6 +66,7 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
+    publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),

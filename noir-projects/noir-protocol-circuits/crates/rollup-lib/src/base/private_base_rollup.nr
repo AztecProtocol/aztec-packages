@@ -348,6 +348,8 @@ mod tests {
             inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
             inputs.constants.global_variables.version = fixtures::VERSION;
             inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
+            inputs.constants.protocol_contract_tree_root =
+                inputs.tube_data.protocol_contract_tree_root;
 
             inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
 

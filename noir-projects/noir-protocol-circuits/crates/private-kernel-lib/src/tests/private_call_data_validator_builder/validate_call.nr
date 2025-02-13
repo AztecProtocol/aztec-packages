@@ -59,11 +59,10 @@ fn validate_call_is_static_creating_contract_class_logs_fails() {
 
 #[test(should_fail_with = "only the class registerer may emit contract class logs")]
 fn validate_call_is_from_class_registerer_fails() {
+    // the default bulder address != REGISTERER_CONTRACT_ADDRESS
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.add_contract_class_log([1]);
-    // set the contract address to be some msg sender (!= REGISTERER_CONTRACT_ADDRESS)
-    builder.private_call.contract_address = builder.private_call.msg_sender;
 
     builder.validate();
 }

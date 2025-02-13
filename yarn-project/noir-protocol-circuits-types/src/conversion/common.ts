@@ -30,6 +30,7 @@ import {
   Point,
   PrivateLog,
   PrivateToRollupAccumulatedData,
+  type ProtocolContractLeafPreimage,
   PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
@@ -68,6 +69,7 @@ import type {
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
+  ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -609,17 +611,17 @@ export function mapStateReferenceFromNoir(stateReference: StateReferenceNoir): S
 }
 
 /**
- * Maps a nullifier leaf preimage to noir
- * @param nullifierLeafPreimage - The nullifier leaf preimage.
- * @returns The noir nullifier leaf preimage.
+ * Maps a partial state reference to a noir partial state reference.
+ * @param partialStateReference - The partial state reference.
+ * @returns The noir partial state reference.
  */
-export function mapNullifierLeafPreimageToNoir(
-  nullifierLeafPreimage: NullifierLeafPreimage,
-): NullifierLeafPreimageNoir {
+export function mapPartialStateReferenceToNoir(
+  partialStateReference: PartialStateReference,
+): PartialStateReferenceNoir {
   return {
-    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
-    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
-    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
+    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
+    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
+    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
   };
 }
 
@@ -638,11 +640,18 @@ export function mapPartialStateReferenceFromNoir(
   );
 }
 
-export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
-  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+/**
+ * Maps a nullifier leaf preimage to noir
+ * @param nullifierLeafPreimage - The nullifier leaf preimage.
+ * @returns The noir nullifier leaf preimage.
+ */
+export function mapNullifierLeafPreimageToNoir(
+  nullifierLeafPreimage: NullifierLeafPreimage,
+): NullifierLeafPreimageNoir {
   return {
-    leaf_index: witness.leafIndex.toString(),
-    sibling_path: siblingPath,
+    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
+    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
+    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
 
@@ -659,17 +668,25 @@ export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPrei
 }
 
 /**
- * Maps a partial state reference to a noir partial state reference.
- * @param partialStateReference - The partial state reference.
- * @returns The noir partial state reference.
+ * Maps a protocol contract leaf preimage to noir
+ * @param protocolContractPreimage - The protocol contract leaf preimage.
+ * @returns The noir protocol contract leaf preimage.
+ * Note: the circuit does not use next_index, so it does not exist in the noir struct.
  */
-export function mapPartialStateReferenceToNoir(
-  partialStateReference: PartialStateReference,
-): PartialStateReferenceNoir {
+export function mapProtocolContractLeafPreimageToNoir(
+  protocolContractPreimage: ProtocolContractLeafPreimage,
+): ProtocolContractLeafPreimageNoir {
   return {
-    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
-    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
-    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
+    address: mapFieldToNoir(protocolContractPreimage.address),
+    next_address: mapFieldToNoir(protocolContractPreimage.nextAddress),
+  };
+}
+
+export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
+  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+  return {
+    leaf_index: witness.leafIndex.toString(),
+    sibling_path: siblingPath,
   };
 }
 
