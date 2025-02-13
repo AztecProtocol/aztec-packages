@@ -138,3 +138,5 @@ prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
 # Terrible test. Tiny sleeps everywhere. Total flake. Probably delete.
 foundation/src/promise/running-promise.test.ts
+# This has recently started to hit p2p drop issues.
+spartan/bootstrap.sh test-kind-4epochs

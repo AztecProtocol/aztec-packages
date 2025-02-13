@@ -56,15 +56,16 @@ function test_cmds {
   fi
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
-  echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-smoke"
+  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
   fi
 }
 
 function test {
   echo_header "spartan test"
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
@@ -116,6 +117,9 @@ case "$cmd" in
     ;;
   "test-kind-4epochs")
     NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    ;;
+  "test-kind-transfer")
+    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
     ;;
   "test-local")
     # Isolate network stack in docker.
