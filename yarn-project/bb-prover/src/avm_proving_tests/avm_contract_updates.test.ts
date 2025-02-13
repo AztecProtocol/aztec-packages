@@ -48,7 +48,7 @@ describe('AVM WitGen & Circuit - contract updates', () => {
   ) => {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
 
-    const valueChange = new ScheduledValueChange(previousClassId, nextClassId, blockOfChange);
+    const valueChange = new ScheduledValueChange([previousClassId], [nextClassId], blockOfChange);
     const delayChange = ScheduledDelayChange.empty();
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, value);

@@ -45,6 +45,18 @@ contract Updatable {
         );
     }
 
+    #[private]
+    fn set_update_delay(new_delay: u32) {
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).set_update_delay(new_delay).enqueue(
+            &mut context,
+        );
+    }
+
+    #[public]
+    fn get_update_delay() -> u32 {
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
+    }
+
     unconstrained fn get_private_value() -> pub Field {
         storage.private_value.view_note().value
     }

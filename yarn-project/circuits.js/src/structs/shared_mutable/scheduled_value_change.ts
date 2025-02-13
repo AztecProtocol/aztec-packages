@@ -1,55 +1,59 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '../../constants.gen.js';
 
-// TODO(Alvaro) make this generic in the length of previous & post so it can be used with other things that are not 1 field sized
 export class ScheduledValueChange {
-  constructor(public previous: Fr, public post: Fr, public blockOfChange: number) {}
-
-  static fromFields(fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    return new this(reader.readField(), reader.readField(), reader.readField().toNumber());
+  constructor(public previous: Fr[], public post: Fr[], public blockOfChange: number) {
+    if (this.previous.length !== this.post.length) {
+      throw new Error('Previous and post must have the same length');
+    }
   }
 
-  toFields(): Tuple<Fr, 3> {
-    return [this.previous, this.post, new Fr(this.blockOfChange)];
+  static fromFields(fields: Fr[] | FieldReader, valueSize: number) {
+    const reader = FieldReader.asReader(fields);
+    return new this(reader.readFieldArray(valueSize), reader.readFieldArray(valueSize), reader.readField().toNumber());
+  }
+
+  toFields(): Fr[] {
+    return [...this.previous, ...this.post, new Fr(this.blockOfChange)];
   }
 
   toBuffer(): Buffer {
     return serializeToBuffer(this.toFields());
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): ScheduledValueChange {
+  static fromBuffer(buffer: Buffer | BufferReader, valueSize: number): ScheduledValueChange {
     const reader = BufferReader.asReader(buffer);
-    return ScheduledValueChange.fromFields(reader.readArray(3, Fr));
+    return ScheduledValueChange.fromFields(reader.readArray(3, Fr), valueSize);
   }
 
-  static empty() {
-    return new this(Fr.ZERO, Fr.ZERO, 0);
+  static empty(valueSize: number) {
+    return new this(Array(valueSize).fill(new Fr(0)), Array(valueSize).fill(new Fr(0)), 0);
   }
 
   isEmpty(): boolean {
-    return this.previous.isZero() && this.blockOfChange === 0 && this.post.isZero();
+    return this.previous.every(v => v.isZero()) && this.post.every(v => v.isZero()) && this.blockOfChange === 0;
   }
 
   static computeSlot(sharedMutableSlot: Fr) {
     return sharedMutableSlot.add(new Fr(SCHEDULED_DELAY_CHANGE_PCKD_LEN));
   }
 
-  static async readFromTree(sharedMutableSlot: Fr, reader: (storageSlot: Fr) => Promise<Fr>) {
+  static async readFromTree(sharedMutableSlot: Fr, valueSize: number, reader: (storageSlot: Fr) => Promise<Fr>) {
     const baseValueSlot = this.computeSlot(sharedMutableSlot);
     const fields = [];
     for (let i = 0; i < 3; i++) {
       fields.push(await reader(baseValueSlot.add(new Fr(i))));
     }
-    return ScheduledValueChange.fromFields(fields);
+    return ScheduledValueChange.fromFields(fields, valueSize);
   }
 
   async writeToTree(sharedMutableSlot: Fr, writer: (storageSlot: Fr, value: Fr) => Promise<void>) {
     const baseValueSlot = ScheduledValueChange.computeSlot(sharedMutableSlot);
     const fields = this.toFields();
-    for (let i = 0; i < 3; i++) {
+
+    for (let i = 0; i < fields.length; i++) {
       await writer(baseValueSlot.add(new Fr(i)), fields[i]);
     }
   }

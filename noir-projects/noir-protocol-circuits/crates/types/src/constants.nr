@@ -772,11 +772,15 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 
+// 24 hours with a slot duration of 24 seconds
 pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
-pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 3;
-pub global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
+// 10 minutes with a slot duration of 24 seconds
+pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 
-// +1 for the delay change
+// Updates hold contract class id, which fit in 1 field.
+pub global UPDATES_VALUE_SIZE: u32 = 1;
+pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
+pub global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
 pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 =
     UPDATES_SCHEDULED_VALUE_CHANGE_LEN + SCHEDULED_DELAY_CHANGE_PCKD_LEN;
 

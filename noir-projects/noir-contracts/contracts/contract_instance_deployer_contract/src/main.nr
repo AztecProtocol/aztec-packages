@@ -2,13 +2,14 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract ContractInstanceDeployer {
-    use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
+    use dep::aztec::macros::{events::event, functions::{private, public, view}, storage::storage};
     use dep::aztec::prelude::{Map, SharedMutable};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
         constants::{
             DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
-            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS,
+            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, MINIMUM_UPDATE_DELAY,
+            REGISTERER_CONTRACT_ADDRESS,
         },
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
@@ -172,5 +173,25 @@ pub contract ContractInstanceDeployer {
         };
 
         context.emit_public_log(event);
+    }
+
+    #[public]
+    fn set_update_delay(new_update_delay: u32) {
+        let address = context.msg_sender();
+
+        assert(
+            context.nullifier_exists(address.to_field(), context.this_address()),
+            "msg.sender is not deployed",
+        );
+
+        assert(new_update_delay >= MINIMUM_UPDATE_DELAY, "Too low of an update delay");
+
+        storage.updated_class_ids.at(address).schedule_delay_change(new_update_delay);
+    }
+
+    #[public]
+    #[view]
+    fn get_update_delay() -> u32 {
+        storage.updated_class_ids.at(context.msg_sender()).get_current_delay()
     }
 }

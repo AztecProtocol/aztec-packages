@@ -8,6 +8,7 @@ import {
   PrivateCircuitPublicInputs,
   ScheduledValueChange,
   UPDATED_CLASS_IDS_SLOT,
+  UPDATES_VALUE_SIZE,
 } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
@@ -128,10 +129,10 @@ export async function verifyCurrentClassId(
   blockNumber: number,
 ) {
   const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-  const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, slot =>
+  const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, slot =>
     node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
   );
-  let currentClassId = valueChange.getCurrentAt(blockNumber);
+  let currentClassId = valueChange.getCurrentAt(blockNumber)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }

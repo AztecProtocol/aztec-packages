@@ -54,8 +54,9 @@ import {
   type TransientDataIndexHint,
   TxConstantData,
   type TxRequest,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
 } from '@aztec/circuits.js';
-import { mapTuple } from '@aztec/foundation/serialize';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {
   CallContext as CallContextNoir,
@@ -609,6 +610,11 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
+  const updatedClassIdValueChangeAsFields = assertLength(
+    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
+    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  );
+
   return {
     function_leaf_membership_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.functionLeafMembershipWitness,
@@ -627,10 +633,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_value_change: mapTuple(
-      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
-      mapFieldToNoir,
-    ),
+    updated_class_id_value_change: mapTuple(updatedClassIdValueChangeAsFields, mapFieldToNoir),
     updated_class_id_delay_change: [
       mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
     ],

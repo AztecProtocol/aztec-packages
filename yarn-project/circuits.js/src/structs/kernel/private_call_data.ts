@@ -2,7 +2,12 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT } from '../../constants.gen.js';
+import {
+  FUNCTION_TREE_HEIGHT,
+  PROTOCOL_CONTRACT_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATES_VALUE_SIZE,
+} from '../../constants.gen.js';
 import { PublicKeys } from '../../types/public_keys.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
@@ -188,7 +193,11 @@ export class UpdatedClassIdHints {
     return new UpdatedClassIdHints(
       reader.readObject(MembershipWitness.deserializer(PUBLIC_DATA_TREE_HEIGHT)),
       reader.readObject(PublicDataTreeLeafPreimage),
-      reader.readObject(ScheduledValueChange),
+      reader.readObject({
+        fromBuffer(reader) {
+          return ScheduledValueChange.fromBuffer(reader, UPDATES_VALUE_SIZE);
+        },
+      }),
       reader.readObject(ScheduledDelayChange),
     );
   }

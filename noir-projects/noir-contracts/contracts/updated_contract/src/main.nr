@@ -6,7 +6,8 @@ contract Updated {
     use aztec::macros::{functions::{private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
-    use aztec::protocol_types::traits::Hash;
+    use aztec::protocol_types::{constants::DEPLOYER_CONTRACT_ADDRESS, traits::Hash};
+    use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -29,6 +30,11 @@ contract Updated {
             owner,
             owner,
         ));
+    }
+
+    #[public]
+    fn get_update_delay() -> u32 {
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
     }
 
     unconstrained fn get_private_value() -> pub Field {

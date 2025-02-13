@@ -12,6 +12,7 @@ import {
   ScheduledValueChange,
   UPDATED_CLASS_IDS_SLOT,
   UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_VALUE_SIZE,
   UpdatedClassIdHints,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -109,7 +110,7 @@ export class KernelOracle implements ProvingDataOracle {
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
 
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, readStorage);
+    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
     const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(

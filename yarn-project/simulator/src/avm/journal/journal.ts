@@ -17,6 +17,7 @@ import {
   SerializableContractInstance,
   UPDATED_CLASS_IDS_SLOT,
   UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_VALUE_SIZE,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import {
@@ -763,7 +764,7 @@ export class AvmPersistableStateManager {
     const readStorage = async (storageSlot: Fr) =>
       (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, storageSlot)).value;
 
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, readStorage);
+    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
 
     const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
 
