@@ -136,7 +136,7 @@ function compile {
 
   # If required, generate solidity verifier for this contract.
   if echo "$name" | grep -qE "${verifier_generate_regex}"; then
-    local verifier_path="$key_dir/${name}_verifier.sol"
+    local verifier_path="./target/${name}_verifier.sol"
     SECONDS=0
     echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
     echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
