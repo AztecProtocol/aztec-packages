@@ -1,7 +1,7 @@
 import { retryUntil, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, AlertTriggeredError } from '../quality_of_service/alert_checker.js';
 import { applyProverKill, isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -25,7 +25,7 @@ const logger = createLogger('e2e:spartan-test:prover-node');
  * unique inputs for each txs so jobs will only get cached after crash recovery.
  * We could also use the tube proof for this, but in a simulated network, all tube proof jobs take the same input proof: the empty private kernel proof.
  */
-const PROOF_TYPE = '"PUBLIC_BASE_ROLLLUP"'; // note: double quotes!
+const PROOF_TYPE = '"PUBLIC_BASE_ROLLUP"'; // note: double quotes!
 const interval = '1m';
 const cachedBaseRollupJobs = {
   alert: 'CachedBaseRollupRate',
@@ -68,8 +68,8 @@ describe('prover node recovery', () => {
       async () => {
         try {
           await runAlertCheck(config, [newBaseRollupJobs], logger);
-        } catch {
-          return true;
+        } catch (err) {
+          return err && err instanceof AlertTriggeredError;
         }
       },
       'wait for base rollups',
@@ -89,6 +89,6 @@ describe('prover node recovery', () => {
     await sleep(60_000);
 
     // assert that jobs have been cached
-    await expect(runAlertCheck(config, [cachedBaseRollupJobs], logger)).rejects.toBeDefined();
+    await expect(runAlertCheck(config, [cachedBaseRollupJobs], logger)).rejects.toBeInstanceOf(AlertTriggeredError);
   }, 1_800_000);
 });
