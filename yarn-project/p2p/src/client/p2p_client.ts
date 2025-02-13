@@ -1,6 +1,7 @@
 import {
   type BlockAttestation,
   type BlockProposal,
+  type EpochProofQuote,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -29,6 +30,7 @@ import { type ENR } from '@chainsafe/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
@@ -69,6 +71,21 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordinati
      * @param proposal - the block proposal
      */
     broadcastProposal(proposal: BlockProposal): void;
+
+    /**
+     * Queries the EpochProofQuote pool for quotes for the given epoch
+     *
+     * @param epoch  - the epoch to query
+     * @returns EpochProofQuotes
+     */
+    getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+
+    /**
+     * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
+     *
+     * @param quote - the quote to broadcast
+     */
+    addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 
     /**
      * Registers a callback from the validator client that determines how to behave when
@@ -194,6 +211,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private txPool: TxPool;
   private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
+  private epochProofQuotePool: EpochProofQuotePool;
 
   /** How many slots to keep attestations for. */
   private keepAttestationsInPoolFor: number;
@@ -242,6 +260,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
 
     this.txPool = mempools.txPool;
+    this.epochProofQuotePool = mempools.epochProofQuotePool;
     this.attestationPool = mempools.attestationPool!;
   }
 
@@ -316,6 +335,26 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     if (!this.isReady()) {
       throw new Error('P2P client not ready');
     }
+  }
+
+  /**
+   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
+   * @param quote - the quote to broadcast
+   */
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    this.epochProofQuotePool.addQuote(quote);
+    this.broadcastEpochProofQuote(quote);
+    return Promise.resolve();
+  }
+
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
+  }
+
+  broadcastEpochProofQuote(quote: EpochProofQuote): void {
+    this.#assertIsReady();
+    this.log.info('Broadcasting epoch proof quote', quote.toViemArgs());
+    return this.p2pService.propagate(quote);
   }
 
   /**
@@ -690,6 +729,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
     if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
+    }
+
+    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpochNumber !== undefined) {
+      this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
 
     await this.synchedProvenBlockNumber.set(lastBlockNum);

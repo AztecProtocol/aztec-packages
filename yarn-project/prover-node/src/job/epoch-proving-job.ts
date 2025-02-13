@@ -63,10 +63,6 @@ export class EpochProvingJob implements Traceable {
     return this.state;
   }
 
-  public getEpochNumber(): bigint {
-    return this.epochNumber;
-  }
-
   /**
    * Proves the given epoch and submits the proof to L1.
    */

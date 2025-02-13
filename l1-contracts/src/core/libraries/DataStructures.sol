@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+
 /**
  * @title Data Structures Library
  * @author Aztec Labs
@@ -73,5 +75,21 @@ library DataStructures {
   struct ExecutionFlags {
     bool ignoreDA;
     bool ignoreSignatures;
+  }
+
+  /**
+   * @notice Struct containing the Epoch Proof Claim
+   * @param epochToProve - the epoch that the bond provider is claiming to prove
+   * @param basisPointFee the fee that the bond provider will receive as a percentage of the block rewards
+   * @param bondAmount - the size of the bond
+   * @param bondProvider - the address that put up the bond
+   * @param proposerClaimant - the address of the proposer that submitted the claim
+   */
+  struct EpochProofClaim {
+    Epoch epochToProve;
+    uint256 basisPointFee;
+    uint256 bondAmount;
+    address bondProvider;
+    address proposerClaimant;
   }
 }

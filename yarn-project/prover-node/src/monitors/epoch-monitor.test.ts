@@ -32,7 +32,7 @@ describe('EpochMonitor', () => {
     epochMonitor.start(handler);
     await sleep(100);
 
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(9n);
+    expect(handler.handleInitialEpochSync).toHaveBeenCalledWith(9n);
   });
 
   it('does not trigger initial epoch sync on epoch zero', async () => {
@@ -40,7 +40,7 @@ describe('EpochMonitor', () => {
     epochMonitor.start(handler);
     await sleep(100);
 
-    expect(handler.handleEpochCompleted).not.toHaveBeenCalled();
+    expect(handler.handleInitialEpochSync).not.toHaveBeenCalled();
   });
 
   it('triggers epoch completion', async () => {
@@ -49,18 +49,17 @@ describe('EpochMonitor', () => {
     epochMonitor.start(handler);
 
     await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(9n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
+    expect(handler.handleEpochCompleted).not.toHaveBeenCalled();
 
     lastEpochComplete = 10n;
     await sleep(100);
     expect(handler.handleEpochCompleted).toHaveBeenCalledWith(10n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
+    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
 
     lastEpochComplete = 11n;
     await sleep(100);
     expect(handler.handleEpochCompleted).toHaveBeenCalledWith(11n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(3);
+    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
   });
 
   it('triggers epoch completion if initial epoch was already complete', async () => {
@@ -70,8 +69,8 @@ describe('EpochMonitor', () => {
     epochMonitor.start(handler);
 
     await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(9n);
+    expect(handler.handleInitialEpochSync).toHaveBeenCalledWith(9n);
     expect(handler.handleEpochCompleted).toHaveBeenCalledWith(10n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
+    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
   });
 });

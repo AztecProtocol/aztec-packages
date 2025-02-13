@@ -89,8 +89,9 @@ export class P2PNetworkTest {
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-        aztecProofSubmissionWindow:
-          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecEpochProofClaimWindowInL2Slots:
+          initialValidatorConfig.aztecEpochProofClaimWindowInL2Slots ??
+          l1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
         assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
         initialValidators: [],
       },

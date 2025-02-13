@@ -493,6 +493,7 @@ describe('L1Publisher integration', () => {
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${(await block.header.hash()).toBuffer().toString('hex')}`,
               oracleInput: {
+                provingCostModifier: 0n,
                 feeAssetPriceModifier: 0n,
               },
               txHashes: [],

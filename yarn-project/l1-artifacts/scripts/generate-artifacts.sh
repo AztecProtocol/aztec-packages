@@ -22,6 +22,8 @@ contracts=(
   "FeeJuicePortal"
   "MockVerifier"
   "IVerifier"
+  "IProofCommitmentEscrow"
+  "ProofCommitmentEscrow"
   "CoinIssuer"
   "RewardDistributor"
   "GovernanceProposer"
@@ -126,7 +128,7 @@ done
 # Update index.ts exports
 echo "export * from './RollupStorage.js';" >>"generated/index.ts"
 
-# Write abis hash. Consider excluding some contracts from this hash if
+# Write abis hash. Consider excluding some contracts from this hash if 
 # we don't want to consider them as breaking for the interfaces.
 echo "export const AbisChecksum = \"$(echo -n "$abis" | sha256sum | cut -d' ' -f1)\";" >"generated/checksum.ts"
 echo "export * from './checksum.js';" >>"generated/index.ts"

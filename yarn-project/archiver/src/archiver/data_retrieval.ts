@@ -223,6 +223,7 @@ async function getBlockFromRollupTx(
       archive: Hex;
       blockHash: Hex;
       oracleInput: {
+        provingCostModifier: bigint;
         feeAssetPriceModifier: bigint;
       };
       txHashes: Hex[];
@@ -416,8 +417,7 @@ export async function getProofFromSubmitProofTx(
   if (functionName === 'submitEpochRootProof') {
     const [decodedArgs] = args as readonly [
       {
-        start: bigint;
-        end: bigint;
+        epochSize: bigint;
         args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
         fees: readonly Hex[];
         aggregationObject: Hex;

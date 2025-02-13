@@ -577,7 +577,7 @@ async function makeRollupTx(l2Block: L2Block) {
     abi: RollupAbi,
     functionName: 'propose',
     args: [
-      { header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] },
+      { header, archive, blockHash, oracleInput: { provingCostModifier: 0n, feeAssetPriceModifier: 0n }, txHashes: [] },
       [],
       body,
       blobInput,

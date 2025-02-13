@@ -1,6 +1,7 @@
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
+import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { Tx } from '../tx/tx.js';
 import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
 
@@ -29,6 +30,12 @@ describe('P2PApiSchema', () => {
     const attestations = await context.client.getAttestationsForSlot(BigInt(1), 'proposalId');
     expect(attestations).toEqual([BlockAttestation.empty()]);
     expect(attestations[0]).toBeInstanceOf(BlockAttestation);
+  });
+
+  it('getEpochProofQuotes', async () => {
+    const quotes = await context.client.getEpochProofQuotes(BigInt(1));
+    expect(quotes).toEqual([EpochProofQuote.empty()]);
+    expect(quotes[0]).toBeInstanceOf(EpochProofQuote);
   });
 
   it('getPendingTxs', async () => {
@@ -64,15 +71,16 @@ class MockP2P implements P2PApi {
     expect(proposalId).toEqual('proposalId');
     return Promise.resolve([BlockAttestation.empty()]);
   }
-
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    expect(epoch).toEqual(1n);
+    return Promise.resolve([EpochProofQuote.empty()]);
+  }
   async getPendingTxs(): Promise<Tx[]> {
     return [await Tx.random()];
   }
-
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr');
   }
-
   getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);

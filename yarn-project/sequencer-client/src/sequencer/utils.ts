@@ -1,5 +1,4 @@
-import type { BlockAttestation } from '@aztec/circuit-types';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { BlockAttestation, EthAddress } from '@aztec/circuit-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 
 export enum SequencerState {

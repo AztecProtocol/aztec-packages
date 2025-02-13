@@ -85,6 +85,10 @@ export class ProverNodePublisher {
     return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
   }
 
+  public getProofClaim() {
+    return this.rollupContract.getProofClaim();
+  }
+
   public async submitEpochProof(args: {
     epochNumber: number;
     fromBlock: number;
@@ -201,12 +205,11 @@ export class ProverNodePublisher {
 
     const txArgs = [
       {
-        start: argsArray[0],
-        end: argsArray[1],
-        args: argsArray[2],
-        fees: argsArray[3],
-        blobPublicInputs: argsArray[4],
-        aggregationObject: argsArray[5],
+        epochSize: argsArray[0],
+        args: argsArray[1],
+        fees: argsArray[2],
+        blobPublicInputs: argsArray[3],
+        aggregationObject: argsArray[4],
         proof: proofHex,
       },
     ] as const;
@@ -249,8 +252,7 @@ export class ProverNodePublisher {
     proof: Proof;
   }) {
     return [
-      BigInt(args.fromBlock),
-      BigInt(args.toBlock),
+      BigInt(args.toBlock - args.fromBlock + 1),
       [
         args.publicInputs.previousArchive.root.toString(),
         args.publicInputs.endArchive.root.toString(),
