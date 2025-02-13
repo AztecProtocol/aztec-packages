@@ -32,6 +32,7 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
 >;
 
 export class RollupContract {
@@ -62,7 +63,10 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
@@ -184,6 +188,7 @@ export class RollupContract {
       rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
+      slashFactoryAddress,
     ] = (
       await Promise.all([
         this.rollup.read.INBOX(),
@@ -192,6 +197,7 @@ export class RollupContract {
         this.rollup.read.REWARD_DISTRIBUTOR(),
         this.rollup.read.ASSET(),
         this.rollup.read.getStakingAsset(),
+        this.rollup.read.getSlashFactory(),
       ] as const)
     ).map(EthAddress.fromString);
 
@@ -203,6 +209,7 @@ export class RollupContract {
       feeJuiceAddress,
       stakingAssetAddress,
       rewardDistributorAddress,
+      slashFactoryAddress,
     };
   }
 

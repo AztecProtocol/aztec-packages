@@ -19,6 +19,8 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
+  RegisterNewRollupVersionPayloadAbi,
+  RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
   RegistryBytecode,
   RewardDistributorAbi,
@@ -61,6 +63,8 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
+import { RegistryContract } from './contracts/registry.js';
+import { RollupContract } from './contracts/rollup.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients } from './types.js';
@@ -183,6 +187,10 @@ export const l1Artifacts = {
     contractAbi: SlashFactoryAbi,
     contractBytecode: SlashFactoryBytecode as Hex,
   },
+  registerNewRollupVersionPayload: {
+    contractAbi: RegisterNewRollupVersionPayloadAbi,
+    contractBytecode: RegisterNewRollupVersionPayloadBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -245,6 +253,167 @@ export function createL1Clients(
 
   return { walletClient, publicClient } as L1Clients;
 }
+
+export const deployRollupAndUpgradePayload = async (
+  rpcUrl: string,
+  chain: Chain,
+  account: HDAccount | PrivateKeyAccount,
+  args: DeployL1ContractsArgs,
+  addresses: Pick<
+    L1ContractAddresses,
+    'registryAddress' | 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
+  >,
+  logger: Logger,
+  txUtilsConfig: L1TxUtilsConfig,
+) => {
+  const rollup = await deployRollup(rpcUrl, chain, account, args, addresses, logger, txUtilsConfig);
+  const payloadAddress = await deployUpgradePayload(
+    rpcUrl,
+    chain,
+    account,
+    args,
+    {
+      ...addresses,
+      rollupAddress: EthAddress.fromString(rollup.address),
+    },
+    logger,
+    txUtilsConfig,
+  );
+
+  return { rollup, payloadAddress };
+};
+
+export const deployUpgradePayload = async (
+  rpcUrl: string,
+  chain: Chain,
+  account: HDAccount | PrivateKeyAccount,
+  args: DeployL1ContractsArgs,
+  addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
+  logger: Logger,
+  txUtilsConfig: L1TxUtilsConfig,
+) => {
+  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+
+  const payloadAddress = await deployer.deploy(l1Artifacts.registerNewRollupVersionPayload, [
+    addresses.registryAddress.toString(),
+    addresses.rollupAddress.toString(),
+  ]);
+
+  return payloadAddress;
+};
+
+export const deployRollup = async (
+  rpcUrl: string,
+  chain: Chain,
+  account: HDAccount | PrivateKeyAccount,
+  args: DeployL1ContractsArgs,
+  addresses: Pick<L1ContractAddresses, 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'>,
+  logger: Logger,
+  txUtilsConfig: L1TxUtilsConfig,
+): Promise<RollupContract> => {
+  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+
+  const rollupConfigArgs = {
+    aztecSlotDuration: args.aztecSlotDuration,
+    aztecEpochDuration: args.aztecEpochDuration,
+    targetCommitteeSize: args.aztecTargetCommitteeSize,
+    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
+    minimumStake: args.minimumStake,
+    slashingQuorum: args.slashingQuorum,
+    slashingRoundSize: args.slashingRoundSize,
+  };
+  logger.verbose(`Rollup config args`, rollupConfigArgs);
+  const rollupArgs = [
+    addresses.feeJuicePortalAddress.toString(),
+    addresses.rewardDistributorAddress.toString(),
+    addresses.stakingAssetAddress.toString(),
+    args.vkTreeRoot.toString(),
+    args.protocolContractTreeRoot.toString(),
+    args.genesisArchiveRoot.toString(),
+    args.genesisBlockHash.toString(),
+    account.address.toString(),
+    rollupConfigArgs,
+  ];
+
+  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
+  logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+
+  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
+
+  await deployer.waitForDeployments();
+  logger.verbose(`All core contracts have been deployed`);
+
+  const rollup = getContract({
+    address: getAddress(rollupAddress.toString()),
+    abi: l1Artifacts.rollup.contractAbi,
+    client: walletClient,
+  });
+
+  const txHashes: Hex[] = [];
+
+  // Set initial blocks as proven if requested
+  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
+    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
+    logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
+  }
+
+  if (args.initialValidators && args.initialValidators.length > 0) {
+    // Check if some of the initial validators are already registered, so we support idempotent deployments
+    const validatorsInfo = await Promise.all(
+      args.initialValidators.map(async address => ({ address, ...(await rollup.read.getInfo([address.toString()])) })),
+    );
+    const existingValidators = validatorsInfo.filter(v => v.status !== 0);
+    if (existingValidators.length > 0) {
+      logger.warn(
+        `Validators ${existingValidators.map(v => v.address).join(', ')} already exist. Skipping from initialization.`,
+      );
+    }
+
+    const newValidatorsAddresses = validatorsInfo.filter(v => v.status === 0).map(v => v.address.toString());
+
+    if (newValidatorsAddresses.length > 0) {
+      const stakingAsset = getContract({
+        address: addresses.stakingAssetAddress.toString(),
+        abi: l1Artifacts.stakingAsset.contractAbi,
+        client: walletClient,
+      });
+      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+      const stakeNeeded = args.minimumStake * BigInt(newValidatorsAddresses.length);
+      await Promise.all(
+        [
+          await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
+          await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
+        ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+      );
+
+      const validators = newValidatorsAddresses.map(v => ({
+        attester: v,
+        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
+        withdrawer: v,
+        amount: args.minimumStake,
+      }));
+      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
+      txHashes.push(initiateValidatorSetTxHash);
+      logger.info(`Initialized validator set`, {
+        validators,
+        txHash: initiateValidatorSetTxHash,
+      });
+    }
+  }
+
+  {
+    const txHash = await rollup.write.setSlashFactory([slashFactoryAddress.toString()], { account });
+    logger.verbose(`Rollup set slash factory in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
+  await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
+
+  return new RollupContract(publicClient, rollupAddress);
+};
 
 /**
  * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
@@ -336,50 +505,16 @@ export const deployL1Contracts = async (
   ]);
   logger.verbose(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
-  logger.verbose(`Waiting for governance contracts to be deployed`);
-  await govDeployer.waitForDeployments();
-  logger.verbose(`All governance contracts deployed`);
-
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, args.l1TxConfig ?? {});
-
-  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
+  const feeJuicePortalAddress = await govDeployer.deploy(l1Artifacts.feeJuicePortal, [
     registryAddress.toString(),
     feeAssetAddress.toString(),
     args.l2FeeJuiceAddress.toString(),
   ]);
   logger.verbose(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
 
-  const rollupConfigArgs = {
-    aztecSlotDuration: args.aztecSlotDuration,
-    aztecEpochDuration: args.aztecEpochDuration,
-    targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
-    minimumStake: args.minimumStake,
-    slashingQuorum: args.slashingQuorum,
-    slashingRoundSize: args.slashingRoundSize,
-  };
-  logger.verbose(`Rollup config args`, rollupConfigArgs);
-  const rollupArgs = [
-    feeJuicePortalAddress.toString(),
-    rewardDistributorAddress.toString(),
-    stakingAssetAddress.toString(),
-    args.vkTreeRoot.toString(),
-    args.protocolContractTreeRoot.toString(),
-    args.genesisArchiveRoot.toString(),
-    args.genesisBlockHash.toString(),
-    account.address.toString(),
-    rollupConfigArgs,
-  ];
-  await deployer.waitForDeployments();
-
-  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
-  logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
-
-  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
-  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
-
-  await deployer.waitForDeployments();
-  logger.verbose(`All core contracts have been deployed`);
+  logger.verbose(`Waiting for governance contracts to be deployed`);
+  await govDeployer.waitForDeployments();
+  logger.verbose(`All governance contracts deployed`);
 
   const feeJuicePortal = getContract({
     address: feeJuicePortalAddress.toString(),
@@ -392,65 +527,19 @@ export const deployL1Contracts = async (
     abi: l1Artifacts.feeAsset.contractAbi,
     client: walletClient,
   });
-
-  const stakingAsset = getContract({
-    address: stakingAssetAddress.toString(),
-    abi: l1Artifacts.stakingAsset.contractAbi,
-    client: walletClient,
-  });
-
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: l1Artifacts.rollup.contractAbi,
-    client: walletClient,
-  });
-
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
-  {
+  if (!(await feeAsset.read.freeForAll())) {
     const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
     logger.verbose(`Fee asset set to free for all in ${txHash}`);
     txHashes.push(txHash);
   }
 
-  if (args.initialValidators && args.initialValidators.length > 0) {
-    // Check if some of the initial validators are already registered, so we support idempotent deployments
-    const validatorsInfo = await Promise.all(
-      args.initialValidators.map(async address => ({ address, ...(await rollup.read.getInfo([address.toString()])) })),
-    );
-    const existingValidators = validatorsInfo.filter(v => v.status !== 0);
-    if (existingValidators.length > 0) {
-      logger.warn(
-        `Validators ${existingValidators.map(v => v.address).join(', ')} already exist. Skipping from initialization.`,
-      );
-    }
-
-    const newValidatorsAddresses = validatorsInfo.filter(v => v.status === 0).map(v => v.address.toString());
-
-    if (newValidatorsAddresses.length > 0) {
-      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = args.minimumStake * BigInt(newValidatorsAddresses.length);
-      await Promise.all(
-        [
-          await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
-          await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
-        ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
-      );
-
-      const validators = newValidatorsAddresses.map(v => ({
-        attester: v,
-        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
-        withdrawer: v,
-        amount: args.minimumStake,
-      }));
-      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
-      txHashes.push(initiateValidatorSetTxHash);
-      logger.info(`Initialized validator set`, {
-        validators,
-        txHash: initiateValidatorSetTxHash,
-      });
-    }
+  if ((await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
+    const txHash = await feeAsset.write.transferOwnership([coinIssuerAddress.toString()], { account });
+    logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
+    txHashes.push(txHash);
   }
 
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
@@ -477,41 +566,15 @@ export const deployL1Contracts = async (
     `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  if (isAnvilTestChain(chain.id)) {
-    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-    try {
-      // Need to get the time
-      const currentSlot = (await rollup.read.getCurrentSlot()) as bigint;
-
-      if (BigInt(currentSlot) === 0n) {
-        const ts = Number(await rollup.read.getTimestampForSlot([1n]));
-        await rpcCall('evm_setNextBlockTimestamp', [ts]);
-        await rpcCall('hardhat_mine', [1]);
-        const currentSlot = (await rollup.read.getCurrentSlot()) as bigint;
-
-        if (BigInt(currentSlot) !== 1n) {
-          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
-        }
-        logger.info(`Jumped to slot 1`);
-      }
-    } catch (e) {
-      throw new Error(`Error jumping time: ${e}`);
-    }
-  }
-
-  // Set initial blocks as proven if requested
-  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
-    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
-    logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
-  }
-
-  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
-  const inboxAddress = EthAddress.fromString((await rollup.read.INBOX()) as any);
-  logger.verbose(`Inbox available at ${inboxAddress}`);
-
-  const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX()) as any);
-  logger.verbose(`Outbox available at ${outboxAddress}`);
+  const rollup = await deployRollup(
+    rpcUrl,
+    chain,
+    account,
+    args,
+    { feeJuicePortalAddress, rewardDistributorAddress, stakingAssetAddress },
+    logger,
+    txUtilsConfig,
+  );
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -519,14 +582,15 @@ export const deployL1Contracts = async (
     abi: l1Artifacts.registry.contractAbi,
     client: walletClient,
   });
-  if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
-    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
+
+  if (!(await registryContract.read.isRollupRegistered([getAddress(rollup.address.toString())]))) {
+    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollup.address.toString())], { account });
     logger.verbose(
-      `Upgrading registry contract at ${registryAddress} to rollup ${rollupAddress} in tx ${upgradeTxHash}`,
+      `Upgrading registry contract at ${registryAddress} to rollup ${rollup.address} in tx ${upgradeTxHash}`,
     );
     txHashes.push(upgradeTxHash);
   } else {
-    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
+    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollup.address}`);
   }
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
@@ -546,23 +610,32 @@ export const deployL1Contracts = async (
   // Wait for all actions to be mined
   await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`All transactions for L1 deployment have been mined`);
-
-  const l1Contracts: L1ContractAddresses = {
-    rollupAddress,
-    registryAddress,
-    inboxAddress,
-    outboxAddress,
-    feeJuiceAddress: feeAssetAddress,
-    stakingAssetAddress,
-    feeJuicePortalAddress,
-    coinIssuerAddress,
-    rewardDistributorAddress,
-    governanceProposerAddress,
-    governanceAddress,
-    slashFactoryAddress,
-  };
+  const l1Contracts = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
+
+  if (isAnvilTestChain(chain.id)) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
+      const currentSlot = await rollup.getSlotNumber();
+
+      if (BigInt(currentSlot) === 0n) {
+        const ts = Number(await rollup.getTimestampForSlot(1n));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = await rollup.getSlotNumber();
+
+        if (BigInt(currentSlot) !== 1n) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
+      }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
+    }
+  }
 
   return {
     walletClient,

@@ -27,6 +27,7 @@ contracts=(
   "GovernanceProposer"
   "Governance"
   "NewGovernanceProposerPayload"
+  "RegisterNewRollupVersionPayload"
   "ValidatorSelectionLib"
   "ExtRollupLib"
   "SlashingProposer"
