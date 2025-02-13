@@ -164,14 +164,3 @@ Paymaster is a contract that can pay for transactions on behalf of users.
 Fee abstraction unlocks use cases like: 
 - Sponsored transactions (e.g. the dapp’s business model might assume revenue from other streams besides transaction fees or the dapp might utilize sponsored transaction mechanics for marketing purposes). For example, sponsoring the first ten transactions for every user. 
 - Flexibility in the currency used in transaction payments (e.g. users can pay for transactions in ERC-20 token).
-
-
-
-
-
-
-A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of [`SharedMutable`](../../../reference/developer_references/smart_contract_reference/storage/shared_state.md#sharedmutable) to enable rotating these keys.
-
-
-
-
