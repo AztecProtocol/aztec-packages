@@ -186,15 +186,9 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       RefVector(instance_witness.unshifted_commitments),
-                                                       RefVector(instance_witness.to_be_shifted_commitments),
-                                                       RefVector(instance_witness.unshifted_evals),
-                                                       RefVector(instance_witness.shifted_evals),
-                                                       mle_opening_point,
-                                                       vk->get_g1_identity(),
-                                                       verifier_transcript);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+        n, instance_witness.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
@@ -243,10 +237,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     const auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       RefVector(instance_witness.unshifted_commitments),
-                                                       RefVector(instance_witness.to_be_shifted_commitments),
-                                                       RefVector(instance_witness.unshifted_evals),
-                                                       RefVector(instance_witness.shifted_evals),
+                                                       instance_witness.claim_batcher,
                                                        mle_opening_point,
                                                        vk->get_g1_identity(),
                                                        verifier_transcript,
@@ -309,16 +300,12 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       RefVector(instance_witness.unshifted_commitments),
-                                                       RefVector(instance_witness.to_be_shifted_commitments),
-                                                       RefVector(instance_witness.unshifted_evals),
-                                                       RefVector(instance_witness.shifted_evals),
-                                                       mle_opening_point,
-                                                       vk->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       repeated_commitments);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
+                                                                                    instance_witness.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    repeated_commitments);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
 

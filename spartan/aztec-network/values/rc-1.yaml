@@ -139,6 +139,10 @@ bot:
   followChain: "PENDING"
   enabled: true
   txIntervalSeconds: 900
+  resources:
+    requests:
+      memory: 15Gi
+      cpu: 7
 
 jobs:
   deployL1Verifier:
