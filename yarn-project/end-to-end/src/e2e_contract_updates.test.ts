@@ -148,6 +148,12 @@ describe('e2e_contract_updates', () => {
         .set_update_delay(MINIMUM_UPDATE_DELAY - 1)
         .send()
         .wait(),
-    ).rejects.toThrow();
+    ).rejects.toThrow('New update delay is too low');
+  });
+
+  it('should not allow to instantiate a contract with an updated class before the update happens', async () => {
+    await expect(UpdatedContract.at(contract.address, wallet)).rejects.toThrow(
+      'Could not update contract to a class different from the current one',
+    );
   });
 });
