@@ -173,7 +173,7 @@ function build {
 
 function bench {
   # TODO bench for arm64.
-  if [ "$CI_FULL" -eq 0 ] && [ $(arch) = amd64 ]; then
+  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
   denoise "barretenberg/cpp/bootstrap.sh bench"
