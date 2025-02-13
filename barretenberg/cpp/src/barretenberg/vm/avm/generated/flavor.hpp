@@ -13,6 +13,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/macros.hpp"
 #include "columns.hpp"
 #include "flavor_settings.hpp"
 
@@ -52,6 +53,19 @@
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
 
+// clang-format off
+// These getters are used to speedup logderivative inverses.
+// See https://github.com/AztecProtocol/aztec-packages/pull/11605/ for a full explanation.
+#define DEFAULT_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return ENTITY; } \
+    inline auto& _##ENTITY() const { return ENTITY; }
+#define ROW_PROXY_GETTERS(ENTITY) \
+    inline auto& _##ENTITY() { return pp.ENTITY[row_idx]; } \
+    inline auto& _##ENTITY() const { return pp.ENTITY[row_idx]; }
+#define DEFINE_GETTERS(GETTER_MACRO, ENTITIES) \
+    FOR_EACH(GETTER_MACRO, ENTITIES)
+// clang-format on
+
 namespace bb::avm {
 
 class AvmFlavor {
@@ -83,8 +97,6 @@ class AvmFlavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 813;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -210,32 +222,29 @@ class AvmFlavor {
                   "AVM circuit. In this case, modify AVM_VERIFICATION_LENGTH_IN_FIELDS \n"
                   "in constants.nr accordingly.");
 
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        using DataType = DataType_;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_PRECOMPUTED_ENTITIES)
-
-        RefVector<DataType> get_selectors() { return get_all(); }
-        RefVector<DataType> get_sigma_polynomials() { return {}; }
-        RefVector<DataType> get_id_polynomials() { return {}; }
-        RefVector<DataType> get_table_polynomials() { return {}; }
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_PRECOMPUTED_ENTITIES)
     };
 
   private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_WIRE_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_DERIVED_WITNESS_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_SHIFTED_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -341,12 +350,26 @@ class AvmFlavor {
         using Base::Base;
     };
 
+    // Only used by VM1 check_circuit. Remove.
     class AllConstRefValues {
       public:
         using BaseDataType = const FF;
         using DataType = BaseDataType&;
-
         DEFINE_FLAVOR_MEMBERS(DataType, AVM_ALL_ENTITIES)
+        DEFINE_GETTERS(DEFAULT_GETTERS, AVM_ALL_ENTITIES)
+    };
+
+    template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
+      public:
+        PolynomialEntitiesAtFixedRow(const size_t row_idx, const Polynomials& pp)
+            : row_idx(row_idx)
+            , pp(pp)
+        {}
+        DEFINE_GETTERS(ROW_PROXY_GETTERS, AVM_ALL_ENTITIES)
+
+      private:
+        const size_t row_idx;
+        const Polynomials& pp;
     };
 
     /**
@@ -365,12 +388,14 @@ class AvmFlavor {
         ProverPolynomials(ProvingKey& proving_key);
 
         size_t get_polynomial_size() const { return main_kernel_inputs.size(); }
-        AllConstRefValues get_row(size_t row_idx) const
+        // This is only used in VM1 check_circuit. Remove.
+        AllConstRefValues get_standard_row(size_t row_idx) const
         {
             return [row_idx](auto&... entities) -> AllConstRefValues {
                 return { entities[row_idx]... };
             }(AVM_ALL_ENTITIES);
         }
+        auto get_row(size_t row_idx) const { return PolynomialEntitiesAtFixedRow<ProverPolynomials>(row_idx, *this); }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

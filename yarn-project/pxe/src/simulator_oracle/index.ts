@@ -101,14 +101,6 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
-  async popCapsule(): Promise<Fr[]> {
-    const capsule = await this.db.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule;
-  }
-
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.db.getNotes({
       contractAddress,
@@ -833,20 +825,20 @@ export class SimulatorOracle implements DBOracle {
     );
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    return this.db.dbStore(contractAddress, slot, values);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    return this.db.storeCapsule(contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.db.dbLoad(contractAddress, slot);
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.loadCapsule(contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.db.dbDelete(contractAddress, slot);
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.deleteCapsule(contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 

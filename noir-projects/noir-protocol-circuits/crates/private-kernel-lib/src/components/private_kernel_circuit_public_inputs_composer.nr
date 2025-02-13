@@ -6,11 +6,11 @@ use dep::types::{
         max_block_number::MaxBlockNumber,
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        side_effect::Ordered,
+        side_effect::{Ordered, OrderedValue},
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    traits::{Empty, is_empty},
+    traits::{Empty, Hash, is_empty},
     transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };

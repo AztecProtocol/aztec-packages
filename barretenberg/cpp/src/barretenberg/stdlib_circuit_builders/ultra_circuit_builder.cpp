@@ -53,6 +53,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         process_RAM_arrays();
         process_range_lists();
 #endif
+        populate_public_inputs_block();
         circuit_finalized = true;
 
         blocks.summarize();
@@ -1796,6 +1797,24 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     });
 
     return std::array<uint32_t, 2>{ lo_1_idx, hi_3_idx };
+}
+
+/**
+ * @brief Copy the public input idx data into the public inputs trace block
+ * @note
+ */
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
+{
+    PROFILE_THIS_NAME("populate_public_inputs_block");
+
+    // Update the public inputs block
+    for (const auto& idx : this->public_inputs) {
+        // first two wires get a copy of the public inputs
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
+        for (auto& selector : this->blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
 }
 
 /**

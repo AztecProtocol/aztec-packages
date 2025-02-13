@@ -58,7 +58,7 @@ describe('e2e_block_building', () => {
   let cheatCodes: CheatCodes;
   let teardown: () => Promise<void>;
 
-  const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
+  const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -126,7 +126,8 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const isContractDeployed = async (address: AztecAddress) =>
+        !!(await pxe.getContractMetadata(address)).contractInstance;
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
@@ -507,6 +508,7 @@ describe('e2e_block_building', () => {
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
+        ethereumSlotDuration: 6,
       }));
 
       logger.info('Deploying token contract');
@@ -572,10 +574,9 @@ describe('e2e_block_building', () => {
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
-      // Now move to a new epoch and past the proof claim window to cause a reorg
-      logger.info('Advancing past the proof claim window');
+      logger.info('Advancing past the proof submission window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(aztecEpochProofClaimWindowInL2Slots + 1); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1);
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);

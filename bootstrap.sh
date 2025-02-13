@@ -316,9 +316,9 @@ check_toolchains
 projects=(
   noir
   barretenberg
-  l1-contracts
   avm-transpiler
   noir-projects
+  l1-contracts
   yarn-project
   boxes
 )

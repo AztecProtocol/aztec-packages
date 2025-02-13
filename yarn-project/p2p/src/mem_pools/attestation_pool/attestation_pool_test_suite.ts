@@ -200,18 +200,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     compareAttestations(retreivedAttestationsAfterDeleteForOtherProposal, attestations2);
   });
 
-  it('Should blanket delete attestations per slot and proposal (does not perform db ops if there are no attestations)', async () => {
-    const slotNumber = 420;
-    const proposalId = 'proposalId';
-
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
-    expect(retreivedAttestations.length).toBe(0);
-
-    await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
-
-    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledTimes(0);
-  });
-
   it('Should delete attestations older than a given slot', async () => {
     const slotNumbers = [1, 2, 3, 69, 72, 74, 88, 420];
     const attestations = (

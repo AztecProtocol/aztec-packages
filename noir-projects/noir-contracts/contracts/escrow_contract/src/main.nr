@@ -1,8 +1,10 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 use dep::aztec::macros::aztec;
 
+mod test;
+
 #[aztec]
-contract Escrow {
+pub contract Escrow {
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private}, storage::storage},

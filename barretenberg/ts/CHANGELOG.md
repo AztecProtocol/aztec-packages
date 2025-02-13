@@ -1,5 +1,78 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.3...barretenberg.js-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* Unify webpack dev server versions ([#11965](https://github.com/AztecProtocol/aztec-packages/issues/11965)) ([921d2cd](https://github.com/AztecProtocol/aztec-packages/commit/921d2cd9de54a9fd7cc49e4951c9fa65ab1526ef))
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.2...barretenberg.js-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* **perf:** Speed up construction of bbjs Frs & cache zero hashes in ephemeral trees (redo) ([#11894](https://github.com/AztecProtocol/aztec-packages/issues/11894)) ([e093acf](https://github.com/AztecProtocol/aztec-packages/commit/e093acff0f251608010abaff7139dd077ca34afd))
+
+
+### Bug Fixes
+
+* Memory fragmentation fixes to cut UltraHonk memory usage by 26% ([#11895](https://github.com/AztecProtocol/aztec-packages/issues/11895)) ([b4e2264](https://github.com/AztecProtocol/aztec-packages/commit/b4e2264a9a7df027f5266f1f88b014bd72af76f0))
+
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.1...barretenberg.js-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.0...barretenberg.js-v0.76.1) (2025-02-10)
+
+
+### Features
+
+* **perf:** Speed up construction of bbjs Frs & cache zero hashes in ephemeral trees ([#11851](https://github.com/AztecProtocol/aztec-packages/issues/11851)) ([2b5afe3](https://github.com/AztecProtocol/aztec-packages/commit/2b5afe3012210c56a5c058524121b9521da78fc2))
+
+
+### Bug Fixes
+
+* Revert "feat(perf): speed up construction of bbjs Frs & cache zero hashes in ephemeral trees" ([#11893](https://github.com/AztecProtocol/aztec-packages/issues/11893)) ([99fdab9](https://github.com/AztecProtocol/aztec-packages/commit/99fdab9dcf39d25462aa26b5fd9adad5c09586f8))
+
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.75.0...barretenberg.js-v0.76.0) (2025-02-10)
+
+
+### Bug Fixes
+
+* **bb.js:** Make wasm imports bundleable ([#11812](https://github.com/AztecProtocol/aztec-packages/issues/11812)) ([1af69a9](https://github.com/AztecProtocol/aztec-packages/commit/1af69a973ae878a38b7e6b81422fe7671e67d9e5))
+* Remove unnecessary console.log ([#11810](https://github.com/AztecProtocol/aztec-packages/issues/11810)) ([8a320bf](https://github.com/AztecProtocol/aztec-packages/commit/8a320bf69502662ca9403bd294e633b2d45a7869))
+
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.74.0...barretenberg.js-v0.75.0) (2025-02-06)
+
+
+### Miscellaneous
+
+* Better bundling for bb.js, remove aztec.js bundling ([#11761](https://github.com/AztecProtocol/aztec-packages/issues/11761)) ([8cc3f0a](https://github.com/AztecProtocol/aztec-packages/commit/8cc3f0a9f2753e942d7055f2ccddc96e6f4c7f94))
+* Playground name change ([#11720](https://github.com/AztecProtocol/aztec-packages/issues/11720)) ([c5cbf65](https://github.com/AztecProtocol/aztec-packages/commit/c5cbf659ffebff15d3609c0cb92d732133691ea0))
+
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.73.0...barretenberg.js-v0.74.0) (2025-02-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.72.1...barretenberg.js-v0.73.0) (2025-02-01)
+
+
+### Features
+
+* Lazy wasm pt4 ([#11491](https://github.com/AztecProtocol/aztec-packages/issues/11491)) ([f553f58](https://github.com/AztecProtocol/aztec-packages/commit/f553f58ee5f405414a7d0c402c679ffe5c4d62ef))
+
+
+### Miscellaneous
+
+* Simplified bb.js bundling ([#11622](https://github.com/AztecProtocol/aztec-packages/issues/11622)) ([8408ede](https://github.com/AztecProtocol/aztec-packages/commit/8408ede53e5dd6c855c5a4b544099dc828bcea31))
+
 ## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.72.0...barretenberg.js-v0.72.1) (2025-01-24)
 
 
@@ -12,7 +85,7 @@
 
 ### Features
 
-* Gaztec ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
+* Aztec Playground ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
 * Lazy wasm pt.1 ([#11371](https://github.com/AztecProtocol/aztec-packages/issues/11371)) ([864bc6f](https://github.com/AztecProtocol/aztec-packages/commit/864bc6f34431dee17e76c476716821996d2ff9e5))
 * Lazy wasm pt3 ([#11435](https://github.com/AztecProtocol/aztec-packages/issues/11435)) ([7068d05](https://github.com/AztecProtocol/aztec-packages/commit/7068d055d91a6e81e6fbb670e17c77ee209a1a80))
 * UH recursion in the browser ([#11049](https://github.com/AztecProtocol/aztec-packages/issues/11049)) ([c3c04a4](https://github.com/AztecProtocol/aztec-packages/commit/c3c04a4cb92f0447431160d425bda66a997c0d66))

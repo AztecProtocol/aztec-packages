@@ -5,7 +5,7 @@ mod test_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Test {
+pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
@@ -13,14 +13,14 @@ contract Test {
         event::encode_and_encrypt_event_unconstrained, note::encode_and_encrypt_note,
     };
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateSet,
+        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
+        PrivateImmutable, PrivateSet, PublicImmutable, SharedMutable,
     };
 
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::Serialize,
+        traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
     };
 
@@ -36,7 +36,6 @@ contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::pxe_db,
         test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
@@ -61,10 +60,28 @@ contract Test {
         value4: Field,
     }
 
+    #[derive(Eq, Packable)]
+    struct ExampleStruct {
+        value0: Field,
+        value1: Field,
+        value2: Field,
+        value3: Field,
+        value4: Field,
+    }
+
+    global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
+
+    // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
+    // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
         example_constant: PrivateImmutable<TestNote, Context>,
+        example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
         example_set: PrivateSet<TestNote, Context>,
+        example_struct: PrivateImmutable<ExampleStruct, Context>,
+        example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
+        example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
 
     #[private]
@@ -467,21 +484,12 @@ contract Test {
         constant.value
     }
 
-    unconstrained fn store_in_pxe_db(key: Field, arbitrary_struct: MockStruct) {
-        pxe_db::store(context.this_address(), key, arbitrary_struct);
-    }
-
-    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 2] {
-        let maybe_arbitrary_struct: Option<MockStruct> = pxe_db::load(context.this_address(), key);
-        let arbitrary_struct = maybe_arbitrary_struct.unwrap_or(MockStruct::new(0, 0));
-        arbitrary_struct.serialize()
-    }
-
     #[private]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
 
+    #[derive(Serialize)]
     pub struct DummyNote {
         amount: Field,
         secret_hash: Field,
@@ -494,12 +502,6 @@ contract Test {
 
         fn get_commitment(self) -> Field {
             pedersen_hash([self.amount, self.secret_hash], 0)
-        }
-    }
-
-    impl Serialize<2> for DummyNote {
-        fn serialize(self) -> [Field; 2] {
-            [self.amount, self.secret_hash]
         }
     }
 

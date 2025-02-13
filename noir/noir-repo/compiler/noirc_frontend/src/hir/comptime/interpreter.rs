@@ -14,7 +14,7 @@ use crate::elaborator::Elaborator;
 use crate::graph::CrateId;
 use crate::hir::def_map::ModuleId;
 use crate::hir::type_check::TypeCheckError;
-use crate::hir_def::expr::ImplKind;
+use crate::hir_def::expr::{HirConstrainExpression, HirEnumConstructorExpression, ImplKind};
 use crate::hir_def::function::FunctionBody;
 use crate::monomorphization::{
     perform_impl_bindings, perform_instantiation_bindings, resolve_trait_method,
@@ -32,8 +32,8 @@ use crate::{
             HirPrefixExpression,
         },
         stmt::{
-            HirAssignStatement, HirConstrainStatement, HirForStatement, HirLValue, HirLetStatement,
-            HirPattern, HirStatement,
+            HirAssignStatement, HirForStatement, HirLValue, HirLetStatement, HirPattern,
+            HirStatement,
         },
         types::Kind,
     },
@@ -532,6 +532,7 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
             HirExpression::MemberAccess(access) => self.evaluate_access(access, id),
             HirExpression::Call(call) => self.evaluate_call(call, id),
             HirExpression::MethodCall(call) => self.evaluate_method_call(call, id),
+            HirExpression::Constrain(constrain) => self.evaluate_constrain(constrain),
             HirExpression::Cast(cast) => self.evaluate_cast(&cast, id),
             HirExpression::If(if_) => self.evaluate_if(if_, id),
             HirExpression::Tuple(tuple) => self.evaluate_tuple(tuple),
@@ -539,6 +540,9 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
             HirExpression::Quote(tokens) => self.evaluate_quote(tokens, id),
             HirExpression::Comptime(block) => self.evaluate_block(block),
             HirExpression::Unsafe(block) => self.evaluate_block(block),
+            HirExpression::EnumConstructor(constructor) => {
+                self.evaluate_enum_constructor(constructor, id)
+            }
             HirExpression::Unquote(tokens) => {
                 // An Unquote expression being found is indicative of a macro being
                 // expanded within another comptime fn which we don't currently support.
@@ -1285,6 +1289,16 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         Ok(Value::Struct(fields, typ))
     }
 
+    fn evaluate_enum_constructor(
+        &mut self,
+        constructor: HirEnumConstructorExpression,
+        id: ExprId,
+    ) -> IResult<Value> {
+        let fields = try_vecmap(constructor.arguments, |arg| self.evaluate(arg))?;
+        let typ = self.elaborator.interner.id_type(id).unwrap_forall().1.follow_bindings();
+        Ok(Value::Enum(constructor.variant_index, fields, typ))
+    }
+
     fn evaluate_access(&mut self, access: HirMemberAccess, id: ExprId) -> IResult<Value> {
         let (fields, struct_type) = match self.evaluate(access.lhs)? {
             Value::Struct(fields, typ) => (fields, typ),
@@ -1547,9 +1561,9 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
     pub fn evaluate_statement(&mut self, statement: StmtId) -> IResult<Value> {
         match self.elaborator.interner.statement(&statement) {
             HirStatement::Let(let_) => self.evaluate_let(let_),
-            HirStatement::Constrain(constrain) => self.evaluate_constrain(constrain),
             HirStatement::Assign(assign) => self.evaluate_assign(assign),
             HirStatement::For(for_) => self.evaluate_for(for_),
+            HirStatement::Loop(expression) => self.evaluate_loop(expression),
             HirStatement::Break => self.evaluate_break(statement),
             HirStatement::Continue => self.evaluate_continue(statement),
             HirStatement::Expression(expression) => self.evaluate(expression),
@@ -1572,7 +1586,7 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         Ok(Value::Unit)
     }
 
-    fn evaluate_constrain(&mut self, constrain: HirConstrainStatement) -> IResult<Value> {
+    fn evaluate_constrain(&mut self, constrain: HirConstrainExpression) -> IResult<Value> {
         match self.evaluate(constrain.0)? {
             Value::Bool(true) => Ok(Value::Unit),
             Value::Bool(false) => {
@@ -1723,22 +1737,68 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         let (end, _) = get_index(self, for_.end_range)?;
         let was_in_loop = std::mem::replace(&mut self.in_loop, true);
 
+        let mut result = Ok(Value::Unit);
+
         for i in start..end {
             self.push_scope();
             self.current_scope_mut().insert(for_.identifier.id, make_value(i));
 
-            match self.evaluate(for_.block) {
-                Ok(_) => (),
-                Err(InterpreterError::Break) => break,
-                Err(InterpreterError::Continue) => continue,
-                Err(other) => return Err(other),
-            }
+            let must_break = match self.evaluate(for_.block) {
+                Ok(_) => false,
+                Err(InterpreterError::Break) => true,
+                Err(InterpreterError::Continue) => false,
+                Err(error) => {
+                    result = Err(error);
+                    true
+                }
+            };
 
             self.pop_scope();
+
+            if must_break {
+                break;
+            }
         }
 
         self.in_loop = was_in_loop;
-        Ok(Value::Unit)
+        result
+    }
+
+    fn evaluate_loop(&mut self, expr: ExprId) -> IResult<Value> {
+        let was_in_loop = std::mem::replace(&mut self.in_loop, true);
+        let in_lsp = self.elaborator.interner.is_in_lsp_mode();
+        let mut counter = 0;
+        let mut result = Ok(Value::Unit);
+
+        loop {
+            self.push_scope();
+
+            let must_break = match self.evaluate(expr) {
+                Ok(_) => false,
+                Err(InterpreterError::Break) => true,
+                Err(InterpreterError::Continue) => false,
+                Err(error) => {
+                    result = Err(error);
+                    true
+                }
+            };
+
+            self.pop_scope();
+
+            if must_break {
+                break;
+            }
+
+            counter += 1;
+            if in_lsp && counter == 10_000 {
+                let location = self.elaborator.interner.expr_location(&expr);
+                result = Err(InterpreterError::LoopHaltedForUiResponsiveness { location });
+                break;
+            }
+        }
+
+        self.in_loop = was_in_loop;
+        result
     }
 
     fn evaluate_break(&mut self, id: StmtId) -> IResult<Value> {

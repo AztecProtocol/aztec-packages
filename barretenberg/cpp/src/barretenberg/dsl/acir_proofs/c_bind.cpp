@@ -330,17 +330,21 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
                                        uint8_t const* witness_vec,
                                        uint8_t** out)
 {
-    const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+    // Lambda function to ensure things get freed before proving.
+    UltraProver prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
+                                          acir_format::witness_buf_to_witness_data(
+                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-    acir_format::AcirProgram program{
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
-        acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
-    };
-    {
-        UltraProver prover = construct_prover(program, metadata);
-        auto proof = prover.construct_proof();
-        *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
-    }
+        return UltraProver(builder);
+    }();
+    plookup::MULTI_TABLES.reset();
+
+    auto proof = prover.construct_proof();
+    *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
 }
 
 WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
@@ -348,14 +352,17 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
                                               uint8_t const* witness_vec,
                                               uint8_t** out)
 {
-    auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/1);
-    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+    // Lambda function to ensure things get freed before proving.
+    UltraKeccakProver prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
+                                          acir_format::witness_buf_to_witness_data(
+                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(
-        constraint_system, *recursive, 0, witness, /*honk_recursion=*/1);
-
-    UltraKeccakProver prover{ builder };
+        return UltraKeccakProver(builder);
+    }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
 }
@@ -394,15 +401,16 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
 {
     using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
     using VerificationKey = UltraFlavor::VerificationKey;
-
-    const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
-
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-        from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
-
-    DeciderProvingKey proving_key(builder);
+    // lambda to free the builder
+    DeciderProvingKey proving_key = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        return DeciderProvingKey(builder);
+    }();
     VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
 
@@ -411,14 +419,16 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool c
     using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
-    const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
-
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-        from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
-
-    DeciderProvingKey proving_key(builder);
+    // lambda to free the builder
+    DeciderProvingKey proving_key = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        return DeciderProvingKey(builder);
+    }();
     VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraKeccakHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
 

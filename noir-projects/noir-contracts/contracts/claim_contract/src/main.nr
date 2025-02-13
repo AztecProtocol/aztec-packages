@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Claim {
+pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
         note::utils::compute_note_hash_for_nullify,
@@ -11,6 +11,7 @@ contract Claim {
     use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
+    // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
     #[storage]
     struct Storage<Context> {
         // Address of a contract based on whose notes we distribute the rewards
@@ -27,7 +28,7 @@ contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: UintNote, recipient: AztecAddress) {
+    fn claim(proof_note: UintNote, note_storage_slot: Field, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
@@ -38,7 +39,7 @@ contract Claim {
 
         // 2) Prove that the note hash exists in the note hash tree
         let header = context.get_block_header();
-        header.prove_note_inclusion(proof_note);
+        header.prove_note_inclusion(proof_note, note_storage_slot);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
@@ -47,7 +48,7 @@ contract Claim {
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own or we could make prove_note_inclusion return note_hash_for_nullify.
-        let note_hash_for_nullify = compute_note_hash_for_nullify(proof_note);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(proof_note, note_storage_slot);
         let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_nullify);
         context.push_nullifier(nullifier);
 

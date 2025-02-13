@@ -8,7 +8,149 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### The tree of protocol contract addresses is now an indexed tree
+
+This is to allow for non-membership proofs for non-protocol contract addresses. As before, the canonical protocol contract addresses point to the index of the leaf of the 'real' computed protocol address.
+
+For example, the canonical `DEPLOYER_CONTRACT_ADDRESS` is a constant `= 2`. This is used in the kernels as the `contract_address`. We calculate the `computed_address` (currently `0x1665c5fbc1e58ba19c82f64c0402d29e8bbf94b1fde1a056280d081c15b0dac1`) and check that this value exists in the indexed tree at index `2`. This check already existed and ensures that the call cannot do 'special' protocol contract things unless it is a real protocol contract.
+
+The new check an indexed tree allows is non-membership of addresses of non protocol contracts. This ensures that if a call is from a protocol contract, it must use the canonical address. For example, before this check a call could be from the deployer contract and use `0x1665c5fbc1e58ba19c82f64c0402d29e8bbf94b1fde1a056280d081c15b0dac1` as the `contract_address`, but be incorrectly treated as a 'normal' call.
+
+```diff
+- let computed_protocol_contract_tree_root = if is_protocol_contract {
+-     0
+- } else {
+-     root_from_sibling_path(
+-         computed_address.to_field(),
+-         protocol_contract_index,
+-         private_call_data.protocol_contract_sibling_path,
+-     )
+- };
+
++ conditionally_assert_check_membership(
++     computed_address.to_field(),
++     is_protocol_contract,
++     private_call_data.protocol_contract_leaf,
++     private_call_data.protocol_contract_membership_witness,
++     protocol_contract_tree_root,
++ );
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+We are in a process of discontinuing `NoteHeader` from notes.
+This led us to do the following changes to `NoteInterface`:
+
+```diff
+pub trait NullifiableNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field;
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
+}
+
+pub trait NoteInterface<let N: u32> {
+-    fn compute_note_hash(self) -> Field;
++    fn compute_note_hash(self, storage_slot: Field) -> Field;
+}
+```
+
+If you are using `#[note]` or `#[partial_note(...)]` macros this should not affect you as these functions are auto-generated.
+If you use `#[note_custom_interface]` macro you will need to update your notes.
+These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
+
+```diff
++ use dep::aztec::protocol_types::utils::arrays::array_concat;
+
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+...
+-    fn compute_note_hash(self) -> Field {
++    fn compute_note_hash(self, storage_slot: Field) -> Field {
+-        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
++        let inputs = array_concat(self.pack_content(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
+}
+
+impl NullifiableNote for EcdsaPublicKeyNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
++        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
+```
+
+## 0.75.0
+
+### Changes to `TokenBridge` interface
+
+`get_token` and `get_portal_address` functions got merged into a single `get_config` function that returns a struct containing both the token and portal addresses.
+
+### [Aztec.nr] `SharedMutable` can store size of packed length larger than 1
+
+`SharedMutable` has been modified such that now it can store type `T` which packs to a length larger than 1.
+This is a breaking change because now `SharedMutable` requires `T` to implement `Packable` trait instead of `ToField` and `FromField` traits.
+
+To implement the `Packable` trait for your type you can use the derive macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Packable)]
+pub struct YourType {
+    ...
+}
+```
+
+### [Aztec.nr] Introduction of `WithHash<T>`
+
+`WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
+This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
+This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
+
+`WithHash<T>` is leveraged by state variables like `PublicImmutable`.
+This is a breaking change because now we require values stored in `PublicImmutable` and `SharedMutable` to implement the `Eq` trait.
+
+To implement the `Eq` trait you can use the `#[derive(Eq)]` macro:
+
+```diff
++ use std::meta::derive;
+
++ #[derive(Eq)]
+pub struct YourType {
+    ...
+}
+```
+
+## 0.73.0
+
+### [Token, FPC] Moving fee-related complexity from the Token to the FPC
+
+There was a complexity leak of fee-related functionality in the token contract.
+We've came up with a way how to achieve the same objective with the general functionality of the Token contract.
+This lead to the removal of `setup_refund` and `complete_refund` functions from the Token contract and addition of `complete_refund` function to the FPC.
+
+### [Aztec.nr] Improved storage slot allocation
+
+State variables are no longer assumed to be generic over a type that implements the `Serialize` trait: instead, they must implement the `Storage` trait with an `N` value equal to the number of slots they need to reserve.
+
+For the vast majority of state variables, this simply means binding the serialization length to this trait:
+
+```diff
++ impl<T, let N: u32> Storage<N> for MyStateVar<T> where T: Serialize<N> { };
+```
+
 ### [Aztec.nr] Introduction of `Packable` trait
+
 We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array.
 This is in contrast to the `Serialize` and `Deserialize` traits, which follows Noir's intrinsic serialization format.
 This is a breaking change because we now require `Packable` trait implementation for any type that is to be stored in contract storage.
@@ -34,6 +176,7 @@ impl Packable<U128_PACKED_LEN> for U128 {
 ### Logs for notes, partial notes, and events have been refactored.
 
 We're preparing to make log assembly more customisable. These paths have changed.
+
 ```diff
 - use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
 + use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
@@ -48,6 +191,7 @@ The way in which logs are assembled in this "default_aes128" strategy is has als
 You can remove this method from any custom notes or events that you've implemented.
 
 ### [Aztec.nr] Packing notes resulting in changes in `NoteInterface`
+
 Note interface implementation generated by our macros now packs note content instead of serializing it
 With this change notes are being less costly DA-wise to emit when some of the note struct members implements the `Packable` trait (this is typically the `UintNote` which represents `value` as `U128` that gets serialized as 2 fields but packed as 1).
 This results in the following changes in the `NoteInterface`:
@@ -67,8 +211,30 @@ pub trait NoteInterface<let N: u32> {
 }
 ```
 
+### [PXE] Cleanup of Contract and ContractClass information getters
+
+```diff
+- pxe.isContractInitialized
+- pxe.getContractInstance
+- pxe.isContractPubliclyDeployed
++ pxe.getContractMetadata
+```
+
+have been merged into getContractMetadata
+
+```diff
+- pxe.getContractClass
+- pxe.isContractClassPubliclyRegistered
+- pxe.getContractArtifact
++ pxe.getContractClassMetadata
+```
+
+These functions have been merged into `pxe.getContractMetadata` and `pxe.getContractClassMetadata`.
+
 ## 0.72.0
+
 ### Some functions in `aztec.js` and `@aztec/accounts` are now async
+
 In our efforts to make libraries more browser-friendly and providing with more bundling options for `bb.js` (like a non top-level-await version), some functions are being made async, in particular those that access our cryptographic functions.
 
 ```diff
@@ -80,7 +246,9 @@ In our efforts to make libraries more browser-friendly and providing with more b
 ```
 
 ### Public logs replace unencrypted logs
+
 Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
+
 ```diff
 - getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>
 - getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
@@ -89,47 +257,58 @@ Any log emitted from public is now known as a public log, rather than an unencry
 ```
 
 The context method in aztec.nr is now:
+
 ```diff
 - context.emit_unencrypted_log(log)
 + context.emit_public_log(log)
 ```
 
 These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:
+
 ```diff
 - unencryptedLogs: UnencryptedTxL2Logs
 - unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]
 + publicLogs: PublicLog[]
 + public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX]
 ```
+
 A `PublicLog` contains the log (as an array of fields) and the app address.
 
 This PR also renamed encrypted events to private events:
+
 ```diff
 - getEncryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
 + getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
 ```
 
 ## 0.70.0
+
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
+
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
 
 ## 0.68.0
+
 ### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
+
 Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
 when registering contract classes
 
 Function changes in the Node interface and Contract Data source interface:
+
 ```diff
 - addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
 + registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
 ```
 
 So now the PXE registers this when calling `registerContract()`
+
 ```
 await this.node.registerContractFunctionNames(instance.address, functionNames);
 ```
 
 Function changes in the Archiver
+
 ```diff
 - addContractArtifact(address: AztecAddress, artifact: ContractArtifact)
 -  getContractArtifact(address: AztecAddress)
@@ -137,6 +316,7 @@ Function changes in the Archiver
 ```
 
 ### [fees, fpc] Changes in setting up FPC as fee payer on AztecJS and method names in FPC
+
 On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` are now the same. The don't need to specify a sequencer address or which coin to pay in. The coins are set up in the FPC contract!
 
 ```diff
@@ -148,6 +328,7 @@ On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` ar
 ```
 
 Changes in `FeePaymentMethod` class in AztecJS
+
 ```diff
 - getAsset(): AztecAddress;
 + getAsset(): Promise<AztecAddress>;
@@ -163,6 +344,7 @@ Also created a public function `pull_funds()` for admin to clawback any money in
 Expect more changes in FPC in the coming releases!
 
 ### Name change from `contact` to `sender` in PXE API
+
 `contact` has been deemed confusing because the name is too similar to `contract`.
 For this reason we've decided to rename it:
 
@@ -180,6 +362,25 @@ For this reason we've decided to rename it:
 ### Noir contracts package no longer exposes artifacts as default export
 
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
+
+### Blobs
+We now publish the majority of DA in L1 blobs rather than calldata, with only contract class logs remaining as calldata. This replaces all code that touched the `txsEffectsHash`.
+In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
+
+```diff
+- let txs_effects_hash = sha256_to_field(left.txs_effects_hash, right.txs_effects_hash);
++ assert(left.end_sponge_blob.eq(right.start_sponge_blob));
++ let start_sponge_blob = left.start_sponge_blob;
++ let end_sponge_blob = right.end_sponge_blob;
+```
+This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
+On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
+
+```diff
+- bytes32 txsEffectsHash = TxsDecoder.decode(_body);
++ bytes32 blobHash = _validateBlob(blobInput);
+```
+Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
 
 ## 0.67.0
 

@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class lookup_byte_lengths_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BYTE_LENGTHS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -35,15 +37,15 @@ class lookup_byte_lengths_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.binary_start == 1 || in.byte_lookup_sel_bin == 1);
+        return (in._binary_start() == 1 || in._byte_lookup_sel_bin() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.binary_start);
-        const auto is_table_entry = View(in.byte_lookup_sel_bin);
+        const auto is_operation = View(in._binary_start());
+        const auto is_table_entry = View(in._byte_lookup_sel_bin());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -59,21 +61,26 @@ class lookup_byte_lengths_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_byte_lengths_inv,
-                                     in.lookup_byte_lengths_counts,
-                                     in.binary_start,
-                                     in.byte_lookup_sel_bin,
-                                     in.binary_in_tag,
-                                     in.binary_mem_tag_ctr,
-                                     in.byte_lookup_table_in_tags,
-                                     in.byte_lookup_table_byte_lengths);
+        return std::forward_as_tuple(in._lookup_byte_lengths_inv(),
+                                     in._lookup_byte_lengths_counts(),
+                                     in._binary_start(),
+                                     in._byte_lookup_sel_bin(),
+                                     in._binary_in_tag(),
+                                     in._binary_mem_tag_ctr(),
+                                     in._byte_lookup_table_in_tags(),
+                                     in._byte_lookup_table_byte_lengths());
     }
 };
 
 template <typename FF_>
 class lookup_byte_lengths_relation : public GenericLookupRelation<lookup_byte_lengths_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BYTE_LENGTHS";
+    static constexpr std::string_view NAME = lookup_byte_lengths_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.binary_start.is_zero() && in.byte_lookup_sel_bin.is_zero();
+    }
 };
 template <typename FF_> using lookup_byte_lengths = GenericLookup<lookup_byte_lengths_lookup_settings, FF_>;
 
@@ -81,6 +88,8 @@ template <typename FF_> using lookup_byte_lengths = GenericLookup<lookup_byte_le
 
 class lookup_byte_operations_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BYTE_OPERATIONS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -105,15 +114,15 @@ class lookup_byte_operations_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.binary_sel_bin == 1 || in.byte_lookup_sel_bin == 1);
+        return (in._binary_sel_bin() == 1 || in._byte_lookup_sel_bin() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.binary_sel_bin);
-        const auto is_table_entry = View(in.byte_lookup_sel_bin);
+        const auto is_operation = View(in._binary_sel_bin());
+        const auto is_table_entry = View(in._byte_lookup_sel_bin());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -129,25 +138,30 @@ class lookup_byte_operations_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in.lookup_byte_operations_inv,
-                                     in.lookup_byte_operations_counts,
-                                     in.binary_sel_bin,
-                                     in.byte_lookup_sel_bin,
-                                     in.binary_op_id,
-                                     in.binary_ia_bytes,
-                                     in.binary_ib_bytes,
-                                     in.binary_ic_bytes,
-                                     in.byte_lookup_table_op_id,
-                                     in.byte_lookup_table_input_a,
-                                     in.byte_lookup_table_input_b,
-                                     in.byte_lookup_table_output);
+        return std::forward_as_tuple(in._lookup_byte_operations_inv(),
+                                     in._lookup_byte_operations_counts(),
+                                     in._binary_sel_bin(),
+                                     in._byte_lookup_sel_bin(),
+                                     in._binary_op_id(),
+                                     in._binary_ia_bytes(),
+                                     in._binary_ib_bytes(),
+                                     in._binary_ic_bytes(),
+                                     in._byte_lookup_table_op_id(),
+                                     in._byte_lookup_table_input_a(),
+                                     in._byte_lookup_table_input_b(),
+                                     in._byte_lookup_table_output());
     }
 };
 
 template <typename FF_>
 class lookup_byte_operations_relation : public GenericLookupRelation<lookup_byte_operations_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BYTE_OPERATIONS";
+    static constexpr std::string_view NAME = lookup_byte_operations_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.binary_sel_bin.is_zero() && in.byte_lookup_sel_bin.is_zero();
+    }
 };
 template <typename FF_> using lookup_byte_operations = GenericLookup<lookup_byte_operations_lookup_settings, FF_>;
 

@@ -16,7 +16,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -37,7 +37,6 @@ import {
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import {
@@ -49,11 +48,12 @@ import {
   TxValidationResultSchema,
 } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
+import { type ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.
@@ -372,6 +372,13 @@ export interface AztecNode
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Method to retrieve multiple pending txs.
+   * @param txHash - The transaction hashes to return.
+   * @returns The pending txs if exist.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+
+  /**
    * Gets the storage value at the given contract storage slot.
    *
    * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
@@ -433,18 +440,6 @@ export interface AztecNode
   getEncodedEnr(): Promise<string | undefined>;
 
   /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
-  /**
    * Adds a contract class bypassing the registerer.
    * TODO(#10007): Remove this method.
    * @param contractClass - The class to register.
@@ -453,9 +448,8 @@ export interface AztecNode
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  ...ProverCoordinationApiSchema,
-
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
@@ -567,6 +561,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
 
+  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
+
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
@@ -585,14 +581,18 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getEncodedEnr: z.function().returns(z.string().optional()),
 
-  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
-
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
-
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
-export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
-  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
+export function createAztecNodeClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
+    namespaceMethods: 'node',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

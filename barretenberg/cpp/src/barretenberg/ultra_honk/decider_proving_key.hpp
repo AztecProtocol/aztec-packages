@@ -81,10 +81,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
              ". Log dyadic circuit size: ",
              numeric::get_msb(dyadic_circuit_size),
              ".");
-
-        // Complete the public inputs execution trace block from circuit.public_inputs
-        Trace::populate_public_inputs_block(circuit);
-        circuit.blocks.compute_offsets(is_structured);
+        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -259,7 +256,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
 
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

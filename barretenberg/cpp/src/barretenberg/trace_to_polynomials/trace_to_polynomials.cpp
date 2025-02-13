@@ -8,25 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
 
-template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    PROFILE_THIS_NAME("populate_public_inputs_block");
-
-    // Update the public inputs block
-    for (const auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
 template <class Flavor>
 void TraceToPolynomials<Flavor>::populate(Builder& builder,
                                           typename Flavor::ProvingKey& proving_key,
@@ -95,11 +76,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 {
     info("in construct_trace_data: start");
     PROFILE_THIS_NAME("construct_trace_data");
-
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // Complete the public inputs execution trace block from builder.public_inputs
-        populate_public_inputs_block(builder);
-    }
 
     TraceData trace_data{ builder, proving_key };
     info("in construct_trace_data: after init TraceData");

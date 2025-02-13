@@ -50,7 +50,7 @@ class ArgumentEncoder {
         } else if (typeof arg === 'bigint') {
           this.flattened.push(new Fr(arg));
         } else if (typeof arg === 'string') {
-          this.flattened.push(Fr.fromHexString(arg));
+          this.flattened.push(Fr.fromString(arg));
         } else if (typeof arg === 'boolean') {
           this.flattened.push(new Fr(arg ? 1n : 0n));
         } else if (typeof arg === 'object') {

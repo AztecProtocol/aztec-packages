@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract InclusionProofs {
+pub contract InclusionProofs {
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
 
@@ -56,6 +56,7 @@ contract InclusionProofs {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
         let note = private_values.get_notes(options).get(0);
+        let note_storage_slot = private_values.storage_slot;
         // docs:end:get_note_from_pxe
         // docs:start:prove_note_inclusion
         // 2) Prove the note inclusion
@@ -65,7 +66,7 @@ contract InclusionProofs {
             context.get_block_header()
         };
 
-        header.prove_note_inclusion(note);
+        header.prove_note_inclusion(note, note_storage_slot);
         // docs:end:prove_note_inclusion
     }
 
@@ -77,6 +78,7 @@ contract InclusionProofs {
     ) {
         let header = context.get_block_header();
         let mut note = ValueNote::new(1, owner);
+        let note_storage_slot = 2;
 
         let header = if (use_block_number) {
             context.get_block_header_at(block_number)
@@ -84,7 +86,7 @@ contract InclusionProofs {
             context.get_block_header()
         };
 
-        header.prove_note_inclusion(note);
+        header.prove_note_inclusion(note, note_storage_slot);
     }
 
     // Proves that the note was not yet nullified at block `block_number`.
@@ -106,6 +108,7 @@ contract InclusionProofs {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
         let note = private_values.get_notes(options).get(0);
+        let note_storage_slot = private_values.storage_slot;
 
         let header = if (use_block_number) {
             context.get_block_header_at(block_number)
@@ -113,7 +116,7 @@ contract InclusionProofs {
             context.get_block_header()
         };
         // docs:start:prove_note_not_nullified
-        header.prove_note_not_nullified(note, &mut context);
+        header.prove_note_not_nullified(note, note_storage_slot, &mut context);
         // docs:end:prove_note_not_nullified
     }
 
@@ -132,6 +135,7 @@ contract InclusionProofs {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
         let note = private_values.get_notes(options).get(0);
+        let note_storage_slot = private_values.storage_slot;
 
         // 2) Prove the note validity
         let header = if (use_block_number) {
@@ -140,7 +144,7 @@ contract InclusionProofs {
             context.get_block_header()
         };
         // docs:start:prove_note_validity
-        header.prove_note_validity(note, &mut context);
+        header.prove_note_validity(note, note_storage_slot, &mut context);
         // docs:end:prove_note_validity
     }
 

@@ -126,7 +126,7 @@ TYPED_TEST(SmallSubgroupIPATest, VerifierEvaluations)
     // Compute required evaluations using efficient batch evaluation
     const auto [challenge_poly_eval, lagrange_first, lagrange_last] =
         SmallSubgroupIPA::compute_batched_barycentric_evaluations(
-            challenge_poly_lagrange, this->evaluation_challenge, subgroup_generator_inverse, vanishing_poly_eval);
+            challenge_poly_lagrange, this->evaluation_challenge, vanishing_poly_eval);
 
     // Compute the evaluations differently, namely, using Lagrange interpolation
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;

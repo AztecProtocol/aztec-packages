@@ -1,5 +1,5 @@
 {
-  "name": "vite",
+  "name": "@aztec/vite",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,9 +8,11 @@
     "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
     "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
-    "dev": "vite",
     "build": "yarn prep && tsc -b && vite build",
-    "lint": "eslint .",
+    "serve": "vite",
+    "test": "npx playwright test",
+    "formatting": "prettier --check ./src && eslint ./src",
+    "formatting:fix": "prettier -w ./src",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -38,7 +40,6 @@
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.11.0",
     "vite": "^6.0.3",
-    "vite-plugin-node-polyfills": "^0.23.0",
-    "vite-plugin-static-copy": "^2.2.0"
+    "vite-plugin-node-polyfills": "^0.23.0"
   }
 }

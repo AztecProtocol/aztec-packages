@@ -40,6 +40,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
@@ -65,12 +67,13 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         return false;
     }
     bool consistency_checked = true;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                               commitments.get_unshifted(),
-                                               commitments.get_to_be_shifted(),
-                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,

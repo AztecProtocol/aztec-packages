@@ -77,7 +77,7 @@ describe('rate limiter', () => {
     expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Spy on the peer manager and check that penalizePeer is called
-    expect(peerScoring.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.MidToleranceError);
+    expect(peerScoring.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.HighToleranceError);
   });
 
   it('Should allow requests within the global limit', () => {

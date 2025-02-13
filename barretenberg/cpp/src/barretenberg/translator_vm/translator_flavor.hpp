@@ -22,7 +22,7 @@ namespace bb {
 class TranslatorFlavor {
 
   public:
-    static constexpr size_t mini_circuit_size = 2048;
+    static constexpr size_t mini_circuit_size = 8192;
     using CircuitBuilder = TranslatorCircuitBuilder;
     using Curve = curve::BN254;
     using PCS = KZG<Curve>;
@@ -40,7 +40,8 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
+    // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
+    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 8192;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
@@ -83,8 +84,6 @@ class TranslatorFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 177;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
     static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
     static constexpr size_t NUM_CONCATENATED = NUM_CONCATENATED_WIRES * CONCATENATION_GROUP_SIZE;
@@ -721,11 +720,6 @@ class TranslatorFlavor {
                        lagrange_second,
                        lagrange_second_to_last_in_minicircuit);
     };
-
-    /**
-     * @brief A container for easier mapping of polynomials
-     */
-    using ProverPolynomialIds = AllEntities<size_t>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.

@@ -54,6 +54,8 @@ A function can emit an arbitrary number of logs, provided they don't exceed the 
 
 <!-- TODO: there might be length extension attacks with this approach. We might need to encode the length of each log into the accumulated logs hash, rather than sum the lengths separately. Otherwise, there might be a way to pretend a message of length 7 was actually two messages of length 3 and 4 (for example) -->
 
+<!-- TODO: rework the below when logs are fields, and raw logs are appended to blobs. -->
+
 To minimize the on-chain verification data size, protocol circuits aggregate log hashes. The end result is a single hash within the base rollup proof, encompassing all logs of the same type.
 
 Each protocol circuit outputs two values for each log type:

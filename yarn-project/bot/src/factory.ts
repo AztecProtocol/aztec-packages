@@ -13,7 +13,7 @@ import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateTo
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
-import { type BotConfig, SupportedTokenContracts } from './config.js';
+import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
@@ -40,7 +40,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
+    this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -63,7 +63,7 @@ export class BotFactory {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
     const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
-    const isInit = await this.pxe.isContractInitialized(account.getAddress());
+    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
@@ -112,7 +112,7 @@ export class BotFactory {
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if (await this.pxe.isContractPubliclyDeployed(address)) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {

@@ -36,20 +36,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   * @param capsule - An array of field elements representing the capsule.
-   */
-  addCapsule(capsule: Fr[]): Promise<void>;
-
-  /**
-   * Get the next capsule from the capsule dispenser.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   * @returns A promise that resolves to an array of field elements representing the capsule.
-   */
-  popCapsule(): Promise<Fr[] | undefined>;
-
-  /**
    * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
@@ -215,32 +201,35 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   resetNoteSyncData(): Promise<void>;
 
   /**
-   * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `dbLoad`.
-   * If data was already stored at this slot, it is overwrriten.
+   * Stores arbitrary information in a per-contract non-volatile database (called capsules), which can later
+   * be retrieved with `loadCapsule`. If data was already stored at this slot, it is overwritten.
    * @param contractAddress - The contract address to scope the data under.
    * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
-   * @param values - The data to store.
+   * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
    */
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void>;
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
-   * Returns data previously stored via `dbStore` in the per-contract non-volatile database.
+   * Returns data previously stored via `storeCapsule` in the per-contract non-volatile database (called capsules).
    * @param contractAddress - The contract address under which the data is scoped.
    * @param slot - The slot in the database to read.
    * @returns The stored data or `null` if no data is stored under the slot.
    */
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null>;
 
   /**
-   * Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
+   * Deletes data in the per-contract non-volatile database (called capsules). Does nothing if no data was present.
    * @param contractAddress - The contract address under which the data is scoped.
    * @param slot - The slot in the database to delete.
    */
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void>;
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void>;
 
   /**
-   * Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
-   * structures by avoiding repeated calls to `dbLoad` and `dbStore`.
+   * Copies a number of contiguous entries in the per-contract non-volatile database (called capsules). This allows for
+   * efficient data structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`.
    * Supports overlapping source and destination regions (which will result in the overlapped source values being
    * overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
    *
@@ -249,5 +238,5 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param dstSlot - The first slot to copy to.
    * @param numEntries - The number of entries to copy.
    */
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
 }

@@ -1,7 +1,7 @@
-import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
@@ -12,14 +12,7 @@ export default (_, argv) => ({
     main: './src/index.ts',
   },
   module: {
-    parser: {
-      javascript: { importMeta: false },
-    },
     rules: [
-      {
-        test: /\.gz$/,
-        type: 'asset/resource',
-      },
       {
         test: /\.ts?$/,
         use: 'ts-loader',
@@ -27,14 +20,6 @@ export default (_, argv) => ({
     ],
   },
   plugins: [
-    new CopyPlugin({
-      patterns: [
-        {
-          context: '../../../barretenberg/ts/dest/browser',
-          from: '*.gz',
-        },
-      ],
-    }),
     new HtmlWebpackPlugin({
       template: './src/index.html',
       scriptLoading: 'module',
@@ -69,11 +54,5 @@ export default (_, argv) => ({
     port: 5173,
     open: true,
     historyApiFallback: true,
-    headers: (req, res) => {
-      if (req.originalUrl.endsWith('.gz')) {
-        res.setHeader('Content-Encoding', 'gzip');
-        res.setHeader('Content-Type', 'application/wasm');
-      }
-    },
   },
 });

@@ -19,8 +19,8 @@ use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
+        tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -171,10 +171,6 @@ impl PrivateBaseRollupInputs {
             self.state_diff_hints.nullifier_predecessor_preimages,
             self.state_diff_hints.nullifier_predecessor_membership_witnesses,
         )
-    }
-
-    fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree_root(leaves.map(|leaf: NullifierLeafPreimage| leaf.hash()))
     }
 
     fn build_fee_public_data_write(self, tx_fee: Field) -> PublicDataWrite {
@@ -344,6 +340,8 @@ mod tests {
             inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
             inputs.constants.global_variables.version = fixtures::VERSION;
             inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
+            inputs.constants.protocol_contract_tree_root =
+                inputs.tube_data.protocol_contract_tree_root;
 
             inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
 

@@ -83,11 +83,15 @@ export interface PXE {
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
+   * Adds a capsule.
+   * @param contract - The address of the contract to add the capsule to.
+   * @param storageSlot - The storage slot to add the capsule to.
    * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
    */
-  addCapsule(capsule: Fr[]): Promise<void>;
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -353,49 +357,33 @@ export interface PXE {
   getPXEInfo(): Promise<PXEInfo>;
 
   /**
-   * Returns a Contract Instance given its address, which includes the contract class identifier,
-   * initialization hash, deployment salt, and public keys hash.
+   * Returns the contract metadata given an address.
+   * The metadata consists of its contract instance, which includes the contract class identifier,
+   * initialization hash, deployment salt, and public keys hash; whether the contract instance has been initialized;
+   * and whether the contract instance with the given address has been publicly deployed.
+   * @remark - it queries the node to check whether the contract instance has been initialized / publicly deployed through a node.
+   * This query is not dependent on the PXE.
+   * @param address - The address that the contract instance resides at.
+   * @returns - It returns the contract metadata
    * TODO(@spalladino): Should we return the public keys in plain as well here?
-   * @param address - Deployment address of the contract.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
 
   /**
-   * Returns a Contract Class given its identifier.
+   * Returns the contract class metadata given a contract class id.
+   * The metadata consists of its contract class, whether it has been publicly registered, and its artifact.
+   * @remark - it queries the node to check whether the contract class with the given id has been publicly registered.
+   * @param id - Identifier of the class.
+   * @param includeArtifact - Identifier of the class.
+   * @returns - It returns the contract class metadata, with the artifact field being optional, and will only be returned if true is passed in
+   * for `includeArtifact`
    * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
    * should the pxe query the node for contract public info, and merge it with its own definitions?
-   * @param id - Identifier of the class.
-   */
-  getContractClass(id: Fr): Promise<ContractClassWithId | undefined>;
-
-  /**
-   * Returns the contract artifact associated to a contract class.
-   * @param id - Identifier of the class.
-   */
-  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined>;
-
-  /**
-   * Queries the node to check whether the contract class with the given id has been publicly registered.
    * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
    * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
    * do for the time being.
-   * @param id - Identifier of the class.
    */
-  isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
-
-  /**
-   * Queries the node to check whether the contract instance with the given address has been publicly deployed,
-   * regardless of whether this PXE knows about the contract or not.
-   * TODO(@spalladino): Same notes as above.
-   */
-  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
-
-  /**
-   * Queries the node to check whether the contract instance with the given address has been initialized,
-   * by checking the standard initialization nullifier.
-   * @param address - Address of the contract to check.
-   */
-  isContractInitialized(address: AztecAddress): Promise<boolean>;
+  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
 
   /**
    * Returns the private events given search parameters.
@@ -444,6 +432,30 @@ export interface PXEInfo {
   protocolContractAddresses: ProtocolContractAddresses;
 }
 
+export interface ContractMetadata {
+  contractInstance?: ContractInstanceWithAddress | undefined;
+  isContractInitialized: boolean;
+  isContractPubliclyDeployed: boolean;
+}
+
+export interface ContractClassMetadata {
+  contractClass?: ContractClassWithId | undefined;
+  isContractClassPubliclyRegistered: boolean;
+  artifact?: ContractArtifact | undefined;
+}
+
+const ContractMetadataSchema = z.object({
+  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+  isContractInitialized: z.boolean(),
+  isContractPubliclyDeployed: z.boolean(),
+}) satisfies ZodFor<ContractMetadata>;
+
+const ContractClassMetadataSchema = z.object({
+  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+  isContractClassPubliclyRegistered: z.boolean(),
+  artifact: z.union([ContractArtifactSchema, z.undefined()]),
+}) satisfies ZodFor<ContractClassMetadata>;
+
 const PXEInfoSchema = z.object({
   pxeVersion: z.string(),
   protocolContractAddresses: ProtocolContractAddressesSchema,
@@ -456,7 +468,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.Fr)
     .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
+  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -521,21 +533,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getProvenBlockNumber: z.function().returns(z.number()),
   getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
-  getContractInstance: z
-    .function()
-    .args(schemas.AztecAddress)
-    .returns(z.union([ContractInstanceWithAddressSchema, z.undefined()])),
-  getContractClass: z
-    .function()
-    .args(schemas.Fr)
-    .returns(z.union([ContractClassWithIdSchema, z.undefined()])),
-  getContractArtifact: z
-    .function()
-    .args(schemas.Fr)
-    .returns(z.union([ContractArtifactSchema, z.undefined()])),
-  isContractClassPubliclyRegistered: z.function().args(schemas.Fr).returns(z.boolean()),
-  isContractPubliclyDeployed: z.function().args(schemas.AztecAddress).returns(z.boolean()),
-  isContractInitialized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
+  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
+  getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))

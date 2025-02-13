@@ -6,9 +6,9 @@ import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettl
 export interface ProvingBrokerDatabase {
   /**
    * Saves a proof request so it can be retrieved later
-   * @param request - The proof request to save
+   * @param job - The proof request to save
    */
-  addProvingJob(request: ProvingJob): Promise<void>;
+  addProvingJob(job: ProvingJob): Promise<void>;
 
   /**
    * Deletes all proving jobs belonging to epochs older than the given epoch

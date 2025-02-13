@@ -2,7 +2,7 @@ use crate::{
     abis::{log::Log, side_effect::Scoped},
     address::AztecAddress,
     constants::{PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

@@ -16,7 +16,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
+    vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: undefined,
     ...args,

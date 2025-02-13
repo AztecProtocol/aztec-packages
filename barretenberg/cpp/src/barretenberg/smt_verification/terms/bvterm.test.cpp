@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <unordered_map>
 
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
@@ -312,6 +313,60 @@ TEST(BVTerm, shl)
 
     STerm x = BVVar("x", &s);
     STerm y = x << 5;
+
+    x == a.get_value();
+
+    ASSERT_TRUE(s.check());
+
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
+}
+
+TEST(BVTerm, truncate)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    unsigned int mask = (1 << 10) - 1;
+    uint_ct b = a & mask;
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
+
+    STerm x = BVVar("x", &s);
+    STerm y = x.truncate(9);
+
+    x == a.get_value();
+
+    ASSERT_TRUE(s.check());
+
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
+}
+
+TEST(BVTerm, extract_bit)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    unsigned int mask = (1 << 10);
+    uint_ct b = a & mask;
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
+
+    STerm x = BVVar("x", &s);
+    STerm y = x.extract_bit(10);
 
     x == a.get_value();
 

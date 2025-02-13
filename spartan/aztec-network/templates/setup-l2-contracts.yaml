@@ -17,7 +17,9 @@ spec:
         app: setup-l2-contracts
     spec:
       restartPolicy: OnFailure
+      {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       volumes:
         - name: scripts
           configMap:
@@ -100,6 +102,8 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
 {{ end }}

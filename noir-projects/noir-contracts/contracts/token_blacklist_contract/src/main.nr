@@ -1,5 +1,9 @@
 mod types;
 
+// NOTE: This contract is stale and is kept around only as a reference of how to implement a blacklist.
+// Don't take into consideration the interface of this contract. The TransparentNote "shield" flow is
+// deprecated and has been replaced with partial notes in the standard token contract.
+//
 // Minimal token implementation that supports `AuthWit` accounts and SharedMutable variables.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
@@ -11,7 +15,7 @@ mod types;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TokenBlacklist {
+pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::{

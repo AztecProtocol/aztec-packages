@@ -18,7 +18,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -41,7 +41,6 @@ import {
 } from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { type TxValidationResult } from '../tx/index.js';
@@ -281,6 +280,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(Tx);
   });
 
+  it('getTxsByHash', async () => {
+    const response = await context.client.getTxsByHash([TxHash.random()]);
+    expect(response[0]).toBeInstanceOf(Tx);
+  });
+
   it('getPublicStorageAt', async () => {
     const response = await context.client.getPublicStorageAt(await AztecAddress.random(), Fr.random(), 1);
     expect(response).toBeInstanceOf(Fr);
@@ -340,15 +344,6 @@ describe('AztecNodeApiSchema', () => {
   it('getEncodedEnr', async () => {
     const response = await context.client.getEncodedEnr();
     expect(response).toBe('enr:-');
-  });
-
-  it('addEpochProofQuote', async () => {
-    await context.client.addEpochProofQuote(EpochProofQuote.random());
-  });
-
-  it('getEpochProofQuotes', async () => {
-    const response = await context.client.getEpochProofQuotes(1n);
-    expect(response).toEqual([expect.any(EpochProofQuote)]);
   });
 
   it('addContractClass', async () => {
@@ -559,6 +554,10 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(Tx.random());
   }
+  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    expect(txHashes[0]).toBeInstanceOf(TxHash);
+    return [await Tx.random()];
+  }
   getPublicStorageAt(contract: AztecAddress, slot: Fr, _blockNumber: number | 'latest'): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
@@ -602,14 +601,6 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    expect(quote).toBeInstanceOf(EpochProofQuote);
-    return Promise.resolve();
-  }
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    expect(epoch).toEqual(1n);
-    return Promise.resolve([EpochProofQuote.random()]);
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();

@@ -50,16 +50,18 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
-    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.contractClassId)).toBeTrue();
+    expect(
+      (await pxe.getContractClassMetadata(contract.instance.contractClassId)).isContractClassPubliclyRegistered,
+    ).toBeTrue();
   });
 
   // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
   // because we're manually adding them to the archiver to support provernet.
   it('registers a contract class for a common contract', async () => {
     const { id: tokenContractClass } = await getContractClassFromArtifact(TokenContract.artifact);
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeFalse();
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeFalse();
     await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeTrue();
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
@@ -147,7 +149,7 @@ describe('e2e_deploy_contract deploy method', () => {
       if (!PXE_URL) {
         return;
       }
-      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
       const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),
