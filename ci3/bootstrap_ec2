@@ -58,7 +58,7 @@ fi
 
 # Request new instance.
 ip_sir=$(aws_request_instance $instance_name $cores $arch)
-parts=(${ip_sir//:/ })
+IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
@@ -157,7 +157,7 @@ echo "SSH exited with code: $code"
 # If we were spot evicted, try again using on-demand.
 if [ $code -eq 155 ]; then
   echo "Spot was evicted. Retrying with on-demand instance."
-  NO_SPOT=1 exec $0
+  NO_SPOT=1 exec "$0" "$@"
 else
   exit $code
 fi
