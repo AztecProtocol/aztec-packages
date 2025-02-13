@@ -242,6 +242,10 @@ function release {
   done
 }
 
+function release_dryrun {
+  DRY_RUN=1 release
+}
+
 function release_commit {
   export REF_NAME="commit-$COMMIT_HASH"
 
@@ -303,7 +307,7 @@ case "$cmd" in
     bench
     release
     ;;
-  bench|release|release_commit)
+  bench|release|release_dryrun|release_commit)
     $cmd
     ;;
   *)

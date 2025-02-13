@@ -7,8 +7,12 @@ if [ -n "${DIST_TAG:-}" ]; then
   echo "$DIST_TAG"
   return
 fi
+if ! semver check $version; then
+  echo_stderr "$version is not a valid semver."
+  exit 1
+fi
 dist=$(semver prerelease $version | sed 's/\..*//')
-if [ -n $dist ]; then
+if [ -n "$dist" ]; then
   echo $dist
 else
   echo latest
