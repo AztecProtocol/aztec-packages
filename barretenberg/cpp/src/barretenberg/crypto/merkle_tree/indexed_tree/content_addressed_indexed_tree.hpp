@@ -965,8 +965,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                             // std::cout << "Failed to find low leaf" << std::endl;
                             throw std::runtime_error(format("Unable to insert values into tree ",
                                                             meta.name,
-                                                            " failed to find low leaf at index ",
-                                                            low_leaf_index));
+                                                            ", failed to find low leaf at index ",
+                                                            low_leaf_index,
+                                                            ", current size: ",
+                                                            meta.size));
                         }
                         // std::cout << "Low leaf hash " << low_leaf_hash.value() << std::endl;
 
@@ -1454,7 +1456,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                     if (!low_leaf_hash.has_value()) {
                         throw std::runtime_error(format("Unable to insert values into tree ",
                                                         meta.name,
-                                                        " failed to find low leaf at index ",
+                                                        ", failed to find low leaf at index ",
                                                         low_leaf_index));
                     }
 

@@ -189,7 +189,6 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
-
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
@@ -265,6 +264,21 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   public async close(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+  }
+
+  public async createCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.CREATE_CHECKPOINT, { forkId: this.revision.forkId });
+  }
+
+  public async commitCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.COMMIT_CHECKPOINT, { forkId: this.revision.forkId });
+  }
+
+  public async revertCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
   }
 }
 

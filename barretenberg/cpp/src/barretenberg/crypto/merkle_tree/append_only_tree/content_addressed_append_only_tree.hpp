@@ -39,17 +39,21 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using StoreType = Store;
 
     // Asynchronous methods accept these callback function types as arguments
+    using EmptyResponseCallback = std::function<void(Response&)>;
     using AppendCompletionCallback = std::function<void(TypedResponse<AddDataResponse>&)>;
     using MetaDataCallback = std::function<void(TypedResponse<TreeMetaResponse>&)>;
     using HashPathCallback = std::function<void(TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(TypedResponse<GetLeafResponse>&)>;
     using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
-    using RollbackCallback = std::function<void(Response&)>;
+    using RollbackCallback = EmptyResponseCallback;
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
-    using FinaliseBlockCallback = std::function<void(Response&)>;
+    using FinaliseBlockCallback = EmptyResponseCallback;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
+    using CheckpointCallback = EmptyResponseCallback;
+    using CheckpointCommitCallback = EmptyResponseCallback;
+    using CheckpointRevertCallback = EmptyResponseCallback;
 
     // Only construct from provided store and thread pool, no copies or moves
     ContentAddressedAppendOnlyTree(std::unique_ptr<Store> store,
@@ -222,6 +226,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void unwind_block(const block_number_t& blockNumber, const UnwindBlockCallback& on_completion);
 
     void finalise_block(const block_number_t& blockNumber, const FinaliseBlockCallback& on_completion);
+
+    void checkpoint(const CheckpointCallback& on_completion);
+    void commit_checkpoint(const CheckpointCommitCallback& on_completion);
+    void revert_checkpoint(const CheckpointRevertCallback& on_completion);
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -840,6 +848,34 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_->rollback(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+// TODO(PhilWindle): One possible optimisation is for the following 3 functions
+// checkpoint, commit_checkpoint and revert_checkpoint to not use the thread pool
+// It is not stricly necessary for these operations to use it. The balance is whether
+// the cost of using it outweighs the benefit or checkpointing/reverting all tree concurrently
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_checkpoint(
+    const CheckpointCommitCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_checkpoint(); }, on_completion); };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
+    const CheckpointRevertCallback& on_completion)
+{
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_checkpoint(); }, on_completion); };
     workers_->enqueue(job);
 }
 
