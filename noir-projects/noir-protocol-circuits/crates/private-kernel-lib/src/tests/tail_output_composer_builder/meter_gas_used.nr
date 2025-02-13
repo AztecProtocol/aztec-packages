@@ -1,9 +1,10 @@
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
-    abis::{gas::Gas, private_log::get_emitted_private_log_fields_len},
+    abis::gas::Gas,
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::fixture_builder::FixtureBuilder,
 };
@@ -40,11 +41,7 @@ fn meter_gas_used_everything_succeeds() {
     computed_l2_gas += 1 * L2_GAS_PER_L2_TO_L1_MSG;
 
     builder.append_private_logs(3);
-    /// Safety: this is a test
-    let total_num_private_log_fields = unsafe {
-        get_emitted_private_log_fields_len(builder.private_logs.storage().map(|l| l.inner.log))
-    };
-    metered_da_bytes += total_num_private_log_fields * DA_BYTES_PER_FIELD;
+    metered_da_bytes += 3 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD;
     computed_l2_gas += 3 * L2_GAS_PER_PRIVATE_LOG;
 
     builder.add_contract_class_log_hash(3001, 51);

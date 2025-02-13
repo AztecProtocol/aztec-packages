@@ -128,8 +128,13 @@ pub fn validate_trailing_zeroes<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty + Eq,
 {
-    /// Safety: this value is constrained in the below loop
+    /// Safety: this value is constrained in the below loop.
     let length = unsafe { find_index_hint_from_end(array, |elem: T| is_empty(elem)) };
+    // Check the elt just before length is non-zero:
+    if length != 0 {
+        assert(!is_empty(array[length - 1]), "invalid array");
+    }
+    // Check all beyond length are zero:
     let mut check_zero = false;
     for i in 0..N {
         check_zero |= i == length;

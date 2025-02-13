@@ -372,12 +372,8 @@ export class TxEffect {
       flattened.push(...this.publicDataWrites.map(w => [w.leafSlot, w.value]).flat());
     }
     if (this.privateLogs.length) {
-      const totalLogLen = this.privateLogs.reduce(
-        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
-        0,
-      );
-      flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, totalLogLen));
-      flattened.push(...this.privateLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
+      flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, this.privateLogs.length * PRIVATE_LOG_SIZE_IN_FIELDS));
+      flattened.push(...this.privateLogs.map(l => l.fields).flat());
     }
     if (this.publicLogs.length) {
       const totalLogLen = this.publicLogs.reduce(
@@ -456,13 +452,8 @@ export class TxEffect {
         case PRIVATE_LOGS_PREFIX: {
           ensureEmpty(effect.privateLogs);
           const flatPrivateLogs = reader.readFieldArray(length);
-          let i = 0;
-          while (i < length) {
-            const logLen = flatPrivateLogs[i++].toNumber();
-            const logFields = flatPrivateLogs.slice(i, (i += logLen));
-            effect.privateLogs.push(
-              PrivateLog.fromFields(logFields.concat(new Array(PRIVATE_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO))),
-            );
+          for (let i = 0; i < length; i += PRIVATE_LOG_SIZE_IN_FIELDS) {
+            effect.privateLogs.push(PrivateLog.fromFields(flatPrivateLogs.slice(i, i + PRIVATE_LOG_SIZE_IN_FIELDS)));
           }
           break;
         }

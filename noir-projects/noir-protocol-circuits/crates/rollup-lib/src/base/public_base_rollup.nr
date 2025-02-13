@@ -432,17 +432,7 @@ mod tests {
         builder.public_data_writes.push((
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
-        for i in 0..NUM_PRIV_EVENT_LOGS {
-            // manually adding to test appending logs with trailing zeros
-            let fields = [i as Field, (i + 1) as Field, (i + 2) as Field];
-            builder.tube_data.add_private_log(
-                array_concat(
-                    fields,
-                    [0; PRIVATE_LOG_SIZE_IN_FIELDS - 3 /* = fields.len() */],
-                ),
-                0,
-            );
-        }
+        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         for i in 0..NUM_PUB_LOGS {
             // manually adding to test appending logs with trailing zeros
             let fields = [(2 * i) as Field, (2 * i + 1) as Field, (2 * i + 2) as Field];
@@ -503,27 +493,17 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
         offset += 2;
         // private logs
-        let total_private_logs_len = builder
-            .tube_data
-            .private_logs
-            .storage()
-            .map(|l| find_index_hint_from_end(l.inner.log.fields, |f| f == 0))
-            .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
+        let total_private_logs_len = NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_PRIV_EVENT_LOGS {
-            let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
-            let log_len = find_index_hint_from_end(log, |f| f == 0);
-            if log_len != 0 {
-                reconstructed_tx_effects[offset] = log_len as Field;
-                offset += 1;
-            }
-            for j in 0..log_len {
-                reconstructed_tx_effects[offset] = log[j];
-                offset += 1;
+            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
+                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
             }
         }
+        offset += total_private_logs_len;
         // public logs
         let total_public_logs_len = builder
             .avm_data
