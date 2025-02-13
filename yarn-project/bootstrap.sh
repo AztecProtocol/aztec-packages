@@ -89,7 +89,7 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  denoise "yarn install"
+  denoise "retry yarn install"
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
 }
