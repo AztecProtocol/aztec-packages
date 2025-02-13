@@ -63,7 +63,7 @@ __metadata:
     webpack-dev-server: "npm:^5.2.0"
     worker-loader: "npm:^3.0.8"
   bin:
-    bb.js: dest/node/main.js
+    bb.js: ./dest/node/main.js
   languageName: unknown
   linkType: soft
 
