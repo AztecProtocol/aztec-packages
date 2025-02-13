@@ -23,6 +23,8 @@ class TestTraceContainer : public TraceContainer {
             set(row, values[row]);
         }
     }
+    // Copy constructor. We allow copying for testing purposes.
+    TestTraceContainer(const TestTraceContainer&);
 
     // Returns a trace in dense format with properly filled in shifted columns.
     RowTraceContainer as_rows() const;

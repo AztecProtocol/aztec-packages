@@ -1,4 +1,3 @@
-import CopyWebpackPlugin from 'copy-webpack-plugin';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';

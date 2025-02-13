@@ -66,6 +66,10 @@ export class PublicDataWrite {
     return new PublicDataWrite(Fr.ZERO, Fr.ZERO);
   }
 
+  static random() {
+    return new PublicDataWrite(Fr.random(), Fr.random());
+  }
+
   static isEmpty(data: PublicDataWrite): boolean {
     return data.isEmpty();
   }
