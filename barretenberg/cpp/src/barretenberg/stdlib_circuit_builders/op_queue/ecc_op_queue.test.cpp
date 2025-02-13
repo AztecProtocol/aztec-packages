@@ -12,18 +12,18 @@ class ECCOpQueueTest : public ::testing::Test {
 
   public:
     struct MockUltraOpsTable {
-        std::array<std::vector<scalar>, 4> table;
+        std::array<std::vector<scalar>, 4> columns;
         void append(const UltraOp& op)
         {
-            table[0].push_back(op.op);
-            table[1].push_back(op.x_lo);
-            table[2].push_back(op.x_hi);
-            table[3].push_back(op.y_lo);
+            columns[0].push_back(op.op);
+            columns[1].push_back(op.x_lo);
+            columns[2].push_back(op.x_hi);
+            columns[3].push_back(op.y_lo);
 
-            table[0].push_back(0);
-            table[1].push_back(op.y_hi);
-            table[2].push_back(op.z_1);
-            table[3].push_back(op.z_2);
+            columns[0].push_back(0);
+            columns[1].push_back(op.y_hi);
+            columns[2].push_back(op.z_1);
+            columns[3].push_back(op.z_2);
         }
 
         // Construct the= ultra ops table such that the subtables appear in reverse order, as if prepended
@@ -36,7 +36,7 @@ class ECCOpQueueTest : public ::testing::Test {
             }
         }
 
-        size_t size() const { return table[0].size(); }
+        size_t size() const { return columns[0].size(); }
     };
 
     static UltraOp random_ultra_op()
@@ -89,31 +89,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
 
-TEST(ECCOpQueueTest, New)
-{
-    using point = g1::affine_element;
-    using scalar = fr;
-
-    // Compute a simple point accumulation natively
-    auto P1 = point::random_element();
-    auto P2 = point::random_element();
-    auto z = scalar::random_element();
-    auto P_expected = P1 + P2 * z;
-
-    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    NewECCOpQueue op_queue;
-    op_queue.add_accumulate(P1);
-    op_queue.mul_accumulate(P2, z);
-
-    // The correct result should now be stored in the accumulator within the op queue
-    EXPECT_EQ(op_queue.get_accumulator(), P_expected);
-
-    // Adding an equality op should reset the accumulator to zero (the point at infinity)
-    op_queue.eq_and_reset();
-    EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
-}
-
-TEST(ECCOpQueueTest, ConcatenatedTableConstruction)
+TEST(ECCOpQueueTest, UltraOpsTableConstruction)
 {
     // Construct sets of ultra ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;
@@ -129,12 +105,12 @@ TEST(ECCOpQueueTest, ConcatenatedTableConstruction)
     ECCOpQueueTest::MockUltraOpsTable expected_ultra_ops_table(subtable_ultra_ops);
 
     // Construct the concatenated table internal to the op queue
-    NewECCOpQueue op_queue;
+    UltraOpsTable ultra_ops_table;
     for (const auto& subtable_ops : subtable_ultra_ops) {
         for (const auto& op : subtable_ops) {
-            op_queue.append_ultra_op(op);
+            ultra_ops_table.append_operation(op);
         }
-        op_queue.concatenate_ultra_subtable();
+        ultra_ops_table.concatenate_subtable();
     }
 
     // Compute the expected total table size as the sum of the subtable op counts times 2
@@ -144,21 +120,21 @@ TEST(ECCOpQueueTest, ConcatenatedTableConstruction)
     }
 
     // Check that the ultra ops table internal to the op queue has the correct size
-    EXPECT_EQ(op_queue.ultra_ops_table_size(), expected_table_size);
+    EXPECT_EQ(ultra_ops_table.size(), expected_table_size);
 
     // Define a storage for the genuine ultra ops table and populate using the data stored in the op queue
-    std::array<std::vector<fr>, 4> ultra_ops_table;
-    std::array<std::span<fr>, 4> ultra_ops_table_spans;
-    for (auto [column_span, column] : zip_view(ultra_ops_table_spans, ultra_ops_table)) {
+    std::array<std::vector<fr>, 4> ultra_ops_columns;
+    std::array<std::span<fr>, 4> ultra_ops_column_spans;
+    for (auto [column_span, column] : zip_view(ultra_ops_column_spans, ultra_ops_columns)) {
         column.resize(expected_table_size);
         column_span = column;
     }
-    op_queue.populate_ultra_ops_table(ultra_ops_table_spans);
+    ultra_ops_table.populate_columns(ultra_ops_column_spans);
 
     // ultra_ops_table[2][3] += 1;
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
-    for (auto [expected_column, column] : zip_view(expected_ultra_ops_table.table, ultra_ops_table)) {
+    for (auto [expected_column, column] : zip_view(expected_ultra_ops_table.columns, ultra_ops_columns)) {
         for (auto [expected_value, value] : zip_view(expected_column, column)) {
             EXPECT_EQ(expected_value, value);
         }
