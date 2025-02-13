@@ -12,7 +12,7 @@
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",
-    "serve": "webpack serve --no-open --mode development",
+    "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "yarn test:node && yarn test:browser",

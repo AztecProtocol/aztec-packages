@@ -124,6 +124,7 @@ import {
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
+  mapProtocolContractLeafPreimageToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapScopedL2ToL1MessageFromNoir,
@@ -616,7 +617,8 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
     public_keys: mapPublicKeysToNoir(privateCallData.publicKeys),
     salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
-    protocol_contract_sibling_path: mapTuple(privateCallData.protocolContractSiblingPath, mapFieldToNoir),
+    protocol_contract_membership_witness: mapMembershipWitnessToNoir(privateCallData.protocolContractMembershipWitness),
+    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateCallData.protocolContractLeaf),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
   };
 }
