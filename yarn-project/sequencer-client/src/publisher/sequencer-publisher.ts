@@ -20,12 +20,12 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
-  type L1TxUtilsWithBlobs,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
