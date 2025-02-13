@@ -128,6 +128,5 @@ library Errors {
   error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
 
   // FeeMath
-  error FeeMath__InvalidProvingCostModifier(); // 0x8b9d62ac
   error FeeMath__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 }

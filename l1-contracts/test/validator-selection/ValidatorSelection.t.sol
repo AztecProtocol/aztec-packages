@@ -269,7 +269,7 @@ contract ValidatorSelectionTest is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 

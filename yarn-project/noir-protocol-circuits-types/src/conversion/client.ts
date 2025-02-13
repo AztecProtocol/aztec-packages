@@ -127,6 +127,7 @@ import {
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
+  mapProtocolContractLeafPreimageToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,

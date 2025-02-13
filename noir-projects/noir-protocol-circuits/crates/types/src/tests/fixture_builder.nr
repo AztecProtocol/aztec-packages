@@ -28,6 +28,7 @@ use crate::{
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::PrivateLogData,
+        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
@@ -73,16 +74,8 @@ use crate::{
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
     },
     public_keys::PublicKeys,
-    shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-        shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
-    },
-    storage::map::derive_storage_slot_in_map,
-    tests::fixtures::{
-        self, contract_functions::ContractFunction, contracts::ContractData,
-        public_data_tree::empty_public_data_tree,
-    },
-    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable},
+    tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
+    traits::{Deserialize, Empty, FromField, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -174,7 +167,8 @@ pub struct FixtureBuilder {
 
     // Protocol contracts.
     pub protocol_contract_tree_root: Field,
-    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
+    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
 
     // Contract updates
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
@@ -251,16 +245,37 @@ impl FixtureBuilder {
     }
 
     pub fn set_protocol_contract_root(&mut self) {
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        let (tree, protocol_contract_leaves) =
+            fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        let contract_address_field = self.contract_address.to_field();
         self.protocol_contract_tree_root = tree.get_root();
+        for i in 0..protocol_contract_leaves.len() {
+            let leaf = protocol_contract_leaves[i];
+            // The below is true if leaf is a valid low_leaf for self.contract_address
+            // This is used in validate_contract_address where is_protocol_contract = false.
+            if (leaf.address != 0)
+                & (leaf.address.lt(contract_address_field))
+                & ((contract_address_field.lt(leaf.next_address)) | (leaf.next_address == 0)) {
+                self.protocol_contract_leaf = leaf;
+                self.protocol_contract_membership_witness = MembershipWitness {
+                    leaf_index: i as Field,
+                    sibling_path: tree.get_sibling_path(i),
+                };
+            }
+        }
     }
 
     pub fn use_protocol_contract(&mut self) -> Self {
         let contract_index = 1;
-
-        let tree = fixtures::protocol_contract_tree::get_protocol_contract_tree();
+        let (tree, protocol_contract_leaves) =
+            fixtures::protocol_contract_tree::get_protocol_contract_tree();
         self.protocol_contract_tree_root = tree.get_root();
-        self.protocol_contract_sibling_path = tree.get_sibling_path(contract_index);
+        // This is used in validate_contract_address where is_protocol_contract = true.
+        self.protocol_contract_membership_witness = MembershipWitness {
+            leaf_index: contract_index as Field,
+            sibling_path: tree.get_sibling_path(contract_index),
+        };
+        self.protocol_contract_leaf = protocol_contract_leaves[contract_index];
 
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
         let function_data =
@@ -278,6 +293,7 @@ impl FixtureBuilder {
         self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
+        self.set_protocol_contract_root();
 
         *self
     }
@@ -411,7 +427,8 @@ impl FixtureBuilder {
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self
                 .contract_class_public_bytecode_commitment,
-            protocol_contract_sibling_path: self.protocol_contract_sibling_path,
+            protocol_contract_membership_witness: self.protocol_contract_membership_witness,
+            protocol_contract_leaf: self.protocol_contract_leaf,
             acir_hash: self.acir_hash,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
@@ -1237,7 +1254,8 @@ impl Empty for FixtureBuilder {
             vk_path: [0; VK_TREE_HEIGHT],
             vk_tree_root: FixtureBuilder::vk_tree_root(),
             protocol_contract_tree_root: 0,
-            protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
+            protocol_contract_membership_witness: MembershipWitness::empty(),
+            protocol_contract_leaf: ProtocolContractLeafPreimage::empty(),
             updated_class_id_witness: MembershipWitness::empty(),
             updated_class_id_leaf: PublicDataTreeLeafPreimage::empty(),
             updated_class_id_value_change: ScheduledValueChange::empty(),

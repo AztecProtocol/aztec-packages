@@ -1,5 +1,6 @@
 import {
   AztecAddress,
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type ContractClass,
   type ContractInstance,
   FunctionSelector,
@@ -12,6 +13,7 @@ import {
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
+import { hashVK } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
@@ -50,6 +52,8 @@ describe('Data generation for noir tests', () => {
   const format = (obj: object) => JSON.stringify(obj, null, 2).replaceAll('"', '');
 
   test.each(contracts)('Computes contract info for %s', async contract => {
+    const defaultVkHash = await hashVK(new Array(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS).fill(Fr.ZERO));
+    contract.privateFunctions.forEach(p => (p.vkHash = defaultVkHash));
     const contractClass: ContractClass = { ...contract, publicFunctions: [], version: 1 };
     const contractClassId = await computeContractClassId(contractClass);
     const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);

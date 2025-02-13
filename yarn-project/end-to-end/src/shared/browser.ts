@@ -95,7 +95,7 @@ export const browserTestSuite = (
         pageLogger.verbose('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
       }
-    });
+    }, 120_000);
 
     afterAll(async () => {
       await browser.close();

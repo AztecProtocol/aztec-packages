@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -123,6 +124,22 @@ void print_trace_stats(const TraceContainer& trace)
     info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
+// Check that inverses have been set, if assertions are enabled.
+// WARNING: This will not warn you if the interaction is not exercised.
+void check_interactions([[maybe_unused]] const TraceContainer& trace)
+{
+#ifndef NDEBUG
+    bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::LookupRelations>, 1>([&]<size_t i>() {
+        using Settings = typename std::tuple_element_t<i, typename AvmFlavor::LookupRelations>::Settings;
+        if (trace.get_column_rows(Settings::SRC_SELECTOR) != 0 && trace.get_column_rows(Settings::INVERSES) == 0) {
+            std::cerr << "Inverses not set for " << Settings::NAME << ". Did you forget to run a lookup builder?"
+                      << std::endl;
+            std::abort();
+        }
+    });
+#endif
+}
+
 } // namespace
 
 TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
@@ -210,6 +227,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
 
+    check_interactions(trace);
     print_trace_stats(trace);
     return trace;
 }

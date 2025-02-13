@@ -1,19 +1,7 @@
 use dep::types::{
-    abis::private_kernel::private_call_data::PrivateCallData,
-    address::AztecAddress,
-    constants::{
-        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS,
-        UPDATED_CLASS_IDS_SLOT,
-    },
-    contract_class_id::ContractClassId,
-    hash::private_functions_root_from_siblings,
-    merkle_tree::root::root_from_sibling_path,
-    shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-        shared_mutable_values::SharedMutableValues, with_hash::validate_with_hash_hints,
-    },
-    storage::map::derive_storage_slot_in_map,
-    traits::{is_empty, Packable, ToField},
+    abis::private_kernel::private_call_data::PrivateCallData, address::AztecAddress,
+    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::conditionally_assert_check_membership,
+    traits::ToField,
 };
 
 pub fn validate_contract_address(
@@ -46,19 +34,6 @@ pub fn validate_contract_address(
         hints.public_keys,
     );
 
-    let protocol_contract_index = contract_address.to_field();
-    let computed_protocol_contract_tree_root = if (MAX_PROTOCOL_CONTRACTS as Field).lt(
-        protocol_contract_index,
-    ) {
-        0
-    } else {
-        root_from_sibling_path(
-            computed_address.to_field(),
-            protocol_contract_index,
-            private_call_data.verification_key_hints.protocol_contract_sibling_path,
-        )
-    };
-
     let value_change: ScheduledValueChange<ContractClassId> =
         Packable::unpack(hints.updated_class_id_value_change);
     let delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY> =
@@ -78,19 +53,37 @@ pub fn validate_contract_address(
         private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
     );
 
-    if is_empty(updated_contract_class_id) {
-        // No update happened, so we should check that the computed address matches the expected one
-        assert(
-            computed_address.eq(contract_address)
-                | computed_protocol_contract_tree_root.eq(protocol_contract_tree_root),
-            "computed contract address does not match expected one",
-        );
-    } else {
-        // Update happened, we must be using the updated class id
-        assert(
-            contract_class_id.eq(updated_contract_class_id),
-            "updated contract not using latest class id",
-        );
-    }
+    let contract_address_field = contract_address.to_field();
+    let is_protocol_contract = contract_address_field.lt(MAX_PROTOCOL_CONTRACTS as Field);
+    let is_updated_contract = !is_empty(updated_contract_class_id);
+
+    let address_derivation_check =
+        !is_protocol_contract & computed_address.eq(contract_address) & !is_updated_contract;
+    let updated_class_check = !is_protocol_contract
+        & is_updated_contract
+        & contract_class_id.eq(updated_contract_class_id);
+    let protocol_contract_check = is_protocol_contract
+        & private_call_data.protocol_contract_membership_witness.leaf_index.eq(
+            contract_address_field,
+        )
+        & !is_updated_contract;
+
+    // We can have a normal contract address, which must match the calculated address, an updated contract so the class id used must be the updated one, or
+    // A computed protocol contract address which exists at the index held in call_context.contract_address.s
+    assert(
+        address_derivation_check | updated_class_check | protocol_contract_check,
+        "computed contract address does not match expected one",
+    );
+
+    // A non-protocol computed contract address is checked for non-membership below using protocol_contract_leaf as a low leaf.
+    // A protocol contract address is checked for membership below where protocol_contract_leaf contains the
+    // computed_address at the index given by contract_address.
+    conditionally_assert_check_membership(
+        computed_address.to_field(),
+        is_protocol_contract,
+        private_call_data.protocol_contract_leaf,
+        private_call_data.protocol_contract_membership_witness,
+        protocol_contract_tree_root,
+    );
 }
 

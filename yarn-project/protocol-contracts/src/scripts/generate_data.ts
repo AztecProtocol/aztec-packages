@@ -117,7 +117,7 @@ function generateContractAddresses(names: string[]) {
 
 function generateContractLeaves(names: string[], leaves: Fr[]) {
   return `
-    export const ProtocolContractLeaf = {
+    export const ProtocolContractLeaves = {
       ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
     };
   `;
