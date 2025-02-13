@@ -1031,10 +1031,9 @@ int main(int argc, char* argv[])
         return subcommand->add_flag("--zk", flags.zk, "Use a zk version of --scheme, if available.");
     };
 
-    const auto add_initialize_pairing_point_accumulator_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--initialize_accumulator",
-                                    flags.initialize_pairing_point_accumulator,
-                                    "Initialize pairing point accumulator.");
+    const auto add_init_kzg_accumulator_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--init_kzg_accumulator", flags.init_kzg_accumulator, "Initialize pairing point accumulator.");
     };
 
     // WORKTODO: documentation of structure (JSON or msgpack of bytecodes; bytecodes are encoded...)
@@ -1120,7 +1119,7 @@ int main(int argc, char* argv[])
     add_input_type_option(prove);
     add_zk_option(prove);
     add_ipa_accumulation_flag(prove);
-    add_initialize_pairing_point_accumulator_option(prove);
+    add_init_kzg_accumulator_option(prove);
     add_honk_recursion_option(prove);
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
@@ -1143,7 +1142,7 @@ int main(int argc, char* argv[])
     add_output_data_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk); // WORKTODO deprecated
-    add_initialize_pairing_point_accumulator_option(write_vk);
+    add_init_kzg_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);    // WORKTODO: why is this necessary?
     add_ipa_accumulation_flag(write_vk); // WORKTODO: segfault without
     add_honk_recursion_option(write_vk);
@@ -1163,7 +1162,7 @@ int main(int argc, char* argv[])
     add_oracle_hash_option(verify);
     add_zk_option(verify);
     add_ipa_accumulation_flag(verify);
-    add_initialize_pairing_point_accumulator_option(verify);
+    add_init_kzg_accumulator_option(verify);
     add_honk_recursion_option(verify);
     add_recursive_flag(verify);
 

@@ -46,7 +46,7 @@ case ${SYS:-} in
     #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
-    [ "${RECURSIVE}" = "true" ] && FLAGS+=" --initialize_accumulator"
+    [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
     $BIN verify $FLAGS \
         -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
         -p <($BIN prove $FLAGS $BFLAG -o - )

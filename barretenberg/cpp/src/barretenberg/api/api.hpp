@@ -11,7 +11,7 @@ class API {
         bool zk{ false };
         std::filesystem::path crs_path{ "" };
         bool recursive{ false };
-        bool initialize_pairing_point_accumulator{ false };
+        bool init_kzg_accumulator{ false };
         uint32_t honk_recursion{ 0 };
         bool ipa_accumulation{ false };
         std::string scheme;
@@ -27,7 +27,7 @@ class API {
                << "  zk: " << flags.zk << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
                << "  recursive: " << flags.recursive << "\n"
-               << "  initialize_pairing_point_accumulator: " << flags.initialize_pairing_point_accumulator << "\n"
+               << "  init_kzg_accumulator: " << flags.init_kzg_accumulator << "\n"
                << "  honk_recursion: " << flags.honk_recursion << "\n"
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  scheme: " << flags.scheme << "\n"

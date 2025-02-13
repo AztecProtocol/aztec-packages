@@ -19,7 +19,7 @@ class UltraHonkAPI : public API {
     template <typename Flavor, typename Circuit = Flavor::CircuitBuilder>
     static Circuit _compute_circuit(const std::string& bytecode_path,
                                     const std::string& witness_path,
-                                    const bool recursive)
+                                    const bool init_kzg_accumulator)
     {
         uint32_t honk_recursion = 0;
         if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
@@ -31,7 +31,8 @@ class UltraHonkAPI : public API {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-        const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+        const acir_format::ProgramMetadata metadata{ .recursive = init_kzg_accumulator,
+                                                     .honk_recursion = honk_recursion };
         acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
 
         if (!witness_path.empty()) {
@@ -45,14 +46,14 @@ class UltraHonkAPI : public API {
     template <typename Flavor>
     static UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
                                                 const std::string& witness_path,
-                                                const bool recursive)
+                                                const bool init_kzg_accumulator)
     {
         // Lambda function to ensure the builder gets freed before generating the vk. Vk generation requires initialing
         // the pippenger runtime state which leads to it being the peak, when its functionality is purely for debugging
         // purposes here.
         auto prover = [](auto&& circuit) {
             return UltraProver_<Flavor>{ circuit };
-        }(_compute_circuit<Flavor>(bytecode_path, witness_path, recursive));
+        }(_compute_circuit<Flavor>(bytecode_path, witness_path, init_kzg_accumulator));
 
         size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
         if constexpr (Flavor::HasZK) {
@@ -72,21 +73,21 @@ class UltraHonkAPI : public API {
     };
 
     template <typename Flavor, typename VK = Flavor::VerificationKey>
-    static ProofAndKey<VK> _compute_vk(const bool initialize_pairing_point_accumulator,
+    static ProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
                                        const std::filesystem::path& bytecode_path,
                                        const std::filesystem::path& witness_path)
     {
-        auto prover = _compute_prover<Flavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
+        auto prover = _compute_prover<Flavor>(bytecode_path, witness_path, init_kzg_accumulator);
         return { HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
     }
 
     template <typename Flavor, typename VK = Flavor::VerificationKey>
     static ProofAndKey<VK> _prove(const bool compute_vk,
-                                  const bool initialize_pairing_point_accumulator,
+                                  const bool init_kzg_accumulator,
                                   const std::filesystem::path& bytecode_path,
                                   const std::filesystem::path& witness_path)
     {
-        auto prover = _compute_prover<Flavor>(bytecode_path, witness_path, initialize_pairing_point_accumulator);
+        auto prover = _compute_prover<Flavor>(bytecode_path, witness_path, init_kzg_accumulator);
         return { prover.construct_proof(),
                  compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
     }
@@ -154,7 +155,7 @@ class UltraHonkAPI : public API {
             write(_prove_output, flags.output_data_type, flags.output_content_type, output_dir);
         };
 
-        const bool init = flags.initialize_pairing_point_accumulator;
+        const bool init = flags.init_kzg_accumulator;
         const bool compute_vk = flags.output_content_type == "proof_and_vk";
 
         if (flags.ipa_accumulation) {
@@ -231,7 +232,7 @@ class UltraHonkAPI : public API {
             write(_prove_output, flags.output_data_type, "vk", output_path);
         };
 
-        const bool init = flags.initialize_pairing_point_accumulator;
+        const bool init = flags.init_kzg_accumulator;
 
         if (flags.ipa_accumulation) {
             _write(_compute_vk<UltraRollupFlavor>(init, bytecode_path, ""));

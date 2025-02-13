@@ -94,7 +94,7 @@ class UltraVanillaClientIVC {
                     const bool cache_vks = false,
                     // if the first step does not contain an accumulator from an earlier recursive verification, we need
                     // to initialize the accumulator, otherwise we must not initialize it
-                    const bool initialize_pairing_point_accumulator = true);
+                    const bool init_kzg_accumulator = true);
 
     /**
      * @brief Verify an IVC proof.
@@ -115,7 +115,7 @@ class UltraVanillaClientIVC {
                           const bool cache_vks = false,
                           // if the first step does not contain an accumulator from an earlier recursive verification,
                           // we need to initialize the accumulator, otherwise we must not initialize it
-                          const bool initialize_pairing_point_accumulator = true);
+                          const bool init_kzg_accumulator = true);
 
     /**
      * @brief Compute the verification key of each circuit provided by the source.
