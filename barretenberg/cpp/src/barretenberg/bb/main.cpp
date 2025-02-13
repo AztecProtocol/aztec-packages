@@ -1065,8 +1065,7 @@ int main(int argc, char* argv[])
     };
 
     const auto add_debug_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--debug_logging, --debug_logging_logging, -d", debug_logging, "Output debug logs to stderr.");
+        return subcommand->add_flag("--debug_logging, -d", flags.debug, "Output debug logs to stderr.");
     };
 
     /***************************************************************************************************************
@@ -1375,6 +1374,10 @@ int main(int argc, char* argv[])
     const auto add_avm_dump_trace_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-dump-trace", avm_dump_trace_path, "");
     };
+    bool check_circuit_only{ false };
+    const auto add_check_circuit_only_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--check-circuit-only", check_circuit_only, "");
+    };
 
     /***************************************************************************************************************
      * Subcommand: avm2_prove
@@ -1407,6 +1410,8 @@ int main(int argc, char* argv[])
     add_debug_flag(avm2_verify_command);
     add_crs_path_option(avm2_verify_command);
     add_avm_public_inputs_option(avm2_verify_command);
+    add_proof_path_option(avm2_verify_command);
+    add_vk_path_option(avm2_verify_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_check_circuit
@@ -1420,6 +1425,7 @@ int main(int argc, char* argv[])
     add_avm_public_inputs_option(avm_check_circuit_command);
     add_output_path_option(avm_check_circuit_command, output_path);
     add_avm_dump_trace_option(avm_check_circuit_command);
+    add_check_circuit_only_flag(avm_check_circuit_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_prove
@@ -1434,6 +1440,7 @@ int main(int argc, char* argv[])
     add_avm_public_inputs_option(avm_prove_command);
     add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_dump_trace_option(avm_prove_command);
+    add_check_circuit_only_flag(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_verify
@@ -1446,6 +1453,9 @@ int main(int argc, char* argv[])
     add_avm_hints_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
     add_output_path_option(avm_verify_command, output_path);
+    add_check_circuit_only_flag(avm_verify_command);
+    add_proof_path_option(avm_verify_command);
+    add_vk_path_option(avm_verify_command);
 #endif
 
     /***************************************************************************************************************
@@ -1476,9 +1486,11 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
     print_active_subcommands(app);
     info(flags);
-    verbose_logging = debug_logging || flags.verbose;
     info("bytecode_path: ", bytecode_path);
     info("output_path: ", output_path);
+
+    debug_logging = flags.debug;
+    verbose_logging = debug_logging || flags.verbose;
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {

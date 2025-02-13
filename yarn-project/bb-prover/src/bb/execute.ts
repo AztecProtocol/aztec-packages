@@ -470,7 +470,8 @@ export async function generateAvmProofV2(
       avmInputsPath,
       '-o',
       outputPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
+      // WORKTODO: fix logging
+      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -560,7 +561,9 @@ export async function generateAvmProof(
       avmHintsPath,
       '-o',
       outputPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
+      // WORKTODO: fix logging
+      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
+      // checkCircuitOnly ? '--check-circuit-only' : '',
     ];
     const timer = new Timer();
     const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
@@ -737,7 +740,8 @@ async function verifyProofInternal(
       proofFullPath,
       '-k',
       verificationKeyPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
+      // WORKTODO: fix logging
+      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
       ...extraArgs,
     ];
     const timer = new Timer();

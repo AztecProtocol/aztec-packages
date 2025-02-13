@@ -8,6 +8,7 @@ class API {
   public:
     struct Flags {
         bool verbose{ false };
+        bool debug{ false };
         bool zk{ false };
         std::filesystem::path crs_path{ "" };
         bool recursive{ false };
@@ -24,6 +25,7 @@ class API {
         {
             os << "flags: [\n"
                << "  verbose: " << flags.verbose << "\n"
+               << "  debug: " << flags.debug << "\n"
                << "  zk: " << flags.zk << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
                << "  recursive: " << flags.recursive << "\n"
