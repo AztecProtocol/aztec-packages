@@ -12,6 +12,8 @@
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+set -x
+
 # Positional parameters.
 namespace="$1"
 values_file="${2:-default.yaml}"
