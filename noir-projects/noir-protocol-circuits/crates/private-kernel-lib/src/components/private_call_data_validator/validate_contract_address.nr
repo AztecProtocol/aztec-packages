@@ -1,7 +1,19 @@
 use dep::types::{
-    abis::private_kernel::private_call_data::PrivateCallData, address::AztecAddress,
-    constants::MAX_PROTOCOL_CONTRACTS, merkle_tree::conditionally_assert_check_membership,
-    traits::ToField,
+    abis::private_kernel::private_call_data::PrivateCallData,
+    address::AztecAddress,
+    constants::{
+        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS,
+        UPDATED_CLASS_IDS_SLOT,
+    },
+    contract_class_id::ContractClassId,
+    hash::private_functions_root_from_siblings,
+    merkle_tree::conditionally_assert_check_membership,
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        shared_mutable_values::SharedMutableValues, with_hash::validate_with_hash_hints,
+    },
+    storage::map::derive_storage_slot_in_map,
+    traits::{is_empty, Packable, ToField},
 };
 
 pub fn validate_contract_address(
@@ -63,13 +75,11 @@ pub fn validate_contract_address(
         & is_updated_contract
         & contract_class_id.eq(updated_contract_class_id);
     let protocol_contract_check = is_protocol_contract
-        & private_call_data.protocol_contract_membership_witness.leaf_index.eq(
-            contract_address_field,
-        )
+        & hints.protocol_contract_membership_witness.leaf_index.eq(contract_address_field)
         & !is_updated_contract;
 
     // We can have a normal contract address, which must match the calculated address, an updated contract so the class id used must be the updated one, or
-    // A computed protocol contract address which exists at the index held in call_context.contract_address.s
+    // A computed protocol contract address which exists at the index held in call_context.contract_address.
     assert(
         address_derivation_check | updated_class_check | protocol_contract_check,
         "computed contract address does not match expected one",
@@ -81,8 +91,8 @@ pub fn validate_contract_address(
     conditionally_assert_check_membership(
         computed_address.to_field(),
         is_protocol_contract,
-        private_call_data.protocol_contract_leaf,
-        private_call_data.protocol_contract_membership_witness,
+        hints.protocol_contract_leaf,
+        hints.protocol_contract_membership_witness,
         protocol_contract_tree_root,
     );
 }
