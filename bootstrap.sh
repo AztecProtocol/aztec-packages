@@ -195,6 +195,13 @@ function release {
     docs
     release-image
   )
+  if [ $(arch) == arm64 ]; then
+    echo "Only deploying packages with platform-specific binaries on arm64."
+    projects=(
+      barretenberg/cpp
+      release-image
+    )
+  fi
 
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
