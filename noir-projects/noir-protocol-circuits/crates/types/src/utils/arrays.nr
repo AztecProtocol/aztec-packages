@@ -125,6 +125,7 @@ where
     length
 }
 
+// TODO(#11555): replace with `.concat`.
 pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
     let mut result = [array1[0]; N + M];
     for i in 1..N {
@@ -132,6 +133,54 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     }
     for i in 0..M {
         result[i + N] = array2[i];
+    }
+    result
+}
+
+/// Similar to the standard array concat, but it concatenates 3 arrays.
+/// Within an unconstrained function, this is more efficient than using `array_concat`
+/// twice, since this doesn't have redundant `for` loops. It is uglier, though.
+pub fn array_concat_3<T, let N: u32, let M: u32, let L: u32>(
+    array1: [T; N],
+    array2: [T; M],
+    array3: [T; L],
+) -> [T; N + M + L] {
+    let mut result = [array1[0]; N + M + L];
+    for i in 1..N {
+        result[i] = array1[i];
+    }
+    let mut offset = N;
+    for i in 0..M {
+        result[offset + i] = array2[i];
+    }
+    offset += M;
+    for i in 0..L {
+        result[offset + i] = array3[i];
+    }
+    result
+}
+
+pub fn array_concat_4<T, let N: u32, let M: u32, let L: u32, let K: u32>(
+    array1: [T; N],
+    array2: [T; M],
+    array3: [T; L],
+    array4: [T; K],
+) -> [T; N + M + L + K] {
+    let mut result = [array1[0]; N + M + L + K];
+    for i in 1..N {
+        result[i] = array1[i];
+    }
+    let mut offset = N;
+    for i in 0..M {
+        result[offset + i] = array2[i];
+    }
+    offset += M;
+    for i in 0..L {
+        result[offset + i] = array3[i];
+    }
+    offset += L;
+    for i in 0..K {
+        result[offset + i] = array4[i];
     }
     result
 }
@@ -272,6 +321,25 @@ fn test_array_concat() {
     let array1 = [4, 5];
     let concatenated = array_concat(array0, array1);
     assert_eq(concatenated, [1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn test_array_concat_3() {
+    let array0 = [1, 2, 3];
+    let array1 = [4, 5];
+    let array2 = [6, 7, 8, 9];
+    let concatenated = array_concat_3(array0, array1, array2);
+    assert_eq(concatenated, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}
+
+#[test]
+fn test_array_concat_4() {
+    let array0 = [1];
+    let array1 = [2, 3];
+    let array2 = [4, 5, 6, 7];
+    let array3 = [8, 9, 10];
+    let concatenated = array_concat_4(array0, array1, array2, array3);
+    assert_eq(concatenated, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]

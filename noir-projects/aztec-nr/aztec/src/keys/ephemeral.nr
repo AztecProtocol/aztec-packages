@@ -8,7 +8,7 @@ use dep::protocol_types::{point::Point, scalar::Scalar};
 use crate::oracle::random::random;
 
 /// Converts a base field element to scalar field element.
-/// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
+/// This is lossless because the modulus of the base field is smaller than the modulus of the scalar field.
 fn fr_to_fq(r: Field) -> Scalar {
     let (lo, hi) = decompose(r);
 

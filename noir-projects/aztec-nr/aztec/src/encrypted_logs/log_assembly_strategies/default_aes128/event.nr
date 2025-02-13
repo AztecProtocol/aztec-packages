@@ -3,8 +3,7 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+            get_arr_of_size__log_bytes_padding__from_plaintext, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
     event::event_interface::EventInterface,
@@ -19,7 +18,10 @@ use crate::{
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
 use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Serialize,
+    address::AztecAddress,
+    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    traits::Serialize,
+    utils::arrays::{array_concat, array_concat_4},
 };
 use std::aes128::aes128_encrypt;
 
@@ -117,9 +119,7 @@ where
     // Prepend/append extra bytes
     // *****************************************************************************
 
-    // "Proper" meaning the main meaty stuff that we care about.
-    let proper_plaintext = event_bytes;
-    let final_plaintext = proper_plaintext;
+    let final_plaintext = event_bytes;
 
     // *****************************************************************************
     // Convert the plaintext into whatever format the encryption function expects
@@ -137,8 +137,6 @@ where
 
     let ciphertext_bytes = aes128_encrypt(final_plaintext, iv, sym_key);
 
-    assert(ciphertext_bytes.len() == 16 * (1 + ((N * 32) + 32) / 16));
-
     // *****************************************************************************
     // Compute the header ciphertext
     // *****************************************************************************
@@ -147,14 +145,17 @@ where
     let contract_address = context.this_address();
     let contract_address_bytes = contract_address.to_field().to_be_bytes::<32>();
 
-    let mut header_plaintext: [u8; 32 + 2] = [0; 32 + 2];
-    for i in 0..32 {
-        header_plaintext[i] = contract_address_bytes[i];
-    }
-    let offset = 32;
     let ciphertext_bytes_length = ciphertext_bytes.len();
-    header_plaintext[offset] = (ciphertext_bytes_length >> 8) as u8;
-    header_plaintext[offset + 1] = ciphertext_bytes_length as u8;
+    // We take the u32 length and convert it to two u8's; i.e. two 8-bit big-endian limbs,
+    // So an 8-bit right-shift gives us the big limb (by discarding the little limb).
+    // The little limb is got by casting to a u8 (which discards higher bits).
+    // The capacity of two u8's is plenty: that allows for 2^16 = 65,536 bytes of
+    // ciphertext, which is more than enough space.
+    let encoding_of_ciphertext_size_in_bytes =
+        [(ciphertext_bytes_length >> 8) as u8, ciphertext_bytes_length as u8];
+
+    let header_plaintext =
+        array_concat(contract_address_bytes, encoding_of_ciphertext_size_in_bytes);
 
     // TODO: this is insecure and wasteful:
     // "Insecure", because the esk shouldn't be used twice (once for the header,
@@ -170,9 +171,8 @@ where
     // Note: the aes128_encrypt builtin fn automatically appends bytes to the
     // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
     // bytes larger than the input in this case.
-    let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv, sym_key);
-    // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
-    assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
+    let header_ciphertext_bytes: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
+        aes128_encrypt(header_plaintext, iv, sym_key);
 
     // *****************************************************************************
     // Prepend / append more bytes of data to the ciphertext, before converting back
@@ -180,26 +180,16 @@ where
     // *****************************************************************************
 
     let mut log_bytes_padding_to_mult_31 =
-        get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 32>();
+        get_arr_of_size__log_bytes_padding__from_plaintext(final_plaintext);
+    /// Safety: These values preserve the privacy of the caller, so it's in their interest to make them actually random.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 32>();
-
-    log_bytes[0] = eph_pk_sign_byte;
-    let mut offset = 1;
-    for i in 0..header_ciphertext_bytes.len() {
-        log_bytes[offset + i] = header_ciphertext_bytes[i];
-    }
-    offset += header_ciphertext_bytes.len();
-
-    for i in 0..ciphertext_bytes.len() {
-        log_bytes[offset + i] = ciphertext_bytes[i];
-    }
-    offset += ciphertext_bytes.len();
-
-    for i in 0..log_bytes_padding_to_mult_31.len() {
-        log_bytes[offset + i] = log_bytes_padding_to_mult_31[i];
-    }
+    let log_bytes = array_concat_4(
+        [eph_pk_sign_byte],
+        header_ciphertext_bytes,
+        ciphertext_bytes,
+        log_bytes_padding_to_mult_31,
+    );
 
     // *****************************************************************************
     // Convert bytes back to fields
@@ -219,18 +209,30 @@ where
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
-    let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+    // We pad any unused fields of the final log with random fields, so that all
+    // logs on the network are indistinguishable.
+    // TODO(#8977): consider introducing various sizes of log privacy set, so that
+    // we're not broadcasting so many wasteful bytes for all apps.
+    //
+    // Note: this tidier approach did not work: it broke the compiler with some kind of
+    // stack too deep error, maybe as a result of the huge arithmetic generic statements
+    // it needed to evaluate to get the fields_padding array size.
+    // let final_log_random_fields_padding = get_arr_of_size__fields_padding__from_plaintext(final_plaintext_bytes);
+    // for i in 0..final_log_random_fields_padding.len() {
+    //     /// Safety: randomness cannot be constrained.
+    //     final_log[i] = unsafe { random() };
+    // }
+    // let final_log = array_concat_3([tag, eph_pk.x], log_bytes_as_fields, final_log_random_fields_padding);
 
-    final_log[0] = tag;
-    final_log[1] = eph_pk.x;
-
-    let mut offset = 2;
-    for i in 0..log_bytes_as_fields.len() {
-        final_log[offset + i] = log_bytes_as_fields[i];
+    let final_log_without_padding = array_concat([tag, eph_pk.x], log_bytes_as_fields);
+    let mut final_log = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+    for i in 0..final_log_without_padding.len() {
+        final_log[i] = final_log_without_padding[i];
     }
-    offset += log_bytes_as_fields.len();
-
-    for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
+    let offset = final_log_without_padding.len();
+    for i in offset..final_log.len() {
+        /// Safety: These values preserve the privacy of the caller, so it's in their interest to make them actually
+        /// random.
         final_log[i] = unsafe { random() };
     }
 
@@ -263,9 +265,14 @@ where
     }
 }
 
-// Important note: this function -- although called "unconstrained" -- the
-// function is not labelled as `unconstrained`, because we pass a reference to the
-// context.
+/// This is the same as `encode_and_encrypt_event`, except the encryption and therefore
+/// contents of the events are not constrained, meaning the caller can place arbitrary content
+/// there. Whether this is acceptable for your app will depend on whether the sender
+/// is incentivised (somehow) to act honestly and provide the correct event log or not.
+///
+/// Important note: this function -- although called "unconstrained" -- the
+/// function is not labelled as `unconstrained`, because we pass a reference to the
+/// context.
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,

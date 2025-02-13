@@ -300,7 +300,7 @@ mod test {
     // BE BYTES
 
     #[test]
-    fn test_be_bytes_31_to_1_field() {
+    fn be_bytes_31_to_1_field() {
         let input = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
             25, 26, 27, 28, 29, 30, 31,
@@ -361,7 +361,7 @@ mod test {
     }
 
     #[test]
-    fn test_be_bytes_31_to_2_fields() {
+    fn be_bytes_31_to_2_fields() {
         let input = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
             25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
@@ -392,7 +392,7 @@ mod test {
     }
 
     #[test]
-    fn test_large_random_be_bytes_31_input_to_fields_and_back(input: [u8; 128]) {
+    fn large_random_be_bytes_31_input_to_fields_and_back(input: [u8; 128]) {
         let output = be_bytes_31_to_fields(input);
         let input_back: [u8; 128] = fields_to_be_bytes_31(output);
 
@@ -403,7 +403,7 @@ mod test {
     // operation is not supported on a Field (to do field % 2^248), I will take multiple smaller values and combine
     // them to get a value lower than 2^248.
     #[test]
-    fn test_large_random_input_to_be_bytes_31_and_back(
+    fn large_random_input_to_be_bytes_31_and_back(
         input1: [u64; 5],
         input2: [u64; 5],
         input3: [u64; 5],
@@ -428,7 +428,7 @@ mod test {
     }
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn test_too_few_destination_be_bytes() {
+    fn too_few_destination_be_bytes() {
         // We should get an error here because first field gets converted to 31 bytes and the second field needs
         // at least 2 bytes but we provide it with 1.
         let input = [1, 256];
@@ -436,13 +436,13 @@ mod test {
     }
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn test_fields_to_be_bytes_31_value_too_large() {
+    fn fields_to_be_bytes_31_value_too_large() {
         let input = [2.pow_32(248)]; // this number is 1 bit larger than 31 bytes.
         let _ignored_result: [u8; 31] = fields_to_be_bytes_31(input);
     }
 
     #[test]
-    fn test_fields_to_be_bytes_31_max_value() {
+    fn fields_to_be_bytes_31_max_value() {
         let input = [2.pow_32(248) - 1];
         let result: [u8; 31] = fields_to_be_bytes_31(input);
 
@@ -455,7 +455,7 @@ mod test {
     // LE BYTES
 
     #[test]
-    fn test_le_bytes_31_to_1_field() {
+    fn le_bytes_31_to_1_field() {
         let input = [
             31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
             9, 8, 7, 6, 5, 4, 3, 2, 1,
@@ -515,7 +515,7 @@ mod test {
     }
 
     #[test]
-    fn test_le_bytes_31_to_2_fields() {
+    fn le_bytes_31_to_2_fields() {
         let input = [
             59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38,
             37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16,
@@ -546,7 +546,7 @@ mod test {
     }
 
     #[test]
-    fn test_large_random_le_bytes_input_to_fields_and_back(input: [u8; 128]) {
+    fn large_random_le_bytes_input_to_fields_and_back(input: [u8; 128]) {
         let output = le_bytes_31_to_fields(input);
         let input_back: [u8; 128] = fields_to_le_bytes_31(output);
 
@@ -557,7 +557,7 @@ mod test {
     // operation is not supported on a Field (to do field % 2^248), I will take multiple smaller values and combine
     // them to get a value lower than 2^248.
     #[test]
-    fn test_large_random_input_to_le_bytes_and_back(
+    fn large_random_input_to_le_bytes_and_back(
         input1: [u64; 5],
         input2: [u64; 5],
         input3: [u64; 5],
@@ -582,7 +582,7 @@ mod test {
     }
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn test_too_few_destination_le_bytes() {
+    fn too_few_destination_le_bytes() {
         // We should get an error here because first field gets converted to 31 bytes and the second field needs
         // at least 2 bytes but we provide it with 1.
         let input = [1, 256];
@@ -590,13 +590,13 @@ mod test {
     }
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn test_fields_to_le_bytes_31_value_too_large() {
+    fn fields_to_le_bytes_31_value_too_large() {
         let input = [2.pow_32(248)];
         let _ignored_result: [u8; 31] = fields_to_le_bytes_31(input);
     }
 
     #[test]
-    fn test_fields_to_le_bytes_31_max_value() {
+    fn fields_to_le_bytes_31_max_value() {
         let input = [2.pow_32(248) - 1];
         let result: [u8; 31] = fields_to_le_bytes_31(input);
 
