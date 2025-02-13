@@ -2,11 +2,12 @@
 # Used by docker and NPM. By default, push to our latest tag (i.e., for master).
 # For prerelease-tagged commits, use that as the dist tag, minus any point version at the end.
 source $(git rev-parse --show-toplevel)/ci3/source
+version=$REF_NAME
 if [ -n "${DIST_TAG:-}" ]; then
   echo "$DIST_TAG"
   return
 fi
-local dist=$(semver $1 prerelease | sed 's/\..*//')
+dist=$(semver prerelease $version | sed 's/\..*//')
 if [ -n $dist ]; then
   echo $dist
 else
