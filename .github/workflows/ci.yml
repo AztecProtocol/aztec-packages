@@ -411,13 +411,13 @@ jobs:
           #   values: ci.yaml
           #   runner_type: 16core-tester-x86-high-memory
           #   timeout: 60
-          - name: "4epochs"
-            test: 4epochs.test.ts
+          - name: "transfer"
+            test: transfer.test.ts
             values: ci.yaml
             runner_type: 16core-tester-x86
             timeout: 40
-          - name: "4epochs-with-blob-sink"
-            test: 4epochs.test.ts
+          - name: "transfer-with-blob-sink"
+            test: transfer.test.ts
             values: ci.yaml
             overrides: "blobSink.enabled=true"
             runner_type: 16core-tester-x86
