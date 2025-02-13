@@ -162,6 +162,7 @@ jobs:
     needs: ci-amd64
     if: github.event_name == 'push'
     strategy:
+      fail-fast: false
       matrix:
         number: [1, 2, 3, 4, 5]
     steps:
