@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 # Written in perl as it is very portable and doesn't have the python versioning fiasco.
 # As well, we have a tried and tested regex from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+# We do one variant, which is to allow a leading 'v' as we use this in release-please.
 use strict;
 use warnings;
 use feature 'say';
@@ -20,6 +21,7 @@ die "Invalid component: $component. Valid components are: major, minor, patch, p
 # Regular expression for SemVer with named capture groups
 my $regex = qr/
     ^
+    v?
     (?<major>0|[1-9]\d*)
     \.
     (?<minor>0|[1-9]\d*)
@@ -43,6 +45,16 @@ my $regex = qr/
 /x;
 
 if ($version =~ $regex) {
+    # If mode is "check", exit silently with success.
+    if ($mode eq 'check') {
+        exit 0;
+    }
+
+    # Validate that the requested component is valid.
+    my %valid = map { $_ => 1 } qw(major minor patch prerelease buildmetadata);
+    die "Invalid component: $mode. Valid components are: major, minor, patch, prerelease, buildmetadata, or 'check'\n"
+        unless exists $valid{$mode};
+
     # Print the captured component (or empty string if not present)
     my $value = defined $+{$component} ? $+{$component} : "";
     say $value;

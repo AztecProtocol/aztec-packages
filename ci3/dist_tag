@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/source
+if [ -n "${DIST_TAG:-}" ]; then
+  echo "$DIST_TAG"
+  return
+fi
+semver $1 prerelease | sed 's/\..*//'
