@@ -31,6 +31,7 @@ std::mutex multi_table_mutex;
 #endif
 void init_multi_tables()
 {
+    PROFILE_THIS_NAME("init_multi_tables");
 #ifndef NO_MULTITHREADING
     std::unique_lock<std::mutex> lock(multi_table_mutex);
 #endif
