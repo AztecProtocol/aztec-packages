@@ -12,6 +12,10 @@ hash=$(cache_content_hash \
 )
 
 function build_and_preview {
+  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+    echo "Not building docs for arm64 in CI."
+    return
+  fi
   echo_header "build docs"
   if cache_download docs-$hash.tar.gz; then
     return
