@@ -21,7 +21,7 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
     REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
   else
-    REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match)
+    REF_NAME=$(git describe --tags --exact-match || git symbolic-ref --short -q HEAD)
     export REF_NAME="${REF_NAME#heads/}"
   fi
   export REF_NAME="${REF_NAME#release/}"
@@ -30,7 +30,7 @@ if [ -z "${REF_NAME:-}" ]; then
 fi
 
 if [ -z "${CI_FULL:-}" ]; then
-  if git describe --tags --exact-match >/dev/null 2>&1; then
+  if semver check "$REF_NAME"; then
     export CI_FULL=1
   elif [ "$REF_NAME" = "master" ]; then
     export CI_FULL=1
