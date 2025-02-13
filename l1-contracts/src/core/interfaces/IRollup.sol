@@ -58,6 +58,7 @@ struct EpochRewards {
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
+  address slashFactory;
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
   ChainTips tips;
@@ -108,6 +109,8 @@ interface IRollupCore {
   function updateL1GasFeeOracle() external;
 
   function setProvingCostPerMana(EthValue _provingCostPerMana) external;
+
+  function setSlashFactory(address _slashFactory) external;
 
   function propose(
     ProposeArgs calldata _args,
@@ -201,4 +204,6 @@ interface IRollup is IRollupCore {
   function getProvingCostPerManaInEth() external view returns (EthValue);
 
   function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
+
+  function getSlashFactory() external view returns (address);
 }
