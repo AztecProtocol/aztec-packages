@@ -80,6 +80,7 @@ import {
   type NoteData,
   Oracle,
   type TypedOracle,
+  ViewDataOracle,
   WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
@@ -114,6 +115,7 @@ export class TXE implements TypedOracle {
 
   private contractDataOracle: ContractDataOracle;
   private simulatorOracle: SimulatorOracle;
+  private viewDataOracle: ViewDataOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
   private uniqueNoteHashesFromPublic: Fr[] = [];
@@ -156,6 +158,15 @@ export class TXE implements TypedOracle {
       keyStore,
       this.node,
       this.simulationProvider,
+    );
+
+    this.viewDataOracle = new ViewDataOracle(
+      this.contractAddress,
+      [] /* authWitnesses */,
+      this.simulatorOracle, // note: SimulatorOracle implements DBOracle
+      this.node,
+      /* log, */
+      /* scopes, */
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
@@ -1181,5 +1192,9 @@ export class TXE implements TypedOracle {
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return this.txeDatabase.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+    return this.viewDataOracle.aes128Decrypt(ciphertext, iv, symKey);
   }
 }
