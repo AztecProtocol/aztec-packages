@@ -1,4 +1,5 @@
 export { AcirSimulator } from './simulator.js';
+export { ViewDataOracle } from './view_data_oracle.js';
 export { DBOracle, ContractClassNotFoundError, ContractNotFoundError } from './db_oracle.js';
 export * from './pick_notes.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
