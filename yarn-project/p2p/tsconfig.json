@@ -22,6 +22,12 @@
       "path": "../kv-store"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../telemetry-client"
     },
     {

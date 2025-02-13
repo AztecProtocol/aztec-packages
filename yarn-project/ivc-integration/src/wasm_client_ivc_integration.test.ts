@@ -1,6 +1,7 @@
-import { createLogger } from '@aztec/foundation/log';
-
 import { jest } from '@jest/globals';
+
+/* eslint-disable camelcase */
+import createDebug from 'debug';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -25,9 +26,8 @@ import {
   witnessGenReaderAppMockCircuit,
 } from './index.js';
 
-/* eslint-disable camelcase */
-
-const logger = createLogger('ivc-integration:test:wasm');
+const logger = createDebug('ivc-integration:test:wasm');
+createDebug.enable('*');
 
 jest.setTimeout(120_000);
 
@@ -44,20 +44,20 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger.debug('generated app mock circuit witness');
+    logger('generated app mock circuit witness');
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
       app_vk: getVkAsFields(MockAppCreatorVk),
     });
-    logger.debug('generated mock private kernel init witness');
+    logger('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
-    logger.debug('generated mock private kernel tail witness');
+    logger('generated mock private kernel tail witness');
 
     // Create client IVC proof
     const bytecodes = [
@@ -65,12 +65,12 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
-    logger.debug('built bytecode array');
+    logger('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
-    logger.debug('built witness stack');
+    logger('built witness stack');
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated then verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -137,7 +137,7 @@ describe('Client IVC Integration', () => {
     ];
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.debug(`generated then verified proof. result: ${verifyResult}`);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

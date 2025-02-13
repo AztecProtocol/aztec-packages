@@ -247,7 +247,7 @@ pub contract Parent {
     unconstrained fn test_private_call() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.create_account();
+        let owner = env.create_account(1);
         // Deploy parent contract
         let parent_contract = env.deploy_self("Parent").without_initializer();
         let parent_contract_address = parent_contract.to_address();

@@ -1,3 +1,5 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,
@@ -39,9 +41,12 @@ export type ArchiverConfig = {
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 } & L1ReaderConfig &
-  L1ContractsConfig;
+  L1ContractsConfig &
+  BlobSinkConfig &
+  ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  ...blobSinkConfigMapping,
   archiverUrl: {
     env: 'ARCHIVER_URL',
     description:
@@ -67,6 +72,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
   },
+  ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',

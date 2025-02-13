@@ -3,7 +3,6 @@ import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { GasFees } from '@aztec/circuits.js';
-import { PublicKeys } from '@aztec/circuits.js/types';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
@@ -206,7 +205,7 @@ export function injectCommands(
       wallet,
       artifactPath,
       json,
-      publicKey ? PublicKeys.fromString(publicKey) : undefined,
+      publicKey,
       args,
       salt,
       typeof init === 'string' ? init : undefined,

@@ -27,7 +27,6 @@ import {
   WASMSimulatorWithBlobs,
   type WorldStateDB,
 } from '@aztec/simulator/server';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -40,8 +39,8 @@ import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
-import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
-import { ProverAgent } from '../prover-agent/prover-agent.js';
+import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
+import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
@@ -54,7 +53,8 @@ export class TestContext {
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
-    public proverAgent: ProverAgent,
+    public broker: TestBroker,
+    public brokerProverFacade: BrokerCircuitProverFacade,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -115,12 +115,12 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const queue = new MemoryProvingQueue(getTelemetryClient());
-    const orchestrator = new TestProvingOrchestrator(ws, queue, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount, undefined);
+    const broker = new TestBroker(proverCount, localProver);
+    const facade = new BrokerCircuitProverFacade(broker);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, Fr.ZERO);
 
-    queue.start();
-    agent.start(queue);
+    await broker.start();
+    facade.start();
 
     return new this(
       publicTxSimulator,
@@ -129,7 +129,8 @@ export class TestContext {
       simulationProvider,
       globalVariables,
       localProver,
-      agent,
+      broker,
+      facade,
       orchestrator,
       blockNumber,
       directoriesToCleanup,
@@ -152,7 +153,8 @@ export class TestContext {
   }
 
   async cleanup() {
-    await this.proverAgent.stop();
+    await this.brokerProverFacade.stop();
+    await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
@@ -160,15 +162,13 @@ export class TestContext {
 
   public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
   public makeProcessedTx(seed?: number): Promise<ProcessedTx>;
-  public async makeProcessedTx(
-    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
-  ): Promise<ProcessedTx> {
+  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
     const header = this.getBlockHeader(blockNum - 1);
     return makeBloatedProcessedTx({
       header,
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       globalVariables: this.globalVariables,
       ...opts,
@@ -189,7 +189,7 @@ export class TestContext {
     const txs = await timesParallel(numTxs, i =>
       this.makeProcessedTx({ seed: i + blockNum * 1000, globalVariables, ...makeProcessedTxOpts(i) }),
     );
-    await this.setEndTreeRoots(txs);
+    await this.setTreeRoots(txs);
 
     const block = await buildBlock(txs, globalVariables, msgs, db);
     this.headers.set(blockNum, block.header);
@@ -226,17 +226,24 @@ export class TestContext {
     );
   }
 
-  public async setEndTreeRoots(txs: ProcessedTx[]) {
+  public async setTreeRoots(txs: ProcessedTx[]) {
     const db = await this.worldState.fork();
     for (const tx of txs) {
+      const startStateReference = await db.getStateReference();
       await updateExpectedTreesFromTxs(db, [tx]);
-      const stateReference = await db.getStateReference();
+      const endStateReference = await db.getStateReference();
       if (tx.avmProvingRequest) {
+        tx.avmProvingRequest.inputs.publicInputs.startTreeSnapshots = new TreeSnapshots(
+          startStateReference.l1ToL2MessageTree,
+          startStateReference.partial.noteHashTree,
+          startStateReference.partial.nullifierTree,
+          startStateReference.partial.publicDataTree,
+        );
         tx.avmProvingRequest.inputs.publicInputs.endTreeSnapshots = new TreeSnapshots(
-          stateReference.l1ToL2MessageTree,
-          stateReference.partial.noteHashTree,
-          stateReference.partial.nullifierTree,
-          stateReference.partial.publicDataTree,
+          endStateReference.l1ToL2MessageTree,
+          endStateReference.partial.noteHashTree,
+          endStateReference.partial.nullifierTree,
+          endStateReference.partial.publicDataTree,
         );
       }
     }

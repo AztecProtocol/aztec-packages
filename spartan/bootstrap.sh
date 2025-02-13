@@ -60,6 +60,7 @@ case "$cmd" in
       kind create cluster
     fi
     kubectl config use-context kind-kind || true
+    docker update --restart=no kind-control-plane >/dev/null
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh

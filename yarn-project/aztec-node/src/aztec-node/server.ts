@@ -4,7 +4,6 @@ import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EpochProofQuote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
@@ -123,14 +122,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
 
-  public addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
-  }
-
-  public getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    return this.p2pClient.getEpochProofQuotes(epoch);
-  }
-
   public getL2Tips() {
     return this.blockSource.getL2Tips();
   }
@@ -163,11 +154,6 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
-
-    // we identify the P2P transaction protocol by using the rollup contract address.
-    // this may well change in future
-    const rollupAddress = config.l1Contracts.rollupAddress;
-    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
