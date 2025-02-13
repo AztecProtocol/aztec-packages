@@ -134,7 +134,7 @@ TEST(ECCOpQueueTest, NewConstruction)
         for (const auto& op : chunk) {
             op_queue.append_ultra_op(op);
         }
-        op_queue.construct_concatenated_table();
+        op_queue.concatenate_subtable();
     }
 
     // Compute the expected total table size as the sum of the chink sizes times 2
@@ -145,4 +145,24 @@ TEST(ECCOpQueueTest, NewConstruction)
 
     EXPECT_EQ(op_queue.ultra_ops_size(), expected_table_size);
     EXPECT_EQ(mock_table.size(), expected_table_size);
+
+    std::array<std::vector<fr>, 4> ultra_ops_table;
+    for (auto& column : ultra_ops_table) {
+        column.resize(expected_table_size);
+    }
+
+    std::array<std::span<fr>, 4> ultra_ops_table_spans;
+    for (auto [column_span, column] : zip_view(ultra_ops_table_spans, ultra_ops_table)) {
+        column_span = column;
+    }
+
+    op_queue.populate_ultra_ops_table(ultra_ops_table_spans);
+
+    // ultra_ops_table[2][3] += 1;
+
+    for (auto [expected_column, column] : zip_view(mock_table.table, ultra_ops_table)) {
+        for (auto [expected_value, value] : zip_view(expected_column, column)) {
+            EXPECT_EQ(expected_value, value);
+        }
+    }
 }

@@ -21,6 +21,8 @@ class NewECCOpQueue {
     using Fr = Curve::ScalarField;
     Point point_at_infinity = Curve::Group::affine_point_at_infinity;
 
+    static constexpr size_t ULTRA_OPS_TABLE_WIDTH = 4;
+
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
 
@@ -32,6 +34,7 @@ class NewECCOpQueue {
     // Tracks numer of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
+    // WORKTODO: instead of chunk maybe segment? subtable?
     struct UltraTableChunk {
         std::array<std::vector<fr>, 4> columns;
         std::unique_ptr<UltraTableChunk> prev;
@@ -81,11 +84,25 @@ class NewECCOpQueue {
         return total_size;
     }
 
-    void construct_concatenated_table(const size_t size_hint = 0)
+    void concatenate_subtable(const size_t size_hint = 0)
     {
         auto new_head = std::make_unique<UltraTableChunk>(size_hint); // new empty table chunk
         new_head->prev = std::move(head);                             // link new chunk to current head
         head = std::move(new_head);                                   // update head
+    }
+
+    void populate_ultra_ops_table(std::array<std::span<Fr>, ULTRA_OPS_TABLE_WIDTH>& ultra_ops_table)
+    {
+        size_t i = 0;
+        for (auto* chunk = head.get(); chunk != nullptr; chunk = chunk->prev.get()) {
+            for (size_t j = 0; j < chunk->size(); ++j) {
+                ultra_ops_table[0][i] = chunk->columns[0][j];
+                ultra_ops_table[1][i] = chunk->columns[1][j];
+                ultra_ops_table[2][i] = chunk->columns[2][j];
+                ultra_ops_table[3][i] = chunk->columns[3][j];
+                ++i;
+            }
+        }
     }
 
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
