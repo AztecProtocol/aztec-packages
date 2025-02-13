@@ -94,11 +94,16 @@ bootNode:
     inboxAddress: ""
     outboxAddress: ""
     feeJuiceAddress: ""
+    stakingAssetAddress: ""
     feeJuicePortalAddress: ""
+    coinIssuerAddress: ""
+    rewardDistributorAddress: ""
+    governanceProposerAddress: ""
+    governanceAddress: ""
+    slashFactoryAddress: ""
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
   viemPollingInterval: 1000
-  stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
 
