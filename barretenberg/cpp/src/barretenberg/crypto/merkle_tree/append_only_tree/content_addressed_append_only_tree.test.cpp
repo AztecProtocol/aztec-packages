@@ -20,8 +20,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
-#include <gtest/gtest.h>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -148,17 +148,6 @@ void commit_tree(TreeType& tree, bool expected_success = true)
         signal.signal_level();
     };
     tree.commit(completion);
-    signal.wait_for_level();
-}
-
-void rollback_tree(TreeType& tree)
-{
-    Signal signal;
-    auto completion = [&](const Response& response) -> void {
-        EXPECT_EQ(response.success, true);
-        signal.signal_level();
-    };
-    tree.rollback(completion);
     signal.wait_for_level();
 }
 
@@ -1948,4 +1937,113 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_
         remove_historic_block(tree, i + 1);
     }
     remove_historic_block(tree, blockToFinalise, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_forks)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // We apply a number of updates and checkpoint the tree each time
+
+    uint32_t stackDepth = 20;
+
+    std::vector<fr_sibling_path> paths(stackDepth);
+    uint32_t index = 0;
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now add one more depth, this will be un-checkpointed
+    {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+        paths[index] = get_sibling_path(tree, 3);
+    }
+
+    index_t checkpointIndex = index;
+
+    // The tree is currently at the state of index 19
+    EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+
+    // We now alternate committing and reverting the checkpoints half way up the stack
+
+    for (; index > stackDepth / 2; index--) {
+        if (index % 2 == 0) {
+            revert_checkpoint_tree(tree, true);
+            checkpointIndex = index - 1;
+        } else {
+            commit_checkpoint_tree(tree, true);
+        }
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+    }
+
+    // Now apply another set of updates and checkpoints back to the original stack depth
+    for (; index < stackDepth - 1; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        try {
+            checkpoint_tree(tree);
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    // Now add one more depth, this will be un-checkpointed
+    {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+        paths[index] = get_sibling_path(tree, 3);
+    }
+
+    // We now alternatively commit and revert all the way back to the start
+    checkpointIndex = index;
+
+    // The tree is currently at the state of index 19
+    EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+
+    for (; index > 0; index--) {
+        if (index % 2 == 0) {
+            revert_checkpoint_tree(tree, true);
+            checkpointIndex = index - 1;
+        } else {
+            commit_checkpoint_tree(tree, true);
+        }
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[checkpointIndex]);
+    }
+
+    // Should not be able to commit or revert where there is no active checkpoint
+    revert_checkpoint_tree(tree, false);
+    commit_checkpoint_tree(tree, false);
 }

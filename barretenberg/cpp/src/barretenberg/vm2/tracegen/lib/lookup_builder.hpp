@@ -34,16 +34,9 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
-
-            // We set a dummy value in the inverse column so that the size of the column is right.
-            // The correct value will be set by the prover.
-            trace.set(LookupSettings::INVERSES, row, 0xdeadbeef);
         });
 
-        // We set a dummy value in the inverse column so that the size of the column is right.
-        // The correct value will be set by the prover.
-        trace.visit_column(LookupSettings::DST_SELECTOR,
-                           [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
+        SetDummyInverses<LookupSettings_>(trace);
     }
 
   protected:
@@ -117,10 +110,6 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
 
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
 
-            // We set a dummy value in the inverse column so that the size of the column is right.
-            // The correct value will be set by the prover.
-            trace.set(LookupSettings::INVERSES, row, 0xdeadbeef);
-
             // We find the first row in the destination columns where the values match.
             while (dst_row < max_dst_row) {
                 // TODO: As an optimization, we could try to only walk the rows where the selector is active.
@@ -137,10 +126,7 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                                      ". Could not find tuple in destination.");
         });
 
-        // We set a dummy value in the inverse column so that the size of the column is right.
-        // The correct value will be set by the prover.
-        trace.visit_column(LookupSettings::DST_SELECTOR,
-                           [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
+        SetDummyInverses<LookupSettings>(trace);
     }
 };
 

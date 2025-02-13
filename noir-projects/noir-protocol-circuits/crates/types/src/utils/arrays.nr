@@ -174,8 +174,29 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     }
     result
 }
-
+/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
+/// if this is not the case then elements from the end of `array2` will be dropped.
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty + Eq,
+{
+    /// Safety: we constrain this array below
+    let result = unsafe { array_merge_helper(array1, array2) };
+    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
+    let array1_len = array_length(array1);
+    let mut add_from_left = true;
+    for i in 0..N {
+        add_from_left &= i != array1_len;
+        if add_from_left {
+            assert_eq(result[i], array1[i]);
+        } else {
+            assert_eq(result[i], array2[i - array1_len]);
+        }
+    }
+    result
+}
+
+unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
 {
