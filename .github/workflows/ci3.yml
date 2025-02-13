@@ -48,7 +48,7 @@ jobs:
       )
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -134,7 +134,7 @@ jobs:
       )
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -168,7 +168,7 @@ jobs:
         number: [1, 2, 3, 4, 5]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -184,7 +184,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
-          INSTANCE_POSTFIX: ${{ strategy.matrix.number }}
+          INSTANCE_POSTFIX: ${{ matrix.number }}
         run: |
           ./ci.sh ec2-test
 
@@ -196,29 +196,27 @@ jobs:
       - ci-amd64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Get Authors of Recent Commit
-        id: get_authors
+      - name: Get Context
+        id: get_context
         run: |
-          git fetch --depth=1 origin ${{ github.sha }}
-          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
+          authors=$(git log -1 --pretty=format:'%an <%ae>')
           echo "authors=${authors}" >> $GITHUB_OUTPUT
-
-      - name: Get Failed Jobs
-        id: get_failed_jobs
-        run: |
+          title=$(git log -1 --pretty=format:'%s')
+          echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
-          [ "${{ needs.ci-grind.outcome }}" = "failure" ] && failed_jobs+="ci-grind"
-          [ "${{ needs.ci-amd64.outcome }}" = "failure" ] && failed_jobs+="ci-amd64"
+          [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci-amd64.result }}" = "failure" = "failure" ] && failed_jobs+="ci-amd64"
           echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
 
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "text": "Master Github Actions failure",
+              "text": "Failure on `${{ github.ref_name }}`\nCommit: `${{ steps.get_commit_title.outputs.commit_title }}`",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_authors.outputs.authors }}",
               "failed_jobs": "${{ steps.get_failed_jobs.outputs.failed_jobs }}"
