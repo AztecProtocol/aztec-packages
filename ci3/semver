@@ -11,12 +11,7 @@ if (@ARGV != 2) {
     die "Usage: $0 <semver> <component>\nValid components: major, minor, patch, prerelease, buildmetadata\n";
 }
 
-my ($version, $component) = @ARGV;
-
-# Validate requested component
-my %valid = map { $_ => 1 } qw(major minor patch prerelease buildmetadata);
-die "Invalid component: $component. Valid components are: major, minor, patch, prerelease, buildmetadata.\n"
-    unless exists $valid{$component};
+my ($version, $mode) = @ARGV;
 
 # Regular expression for SemVer with named capture groups
 my $regex = qr/
@@ -56,7 +51,7 @@ if ($version =~ $regex) {
         unless exists $valid{$mode};
 
     # Print the captured component (or empty string if not present)
-    my $value = defined $+{$component} ? $+{$component} : "";
+    my $value = defined $+{$mode} ? $+{$mode} : "";
     say $value;
     exit 0;
 } else {
