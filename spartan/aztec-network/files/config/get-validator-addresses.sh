@@ -18,6 +18,7 @@ echo "First two words of mnemonic: $first_two"
 
 # Initialize empty string for validator addresses
 VALIDATOR_ADDRESSES_LIST=""
+VALIDATOR_PRIVATE_KEY_LIST=""
 
 i=$KEY_INDEX_START
 while [ $i -lt $((KEY_INDEX_START + NUMBER_OF_VALIDATORS)) ]; do
@@ -32,11 +33,22 @@ while [ $i -lt $((KEY_INDEX_START + NUMBER_OF_VALIDATORS)) ]; do
     VALIDATOR_ADDRESSES_LIST="$address"
   fi
 
+  if [ -n "$VALIDATOR_PRIVATE_KEY_LIST" ]; then
+    VALIDATOR_PRIVATE_KEY_LIST="$VALIDATOR_PRIVATE_KEY_LIST,$private_key"
+  else
+    VALIDATOR_PRIVATE_KEY_LIST="$private_key"
+  fi
+
   i=$((i + 1))
 done
 
 cat <<EOF >./shared/config/validator-addresses
 export VALIDATOR_ADDRESSES=$VALIDATOR_ADDRESSES_LIST
+EOF
+
+# Export private keys to a file
+cat <<EOF >./shared/config/validator-private-keys
+export VALIDATOR_PRIVATE_KEYS=$VALIDATOR_PRIVATE_KEY_LIST
 EOF
 
 cat ./shared/config/validator-addresses
