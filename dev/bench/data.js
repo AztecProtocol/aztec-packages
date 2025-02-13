@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739406192029,
+  "lastUpdate": 1739406277762,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a83678624cd4d9f21ca1438672a59ecfc3096713",
-          "message": "chore: add apps & fee support to AVM simulator and AVM bb-prover tests (#11323)\n\nAdds the following test helper classes:\n- SimpleContractDataSource: fulfills ContractDataSource interface in a\nminimal way to work with isolated AVM tests\n- BaseAvmSimulationTester: provides a similar interface to\nContractDataSource, but adding contracts also performs contract address\nnullifier insertions and includes helpers for contract initialization\n(useful for constructor calls).\n- AvmSimulationTester: extends Base* and exposes a function to\n`simulateCall`. Uses a parent state manager to maintain state between\nenqueued calls.\n- PublicTxSimulationTester: extends Base* and exposes a function to\n`simulateTx`. Commits state to trees to maintain state between txs.\n- AvmProvingTester (& v2): extends a `PublicTxSimulationTester` and\nexposes a function to `simProveVerify` a tx",
-          "timestamp": "2025-01-28T18:56:42Z",
-          "tree_id": "e2e4b2372785a148c6e84dfd7c85bb1a4a00428f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a83678624cd4d9f21ca1438672a59ecfc3096713"
-        },
-        "date": 1738092037430,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19226.17749,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16394.524763 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21657.47845599998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18945.998174 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4052.615436999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3747.8630030000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85003.30465,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85003305000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14683.316826999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14683318000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3785113714,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3785113714 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142732268,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142732268 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 129102069,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129102069 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f3bcccf81eafe51bac589599a21e1a68117e5c9",
+          "message": "grind baby grind",
+          "timestamp": "2025-02-13T00:13:28Z",
+          "tree_id": "053e5cbd9a3f73d9b35ca927a59e353047b68a42",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7f3bcccf81eafe51bac589599a21e1a68117e5c9"
+        },
+        "date": 1739406269976,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18172.887891000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16029.509789999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18603.11177599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16393.072671 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3915.1752300000453,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3076.473743 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54965.659322,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54965660000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10431.515263,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10431520000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1808463020,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1808463020 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 129084588,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 129084588 ns\nthreads: 1"
           }
         ]
       }
