@@ -6,8 +6,8 @@ on:
   push:
     branches:
       - master
-  # WORKTODO reinstate
-  # For AztecProtocol devs. Allows editing workflow files.
+    tags:
+      - 'v*'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
   # For external devs. Workflow file edits won't take effect in the PR.
