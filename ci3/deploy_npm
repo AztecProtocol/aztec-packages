@@ -40,7 +40,7 @@ done
 
 # Publish.
 if [ "$dry_run" -eq 1 ]; then
-  npm publish --ignore-scripts --dry-run --tag $dist_tag --access public
+  denoise "npm publish --ignore-scripts --dry-run --tag $dist_tag --access public"
 else
   # Check if version exists.
   if npm view "$package_name@$version" version >/dev/null 2>&1; then
@@ -48,6 +48,6 @@ else
     npm dist-tag add $package_name@$version $dist_tag
   else
     # Publish new version.
-    npm publish --ignore-scripts --tag $dist_tag --access public
+    denoise npm publish --ignore-scripts --tag $dist_tag --access public
   fi
 fi
