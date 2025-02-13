@@ -321,6 +321,7 @@ mod tests {
             constants.global_variables.chain_id = fixtures::CHAIN_ID;
             constants.global_variables.version = fixtures::VERSION;
             constants.vk_tree_root = tube_data.vk_tree_root;
+            constants.protocol_contract_tree_root = tube_data.protocol_contract_tree_root;
 
             // Gas and fee.
             tube_data.gas_used = Gas::new(11, 22);

@@ -14,7 +14,6 @@ import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   Fr,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -29,18 +28,13 @@ import {
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
-import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import {
-  getProtocolContractSiblingPath,
-  isProtocolContract,
-  protocolContractTreeRoot,
-} from '@aztec/protocol-contracts';
+import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
@@ -369,9 +363,8 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    const protocolContractSiblingPath = isProtocolContract(contractAddress)
-      ? await getProtocolContractSiblingPath(contractAddress)
-      : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
+    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
+      await getProtocolContractLeafAndMembershipWitness(contractAddress);
 
     return PrivateCallData.from({
       publicInputs,
@@ -381,7 +374,8 @@ export class KernelProver {
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
-      protocolContractSiblingPath,
+      protocolContractMembershipWitness,
+      protocolContractLeaf,
       acirHash,
     });
   }
