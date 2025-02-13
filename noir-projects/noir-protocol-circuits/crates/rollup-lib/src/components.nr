@@ -511,7 +511,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
 
         for j in 0..num_public_logs {
             let log = public_logs[j].serialize();
-            let log_len = find_index_hint_from_end(log, |f| f == 0);
+            let log_len = find_index_hint_from_end(log, |f| f != 0);
             tx_effects_hash_input[offset] = log_len as Field;
             offset += 1;
             array_len += log_len + 1;

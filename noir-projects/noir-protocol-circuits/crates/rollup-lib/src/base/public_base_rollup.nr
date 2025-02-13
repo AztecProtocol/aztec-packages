@@ -509,14 +509,14 @@ mod tests {
             .avm_data
             .public_logs
             .storage()
-            .map(|l| find_index_hint_from_end(l.serialize(), |f| f == 0))
+            .map(|l| find_index_hint_from_end(l.serialize(), |f| f != 0))
             .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, total_public_logs_len);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..NUM_PUB_LOGS {
             let log = builder.avm_data.public_logs.storage()[i].serialize();
-            let log_len = find_index_hint_from_end(log, |f| f == 0);
+            let log_len = find_index_hint_from_end(log, |f| f != 0);
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;

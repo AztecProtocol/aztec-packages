@@ -60,14 +60,9 @@ export class PublicLog {
   }
 
   getEmittedFields() {
-    let lastZeroIndex = 0;
-    for (let i = this.toFields().length - 1; i >= 0; i--) {
-      if (!this.toFields()[i].isZero() && lastZeroIndex == 0) {
-        lastZeroIndex = i + 1;
-        break;
-      }
-    }
-    return this.toFields().slice(0, lastZeroIndex);
+    const fields = this.toFields();
+    const lastNonZeroIndex = fields.findLastIndex(f => !f.isZero());
+    return fields.slice(0, lastNonZeroIndex + 1);
   }
 
   equals(other: this) {
