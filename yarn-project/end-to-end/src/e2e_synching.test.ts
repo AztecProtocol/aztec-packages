@@ -53,11 +53,11 @@ import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';

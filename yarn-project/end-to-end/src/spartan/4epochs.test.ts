@@ -7,7 +7,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -37,6 +37,7 @@ describe('token transfer test', () => {
         hostPort: config.HOST_PXE_PORT,
       });
       PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+
       if (config.SEPOLIA_RUN !== 'true') {
         await startPortForward({
           resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
@@ -51,12 +52,31 @@ describe('token transfer test', () => {
         }
         ETHEREUM_HOST = config.ETHEREUM_HOST;
       }
+
+      await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-boot-node`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_NODE_PORT,
+        hostPort: config.HOST_NODE_PORT,
+      });
+      const NODE_URL = `http://127.0.0.1:${config.HOST_NODE_PORT}`;
+
+      const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
+
+      testWallets = await deployTestWalletWithTokens(
+        PXE_URL,
+        NODE_URL,
+        ETHEREUM_HOST,
+        L1_ACCOUNT_MNEMONIC,
+        MINT_AMOUNT,
+        logger,
+      );
     } else {
       PXE_URL = config.PXE_URL;
       ETHEREUM_HOST = config.ETHEREUM_HOST;
+      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
 
-    testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
     logger.info(`Tested wallets setup: ${ROUNDS} < ${MINT_AMOUNT}`);
   });

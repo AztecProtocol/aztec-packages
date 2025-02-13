@@ -204,6 +204,7 @@ bot:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
+  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
@@ -245,6 +246,8 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
     resources:
       requests:
         memory: "4Gi"

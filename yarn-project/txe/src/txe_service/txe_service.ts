@@ -27,6 +27,7 @@ import {
   addressFromSingle,
   fromArray,
   fromSingle,
+  fromUintArray,
   toArray,
   toForeignCallResult,
   toSingle,
@@ -578,6 +579,19 @@ export class TXEService {
     );
 
     return toForeignCallResult([]);
+  }
+
+  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts. The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need to implement this function here. Isn't there a way to programmatically identify that this is missing, given the existence of a txe_oracle method?
+  async aes128Decrypt(ciphertext: ForeignCallArray, iv: ForeignCallArray, symKey: ForeignCallArray) {
+    const ciphertextBuffer = fromUintArray(ciphertext, 8);
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
+
+    const paddedPlaintext = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
+
+    // We convert each byte of the buffer to its own Field, so that the Noir
+    // function correctly receives [u8; N].
+    return toForeignCallResult([toArray(Array.from(paddedPlaintext).map(byte => new Fr(byte)))]);
   }
 
   // AVM opcodes

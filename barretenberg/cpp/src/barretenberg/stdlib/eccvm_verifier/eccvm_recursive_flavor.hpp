@@ -54,9 +54,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
 
-    // think these two are not needed for recursive verifier land
-    // using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
-    // using LookupRelation = ECCVMLookupRelation<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`

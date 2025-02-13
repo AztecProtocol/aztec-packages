@@ -4,11 +4,12 @@
  */
 pub struct NoteEmission<Note> {
     pub note: Note,
+    pub storage_slot: Field,
 }
 
 impl<Note> NoteEmission<Note> {
-    pub fn new(note: Note) -> Self {
-        Self { note }
+    pub fn new(note: Note, storage_slot: Field) -> Self {
+        Self { note, storage_slot }
     }
 
     pub fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {

@@ -265,6 +265,10 @@ class WorldState {
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                                     const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
+    void checkpoint(const uint64_t& forkId);
+    void commit_checkpoint(const uint64_t& forkId);
+    void revert_checkpoint(const uint64_t& forkId);
+
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
