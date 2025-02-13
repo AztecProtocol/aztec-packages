@@ -129,7 +129,6 @@ void init_multi_tables()
     (*MULTI_TABLES)[MultiTableId::HONK_DUMMY_MULTI] = dummy_tables::get_honk_dummy_multitable();
     initialised = true;
 }
-} // namespace bb::plookup
 /**
  * @brief Return the multitable with the provided ID; construct all MultiTables if not constructed already
  * @details The multitables are relatively light objects (they do not themselves store raw table data) so the first time
@@ -443,4 +442,5 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
         return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP, index);
     }
     }
+}
 } // namespace bb::plookup
