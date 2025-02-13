@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739406277762,
+  "lastUpdate": 1739437408081,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "379aafa7d4b644c8380b971e332c41ada62f5821",
-          "message": "feat: Gemini PolynomialBatcher (#11398)\n\nIntroduces new class in Gemini called `PolynomialBatcher` that is\nresponsible for storing references to the polynomials to be batched and\nactually computing the various batched polynomials required in Gemini.\nThis serves two purposes: (1) it separates the polynomial batching logic\nfrom the \"gemini\" logic (i.e. constructing univariate claims from a\nmultilinear poly via gemini-style \"folding\"), and (2) it facilitates the\ninput of different types of polynomial sets into Gemini. This latter\npoint is needed for the new merge protocol which will add yet another\ntype of polynomial into the mix: `to_be_k_shifted_polynomials`, which\nthe ever-expanding gemini interface with defaulted inputs would not\neasily support.\n\nNote: Currently the `PolynomialBatcher` only handles the `unshifted` and\n`to_be_shifted` polynomials. It would be natural to include the\nconcatenation polynomials as well. I held off for now due to expected\nchanges to the way concatenations are handled.\n\nNote 2: Upcoming follow ons will introduce a similar mechanism for the\nanalogous verifier logic.",
-          "timestamp": "2025-01-28T17:08:04-07:00",
-          "tree_id": "ee56c82531f93b9ffd51f72957243111372e5d50",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/379aafa7d4b644c8380b971e332c41ada62f5821"
-        },
-        "date": 1738110838207,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19190.048366999974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16197.798401 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21753.492612000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19014.329713 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4194.74541400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3881.621233 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85649.60846300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85649608000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14788.95052,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14788951000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3775501068,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3775501068 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 139695649,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 139695649 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 129084588,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129084588 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "domuradical@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "domuradical@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "distinct": true,
+          "id": "cd3ee7f0d3b2bc13a2a1b812beb6e2654ee66ed1",
+          "message": "Merge remote-tracking branch 'origin/ci3-fake-master' into ci3-fake-master",
+          "timestamp": "2025-02-13T08:39:37Z",
+          "tree_id": "0cf5df858a63a4db1dd412fe919eb88ecb074ae7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cd3ee7f0d3b2bc13a2a1b812beb6e2654ee66ed1"
+        },
+        "date": 1739437400491,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18042.68821400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15856.260483999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18538.37488099998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16065.907245000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3852.0219290001023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3131.6464530000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55282.521339,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55282523000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11094.995866,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11094999000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1813917306,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1813917306 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133987662,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133987662 ns\nthreads: 1"
           }
         ]
       }
