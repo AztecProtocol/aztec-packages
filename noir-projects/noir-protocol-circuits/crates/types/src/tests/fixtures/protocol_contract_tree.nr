@@ -14,6 +14,8 @@ pub fn get_protocol_contract_tree(
     assert(contract_index < PROTOCOL_CONTRACT_TREE_WIDTH, "protocol contract does not exist");
     let mut leaf_preimages = [ProtocolContractLeafPreimage::empty(); PROTOCOL_CONTRACT_TREE_WIDTH];
 
+    // Instead of providing a contract index, we could construct the full indexed tree, but that
+    // seems unnecessarily complex for a test fixture.
     let other_contract_index = if contract_index != 1 { 1 } else { 2 };
     let contracts = [
         get_protocol_contract(contract_index).address.to_field(),
@@ -24,9 +26,9 @@ pub fn get_protocol_contract_tree(
     } else {
         [0, contracts[1]]
     };
-    leaf_preimages[1] =
+    leaf_preimages[contract_index] =
         ProtocolContractLeafPreimage { address: contracts[0], next_address: next_addresses[0] };
-    leaf_preimages[2] =
+    leaf_preimages[other_contract_index] =
         ProtocolContractLeafPreimage { address: contracts[1], next_address: next_addresses[1] };
     (
         MerkleTree::new(

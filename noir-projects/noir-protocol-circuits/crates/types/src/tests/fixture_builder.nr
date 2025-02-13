@@ -50,10 +50,10 @@ use crate::{
         MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
-        PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PROTOCOL_CONTRACTS,
+        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
@@ -232,9 +232,17 @@ impl FixtureBuilder {
     }
 
     pub fn set_protocol_contract_root(&mut self) {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree(1);
         let contract_address_field = self.contract_address.to_field();
+        // If this call is using a protocol contract, ensure we insert it into the test tree.
+        // Otherwise, just set 1, as we only need a valid tree we check non-membership in.
+        let contract_index = if contract_address_field.lt(MAX_PROTOCOL_CONTRACTS as Field) {
+            contract_address_field as u32
+        } else {
+            1
+        };
+        let (tree, protocol_contract_leaves) =
+            fixtures::protocol_contract_tree::get_protocol_contract_tree(contract_index);
+
         self.protocol_contract_tree_root = tree.get_root();
         for i in 0..protocol_contract_leaves.len() {
             let leaf = protocol_contract_leaves[i];
@@ -264,11 +272,15 @@ impl FixtureBuilder {
         self.protocol_contract_leaf = protocol_contract_leaves[contract_index];
 
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
+
+        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.salted_initialization_hash = contract_data.salted_initialization_hash;
+        self.public_keys = contract_data.public_keys;
+        self.contract_class_artifact_hash = contract_data.artifact_hash;
+        self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
+
         let function_data =
             fixtures::contract_functions::get_protocol_contract_function(contract_index);
-
-        let _ = self.use_contract(contract_data);
-        self.contract_address = AztecAddress::from_field(contract_index as Field);
 
         self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
