@@ -22,13 +22,18 @@ function test {
 
 function release {
   echo_header "aztec-up release"
-  local version=$REF_NAME
+  local version=${REF_NAME#v}
 
   # Function to compare versions.
   version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
 
   # Read the current version from S3.
   local current_version=$(aws s3 cp s3://install.aztec.network/VERSION - 2>/dev/null || echo "0.0.0")
+
+  if [ $(dist_tag) != latest ]; then
+    echo_stderr -e "${yellow}Not uploading aztec-up scripts for dist-tag $(dist_tag). They are expected to still be compatible with latest."
+    return
+  fi
 
   # Validate that version is a valid semver.
   if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -39,17 +44,17 @@ function release {
       echo "Uploading new version: $version"
 
       # Upload new version to root.
-      aws s3 sync ./bin s3://install.aztec.network/
+      do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/
 
       # Update VERSION file.
-      echo "$version" | aws s3 cp - s3://install.aztec.network/VERSION
+      echo "$version" | do_or_dryrun aws s3 cp - s3://install.aztec.network/VERSION
     else
       echo "New version $version is not greater than current version $current_version. Skipping root upload."
     fi
   fi
 
   # Always create a version directory and upload files there.
-  aws s3 sync ./bin s3://install.aztec.network/$version/
+  do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/$version/
 }
 
 case "$cmd" in

@@ -186,9 +186,12 @@ function release_github {
   if gh release view "v$CURRENT_VERSION" &>/dev/null; then
     compare_link=$(echo -e "See changes: https://github.com/$repo/compare/${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
-
+  # Legacy releases. TODO: Eventually remove.
+  if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
+    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
+  fi
   # Ensure we have a commit release.
-  if [ ${DRY_RUN:-0} = 0 ] && ! gh release view "$REF_NAME" &>/dev/null; then
+  if ! gh release view "$REF_NAME" &>/dev/null; then
     do_or_dryrun gh release create "$REF_NAME" \
       --prerelease \
       --target $COMMIT_HASH \
@@ -242,6 +245,10 @@ function release {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
   done
+}
+
+function release_dryrun {
+  DRY_RUN=1 release
 }
 
 function release_commit {
@@ -299,7 +306,7 @@ case "$cmd" in
     bench
     release
     ;;
-  test|test_cmds|bench|release|release_commit)
+  test|test_cmds|bench|release|release_dryrun|release_commit)
     $cmd "$@"
     ;;
   *)
