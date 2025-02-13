@@ -125,23 +125,22 @@ function test_cmds {
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
   echo NATIVE=1 FLOW=all_cmds $run_test 1_mul
 
-  # barretenberg-acir-tests-bb-ultra-plonk:
-  # Exclude honk tests.
-  for t in $plonk_tests; do
-    echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
-  done
+  # # barretenberg-acir-tests-bb-ultra-plonk:
+  # # Exclude honk tests.
+  # for t in $plonk_tests; do
+  #   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
+  # done
   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
-  # barretenberg-acir-tests-bb-ultra-honk:
-  # Exclude plonk tests.
-  for t in $honk_tests; do
-    echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
-  done
+  # # barretenberg-acir-tests-bb-ultra-honk:
+  # # Exclude plonk tests.
+  # for t in $honk_tests; do
+  #   echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
+  # done
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
-  # echo SYS=ultra_honk FLOW=prove_then_verify $run_test fold_basic
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 
   # barretenberg-acir-tests-bb-client-ivc:

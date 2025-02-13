@@ -1,5 +1,4 @@
 #pragma once
-#include "api_flag_types.hpp"
 #include <filesystem>
 #include <iostream>
 
@@ -15,11 +14,11 @@ class API {
         bool initialize_pairing_point_accumulator{ false };
         uint32_t honk_recursion{ 0 };
         bool ipa_accumulation{ false };
-        std::string scheme{ "" };
-        std::string input_type{ "" };
-        std::string oracle_hash_type{ "" };
-        std::string output_data_type{ "" };
-        std::string output_content_type{ "" };
+        std::string scheme;
+        std::string input_type;
+        std::string oracle_hash_type;
+        std::string output_data_type;
+        std::string output_content_type;
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {

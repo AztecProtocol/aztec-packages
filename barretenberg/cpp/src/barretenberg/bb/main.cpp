@@ -4,7 +4,6 @@
 
 #include "barretenberg/api/api.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
-#include "barretenberg/api/api_flag_types.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb11/cli11_formatter.hpp"

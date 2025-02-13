@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/api/api_flag_types.hpp"
 #include "barretenberg/common/log.hpp"
 #include <filesystem>
 
@@ -58,7 +57,7 @@ void write(const ProverOutput& prover_output,
         }
         case ObjectToWrite::VK: {
             info("case ObjectToWrite::VK: ");
-            const std::string vk_json = to_json(prover_output.key.to_field_elements());
+            const std::string vk_json = to_json(prover_output.key->to_field_elements());
             if (output_to_stdout) {
                 write_string_to_stdout(vk_json);
             } else {

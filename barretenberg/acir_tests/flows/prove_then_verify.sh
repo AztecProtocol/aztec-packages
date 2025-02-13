@@ -15,7 +15,7 @@ FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 #   "client_ivc")
 #     prove_cmd=prove
 #     verify_cmd=verify
-#     flags+=" --scheme client_ivc --input_type ${INPUT_TYPE:-compiletime_stack}"
+#     flags+=" --scheme client_ivc --input_type ${INPUT_TYPE:-single_circuit}"
 #     ;;
 #   *)
 #     prove_cmd=prove_$SYS
@@ -46,19 +46,10 @@ case ${SYS:-} in
     #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
-    $BIN prove $FLAGS $BFLAG -o target --input_type compiletime_stack
-    $BIN write_vk $FLAGS $BFLAG -o target --input_type compiletime_stack
-    $BIN verify $FLAGS  -k target/vk -p target/proof
-
-    # [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation true"
-    # $BIN prove $FLAGS $BFLAG -o target $([[ "${ROLLUP:-false}" == "true" ]] && echo '--ipa_accumulation')
-    # $BIN write_vk $FLAGS $BFLAG -o target
-    # $BIN verify $FLAGS  -k target/vk -p target/proof $([[ "${ROLLUP:-false}" == "true" ]] && echo '--ipa_accumulation')
-
-
-    # $BIN verify $FLAGS \
-    #     -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
-    #     -p <($BIN prove $FLAGS $BFLAG -o - )
+    [ "${RECURSIVE}" = "true" ] && FLAGS+=" --initialize_accumulator"
+    $BIN verify $FLAGS \
+        -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
+        -p <($BIN prove $FLAGS $BFLAG -o - )
   ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api
