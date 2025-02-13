@@ -42,6 +42,7 @@ trait ProveNoteIsNullified {
     fn prove_note_is_nullified<Note, let N: u32>(
         header: BlockHeader,
         note: Note,
+        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
@@ -50,11 +51,16 @@ trait ProveNoteIsNullified {
 
 impl ProveNoteIsNullified for BlockHeader {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_is_nullified<Note, let N: u32>(
+        self,
+        note: Note,
+        storage_slot: Field,
+        context: &mut PrivateContext,
+    )
     where
         Note: NoteInterface<N> + NullifiableNote,
     {
-        let nullifier = compute_siloed_nullifier(note, context);
+        let nullifier = compute_siloed_nullifier(note, storage_slot, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

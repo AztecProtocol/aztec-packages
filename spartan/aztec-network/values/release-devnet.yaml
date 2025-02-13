@@ -11,6 +11,10 @@ validator:
 bootNode:
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
 
 proverAgent:
   replicas: 1
