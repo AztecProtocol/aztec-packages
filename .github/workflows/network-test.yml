@@ -28,7 +28,6 @@ jobs:
       PROJECT_ID: testnet-440309
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
 
-    # WORKTODO(adam) remake this as a
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

@@ -40,6 +40,11 @@ function lint {
 }
 
 function compile_all {
+  set -euo pipefail
+  local hash=$(hash)
+  if cache_download yarn-project-$hash.tar.gz; then
+    return
+  fi
   compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
@@ -73,9 +78,13 @@ function compile_all {
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
+
+  if [ "${CI:-0}" -eq 1 ]; then
+    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  fi
 }
 
-export -f compile_project format lint get_projects compile_all
+export -f compile_project format lint get_projects compile_all hash
 
 function build {
   echo_header "yarn-project build"
@@ -132,6 +141,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
+  # WORKTODO latest is only on master, otherwise use ref name
   release_packages latest ${REF_NAME#v}
 }
 

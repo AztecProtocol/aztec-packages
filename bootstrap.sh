@@ -124,7 +124,7 @@ function test {
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
     [ -n "$existing_pid" ] && kill -9 $existing_pid
     # TODO: I'd like to use dump_fail here, but TXE needs to exit 0 on receiving a SIGTERM.
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &>/dev/null &
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) retry yarn start) &>/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -172,11 +172,12 @@ function build {
 }
 
 function bench {
-  if [ "$CI_FULL" -eq 0 ]; then
+  # TODO bench for arm64.
+  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  barretenberg/cpp/bootstrap.sh bench
-  yarn-project/bootstrap.sh bench
+  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "yarn-project/end-to-end/bootstrap.sh bench"
 }
 
 function release {
@@ -194,6 +195,13 @@ function release {
     docs
     release-image
   )
+  if [ $(arch) == arm64 ]; then
+    echo "Only deploying packages with platform-specific binaries on arm64."
+    projects=(
+      barretenberg/cpp
+      release-image
+    )
+  fi
 
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release

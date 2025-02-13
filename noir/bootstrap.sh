@@ -140,7 +140,6 @@ function test_cmds {
 }
 
 function format {
-  # WORKTODO(adam) should this call cargo fmt?
   # Check format of noir programs in the noir repo.
   export PATH="$(pwd)/noir-repo/target/release:${PATH}"
   arg=${1:-}

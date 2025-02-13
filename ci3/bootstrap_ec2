@@ -8,6 +8,8 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 
 if [ "$arch" == "arm64" ]; then
   cores=64
+  # Allow for 90 minutes as ARM has less cores.
+  export AWS_SHUTDOWN_TIME=90
 else
   if [ "$CI_FULL" -eq 1 ]; then
     cores=192
@@ -39,6 +41,7 @@ if [ "$REF_NAME" == "master" ]; then
 else
   instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
+
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
@@ -95,8 +98,8 @@ container_script=$(cat <<EOF
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
-  set -x
   export CI_FULL=$CI_FULL
+  set -x
   ci3/aws_handle_evict "$cmd" $cmd_postfix
 EOF
 )
@@ -116,6 +119,7 @@ EOF
 # We raise the default pid limit to 32k.
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
   sudo sysctl fs.inotify.max_user_watches=1048576
   sudo sysctl fs.inotify.max_user_instances=1048576
 

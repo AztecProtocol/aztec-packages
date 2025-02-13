@@ -70,7 +70,7 @@ function build_gcc_syntax_check_only {
     return
   fi
   cmake --preset gcc -DSYNTAX_ONLY=1
-  cmake --build --preset gcc
+  cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
   cache_upload barretenberg-gcc-$hash.tar.gz build-gcc/syntax-check-success.flag

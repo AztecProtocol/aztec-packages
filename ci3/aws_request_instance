@@ -132,7 +132,7 @@ done
 >&2 echo "Waiting for SSH at $IP..."
 SECONDS=0
 SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
-[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +60"
+[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
 while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>&1; do
   if (( SECONDS >= 60 )); then
     >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
