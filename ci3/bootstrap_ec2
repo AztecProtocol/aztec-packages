@@ -120,6 +120,7 @@ EOF
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   sudo sysctl fs.inotify.max_user_watches=1048576
+  sudo sysctl -w fs.inotify.max_user_instances=1000000
 
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
