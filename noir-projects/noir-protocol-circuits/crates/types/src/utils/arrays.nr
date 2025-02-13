@@ -88,15 +88,15 @@ pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty + Eq,
 {
-    let mut seen_empty = false;
-    let mut length = 0;
+    // The length of the validated array is defined to be equal to the index of the first empty value.
+    let length = unsafe { find_index_hint(array, |elem| is_empty(elem)) };
+
+    let mut require_empty = false;
     for i in 0..N {
-        if is_empty(array[i]) {
-            seen_empty = true;
-        } else {
-            assert(seen_empty == false, "invalid array");
-            length += 1;
-        }
+        require_empty |= i == length;
+
+        let elem_is_empty = is_empty(array[i]);
+        assert(!(require_empty ^ elem_is_empty));
     }
     length
 }
