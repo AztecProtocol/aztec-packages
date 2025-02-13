@@ -9,6 +9,7 @@ import {
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
 } from '../constants.gen.js';
+import { fr } from '../tests/factories.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -147,8 +148,8 @@ export class VerificationKeyAsFields {
 
   static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(
-      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed),
-      Fr.random(),
+      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, fr, seed),
+      fr(seed + 1),
     );
   }
 

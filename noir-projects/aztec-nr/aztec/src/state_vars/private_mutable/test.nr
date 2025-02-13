@@ -31,10 +31,7 @@ unconstrained fn test_initialize_or_replace_without_nullifier() {
     let state_var = in_private(&mut env);
 
     let value = 42;
-    let mut note = MockNote::new(value)
-        .contract_address(get_contract_address())
-        .storage_slot(storage_slot)
-        .build();
+    let mut note = MockNote::new(value).contract_address(get_contract_address()).build();
 
     let _ = OracleMock::mock("checkNullifierExists").returns(0);
     state_var.initialize_or_replace(&mut note).discard();
