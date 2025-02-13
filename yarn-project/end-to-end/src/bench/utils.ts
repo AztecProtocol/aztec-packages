@@ -1,5 +1,5 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, Fr, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
@@ -166,7 +166,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
 ): Promise<SentTx[]> {
-  let calls = await timesParallel(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
+  const calls = await timesParallel(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   context.logger.info(`Sending ${txCount} txs`);
