@@ -13,10 +13,10 @@ case "$cmd" in
   "release")
     echo_header "release-image release"
     docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:${REF_NAME}-$(arch)
-    docker push aztecprotocol/aztec:${REF_NAME}-$(arch)
+    do_or_dryrun docker push aztecprotocol/aztec:${REF_NAME}-$(arch)
 
     # If doing a release in CI, update the remote manifest if we're the arm build.
-    if [ "$(arch)" == "arm64" ] && [ "$CI" -eq 1 ]; then
+    if [ "${DRY_RUN:-0}" == 0 ] && [ "$(arch)" == "arm64" ] && [ "$CI" -eq 1 ]; then
       # Wait for amd64 image to be available.
       while ! docker manifest inspect aztecprotocol/aztec:${REFNAME}-$(arch) &>/dev/null; do
         echo "Waiting for amd64 image to be pushed..."
@@ -27,7 +27,11 @@ case "$cmd" in
         --amend aztecprotocol/aztec:${REF_NAME}-amd64 \
         --amend aztecprotocol/aztec:${REF_NAME}-arm64
       docker manifest push $REF_NAME
-      # TODO we need to push latest if a release off of master
+
+      docker manifest create aztecprotocol/aztec:$(dist_tag) \
+        --amend aztecprotocol/aztec:${REF_NAME}-amd64 \
+        --amend aztecprotocol/aztec:${REF_NAME}-arm64
+      docker manifest push $(dist_tag)
     fi
     ;;
   "release_commit")
