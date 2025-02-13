@@ -4,7 +4,10 @@ use crate::abis::{
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
-    abis::{log_hash::ScopedLogHash, sponge_blob::SpongeBlob},
+    abis::{
+        log_hash::ScopedLogHash, private_log::PrivateLog, public_data_write::PublicDataWrite,
+        public_log::PublicLog, sponge_blob::SpongeBlob,
+    },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -167,10 +170,7 @@ pub(crate) fn append_tx_effects_for_blob(
     tx_effect: TxEffect,
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
-    /// Safety: This constructs the array of effects and is constrained below.
-    let (mut tx_effects_hash_input, offset) =
-        unsafe { get_tx_effects_hash_input_helper(tx_effect) };
-    validate_tx_effects_hash_input(tx_effect, tx_effects_hash_input, offset);
+    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(tx_effect);
 
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
@@ -185,26 +185,8 @@ pub(crate) fn append_tx_effects_for_blob(
     out_sponge
 }
 
-unconstrained fn get_tx_effects_hash_input_helper(
+fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
-) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    get_or_validate_tx_effects_hash_input(tx_effect, [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], 0)
-}
-
-fn validate_tx_effects_hash_input(
-    tx_effect: TxEffect,
-    tx_effects_hash_input: [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS],
-    offset: u32,
-) {
-    if !dep::std::runtime::is_unconstrained() {
-        let _ = get_or_validate_tx_effects_hash_input(tx_effect, tx_effects_hash_input, offset);
-    }
-}
-
-fn get_or_validate_tx_effects_hash_input(
-    tx_effect: TxEffect,
-    _tx_effects_hash_input: [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS],
-    _offset: u32,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
     tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
     let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
@@ -222,26 +204,38 @@ fn get_or_validate_tx_effects_hash_input(
         silo_contract_class_log_hash(log)
     });
 
-    // We either construct this array (if in unconstrained) or validate it (if in constrained)
-    let mut tx_effects_hash_input = _tx_effects_hash_input;
+    /// Safety: This constructs the array of effects and is constrained below.
+    let mut tx_effects_hash_input = unsafe {
+        get_tx_effects_hash_input_helper(
+            tx_effect.tx_hash,
+            prefixed_tx_fee,
+            tx_effect.note_hashes,
+            tx_effect.nullifiers,
+            tx_effect.l2_to_l1_msgs,
+            public_data_update_requests,
+            private_logs,
+            public_logs,
+            contract_class_logs,
+            tx_effect.revert_code as Field,
+        )
+    };
+
+    let mut offset = 0;
+    let mut array_len = 0;
 
     // NB: for publishing fields of blob data we use the first element of the blob to encode:
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
     // Two bytes are used to encode the number of fields appended here, given by 'offset'
     // We only know the value once the appending is complete, hence we overwrite input[0] below
-    if dep::std::runtime::is_unconstrained() {
-        // TX HASH
-        tx_effects_hash_input[1] = tx_effect.tx_hash;
-        // TX FEE
-        // Using 29 bytes to encompass all reasonable fee lengths
-        tx_effects_hash_input[2] = prefixed_tx_fee;
-    } else {
-        assert_eq(tx_effects_hash_input[1], tx_effect.tx_hash);
-        assert_eq(tx_effects_hash_input[2], prefixed_tx_fee);
-    }
+    offset += 1;
 
-    let mut offset = 3;
-    let mut array_len = 0;
+    assert_eq(tx_effects_hash_input[offset], tx_effect.tx_hash);
+    offset += 1;
+
+    // TX FEE
+    // Using 29 bytes to encompass all reasonable fee lengths
+    assert_eq(tx_effects_hash_input[offset], prefixed_tx_fee);
+    offset += 1;
 
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
     // We can use it because all inputs here come from the kernels which DO constrain left-packing.
@@ -251,21 +245,13 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = notes_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], notes_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], notes_prefix);
         offset += 1;
 
         for j in 0..MAX_NOTE_HASHES_PER_TX {
             check_elt &= j != array_len;
             if check_elt {
-                if dep::std::runtime::is_unconstrained() {
-                    tx_effects_hash_input[offset + j] = note_hashes[j];
-                } else {
-                    assert_eq(tx_effects_hash_input[offset + j], note_hashes[j]);
-                }
+                assert_eq(tx_effects_hash_input[offset + j], note_hashes[j]);
             }
         }
         offset += array_len;
@@ -276,21 +262,13 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = nullifiers_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], nullifiers_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], nullifiers_prefix);
         offset += 1;
 
         for j in 0..MAX_NULLIFIERS_PER_TX {
             check_elt &= j != array_len;
             if check_elt {
-                if dep::std::runtime::is_unconstrained() {
-                    tx_effects_hash_input[offset + j] = nullifiers[j];
-                } else {
-                    assert_eq(tx_effects_hash_input[offset + j], nullifiers[j]);
-                }
+                assert_eq(tx_effects_hash_input[offset + j], nullifiers[j]);
             }
         }
         offset += array_len;
@@ -301,21 +279,13 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], l2_to_l1_msgs_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], l2_to_l1_msgs_prefix);
         offset += 1;
 
         for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
             check_elt &= j != array_len;
             if check_elt {
-                if dep::std::runtime::is_unconstrained() {
-                    tx_effects_hash_input[offset + j] = tx_effect.l2_to_l1_msgs[j];
-                } else {
-                    assert_eq(tx_effects_hash_input[offset + j], tx_effect.l2_to_l1_msgs[j]);
-                }
+                assert_eq(tx_effects_hash_input[offset + j], tx_effect.l2_to_l1_msgs[j]);
             }
         }
         offset += array_len;
@@ -327,30 +297,19 @@ fn get_or_validate_tx_effects_hash_input(
         let mut check_elt = true;
         let public_data_update_requests_prefix =
             encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = public_data_update_requests_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], public_data_update_requests_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], public_data_update_requests_prefix);
         offset += 1;
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             check_elt &= j != array_len;
             if check_elt {
-                if dep::std::runtime::is_unconstrained() {
-                    tx_effects_hash_input[offset + j * 2] =
-                        public_data_update_requests[j].leaf_slot;
-                    tx_effects_hash_input[offset + j * 2 + 1] =
-                        public_data_update_requests[j].value;
-                } else {
-                    assert_eq(
-                        tx_effects_hash_input[offset + j * 2],
-                        public_data_update_requests[j].leaf_slot,
-                    );
-                    assert_eq(
-                        tx_effects_hash_input[offset + j * 2 + 1],
-                        public_data_update_requests[j].value,
-                    );
-                }
+                assert_eq(
+                    tx_effects_hash_input[offset + j * 2],
+                    public_data_update_requests[j].leaf_slot,
+                );
+                assert_eq(
+                    tx_effects_hash_input[offset + j * 2 + 1],
+                    public_data_update_requests[j].value,
+                );
             }
         }
         offset += array_len * 2;
@@ -362,11 +321,7 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = private_logs_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], private_logs_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], private_logs_prefix);
         offset += 1;
 
         for j in 0..MAX_PRIVATE_LOGS_PER_TX {
@@ -374,11 +329,7 @@ fn get_or_validate_tx_effects_hash_input(
                 let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
                 check_elt &= j * PRIVATE_LOG_SIZE_IN_FIELDS + k != array_len;
                 if check_elt {
-                    if dep::std::runtime::is_unconstrained() {
-                        tx_effects_hash_input[index] = private_logs[j].fields[k];
-                    } else {
-                        assert_eq(tx_effects_hash_input[index], private_logs[j].fields[k]);
-                    }
+                    assert_eq(tx_effects_hash_input[index], private_logs[j].fields[k]);
                 }
             }
         }
@@ -390,11 +341,7 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = public_logs_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
         offset += 1;
         for j in 0..MAX_PUBLIC_LOGS_PER_TX {
             let log = public_logs[j].serialize();
@@ -402,11 +349,7 @@ fn get_or_validate_tx_effects_hash_input(
                 let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
                 check_elt &= j * PUBLIC_LOG_SIZE_IN_FIELDS + k != array_len;
                 if check_elt {
-                    if dep::std::runtime::is_unconstrained() {
-                        tx_effects_hash_input[index] = log[k];
-                    } else {
-                        assert_eq(tx_effects_hash_input[index], log[k]);
-                    }
+                    assert_eq(tx_effects_hash_input[index], log[k]);
                 }
             }
         }
@@ -420,38 +363,23 @@ fn get_or_validate_tx_effects_hash_input(
     if array_len != 0 {
         let mut check_elt = true;
         let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
-        if dep::std::runtime::is_unconstrained() {
-            tx_effects_hash_input[offset] = contract_class_logs_prefix;
-        } else {
-            assert_eq(tx_effects_hash_input[offset], contract_class_logs_prefix);
-        }
+        assert_eq(tx_effects_hash_input[offset], contract_class_logs_prefix);
         offset += 1;
 
         for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
             check_elt &= j != array_len;
             if check_elt {
-                if dep::std::runtime::is_unconstrained() {
-                    tx_effects_hash_input[offset + j] = contract_class_logs[j];
-                } else {
-                    assert_eq(tx_effects_hash_input[offset + j], contract_class_logs[j]);
-                }
+                assert_eq(tx_effects_hash_input[offset + j], contract_class_logs[j]);
             }
         }
         offset += array_len;
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    let tx_start_field = generate_tx_start_field(offset as Field, tx_effect.revert_code as Field);
-    // TX START
-    if dep::std::runtime::is_unconstrained() {
-        tx_effects_hash_input[0] = tx_start_field;
-    } else {
-        assert_eq(tx_effects_hash_input[0], tx_start_field);
-    }
-
-    if !dep::std::runtime::is_unconstrained() {
-        assert_eq(offset, _offset);
-    }
+    let expected_tx_start_field =
+        generate_tx_start_field(offset as Field, tx_effect.revert_code as Field);
+    // REVERT CODE
+    assert_eq(tx_effects_hash_input[0], expected_tx_start_field);
 
     (tx_effects_hash_input, offset)
 }
@@ -464,4 +392,141 @@ fn generate_tx_start_field(offset: Field, revert_code: Field) -> Field {
     let tx_start_field = constant + offset * (256 * 256 * 256 * 256) + revert_code;
 
     tx_start_field
+}
+
+unconstrained fn get_tx_effects_hash_input_helper(
+    tx_hash: Field,
+    prefixed_tx_fee: Field,
+    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
+    contract_class_logs: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    revert_code: Field,
+) -> [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS] {
+    let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+
+    // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
+    // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
+
+    tx_effects_hash_input[1] = tx_hash;
+
+    // TX FEE
+    // Using 29 bytes to encompass all reasonable fee lengths
+    tx_effects_hash_input[2] = prefixed_tx_fee;
+
+    let mut offset = 3;
+
+    // NB: The array_length function does NOT constrain we have a sorted left-packed array.
+    // We can use it because all inputs here come from the kernels which DO constrain left-packing.
+    // If that ever changes, we will have to constrain it by counting items differently.
+    // NOTE HASHES
+    let array_len = array_length(note_hashes);
+    if array_len != 0 {
+        let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
+        tx_effects_hash_input[offset] = notes_prefix;
+        offset += 1;
+
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j] = note_hashes[j];
+        }
+        offset += array_len;
+    }
+
+    // NULLIFIERS
+    let array_len = array_length(nullifiers);
+    if array_len != 0 {
+        let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = nullifiers_prefix;
+        offset += 1;
+
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j] = nullifiers[j];
+        }
+        offset += array_len;
+    }
+
+    // L2 TO L1 MESSAGES
+    let array_len = array_length(l2_to_l1_msgs);
+    if array_len != 0 {
+        let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
+        offset += 1;
+
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
+        }
+        offset += array_len;
+    }
+
+    // PUBLIC DATA UPDATE REQUESTS
+    let array_len = array_length(public_data_update_requests);
+    if array_len != 0 {
+        let public_data_update_requests_prefix =
+            encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
+        tx_effects_hash_input[offset] = public_data_update_requests_prefix;
+        offset += 1;
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
+            tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].value;
+        }
+        offset += array_len * 2;
+    }
+
+    // TODO(Miranda): squash 0s in a nested loop and add len prefix?
+    // PRIVATE_LOGS
+    let num_private_logs = array_length(private_logs);
+    if num_private_logs != 0 {
+        let array_len = num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = private_logs_prefix;
+        offset += 1;
+
+        for j in 0..num_private_logs {
+            for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
+                tx_effects_hash_input[index] = private_logs[j].fields[k];
+            }
+        }
+        offset += array_len;
+    }
+
+    // PUBLIC LOGS
+    let num_public_logs = array_length(public_logs);
+    if num_public_logs != 0 {
+        let array_len = num_public_logs * PUBLIC_LOG_SIZE_IN_FIELDS;
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = public_logs_prefix;
+        offset += 1;
+        for j in 0..num_public_logs {
+            let log = public_logs[j].serialize();
+            for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+                let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
+                tx_effects_hash_input[index] = log[k];
+            }
+        }
+        offset += array_len;
+    }
+
+    // TODO(#8954): When logs are refactored into fields, we will append the values here
+    // Currently appending the single log hash as an interim solution
+    // CONTRACT CLASS LOGS
+    let array_len = array_length(contract_class_logs);
+    if array_len != 0 {
+        let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = contract_class_logs_prefix;
+        offset += 1;
+
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j] = contract_class_logs[j];
+        }
+        offset += array_len;
+    }
+
+    // Now we know the number of fields appended, we can assign the first value:
+    tx_effects_hash_input[0] = generate_tx_start_field(offset as Field, revert_code);
+
+    tx_effects_hash_input
 }
