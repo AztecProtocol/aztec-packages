@@ -6,7 +6,7 @@ contract AvmGadgetsTest {
 
     #[public]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::keccak256(data, data.len() as u32)
+        keccak256::keccak256(data, data.len())
     }
 
     #[public]
