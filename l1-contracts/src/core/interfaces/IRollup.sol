@@ -77,6 +77,7 @@ struct RollupConfig {
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
+  address slashFactory;
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
   L1GasOracleValues l1GasOracleValues;
@@ -123,6 +124,8 @@ interface IRollupCore {
   function updateL1GasFeeOracle() external;
 
   function setProvingCostPerMana(EthValue _provingCostPerMana) external;
+
+  function setSlashFactory(address _slashFactory) external;
 
   function propose(
     ProposeArgs calldata _args,
