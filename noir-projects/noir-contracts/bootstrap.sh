@@ -208,11 +208,8 @@ case "$cmd" in
     shift
     VERBOSE=1 compile contracts/$1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

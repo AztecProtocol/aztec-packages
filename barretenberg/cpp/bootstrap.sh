@@ -307,9 +307,6 @@ case "$cmd" in
     rm -rf build*
     build
     ;;
-  "test")
-    test
-    ;;
   "ci")
     build
     test
@@ -317,11 +314,8 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  bench|release|release_commit|build_native|build_wasm|build_wasm_threads|build_darwin|build_release|test_cmds)
-    $cmd $@
+  test|test_cmds|bench|release|release_commit|build_native|build_wasm|build_wasm_threads|build_darwin|build_release)
+    $cmd "$@"
     ;;
   *)
     echo "Unknown command: $cmd"

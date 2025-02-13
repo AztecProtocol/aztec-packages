@@ -56,14 +56,8 @@ case "$cmd" in
   ""|"full")
     build_dind_image
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "test")
-    test
-    ;;
-  "release")
-    release
+  test_cmds|test|release)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

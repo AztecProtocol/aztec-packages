@@ -113,11 +113,8 @@ case "$cmd" in
   "test")
     test
     ;;
-  release|release_commit)
+  test_cmds|release|release_commit)
     $cmd
-    ;;
-  "test-cmds")
-    test_cmds
     ;;
   "hash")
     echo $hash

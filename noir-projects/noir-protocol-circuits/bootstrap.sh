@@ -214,11 +214,8 @@ case "$cmd" in
     shift
     compile crates/$1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

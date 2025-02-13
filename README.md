@@ -75,4 +75,4 @@ Key ideas:
 - **Monorepo**: Multiple projects share a single repo. Each subdirectory (e.g. `barretenberg`, `noir`, `yarn-project`) has its own `bootstrap.sh` for building/testing.
 - **Content Hashing**: For each project, files are matched by `.rebuild_patterns`. If those files haven’t changed (hash is identical), a cached build artifact is reused.
 - **Caching**: Artifacts are stored in S3 or any S3-compatible store (e.g. MinIO). If AWS creds aren’t configured, caching is a no-op.
-- **Test Enumeration**: `bootstrap.sh test-cmds` in each subproject lists test lines, which run in parallel. Passing tests get cached so repeated runs skip them.
+- **Test Enumeration**: `bootstrap.sh test_cmds` in each subproject lists test lines, which run in parallel. Passing tests get cached so repeated runs skip them.

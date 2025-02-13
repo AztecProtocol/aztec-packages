@@ -171,12 +171,6 @@ case "$cmd" in
   "full")
     TYPECHECK=1 build
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "hash")
-    hash
-    ;;
   "compile")
     if [ -n "${1:-}" ]; then
       compile_project ::: "$@"
@@ -187,7 +181,7 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
-  test|release|release_commit|format)
+  test|test_cmds|hash|release|release_commit|format)
     $cmd
     ;;
   *)

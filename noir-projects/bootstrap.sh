@@ -27,7 +27,7 @@ function build {
 }
 
 function test_cmds {
-  parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr
 }
 
 function test {
@@ -39,11 +39,8 @@ case "$cmd" in
   full|fast|ci|"")
     build
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "test")
-    test
+  test|test_cmds)
+    $cmd
     ;;
   "hash")
     cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
