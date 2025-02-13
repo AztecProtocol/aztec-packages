@@ -9,8 +9,7 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
-import { ViemPublicClient } from '@aztec/ethereum';
-import { ViemWalletClient } from '@aztec/ethereum';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 

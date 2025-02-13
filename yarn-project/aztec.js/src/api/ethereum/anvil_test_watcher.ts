@@ -6,7 +6,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { GetContractReturnType, getAddress, getContract } from 'viem';
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 
 /**
  * Represents a watcher for a rollup contract.
