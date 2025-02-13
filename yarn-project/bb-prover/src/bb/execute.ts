@@ -219,7 +219,10 @@ export async function computeVerificationKey(
     const logFunction = (message: string) => {
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
-    const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
+    const args = ['-o', outputPath, '-b', bytecodePath, '-v'];
+    if (recursive) {
+      args.push('--recursive');
+    }
     const result = await executeBB(pathToBB, `write_vk`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
@@ -317,8 +320,10 @@ export async function generateProof(
       '-w',
       inputWitnessFile,
       '-v',
-      recursive ? '--recursive' : '',
     ]);
+    if (recursive) {
+      args.push('--recursive');
+    }
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
@@ -465,14 +470,12 @@ export async function generateAvmProofV2(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = [
-      '--avm-inputs',
-      avmInputsPath,
-      '-o',
-      outputPath,
-      // WORKTODO: fix logging
-      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-    ];
+    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg != '') {
+      args.push(loggingArg);
+    }
     const timer = new Timer();
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
@@ -554,17 +557,13 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
     }
 
-    const args = [
-      '--avm-public-inputs',
-      publicInputsPath,
-      '--avm-hints',
-      avmHintsPath,
-      '-o',
-      outputPath,
-      // WORKTODO: fix logging
-      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-      // checkCircuitOnly ? '--check-circuit-only' : '',
-    ];
+    const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg != '') {
+      args.push(loggingArg);
+    }
+
     const timer = new Timer();
     const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
     const logFunction = (message: string) => {
@@ -735,15 +734,12 @@ async function verifyProofInternal(
   };
 
   try {
-    const args = [
-      '-p',
-      proofFullPath,
-      '-k',
-      verificationKeyPath,
-      // WORKTODO: fix logging
-      // logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-      ...extraArgs,
-    ];
+    const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg != '') {
+      args.push(loggingArg);
+    }
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
     const duration = timer.ms();
