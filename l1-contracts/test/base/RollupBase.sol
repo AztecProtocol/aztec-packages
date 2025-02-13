@@ -193,7 +193,7 @@ contract RollupBase is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: full.block.blockHash,
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
     rollup.propose(args, signatures, full.block.body, blobInputs);
