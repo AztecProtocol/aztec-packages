@@ -60,26 +60,21 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+# First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
+# Second argument is the tag name (e.g. v1.2.3, or commit-<hash>).
+# Third argument is the semver for package.json (e.g. 1.2.3 or 1.2.3-commit.<hash>)
+#
+#   v1.2.3    commit-123cafebabe
+#      |     /
+#   v1.2.2  commit-123deadbeef
+#      |   /
+#   v1.2.1
+#
 function release_git_push {
+  local branch_name=$1
+  local tag_name=$2
+  local version=$3
   local mirrored_repo_url="git@github.com:AztecProtocol/l1-contracts.git"
-  # Initialize a new git repository, create an orphan branch, commit, and tag.
-  git init &>/dev/null
-  git checkout -b $COMMIT_HASH &>/dev/null
-  git add .
-  git commit -m "Release $REF_NAME." >/dev/null
-  git tag -a "$REF_NAME" -m "Release $REF_NAME."
-  git remote add origin "$mirrored_repo_url" >/dev/null
-  # Force push the tag.
-  git push origin --quiet --force "$REF_NAME" --tags
-  echo "Release complete ($REF_NAME)."
-}
-
-# Publish to own repo with current tag or branch REF_NAME.
-# We support one use-case - using foundry to install our contracts from a certain tag.
-# We take our l1 contracts content, create an orphaned branch on aztecprotocol/l1-contracts,
-# and push with the tag being equal to REF_NAME.
-function release {
-  echo_header "l1-contracts release"
 
   # Clean up our release directory.
   rm -rf release-out && mkdir release-out
@@ -91,12 +86,55 @@ function release {
   cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
 
   cd release-out
-  release_git_push
+
+  # Update the package version in package.json.
+  # TODO remove package.json.
+  tmp=$(mktemp)
+  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+
+  # Update each dependent @aztec package version in package.json.
+  for pkg in $(jq --raw-output "(.dependencies // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
+    jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
+  done
+
+  git init &>/dev/null
+  git remote add origin "$mirrored_repo_url" &>/dev/null
+  git fetch origin --quiet
+
+  # Checkout the existing branch or create it if it doesn't exist.
+  if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
+    # Update branch reference without checkout.
+    git branch -f "$branch_name" origin/"$branch_name"
+    # Point HEAD to the branch.
+    git symbolic-ref HEAD refs/heads/"$branch_name"
+    # Move to latest commit, keep working tree.
+    git reset --soft origin/"$branch_name"
+  else
+    git checkout -b "$branch_name"
+  fi
+
+  git add .
+  git commit -m "Release $tag_name." >/dev/null
+  git tag -a "$tag_name" -m "Release $tag_name."
+  git push origin "$branch_name" --quiet
+  git push origin --quiet --force "$tag_name" --tags
+
+  echo "Release complete ($tag_name) on branch $branch_name."
+}
+
+function release {
+  echo_header "l1-contracts release"
+  local branch=$(dist_tag)
+  if [ $branch = latest ]; then
+    branch=master
+  fi
+
+  release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
 function release_commit {
-  REF_NAME="commit-$COMMIT_HASH"
-  release
+  echo_header "l1-contracts release commit"
+  release_git_push "$CURRENT_VERSION" "commit-$COMMIT_HASH" "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
 case "$cmd" in

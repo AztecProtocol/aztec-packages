@@ -188,31 +188,34 @@ function release_github {
   fi
 
   # Ensure we have a commit release.
-  if ! gh release view "$TAG" &>/dev/null; then
-    gh release create "$TAG" \
+  if ! gh release view "$REF_NAME" &>/dev/null; then
+    gh release create "$REF_NAME" \
       --prerelease \
       --target $COMMIT_HASH \
-      --title "$TAG" \
+      --title "$REF_NAME" \
       --notes "${compare_link}"
   fi
 }
 
 function release {
-  # Our releases are controlled by the BRANCH and TAG environment variables.
-  # We ensure there is a github release for our TAG. Other steps:
+  # Our releases are controlled by the REF_NAME environment variable, which should be a valid semver (but can have a leading v).
+  # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # Our steps:
   #   barretenberg/cpp => upload binaries to github release
   #   barretenberg/ts
   #     + noir
-  #     + yarn-project => NPM publish with dist-tag=BRANCH, version=TAG (without the leading v)
+  #     + yarn-project => NPM publish with to a dist tag taken from our prerelease semver, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if BRANCH is master
-  #   docs => publish docs if BRANCH is master. Link build in github release (for any BRANCH)
-  #   release-image => push docker image to latest on master, otherwise docker-tag=BRANCH
+  #   docs => publish docs if BRANCH is master. Link build in github release always.
+  #   release-image => push docker image to a dist tag taken from our prerelease semver.
 
-  # Ensure we have a TAG with v + a semantic version at the start.
   check_release
 
-  # Ensure we have a github release for tag.
-  release_github
+  # Ensure we have a github release for our REF_NAME, if not on latest.
+  # On latest we rely on release-please to create this for us.
+  if [ $(dist_tag) != latest ]; then
+    release_github
+  fi
 
   projects=(
     barretenberg/cpp

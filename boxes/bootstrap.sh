@@ -95,7 +95,11 @@ function release_git_push {
 
 function release {
   echo_header "boxes release"
-  release_git_push master $REF_NAME ${REF_NAME#v}
+  local branch=$(dist_tag)
+  if [ $branch = latest ]; then
+    branch=master
+  fi
+  release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
 function release_commit {

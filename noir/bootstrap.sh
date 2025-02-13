@@ -176,7 +176,7 @@ function release_packages {
 }
 
 function release {
-  release_packages latest ${REF_NAME#v}
+  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 function release_commit {

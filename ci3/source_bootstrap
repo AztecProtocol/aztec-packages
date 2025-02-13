@@ -7,15 +7,17 @@ source $ci3/source_refname
 # Called before any bootstrap scripts (root or project) release command is run.
 # Will exit with success (preventing a release) if this is not meant to be release.
 # Will exit with failure if we're meant to be releasing, but it can't find the release on github.
+# We make an exception if we detect a dist tag (derived from a prerelease semver portion).
+# For those, we don't use release-please, so we want to continue on and create the github release ourselves.
 # Does not exit if we're meant to continue releasing, and things look good.
 function check_release {
   # Release check below maybe a bit slow, so we can early out if already checked.
   [ "${CHECKED_RELEASE:-0}" -eq 1 ] && return || export CHECKED_RELEASE=1
 
-  if ! [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  if ! semver check $REF_NAME; then
     echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag."
     exit 0
-  elif ! gh release view $REF_NAME &>/dev/null; then
+  elif [ $(dist_tag) == latest ] && ! gh release view $REF_NAME &>/dev/null; then
     echo_stderr "No release found $REF_NAME. Deploy failed."
     exit 1
   fi

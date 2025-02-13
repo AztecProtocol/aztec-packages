@@ -42,7 +42,7 @@ function test {
 
 function release {
   local version=${REF_NAME#v}
-  deploy_npm latest $version
+  deploy_npm $(dist_tag) $version
 }
 
 function release_commit {
