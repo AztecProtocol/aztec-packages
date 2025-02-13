@@ -1,5 +1,5 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { Fr, type Logger, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
 import {
   type AztecAddress,
@@ -64,7 +64,7 @@ describe('e2e_contract_updates', () => {
     return leaves;
   };
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const senderPrivateKey = Fr.random();
     const signingKey = deriveSigningKey(senderPrivateKey);
     const salt = Fr.ONE;

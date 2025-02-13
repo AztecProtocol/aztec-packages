@@ -184,7 +184,7 @@ pub contract ContractInstanceDeployer {
             "msg.sender is not deployed",
         );
 
-        assert(new_update_delay >= MINIMUM_UPDATE_DELAY, "Too low of an update delay");
+        assert(new_update_delay >= MINIMUM_UPDATE_DELAY, "New update delay is too low");
 
         storage.updated_class_ids.at(address).schedule_delay_change(new_update_delay);
     }
