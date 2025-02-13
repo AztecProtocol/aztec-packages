@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+# Written in perl as it is very portable and doesn't have the python versioning fiasco.
+# As well, we have a tried and tested regex from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+use strict;
+use warnings;
+use feature 'say';
+
+# Check command-line arguments
+if (@ARGV != 2) {
+    die "Usage: $0 <semver> <component>\nValid components: major, minor, patch, prerelease, buildmetadata\n";
+}
+
+my ($version, $component) = @ARGV;
+
+# Validate requested component
+my %valid = map { $_ => 1 } qw(major minor patch prerelease buildmetadata);
+die "Invalid component: $component. Valid components are: major, minor, patch, prerelease, buildmetadata.\n"
+    unless exists $valid{$component};
+
+# Regular expression for SemVer with named capture groups
+my $regex = qr/
+    ^
+    (?<major>0|[1-9]\d*)
+    \.
+    (?<minor>0|[1-9]\d*)
+    \.
+    (?<patch>0|[1-9]\d*)
+    (?:-
+        (?<prerelease>
+            (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+            (?:\.
+                (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+            )*
+        )
+    )?
+    (?:\+
+        (?<buildmetadata>
+            [0-9a-zA-Z-]+
+            (?:\.[0-9a-zA-Z-]+)*
+        )
+    )?
+    $
+/x;
+
+if ($version =~ $regex) {
+    # Print the captured component (or empty string if not present)
+    my $value = defined $+{$component} ? $+{$component} : "";
+    say $value;
+    exit 0;
+} else {
+    die "Invalid SemVer: $version\n";
+}

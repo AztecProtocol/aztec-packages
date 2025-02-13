@@ -180,8 +180,39 @@ function bench {
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
 }
 
+function release_github {
+  # Add an easy link for comparing to previous release.
+  local compare_link=""
+  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
+    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/${CURRENT_VERSION}...${COMMIT_HASH}")
+  fi
+
+  # Ensure we have a commit release.
+  if ! gh release view "$TAG" &>/dev/null; then
+    gh release create "$TAG" \
+      --prerelease \
+      --target $COMMIT_HASH \
+      --title "$TAG" \
+      --notes "${compare_link}"
+  fi
+}
+
 function release {
+  # Our releases are controlled by the BRANCH and TAG environment variables.
+  # We ensure there is a github release for our TAG. Other steps:
+  #   barretenberg/cpp => upload binaries to github release
+  #   barretenberg/ts
+  #     + noir
+  #     + yarn-project => NPM publish with dist-tag=BRANCH, version=TAG (without the leading v)
+  #   aztec-up => upload scripts to prod if BRANCH is master
+  #   docs => publish docs if BRANCH is master. Link build in github release (for any BRANCH)
+  #   release-image => push docker image to latest on master, otherwise docker-tag=BRANCH
+
+  # Ensure we have a TAG with v + a semantic version at the start.
   check_release
+
+  # Ensure we have a github release for tag.
+  release_github
 
   projects=(
     barretenberg/cpp
@@ -209,22 +240,9 @@ function release {
 }
 
 function release_commit {
-  REF_NAME="commit-$COMMIT_HASH"
+  export REF_NAME="commit-$COMMIT_HASH"
 
-  # Add an easy link for comparing to previous release.
-  local compare_link=""
-  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/${CURRENT_VERSION}...${COMMIT_HASH}")
-  fi
-
-  # Ensure we have a commit release.
-  if ! gh release view "$REF_NAME" &>/dev/null; then
-    gh release create "$REF_NAME" \
-      --prerelease \
-      --target $COMMIT_HASH \
-      --title "$REF_NAME" \
-      --notes "${compare_link}"
-  fi
+  release_github
 
   projects=(
     barretenberg/cpp
