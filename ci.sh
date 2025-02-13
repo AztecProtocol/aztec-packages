@@ -99,7 +99,7 @@ case "$cmd" in
   "run")
     # Trigger a GA workflow for current branch PR and tail logs.
     $0 trigger
-    $0 log
+    $0 rlog
     ;;
   "shell")
     get_ip_for_instance
@@ -172,6 +172,16 @@ case "$cmd" in
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    ;;
+  "kill")
+    existing_instance=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$instance_name" \
+      --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
+      --output text)
+    if [ -n "$existing_instance" ]; then
+      aws_terminate_instance $existing_instance
+    fi
     ;;
   "draft")
     pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')

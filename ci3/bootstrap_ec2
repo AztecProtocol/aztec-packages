@@ -148,7 +148,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
     --pids-limit=32768 \
-    aztecprotocol/devbox:3.0 bash -c '$container_script'
+    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 "
 code=$?
 set -e
