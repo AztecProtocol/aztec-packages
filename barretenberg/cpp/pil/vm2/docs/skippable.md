@@ -17,7 +17,7 @@ each sub-relation is of the form $sel \cdot (\ldots) = 0$ then setting $sel == 0
 $$sel_1 \cdot (\ldots) = 0$$
 $$sel_2 \cdot (\ldots) = 0$$
 $$ \ldots $$
- $$sel_n \cdot (\ldots) = 0$$
+$$sel_n \cdot (\ldots) = 0$$
 
 a "skippable" condition can be picked as
 $$ sel_1 + sel_2 + \cdots sel_n == 0$$
