@@ -55,5 +55,5 @@ if ($version =~ $regex) {
     say $value;
     exit 0;
 } else {
-    die "Invalid SemVer: $version\n";
+    exit 1;
 }
