@@ -11,6 +11,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
+    utils::arrays::array_concat,
 };
 
 global MOCK_NOTE_LENGTH: u32 = 1;
@@ -34,10 +35,10 @@ impl NullifiableNote for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -67,15 +68,12 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
         76
     }
 
-    fn compute_note_hash(self: Self) -> Field {
-        assert(
-            self.header.storage_slot != 0,
-            "Storage slot must be set before computing note hash",
-        );
+    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
         // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
         // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
         // constraints.
-        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
+        let input = array_concat(self.pack_content(), [storage_slot]);
+        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 }
 
@@ -88,21 +86,15 @@ impl Eq for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
-    storage_slot: Option<Field>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none(), storage_slot: Option::none() }
+        MockNoteBuilder { value, contract_address: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
-        self
-    }
-
-    pub(crate) fn storage_slot(&mut self, storage_slot: Field) -> &mut Self {
-        self.storage_slot = Option::some(storage_slot);
         self
     }
 
@@ -111,10 +103,6 @@ impl MockNoteBuilder {
 
         if self.contract_address.is_some() {
             header.contract_address = self.contract_address.unwrap();
-        }
-
-        if self.storage_slot.is_some() {
-            header.storage_slot = self.storage_slot.unwrap();
         }
 
         MockNote { value: self.value, header }
