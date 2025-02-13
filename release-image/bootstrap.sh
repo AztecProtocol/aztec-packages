@@ -27,6 +27,7 @@ case "$cmd" in
         --amend aztecprotocol/aztec:${REF_NAME}-amd64 \
         --amend aztecprotocol/aztec:${REF_NAME}-arm64
       docker manifest push $REF_NAME
+      # TODO we need to push latest if a release off of master
     fi
     ;;
   "release_commit")

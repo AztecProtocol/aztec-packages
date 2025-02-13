@@ -216,7 +216,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "Failure on (${{ github.ref_name }})\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_context.outputs.authors }}",
               "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"

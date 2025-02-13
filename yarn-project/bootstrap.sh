@@ -141,6 +141,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
+  # WORKTODO latest is only on master, otherwise use ref name
   release_packages latest ${REF_NAME#v}
 }
 
