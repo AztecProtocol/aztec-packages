@@ -28,7 +28,7 @@ export async function registerContractClass(
     await getContractClassFromArtifact(artifact);
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   const registerer = await getRegistererContract(wallet);
-  await wallet.addCapsule(
+  await wallet.storeCapsule(
     AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
     new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
     encodedBytecode,

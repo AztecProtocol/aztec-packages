@@ -2,7 +2,8 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import { L1TxUtilsWithBlobs, RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -88,9 +89,8 @@ export class P2PNetworkTest {
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-        aztecEpochProofClaimWindowInL2Slots:
-          initialValidatorConfig.aztecEpochProofClaimWindowInL2Slots ??
-          l1ContractsConfig.aztecEpochProofClaimWindowInL2Slots,
+        aztecProofSubmissionWindow:
+          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
         initialValidators: [],
       },

@@ -15,8 +15,6 @@ import { P2PClient } from '../client/p2p_client.js';
 import { type P2PConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { InMemoryAttestationPool } from '../mem_pools/attestation_pool/memory_attestation_pool.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { MemoryEpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/memory_epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
@@ -28,7 +26,6 @@ type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
   store?: AztecAsyncKVStore;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
-  epochProofQuotePool?: EpochProofQuotePool;
   logger?: Logger;
 };
 
@@ -49,7 +46,6 @@ export const createP2PClient = async <T extends P2PClientType>(
 
   const mempools: MemPools<T> = {
     txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),
-    epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry),
     attestationPool:
       clientType === P2PClientType.Full
         ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full

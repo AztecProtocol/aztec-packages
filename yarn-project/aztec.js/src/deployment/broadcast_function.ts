@@ -60,7 +60,7 @@ export async function broadcastPrivateFunction(
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
 
-  await wallet.addCapsule(
+  await wallet.storeCapsule(
     AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
     new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
     bytecode,
@@ -122,7 +122,7 @@ export async function broadcastUnconstrainedFunction(
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
 
-  await wallet.addCapsule(
+  await wallet.storeCapsule(
     AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
     new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
     bytecode,

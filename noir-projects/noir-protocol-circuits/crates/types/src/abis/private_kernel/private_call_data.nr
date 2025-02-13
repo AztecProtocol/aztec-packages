@@ -1,5 +1,8 @@
 use crate::{
-    abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    abis::{
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
+    },
     address::SaltedInitializationHash,
     constants::{
         FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
@@ -19,8 +22,8 @@ pub struct PrivateCallData {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
-
+    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
+    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
     pub acir_hash: Field,
 }
 
@@ -44,8 +47,8 @@ pub struct PrivateCallDataWithoutPublicInputs {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
-
+    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
+    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
     pub acir_hash: Field,
 }
 
@@ -63,7 +66,8 @@ impl PrivateCallDataWithoutPublicInputs {
             contract_class_public_bytecode_commitment: self
                 .contract_class_public_bytecode_commitment,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
-            protocol_contract_sibling_path: self.protocol_contract_sibling_path,
+            protocol_contract_membership_witness: self.protocol_contract_membership_witness,
+            protocol_contract_leaf: self.protocol_contract_leaf,
             acir_hash: self.acir_hash,
         }
     }

@@ -2,7 +2,6 @@ import { type ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { EpochProofQuote } from '../prover_coordination/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 
@@ -21,16 +20,9 @@ export interface ProverCoordination {
    * @returns The transactions, if found, 'undefined' otherwise.
    */
   getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
-
-  /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 }
 
 export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
   getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
-  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
 };

@@ -98,13 +98,13 @@ const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 const customLevels = { verbose: 25 };
 
 // Global pino options, tweaked for google cloud if running there.
-const useGcloudObservability = parseBooleanEnv(process.env['USE_GCLOUD_OBSERVABILITY' satisfies EnvVar]);
+const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
   messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
-  ...(useGcloudObservability ? GoogleCloudLoggerConfig : {}),
+  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -148,7 +148,7 @@ const stdioTransport: pino.TransportTargetOptions = {
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
 const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
-const otlpEnabled = !!otlpEndpoint && !useGcloudObservability;
+const otlpEnabled = !!otlpEndpoint && !useGcloudLogging;
 const otelOpts = { levels };
 const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',

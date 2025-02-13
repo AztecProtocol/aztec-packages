@@ -15,24 +15,6 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 auto& engine = numeric::get_debug_randomness();
 
-std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
-{
-    std::vector<uint32_t> res;
-    for (fr& variable : variables) {
-        res.emplace_back(circuit_constructor.add_variable(variable));
-    }
-    return res;
-}
-
-void ensure_non_zero(auto& polynomial)
-{
-    bool has_non_zero_coefficient = false;
-    for (auto& coeff : polynomial) {
-        has_non_zero_coefficient |= !coeff.is_zero();
-    }
-    ASSERT_TRUE(has_non_zero_coefficient);
-}
-
 class TranslatorTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
