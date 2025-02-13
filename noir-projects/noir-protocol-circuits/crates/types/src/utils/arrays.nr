@@ -155,7 +155,8 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     }
     result
 }
-
+/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
+/// if this is not the case then elements from the end of `array2` will be dropped.
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
