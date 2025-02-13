@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739452936557,
+  "lastUpdate": 1739462140717,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4e2953632ad4fdcf0a6cf00eda4b16b4b3db0f2",
-          "message": "feat: shplemini claim batcher (#11614)\n\nImplements ClaimBatcher for the Shplemini Verifier (more or less\nanalogous to the prover's PolynomialBatcher, but its not a one to one\ndue to the different nature of the prover and verifier in shplemini).\n\nThe idea here is again to isolate claim batching logic to a sub-class\nand to make it more straightforward to add new types of claims, e.g.\nk-shifted polynomials. With these updates, only the `ClaimBatcher` and\nthe protocols that utilize k-shifts need to be updated, rather than an\ninterface that's utilized across ~20 different files.\n\nNote: I've again left out concatenations but its likely that they should\nbe also be handled `PolynomialBatcher`/`ClaimBatcher`, despite having a\nslightly different structure.",
-          "timestamp": "2025-01-31T10:43:14-07:00",
-          "tree_id": "c201081fdca576f46e2fb5f01456e1b99092888f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f4e2953632ad4fdcf0a6cf00eda4b16b4b3db0f2"
-        },
-        "date": 1738346375035,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19317.55474299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16586.051802 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21467.892867000046,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18883.838881 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4557.614382000025,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4211.816994 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 79497.18262400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 79497183000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13566.070924,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13566071000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3095177420,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3095177420 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145019514,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145019514 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,68 @@ window.BENCHMARK_DATA = {
             "value": 133866437,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133866437 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "3a03fe052bbbdbf3ed0e44d0a5ed2701beb67689",
+          "message": "chore(master): Release 0.76.4",
+          "timestamp": "2025-02-13T15:46:11Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/11971/commits/3a03fe052bbbdbf3ed0e44d0a5ed2701beb67689"
+        },
+        "date": 1739462132639,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19749.756007999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16772.894749 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21623.772971999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19221.365389 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4107.517180999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3845.4931570000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 76527.401622,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 76527402000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14565.685312,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14565686000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2546620468,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2546620468 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 138494048,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 138494048 ns\nthreads: 1"
           }
         ]
       }
