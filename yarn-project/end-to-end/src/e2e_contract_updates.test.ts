@@ -83,6 +83,7 @@ describe('e2e_contract_updates', () => {
     ({ teardown, wallet } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
+      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     }));
 
     contract = await UpdatableContract.deploy(wallet, constructorArgs[0])
@@ -122,13 +123,15 @@ describe('e2e_contract_updates', () => {
   });
 
   it('should change the update delay and then update the contract', async () => {
+    expect(await contract.methods.get_update_delay().simulate()).toEqual(BigInt(DEFAULT_TEST_UPDATE_DELAY));
+
+    // Increases the delay so it should happen immediately
     await contract.methods
       .set_update_delay(MINIMUM_UPDATE_DELAY + 1)
       .send()
       .wait();
-    // Changing the delay is delayed by the current delay
-    await mineBlocks(DEFAULT_TEST_UPDATE_DELAY);
-    expect(await contract.methods.get_update_delay().simulate()).toEqual(MINIMUM_UPDATE_DELAY + 1);
+
+    expect(await contract.methods.get_update_delay().simulate()).toEqual(BigInt(MINIMUM_UPDATE_DELAY + 1));
 
     await contract.methods.update_to(updatedContractClassId).send().wait();
     await mineBlocks(MINIMUM_UPDATE_DELAY + 1);
