@@ -69,12 +69,12 @@ jobs:
         run: |
           ./ci.sh ec2
       - name: Download benchmarks
-        if: github.event_name == 'push'
+        if: github.ref_name == 'master'
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
       - name: Store barretenberg benchmark result
-        if: github.event_name == 'push'
+        if: github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -89,7 +89,7 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
       - name: Store yarn project benchmark result
-        if: github.event_name == 'push'
+        if: github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
