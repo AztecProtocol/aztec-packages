@@ -257,4 +257,8 @@ export abstract class TypedOracle {
   copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
     throw new OracleMethodNotAvailableError('copyCapsule');
   }
+
+  aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
+    throw new OracleMethodNotAvailableError('aes128Decrypt');
+  }
 }

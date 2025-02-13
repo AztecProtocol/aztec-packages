@@ -6,7 +6,90 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-### 0.75.0
+## TBD
+
+### The tree of protocol contract addresses is now an indexed tree
+
+This is to allow for non-membership proofs for non-protocol contract addresses. As before, the canonical protocol contract addresses point to the index of the leaf of the 'real' computed protocol address.
+
+For example, the canonical `DEPLOYER_CONTRACT_ADDRESS` is a constant `= 2`. This is used in the kernels as the `contract_address`. We calculate the `computed_address` (currently `0x1665c5fbc1e58ba19c82f64c0402d29e8bbf94b1fde1a056280d081c15b0dac1`) and check that this value exists in the indexed tree at index `2`. This check already existed and ensures that the call cannot do 'special' protocol contract things unless it is a real protocol contract.
+
+The new check an indexed tree allows is non-membership of addresses of non protocol contracts. This ensures that if a call is from a protocol contract, it must use the canonical address. For example, before this check a call could be from the deployer contract and use `0x1665c5fbc1e58ba19c82f64c0402d29e8bbf94b1fde1a056280d081c15b0dac1` as the `contract_address`, but be incorrectly treated as a 'normal' call.
+
+```diff
+- let computed_protocol_contract_tree_root = if is_protocol_contract {
+-     0
+- } else {
+-     root_from_sibling_path(
+-         computed_address.to_field(),
+-         protocol_contract_index,
+-         private_call_data.protocol_contract_sibling_path,
+-     )
+- };
+
++ conditionally_assert_check_membership(
++     computed_address.to_field(),
++     is_protocol_contract,
++     private_call_data.protocol_contract_leaf,
++     private_call_data.protocol_contract_membership_witness,
++     protocol_contract_tree_root,
++ );
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+We are in a process of discontinuing `NoteHeader` from notes.
+This led us to do the following changes to `NoteInterface`:
+
+```diff
+pub trait NullifiableNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field;
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
+}
+
+pub trait NoteInterface<let N: u32> {
+-    fn compute_note_hash(self) -> Field;
++    fn compute_note_hash(self, storage_slot: Field) -> Field;
+}
+```
+
+If you are using `#[note]` or `#[partial_note(...)]` macros this should not affect you as these functions are auto-generated.
+If you use `#[note_custom_interface]` macro you will need to update your notes.
+These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
+
+```diff
++ use dep::aztec::protocol_types::utils::arrays::array_concat;
+
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+...
+-    fn compute_note_hash(self) -> Field {
++    fn compute_note_hash(self, storage_slot: Field) -> Field {
+-        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
++        let inputs = array_concat(self.pack_content(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
+}
+
+impl NullifiableNote for EcdsaPublicKeyNote {
+...
+-    unconstrained fn compute_nullifier_without_context(self) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
++        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
+```
+
+## 0.75.0
 
 ### Changes to `TokenBridge` interface
 

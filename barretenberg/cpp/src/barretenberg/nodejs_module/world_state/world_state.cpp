@@ -216,6 +216,18 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
 
     _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::CREATE_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return checkpoint(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::COMMIT_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_checkpoint(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::REVERT_CHECKPOINT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
 }
 
 Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
@@ -722,6 +734,48 @@ bool WorldStateWrapper::remove_historical(msgpack::object& obj, msgpack::sbuffer
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(
         WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS, header, { status });
     msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::CREATE_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::commit_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->commit_checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->revert_checkpoint(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
 
     return true;
 }

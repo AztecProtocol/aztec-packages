@@ -5,7 +5,7 @@ use crate::abis::{
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
-        log::Log, log_hash::ScopedLogHash, public_data_write::PublicDataWrite,
+        log_hash::ScopedLogHash, private_log::PrivateLog, public_data_write::PublicDataWrite,
         public_log::PublicLog, sponge_blob::SpongeBlob,
     },
     constants::{
@@ -84,7 +84,6 @@ pub fn accumulate_blocks_fees(
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
     array_merge(left.fees, right.fees)
 }
 
@@ -101,7 +100,7 @@ pub fn accumulate_blob_public_inputs(
         left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
     );
-    // NB: For some reason, the below is around 150k gates cheaper than array_merge
+    // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
     let mut add_from_left = true;
     let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
     for i in 0..result.len() {
@@ -246,12 +245,14 @@ fn get_tx_effects_hash_input(
     // NOTE HASHES
     array_len = array_length(note_hashes);
     if array_len != 0 {
+        let mut check_elt = true;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], notes_prefix);
         offset += 1;
 
         for j in 0..MAX_NOTE_HASHES_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 assert_eq(tx_effects_hash_input[offset + j], note_hashes[j]);
             }
         }
@@ -261,12 +262,14 @@ fn get_tx_effects_hash_input(
     // NULLIFIERS
     array_len = array_length(nullifiers);
     if array_len != 0 {
+        let mut check_elt = true;
         let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], nullifiers_prefix);
         offset += 1;
 
         for j in 0..MAX_NULLIFIERS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 assert_eq(tx_effects_hash_input[offset + j], nullifiers[j]);
             }
         }
@@ -276,12 +279,14 @@ fn get_tx_effects_hash_input(
     // L2 TO L1 MESSAGES
     array_len = array_length(tx_effect.l2_to_l1_msgs);
     if array_len != 0 {
+        let mut check_elt = true;
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], l2_to_l1_msgs_prefix);
         offset += 1;
 
         for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 assert_eq(tx_effects_hash_input[offset + j], tx_effect.l2_to_l1_msgs[j]);
             }
         }
@@ -291,12 +296,14 @@ fn get_tx_effects_hash_input(
     // PUBLIC DATA UPDATE REQUESTS
     array_len = array_length(public_data_update_requests);
     if array_len != 0 {
+        let mut check_elt = true;
         let public_data_update_requests_prefix =
             encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
         assert_eq(tx_effects_hash_input[offset], public_data_update_requests_prefix);
         offset += 1;
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 assert_eq(
                     tx_effects_hash_input[offset + j * 2],
                     public_data_update_requests[j].leaf_slot,
@@ -314,6 +321,7 @@ fn get_tx_effects_hash_input(
     // PRIVATE_LOGS
     array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
+        let mut check_elt = true;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], private_logs_prefix);
         offset += 1;
@@ -321,7 +329,8 @@ fn get_tx_effects_hash_input(
         for j in 0..MAX_PRIVATE_LOGS_PER_TX {
             for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
-                if index < array_len {
+                check_elt &= j * PRIVATE_LOG_SIZE_IN_FIELDS + k != array_len;
+                if check_elt {
                     assert_eq(tx_effects_hash_input[index], private_logs[j].fields[k]);
                 }
             }
@@ -332,6 +341,7 @@ fn get_tx_effects_hash_input(
     // PUBLIC LOGS
     array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
+        let mut check_elt = true;
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
         offset += 1;
@@ -339,7 +349,8 @@ fn get_tx_effects_hash_input(
             let log = public_logs[j].serialize();
             for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
-                if index < array_len {
+                check_elt &= j * PUBLIC_LOG_SIZE_IN_FIELDS + k != array_len;
+                if check_elt {
                     assert_eq(tx_effects_hash_input[index], log[k]);
                 }
             }
@@ -352,12 +363,14 @@ fn get_tx_effects_hash_input(
     // CONTRACT CLASS LOGS
     array_len = array_length(contract_class_logs);
     if array_len != 0 {
+        let mut check_elt = true;
         let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], contract_class_logs_prefix);
         offset += 1;
 
         for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 assert_eq(tx_effects_hash_input[offset + j], contract_class_logs[j]);
             }
         }
@@ -390,7 +403,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    private_logs: [Log<PRIVATE_LOG_SIZE_IN_FIELDS>; MAX_PRIVATE_LOGS_PER_TX],
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     contract_class_logs: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     revert_code: Field,
