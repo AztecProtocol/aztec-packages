@@ -57,7 +57,7 @@ if [ "$fresh_install" = "true" ]; then
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
-function cleanup() {
+function cleanup {
   (cat "logs/kind-$test.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
   # kill everything in our process group except our process
   trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $stern_pid $(jobs -p) &>/dev/null || true
@@ -71,7 +71,7 @@ function cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
-function copy_stern_to_log() {
+function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
   stern spartan -n "$namespace" > "logs/kind-$test.log" &>/dev/null &
   stern_pid=$!

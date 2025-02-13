@@ -207,7 +207,7 @@ jobs:
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
-          [ "${{ needs.ci-amd64.result }}" = "failure" = "failure" ] && failed_jobs+="ci-amd64"
+          [ "${{ needs.ci-amd64.result }}" = "failure" ] && failed_jobs+="ci-amd64"
           echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
 
