@@ -39,6 +39,7 @@ import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_
 import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
+import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
@@ -53,6 +54,7 @@ export class TestContext {
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public broker: TestBroker,
+    public brokerProverFacade: BrokerCircuitProverFacade,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -114,9 +116,11 @@ export class TestContext {
     }
 
     const broker = new TestBroker(proverCount, localProver);
-    const orchestrator = new TestProvingOrchestrator(ws, broker.facade, Fr.ZERO);
+    const facade = new BrokerCircuitProverFacade(broker);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, Fr.ZERO);
 
     await broker.start();
+    facade.start();
 
     return new this(
       publicTxSimulator,
@@ -126,6 +130,7 @@ export class TestContext {
       globalVariables,
       localProver,
       broker,
+      facade,
       orchestrator,
       blockNumber,
       directoriesToCleanup,
@@ -148,6 +153,7 @@ export class TestContext {
   }
 
   async cleanup() {
+    await this.brokerProverFacade.stop();
     await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
