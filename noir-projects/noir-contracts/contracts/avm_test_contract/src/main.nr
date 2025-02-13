@@ -627,9 +627,9 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("read_storage_map");
         let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
-        let _ = std::hash::keccak256(args_u8, args_u8.len() as u32);
+        let _ = std::hash::keccak256(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = std::hash::sha256(args_u8);
+        let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
         let _ = std::hash::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
