@@ -72,15 +72,24 @@ template <typename FF_>
 class lookup_bytecode_bytes_are_bytes_relation
     : public GenericLookupRelation<lookup_bytecode_bytes_are_bytes_lookup_settings, FF_> {
   public:
+    using Settings = lookup_bytecode_bytes_are_bytes_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_bytes_are_bytes_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_range_8.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_bytecode_bytes_are_bytes = GenericLookup<lookup_bytecode_bytes_are_bytes_lookup_settings, FF_>;
 
 /////////////////// lookup_bytecode_remaining_abs_diff_u16 ///////////////////
 
@@ -144,16 +153,24 @@ template <typename FF_>
 class lookup_bytecode_remaining_abs_diff_u16_relation
     : public GenericLookupRelation<lookup_bytecode_remaining_abs_diff_u16_lookup_settings, FF_> {
   public:
+    using Settings = lookup_bytecode_remaining_abs_diff_u16_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_remaining_abs_diff_u16_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_bytecode_remaining_abs_diff_u16 =
-    GenericLookup<lookup_bytecode_remaining_abs_diff_u16_lookup_settings, FF_>;
 
 /////////////////// lookup_bytecode_to_read_unary ///////////////////
 
@@ -222,14 +239,23 @@ template <typename FF_>
 class lookup_bytecode_to_read_unary_relation
     : public GenericLookupRelation<lookup_bytecode_to_read_unary_lookup_settings, FF_> {
   public:
+    using Settings = lookup_bytecode_to_read_unary_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_to_read_unary_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_unary.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_bytecode_to_read_unary = GenericLookup<lookup_bytecode_to_read_unary_lookup_settings, FF_>;
 
 } // namespace bb::avm2
