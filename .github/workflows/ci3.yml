@@ -7,6 +7,7 @@ on:
     branches:
       - master
       - ci3-fake-master
+      - ci3-fake-master2
   # WORKTODO reinstate
   # # For AztecProtocol devs. Allows editing workflow files.
   # pull_request:

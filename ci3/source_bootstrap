@@ -13,7 +13,7 @@ function check_release {
   [ "${CHECKED_RELEASE:-0}" -eq 1 ] && return || export CHECKED_RELEASE=1
 
   if ! [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo_stderr -e "${yellow}Note deploying $REF_NAME because it is not a release tag."
+    echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag."
     exit 0
   elif ! gh release view $REF_NAME &>/dev/null; then
     echo_stderr "No release found $REF_NAME. Deploy failed."
