@@ -62,7 +62,7 @@ import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
@@ -290,6 +290,19 @@ export class PXEService implements PXE {
       throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
     }
     const contractClass = await getContractClassFromArtifact(artifact);
+    await this.synchronizer.sync();
+
+    const header = await this.db.getBlockHeader();
+
+    const currentClassId = await readCurrentClassId(
+      contractAddress,
+      currentInstance,
+      this.node,
+      header.globalVariables.blockNumber.toNumber(),
+    );
+    if (!contractClass.id.equals(currentClassId)) {
+      throw new Error('Could not update contract to a class different from the current one.');
+    }
 
     await this.db.addContractArtifact(contractClass.id, artifact);
 

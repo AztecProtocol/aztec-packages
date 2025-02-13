@@ -3,7 +3,7 @@ export { ViewDataOracle } from './view_data_oracle.js';
 export { DBOracle, ContractClassNotFoundError, ContractNotFoundError } from './db_oracle.js';
 export * from './pick_notes.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
-export { extractPrivateCircuitPublicInputs } from './private_execution.js';
+export { extractPrivateCircuitPublicInputs, readCurrentClassId } from './private_execution.js';
 export { witnessMapToFields } from '../acvm/deserialize.js';
 export { toACVMWitness } from '../acvm/serialize.js';
 export { extractCallStack } from '../acvm/acvm.js';

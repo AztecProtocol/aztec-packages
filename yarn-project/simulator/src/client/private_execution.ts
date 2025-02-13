@@ -122,7 +122,7 @@ export function extractPrivateCircuitPublicInputs(
   return PrivateCircuitPublicInputs.fromFields(returnData);
 }
 
-export async function verifyCurrentClassId(
+export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
   node: AztecNode,
@@ -136,6 +136,16 @@ export async function verifyCurrentClassId(
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }
+  return currentClassId;
+}
+
+export async function verifyCurrentClassId(
+  contractAddress: AztecAddress,
+  instance: ContractInstance,
+  node: AztecNode,
+  blockNumber: number,
+) {
+  const currentClassId = await readCurrentClassId(contractAddress, instance, node, blockNumber);
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(
       `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,
