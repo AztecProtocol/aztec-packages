@@ -243,7 +243,7 @@ async function getBlockFromRollupTx(
   // Body.fromBlobFields to accept blob buffers directly
   let blockFields: Fr[];
   try {
-    blockFields = blobBodies.flatMap(b => b.toEncodedFields());
+    blockFields = Blob.toEncodedFields(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -417,7 +417,8 @@ export async function getProofFromSubmitProofTx(
   if (functionName === 'submitEpochRootProof') {
     const [decodedArgs] = args as readonly [
       {
-        epochSize: bigint;
+        start: bigint;
+        end: bigint;
         args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
         fees: readonly Hex[];
         aggregationObject: Hex;

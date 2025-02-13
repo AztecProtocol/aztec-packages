@@ -81,7 +81,6 @@ pub fn accumulate_blocks_fees(
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
     array_merge(left.fees, right.fees)
 }
 
@@ -98,7 +97,7 @@ pub fn accumulate_blob_public_inputs(
         left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
     );
-    // NB: For some reason, the below is around 150k gates cheaper than array_merge
+    // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
     let mut add_from_left = true;
     let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
     for i in 0..result.len() {
@@ -250,6 +249,7 @@ fn get_or_validate_tx_effects_hash_input(
     // NOTE HASHES
     array_len = array_length(note_hashes);
     if array_len != 0 {
+        let mut check_elt = true;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
         if dep::std::runtime::is_unconstrained() {
             tx_effects_hash_input[offset] = notes_prefix;
@@ -259,7 +259,8 @@ fn get_or_validate_tx_effects_hash_input(
         offset += 1;
 
         for j in 0..MAX_NOTE_HASHES_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 if dep::std::runtime::is_unconstrained() {
                     tx_effects_hash_input[offset + j] = note_hashes[j];
                 } else {
@@ -273,6 +274,7 @@ fn get_or_validate_tx_effects_hash_input(
     // NULLIFIERS
     array_len = array_length(nullifiers);
     if array_len != 0 {
+        let mut check_elt = true;
         let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
         if dep::std::runtime::is_unconstrained() {
             tx_effects_hash_input[offset] = nullifiers_prefix;
@@ -282,7 +284,8 @@ fn get_or_validate_tx_effects_hash_input(
         offset += 1;
 
         for j in 0..MAX_NULLIFIERS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 if dep::std::runtime::is_unconstrained() {
                     tx_effects_hash_input[offset + j] = nullifiers[j];
                 } else {
@@ -296,6 +299,7 @@ fn get_or_validate_tx_effects_hash_input(
     // L2 TO L1 MESSAGES
     array_len = array_length(tx_effect.l2_to_l1_msgs);
     if array_len != 0 {
+        let mut check_elt = true;
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         if dep::std::runtime::is_unconstrained() {
             tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
@@ -305,7 +309,8 @@ fn get_or_validate_tx_effects_hash_input(
         offset += 1;
 
         for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 if dep::std::runtime::is_unconstrained() {
                     tx_effects_hash_input[offset + j] = tx_effect.l2_to_l1_msgs[j];
                 } else {
@@ -319,6 +324,7 @@ fn get_or_validate_tx_effects_hash_input(
     // PUBLIC DATA UPDATE REQUESTS
     array_len = array_length(public_data_update_requests);
     if array_len != 0 {
+        let mut check_elt = true;
         let public_data_update_requests_prefix =
             encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
         if dep::std::runtime::is_unconstrained() {
@@ -328,7 +334,8 @@ fn get_or_validate_tx_effects_hash_input(
         }
         offset += 1;
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 if dep::std::runtime::is_unconstrained() {
                     tx_effects_hash_input[offset + j * 2] =
                         public_data_update_requests[j].leaf_slot;
@@ -411,6 +418,7 @@ fn get_or_validate_tx_effects_hash_input(
     // CONTRACT CLASS LOGS
     array_len = array_length(contract_class_logs);
     if array_len != 0 {
+        let mut check_elt = true;
         let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
         if dep::std::runtime::is_unconstrained() {
             tx_effects_hash_input[offset] = contract_class_logs_prefix;
@@ -420,7 +428,8 @@ fn get_or_validate_tx_effects_hash_input(
         offset += 1;
 
         for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            if j < array_len {
+            check_elt &= j != array_len;
+            if check_elt {
                 if dep::std::runtime::is_unconstrained() {
                     tx_effects_hash_input[offset + j] = contract_class_logs[j];
                 } else {

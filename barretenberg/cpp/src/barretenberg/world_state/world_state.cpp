@@ -987,4 +987,85 @@ bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaRespo
     return true;
 }
 
+void WorldState::checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::commit_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->commit_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::revert_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->revert_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
 } // namespace bb::world_state

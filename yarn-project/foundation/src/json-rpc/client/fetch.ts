@@ -6,6 +6,15 @@ import { jsonStringify } from '../convert.js';
 
 const log = createLogger('json-rpc:json_rpc_client');
 
+export type JsonRpcFetch = (
+  host: string,
+  rpcMethod: string,
+  body: any,
+  useApiEndpoints: boolean,
+  extraHeaders?: Record<string, string>,
+  noRetry?: boolean,
+) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
+
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.

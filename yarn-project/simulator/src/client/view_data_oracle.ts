@@ -13,6 +13,7 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
+import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -160,15 +161,6 @@ export class ViewDataOracle extends TypedOracle {
     return Promise.resolve(
       this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ?? this.db.getAuthWitness(messageHash),
     );
-  }
-
-  /**
-   * Pops a capsule from the capsule dispenser
-   * @returns The capsule values
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   */
-  public override popCapsule(): Promise<Fr[]> {
-    return this.db.popCapsule();
   }
 
   /**
@@ -328,35 +320,50 @@ export class ViewDataOracle extends TypedOracle {
     await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
   }
 
-  public override dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+  public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.dbStore(this.contractAddress, slot, values);
+    return this.db.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  public override dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public override loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.dbLoad(this.contractAddress, slot);
+    return this.db.loadCapsule(this.contractAddress, slot);
   }
 
-  public override dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  public override deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.dbDelete(this.contractAddress, slot);
+    return this.db.deleteCapsule(this.contractAddress, slot);
   }
 
-  public override dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  public override copyCapsule(
+    contractAddress: AztecAddress,
+    srcSlot: Fr,
+    dstSlot: Fr,
+    numEntries: number,
+  ): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.db.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
+  public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+    // Noir can't predict the amount of padding that gets trimmed,
+    // but it needs to know the length of the returned value.
+    // So we tell Noir that the length is the (predictable) length
+    // of the padded plaintext, we return that padded plaintext, and have Noir interpret the padding to do the trimming.
+    const aes128 = new Aes128();
+    return aes128.decryptBufferCBCKeepPadding(ciphertext, iv, symKey);
   }
 }
