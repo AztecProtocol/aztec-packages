@@ -166,7 +166,7 @@ export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f
 }
 
 /**
- * Constructs a field from a Buffer, but reduces it first.
+ * Constructs a field from a Buffer, but reduces it first, modulo the field modulus.
  * This requires a conversion to a bigint first so the initial underlying representation will be a bigint.
  */
 function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T>) {
@@ -261,7 +261,7 @@ export class Fr extends BaseField {
       return fromHexString(buf, Fr);
     }
 
-    throw new Error('Tried to create a Fr from an invalid string');
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
   }
 
   /**
@@ -412,7 +412,7 @@ export class Fq extends BaseField {
       return fromHexString(buf, Fq);
     }
 
-    throw new Error('Tried to create a Fq from an invalid string');
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
   }
 
   /**

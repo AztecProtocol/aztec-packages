@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.externalHost }}
+{{- if not .Values.ethereum.execution.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,11 +37,15 @@ spec:
               value: "true"
             - name: HTTP_PORT
               value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: WS_PORT
+              value: "{{ .Values.ethereum.execution.service.wsPort }}"
             - name: MAX_TX_INPUT_SIZE_BYTES
               value: "{{ .Values.ethereum.maxTxInputSizeBytes }}"
           ports:
             - containerPort: {{ .Values.ethereum.execution.service.port }}
               name: eth-execution
+            - containerPort: {{ .Values.ethereum.execution.service.wsPort }}
+              name: eth-exec-ws
           volumeMounts:
             - name: genesis
               mountPath: /genesis
@@ -86,6 +90,13 @@ spec:
       targetPort: {{ .Values.ethereum.execution.service.targetPort }}
       {{- if and (eq .Values.ethereum.execution.service.type "NodePort") .Values.ethereum.execution.service.nodePort }}
       nodePort: {{ .Values.ethereum.execution.service.nodePort }}
+      {{- end }}
+    - name: ws
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.wsPort }}
+      targetPort: {{ .Values.ethereum.execution.service.wsTargetPort }}
+      {{- if and (eq .Values.ethereum.execution.service.type "NodePort") .Values.ethereum.execution.service.wsNodePort }}
+      nodePort: {{ .Values.ethereum.execution.service.wsNodePort }}
       {{- end }}
     # Engine Api
     - name: engine

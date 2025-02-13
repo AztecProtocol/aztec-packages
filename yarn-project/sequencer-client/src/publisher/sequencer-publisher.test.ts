@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/blob-lib';
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
@@ -9,13 +10,12 @@ import {
   type GovernanceProposerContract,
   type L1ContractsConfig,
   type L1TxUtilsConfig,
-  type L1TxUtilsWithBlobs,
   type RollupContract,
   type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { Blob } from '@aztec/foundation/blob';
+import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 

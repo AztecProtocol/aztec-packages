@@ -33,27 +33,6 @@ variable "L1_DEPLOYMENT_PRIVATE_KEY" {
   default     = ""
 }
 
-variable "VALIDATOR_KEYS" {
-  description = "List of private keys to use for the validators"
-  type        = list(string)
-  sensitive   = true
-  default     = []
-}
-
-variable "BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY" {
-  description = "Private key to use for the boot node"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "PROVER_PUBLISHER_PRIVATE_KEY" {
-  description = "Private key to use for the prover"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "EXTERNAL_ETHEREUM_HOST" {
   description = "External host to use for the ethereum node"
   type        = string

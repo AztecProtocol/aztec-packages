@@ -26,7 +26,7 @@ impl NullifiableNote for TestNote {
         0
     }
 
-    unconstrained fn compute_nullifier_without_context(_self: Self) -> Field {
+    unconstrained fn compute_nullifier_without_context(_self: Self, _storage_slot: Field) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }

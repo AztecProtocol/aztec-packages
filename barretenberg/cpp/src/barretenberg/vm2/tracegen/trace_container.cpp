@@ -31,7 +31,7 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value)
     std::unique_lock lock(column_data.mutex);
     if (!value.is_zero()) {
         column_data.rows.insert_or_assign(row, value);
-        column_data.max_row_number = std::max(column_data.max_row_number, row);
+        column_data.max_row_number = std::max(column_data.max_row_number, static_cast<int64_t>(row));
     } else {
         auto num_erased = column_data.rows.erase(row);
         if (column_data.max_row_number == row && num_erased > 0) {
@@ -64,10 +64,11 @@ uint32_t TraceContainer::get_column_rows(Column col) const
         // Trigger recalculation of max row number.
         auto keys = std::views::keys(column_data.rows);
         const auto it = std::max_element(keys.begin(), keys.end());
-        column_data.max_row_number = it == keys.end() ? 0 : *it;
+        // We use -1 to indicate that the column is empty.
+        column_data.max_row_number = it == keys.end() ? -1 : static_cast<int64_t>(*it);
         column_data.row_number_dirty = false;
     }
-    return column_data.max_row_number + 1;
+    return static_cast<uint32_t>(column_data.max_row_number + 1);
 }
 
 uint32_t TraceContainer::get_num_rows_without_clk() const

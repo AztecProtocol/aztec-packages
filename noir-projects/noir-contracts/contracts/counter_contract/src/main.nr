@@ -103,8 +103,8 @@ pub contract Counter {
     unconstrained fn test_increment() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.create_account();
-        let sender = env.create_account();
+        let owner = env.create_account(1);
+        let sender = env.create_account(2);
         let initial_value: Field = 5;
         env.impersonate(owner);
         // Deploy contract and initialize
@@ -155,13 +155,21 @@ pub contract Counter {
 
         let old_note = notes.get(0);
 
-        env.private().get_block_header().prove_note_validity(old_note, &mut env.private());
+        env.private().get_block_header().prove_note_validity(
+            old_note,
+            owner_slot,
+            &mut env.private(),
+        );
 
-        destroy_note(&mut env.private(), old_note);
+        destroy_note(&mut env.private(), old_note, owner_slot);
         env.advance_block_by(1);
 
-        env.private().get_block_header().prove_note_is_nullified(old_note, &mut env.private());
-        env.private().get_block_header().prove_note_inclusion(old_note);
+        env.private().get_block_header().prove_note_is_nullified(
+            old_note,
+            owner_slot,
+            &mut env.private(),
+        );
+        env.private().get_block_header().prove_note_inclusion(old_note, owner_slot);
 
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
 
@@ -255,6 +263,10 @@ pub contract Counter {
 
         let old_note = notes.get(0);
 
-        env.private().get_block_header().prove_note_validity(old_note, &mut env.private());
+        env.private().get_block_header().prove_note_validity(
+            old_note,
+            owner_slot,
+            &mut env.private(),
+        );
     }
 }

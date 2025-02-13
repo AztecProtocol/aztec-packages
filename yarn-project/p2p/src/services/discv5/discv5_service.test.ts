@@ -1,3 +1,5 @@
+import { emptyChainConfig } from '@aztec/circuit-types/config';
+import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -35,14 +37,19 @@ describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
   let basePort = 7890;
+
   const baseConfig: BootnodeConfig = {
     udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
     udpListenAddress: `0.0.0.0:${basePort + 100}`,
-    minPeerCount: 1,
     maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    ...emptyChainConfig,
   };
+
+  beforeAll(() => {
+    addLogNameHandler(name => (name === 'p2p:discv5_service' ? `${name}:${basePort}` : name));
+  });
 
   beforeEach(async () => {
     const telemetryClient = getTelemetryClient();
@@ -57,9 +64,13 @@ describe('Discv5Service', () => {
     await store.close();
   });
 
+  const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
+  const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
+  const getPeers = (node: DiscV5Service) =>
+    Promise.all(node.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+
   it('should initialize with default values', async () => {
-    basePort++;
-    const node = await createNode(basePort);
+    const node = await createNode();
     expect(node.getStatus()).toEqual(PeerDiscoveryState.STOPPED); // not started yet
     await node.start();
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
@@ -70,12 +81,14 @@ describe('Discv5Service', () => {
   });
 
   it('should discover & add a peer', async () => {
-    basePort++;
-    const node1 = await createNode(basePort);
-    basePort++;
-    const node2 = await createNode(basePort);
-    await node1.start();
-    await node2.start();
+    const node1 = await createNode();
+    const node2 = await createNode();
+    await startNodes(node1, node2);
+
+    // nodes should be connected to boostrap
+    expect(node1.getAllPeers()).toHaveLength(1);
+    expect(node2.getAllPeers()).toHaveLength(1);
+
     await Promise.all([
       waitForPeers(node2, 2),
       (async () => {
@@ -88,25 +101,67 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
-    const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+    const node1Peers = await getPeers(node1);
+    const node2Peers = await getPeers(node2);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
     expect(node1Peers).toContain(node2.getPeerId().toString());
     expect(node2Peers).toContain(node1.getPeerId().toString());
 
-    await node1.stop();
-    await node2.stop();
+    await stopNodes(node1, node2);
+  });
+
+  it('should refuse to connect to a bootstrap node with wrong chain id', async () => {
+    const node1 = await createNode({ l1ChainId: 13, bootstrapNodeEnrVersionCheck: true });
+    const node2 = await createNode({ l1ChainId: 14, bootstrapNodeEnrVersionCheck: false });
+    await startNodes(node1, node2);
+    expect(node1.getAllPeers()).toHaveLength(0);
+    expect(node2.getAllPeers()).toHaveLength(1);
+    await stopNodes(node1, node2);
+  });
+
+  it('should not add a peer with wrong chain id', async () => {
+    const node1 = await createNode();
+    const node2 = await createNode();
+    const node3 = await createNode({ l1ChainId: 14 });
+    await startNodes(node1, node2, node3);
+
+    await Promise.all([
+      waitForPeers(node1, 2),
+      (async () => {
+        await sleep(2000); // wait for peer discovery to be able to start
+        for (let i = 0; i < 5; i++) {
+          await node1.runRandomNodesQuery();
+          await node2.runRandomNodesQuery();
+          await node3.runRandomNodesQuery();
+          await sleep(100);
+        }
+      })(),
+    ]);
+
+    const node1Peers = await getPeers(node1);
+    const node2Peers = await getPeers(node2);
+    const node3Peers = await getPeers(node3);
+
+    expect(node1Peers).toHaveLength(2);
+    expect(node2Peers).toHaveLength(2);
+    expect(node3Peers).toHaveLength(1);
+
+    expect(node1Peers).toContain(node2.getPeerId().toString());
+    expect(node1Peers).not.toContain(node3.getPeerId().toString());
+
+    expect(node2Peers).toContain(node1.getPeerId().toString());
+    expect(node2Peers).not.toContain(node3.getPeerId().toString());
+
+    await stopNodes(node1, node2, node3);
   });
 
   // Test is flakey, so skipping for now.
   // TODO: Investigate: #6246
   it.skip('should persist peers without bootnode', async () => {
-    basePort++;
-    const node1 = await createNode(basePort);
-    basePort++;
-    const node2 = await createNode(basePort);
+    const node1 = await createNode();
+    const node2 = await createNode();
     await node1.start();
     await node2.start();
     await waitForPeers(node2, 2);
@@ -126,7 +181,8 @@ describe('Discv5Service', () => {
     await node2.stop();
   });
 
-  const createNode = async (port: number) => {
+  const createNode = async (overrides: Partial<P2PConfig> = {}) => {
+    const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
@@ -143,7 +199,7 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
-      l1ChainId: 31337,
+      ...overrides,
     };
     return new DiscV5Service(peerId, config);
   };

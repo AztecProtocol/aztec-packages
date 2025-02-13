@@ -7,7 +7,7 @@ global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one fiel
 
 unconstrained fn setup() -> TestAccount {
     let _ = TestEnvironment::new();
-    let account = cheatcodes::create_account();
+    let account = cheatcodes::create_account(1);
 
     account
 }

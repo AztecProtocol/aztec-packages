@@ -11,6 +11,10 @@ validator:
 bootNode:
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
 
 proverAgent:
   replicas: 1
@@ -32,6 +36,8 @@ aztec:
   slotDuration: 36
   epochDuration: 32
   realProofs: false
+  extraAccounts: 9
+  extraAccountsStartIndex: 69
 
 jobs:
   deployL1Verifier:

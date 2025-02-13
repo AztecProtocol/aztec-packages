@@ -9,6 +9,7 @@
     "./contracts": "./dest/contracts/index.js",
     "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
     "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
+    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils_with_blobs.js",
     "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
@@ -32,6 +33,7 @@
     "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@viem/anvil": "^0.0.10",

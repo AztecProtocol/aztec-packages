@@ -1,6 +1,7 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { Blob } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
@@ -19,15 +20,14 @@ import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
   type L1ContractAddresses,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { Blob } from '@aztec/foundation/blob';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -251,12 +251,12 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.stop();
   });
 
-  const makeProcessedTx = async (seed = 0x1): Promise<ProcessedTx> =>
+  const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
       version: fr(config.version),
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,

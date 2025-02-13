@@ -21,12 +21,12 @@
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_sha256_params.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
@@ -176,6 +176,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     Sha256TraceBuilder sha256_builder(trace);
                     AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
                     clear_events(events.sha256_compression);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
+                    clear_events(events.ecc_add);
                 } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -184,7 +189,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
             std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_dummy_dynamic_lookup_settings>>(),
             std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
@@ -199,7 +204,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_operations_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_lengths_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_to_read_unary_lookup_settings>>(),
-            std::make_unique<LookupIntoSha256Params<lookup_sha256_round_constant_lookup_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_bytes_are_bytes_lookup_settings>>());
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }

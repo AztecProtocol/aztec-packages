@@ -37,14 +37,13 @@ fn extract_property_value_from_selector<let N: u32>(
     value_field
 }
 
-fn check_note_header<Note, let N: u32>(context: PrivateContext, storage_slot: Field, note: Note)
+fn check_note_header<Note, let N: u32>(context: PrivateContext, note: Note)
 where
     Note: NoteInterface<N>,
 {
     let header = note.get_header();
     let contract_address = context.this_address();
     assert(header.contract_address.eq(contract_address), "Mismatch note header contract address.");
-    assert(header.storage_slot == storage_slot, "Mismatch note header storage slot.");
 }
 
 fn check_note_content<let N: u32>(
@@ -92,9 +91,9 @@ where
     /// Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     /// is check that the metadata is correct, and that the note exists.
     let note = unsafe { get_note_internal(storage_slot) };
-    check_note_header(*context, storage_slot, note);
+    check_note_header(*context, note);
 
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note);
+    let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
     context.push_note_hash_read_request(note_hash_for_read_request);
 
     (note, note_hash_for_read_request)
@@ -155,16 +154,14 @@ where
         if i < notes.len() {
             let note = notes.get_unchecked(i);
             let fields = note.pack_content();
-            check_note_header(*context, storage_slot, note);
+            check_note_header(*context, note);
             check_note_content(fields, options.selects);
             if i != 0 {
                 check_notes_order(prev_fields, fields, options.sorts);
             }
             prev_fields = fields;
 
-            let note_hash_for_read_request = compute_note_hash_for_read_request(note);
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
-            // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
+            let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
             context.push_note_hash_read_request(note_hash_for_read_request);
             note_hashes.push(note_hash_for_read_request);
         };
