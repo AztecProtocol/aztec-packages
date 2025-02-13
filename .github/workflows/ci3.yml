@@ -6,9 +6,12 @@ on:
   push:
     branches:
       - master
-  # For AztecProtocol devs. Allows editing workflow files.
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+      - ci3-fake-master
+      - ci3-fake-master2
+  # WORKTODO reinstate
+  # # For AztecProtocol devs. Allows editing workflow files.
+  # pull_request:
+  #   types: [opened, synchronize, reopened, ready_for_review, labeled]
   # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -18,6 +21,10 @@ concurrency:
   # On PR's the group id is the ref_name so only 1 can run at a time.
   group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
+
+# WORKTODO remove
+env:
+  REF_NAME: master
 
 jobs:
   ci-amd64:
@@ -209,7 +216,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "text": "Failure on (${{ github.ref_name }})\nCommit: ${{ steps.get_context.outputs.commit_title }}",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_context.outputs.authors }}",
               "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
