@@ -588,7 +588,9 @@ export class TXEService {
     const symKeyBuffer = fromUintArray(symKey, 8);
 
     // TODO(AD): this is a hack to shut up linter - this shouldn't be async!
-    const paddedPlaintext = await Promise.resolve(this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer));
+    const paddedPlaintext = await Promise.resolve(
+      this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer),
+    );
 
     // We convert each byte of the buffer to its own Field, so that the Noir
     // function correctly receives [u8; N].
