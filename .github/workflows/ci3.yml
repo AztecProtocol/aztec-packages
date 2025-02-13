@@ -188,10 +188,11 @@ jobs:
         run: |
           ./ci.sh ec2-test
 
-  notify-main:
+  notify:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && failure()
     needs:
+      - ci-grind
       - ci-amd64
     steps:
       - name: Checkout code
@@ -204,6 +205,14 @@ jobs:
           authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
           echo "authors=${authors}" >> $GITHUB_OUTPUT
 
+      - name: Get Failed Jobs
+        id: get_failed_jobs
+        run: |
+          failed_jobs=""
+          [ "${{ needs.ci-grind.outcome }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci-amd64.outcome }}" = "failure" ] && failed_jobs+="ci-amd64"
+          echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
+
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:
@@ -212,37 +221,7 @@ jobs:
               "text": "Master Github Actions failure",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_authors.outputs.authors }}",
-              "failed_jobs": "ci-amd64"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
-
-  # TODO deduplicate with above
-  notify-grind:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && failure()
-    needs:
-      - ci-grind
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Get Authors of Recent Commit
-        id: get_authors
-        run: |
-          git fetch --depth=1 origin ${{ github.sha }}
-          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
-          echo "authors=${authors}" >> $GITHUB_OUTPUT
-
-      - name: Send notification to aztec3-ci channel if workflow failed on master
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: |
-            {
-              "text": "Master Github Actions failure (grind)",
-              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              "authors": "${{ steps.get_authors.outputs.authors }}",
-              "failed_jobs": "ci-grind"
+              "failed_jobs": "${{ steps.get_failed_jobs.outputs.failed_jobs }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
