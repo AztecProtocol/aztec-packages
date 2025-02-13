@@ -31,7 +31,8 @@ function release {
   local current_version=$(aws s3 cp s3://install.aztec.network/VERSION - 2>/dev/null || echo "0.0.0")
 
   if [ $(dist_tag) != latest ]; then
-    exit
+    echo_stderr -e "${yellow}Not uploading aztec-up scripts for dist-tag $(dist_tag). They are expected to still be compatible with latest."
+    return
   fi
 
   # Validate that version is a valid semver.
