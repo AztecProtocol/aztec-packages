@@ -74,8 +74,16 @@ use crate::{
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
     },
     public_keys::PublicKeys,
-    tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::{Deserialize, Empty, FromField, ToField},
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
+    },
+    storage::map::derive_storage_slot_in_map,
+    tests::fixtures::{
+        self, contract_functions::ContractFunction, contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
+    },
+    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
