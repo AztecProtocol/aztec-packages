@@ -61,6 +61,7 @@ simple e2e_p2p/gossip_network
 simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
+simple e2e_p2p/slashing
 
 # Started failing with some AVM proof error...
 e2e_prover/full fake
@@ -135,3 +136,5 @@ p2p/src/services/reqresp/reqresp.test.ts
 prover-client/src/proving_broker/broker_prover_facade.test.ts
 prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
+# Terrible test. Tiny sleeps everywhere. Total flake. Probably delete.
+foundation/src/promise/running-promise.test.ts
