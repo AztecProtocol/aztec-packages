@@ -96,19 +96,17 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
-  # These need isolation due to network stack usage.
-  for test in {prover-node,p2p,ethereum}/src/**/*.test.ts; do
+  # These need isolation due to network stack usage (p2p, anvil, etc).
+  for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
-  # prover-node: Isolated using docker above.
-  # p2p: Isolated using docker above.
-  # ethereum: Isolated using docker above.
   # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|noir-bb-bench)/src/**/*.test.ts; do
+  # prover-node|p2p|ethereum|aztec: Isolated using docker above.
+  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 

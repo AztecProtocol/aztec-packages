@@ -76,13 +76,13 @@ if [ -t 1 ]; then
   ssh_args="-t"
   docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
-    cmd_postfix=" || exec zsh"
+    cmd+=" || exec zsh"
   else
-    cmd_postfix="; exec zsh"
+    cmd+="; exec zsh"
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
 fi
 
 container_script=$(cat <<EOF
@@ -100,7 +100,7 @@ container_script=$(cat <<EOF
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
   set -x
-  ci3/aws_handle_evict "$cmd" $cmd_postfix
+  $cmd
 EOF
 )
 
