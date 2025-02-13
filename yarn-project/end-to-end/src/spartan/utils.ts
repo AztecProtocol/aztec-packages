@@ -19,6 +19,8 @@ const k8sLocalConfigSchema = z.object({
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   HOST_NODE_PORT: z.coerce.number().min(1, 'HOST_NODE_PORT env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
+  HOST_SEQUENCER_PORT: z.coerce.number().min(1, 'HOST_SEQUENCER_PORT env variable must be set'),
+  CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
   HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
