@@ -140,3 +140,4 @@ sequencer-client/src/slasher/slasher_client.test.ts
 foundation/src/promise/running-promise.test.ts
 # This has recently started to hit p2p drop issues.
 spartan/bootstrap.sh test-kind-4epochs
+spartan/bootstrap.sh test-local
