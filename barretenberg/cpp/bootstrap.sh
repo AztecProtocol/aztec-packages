@@ -287,7 +287,7 @@ function bench {
 # Upload assets to release.
 function release {
   echo_header "bb cpp release"
-  gh release upload $REF_NAME build-release/* --clobber
+  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
 }
 
 function release_commit {

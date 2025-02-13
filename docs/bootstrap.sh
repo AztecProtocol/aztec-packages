@@ -70,7 +70,12 @@ function release_preview {
 
 function release {
   echo_header "docs release"
-  yarn netlify deploy --site aztec-docs-dev --prod
+  if [ ${DRY_RUN:-0} = 1 ]; then
+    echo "Dry run, doing docs preview:"
+    yarn netlify deploy --site aztec-docs-dev
+  else
+    yarn netlify deploy --site aztec-docs-dev --prod
+  fi
 }
 
 function release_commit {

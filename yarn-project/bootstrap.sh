@@ -134,8 +134,8 @@ function release_packages {
   # Smoke test the deployed packages.
   local dir=$(mktemp -d)
   cd "$dir"
-  npm init -y
-  npm i "${package_list[@]}"
+  do_or_dryrun npm init -y
+  do_or_dryrun npm i "${package_list[@]}"
   rm -rf "$dir"
 }
 

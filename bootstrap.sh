@@ -188,8 +188,8 @@ function release_github {
   fi
 
   # Ensure we have a commit release.
-  if ! gh release view "$REF_NAME" &>/dev/null; then
-    gh release create "$REF_NAME" \
+  if [ ${DRY_RUN:-0} = 0 ] && ! gh release view "$REF_NAME" &>/dev/null; then
+    do_or_dryrun gh release create "$REF_NAME" \
       --prerelease \
       --target $COMMIT_HASH \
       --title "$REF_NAME" \
