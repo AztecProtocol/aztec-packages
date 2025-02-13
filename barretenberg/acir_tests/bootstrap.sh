@@ -135,6 +135,11 @@ function test_cmds_internal {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
+function bench {
+  # TODO: Move to scripts dir along with run_test.sh.
+  LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -149,15 +154,8 @@ case "$cmd" in
   "hash")
     echo $tests_hash
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "bench")
-    # TODO: Move to scripts dir along with run_test.sh.
-    LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+  test|test_cmds|bench)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

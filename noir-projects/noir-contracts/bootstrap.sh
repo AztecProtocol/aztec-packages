@@ -23,12 +23,11 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
-export BB=../../barretenberg/cpp/build/bin/bb
-export NARGO=$(realpath ../../noir/noir-repo/target/release/nargo)
-export TRANSPILER=../../avm-transpiler/target/release/avm-transpiler
+export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 
-export target_dir=$(realpath target)
 export tmp_dir=./target/tmp
 
 # Create our tmp working directory, ensure it's removed on exit.
@@ -108,9 +107,9 @@ function compile {
   set -euo pipefail
   local contract_name contract_hash
 
-  local contract=$(basename $1)
+  local contract=$1
   # Calculate filename because nargo...
-  contract_name=$(cat $1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)
@@ -118,7 +117,7 @@ function compile {
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"
     fi
-    (cd $1 && rm -rf target && $NARGO compile ${args:-} --inliner-aggressiveness 0 && cp $json_path $target_dir)
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
@@ -136,38 +135,31 @@ function compile {
 }
 export -f compile
 
-function get_contract_dirs {
-  find contracts -iname Nargo.toml | \
-    while read -r toml_file; do
-      if grep -q 'type = "contract"' "$toml_file"; then
-          echo "$(dirname $toml_file)"
-      fi
-    done
-}
-
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
+  set +e
   rm -rf target
   mkdir -p $tmp_dir
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-
-  set +e
-  get_contract_dirs | parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
+  grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
+    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
   code=$?
   cat joblog.txt
   return $code
+
+  # For testing. Small parallel case.
+  # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
 }
 
 function test_cmds {
   local -A cache
   i=0
-  get_contract_dirs | parallel "cd {} && $NARGO test --list-tests --silence-warnings" | sort | \
-    while read -r package test; do
-      port=$((45730 + (i++ % ${NUM_TXES:-1})))
-      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
-    done
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+    port=$((45730 + (i++ % ${NUM_TXES:-1})))
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+  done
 }
 
 function test {
@@ -206,13 +198,10 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    VERBOSE=1 compile contracts/$1
+    VERBOSE=1 compile $1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

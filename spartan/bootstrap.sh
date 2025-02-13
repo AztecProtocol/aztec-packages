@@ -106,11 +106,8 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "test")
-    test
+  test|test_cmds|gke)
+    $cmd
     ;;
   "test-kind-smoke")
     NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
@@ -124,9 +121,6 @@ case "$cmd" in
   "test-local")
     # Isolate network stack in docker.
     docker_isolate ../scripts/run_native_testnet.sh -i -val 3
-    ;;
-  "gke")
-    gke
     ;;
   *)
     echo "Unknown command: $cmd"

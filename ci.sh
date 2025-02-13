@@ -32,8 +32,8 @@ function print_usage {
   echo_cmd "rlog"         "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
   echo_cmd "ilog"         "Will tail the logs of the current running build instance."
   echo_cmd "dlog"         "Display the log of the given denoise log id."
-  echo_cmd "tlog"         "Display the last log of the given test command as output by test-cmds."
-  echo_cmd "tilog"        "Tail the live log of a given test command as output by test-cmds."
+  echo_cmd "tlog"         "Display the last log of the given test command as output by test_cmds."
+  echo_cmd "tilog"        "Tail the live log of a given test command as output by test_cmds."
   echo_cmd "shell-host"   "Connect to host instance of the current running build."
   echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."
@@ -89,7 +89,8 @@ case "$cmd" in
     # Same as ec2-test but repeat it over arg1 instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered "denoise 'bootstrap_ec2 \"USE_TEST_CACHE=0 ./bootstrap.sh ci\" {}'"
+    seq 0 $((num - 1)) | parallel --tag --line-buffered \
+      "denoise 'INSTANCE_POSTFIX={} bootstrap_ec2 \"USE_TEST_CACHE=0 ./bootstrap.sh ci\"'"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -98,7 +99,7 @@ case "$cmd" in
   "run")
     # Trigger a GA workflow for current branch PR and tail logs.
     $0 trigger
-    $0 log
+    $0 rlog
     ;;
   "shell")
     get_ip_for_instance
@@ -171,6 +172,16 @@ case "$cmd" in
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    ;;
+  "kill")
+    existing_instance=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$instance_name" \
+      --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
+      --output text)
+    if [ -n "$existing_instance" ]; then
+      aws_terminate_instance $existing_instance
+    fi
     ;;
   "draft")
     pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')

@@ -32,11 +32,11 @@ function test {
 }
 
 case "$cmd" in
-  "test"|"ci")
+  "ci")
     test
     ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   "test-macro-compilation-failure")
     ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh

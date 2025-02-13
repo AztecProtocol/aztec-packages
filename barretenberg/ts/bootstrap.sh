@@ -61,13 +61,10 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
   "hash")
     echo "$hash"
     ;;
-  test|release|release_commit)
+  test|test_cmds|release|release_commit)
     $cmd
     ;;
   *)

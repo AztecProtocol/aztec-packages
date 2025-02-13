@@ -194,11 +194,8 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  build_native|build_packages|format|test|release|release_commit|test_example)
-    $cmd $@
-    ;;
-  "test-cmds")
-    test_cmds
+  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+    $cmd "$@"
     ;;
   "hash")
     echo $hash

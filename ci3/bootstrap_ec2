@@ -1,5 +1,5 @@
 #!/bin/bash
-source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 
 cmd=${1:-"./bootstrap.sh ci"}
@@ -58,7 +58,7 @@ fi
 
 # Request new instance.
 ip_sir=$(aws_request_instance $instance_name $cores $arch)
-parts=(${ip_sir//:/ })
+IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
@@ -76,13 +76,13 @@ if [ -t 1 ]; then
   ssh_args="-t"
   docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
-    cmd_postfix=" || exec zsh"
+    cmd+=" || exec zsh"
   else
-    cmd_postfix="; exec zsh"
+    cmd+="; exec zsh"
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
 fi
 
 container_script=$(cat <<EOF
@@ -100,7 +100,7 @@ container_script=$(cat <<EOF
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
   set -x
-  ci3/aws_handle_evict "$cmd" $cmd_postfix
+  $cmd
 EOF
 )
 
@@ -148,7 +148,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
     --pids-limit=32768 \
-    aztecprotocol/devbox:3.0 bash -c '$container_script'
+    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 "
 code=$?
 set -e
@@ -157,7 +157,7 @@ echo "SSH exited with code: $code"
 # If we were spot evicted, try again using on-demand.
 if [ $code -eq 155 ]; then
   echo "Spot was evicted. Retrying with on-demand instance."
-  NO_SPOT=1 exec $0
+  NO_SPOT=1 exec "$0" "$@"
 else
   exit $code
 fi

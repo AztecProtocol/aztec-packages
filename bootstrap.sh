@@ -109,7 +109,7 @@ function test_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@ | filter_test_cmds
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
 function test {
@@ -293,24 +293,18 @@ case "$cmd" in
   ""|"fast"|"full")
     build $cmd
   ;;
-  "test-cmds")
-    test_cmds "$@"
-  ;;
-  "test")
-    test "$@"
-  ;;
   "ci")
     build
     test
     bench
     release
     ;;
-  bench|release|release_commit)
-    $cmd
+  test|test_cmds|bench|release|release_commit)
+    $cmd "$@"
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|check|fast|full|test-cmds|test|ci|release>"
+    echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
     exit 1
   ;;
 esac

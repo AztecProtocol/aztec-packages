@@ -89,26 +89,24 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  denoise "yarn install"
+  denoise "retry yarn install"
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
   local hash=$(hash)
-  # These need isolation due to network stack usage.
-  for test in {prover-node,p2p,ethereum}/src/**/*.test.ts; do
+  # These need isolation due to network stack usage (p2p, anvil, etc).
+  for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
-  # prover-node: Isolated using docker above.
-  # p2p: Isolated using docker above.
-  # ethereum: Isolated using docker above.
   # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|noir-bb-bench)/src/**/*.test.ts; do
+  # prover-node|p2p|ethereum|aztec: Isolated using docker above.
+  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -171,12 +169,6 @@ case "$cmd" in
   "full")
     TYPECHECK=1 build
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "hash")
-    hash
-    ;;
   "compile")
     if [ -n "${1:-}" ]; then
       compile_project ::: "$@"
@@ -187,7 +179,7 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
-  test|release|release_commit|format)
+  test|test_cmds|hash|release|release_commit|format)
     $cmd
     ;;
   *)

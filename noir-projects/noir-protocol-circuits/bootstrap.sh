@@ -10,13 +10,12 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 export PLATFORM_TAG=any
-export BB=../../barretenberg/cpp/build/bin/bb
-export NARGO=../../noir/noir-repo/target/release/nargo
+export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-target_dir=./target
-key_dir=$target_dir/keys
+key_dir=./target/keys
 mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
@@ -55,20 +54,18 @@ function on_exit() {
 trap on_exit EXIT
 
 # Export vars needed inside compile.
-export target_dir key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
+export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 
 function compile {
   set -euo pipefail
   local dir=$1
-  local basename=$(basename $1)
-  local name=${basename//-/_}
+  local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
-  local key_path="$key_dir/$name.vk.data.json"
   local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
-  local program_hash_cmd="cd $dir && $(realpath $NARGO) check --silence-warnings --show-program-hash | cut -d' ' -f2"
+  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
@@ -78,7 +75,7 @@ function compile {
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
-    local compile_cmd="cd $dir && rm -rf target && $(realpath $NARGO) compile --skip-brillig-constraints-check && cp $json_path $(realpath $target_dir)"
+    local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
@@ -119,61 +116,61 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
-  if cache_download vk-$hash.tar.gz 1>&2; then
-    return
-  fi
-
-  echo_stderr "Generating vk for function: $name..."
-  SECONDS=0
-  local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
-  echo_stderr $vk_cmd
-  vk=$(dump_fail "$vk_cmd")
-  local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-  # echo_stderr $vkf_cmd
-  vk_fields=$(dump_fail "$vkf_cmd")
-  jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
-  echo_stderr "Key output at: $key_path (${SECONDS}s)"
-
-  # If required, generate solidity verifier for this contract.
-  if echo "$name" | grep -qE "${verifier_generate_regex}"; then
-    local verifier_path="$key_dir/${name}_verifier.sol"
+  if ! cache_download vk-$hash.tar.gz 1>&2; then
+    local key_path="$key_dir/$name.vk.data.json"
+    echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
-    echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
+    echo_stderr $vk_cmd
+    vk=$(dump_fail "$vk_cmd")
+    local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
+    # echo_stderr $vkf_cmd
+    vk_fields=$(dump_fail "$vkf_cmd")
+    jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
+    echo_stderr "Key output at: $key_path (${SECONDS}s)"
+    if echo "$name" | grep -qE "${verifier_generate_regex}"; then
+      local verifier_path="$key_dir/${name}_verifier.sol"
+      SECONDS=0
+      # Generate solidity verifier for this contract.
+      echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
+      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
+      # Include the verifier path if we create it.
+      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
+    else
+      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
+    fi
   fi
-
-  cache_upload vk-$hash.tar.gz $key_path ${verifier_path:-} &> /dev/null
 }
 export -f compile
 
 function build {
-  # We're building everything, so clean first.
+  # We allow errors so we can output the joblog.
+  set +e
+  set -u
   rm -rf target
   mkdir -p $key_dir
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
-  # We allow errors so we can output the joblog.
-  set +e
-  find crates -iname Nargo.toml | \
-    while read -r toml_file; do
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
+    while read -r dir; do
+      toml_file=./crates/$dir/Nargo.toml
       if grep -q 'type = "bin"' "$toml_file"; then
-          echo "$(dirname $toml_file)"
+          echo "$(basename $dir)"
       fi
     done | \
-    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} --joblog joblog.txt compile {}
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+      --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code
 }
 
 function test_cmds {
-  find crates -iname Nargo.toml | xargs dirname | \
-    parallel "cd {} && $(realpath $NARGO) test --list-tests --silence-warnings" | sort | \
-    while read -r package test; do
-      echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
-    done
-  # We don't blindly execute all circuits as some will have no Prover.toml.
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  done
+  # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
     private-kernel-init
     private-kernel-inner
@@ -212,13 +209,10 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    compile crates/$1
+    compile $1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

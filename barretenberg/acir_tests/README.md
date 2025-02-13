@@ -24,7 +24,7 @@ It will then compile them all using local repo versions of nargo and bb (used fo
 ./bootstrap.sh test
 ```
 
-This will run all the tests as returned by `./bootstrap.sh test-cmds`.
+This will run all the tests as returned by `./bootstrap.sh test_cmds`.
 
 To run a single test you can:
 

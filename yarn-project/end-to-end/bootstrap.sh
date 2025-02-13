@@ -135,10 +135,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  test|bench)
+  test|test_cmds|bench)
     $cmd
     ;;
   *)
