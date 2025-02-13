@@ -41,6 +41,7 @@ pol commit bytes;
 // This is checked by following relation and utilising inverse of bytes_remaining: bytes_rem_inv
 pol commit bytes_rem_inv;
 
+// Remark: Depending on how bytecode hashing constraints work, we might remove this relation.
 #[BC_DEC_SEL_BYTES_REM_NON_ZERO]
 bytes_remaining * ((1 - sel) * (1 - bytes_rem_inv) + bytes_rem_inv) - sel = 0;
 
@@ -128,6 +129,8 @@ sel_overflow_correction_needed * (1 - sel_overflow_correction_needed) = 0;
 // Absolute value of WINDOW_SIZE - bytes_remaining
 pol commit abs_diff;
 // Remark: The factor sel in relation below is only required to use the skippable mechanism.
+// sel_overflow_correction_needed = 1 if bytes_remaining < WINDOW_SIZE and
+// sel_overflow_correction_needed = 0 if bytes_remaining > WINDOW_SIZE
 #[BC_DEC_ABS_DIFF]
 sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WINDOW_SIZE + bytes_remaining - abs_diff) = 0;
 
@@ -155,6 +158,7 @@ pol commit sel_pc_plus_1, sel_pc_plus_2, sel_pc_plus_3, sel_pc_plus_4, sel_pc_pl
            sel_pc_plus_26, sel_pc_plus_27, sel_pc_plus_28, sel_pc_plus_29, sel_pc_plus_30,
            sel_pc_plus_31, sel_pc_plus_32, sel_pc_plus_33, sel_pc_plus_34, sel_pc_plus_35;
 
+// Remark: We should investigate whether a lookup with 35 precomputed columns might be more efficient.
 sel_pc_plus_1 * (1 - sel_pc_plus_1) = 0;
 sel_pc_plus_2 * (1 - sel_pc_plus_2) = 0;
 sel_pc_plus_3 * (1 - sel_pc_plus_3) = 0;
