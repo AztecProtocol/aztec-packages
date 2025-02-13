@@ -1418,6 +1418,7 @@ int main(int argc, char* argv[])
     add_crs_path_option(avm_check_circuit_command);
     add_avm_hints_option(avm_check_circuit_command);
     add_avm_public_inputs_option(avm_check_circuit_command);
+    add_output_path_option(avm_check_circuit_command, output_path);
     add_avm_dump_trace_option(avm_check_circuit_command);
 
     /***************************************************************************************************************
@@ -1429,9 +1430,9 @@ int main(int argc, char* argv[])
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
     std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_hints_option(avm_prove_command);
     add_avm_public_inputs_option(avm_prove_command);
+    add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_dump_trace_option(avm_prove_command);
 
     /***************************************************************************************************************
@@ -1442,6 +1443,9 @@ int main(int argc, char* argv[])
     add_verbose_flag(avm_verify_command);
     add_debug_flag(avm_verify_command);
     add_crs_path_option(avm_verify_command);
+    add_avm_hints_option(avm_verify_command);
+    add_avm_public_inputs_option(avm_verify_command);
+    add_output_path_option(avm_verify_command, output_path);
 #endif
 
     /***************************************************************************************************************
