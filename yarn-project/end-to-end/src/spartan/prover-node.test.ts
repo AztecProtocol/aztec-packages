@@ -29,7 +29,7 @@ const PROOF_TYPE = '"PUBLIC_BASE_ROLLUP"'; // note: double quotes!
 const interval = '1m';
 const cachedBaseRollupJobs = {
   alert: 'CachedBaseRollupRate',
-  expr: `rate(aztec_proving_queue_cached_jobs{aztec_proving_job_type=${PROOF_TYPE}[${interval}])>0`,
+  expr: `rate(aztec_proving_queue_cached_jobs{aztec_proving_job_type=${PROOF_TYPE}}[${interval}])>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
@@ -37,7 +37,7 @@ const cachedBaseRollupJobs = {
 
 const newBaseRollupJobs: AlertConfig = {
   alert: 'NewBaseRollupJobs',
-  expr: `rate(aztec_proving_queue_total_jobs{aztec_proving_job_type=${PROOF_TYPE}[${interval}])>0`,
+  expr: `rate(aztec_proving_queue_total_jobs{aztec_proving_job_type=${PROOF_TYPE}}[${interval}])>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
