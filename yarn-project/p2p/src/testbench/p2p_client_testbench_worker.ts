@@ -15,7 +15,6 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 
@@ -48,14 +47,6 @@ function mockAttestationPool(): AttestationPool {
   };
 }
 
-function mockEpochProofQuotePool(): EpochProofQuotePool {
-  return {
-    addQuote: () => {},
-    getQuotes: () => [],
-    deleteQuotesToEpoch: () => {},
-  };
-}
-
 function mockEpochCache(): EpochCacheInterface {
   return {
     getCommittee: () => Promise.resolve([] as EthAddress[]),
@@ -81,7 +72,6 @@ process.on('message', async msg => {
     if (type === 'START') {
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
-      const epochProofQuotePool = mockEpochProofQuotePool();
       const epochCache = mockEpochCache();
       const worldState = {} as WorldStateSynchronizer;
       const l2BlockSource = new MockL2BlockSource();
@@ -94,7 +84,6 @@ process.on('message', async msg => {
       const deps = {
         txPool,
         attestationPool,
-        epochProofQuotePool,
         store: kvStore,
         logger,
       };

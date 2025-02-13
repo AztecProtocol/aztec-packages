@@ -2,13 +2,12 @@ import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
-  type EpochProofQuote,
   type L2Block,
   SignatureDomainSeparator,
   type TxHash,
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuit-types/stats';
+import type { L1PublishBlockStats } from '@aztec/circuit-types/stats';
 import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
@@ -21,12 +20,12 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
-  type L1TxUtilsWithBlobs,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
+import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
@@ -65,7 +64,7 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'claim' | 'governance-vote' | 'slashing-vote';
+type Action = 'propose' | 'governance-vote' | 'slashing-vote';
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -105,7 +104,6 @@ export class SequencerPublisher {
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
-  public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
@@ -271,40 +269,6 @@ export class SequencerPublisher {
   }
 
   /**
-   * @returns The epoch that is currently claimable, undefined otherwise
-   */
-  public getClaimableEpoch() {
-    const acceptedErrors = ['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const;
-    return this.rollupContract.getClaimableEpoch().catch(err => {
-      if (acceptedErrors.find(e => err.message.includes(e))) {
-        return undefined;
-      }
-      throw err;
-    });
-  }
-
-  /**
-   * @notice  Will filter out invalid quotes according to L1
-   * @param quotes - The quotes to filter
-   * @returns The filtered quotes
-   */
-  public filterValidQuotes(quotes: EpochProofQuote[]): Promise<EpochProofQuote[]> {
-    return Promise.all(
-      quotes.map(x =>
-        this.rollupContract
-          // validate throws if the quote is not valid
-          // else returns void
-          .validateProofQuote(x.toViemArgs(), this.getForwarderAddress().toString(), this.ethereumSlotDuration)
-          .then(() => x)
-          .catch(err => {
-            this.log.error(`Failed to validate proof quote`, err, { quote: x.toInspect() });
-            return undefined;
-          }),
-      ),
-    ).then(quotes => quotes.filter((q): q is EpochProofQuote => !!q));
-  }
-
-  /**
    * @notice  Will call `validateHeader` to make sure that it is possible to propose
    *
    * @dev     Throws if unable to propose
@@ -460,52 +424,6 @@ export class SequencerPublisher {
 
     this.log.debug(`Submitting propose transaction`);
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
-    return true;
-  }
-
-  /** Enqueues a claimEpochProofRight transaction to submit a chosen prover quote for the previous epoch. */
-  public enqueueClaimEpochProofRight(proofQuote: EpochProofQuote): boolean {
-    const timer = new Timer();
-    this.addRequest({
-      action: 'claim',
-      request: {
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'claimEpochProofRight',
-          args: [proofQuote.toViemArgs()],
-        }),
-      },
-      lastValidL2Slot: this.getCurrentL2Slot(),
-      onResult: (_request, result) => {
-        if (!result) {
-          return;
-        }
-        const { receipt, stats } = result;
-        if (receipt.status === 'success') {
-          const publishStats: L1PublishStats = {
-            gasPrice: receipt.effectiveGasPrice,
-            gasUsed: receipt.gasUsed,
-            transactionHash: receipt.transactionHash,
-            blobDataGas: 0n,
-            blobGasUsed: 0n,
-            ...pick(stats!, 'calldataGas', 'calldataSize', 'sender'),
-          };
-          this.log.verbose(`Submitted claim epoch proof right to L1 rollup contract`, {
-            ...publishStats,
-            ...proofQuote.toInspect(),
-          });
-          this.metrics.recordClaimEpochProofRightTx(timer.ms(), publishStats);
-        } else {
-          this.metrics.recordFailedTx('claimEpochProofRight');
-          // TODO: Get the error message from the reverted tx
-          this.log.error(`Claim epoch proof right tx reverted`, {
-            txHash: receipt.transactionHash,
-            ...proofQuote.toInspect(),
-          });
-        }
-      },
-    });
     return true;
   }
 

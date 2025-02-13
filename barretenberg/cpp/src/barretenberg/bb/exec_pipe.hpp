@@ -8,7 +8,7 @@ inline std::vector<uint8_t> exec_pipe(std::string const& command)
 {
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
-        throw std::runtime_error("popen() failed!");
+        throw std::runtime_error("popen() failed! Can't run: " + command);
     }
 
     std::vector<uint8_t> result;

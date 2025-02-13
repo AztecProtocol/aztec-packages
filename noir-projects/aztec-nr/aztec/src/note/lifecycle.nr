@@ -18,9 +18,9 @@ where
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
-    let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
+    let header = NoteHeader { contract_address, nonce: 0, note_hash_counter };
     note.set_header(header);
-    let note_hash = note.compute_note_hash();
+    let note_hash = note.compute_note_hash(storage_slot);
 
     let packed_note_content = Note::pack_content(*note);
     notify_created_note(
@@ -33,7 +33,7 @@ where
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(*note)
+    NoteEmission::new(*note, storage_slot)
 }
 
 pub fn create_note_hash_from_public<Note, let N: u32>(
@@ -46,19 +46,19 @@ where
 {
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
-    let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
+    let header = NoteHeader { contract_address, nonce: 0, note_hash_counter: 1 };
     note.set_header(header);
-    let note_hash = note.compute_note_hash();
+    let note_hash = note.compute_note_hash(storage_slot);
 
     context.push_note_hash(note_hash);
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note, let N: u32>(context: &mut PrivateContext, note: Note)
+pub fn destroy_note<Note, let N: u32>(context: &mut PrivateContext, note: Note, storage_slot: Field)
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note);
+    let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
 
     destroy_note_unsafe(context, note, note_hash_for_read_request)
 }

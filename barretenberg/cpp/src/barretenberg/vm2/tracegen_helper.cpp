@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -21,6 +22,7 @@
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
@@ -122,6 +124,22 @@ void print_trace_stats(const TraceContainer& trace)
     info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
+// Check that inverses have been set, if assertions are enabled.
+// WARNING: This will not warn you if the interaction is not exercised.
+void check_interactions([[maybe_unused]] const TraceContainer& trace)
+{
+#ifndef NDEBUG
+    bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::LookupRelations>, 1>([&]<size_t i>() {
+        using Settings = typename std::tuple_element_t<i, typename AvmFlavor::LookupRelations>::Settings;
+        if (trace.get_column_rows(Settings::SRC_SELECTOR) != 0 && trace.get_column_rows(Settings::INVERSES) == 0) {
+            std::cerr << "Inverses not set for " << Settings::NAME << ". Did you forget to run a lookup builder?"
+                      << std::endl;
+            std::abort();
+        }
+    });
+#endif
+}
+
 } // namespace
 
 TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
@@ -175,6 +193,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     Sha256TraceBuilder sha256_builder(trace);
                     AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
                     clear_events(events.sha256_compression);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
+                    clear_events(events.ecc_add);
                 } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -183,7 +206,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
             std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTable<lookup_dummy_dynamic_lookup_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_dummy_dynamic_lookup_settings>>(),
             std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
@@ -204,6 +227,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
 
+    check_interactions(trace);
     print_trace_stats(trace);
     return trace;
 }

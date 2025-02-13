@@ -75,14 +75,24 @@ class lookup_rng_chk_pow_2_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_pow_2_relation : public GenericLookupRelation<lookup_rng_chk_pow_2_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_pow_2_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_pow_2_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel.is_zero() && in.precomputed_sel_range_8.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_> using lookup_rng_chk_pow_2 = GenericLookup<lookup_rng_chk_pow_2_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_diff ///////////////////
 
@@ -145,14 +155,24 @@ class lookup_rng_chk_diff_lookup_settings {
 template <typename FF_>
 class lookup_rng_chk_diff_relation : public GenericLookupRelation<lookup_rng_chk_diff_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_diff_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_diff_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_> using lookup_rng_chk_diff = GenericLookup<lookup_rng_chk_diff_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r0_16_bit ///////////////////
 
@@ -216,15 +236,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r0_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r0_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r0_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r0_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r0_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r0_16_bit = GenericLookup<lookup_rng_chk_is_r0_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r1_16_bit ///////////////////
 
@@ -288,15 +317,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r1_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r1_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r1_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r1_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r1_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r1_16_bit = GenericLookup<lookup_rng_chk_is_r1_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r2_16_bit ///////////////////
 
@@ -360,15 +398,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r2_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r2_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r2_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r2_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r2_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r2_16_bit = GenericLookup<lookup_rng_chk_is_r2_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r3_16_bit ///////////////////
 
@@ -432,15 +479,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r3_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r3_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r3_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r3_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r3_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r3_16_bit = GenericLookup<lookup_rng_chk_is_r3_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r4_16_bit ///////////////////
 
@@ -504,15 +560,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r4_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r4_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r4_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r4_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r4_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r4_16_bit = GenericLookup<lookup_rng_chk_is_r4_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r5_16_bit ///////////////////
 
@@ -576,15 +641,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r5_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r5_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r5_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r5_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r5_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r5_16_bit = GenericLookup<lookup_rng_chk_is_r5_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r6_16_bit ///////////////////
 
@@ -648,15 +722,24 @@ template <typename FF_>
 class lookup_rng_chk_is_r6_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r6_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r6_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r6_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel_r6_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r6_16_bit = GenericLookup<lookup_rng_chk_is_r6_16_bit_lookup_settings, FF_>;
 
 /////////////////// lookup_rng_chk_is_r7_16_bit ///////////////////
 
@@ -720,14 +803,23 @@ template <typename FF_>
 class lookup_rng_chk_is_r7_16_bit_relation
     : public GenericLookupRelation<lookup_rng_chk_is_r7_16_bit_lookup_settings, FF_> {
   public:
+    using Settings = lookup_rng_chk_is_r7_16_bit_lookup_settings;
     static constexpr std::string_view NAME = lookup_rng_chk_is_r7_16_bit_lookup_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.range_check_sel.is_zero() && in.precomputed_sel_range_16.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_rng_chk_is_r7_16_bit = GenericLookup<lookup_rng_chk_is_r7_16_bit_lookup_settings, FF_>;
 
 } // namespace bb::avm2
