@@ -71,6 +71,11 @@ pub struct SsaEvaluatorOptions {
     /// Enable the missing Brillig call constraints check
     pub enable_brillig_constraints_check: bool,
 
+    /// Enable the lookback feature of the Brillig call constraints
+    /// check (prevents some rare false positives, leads to a slowdown
+    /// on large rollout functions)
+    pub enable_brillig_constraints_check_lookback: bool,
+
     /// The higher the value, the more inlined Brillig functions will be.
     pub inliner_aggressiveness: i64,
 
@@ -104,6 +109,28 @@ pub(crate) fn optimize_into_acir(
 
     let mut ssa_level_warnings = vec![];
 
+    drop(ssa_gen_span_guard);
+
+    let used_globals_map = std::mem::take(&mut ssa.used_globals);
+    let brillig = time("SSA to Brillig", options.print_codegen_timings, || {
+        ssa.to_brillig_with_globals(options.enable_brillig_logging, used_globals_map)
+    });
+
+    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
+    let ssa_gen_span_guard = ssa_gen_span.enter();
+
+    let mut ssa = SsaBuilder {
+        ssa,
+        ssa_logging: options.ssa_logging.clone(),
+        print_codegen_timings: options.print_codegen_timings,
+    }
+    .run_pass(|ssa| ssa.fold_constants_with_brillig(&brillig), "Inlining Brillig Calls Inlining")
+    // It could happen that we inlined all calls to a given brillig function.
+    // In that case it's unused so we can remove it. This is what we check next.
+    .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions (3rd)")
+    .run_pass(Ssa::dead_instruction_elimination, "Dead Instruction Elimination (2nd)")
+    .finish();
+
     if !options.skip_underconstrained_check {
         ssa_level_warnings.extend(time(
             "After Check for Underconstrained Values",
@@ -116,31 +143,13 @@ pub(crate) fn optimize_into_acir(
         ssa_level_warnings.extend(time(
             "After Check for Missing Brillig Call Constraints",
             options.print_codegen_timings,
-            || ssa.check_for_missing_brillig_constraints(),
+            || {
+                ssa.check_for_missing_brillig_constraints(
+                    options.enable_brillig_constraints_check_lookback,
+                )
+            },
         ));
     };
-
-    drop(ssa_gen_span_guard);
-
-    let used_globals_map = std::mem::take(&mut ssa.used_globals);
-    let brillig = time("SSA to Brillig", options.print_codegen_timings, || {
-        ssa.to_brillig_with_globals(options.enable_brillig_logging, used_globals_map)
-    });
-
-    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
-    let ssa_gen_span_guard = ssa_gen_span.enter();
-
-    let ssa = SsaBuilder {
-        ssa,
-        ssa_logging: options.ssa_logging.clone(),
-        print_codegen_timings: options.print_codegen_timings,
-    }
-    .run_pass(|ssa| ssa.fold_constants_with_brillig(&brillig), "Inlining Brillig Calls Inlining")
-    // It could happen that we inlined all calls to a given brillig function.
-    // In that case it's unused so we can remove it. This is what we check next.
-    .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions (3rd)")
-    .run_pass(Ssa::dead_instruction_elimination, "Dead Instruction Elimination (2nd)")
-    .finish();
 
     drop(ssa_gen_span_guard);
 
