@@ -223,7 +223,6 @@ async function getBlockFromRollupTx(
       archive: Hex;
       blockHash: Hex;
       oracleInput: {
-        provingCostModifier: bigint;
         feeAssetPriceModifier: bigint;
       };
       txHashes: Hex[];
@@ -243,7 +242,7 @@ async function getBlockFromRollupTx(
   // Body.fromBlobFields to accept blob buffers directly
   let blockFields: Fr[];
   try {
-    blockFields = blobBodies.flatMap(b => b.toEncodedFields());
+    blockFields = Blob.toEncodedFields(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);

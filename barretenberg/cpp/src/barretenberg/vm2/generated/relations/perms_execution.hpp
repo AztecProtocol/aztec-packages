@@ -65,13 +65,23 @@ class perm_dummy_dynamic_permutation_settings {
 template <typename FF_>
 class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy_dynamic_permutation_settings, FF_> {
   public:
+    using Settings = perm_dummy_dynamic_permutation_settings;
     static constexpr std::string_view NAME = perm_dummy_dynamic_permutation_settings::NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.execution_sel.is_zero() && in.execution_sel.is_zero();
     }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_> using perm_dummy_dynamic = GenericPermutation<perm_dummy_dynamic_permutation_settings, FF_>;
 
 } // namespace bb::avm2

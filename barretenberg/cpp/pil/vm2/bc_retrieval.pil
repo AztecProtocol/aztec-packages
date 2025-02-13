@@ -6,6 +6,8 @@ pol commit sel;
 #[skippable_if]
 sel = 0;
 
+// This id is generated at runtime starting from zero and incremented by 1.
+// The primary source of bytecode_id is this sub-trace.
 pol commit bytecode_id;
 pol commit err;  // some error occurred.
 pol commit address;  // contract address.
