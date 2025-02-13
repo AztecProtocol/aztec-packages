@@ -139,7 +139,10 @@ export async function makeCall(
   const owner = context.wallet.getAddress();
   const sender = owner;
   if (heavyPublicCompute) {
-    return new BatchCall(context.wallet, [await contract.methods.sha256_hash_2048(randomByteFrs(2048)).request()]);
+    return new BatchCall(context.wallet, [
+      await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
+      await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
+    ]);
   } else {
     return new BatchCall(context.wallet, [
       await contract.methods.create_note(owner, sender, index + 1).request(),
@@ -204,6 +207,6 @@ export async function createNewPXE(
   return pxe;
 }
 
-function randomByteFrs(length: number): Fr[] {
-  return [...Array(length)].map(_ => new Fr(Math.floor(Math.random() * 255)));
+function randomBytesAsBigInts(length: number): bigint[] {
+  return [...Array(length)].map(_ => BigInt(Math.floor(Math.random() * 255)));
 }
