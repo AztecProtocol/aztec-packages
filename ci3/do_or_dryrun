@@ -2,5 +2,5 @@
 if [ ${DRY_RUN:-0} = 0 ]; then
   exec $@
 else
-  echo "dry run, would do: $@"
+  echo "DRY: $@"
 fi
