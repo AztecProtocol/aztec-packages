@@ -58,9 +58,10 @@ if [ "$fresh_install" = "true" ]; then
 fi
 
 function cleanup {
+  set +e
   (cat "logs/kind-$test.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $stern_pid $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
@@ -86,7 +87,7 @@ if [ "$fresh_install" != "no-deploy" ]; then
 fi
 
 # Find 4 free ports between 9000 and 10000
-free_ports=$(find_ports 4)
+free_ports="$(find_ports 4)"
 
 # Extract the free ports from the list
 forwarded_pxe_port=$(echo $free_ports | awk '{print $1}')

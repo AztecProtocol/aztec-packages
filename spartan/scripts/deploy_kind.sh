@@ -51,8 +51,7 @@ function show_status_until_pxe_ready {
 show_status_until_pxe_ready &
 
 function cleanup {
-  # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
