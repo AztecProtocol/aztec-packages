@@ -96,7 +96,7 @@ where
         require_empty |= i == length;
 
         let elem_is_empty = is_empty(array[i]);
-        assert(!(require_empty ^ elem_is_empty));
+        assert_eq(require_empty, elem_is_empty);
     }
     length
 }
