@@ -84,3 +84,4 @@ In a nutshell:
 - It supports modularization of the build manifest into multiple directories that can be imported. Simple functions and conditional logic can be used.
 - We provide two modes, one for CI by passing --ci and one for local with incremental builds.
 - We do NOT provide a native execution story for anything but Linux and WASM currently.
+- bump for ci
