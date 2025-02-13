@@ -200,14 +200,16 @@ function release_github {
 function release {
   # Our releases are controlled by the REF_NAME environment variable, which should be a valid semver (but can have a leading v).
   # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
   # Our steps:
   #   barretenberg/cpp => upload binaries to github release
   #   barretenberg/ts
   #     + noir
-  #     + yarn-project => NPM publish with to a dist tag taken from our prerelease semver, version is our REF_NAME without a leading v.
-  #   aztec-up => upload scripts to prod if BRANCH is master
-  #   docs => publish docs if BRANCH is master. Link build in github release always.
-  #   release-image => push docker image to a dist tag taken from our prerelease semver.
+  #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
+  #   aztec-up => upload scripts to prod if dist tag is latest
+  #   docs => publish docs if dist tag is latest. TODO Link build in github release.
+  #   release-image => push docker image to dist tag.
+  #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
   check_release
 
