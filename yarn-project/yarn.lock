@@ -4325,6 +4325,7 @@ __metadata:
     "@noir-lang/acvm_js": "npm:1.0.0-beta.2"
     "@noir-lang/noirc_abi": "npm:1.0.0-beta.2"
     "@noir-lang/types": "npm:1.0.0-beta.2"
+  checksum: 10/ae02d93ad483bed3698a2f71dc4ece49f4ec2d942640416cca4dcff348d4c736382304b9ef20c787a8d3bcdf0099962647f3ede3c76410652c7d2eae59c6070d
   languageName: node
   linkType: hard
 
