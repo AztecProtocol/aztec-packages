@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 
@@ -167,6 +168,7 @@ template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
 template class OinkVerifier<UltraStarknetFlavor>;
 template class OinkVerifier<UltraKeccakZKFlavor>;
+template class OinkVerifier<UltraStarknetZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;

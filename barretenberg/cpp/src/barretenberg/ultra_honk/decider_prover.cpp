@@ -118,6 +118,7 @@ template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<UltraStarknetFlavor>;
 template class DeciderProver_<UltraKeccakZKFlavor>;
+template class DeciderProver_<UltraStarknetZKFlavor>;
 template class DeciderProver_<MegaFlavor>;
 template class DeciderProver_<MegaZKFlavor>;
 

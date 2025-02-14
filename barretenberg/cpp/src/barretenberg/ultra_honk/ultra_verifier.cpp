@@ -78,6 +78,7 @@ template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
 template class UltraVerifier_<UltraStarknetFlavor>;
 template class UltraVerifier_<UltraKeccakZKFlavor>;
+template class UltraVerifier_<UltraStarknetZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
 template class UltraVerifier_<MegaZKFlavor>;

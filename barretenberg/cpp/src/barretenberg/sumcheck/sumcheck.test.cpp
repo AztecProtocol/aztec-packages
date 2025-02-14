@@ -375,7 +375,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
 // Define the FlavorTypes
 using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
+    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, MegaFlavor, MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 

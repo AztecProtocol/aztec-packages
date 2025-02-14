@@ -907,7 +907,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     using Prover = UltraProver_<Flavor>;
 
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
@@ -1297,7 +1297,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
 
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
@@ -1549,6 +1549,9 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_keccak_honk_zk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraKeccakZKFlavor>(bytecode_path, witness_path, output_path, recursive);
+        } else if (command == "prove_ultra_starknet_honk_zk") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk<UltraStarknetZKFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
@@ -1560,6 +1563,8 @@ int main(int argc, char* argv[])
             return verify_honk<UltraStarknetFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_keccak_honk_zk") {
             return verify_honk<UltraKeccakZKFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "verify_ultra_starknet_honk_zk") {
+            return verify_honk<UltraStarknetZKFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "verify_ultra_rollup_honk") {
             return verify_honk<UltraRollupFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {

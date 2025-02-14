@@ -79,6 +79,7 @@ template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
 template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraKeccakZKFlavor>;
+template class UltraProver_<UltraStarknetZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
