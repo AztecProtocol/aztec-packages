@@ -16,7 +16,7 @@ function process_batch {
   done
 
   # Batch resolve existence in redis.
-  readarray -t results < <(redis-cli --raw MGET ${hashes[@]})
+  readarray -t results < <(redis_cli MGET ${hashes[@]})
 
   # Iterate over the results and output lines whose hashes don't exist in redis.
   for i in "${!results[@]}"; do
