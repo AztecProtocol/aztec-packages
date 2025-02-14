@@ -29,12 +29,8 @@ if [ -z "${REF_NAME:-}" ]; then
   [ -z "${REF_NAME:-}" ] && exit 1
 fi
 
-if [ -z "${CI_RELEASE:-}" ]; then
-  CI_RELEASE=$(semver check "$REF_NAME" && echo 1 || echo 0)
-fi
-
 if [ -z "${CI_FULL:-}" ]; then
-  if [ "${CI_RELEASE:-}" == 1 ]; then
+  if semver check "$REF_NAME"; then
     export CI_FULL=1
   elif [ "$REF_NAME" == "master" ]; then
     export CI_FULL=1

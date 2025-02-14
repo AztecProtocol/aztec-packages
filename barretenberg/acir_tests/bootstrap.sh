@@ -57,7 +57,7 @@ function build {
 function test {
   echo_header "acir_tests testing"
   # TODO: 64 is bit of a magic number for CI/mainframe. Needs to work on lower hardware.
-  test_cmds | parallelise 64
+  test_cmds | filter_test_cmds | parallelise 64
 }
 
 function test_cmds {

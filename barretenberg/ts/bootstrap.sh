@@ -37,7 +37,7 @@ function test_cmds {
 
 function test {
   echo_header "bb.js test"
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function release {
