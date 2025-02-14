@@ -52,6 +52,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:*",

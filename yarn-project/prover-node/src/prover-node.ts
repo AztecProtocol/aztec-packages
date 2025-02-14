@@ -1,8 +1,6 @@
 import {
-  type EpochProofClaim,
-  type EpochProofQuote,
-  EpochProofQuotePayload,
   type EpochProverManager,
+  EpochProvingJobTerminalState,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -20,6 +18,7 @@ import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
@@ -33,14 +32,10 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
-import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims-monitor.js';
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import { type ProverNodePublisher } from './prover-node-publisher.js';
-import { type QuoteProvider } from './quote-provider/index.js';
-import { type QuoteSigner } from './quote-signer.js';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
@@ -57,7 +52,7 @@ export type ProverNodeOptions = {
  * from a tx source in the p2p network or an external node, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
+export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
   private dateProvider = new DateProvider();
 
@@ -66,6 +61,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private cachedEpochData: { epochNumber: bigint; blocks: L2Block[]; txs: Tx[] } | undefined = undefined;
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+
+  private txFetcher: RunningPromise;
+  private lastBlockNumber: number | undefined;
 
   public readonly tracer: Tracer;
 
@@ -77,11 +75,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
     protected readonly coordination: ProverCoordination & Maybe<Service>,
-    protected readonly quoteProvider: QuoteProvider,
-    protected readonly quoteSigner: QuoteSigner,
-    protected readonly claimsMonitor: ClaimsMonitor,
     protected readonly epochsMonitor: EpochMonitor,
-    protected readonly bondManager: BondManager,
     options: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
@@ -97,6 +91,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
+    this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
   public getP2P() {
@@ -107,89 +102,23 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     return undefined;
   }
 
-  async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
-    if (proofClaim.epochToProve === this.latestEpochWeAreProving) {
-      this.log.verbose(`Already proving claim for epoch ${proofClaim.epochToProve}`);
-      return;
-    }
-
-    const provenEpoch = await this.l2BlockSource.getProvenL2EpochNumber();
-    if (provenEpoch !== undefined && proofClaim.epochToProve <= provenEpoch) {
-      this.log.verbose(`Claim for epoch ${proofClaim.epochToProve} is already proven`);
-      return;
-    }
-
-    try {
-      await this.startProof(proofClaim.epochToProve);
-      this.latestEpochWeAreProving = proofClaim.epochToProve;
-    } catch (err) {
-      this.log.error(`Error handling claim for epoch ${proofClaim.epochToProve}`, err);
-    }
-
-    try {
-      // Staked amounts are lowered after a claim, so this is a good time for doing a top-up if needed
-      await this.bondManager.ensureBond();
-    } catch (err) {
-      this.log.error(`Error ensuring prover bond after handling claim for epoch ${proofClaim.epochToProve}`, err);
-    }
-  }
-
   /**
-   * Handles the epoch number to prove when the prover node starts by checking if there
-   * is an existing claim for it. If not, it creates and sends a quote for it.
-   * @param epochNumber - The epoch immediately before the current one when the prover node starts.
-   */
-  async handleInitialEpochSync(epochNumber: bigint): Promise<void> {
-    try {
-      const claim = await this.publisher.getProofClaim();
-      if (!claim || claim.epochToProve < epochNumber) {
-        this.log.verbose(`Handling epoch ${epochNumber} completed as initial sync`);
-        await this.handleEpochCompleted(epochNumber);
-      }
-    } catch (err) {
-      this.log.error(`Error handling initial epoch sync`, err);
-    }
-  }
-
-  /**
-   * Handles an epoch being completed by sending a quote for proving it.
+   * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
    */
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
-      // Gather data for the epoch
-      const epochData = await this.gatherEpochData(epochNumber);
-      const { blocks } = epochData;
-      this.cachedEpochData = { epochNumber, ...epochData };
-
-      // Construct a quote for the epoch
-      const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
-      if (!partialQuote) {
-        this.log.info(`No quote produced for epoch ${epochNumber}`);
+      this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
+      const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
+      if (activeJobs.length > 0) {
+        this.log.info(`Not starting proof for ${epochNumber} since there are active jobs`);
         return;
       }
-
-      // Ensure we have deposited enough funds for sending this quote
-      await this.bondManager.ensureBond(partialQuote.bondAmount);
-
-      // Assemble and sign full quote
-      const quote = EpochProofQuotePayload.from({
-        ...partialQuote,
-        epochToProve: BigInt(epochNumber),
-        prover: this.publisher.getSenderAddress(),
-        validUntilSlot: partialQuote.validUntilSlot ?? BigInt(Number.MAX_SAFE_INTEGER), // Should we constrain this?
-      });
-      const signed = await this.quoteSigner.sign(quote);
-
-      // Send it to the coordinator
-      this.log.info(
-        `Sending quote for epoch ${epochNumber} with blocks ${blocks[0].number} to ${blocks.at(-1)!.number}`,
-        quote.toViemArgs(),
-      );
-      await this.doSendEpochProofQuote(signed);
+      // TODO: we probably want to skip starting a proof if we are too far into the current epoch
+      await this.startProof(epochNumber);
     } catch (err) {
       if (err instanceof EmptyEpochError) {
-        this.log.info(`Not producing quote for ${epochNumber} since no blocks were found`);
+        this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
       } else {
         this.log.error(`Error handling epoch completed`, err);
       }
@@ -197,14 +126,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   }
 
   /**
-   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and sends
-   * quotes for them, as well as monitors the claims for the epochs it has sent quotes for and starts proving jobs.
-   * This method returns once the prover node has deposited an initial bond into the escrow contract.
+   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
+   * starts proving jobs for them.
    */
-  async start() {
-    await this.bondManager.ensureBond();
+  start() {
+    this.txFetcher.start();
     this.epochsMonitor.start(this);
-    this.claimsMonitor.start(this);
     this.log.info('Started ProverNode', this.options);
   }
 
@@ -213,8 +140,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async stop() {
     this.log.info('Stopping ProverNode');
+    await this.txFetcher.stop();
     await this.epochsMonitor.stop();
-    await this.claimsMonitor.stop();
     await this.prover.stop();
     await tryStop(this.l2BlockSource);
     this.publisher.interrupt();
@@ -223,16 +150,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await tryStop(this.coordination);
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
-  }
-
-  /** Sends an epoch proof quote to the coordinator. */
-  public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    this.log.info(`Sending quote for epoch`, quote.toViemArgs().quote);
-    return this.doSendEpochProofQuote(quote);
-  }
-
-  private doSendEpochProofQuote(quote: EpochProofQuote) {
-    return this.coordination.addEpochProofQuote(quote);
   }
 
   /**
@@ -261,8 +178,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
-    return Promise.resolve(Array.from(this.jobs.entries()).map(([uuid, job]) => ({ uuid, status: job.getState() })));
+  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
+    return Promise.resolve(
+      Array.from(this.jobs.entries()).map(([uuid, job]) => ({
+        uuid,
+        status: job.getState(),
+        epochNumber: Number(job.getEpochNumber()),
+      })),
+    );
+  }
+
+  protected async getActiveJobsForEpoch(
+    epochBigInt: bigint,
+  ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
+    const jobs = await this.getJobs();
+    const epochNumber = Number(epochBigInt);
+    return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
   }
 
   private checkMaximumPendingJobs() {
@@ -310,6 +241,22 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   @memoize
   private getL1Constants() {
     return this.l2BlockSource.getL1Constants();
+  }
+
+  /** Monitors for new blocks and requests their txs from the p2p layer to ensure they are available for proving. */
+  @trackSpan('ProverNode.checkForTxs')
+  private async checkForTxs() {
+    const blockNumber = await this.l2BlockSource.getBlockNumber();
+    if (this.lastBlockNumber === undefined || blockNumber > this.lastBlockNumber) {
+      const block = await this.l2BlockSource.getBlock(blockNumber);
+      if (!block) {
+        return;
+      }
+      const txHashes = block.body.txEffects.map(tx => tx.txHash);
+      this.log.verbose(`Fetching ${txHashes.length} for block number ${blockNumber} from coordination`);
+      await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
+      this.lastBlockNumber = blockNumber;
+    }
   }
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
@@ -375,7 +322,6 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   /** Extracted for testing purposes. */
   protected async triggerMonitors() {
     await this.epochsMonitor.work();
-    await this.claimsMonitor.work();
   }
 }
 

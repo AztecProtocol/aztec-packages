@@ -19,10 +19,7 @@ Since private functions execute first, they cannot 'wait' on the results of thei
 
 By way of example, suppose a function makes a call to a public function, and then to a private function. The public function will not be executed immediately, but will instead be enqueued for the sequencer to execute later.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph LR
     A[Private Function 1] --> |1st call| B(Public Function 1)
     A --> |2nd call| C[Private Function 2]
@@ -30,15 +27,11 @@ graph LR
     A --> |3rd call| D(Public Function 2)
     A --> |4th call| E[Private Function 3]
     E --> |return values| A
-</Mermaid>
 ```
 
 The order of execution will actually be:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph LR
     A[Private Function 1] --> C[Private Function 2]
     C --> |return values| A
@@ -46,18 +39,13 @@ graph LR
     E --> |return values| A
     A -----> |Enqueued| B(Public Function 1)
     A -----> |Enqueued| D(Public Function 2)
-</Mermaid>
 ```
 
 And the order of proving will actually be:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 flowchart LR
     A[Private Function 1] --> C[Private Function 2] --> E[Private Function 3] ----> B(Public Function 1) --> D(Public Function 2)
-</Mermaid>
 ```
 
 ## Private to Public Messaging

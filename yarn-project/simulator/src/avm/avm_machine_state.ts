@@ -1,6 +1,6 @@
 import { type Fr } from '@aztec/circuits.js';
 
-import { GAS_DIMENSIONS, type Gas } from './avm_gas.js';
+import { type Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
 import { type AvmRevertReason, OutOfGasError } from './errors.js';
 
@@ -92,26 +92,29 @@ export class AvmMachineState {
    */
   public consumeGas(gasCost: Partial<Gas>) {
     // Assert there is enough gas on every dimension.
-    const outOfGasDimensions = GAS_DIMENSIONS.filter(
-      dimension => this[`${dimension}Left`] - (gasCost[dimension] ?? 0) < 0,
-    );
+    const outOfL2Gas = this.l2GasLeft - (gasCost.l2Gas ?? 0) < 0;
+    const outOfDaGas = this.daGasLeft - (gasCost.daGas ?? 0) < 0;
     // If not, trigger an exceptional halt.
-    // See https://yp-aztec.netlify.app/docs/public-vm/execution#gas-checks-and-tracking
-    if (outOfGasDimensions.length > 0) {
+    if (outOfL2Gas || outOfDaGas) {
       this.exceptionalHalt();
-      throw new OutOfGasError(outOfGasDimensions);
+      const dimensions = [];
+      if (outOfL2Gas) {
+        dimensions.push('l2Gas');
+      }
+      if (outOfDaGas) {
+        dimensions.push('daGas');
+      }
+      throw new OutOfGasError(dimensions);
     }
     // Otherwise, charge the corresponding gas
-    for (const dimension of GAS_DIMENSIONS) {
-      this[`${dimension}Left`] -= gasCost[dimension] ?? 0;
-    }
+    this.l2GasLeft -= gasCost.l2Gas ?? 0;
+    this.daGasLeft -= gasCost.daGas ?? 0;
   }
 
   /** Increases the gas left by the amounts specified. */
   public refundGas(gasRefund: Partial<Gas>) {
-    for (const dimension of GAS_DIMENSIONS) {
-      this[`${dimension}Left`] += gasRefund[dimension] ?? 0;
-    }
+    this.l2GasLeft += gasRefund.l2Gas ?? 0;
+    this.daGasLeft += gasRefund.daGas ?? 0;
   }
 
   /**
@@ -151,7 +154,8 @@ export class AvmMachineState {
    * Flag an exceptional halt. Clears gas left and sets the reverted flag. No output data.
    */
   private exceptionalHalt() {
-    GAS_DIMENSIONS.forEach(dimension => (this[`${dimension}Left`] = 0));
+    this.l2GasLeft = 0;
+    this.daGasLeft = 0;
     this.reverted = true;
     this.halted = true;
   }

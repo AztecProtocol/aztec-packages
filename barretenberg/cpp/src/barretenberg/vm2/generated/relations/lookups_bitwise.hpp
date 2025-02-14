@@ -14,6 +14,8 @@ namespace bb::avm2 {
 
 class lookup_bitw_byte_lengths_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_LENGTHS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -72,14 +74,31 @@ class lookup_bitw_byte_lengths_lookup_settings {
 template <typename FF_>
 class lookup_bitw_byte_lengths_relation : public GenericLookupRelation<lookup_bitw_byte_lengths_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_LENGTHS";
+    using Settings = lookup_bitw_byte_lengths_lookup_settings;
+    static constexpr std::string_view NAME = lookup_bitw_byte_lengths_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.bitwise_start.is_zero() && in.precomputed_sel_integral_tag.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_> using lookup_bitw_byte_lengths = GenericLookup<lookup_bitw_byte_lengths_lookup_settings, FF_>;
 
 /////////////////// lookup_bitw_byte_operations ///////////////////
 
 class lookup_bitw_byte_operations_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_OPERATIONS";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -147,9 +166,23 @@ template <typename FF_>
 class lookup_bitw_byte_operations_relation
     : public GenericLookupRelation<lookup_bitw_byte_operations_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BITW_BYTE_OPERATIONS";
+    using Settings = lookup_bitw_byte_operations_lookup_settings;
+    static constexpr std::string_view NAME = lookup_bitw_byte_operations_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.bitwise_sel.is_zero() && in.precomputed_sel_bitwise.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
 };
-template <typename FF_>
-using lookup_bitw_byte_operations = GenericLookup<lookup_bitw_byte_operations_lookup_settings, FF_>;
 
 } // namespace bb::avm2
