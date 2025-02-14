@@ -39,40 +39,6 @@ We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrep
 
 ## Development and CI
 
-Run `bootstrap.sh` in the project root to set up your environment. This will update git submodules, download needed artifacts (namely, SRS for barretenberg), check all tool versions and build all packages. Rarely, you can run `bootstrap.sh full` to build from scratch without attempting to download from cache.
-The root-level bootstrap.sh will inform you about missing tool versions.
+For a broad overview of the CI system take a look at [CI.md](CI.md).
 
-The bootstrap.sh scripts have several functions and, in addition to actually bootstrapping (setup and building) of the code also provide testing and release functionality for CI.
-See CI3/README.md for more details. AWS credentials are required for S3 uploads. For testing the scripts themselves, one can set `S3_BUILD_CACHE_AWS_PARAMS` to point to a MinIO endpoint.
-
-There is a top-level bootstrap and one in every submodule (use `find . -name bootstrap.sh` to discover these).
-
-1. **Build everything**:
-   ```bash
-   ./bootstrap.sh
-   ```
-   (Same as `./bootstrap.sh fast`.) This fetches cached artifacts where possible, then rebuilds only what's changed.
-
-2. **Run all tests**:
-   ```bash
-   ./bootstrap.sh test
-   ```
-   This enumerates tests from each subproject and runs them in parallel, skipping any already passed (based on content hash).
-
-3. **Release** (when tagged, e.g. `v1.2.3`):
-   ```bash
-   ./bootstrap.sh release
-   ```
-   Each subproject’s release flow (pushing Docker images, NPM packages, GH releases, etc.) is invoked.
-
-4. **Clean** local outputs:
-   ```bash
-   ./bootstrap.sh clean
-   ```
-   This erases untracked files, submodules, etc. (Use with caution locally.)
-
-Key ideas:
-- **Monorepo**: Multiple projects share a single repo. Each subdirectory (e.g. `barretenberg`, `noir`, `yarn-project`) has its own `bootstrap.sh` for building/testing.
-- **Content Hashing**: For each project, files are matched by `.rebuild_patterns`. If those files haven’t changed (hash is identical), a cached build artifact is reused.
-- **Caching**: Artifacts are stored in S3 or any S3-compatible store (e.g. MinIO). If AWS creds aren’t configured, caching is a no-op.
-- **Test Enumeration**: `bootstrap.sh test_cmds` in each subproject lists test lines, which run in parallel. Passing tests get cached so repeated runs skip them.
+For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).
