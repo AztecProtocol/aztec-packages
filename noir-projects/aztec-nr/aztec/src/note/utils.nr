@@ -11,15 +11,16 @@ use dep::protocol_types::{
         compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
         compute_unique_note_hash,
     },
+    traits::Packable,
 };
 
-pub fn compute_siloed_nullifier<Note, let N: u32>(
+pub fn compute_siloed_nullifier<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
@@ -28,12 +29,12 @@ where
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_read_request<Note, let N: u32>(
+pub fn compute_note_hash_for_read_request<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface,
 {
     let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 
@@ -50,13 +51,10 @@ where
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
+pub fn compute_note_hash_for_nullify_internal<Note>(
     retrieved_note: RetrievedNote<Note>,
     note_hash_for_read_request: Field,
-) -> Field
-where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+) -> Field {
     if (retrieved_note.note_hash_counter != 0) & (retrieved_note.nonce != 0) {
         // Non-revertible note, nullified by a revertible nullifier, we need to nullify the note hash that will reach the tree
         let siloed_note_hash =
@@ -110,30 +108,30 @@ where
 //     }
 // }
 
-pub fn compute_note_hash_for_nullify<Note, let N: u32>(
+pub fn compute_note_hash_for_nullify<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
     compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request)
 }
 
-pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
-    unpack_content: fn([Field; N]) -> T,
+pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<Note, let N: u32, let S: u32>(
+    unpack_note: fn([Field; N]) -> Note,
     contract_address: AztecAddress,
     nonce: Field,
     compute_nullifier: bool,
     storage_slot: Field,
-    packed_note_content: [Field; S],
+    packed_note: [Field; N],
 ) -> [Field; 4]
 where
-    T: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
-    let note = unpack_content(array::subarray(packed_note_content, 0));
+    let note = unpack_note(array::subarray(packed_note, 0));
 
     let note_hash = note.compute_note_hash(storage_slot);
     let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);

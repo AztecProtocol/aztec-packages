@@ -30,15 +30,15 @@ pub struct NoteHashesAndNullifier {
 /// note in the contract given their contents. A typical implementation of such a function would look like this:
 ///
 /// ```
-/// |packed_note_content, note_header, note_type_id| {
+/// |packed_note, note_header, note_type_id| {
 ///     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-///         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
 ///             MyNoteType::unpack_content,
 ///             contract_address,
 ///             nonce,
 ///             storage_slot,
-///             packed_note_content.storage(),
+///             packed_note.storage(),
 ///         )
 ///     } else {
 ///         panic(f"Unknown note type id {note_type_id}")
@@ -60,8 +60,7 @@ pub unconstrained fn do_process_log<Env>(
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashesAndNullifier>,
 ) {
-    let (storage_slot, note_type_id, packed_note_content) =
-        destructure_log_plaintext(log_plaintext);
+    let (storage_slot, note_type_id, packed_note) = destructure_log_plaintext(log_plaintext);
 
     // We need to find the note's nonce, which is the one that results in one of the unique note hashes from tx_hash
     for_each_in_bounded_vec(
@@ -71,7 +70,7 @@ pub unconstrained fn do_process_log<Env>(
 
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
-                packed_note_content,
+                packed_note,
                 context.this_address(),
                 candidate_nonce,
                 storage_slot,
@@ -87,7 +86,7 @@ pub unconstrained fn do_process_log<Env>(
                         context.this_address(), // TODO(#10727): allow other contracts to deliver notes
                         storage_slot,
                         candidate_nonce,
-                        packed_note_content,
+                        packed_note,
                         hashes.note_hash,
                         hashes.inner_nullifier,
                         tx_hash,
@@ -118,9 +117,9 @@ unconstrained fn destructure_log_plaintext(
     let storage_slot = log_plaintext.get(0);
     let note_type_id = log_plaintext.get(1);
 
-    let packed_note_content = array::subbvec(log_plaintext, NOTE_LOG_RESERVED_FIELDS);
+    let packed_note = array::subbvec(log_plaintext, NOTE_LOG_RESERVED_FIELDS);
 
-    (storage_slot, note_type_id, packed_note_content)
+    (storage_slot, note_type_id, packed_note)
 }
 
 fn for_each_in_bounded_vec<T, let MaxLen: u32, Env>(

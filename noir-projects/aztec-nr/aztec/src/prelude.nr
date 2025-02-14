@@ -6,7 +6,6 @@ pub use crate::{
         note_interface::{NoteInterface, NullifiableNote},
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
-        utils::compute_note_hash_and_optionally_a_nullifier as utils_compute_note_hash_and_optionally_a_nullifier,
     },
     state_vars::{
         map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,

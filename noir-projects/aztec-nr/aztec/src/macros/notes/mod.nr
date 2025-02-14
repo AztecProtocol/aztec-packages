@@ -1,9 +1,9 @@
 use crate::{note::note_getter_options::PropertySelector, prelude::Point};
-use protocol_types::meta::{generate_deserialize_from_fields, generate_serialize_to_fields};
+use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
-    meta::{typ::fresh_type_variable, type_of, unquote},
+    meta::{type_of, unquote},
 };
 
 /// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
@@ -28,18 +28,35 @@ comptime fn get_next_note_type_id() -> Field {
     note_type_id
 }
 
-/// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as quote along with
-/// the length of the packed note.
+/// Returns the packed length of a given note struct `s` wrapped in an Option if it implements `Packable`. Returns
+/// `Option::none()` if not.
+comptime fn get_packable_length(s: StructDefinition) -> Option<u32> {
+    let packed_len_typ = std::meta::typ::fresh_type_variable();
+
+    // We don't care about the result of the implements check. We just want the get the packed length.
+    let _ = s.as_type().implements(
+        quote { crate::protocol_types::traits::Packable<$packed_len_typ> }.as_trait_constraint(),
+    );
+    packed_len_typ.as_constant()
+}
+
+/// Generates a quote that implements `Packable` for a given note struct `s`.
+/// If the note struct already implements `Packable`, we return an empty quote.
+comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) -> (Quoted, u32) {
+    let maybe_packed_length = get_packable_length(s);
+
+    if maybe_packed_length.is_some() {
+        (quote {}, maybe_packed_length.unwrap())
+    } else {
+        // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
+        // so we derive it and then get the packed length again.
+        derive_packable_and_get_packed_len(s)
+    }
+}
+
+/// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as a quote.
 ///
 /// impl NoteInterface<N> for NoteStruct {
-///     fn pack_content(self) -> [Field; N] {
-///         ...
-///     }
-///
-///     fn unpack_content(packed_content: [Field; N]) -> Self {
-///         ...
-///     }
-///
 ///     fn get_note_type_id() -> Field {
 ///         ...
 ///     }
@@ -66,35 +83,8 @@ comptime fn generate_note_interface(
     note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
-) -> (Quoted, u32) {
+) -> Quoted {
     let name = s.name();
-    let typ = s.as_type();
-
-    // In notes we care about DA costs so we enable packing
-    let packing_enabled = true;
-
-    // First we compute note content serialization. We do that by passing the whole note struct
-    // to the `generate_serialize_to_fields(...)`.
-    let (content_fields_list, content_aux_vars_list) =
-        generate_serialize_to_fields(quote { self }, typ, &[], packing_enabled);
-
-    // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
-    let content_aux_vars = if content_aux_vars_list.len() > 0 {
-        let joint = content_aux_vars_list.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
-    let content_fields = content_fields_list.join(quote {,});
-    let content_len = content_fields_list.len();
-
-    let (unpacked_content, _) = generate_deserialize_from_fields(
-        quote {},
-        typ,
-        quote { packed_content }, // "packed_content" is argument of NoteInterface::unpack_content
-        0,
-        packing_enabled,
-    );
 
     // Second we compute quotes for MSM
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
@@ -115,18 +105,8 @@ comptime fn generate_note_interface(
         .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
-    (
-        quote {
-        impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn pack_content(self) -> [Field; $content_len] {
-                $content_aux_vars
-                [$content_fields]
-            }
-
-            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
-                $unpacked_content
-            }
-
+    quote {
+        impl aztec::note::note_interface::NoteInterface for $name {
             fn get_note_type_id() -> Field {
                 $note_type_id
             }
@@ -140,9 +120,7 @@ comptime fn generate_note_interface(
                 point.x
             }
         }
-    },
-        content_len,
-    )
+    }
 }
 
 /// Generates note properties struct for a given note struct `s`.
@@ -405,10 +383,10 @@ comptime fn generate_multi_scalar_mul(
 ///             log_plaintext[32 + i] = note_type_id_bytes[i];
 ///         }
 ///
-///         let packed_note_content = [npk_m_hash as Field, randomness as Field];
+///         let packed_note = [npk_m_hash as Field, randomness as Field];
 ///
-///         for i in 0..packed_note_content.len() {
-///             let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
+///         for i in 0..packed_note.len() {
+///             let bytes: [u8; 32] = packed_note[i].to_be_bytes();
 ///             for j in 0..32 {
 ///                 log_plaintext[64 + i * 32 + j] = bytes[j];
 ///             }
@@ -561,10 +539,10 @@ comptime fn get_setup_log_plaintext_body(
         }
 
         $aux_vars_for_serialization
-        let packed_note_content = [$fields];
+        let packed_note = [$fields];
 
-        for i in 0..packed_note_content.len() {
-            let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
+        for i in 0..packed_note.len() {
+            let bytes: [u8; 32] = packed_note[i].to_be_bytes();
             for j in 0..32 {
                 log_plaintext[64 + i * 32 + j] = bytes[j];
             }
@@ -896,7 +874,9 @@ comptime fn index_note_fields(
 /// - PartialNote trait implementation
 /// - NoteExport
 /// - NoteInterface trait implementation
-/// - Registers the note in the global `NOTES` map.
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 ///
@@ -914,7 +894,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_packed_len) = generate_note_interface(
+    let note_interface_impl = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -922,6 +902,8 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     );
     let partial_note_impl =
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+
     register_note(
         s,
         note_packed_len,
@@ -936,13 +918,16 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         $finalization_payload_impl
         $note_interface_impl
         $partial_note_impl
+        $packable_impl
     }
 }
 
 /// Generates the following:
 /// - NoteTypeProperties
 /// - NoteInterface trait implementation
-/// - Registers the note in the global `NOTES` map.
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note(s: StructDefinition) -> Quoted {
@@ -950,12 +935,14 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let (note_interface_impl, note_packed_len) = generate_note_interface(
+    let note_interface_impl = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
     );
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+
     register_note(
         s,
         note_packed_len,
@@ -967,28 +954,20 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
+        $packable_impl
     }
 }
 
 /// Generates the following:
 /// - NoteTypeProperties
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
-    let note_properties = generate_note_properties(s);
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
     let note_type_id = get_next_note_type_id();
-    let serialized_len_type = fresh_type_variable();
-    let note_interface_impl = s.as_type().get_trait_impl(
-        quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }
-            .as_trait_constraint(),
-    );
-    let name = s.name();
-
-    let note_packed_len = note_interface_impl
-        .expect(f"Note {name} must implement NoteInterface trait")
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     register_note(
@@ -999,7 +978,10 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
         indexed_nullable_fields,
     );
 
+    let note_properties = generate_note_properties(s);
+
     quote {
         $note_properties
+        $packable_impl
     }
 }
