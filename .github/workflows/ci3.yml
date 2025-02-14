@@ -187,6 +187,7 @@ jobs:
     if: github.event_name == 'push' && failure()
     needs:
       - ci-grind
+      - ci-arm64
       - ci-amd64
     steps:
       - name: Checkout code
@@ -201,6 +202,7 @@ jobs:
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci-arm64.result }}" = "failure" ] && failed_jobs+="ci-arm64"
           [ "${{ needs.ci-amd64.result }}" = "failure" ] && failed_jobs+="ci-amd64"
           echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
@@ -210,7 +212,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "Failure on (${{ github.ref_name }})\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_context.outputs.authors }}",
               "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
