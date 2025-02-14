@@ -775,7 +775,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
