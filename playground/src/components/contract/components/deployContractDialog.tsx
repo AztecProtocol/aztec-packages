@@ -2,7 +2,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
 import {
   ContractDeployer,
-  ContractInstanceWithAddress,
+  type ContractInstanceWithAddress,
   PublicKeys,
 } from "@aztec/aztec.js";
 import {
@@ -19,8 +19,8 @@ import {
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import {
-  ContractArtifact,
-  FunctionArtifact,
+  type ContractArtifact,
+  type FunctionArtifact,
   encodeArguments,
   getDefaultInitializer,
   getInitializer,

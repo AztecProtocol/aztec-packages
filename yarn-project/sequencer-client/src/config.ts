@@ -28,7 +28,7 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.

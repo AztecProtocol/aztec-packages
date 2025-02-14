@@ -237,3 +237,18 @@ bytes_pc_plus_32 = sel_pc_plus_32 * bytes_pc_plus_31';
 bytes_pc_plus_33 = sel_pc_plus_33 * bytes_pc_plus_32';
 bytes_pc_plus_34 = sel_pc_plus_34 * bytes_pc_plus_33';
 bytes_pc_plus_35 = sel_pc_plus_35 * bytes_pc_plus_34';
+
+
+// TODO: After instruction fetching and hashing, we might consider removing all the
+//       bytes_pc_plus_XXX selectors if they are not required. We believe that it is
+//       fine to always shift bytes even if they are "out-of-range". Namely, bytecode
+//       validation/hashing should guarantee that the padded bytes are correctly padded
+//       with zeros. For witness generation to succeed, we however need to disable the
+//       copy of the bytes on row with last_of_contract == 1. Otherwise, we would copy
+//       bytes from the next contract bytecode.
+//
+//       Above relation would then become stgh like:
+//       (1 - last_of_contract) * (bytes_pc_plus_i - bytes_pc_plus_{i+1}') = 0;
+//
+//       Note also that we could then remove #[LOOKUP_BYTECODE_TO_READ_UNARY] and
+//       #[BC_DEC_UNARY_RECONSTRUCTION].
