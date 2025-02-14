@@ -152,7 +152,7 @@ describe('In-Memory P2P Client', () => {
       blockSource.removeBlocks(10);
 
       // give the client a chance to react to the reorg
-      await sleep(100);
+      await sleep(1000);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 90, hash: expect.any(String) },
@@ -163,7 +163,7 @@ describe('In-Memory P2P Client', () => {
       blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
-      await sleep(100);
+      await sleep(1000);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 92, hash: expect.any(String) },

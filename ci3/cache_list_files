@@ -1,0 +1,2 @@
+#!/bin/bash
+aws s3 cp s3://aztec-ci-artifacts/build-cache/$1 - | tar -tzf -

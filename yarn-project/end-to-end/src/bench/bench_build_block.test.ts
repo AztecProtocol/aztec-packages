@@ -34,9 +34,16 @@ describe('benchmarks/build_block', () => {
   });
 
   const TX_COUNT = 32;
-  it(`builds a block with ${TX_COUNT} txs`, async () => {
+  it(`builds a block with ${TX_COUNT} standard txs`, async () => {
     await sequencer.updateSequencerConfig({ minTxsPerBlock: TX_COUNT });
     const sentTxs = await sendTxs(TX_COUNT, context, contract);
+    await waitTxs(sentTxs, context);
+  });
+
+  const TX_COUNT_HEAVY_COMPUTE = 8;
+  it(`builds a block with ${TX_COUNT_HEAVY_COMPUTE} compute-heavy txs`, async () => {
+    await sequencer.updateSequencerConfig({ minTxsPerBlock: TX_COUNT_HEAVY_COMPUTE });
+    const sentTxs = await sendTxs(TX_COUNT_HEAVY_COMPUTE, context, contract, /*heavyPublicComput=*/ true);
     await waitTxs(sentTxs, context);
   });
 });
