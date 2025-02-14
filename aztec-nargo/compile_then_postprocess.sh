@@ -7,9 +7,10 @@
 # Usage: compile_then_postprocess.sh [nargo args]
 set -euo pipefail
 
-NARGO=${NARGO:-nargo}
-TRANSPILER=${TRANSPILER:-avm-transpiler}
-BB=${BB:-bb}
+dir=$(dirname $0)
+NARGO=${NARGO:-"$dir/../noir/noir-repo/target/release/nargo"}
+TRANSPILER=${TRANSPILER:-"$dir/../avm-transpiler/target/release/avm-transpiler"}
+BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
 
 if [ "${1:-}" != "compile" ]; then
   # if not compiling, just pass through to nargo verbatim

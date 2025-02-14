@@ -114,7 +114,7 @@ jobs:
           ttl: ${{ matrix.config.timeout }}
           run: |
             until docker info &>/dev/null; do sleep 1; done
-            export CI=1 USE_CACHE=1
+            export CI=1 NO_CACHE=0
             artifact="kind-network-${{matrix.config.test}}-$(./spartan/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
               docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}

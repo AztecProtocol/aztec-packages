@@ -1,5 +1,6 @@
 #!/bin/bash
-set -uo pipefail
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
 
 # Ensure a command is passed
 if [ "$#" -eq 0 ]; then
@@ -9,7 +10,7 @@ fi
 
 if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
   set -e
-  eval "$*"
+  bash -c "$1"
   exit 0
 fi
 
@@ -18,36 +19,53 @@ dot_count=0
 status=0
 
 # We don't want to lose color just because we're wrapping.
-export FORCE_COLOR=1
+export FORCE_COLOR=${FORCE_COLOR:-1}
 
-# Create a new file descriptor for capturing output
+# Create a new file descriptor for capturing output.
 exec 3>&1
 
-# Execute the command and process the output
-echo "Executing: $*"
+# If stdout is connected to a terminal, print singular dots for each line.
+[ -t 1 ] && realtime=1 || realtime=0
+
+# Execute the command and process the output, allow for errors.
+set +e
+echo "Executing: $1"
 echo -n "   0 "
 output=$(
-  eval "$*" 2>&1 | while IFS= read -r -d '' -n 1 char; do
-    if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
-      printf "." >&3
-      ((dot_count++))
-      if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-        printf "\n%4s " "$dot_count" >&3
-      fi
+  bash -c "$1" 2>&1 | while IFS= read -r line; do
+    ((dot_count++))
+    [ $realtime -eq 1 ] && >&3 printf "."
+    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+      [ $realtime -eq 0 ] && >&3 printf '%.s.' $(seq 1 "$dots_per_line")
+      >&3 printf "\n%4s " "$dot_count"
     fi
-    printf "%s" "$char"  # Send each character to the captured output
+    printf "%s\n" "$line"
   done;
 )
-
 # Get the exit status of the command
 status=${PIPESTATUS[0]}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  key=$(uuid)
+  {
+    echo "Command: $1 (exit: $status)"
+    echo "$output"
+  } | redis_cli -x SETEX $key 604800 &>/dev/null
+fi
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
   echo -e "\nCommand exited with status $status. Dumping output:"
   echo -e "$output"
+  echo -e -n ". ${red}failed${reset} (${SECONDS}s)"
 else
-  echo ". done (${SECONDS}s)"
+  echo -e -n ". ${green}done${reset} (${SECONDS}s)"
 fi
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  url=http://ci.aztec-labs.com/$key
+  echo -e -n " (${yellow}${url}${reset})"
+fi
+echo
 
 exit $status
