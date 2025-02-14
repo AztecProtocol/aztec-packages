@@ -42,5 +42,7 @@ case "${1:-}" in
     ;;
   release)
     check_release
+    # Until releases are 100% stable, print a debug log.
+    set -x
     ;;
 esac

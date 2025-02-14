@@ -60,6 +60,7 @@ function test_cmds {
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
   fi
 }
 
@@ -117,6 +118,9 @@ case "$cmd" in
     ;;
   "test-kind-transfer")
     NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
+    ;;
+  "test-kind-transfer-blob-with-sink")
+    OVERRIDES="blobSink.enabled=true" ./bootstrap.sh test-kind-transfer
     ;;
   "test-local")
     # Isolate network stack in docker.

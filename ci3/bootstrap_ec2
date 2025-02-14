@@ -99,6 +99,11 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
+  source ci3/source
+  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL"
+  if semver check "$REF_NAME"; then
+    echo "Performing a release because $REF_NAME is a semver."
+  fi
   set -x
   $cmd
 EOF
@@ -120,8 +125,8 @@ EOF
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
-  sudo sysctl fs.inotify.max_user_watches=1048576
-  sudo sysctl fs.inotify.max_user_instances=1048576
+  sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
+  sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
