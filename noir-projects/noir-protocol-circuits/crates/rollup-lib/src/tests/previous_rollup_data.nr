@@ -16,7 +16,7 @@ pub fn default_previous_rollup_data<let N: u32, let M: u32>(
 
     let vk_index = PUBLIC_BASE_ROLLUP_VK_INDEX;
     let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-        comptime { fixtures::vk_tree::get_vk_merkle_tree() };
+        comptime { fixtures::vk_tree::VK_MERKLE_TREE };
     let vk_path = vk_tree.get_sibling_path(vk_index);
     let vk_tree_root = vk_tree.get_root();
 
