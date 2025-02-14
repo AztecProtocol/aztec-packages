@@ -1,8 +1,8 @@
 import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { NoteSelector } from '@aztec/stdlib/abi';
 
 /**
  * A note with contextual data which was decrypted as outgoing.

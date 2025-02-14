@@ -9,9 +9,9 @@ import {
   createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';

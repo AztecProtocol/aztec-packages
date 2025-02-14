@@ -68,7 +68,6 @@
   },
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",

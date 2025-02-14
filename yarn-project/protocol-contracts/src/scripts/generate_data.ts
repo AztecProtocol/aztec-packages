@@ -1,20 +1,20 @@
 import {
-  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
-  Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
 

@@ -1,3 +1,5 @@
+import { Bufferable, serializeToBuffer } from '../serialize/index.js';
+
 /** Strips methods of a type. */
 export type FieldsOf<T> = {
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -23,3 +25,28 @@ export function unfreeze<T>(obj: T): Writeable<T> {
 
 /** Maybe exists, maybe not. */
 export type Maybe<T extends object> = T | unknown;
+
+/**
+ * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
+ */
+export class Vector<T extends Bufferable> {
+  constructor(
+    /**
+     * Items in the vector.
+     */
+    public items: T[],
+  ) {}
+
+  toBuffer() {
+    return serializeToBuffer(this.items.length, this.items);
+  }
+
+  toFriendlyJSON() {
+    return this.items;
+  }
+}
+
+/**
+ * A type alias for a 32-bit unsigned integer.
+ */
+export type UInt32 = number;

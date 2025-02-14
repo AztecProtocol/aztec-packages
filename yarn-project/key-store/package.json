@@ -56,7 +56,6 @@
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "tslib": "^2.4.0"

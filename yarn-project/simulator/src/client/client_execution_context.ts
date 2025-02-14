@@ -20,10 +20,10 @@ import {
   type TxContext,
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/stdlib/abi';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type HashedValuesCache } from '../common/hashed_values_cache.js';

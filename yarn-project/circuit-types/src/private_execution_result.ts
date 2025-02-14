@@ -1,10 +1,10 @@
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, mapSchema, schemas } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
+import { NoteSelector } from '@aztec/stdlib/abi';
 
 import { z } from 'zod';
 

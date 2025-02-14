@@ -7,12 +7,12 @@ import {
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { FunctionType } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { FunctionType } from '@aztec/stdlib/abi';
 
 import times from 'lodash.times';
 

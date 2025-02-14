@@ -1,9 +1,9 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
+import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

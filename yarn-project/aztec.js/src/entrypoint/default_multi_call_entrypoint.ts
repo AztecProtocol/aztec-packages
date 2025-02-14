@@ -1,7 +1,7 @@
 import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from './entrypoint.js';
 

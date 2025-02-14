@@ -6,7 +6,7 @@ import {
   REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, bufferAsFields } from '@aztec/foundation/abi';
+import { type ContractArtifact, bufferAsFields } from '@aztec/stdlib/abi';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';

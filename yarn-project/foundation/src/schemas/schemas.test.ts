@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import { schemas } from './schemas.js';
+import { schemas } from '../schemas/index.js';
 
 describe('schemas', () => {
   describe('bigint', () => {

@@ -22,7 +22,7 @@
 
 export { ContractDeployer } from './deployment/index.js';
 
-export { NoteSelector } from '@aztec/foundation/abi';
+export { NoteSelector } from '@aztec/stdlib/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
@@ -58,7 +58,7 @@ export {
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
   deriveMasterNullifierSecretKey,
-} from '@aztec/circuits.js/keys';
+} from '@aztec/stdlib/keys';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
@@ -102,7 +102,7 @@ export {
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/foundation/abi';
+export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/stdlib/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256 } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';

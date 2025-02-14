@@ -13,9 +13,9 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/stdlib/abi';
 
 import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';

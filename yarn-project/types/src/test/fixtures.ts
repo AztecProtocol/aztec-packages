@@ -1,4 +1,4 @@
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';

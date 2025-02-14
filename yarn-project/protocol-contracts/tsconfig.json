@@ -7,15 +7,18 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../types"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts"],
-  "exclude": ["src/scripts"]
+  "include": ["src", "artifacts/*.d.json.ts"]
+  //"exclude": ["src/scripts"]
 }

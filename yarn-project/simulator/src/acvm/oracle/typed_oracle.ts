@@ -14,9 +14,9 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type FunctionSelector, type NoteSelector } from '@aztec/stdlib/abi';
 
 import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 

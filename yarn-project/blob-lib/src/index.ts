@@ -8,6 +8,9 @@ export * from './mocks.js';
 export * from './encoding.js';
 export * from './interface.js';
 export * from './errors.js';
+export * from './blob_public_inputs.js';
+export * from './sponge_blob.js';
+export * from './test.js';
 
 try {
   loadTrustedSetup();

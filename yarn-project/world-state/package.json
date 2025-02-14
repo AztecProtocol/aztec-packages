@@ -61,7 +61,6 @@
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",

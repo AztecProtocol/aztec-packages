@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type Anvil } from '@viem/anvil';
 import { getContract } from 'viem';

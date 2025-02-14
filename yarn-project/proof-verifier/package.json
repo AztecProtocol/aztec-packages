@@ -25,7 +25,6 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",

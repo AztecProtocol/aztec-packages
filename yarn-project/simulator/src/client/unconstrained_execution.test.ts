@@ -1,9 +1,9 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
 import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 
 import { mock } from 'jest-mock-extended';
 

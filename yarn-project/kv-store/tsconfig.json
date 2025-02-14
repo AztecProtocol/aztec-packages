@@ -17,9 +17,6 @@
     },
     {
       "path": "../native"
-    },
-    {
-      "path": "../circuits.js"
     }
   ],
   "include": ["src"]

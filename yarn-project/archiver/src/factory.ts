@@ -5,7 +5,6 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -15,6 +14,7 @@ import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridg
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';

@@ -13,10 +13,10 @@ import {
   TxConstantData,
   TxContext,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { type FunctionArtifact } from '@aztec/stdlib/abi';
 
 import { strict as assert } from 'assert';
 

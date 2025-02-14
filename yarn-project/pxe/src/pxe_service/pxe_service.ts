@@ -42,18 +42,7 @@ import type {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import {
-  type AbiDecoded,
-  type ContractArtifact,
-  EventSelector,
-  FunctionSelector,
-  FunctionType,
-  decodeFunctionSignature,
-  encodeArguments,
-} from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -63,9 +52,23 @@ import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { type AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
+import {
+  type AbiDecoded,
+  type ContractArtifact,
+  EventSelector,
+  FunctionSelector,
+  FunctionType,
+  decodeFunctionSignature,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
 
 import { inspect } from 'util';
 
+import {
+  computeContractAddressFromInstance,
+  getContractClassFromArtifact,
+} from '../../../stdlib/src/contract/index.js';
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

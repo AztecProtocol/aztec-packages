@@ -8,7 +8,6 @@ import {
   computePartialAddress,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
@@ -18,6 +17,7 @@ import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
+import { type ContractArtifact, NoteSelector } from '@aztec/stdlib/abi';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';

@@ -1,5 +1,0 @@
-{
-  "extends": ".",
-  "references": [],
-  "exclude": ["src/**/*.test.ts"]
-}

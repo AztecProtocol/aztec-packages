@@ -11,7 +11,7 @@ import {
   isFunctionSelectorStruct,
   isU128Struct,
   isWrappedFieldStruct,
-} from '@aztec/foundation/abi';
+} from '@aztec/stdlib/abi';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.

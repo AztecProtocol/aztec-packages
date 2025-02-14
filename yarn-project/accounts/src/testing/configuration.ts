@@ -3,8 +3,8 @@ import { registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AccountWalletWithSecretKey, SignerlessWallet } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
-import { deriveMasterIncomingViewingSecretKey, deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
+import { deriveMasterIncomingViewingSecretKey, deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '../schnorr/index.js';
 

@@ -79,11 +79,11 @@
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/types": "workspace:^",
     "axios": "^1.7.2",
     "tslib": "^2.4.0",

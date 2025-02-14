@@ -62,7 +62,6 @@
     "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",

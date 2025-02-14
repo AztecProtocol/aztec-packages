@@ -32,13 +32,6 @@ import {
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import {
-  type FunctionArtifact,
-  FunctionType,
-  NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-} from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -49,6 +42,13 @@ import {
   MessageLoadOracleInputs,
   type SimulationProvider,
 } from '@aztec/simulator/client';
+import {
+  type FunctionArtifact,
+  FunctionType,
+  NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/stdlib/abi';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';

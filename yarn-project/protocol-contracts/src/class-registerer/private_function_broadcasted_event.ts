@@ -6,9 +6,9 @@ import {
   type PrivateFunction,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
 } from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 
 import chunk from 'lodash.chunk';
 

@@ -24,10 +24,10 @@ import {
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
-import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { NoteSelector } from '@aztec/stdlib/abi';
 
 import { mock } from 'jest-mock-extended';
 

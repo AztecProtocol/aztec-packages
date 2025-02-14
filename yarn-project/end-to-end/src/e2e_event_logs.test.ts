@@ -6,11 +6,11 @@ import {
   Fr,
   L1EventPayload,
 } from '@aztec/aztec.js';
-import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
+import { EventSelector } from '@aztec/stdlib/abi';
 
 import { jest } from '@jest/globals';
 

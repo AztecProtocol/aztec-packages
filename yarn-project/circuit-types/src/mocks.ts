@@ -17,10 +17,10 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact, NoteSelector } from '@aztec/stdlib/abi';
 
 import { ContractClassTxL2Logs, Note } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';

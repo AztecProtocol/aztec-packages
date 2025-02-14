@@ -6,6 +6,9 @@ import {
   type TxExecutionRequest,
 } from '@aztec/circuit-types';
 import { CallContext } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type ArrayType,
   type FunctionArtifact,
@@ -13,10 +16,7 @@ import {
   FunctionType,
   type NoteSelector,
   encodeArguments,
-} from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/abi';
 
 import { createSimulationError } from '../common/errors.js';
 import { HashedValuesCache } from '../common/hashed_values_cache.js';

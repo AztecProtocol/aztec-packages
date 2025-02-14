@@ -31,11 +31,11 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
-import { bufferAsFields } from '@aztec/foundation/abi';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
+import { bufferAsFields } from '@aztec/stdlib/abi';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';

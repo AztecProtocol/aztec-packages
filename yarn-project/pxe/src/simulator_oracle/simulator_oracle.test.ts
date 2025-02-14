@@ -27,12 +27,12 @@ import {
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, FunctionType } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
+import { type FunctionArtifact, FunctionType } from '@aztec/stdlib/abi';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

@@ -12,9 +12,9 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
-import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { setup } from './fixtures/utils.js';
 

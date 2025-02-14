@@ -37,7 +37,6 @@
     "ordered-binary": "^1.5.3"
   },
   "devDependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/chai": "^5.0.1",
     "@types/chai-as-promised": "^8.0.1",

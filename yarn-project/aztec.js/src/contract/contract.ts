@@ -1,6 +1,6 @@
 import { PublicKeys } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
 
 import { type Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';

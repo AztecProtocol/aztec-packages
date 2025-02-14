@@ -26,6 +26,7 @@
     "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "c-kzg": "4.0.0-alpha.1",
     "tslib": "^2.4.0"

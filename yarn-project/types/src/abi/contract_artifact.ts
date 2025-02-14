@@ -1,3 +1,4 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import {
   type ABIParameter,
   type ABIParameterVisibility,
@@ -12,8 +13,7 @@ import {
   type IntegerValue,
   type StructValue,
   type TypedStructFieldValue,
-} from '@aztec/foundation/abi';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+} from '@aztec/stdlib/abi';
 
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,

@@ -32,7 +32,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

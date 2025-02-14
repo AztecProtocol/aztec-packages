@@ -1,4 +1,3 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
@@ -35,6 +34,7 @@ import {
   ValidatorSelectionLibAbi,
   ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Abi, Narrow } from 'abitype';
 import {

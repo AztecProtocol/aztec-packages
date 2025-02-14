@@ -4,7 +4,7 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
 
 import { ProtocolContractAddress } from './protocol_contract_data.js';
 

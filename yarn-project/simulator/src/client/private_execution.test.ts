@@ -39,14 +39,6 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import {
-  type FunctionArtifact,
-  FunctionSelector,
-  type NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-  getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
@@ -63,6 +55,14 @@ import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import {
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+  getFunctionArtifactByName,
+} from '@aztec/stdlib/abi';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

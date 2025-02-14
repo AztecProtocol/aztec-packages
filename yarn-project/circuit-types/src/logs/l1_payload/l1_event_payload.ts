@@ -1,7 +1,7 @@
 import { AztecAddress, type PrivateLog } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { EventSelector } from '@aztec/stdlib/abi';
 
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Event } from './payload.js';

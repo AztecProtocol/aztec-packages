@@ -15,6 +15,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 import {
   type AbiDecoded,
   type AbiType,
@@ -22,8 +23,7 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventSelector,
-} from '@aztec/foundation/abi';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
+} from '@aztec/stdlib/abi';
 
 import { z } from 'zod';
 

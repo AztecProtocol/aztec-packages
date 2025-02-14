@@ -1,12 +1,12 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { FunctionType } from '@aztec/stdlib/abi';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';

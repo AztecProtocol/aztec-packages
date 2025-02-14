@@ -17,9 +17,6 @@
     },
     {
       "path": "../types"
-    },
-    {
-      "path": "../circuits.js"
     }
   ],
   "include": ["src"]

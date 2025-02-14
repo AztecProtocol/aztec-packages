@@ -60,13 +60,6 @@ import {
   makeGlobalVariables,
   makeHeader,
 } from '@aztec/circuits.js/testing';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  FunctionSelector,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -97,6 +90,13 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionSelector,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
 import { type NativeWorldStateService } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';

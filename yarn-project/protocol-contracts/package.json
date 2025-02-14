@@ -69,8 +69,9 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/types": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "lodash.omit": "^4.5.0",

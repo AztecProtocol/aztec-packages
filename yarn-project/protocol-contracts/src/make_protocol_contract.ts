@@ -1,5 +1,5 @@
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
 
 import { type ProtocolContract } from './protocol_contract.js';
 import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSalt } from './protocol_contract_data.js';

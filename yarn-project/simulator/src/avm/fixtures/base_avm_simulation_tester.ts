@@ -9,11 +9,11 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 
 import { computeFeePayerBalanceStorageSlot } from '../../server.js';
 import { PUBLIC_DISPATCH_FN_NAME, getContractFunctionArtifact } from './index.js';

@@ -5,10 +5,10 @@ import {
   type UnconstrainedFunction,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 
 import chunk from 'lodash.chunk';
 

@@ -13,9 +13,6 @@
       "path": "../circuit-types"
     },
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../entrypoints"
     },
     {
@@ -23,6 +20,9 @@
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../types"

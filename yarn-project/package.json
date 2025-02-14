@@ -33,7 +33,6 @@
     "pxe",
     "aztec",
     "aztec.js",
-    "circuits.js",
     "circuit-types",
     "cli",
     "cli-wallet",
@@ -61,10 +60,12 @@
     "rollup-provider",
     "sequencer-client",
     "scripts",
+    "stdlib",
     "types",
     "txe",
     "world-state",
-    "telemetry-client"
+    "telemetry-client",
+    "constants"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {

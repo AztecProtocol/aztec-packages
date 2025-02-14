@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../ethereum"
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../types"

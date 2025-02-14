@@ -6,10 +6,10 @@ import {
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PrivateCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';

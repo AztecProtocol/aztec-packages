@@ -1,7 +1,7 @@
-import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/stdlib/abi';
 
 import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, extractCallStack, toACVMWitness } from '../acvm/index.js';

@@ -5,9 +5,9 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 
 import chunk from 'lodash.chunk';
 

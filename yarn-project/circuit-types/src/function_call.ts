@@ -1,6 +1,6 @@
 import { AztecAddress, type Fr } from '@aztec/circuits.js';
-import { type AbiType, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { type FieldsOf } from '@aztec/foundation/types';
+import { type AbiType, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 
 /** A request to call a function on a contract from a given address. */
 export class FunctionCall {

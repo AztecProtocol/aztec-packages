@@ -1,12 +1,6 @@
 import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
-import {
-  type FunctionAbi,
-  FunctionSelector,
-  FunctionType,
-  decodeFromAbi,
-  encodeArguments,
-} from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';

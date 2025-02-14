@@ -17,7 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { MerkleTreeCalculator } from '@aztec/circuits.js';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

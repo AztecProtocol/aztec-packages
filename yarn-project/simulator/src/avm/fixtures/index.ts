@@ -1,11 +1,11 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
