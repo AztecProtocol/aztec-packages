@@ -30,9 +30,7 @@ pub contract Token {
             storage::storage,
         },
         oracle::random::random,
-        prelude::{
-            AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
-        },
+        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::{point::Point, traits::Serialize},
     };
 

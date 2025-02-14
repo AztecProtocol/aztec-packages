@@ -1,5 +1,8 @@
 use crate::note::{note_interface::NoteInterface, retrieved_note::RetrievedNote};
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
+use dep::protocol_types::{
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::{Packable, ToField},
+};
 use std::option::Option;
 
 pub struct PropertySelector {
@@ -134,7 +137,7 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
 
 impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
@@ -154,7 +157,7 @@ where
 
 impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, Field>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
     // the database and preprocessor_args as its parameters.
@@ -179,7 +182,7 @@ where
 
 impl<Note, let N: u32, FILTER_ARGS> NoteGetterOptions<Note, N, Field, FILTER_ARGS>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions with a filter, which takes
     // the notes returned from the database and filter_args as its parameters.

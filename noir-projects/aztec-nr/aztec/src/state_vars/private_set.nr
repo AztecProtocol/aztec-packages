@@ -43,7 +43,7 @@ impl<Note, Context> PrivateSet<Note, Context> {
 
 impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
 where
-    Note: NoteInterface<N> + NullifiableNote + Eq,
+    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
 {
     // docs:start:insert
     pub fn insert(self, note: Note) -> NoteEmission<Note> {
@@ -97,7 +97,7 @@ where
 
 impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote + Packable<N>,
 {
     // docs:start:view_notes
     pub unconstrained fn view_notes(

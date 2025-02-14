@@ -59,7 +59,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
 
 impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote + Packable<N>,
 {
     // docs:start:initialize
     pub fn initialize(self, note: Note) -> NoteEmission<Note> {
@@ -127,7 +127,7 @@ where
 
 impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote + Packable<N>,
 {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();

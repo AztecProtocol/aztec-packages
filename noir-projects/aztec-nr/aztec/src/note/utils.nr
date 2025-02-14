@@ -13,13 +13,13 @@ use dep::protocol_types::{
     },
 };
 
-pub fn compute_siloed_nullifier<Note, let N: u32>(
+pub fn compute_siloed_nullifier<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
@@ -28,12 +28,12 @@ where
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_read_request<Note, let N: u32>(
+pub fn compute_note_hash_for_read_request<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface,
 {
     let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 
@@ -50,13 +50,10 @@ where
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
+pub fn compute_note_hash_for_nullify_internal<Note>(
     retrieved_note: RetrievedNote<Note>,
     note_hash_for_read_request: Field,
-) -> Field
-where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+) -> Field {
     if (retrieved_note.note_hash_counter != 0) & (retrieved_note.nonce != 0) {
         // Non-revertible note, nullified by a revertible nullifier, we need to nullify the note hash that will reach the tree
         let siloed_note_hash =
@@ -69,7 +66,7 @@ where
 }
 
 // TODO(#7775): nuke this commented out code - kept it around as it contains comments which might be helpful when tackling #7775
-// pub fn compute_note_hash_for_nullify<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N> {
+// pub fn compute_note_hash_for_nullify<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface {
 //     let header = note.get_header();
 //     // There are 3 cases for reading a note intended for consumption:
 //     // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in
@@ -110,30 +107,37 @@ where
 //     }
 // }
 
-pub fn compute_note_hash_for_nullify<Note, let N: u32>(
+pub fn compute_note_hash_for_nullify<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
     compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request)
 }
 
-pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
-    unpack_content: fn([Field; N]) -> T,
+/// Computes the note hash and optionally a nullifier for a given note. `N` is the length of the packed note,
+/// `S` is the length of the packed note with its padding array.
+///
+/// Note: `packed_note_with_padding` is typically constructed by calling the `storage()` method on a `BoundedVec`. This
+/// function will then extract the relevant fields from the array using the `subarray` method and the actual packed
+/// note length `N`.
+pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<Note, let N: u32, let S: u32>(
+    unpack_note: fn([Field; N]) -> Note,
     contract_address: AztecAddress,
     nonce: Field,
     compute_nullifier: bool,
     storage_slot: Field,
-    packed_note_content: [Field; S],
+    packed_note_with_padding: [Field; S],
 ) -> [Field; 4]
 where
-    T: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote,
 {
-    let note = unpack_content(array::subarray(packed_note_content, 0));
+    let packed_note = array::subarray(packed_note_with_padding, 0);
+    let note = unpack_note(packed_note);
 
     let note_hash = note.compute_note_hash(storage_slot);
     let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);

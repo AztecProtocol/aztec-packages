@@ -5,12 +5,13 @@ use dep::aztec::{
     oracle::random::random,
     prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
-        address::AztecAddress,
-        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
-        traits::{Packable, Serialize},
+        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator, traits::Serialize,
     },
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 // docs:start:UintNote
 #[partial_note(quote {value})]
@@ -19,7 +20,7 @@ pub struct UintNote {
     // The amount of tokens in the note
     value: U128,
     owner: AztecAddress,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 // docs:end:UintNote
