@@ -65,6 +65,40 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) 
 ///         ...
 ///     }
 /// }
+comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) -> Quoted {
+    let name = s.name();
+
+    quote {
+        impl aztec::note::note_interface::NoteInterface for $name {
+            fn get_note_type_id() -> Field {
+                $note_type_id
+            }
+
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
+                let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+            }
+        }
+    }
+}
+
+/// Generates default `NoteInterface` implementation for a given partial note struct `s` and returns it as a quote.
+///
+/// impl NoteInterface for NoteStruct {
+///     fn get_note_type_id() -> Field {
+///         ...
+///     }
+///
+///     fn compute_note_hash(self, storage_slot: Field) -> Field {
+///         ...
+///     }
+/// }
+///
+/// # On differences from `generate_note_interface`
+/// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
+/// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
+/// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
+/// constrains-wise.
 ///
 /// # On including length in note hash preimage
 /// For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
@@ -78,7 +112,7 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) 
 ///
 /// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
 /// including the length protects against these collisions.
-comptime fn generate_note_interface(
+comptime fn generate_note_interface_for_partial_note(
     s: StructDefinition,
     note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
@@ -86,7 +120,7 @@ comptime fn generate_note_interface(
 ) -> Quoted {
     let name = s.name();
 
-    // Second we compute quotes for MSM
+    // First we compute quotes for MSM
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
@@ -894,7 +928,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let note_interface_impl = generate_note_interface(
+    let note_interface_impl = generate_note_interface_for_partial_note(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -935,12 +969,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let note_interface_impl = generate_note_interface(
-        s,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
+    let note_interface_impl = generate_note_interface(s, note_type_id);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
     register_note(
