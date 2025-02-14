@@ -121,10 +121,8 @@ class UltraHonkAPI : public API {
         if (honk_recursion_2) {
             // Break up the tube proof into the honk portion and the ipa portion
             const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-            const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1])); // WORKTODO: oof
+            const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
             // The extra calculation is for the IPA proof length.
-            info("proof size: ", proof.size());
-            info("num public inputs: ", num_public_inputs);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
             ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
             // split out the ipa proof
@@ -137,7 +135,6 @@ class UltraHonkAPI : public API {
             verified = verifier.verify_proof(proof);
         }
 
-        info("verified: ", verified);
         return verified;
     }
 
@@ -193,19 +190,15 @@ class UltraHonkAPI : public API {
     {
         const bool ipa_accumulation = flags.ipa_accumulation;
         if (ipa_accumulation) {
-            info("verifying with ipa accumulation");
             return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         if (flags.zk) {
-            info("verifying with keccak and zk");
             return _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         if (flags.oracle_hash_type == "poseidon2") {
-            info("verifying with poseidon2");
             return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         if (flags.oracle_hash_type == "keccak") {
-            info("verifying with keccak");
             return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
         }
         return false;
@@ -269,10 +262,8 @@ class UltraHonkAPI : public API {
 
         if (output_path == "-") {
             write_string_to_stdout(contract);
-            info("contract written to stdout");
         } else {
             write_file(output_path, { contract.begin(), contract.end() });
-            info("contract written to: ", output_path);
         }
     };
 };

@@ -15,12 +15,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using FF = typename Flavor::FF;
 
     transcript = std::make_shared<Transcript>(proof);
-    info("instantiated transcript");
     transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
-    info("instantiated oink verifier");
     oink_verifier.verify();
-    info("verified");
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
@@ -72,7 +69,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
-    info("constructed decider verifier");
+
     return decider_verifier.verify();
 }
 

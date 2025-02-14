@@ -133,7 +133,6 @@ void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path
             return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
         };
         auto json = to_json(data);
-        info("vk as fields: ", json);
         if (output_path == "-") {
             write_string_to_stdout(json);
         } else {
@@ -263,9 +262,7 @@ class ClientIVCAPI : public API {
         init_bn254_crs(1);
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-        info("reading proof from ", proof_path);
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-        info("reading vk from ", vk_path);
         const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
         vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
@@ -274,7 +271,6 @@ class ClientIVCAPI : public API {
         vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
         const bool verified = ClientIVC::verify(proof, vk);
-        vinfo("verified: ", verified);
         return verified;
     };
 

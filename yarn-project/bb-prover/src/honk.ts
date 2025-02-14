@@ -12,7 +12,6 @@ export type UltraRollupHonkServerProtocolArtifact = Exclude<
   UltraHonkServerProtocolArtifact
 >;
 
-// WORKTODO: need to update to pass args
 export function getUltraHonkFlavorForCircuit(artifact: UltraKeccakHonkServerProtocolArtifact): 'ultra_keccak_honk';
 export function getUltraHonkFlavorForCircuit(artifact: UltraHonkServerProtocolArtifact): 'ultra_honk';
 export function getUltraHonkFlavorForCircuit(artifact: UltraRollupHonkServerProtocolArtifact): 'ultra_rollup_honk';

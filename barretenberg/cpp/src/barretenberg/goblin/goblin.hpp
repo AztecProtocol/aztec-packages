@@ -290,16 +290,13 @@ class GoblinVerifier {
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
-        vinfo("verified merge");
+
         ECCVMVerifier eccvm_verifier(eccvm_verification_key);
-        vinfo("constructed eccvm verifier");
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-        vinfo("verified eccvm");
 
         TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
-        vinfo("constructed translator verifier");
+
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        vinfo("verified translator proof");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);

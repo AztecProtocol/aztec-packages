@@ -269,15 +269,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             ASSERT(metadata.honk_recursion != 0);
             builder.add_pairing_point_accumulator(current_aggregation_object);
         } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
-            // NOTE(recursive): Here it determines whether a builder has
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
         }
         // If we are proving with UltraRollupFlavor, the IPA proof should have nonzero size.
-        info(std::format("(metadata.honk_recursion: {}), (output.ipa_proof.size(): {})",
-                         metadata.honk_recursion,
-                         output.ipa_proof.size()));
         ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
             builder.add_ipa_claim(output.ipa_claim.get_witness_indices());

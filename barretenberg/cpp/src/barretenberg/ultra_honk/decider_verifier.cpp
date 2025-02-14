@@ -44,7 +44,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using ClaimBatch = ClaimBatcher::Batch;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
-    info("instantiated verifier commitments");
+
     auto sumcheck = SumcheckVerifier<Flavor>(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
@@ -54,7 +54,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
-    info("verified sumcheck; result: ", sumcheck_output.verified);
+
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
@@ -82,14 +82,9 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-    info("computed opening claim; consistenty checked?: ", consistency_checked);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    info("derived pairing points");
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    info("did pairing check; result: ", verified);
-    bool result{ sumcheck_output.verified && verified && consistency_checked };
-    info("full result: ", result);
-    return result;
+    return sumcheck_output.verified && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;

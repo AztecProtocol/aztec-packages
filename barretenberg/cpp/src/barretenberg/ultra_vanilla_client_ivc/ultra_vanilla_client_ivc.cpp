@@ -55,7 +55,6 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
             previous_proof = prover.construct_proof();
         }
 
-        // WORKTODO: somtimes don't need to compute the last one
         previous_vk = vk ? vk : std::make_shared<VK>(proving_key->proving_key);
         if (cache_vks) {
             vk_cache.push_back(previous_vk);
@@ -66,9 +65,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
 
 bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>& vk)
 {
-    ASSERT(vk != nullptr);
     UltraVerifier verifer{ vk };
-    vinfo("constructed verifier");
     bool verified = verifer.verify_proof(proof);
     vinfo("proof verified: ", verified);
     return verified;

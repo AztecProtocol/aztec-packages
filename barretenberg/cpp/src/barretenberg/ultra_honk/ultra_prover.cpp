@@ -65,7 +65,7 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
     oink_prover.prove();
-    info("created oink proof");
+    vinfo("created oink proof");
 
     generate_gate_challenges();
 

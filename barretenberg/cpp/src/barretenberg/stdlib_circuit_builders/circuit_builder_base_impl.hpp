@@ -245,13 +245,10 @@ void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
         failure("added pairing point accumulator when one already exists");
         ASSERT(0);
     }
-    // NOTE(recursive): this determines ___________________________
     contains_pairing_point_accumulator = true;
 
     size_t i = 0;
     for (const auto& idx : pairing_point_accum_witness_indices) {
-        // NOTE(recursive) the flag determines whether this is set
-        // we don't need to track indicies if we just carry this in its own array
         set_public_input(idx);
         pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
         ++i;

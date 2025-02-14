@@ -119,7 +119,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         const ProgramMetadata metadata{ mock_ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note: adding pairing point normally happens in accumulate()
-        // NOTE(recursive) why is this here?
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
         // Manually construct the VK for the kernel circuit
