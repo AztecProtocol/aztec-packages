@@ -112,10 +112,10 @@ TEST(ECCOpQueueTest, UltraOpsTableConstruction)
     // Construct the concatenated table internal to the op queue
     UltraOpsTable ultra_ops_table;
     for (const auto& subtable_ops : subtable_ultra_ops) {
+        ultra_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             ultra_ops_table.append_operation(op);
         }
-        ultra_ops_table.create_new_subtable();
     }
 
     // Compute the expected total table size as the sum of the subtable op counts times 2

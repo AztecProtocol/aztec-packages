@@ -12,7 +12,7 @@ namespace bb {
 /**
  * @brief
  *
- * @tparam Derived CRTP (curiously recurring template pattern) implementation class
+ * @tparam Derived child class type for CRTP (curiously recurring template pattern) implementation class
  * @tparam TABLE_WIDTH
  * @tparam OpFormat
  */
@@ -35,7 +35,7 @@ template <typename Derived, size_t TABLE_WIDTH, typename OpFormat> class OpsTabl
         size_t size() const { return columns[0].size(); }
     };
 
-    std::unique_ptr<Subtable> current_subtable = std::make_unique<Subtable>();
+    std::unique_ptr<Subtable> current_subtable = nullptr;
 
   public:
     using Row = RefArray<Fr, TABLE_WIDTH>;
@@ -90,10 +90,7 @@ template <typename Derived, size_t TABLE_WIDTH, typename OpFormat> class OpsTabl
     };
 
     // begin() and end() to enable range based iteration over the full table
-    // WORKTODO: need to skip over the first empty subtable created from the last call to concatenate_subtable(). Might
-    // be nicer to have the user instead call create_subtable() prior to construction rather than at the end to mark
-    // completion.
-    Iterator begin() { return Iterator(current_subtable->prev.get(), 0); }
+    Iterator begin() { return Iterator(current_subtable.get(), 0); }
     Iterator end() { return {}; }
 
     void create_new_subtable(size_t size_hint = 0)
