@@ -139,11 +139,12 @@ class UltraHonkAPI : public API {
     }
 
   public:
-    bool check_witness([[maybe_unused]] const Flags& flags,
-                       [[maybe_unused]] const std::filesystem::path& bytecode_path,
-                       [[maybe_unused]] const std::filesystem::path& witness_path) override
+    bool check([[maybe_unused]] const Flags& flags,
+               [[maybe_unused]] const std::filesystem::path& bytecode_path,
+               [[maybe_unused]] const std::filesystem::path& witness_path) override
     {
-        return false; // WORKTODO
+        throw_or_abort("API function check_witness not implemented");
+        return false;
     }
 
     void prove(const API::Flags& flags,
@@ -211,7 +212,8 @@ class UltraHonkAPI : public API {
                           [[maybe_unused]] const std::filesystem::path& bytecode_path,
                           [[maybe_unused]] const std::filesystem::path& witness_path) override
     {
-        throw_or_abort("API function not implemented");
+        throw_or_abort("API function prove_and_verify not implemented");
+        return false;
     };
 
     /**
@@ -258,18 +260,9 @@ class UltraHonkAPI : public API {
                   const std::filesystem::path& vk_path) override
     {
         using VK = UltraKeccakFlavor::VerificationKey;
-        // WOKTODO: not used?
-        auto g2_data = get_bn254_g2_data(CRS_PATH);
-        // WOKTODO: not used?
-        srs::init_crs_factory({}, g2_data);
-        info("constructing vk");
+
         auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
-        info("done vk");
-        // WOKTODO: not used?
-        vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-        // WORKTODO: std::move pointless
-        std::string contract =
-            flags.zk ? get_honk_zk_solidity_verifier(std::move(vk)) : get_honk_solidity_verifier(std::move(vk));
+        std::string contract = flags.zk ? get_honk_zk_solidity_verifier(vk) : get_honk_solidity_verifier(vk);
 
         if (output_path == "-") {
             write_string_to_stdout(contract);

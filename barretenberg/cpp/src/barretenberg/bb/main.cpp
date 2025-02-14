@@ -1082,18 +1082,18 @@ int main(int argc, char* argv[])
     CLI::App* version = app.add_subcommand("version", "Print the version string.");
 
     /***************************************************************************************************************
-     * Subcommand: check_witness
+     * Subcommand: check
      ***************************************************************************************************************/
-    CLI::App* check_witness = app.add_subcommand(
-        "check_witness",
+    CLI::App* check = app.add_subcommand(
+        "check",
         "A debugging tool to quickly check whether a witness is valid, i.e., whether it satisfies the circuit whose "
         "bytecode is provided. Said differently, this command returns true if and only if the prove method would "
         "return a proof that verifies. The result of this check DOES NOT convince a verifier of the result. The "
         "function constructs the execution trace and iterates through it row-by-row/gate-by-gate, applying the "
         "polynomial relations defining the various gate types and checks whether any row does not satisfy these.");
 
-    add_bytecode_path_option(check_witness);
-    add_witness_path_option(check_witness);
+    add_bytecode_path_option(check);
+    add_witness_path_option(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -1498,8 +1498,8 @@ int main(int argc, char* argv[])
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
-        if (check_witness->parsed()) {
-            api.check_witness(flags, bytecode_path, witness_path);
+        if (check->parsed()) {
+            api.check(flags, bytecode_path, witness_path);
             return 0;
         }
         if (gates->parsed()) {

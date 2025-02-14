@@ -298,14 +298,14 @@ class ClientIVCAPI : public API {
     void gates([[maybe_unused]] const Flags& flags,
                [[maybe_unused]] const std::filesystem::path& bytecode_path) override
     {
-        throw_or_abort("API function not implemented");
+        throw_or_abort("API function gates not implemented");
     };
 
     void contract([[maybe_unused]] const Flags& flags,
                   [[maybe_unused]] const std::filesystem::path& output_path,
                   [[maybe_unused]] const std::filesystem::path& vk_path) override
     {
-        throw_or_abort("API function not implemented");
+        throw_or_abort("API function contract not implemented");
     };
 
     void write_vk(const Flags& flags,
@@ -317,12 +317,12 @@ class ClientIVCAPI : public API {
         write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path, output_path);
     };
 
-    virtual bool check_witness([[maybe_unused]] const Flags& flags,
-                               [[maybe_unused]] const std::filesystem::path& bytecode_path,
-                               [[maybe_unused]] const std::filesystem::path& witness_path) override
+    virtual bool check([[maybe_unused]] const Flags& flags,
+                       [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                       [[maybe_unused]] const std::filesystem::path& witness_path) override
 
     {
-        throw_or_abort("API function not implemented; IVC is built in!");
+        throw_or_abort("API function check_witness not implemented");
         return false;
     };
 };

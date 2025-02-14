@@ -42,10 +42,10 @@ class API {
         }
     };
 
-    // WORKTODO: add checking interface?
-    virtual bool check_witness(const Flags& flags,
-                               const std::filesystem::path& bytecode_path,
-                               const std::filesystem::path& witness_path) = 0;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1256): Implement
+    virtual bool check(const Flags& flags,
+                       const std::filesystem::path& bytecode_path,
+                       const std::filesystem::path& witness_path) = 0;
 
     virtual void prove(const Flags& flags,
                        const std::filesystem::path& bytecode_path,
@@ -56,7 +56,7 @@ class API {
                         const std::filesystem::path& proof_path,
                         const std::filesystem::path& vk_path) = 0;
 
-    // WORKTODO: deprecate
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1255): deprecate or include as flag to `prove`
     virtual bool prove_and_verify(const Flags& flags,
                                   const std::filesystem::path& bytecode_path,
                                   const std::filesystem::path& witness_path) = 0;
