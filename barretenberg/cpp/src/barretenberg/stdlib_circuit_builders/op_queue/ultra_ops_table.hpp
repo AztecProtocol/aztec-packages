@@ -149,4 +149,22 @@ class UltraOpsTable : public OpsTable<UltraOpsTable, 4, UltraOp> {
     }
 };
 
+// class RawOpsTable : public OpsTable<RawOpsTable, 5, eccvm::VMOperation<curve::BN254::Group>> {
+//     using Curve = curve::BN254;
+//     using Fr = Curve::ScalarField;
+//     using ECCVMOperation = eccvm::VMOperation<Curve::Group>;
+
+//     static constexpr size_t TABLE_WIDTH = 5;
+
+//   public:
+//     void append_operation_impl(const ECCVMOperation& op)
+//     {
+//         current_subtable->columns[0].emplace_back(op.get_opcode_value());
+//         current_subtable->columns[1].emplace_back(op.z1);
+//         current_subtable->columns[2].emplace_back(op.z2);
+//         current_subtable->columns[3].emplace_back(op.mul_scalar_full);
+//         current_subtable->columns[4].emplace_back(op.base_point.x);
+//     }
+// }
+
 } // namespace bb
