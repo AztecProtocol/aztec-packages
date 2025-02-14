@@ -1,7 +1,4 @@
-use super::{
-    tests::fixtures::public_data_tree::empty_public_data_tree,
-    traits::{FromField, ToField},
-};
+use super::traits::{FromField, ToField};
 
 pub use scheduled_delay_change::ScheduledDelayChange;
 pub use scheduled_value_change::ScheduledValueChange;
