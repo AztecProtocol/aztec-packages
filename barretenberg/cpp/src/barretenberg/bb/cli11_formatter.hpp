@@ -1,4 +1,4 @@
-#include "barretenberg/bb11/CLI11.hpp"
+#include "barretenberg/bb/CLI11.hpp"
 #include <iomanip>
 #include <sstream>
 

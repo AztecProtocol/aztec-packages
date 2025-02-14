@@ -6,7 +6,7 @@
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/bb11/cli11_formatter.hpp"
+#include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/common/benchmark.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/timer.hpp"

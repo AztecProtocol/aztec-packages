@@ -9,7 +9,6 @@ FLAGS="-c $CRS_PATH $VFLAG"
 # deprecated and UltraPlonk is also deprecated.
 MAYBE_OLD_API=${NATIVE:+OLD_API}
 
-######## WORKTODO: deprecated, plonk-only
 # Test we can perform the proof/verify flow.
 $BIN $MAYBE_OLD_API gates $FLAGS $BFLAG > /dev/null
 $BIN $MAYBE_OLD_API prove -o proof $FLAGS $BFLAG
