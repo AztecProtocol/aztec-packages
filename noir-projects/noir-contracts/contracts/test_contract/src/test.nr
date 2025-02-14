@@ -9,11 +9,7 @@ unconstrained fn test_note_type_id() {
     // but the important thing is that they are sequential and start from 0.
     assert_eq(UintNote::get_note_type_id(), 0, "UintNote type id should be 0");
     assert_eq(ValueNote::get_note_type_id(), 1, "ValueNote type id should be 1");
-
-    // TestNote id should be 76 because we have manually set it to that value in our custom `NoteInterface`
-    // implementation. Custom `NoteInterface` implementations is expected to be provided when `#[note_custom_interface]`
-    // macro is used.
-    assert_eq(TestNote::get_note_type_id(), 76, "TestNote type id should be 76");
+    assert_eq(TestNote::get_note_type_id(), 2, "TestNote type id should be 2");
 }
 
 #[test]

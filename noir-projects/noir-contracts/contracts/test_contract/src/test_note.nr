@@ -29,9 +29,10 @@ pub struct TestNote {
 }
 
 impl NoteInterface for TestNote {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
     fn get_note_type_id() -> Field {
-        // randomly chosen note type id --> has to fit within 7 bits
-        76
+        // id has to fit within 7 bits
+        2
     }
 
     fn compute_note_hash(self, storage_slot: Field) -> Field {
