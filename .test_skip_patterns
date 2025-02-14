@@ -1,5 +1,5 @@
 #!/bin/sh
-# The shebang above is simple to get vscode to colorize.
+# The shebang above is simply to get vscode to colorize.
 # This file provides a centralized location to track all disabled tests, usually because they're flakey.
 # Be careful editing this file!
 # Validate you get expected results with diffs or e.g: ./bootstrap.sh test-cmds | wc -l
