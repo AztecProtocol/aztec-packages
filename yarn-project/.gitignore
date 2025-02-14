@@ -16,7 +16,7 @@ accounts/artifacts
 aztec-faucet/data*
 aztec-node/data*
 aztec/log
-circuits.js/fixtures/*.json
+stdlib/fixtures/*.json
 circuit-types/src/test/artifacts
 docs/dist
 end-to-end/addresses.json
