@@ -15,7 +15,7 @@ bootNode:
       cpu: "1.5"
 
 proverAgent:
-  replicas: 1
+  replicas: 4 # testing this as we're getting timeouts if one dies
 
 bot:
   followChain: "PENDING"

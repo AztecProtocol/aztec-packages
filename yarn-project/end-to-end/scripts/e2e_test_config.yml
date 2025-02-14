@@ -11,8 +11,6 @@ tests:
   e2e_blacklist_token_contract: {}
   e2e_block_building: {}
   e2e_bot: {}
-  e2e_aztec_js_browser:
-    use_compose: true
   e2e_card_game: {}
   e2e_cheat_codes: {}
   e2e_contract_updates: {}

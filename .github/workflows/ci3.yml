@@ -2,7 +2,9 @@ name: CI3
 
 on:
   workflow_dispatch:
-  # push:
+  push:
+    tags:
+      - 'v*'
   #   branches:
   #     - master
   # pull_request:
