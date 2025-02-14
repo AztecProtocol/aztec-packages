@@ -28,7 +28,7 @@ comptime fn get_next_note_type_id() -> Field {
     note_type_id
 }
 
-/// Generates a quote that implements `Packable` for a given note struct `s`.
+/// Generates a quote that implements `Packable` for a given struct `s`.
 /// If the note struct already implements `Packable`, we return an empty quote.
 comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) -> (Quoted, u32) {
     // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()

@@ -16,11 +16,11 @@ use aztec::protocol_types::traits::Packable;
 
 /// A note which stores a field and is expected to be passed around using the `addNote` function.
 ///
-/// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform
-/// note hash preimage attack on it. This note has been developed purely for testing purposes so that it can easily be
-/// manually added to PXE. Do not use for real applications.
+/// WARNING: This Note is not private as it does not contain randomness, making it vulnerable to
+/// note hash preimage attacks. This note was developed purely for testing purposes so it could be
+/// easily added to PXE manually. Do not use for real applications.
 ///
-/// Note: We are using `#[note_custom_interface]` here even though we don't really need it custom implementation here
+/// Note: We are using `#[note_custom_interface]` here even though we don't need a custom implementation,
 /// just to test that the macro works (it's not used anywhere else so far).
 #[note_custom_interface]
 #[derive(Eq, Deserialize, Serialize)]
@@ -35,9 +35,6 @@ impl NoteInterface for TestNote {
     }
 
     fn compute_note_hash(self, storage_slot: Field) -> Field {
-        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
-        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
-        // constraints.
         let inputs = array_concat(self.pack(), [storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
