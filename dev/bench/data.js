@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739540080503,
+  "lastUpdate": 1739546074644,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "61614b1a0fa4a766b1ad5090a29f92a122511806",
-          "message": "chore: remove some templates in templates (#11698)\n\nClean up some functionality for generating solidity test circuits as we\r\ndon't have any utility of creating `StandardCircuits`",
-          "timestamp": "2025-02-03T18:49:47Z",
-          "tree_id": "e0d9af1a0a99122f459d378b9daeedf2dda1ad9d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/61614b1a0fa4a766b1ad5090a29f92a122511806"
-        },
-        "date": 1738610306899,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19299.832435000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16229.158743999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21537.477334000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18920.895883 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4161.836698000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3863.370731 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83475.813774,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83475814000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14679.242965,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14679244000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3190324190,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3190324190 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136821763,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136821763 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 131153334,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131153334 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1dbaf37c281baaa1c5555174f5e99d01d6a8854b",
+          "message": "fix: playground improvements (#12010)\n\nlog panel prevented some txs from being sent, import types affected\r\nproduction builds",
+          "timestamp": "2025-02-14T15:04:17Z",
+          "tree_id": "7cc4833f9cd656efeff5bc395bf80b0b7f3af250",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1dbaf37c281baaa1c5555174f5e99d01d6a8854b"
+        },
+        "date": 1739546067271,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18035.961868000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15972.900548000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18409.426161,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16230.944167 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3822.1105640000133,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3051.038035 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54563.643755000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54563645000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9939.243801,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9939250000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1795150451,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1795150451 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128186841,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128186841 ns\nthreads: 1"
           }
         ]
       }
