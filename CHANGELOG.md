@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.77.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.76.4...aztec-packages-v0.77.0) (2025-02-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Only decrement the counter of an array if its address has not changed (https://github.com/noir-lang/noir/pull/7297)
+
+### Features
+
+* PIL relations modifications for bc decomposition ([#11935](https://github.com/AztecProtocol/aztec-packages/issues/11935)) ([6c93058](https://github.com/AztecProtocol/aztec-packages/commit/6c9305897c9c333791d333d332cafa352f9bbe58))
+* Poseidon2 in vm2 ([#11597](https://github.com/AztecProtocol/aztec-packages/issues/11597)) ([2c199d8](https://github.com/AztecProtocol/aztec-packages/commit/2c199d852b316775053751fc67bd5018f35cf61b))
+* Refactor `append_tx_effects_for_blob` ([#11805](https://github.com/AztecProtocol/aztec-packages/issues/11805)) ([e5a055b](https://github.com/AztecProtocol/aztec-packages/commit/e5a055b8ec927a0006d70b9d31d296035246e97a))
+
+
+### Bug Fixes
+
+* **docs:** Update token bridge diagram ([#11982](https://github.com/AztecProtocol/aztec-packages/issues/11982)) ([e5da9ed](https://github.com/AztecProtocol/aztec-packages/commit/e5da9ed201804edce680ead59989b9849c32941f))
+* Let LSP read `noirfmt.toml` for formatting files (https://github.com/noir-lang/noir/pull/7355) ([4d35d2f](https://github.com/AztecProtocol/aztec-packages/commit/4d35d2ff4dbfb601a46ab1f2f1fb7f2727af544d))
+* Only decrement the counter of an array if its address has not changed (https://github.com/noir-lang/noir/pull/7297) ([4d35d2f](https://github.com/AztecProtocol/aztec-packages/commit/4d35d2ff4dbfb601a46ab1f2f1fb7f2727af544d))
+* Test more prover agents devnet ([#11990](https://github.com/AztecProtocol/aztec-packages/issues/11990)) ([f12be5f](https://github.com/AztecProtocol/aztec-packages/commit/f12be5f7d1159aeaed7da3651966c697172edc70))
+
+
+### Miscellaneous
+
+* Avoid u128s in brillig memory (https://github.com/noir-lang/noir/pull/7363) ([4d35d2f](https://github.com/AztecProtocol/aztec-packages/commit/4d35d2ff4dbfb601a46ab1f2f1fb7f2727af544d))
+* **ci:** Downgrade 4epochs test to transfer test ([#11983](https://github.com/AztecProtocol/aztec-packages/issues/11983)) ([2340aab](https://github.com/AztecProtocol/aztec-packages/commit/2340aab0bd0e17e89d2f95ccaef0a8d826a60d1b))
+* Explanations about skippable ([#11984](https://github.com/AztecProtocol/aztec-packages/issues/11984)) ([19589bc](https://github.com/AztecProtocol/aztec-packages/commit/19589bc23ccd081e07b750c3e7b6c820ca4bbce1))
+* Op wires index from 0 ([#11986](https://github.com/AztecProtocol/aztec-packages/issues/11986)) ([be1b563](https://github.com/AztecProtocol/aztec-packages/commit/be1b563ffe99689af45c9241a1d94d53de1c4e35))
+* Prep for ci3 ([8edee9e](https://github.com/AztecProtocol/aztec-packages/commit/8edee9e09bf8b663fbcb4207304f318b9e186744))
+* Remove browser test ([3e570be](https://github.com/AztecProtocol/aztec-packages/commit/3e570bedb4d559335721198b5353e5a54c852229))
+* Replace relative paths to noir-protocol-circuits ([b8ba716](https://github.com/AztecProtocol/aztec-packages/commit/b8ba7161a92db7af98088f52e011b0cdd15de375))
+* Some polishing on the skippable document ([#11997](https://github.com/AztecProtocol/aztec-packages/issues/11997)) ([50e0a38](https://github.com/AztecProtocol/aztec-packages/commit/50e0a38201821885869254e5103ca1a137f1bb83))
+* Update docs about integer overflows (https://github.com/noir-lang/noir/pull/7370) ([4d35d2f](https://github.com/AztecProtocol/aztec-packages/commit/4d35d2ff4dbfb601a46ab1f2f1fb7f2727af544d))
+
 ## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.76.3...aztec-packages-v0.76.4) (2025-02-13)
 
 
