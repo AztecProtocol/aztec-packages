@@ -4,6 +4,8 @@ import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@az
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -17,7 +19,7 @@ jest.setTimeout(1000000);
 const NUM_NODES = 4;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/slashing';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 
 // This test is showcasing that slashing can happen, abusing that our nodes are honest but stupid
 // making them slash themselves.

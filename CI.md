@@ -145,6 +145,40 @@ If you run into a flakey test (which should be _much_ less common once the grind
 
 Note that as node test commands are limited to the entire test file, you _may_ still want to go add `.skip` directives instead, but if one test in a suite is flakey, they probably all are (or the suite is too big).
 
+### Fixing flakey tests.
+
+If you're responsible for resolving a flakey test, there's a few approaches you can take.
+Let's assume you're trying to reproduce the flake error on `yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network`.
+
+#### Single threaded grind.
+
+```
+while yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network; do true; done
+```
+
+Simple runs the test over and over again until it fails.
+
+#### Parallel grind.
+
+If that's too slow as the test takes a while to run, and the test itself is not too "heavy", you can use parallel.
+This example runs it 10 times in parallel and stops on first failure.
+
+```
+seq 1 10 | parallel --bar --halt now,fail=1 "yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+```
+
+This swallows stdout so it doesn't spam your terminal, and assumes that an actual error would produce output on stderr.
+
+#### Remote parallel grind.
+
+If the test is quite a heavy test, you may need further compute resource (and you should be mindful not to cripple mainframe for other users). You can get an EC2 128 vcpu system for an hour and run parallel there.
+
+```
+ci ec2-shell
+./bootstrap.sh
+seq 1 64 | parallel --bar --halt now,fail=1 "yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+```
+
 ## CI
 
 At present CI will run in Github Actions for all the usual PR triggers (pushing etc). This may change in the future to require explicit triggers. In the meantime if you don't want CI constantly running your PR (and assuming your branch _has_ a PR) you can disable automatic runs with:
@@ -244,10 +278,10 @@ Let's say you open up a test run log, you'll see something like:
 ```
 Command: parallelise 64 (exit: 0)
 Starting test run with max 64 jobs...
-PASSED (http://ci.aztec-labs.com/736ae186bdf66226): yarn-project/end-to-end/scripts/test.sh simple e2e_synching
-PASSED (http://ci.aztec-labs.com/066e837f7af23761): yarn-project/end-to-end/scripts/test.sh simple e2e_public_testnet_transfer
-PASSED (http://ci.aztec-labs.com/f22e6cf8304765e5): yarn-project/end-to-end/scripts/test.sh simple e2e_cheat_codes
-PASSED (http://ci.aztec-labs.com/011e2be332519357): yarn-project/end-to-end/scripts/test.sh compose composed/e2e_pxe
+PASSED (http://ci.aztec-labs.com/736ae186bdf66226): yarn-project/end-to-end/scripts/run_test.sh simple e2e_synching
+PASSED (http://ci.aztec-labs.com/066e837f7af23761): yarn-project/end-to-end/scripts/run_test.sh simple e2e_public_testnet_transfer
+PASSED (http://ci.aztec-labs.com/f22e6cf8304765e5): yarn-project/end-to-end/scripts/run_test.sh simple e2e_cheat_codes
+PASSED (http://ci.aztec-labs.com/011e2be332519357): yarn-project/end-to-end/scripts/run_test.sh compose composed/e2e_pxe
 ...
 ```
 
