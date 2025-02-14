@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739556022161,
+  "lastUpdate": 1739561000955,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "sergei iakovenko",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7a2870f3684b198d5472ea4bdd7be5a84e812d93",
-          "message": "chore: remove stale zk constants and methods (#11715)\n\nWe're using sumcheck with disabled rows that does not require all the\r\nconstants that I introduced a while ago with an implementation of a\r\ndifferent witness masking technique.",
-          "timestamp": "2025-02-05T10:45:27+01:00",
-          "tree_id": "c1e6b6167712607aefa0c58aac7a1a7cf0119eda",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a2870f3684b198d5472ea4bdd7be5a84e812d93"
-        },
-        "date": 1738750233124,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19472.937636999974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16489.886534 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21126.880759000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18971.637977999995 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4090.6745119999923,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3821.6991430000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73855.372665,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73855373000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14458.82835,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14458828000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2902792846,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2902792846 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140680761,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140680761 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 135660520,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135660520 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "283050db11cd723ca41b1f349bab666d772d05d2",
+          "message": "chore: proof submission window in charts (#11993)\n\nI ran a [successful deployment of\r\nRC-1](https://github.com/AztecProtocol/aztec-packages/actions/runs/13314469598)\r\nto gke-private/mitch.\r\nSee the [proven chain\r\nadvancing](https://cloudlogging.app.goo.gl/B9nXhrH3tmZnYVby8)\r\n\r\nAlso remove some dead values files.",
+          "timestamp": "2025-02-14T19:02:59Z",
+          "tree_id": "96ed41c8592b6f9a503621cab8b6637f15d379c1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/283050db11cd723ca41b1f349bab666d772d05d2"
+        },
+        "date": 1739560993197,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18041.573430000084,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15841.327466 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18620.864071000142,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16327.047741000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3865.861246999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3099.932936 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55365.849685999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55365852000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10985.898537,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10985905000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1820259928,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1820259928 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133605533,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133605533 ns\nthreads: 1"
           }
         ]
       }
