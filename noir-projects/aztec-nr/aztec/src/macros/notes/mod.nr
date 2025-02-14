@@ -992,6 +992,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
     let note_type_id = get_next_note_type_id();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
