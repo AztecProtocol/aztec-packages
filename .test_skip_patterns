@@ -140,4 +140,6 @@ sequencer-client/src/slasher/slasher_client.test.ts
 foundation/src/promise/running-promise.test.ts
 # This has recently started to hit p2p drop issues.
 spartan/bootstrap.sh test-kind-4epochs
+# Hit issues, see https://github.com/AztecProtocol/aztec-packages/actions/runs/13316358796
+spartan/bootstrap.sh test-kind-transfer-blob-with-sink
 spartan/bootstrap.sh test-local

@@ -59,7 +59,7 @@ fi
 
 function cleanup {
   set +e
-  (cat "logs/kind-$test.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
+  (cat "logs/kind-$namespace.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
   # kill everything in our process group except our process
   trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
@@ -74,7 +74,7 @@ trap cleanup SIGINT SIGTERM EXIT
 stern_pid=""
 function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
-  stern spartan -n "$namespace" > "logs/kind-$test.log" &>/dev/null &
+  stern spartan -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 
