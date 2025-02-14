@@ -1,5 +1,7 @@
 #pragma once
 
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -23,10 +25,10 @@ class UltraOpsTable {
     using Point = Curve::AffineElement;
     using Fr = Curve::ScalarField;
 
-    static constexpr size_t ULTRA_OPS_TABLE_WIDTH = 4;
+    static constexpr size_t TABLE_WIDTH = 4;
 
     struct Subtable {
-        std::array<std::vector<fr>, ULTRA_OPS_TABLE_WIDTH> columns;
+        std::array<std::vector<fr>, TABLE_WIDTH> columns;
         std::unique_ptr<Subtable> prev;
 
         Subtable(const size_t size_hint = 0)
@@ -77,7 +79,7 @@ class UltraOpsTable {
         current_subtable = std::move(new_subtable);                // update current subtable
     }
 
-    void populate_columns(std::array<std::span<Fr>, ULTRA_OPS_TABLE_WIDTH>& target_columns)
+    void populate_columns(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns)
     {
         size_t i = 0;
         for (auto* subtable = current_subtable.get(); subtable != nullptr; subtable = subtable->prev.get()) {
@@ -90,6 +92,55 @@ class UltraOpsTable {
             }
         }
     }
+
+    // Enable range based iteration over the rows of the full table
+    class Iterator {
+        Subtable* subtable = nullptr;
+        size_t index = 0;
+        size_t subtable_size = 0;
+
+        using Row = RefArray<Fr, TABLE_WIDTH>;
+
+      public:
+        Iterator() = default;
+        Iterator(Subtable* sub, size_t idx)
+            : subtable(sub)
+            , index(idx)
+            , subtable_size(sub != nullptr ? sub->size() : 0)
+        {}
+
+        Row operator*()
+        {
+            std::array<Fr*, TABLE_WIDTH> row;
+            for (size_t i = 0; i < TABLE_WIDTH; ++i) {
+                row[i] = &subtable->columns[i][index];
+            }
+            return row;
+        }
+
+        Iterator& operator++()
+        {
+            if (++index < subtable_size) { // return row within the current subtable
+                return *this;
+            }
+            if (subtable->prev) { // update to next subtable
+                subtable = subtable->prev.get();
+                subtable_size = subtable->size();
+                index = 0;
+            } else {
+                *this = Iterator(); // end of iteration
+            }
+            return *this;
+        }
+
+        bool operator!=(const Iterator& other) const { return subtable != other.subtable || index != other.index; }
+    };
+
+    // begin() and end() to enable range based iteration over the full table
+    // WORKTODO: need to skip over the first empty subtable created from the last call to concatenate_subtable(). Might
+    // be nicer to have the user instead call create_subtable().
+    Iterator begin() { return { current_subtable->prev.get(), 0 }; }
+    static Iterator end() { return {}; }
 };
 
 } // namespace bb

@@ -91,6 +91,8 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 
 TEST(ECCOpQueueTest, UltraOpsTableConstruction)
 {
+    using Fr = fr;
+
     // Construct sets of ultra ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;
     std::array<std::vector<UltraOp>, NUM_SUBTABLES> subtable_ultra_ops;
@@ -139,4 +141,14 @@ TEST(ECCOpQueueTest, UltraOpsTableConstruction)
             EXPECT_EQ(expected_value, value);
         }
     }
+
+    // Check that the ultra ops table constructed by the op queue matches the expected table using row iterator
+    std::array<std::vector<Fr>, 4> columns;
+    for (const auto& row : ultra_ops_table) {
+        for (size_t i = 0; i < 4; ++i) {
+            columns[i].push_back(row[i]);
+        }
+    }
+
+    EXPECT_EQ(expected_ultra_ops_table.columns, columns);
 }
