@@ -47,7 +47,7 @@ diff="$({
 if [ -n "$diff" ]; then
   # Fail. We shouldn't be writing files during the build.
   if [ "${CI:-0}" = 1 ]; then
-    echo "Noticed changes to rebuild patterns: "$@", would disable cache but being strict because CI=1. The diff: $diff"
+    echo "Noticed changes to rebuild patterns: "$@", would disable cache but being strict because CI=1. Changed file names: $diff"
     exit 1
   fi
   # Signal to cache_upload and cache_download to not touch this file.
