@@ -190,7 +190,7 @@ function test_cmds {
 }
 
 function test {
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in

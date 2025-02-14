@@ -25,7 +25,7 @@ function test {
   while ! nc -z 127.0.0.1 45730 &>/dev/null; do sleep 1; done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 
   # Run the macro compilation failure tests
   ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh

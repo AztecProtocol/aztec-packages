@@ -175,7 +175,7 @@ function test {
   done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
