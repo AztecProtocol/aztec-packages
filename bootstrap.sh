@@ -184,11 +184,11 @@ function release_github {
   # Add an easy link for comparing to previous release.
   local compare_link=""
   if gh release view "v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
+    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
   # Legacy releases. TODO: Eventually remove.
   if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/$repo/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
+    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
   # Ensure we have a commit release.
   if ! gh release view "$REF_NAME" &>/dev/null; then
@@ -196,7 +196,7 @@ function release_github {
       --prerelease \
       --target $COMMIT_HASH \
       --title "$REF_NAME" \
-      --notes "${compare_link}"
+      --notes "$compare_link"
   fi
 }
 
@@ -214,6 +214,8 @@ function release {
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
+  echo_header "release all"
+  set -x
   check_release
 
   # Ensure we have a github release for our REF_NAME, if not on latest.
@@ -228,8 +230,7 @@ function release {
     noir
     l1-contracts
     yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
+    boxes
     aztec-up
     docs
     release-image

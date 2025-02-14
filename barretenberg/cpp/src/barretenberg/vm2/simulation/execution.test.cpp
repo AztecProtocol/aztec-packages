@@ -30,9 +30,9 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
-class AvmSimulationExecutionTest : public ::testing::Test {
+class ExecutionSimulationTest : public ::testing::Test {
   protected:
-    AvmSimulationExecutionTest() { ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory)); }
+    ExecutionSimulationTest() { ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory)); }
 
     StrictMock<MockAlu> alu;
     StrictMock<MockAddressing> addressing;
@@ -46,13 +46,13 @@ class AvmSimulationExecutionTest : public ::testing::Test {
         Execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_event_emitter);
 };
 
-TEST_F(AvmSimulationExecutionTest, Add)
+TEST_F(ExecutionSimulationTest, Add)
 {
     EXPECT_CALL(alu, add(Ref(context), 4, 5, 6));
     execution.add(context, 4, 5, 6);
 }
 
-TEST_F(AvmSimulationExecutionTest, ReturnNotTopLevel)
+TEST_F(ExecutionSimulationTest, ReturnNotTopLevel)
 {
     MemoryAddress ret_offset = 1;
     MemoryAddress ret_size_offset = 2;
@@ -76,7 +76,7 @@ TEST_F(AvmSimulationExecutionTest, ReturnNotTopLevel)
 }
 
 // FIXME: Way too long and complicated.
-// TEST_F(AvmSimulationExecutionTest, ExecutionLoop)
+// TEST_F(ExecutionSimulationTest, ExecutionLoop)
 // {
 //     MockBytecodeManager bytecode_manager;
 //     EXPECT_CALL(context, get_bytecode_manager).WillRepeatedly(ReturnRef(bytecode_manager));

@@ -36,7 +36,7 @@ using simulation::Poseidon2PermutationEvent;
 using tracegen::LookupIntoDynamicTableSequential;
 using lookup_pos2_perm_relation = bb::avm2::lookup_pos2_perm_relation<FF>;
 
-TEST(Poseidon2, Poseidon2EmptyRow)
+TEST(Poseidon2ConstrainingTest, Poseidon2EmptyRow)
 {
     auto trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -48,7 +48,7 @@ TEST(Poseidon2, Poseidon2EmptyRow)
 
 // These tests imports a bunch of external code since hand-generating the poseidon2 trace is a bit laborious atm.
 // TODO: Test lookup relations
-TEST(Poseidon2, BasicPermutation)
+TEST(Poseidon2ConstrainingTest, BasicPermutation)
 {
     // We are just testing the permutation event here so we can use a noop emitter for the hash events.
     NoopEventEmitter<Poseidon2HashEvent> poseidon2_hash_event_emitter;
@@ -82,7 +82,7 @@ TEST(Poseidon2, BasicPermutation)
     check_relation<poseidon2_perm>(trace);
 }
 
-TEST(Poseidon2, HashWithSinglePermutation)
+TEST(Poseidon2ConstrainingTest, HashWithSinglePermutation)
 {
     EventEmitter<Poseidon2HashEvent> poseidon2_hash_event_emitter;
     // We are just testing the hash event here so we can use a noop emitter for the permutation events.
@@ -110,7 +110,7 @@ TEST(Poseidon2, HashWithSinglePermutation)
     check_relation<poseidon2_hash>(trace);
 }
 
-TEST(Poseidon2, HashWithMultiplePermutation)
+TEST(Poseidon2ConstrainingTest, HashWithMultiplePermutation)
 {
     EventEmitter<Poseidon2HashEvent> poseidon2_hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_event_emitter;
@@ -136,7 +136,7 @@ TEST(Poseidon2, HashWithMultiplePermutation)
     check_relation<poseidon2_hash>(trace);
 }
 
-TEST(Poseidon2, MultipleHashInvocations)
+TEST(Poseidon2ConstrainingTest, MultipleHashInvocations)
 {
     EventEmitter<Poseidon2HashEvent> poseidon2_hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_event_emitter;
@@ -164,7 +164,7 @@ TEST(Poseidon2, MultipleHashInvocations)
     check_relation<poseidon2_hash>(trace);
 }
 
-TEST(Poseidon2, HashPermInteractions)
+TEST(Poseidon2ConstrainingTest, HashPermInteractions)
 {
     EventEmitter<Poseidon2HashEvent> poseidon2_hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> poseidon2_perm_event_emitter;
@@ -190,7 +190,7 @@ TEST(Poseidon2, HashPermInteractions)
     check_interaction<lookup_pos2_perm_relation>(trace);
 }
 
-TEST(Poseidon2, NegativeHashPermInteractions)
+TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 {
     // We won't generate permutation events which will cause the lookup to fail
     NoopEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_event_emitter;
