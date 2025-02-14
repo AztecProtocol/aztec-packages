@@ -15,6 +15,7 @@ namespace bb::avm2 {
 class lookup_dummy_precomputed_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_DUMMY_PRECOMPUTED";
+    static constexpr std::string_view RELATION_NAME = "execution";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -84,6 +85,7 @@ class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_du
   public:
     using Settings = lookup_dummy_precomputed_lookup_settings;
     static constexpr std::string_view NAME = lookup_dummy_precomputed_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_dummy_precomputed_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -106,6 +108,7 @@ class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_du
 class lookup_dummy_dynamic_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_DUMMY_DYNAMIC";
+    static constexpr std::string_view RELATION_NAME = "execution";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -174,6 +177,7 @@ class lookup_dummy_dynamic_relation : public GenericLookupRelation<lookup_dummy_
   public:
     using Settings = lookup_dummy_dynamic_lookup_settings;
     static constexpr std::string_view NAME = lookup_dummy_dynamic_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_dummy_dynamic_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
