@@ -276,4 +276,45 @@ class UltraHonkAPI : public API {
         }
     };
 };
+
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
+                                       const std::string& witness_path,
+                                       const std::string& output_path)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    uint32_t honk_recursion = 0;
+    bool ipa_accumulation = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = 1;
+    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        honk_recursion = 2;
+        init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+        ipa_accumulation = true;
+    }
+    const acir_format::ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+
+    acir_format::AcirProgram program;
+    program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
+    program.witness = get_witness(witness_path);
+    auto builder = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Construct Honk proof and verification key
+    Prover prover{ builder };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    std::vector<FF> proof = prover.construct_proof();
+    VerificationKey verification_key(prover.proving_key->proving_key);
+
+    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+    const std::string toml_content =
+        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
+
+    // Write all components to the TOML file
+    const std::string toml_path = output_path + "/Prover.toml";
+    write_file(toml_path, { toml_content.begin(), toml_content.end() });
+}
 } // namespace bb

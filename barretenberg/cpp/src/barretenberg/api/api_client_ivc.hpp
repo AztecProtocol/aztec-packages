@@ -328,4 +328,109 @@ class ClientIVCAPI : public API {
         return false;
     };
 };
+
+/**
+ * @brief Constructs a barretenberg circuit from program bytecode and reports the resulting gate counts
+ * @details IVC circuits utilize the Mega arithmetization and a structured execution trace. This method reports the
+ * number of each gate type present in the circuit vs the fixed max number allowed by the structured trace.
+ *
+ * @param bytecode_path Path to the file containing the serialized circuit
+ */
+void gate_count_for_ivc(const std::string& bytecode_path)
+{
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
+    auto constraint_systems = get_constraint_systems(bytecode_path, /*honk_recursion=*/0);
+
+    // Initialize an SRS to make the ClientIVC constructor happy
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+
+    size_t i = 0;
+    for (const auto& constraint_system : constraint_systems) {
+        acir_format::AcirProgram program{ constraint_system };
+        const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+        acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
+                                                                              : create_mock_ivc_from_constraints(
+                                                                                    ivc_constraints, trace_settings),
+                                               .collect_gates_per_opcode = true };
+
+        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        size_t circuit_size = builder.num_gates;
+
+        // Print the details of the gate types within the structured execution trace
+        builder.blocks.set_fixed_block_sizes(trace_settings);
+        builder.blocks.summarize();
+
+        // Build individual circuit report
+        std::string gates_per_opcode_str;
+        for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(program.constraints.gates_per_opcode[j]);
+            if (j != program.constraints.gates_per_opcode.size() - 1) {
+                gates_per_opcode_str += ",";
+            }
+        }
+
+        auto result_string = format("{\n        \"acir_opcodes\": ",
+                                    program.constraints.num_acir_opcodes,
+                                    ",\n        \"circuit_size\": ",
+                                    circuit_size,
+                                    ",\n        \"gates_per_opcode\": [",
+                                    gates_per_opcode_str,
+                                    "]\n  }");
+
+        // Attach a comma if there are more circuit reports to generate
+        if (i != (constraint_systems.size() - 1)) {
+            result_string = format(result_string, ",");
+        }
+
+        functions_string = format(functions_string, result_string);
+
+        i++;
+    }
+    functions_string = format(functions_string, "\n]}");
+
+    const char* jsonData = functions_string.c_str();
+    size_t length = strlen(jsonData);
+    std::vector<uint8_t> data(jsonData, jsonData + length);
+    write_bytes_to_stdout(data);
+}
+
+/**
+ * @brief Write an arbitrary but valid ClientIVC proof and VK to files
+ * @details used to test the prove_tube flow
+ *
+ * @param flags
+ * @param output_dir
+ */
+void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
+{
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+
+    // Construct and accumulate a series of mocked private function execution circuits
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    size_t NUM_CIRCUITS = 2;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc);
+        ivc.accumulate(circuit);
+    }
+
+    ClientIVC::Proof proof = ivc.prove();
+
+    // Write the proof and verification keys into the working directory in 'binary' format
+    vinfo("writing ClientIVC proof and vk...");
+    write_file(output_dir / "proof", to_buffer(proof));
+
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+};
+
 } // namespace bb
