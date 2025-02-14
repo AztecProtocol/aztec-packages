@@ -1,18 +1,46 @@
 use dep::aztec::{
     context::PrivateContext,
-    macros::notes::note,
-    note::note_interface::NullifiableNote,
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+    macros::notes::note_custom_interface,
+    note::note_interface::{NoteInterface, NullifiableNote},
+    protocol_types::{
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_HASH,
+        hash::poseidon2_hash_with_separator,
+        traits::{Deserialize, Serialize},
+        utils::arrays::array_concat,
+    },
 };
 
-// A note which stores a field and is expected to be passed around using the `addNote` function.
-// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform
-// serialized_note attack on it. This note has been developed purely for testing purposes so that it can easily be
-// manually added to PXE. Do not use for real applications.
-#[note]
-#[derive(Serialize, Deserialize)]
+// TODO(benesjan): Manual import of `Packable` trait here is a macro bug.
+use dep::aztec::protocol_types::traits::Packable;
+
+/// A note which stores a field and is expected to be passed around using the `addNote` function.
+///
+/// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform
+/// note hash preimage attack on it. This note has been developed purely for testing purposes so that it can easily be
+/// manually added to PXE. Do not use for real applications.
+///
+/// Note: We are using `#[note_custom_interface]` here even though we don't really need it custom implementation here
+/// just to test that the macro works (it's not used anywhere else so far).
+#[note_custom_interface]
+#[derive(Eq, Deserialize, Serialize)]
 pub struct TestNote {
     value: Field,
+}
+
+impl NoteInterface for TestNote {
+    fn get_note_type_id() -> Field {
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
+    }
+
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
+        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
+        // constraints.
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
 }
 
 impl NullifiableNote for TestNote {
@@ -40,26 +68,5 @@ impl NullifiableNote for TestNote {
 impl TestNote {
     pub fn new(value: Field) -> Self {
         TestNote { value }
-    }
-}
-
-// Note: We are not deriving Eq here because generally we don't want to include the header in the comparison.
-// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
-impl Eq for TestNote {
-    fn eq(self, other: Self) -> bool {
-        self.value == other.value
-    }
-}
-
-// Note: We are not deriving Packable here because that would pack the whole struct including the note header
-// (so the resulting field array size would be 5).
-// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
-impl Packable<1> for TestNote {
-    fn pack(self) -> [Field; 1] {
-        [self.value]
-    }
-
-    fn unpack(fields: [Field; 1]) -> Self {
-        TestNote { value: fields[0] }
     }
 }

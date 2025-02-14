@@ -1,35 +1,18 @@
-use dep::aztec::prelude::{NoteInterface, NullifiableNote, PrivateContext, RetrievedNote};
+use dep::aztec::prelude::{NullifiableNote, PrivateContext, RetrievedNote};
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_nullify, keys::getters::{get_nsk_app, get_public_keys},
-    protocol_types::{address::AztecAddress, constants::{GENERATOR_INDEX__NOTE_NULLIFIER, GENERATOR_INDEX__NOTE_HASH}, hash::poseidon2_hash_with_separator, utils::arrays::array_concat, traits::Packable},
-    macros::notes::note_custom_interface
+    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable},
+    macros::notes::note
 };
-
-global ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN: u32 = 5;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
-#[note_custom_interface]
+#[note]
 pub struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
     owner: AztecAddress,
-}
-
-impl NoteInterface for EcdsaPublicKeyNote {
-    fn get_note_type_id() -> Field {
-        // randomly chosen note type id --> has to fit within 7 bits
-        76
-    }
-
-    fn compute_note_hash(self, storage_slot: Field) -> Field {
-        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
-        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
-        // constraints.
-        let inputs = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
-    }
 }
 
 impl NullifiableNote for EcdsaPublicKeyNote {
@@ -67,6 +50,8 @@ impl EcdsaPublicKeyNote {
         EcdsaPublicKeyNote { x, y, owner }
     }
 }
+
+global ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN: u32 = 5;
 
 impl Packable<ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN> for EcdsaPublicKeyNote {
     // Cannot use the automatic packing since x and y don't fit. Pack the note as 5 fields where:
