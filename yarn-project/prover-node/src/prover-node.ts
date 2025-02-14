@@ -131,9 +131,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
    * starts proving jobs for them.
    */
-  start() {
+  async start() {
     this.txFetcher.start();
-    this.epochsMonitor.start(this);
+    await this.epochsMonitor.start(this);
     this.log.info('Started ProverNode', this.options);
   }
 
@@ -218,7 +218,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    await this.worldState.syncImmediate(fromBlock - 1);
+    await this.worldState.syncImmediate(toBlock);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

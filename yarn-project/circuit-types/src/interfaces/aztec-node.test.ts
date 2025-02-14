@@ -55,6 +55,7 @@ import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
+import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;
@@ -357,6 +358,10 @@ describe('AztecNodeApiSchema', () => {
 
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
+
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    throw new Error('Method not implemented.');
+  }
 
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({

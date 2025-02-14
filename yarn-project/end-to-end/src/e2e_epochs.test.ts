@@ -124,11 +124,15 @@ describe('e2e_epochs', () => {
   };
 
   it('does not allow submitting proof after epoch end', async () => {
-    // Hold off prover tx until end of next epoch!
+    // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
+    // The proof will be rejected and a re-org will take place
+
+    // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
+    // Wait until the start of epoch 1 and grab the block number
     await waitUntilEpochStarts(1);
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
