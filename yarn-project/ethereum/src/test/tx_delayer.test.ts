@@ -96,6 +96,6 @@ describe('tx_delayer', () => {
   }, 20000);
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 });

@@ -141,4 +141,7 @@ sequencer-client/src/slasher/slasher_client.test.ts
 foundation/src/promise/running-promise.test.ts
 # This has recently started to hit p2p drop issues.
 spartan/bootstrap.sh test-kind-4epochs
+# Hit issues, see https://github.com/AztecProtocol/aztec-packages/actions/runs/13316358796
+# Note, we don't currently think this is special to blob with sink, but reducing error surface error is important.
+spartan/bootstrap.sh test-kind-transfer-blob-with-sink
 spartan/bootstrap.sh test-local

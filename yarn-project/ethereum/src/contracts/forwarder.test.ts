@@ -99,7 +99,7 @@ describe('Forwarder', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 
   it('gets good error messages', async () => {
