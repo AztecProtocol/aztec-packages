@@ -60,8 +60,9 @@ tests::debug_ram_blowup_regression
 simple e2e_p2p/gossip_network
 simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
-simple e2e_p2p/upgrade_governance_proposer
+simple e2e_p2p/reex
 simple e2e_p2p/slashing
+simple e2e_p2p/upgrade_governance_proposer
 
 # Started failing with some AVM proof error...
 e2e_prover/full fake
