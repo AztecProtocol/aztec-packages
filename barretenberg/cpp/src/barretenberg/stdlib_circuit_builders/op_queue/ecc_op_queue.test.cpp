@@ -112,7 +112,7 @@ TEST(ECCOpQueueTest, UltraOpsTableConstruction)
         for (const auto& op : subtable_ops) {
             ultra_ops_table.append_operation(op);
         }
-        ultra_ops_table.concatenate_subtable();
+        ultra_ops_table.create_new_subtable();
     }
 
     // Compute the expected total table size as the sum of the subtable op counts times 2
@@ -133,7 +133,7 @@ TEST(ECCOpQueueTest, UltraOpsTableConstruction)
     }
     ultra_ops_table.populate_columns(ultra_ops_column_spans);
 
-    // ultra_ops_table[2][3] += 1;
+    // expected_ultra_ops_table.columns[2][3] += 1;
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
     for (auto [expected_column, column] : zip_view(expected_ultra_ops_table.columns, ultra_ops_columns)) {
