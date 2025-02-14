@@ -229,8 +229,7 @@ function release {
     noir
     l1-contracts
     yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
+    boxes
     aztec-up
     docs
     release-image
