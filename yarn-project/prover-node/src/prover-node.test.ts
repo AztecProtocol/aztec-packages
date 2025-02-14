@@ -179,7 +179,7 @@ describe('prover-node', () => {
     it('starts a proof during initial sync', async () => {
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
 
-      proverNode.start();
+      await proverNode.start();
       await sleep(100);
 
       expect(jobs[0].epochNumber).toEqual(10n);
@@ -191,7 +191,7 @@ describe('prover-node', () => {
 
       mockCoordination.getTxsByHash.mockResolvedValue([]);
 
-      proverNode.start();
+      await proverNode.start();
       await sleep(2000);
       expect(jobs).toHaveLength(0);
     });
@@ -200,7 +200,7 @@ describe('prover-node', () => {
       lastEpochComplete = 10n;
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
 
-      proverNode.start();
+      await proverNode.start();
       await sleep(100);
 
       lastEpochComplete = 11n;
