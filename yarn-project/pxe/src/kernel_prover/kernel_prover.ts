@@ -27,6 +27,7 @@ import {
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
+  computeContractAddressFromInstance,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
@@ -364,8 +365,16 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
+    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
+    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
+    const computedAddress = await computeContractAddressFromInstance({
+      originalContractClassId: currentContractClassId,
+      saltedInitializationHash,
+      publicKeys,
+    });
+
     const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
-      await getProtocolContractLeafAndMembershipWitness(contractAddress);
+      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
