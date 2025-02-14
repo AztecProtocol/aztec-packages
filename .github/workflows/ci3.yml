@@ -7,7 +7,7 @@ on:
     branches:
       - master
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
   # For external devs. Workflow file edits won't take effect in the PR.
