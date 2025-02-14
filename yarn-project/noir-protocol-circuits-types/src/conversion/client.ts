@@ -626,7 +626,10 @@ export function mapPrivateVerificationKeyHintsToNoir(
     ),
     public_keys: mapPublicKeysToNoir(privateVerificationKeyHints.publicKeys),
     salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
-    protocol_contract_sibling_path: mapTuple(privateVerificationKeyHints.protocolContractSiblingPath, mapFieldToNoir),
+    protocol_contract_membership_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.protocolContractMembershipWitness,
+    ),
+    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
     acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
     updated_class_id_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,

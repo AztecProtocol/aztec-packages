@@ -13,7 +13,7 @@ import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
 import { ScheduledDelayChange } from '../shared_mutable/scheduled_delay_change.js';
 import { ScheduledValueChange } from '../shared_mutable/scheduled_value_change.js';
-import { ProtocolContractLeafPreimage } from '../trees/index.js';
+import { ProtocolContractLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 /**
