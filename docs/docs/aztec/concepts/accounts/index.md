@@ -2,7 +2,7 @@
 title: Accounts
 sidebar_position: 1
 tags: [accounts]
----
+---                                                                                                                                                               
 
 Aztec has native account abstraction. Every account in Aztec is a smart contract.
 
@@ -31,7 +31,6 @@ While we talk about “arbitrary verification logic” describing the intuition 
 On Aztec, there is no limitation on verification logic, as transaction validity check is executed client-side and a proof of validity is supplied to the sequencer. The sequencer only verifies the proof and this process is independent of the verification logic complexity.
 
 This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec AA will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time.
-
 
 Couple of examples:
 - Multisig contract with an arbitrary number of parties that can verify any number of signatures for free.
