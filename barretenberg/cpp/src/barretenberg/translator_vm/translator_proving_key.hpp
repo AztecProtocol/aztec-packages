@@ -18,8 +18,6 @@ class TranslatorProvingKey {
     size_t dyadic_circuit_size;
     std::shared_ptr<ProvingKey> proving_key;
 
-    const size_t SHIFT_OFFSET = 1;
-
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
 
@@ -98,11 +96,11 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (circuit.num_gates + SHIFT_OFFSET > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
+        const size_t shift_offset = 1; // take into acount the left-by-1 shift
+        if (circuit.num_gates + shift_offset > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
             info("The Translator circuit size has exceeded the fixed upper bound");
             ASSERT(false);
         }
-        // Next power of 2
         mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
     }
 

@@ -300,8 +300,7 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for Shplemini input since
-        // concatenated handled separately)
+        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -737,8 +736,7 @@ class TranslatorFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-            // Storage is only needed after the first partial evaluation, hence polynomials of
-            // size (n / 2)
+            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
             }
