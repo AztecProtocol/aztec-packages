@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739551601447,
+  "lastUpdate": 1739556022161,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "08fc279405cfbd88a679046d3c97b6c145b57b7a",
-          "message": "chore(master): Release 0.74.0 (#11676)\n\n:robot: I have created a release *beep* *boop*\n---\n\n\n<details><summary>aztec-package: 0.74.0</summary>\n\n##\n[0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.73.0...aztec-package-v0.74.0)\n(2025-02-04)\n\n\n### Miscellaneous\n\n* Ensure new kv-store is used on the server\n([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662))\n([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))\n</details>\n\n<details><summary>barretenberg.js: 0.74.0</summary>\n\n##\n[0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.73.0...barretenberg.js-v0.74.0)\n(2025-02-04)\n\n\n### Miscellaneous\n\n* **barretenberg.js:** Synchronize aztec-packages versions\n</details>\n\n<details><summary>aztec-packages: 0.74.0</summary>\n\n##\n[0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.73.0...aztec-packages-v0.74.0)\n(2025-02-04)\n\n\n### ⚠ BREAKING CHANGES\n\n* time library\n([#11542](https://github.com/AztecProtocol/aztec-packages/issues/11542))\n\n### Features\n\n* `u128.ts` accepting string on input\n([#11664](https://github.com/AztecProtocol/aztec-packages/issues/11664))\n([bb25992](https://github.com/AztecProtocol/aztec-packages/commit/bb2599240f8cea20c111c1533cff457372e5d458))\n* Add network, better drawer performance\n([#11694](https://github.com/AztecProtocol/aztec-packages/issues/11694))\n([1f61822](https://github.com/AztecProtocol/aztec-packages/commit/1f61822e731b6d1cd7295772f54afda54b646514))\n* Skip calculation of partial sums when simulating blobs\n([#11257](https://github.com/AztecProtocol/aztec-packages/issues/11257))\n([aca66f7](https://github.com/AztecProtocol/aztec-packages/commit/aca66f7611be2eba774b9d204d732801853cc6a2))\n* Time library\n([#11542](https://github.com/AztecProtocol/aztec-packages/issues/11542))\n([3b463f9](https://github.com/AztecProtocol/aztec-packages/commit/3b463f9f9376393c5f781cf2495c6db379308aca)),\ncloses\n[#11520](https://github.com/AztecProtocol/aztec-packages/issues/11520)\n* UltraHonkZK contract\n([#11553](https://github.com/AztecProtocol/aztec-packages/issues/11553))\n([a68369f](https://github.com/AztecProtocol/aztec-packages/commit/a68369fd1f12d00e037a2626b2bbc17375054883))\n\n\n### Bug Fixes\n\n* Add bootstrap.sh to rebuild_patterns\n([#11683](https://github.com/AztecProtocol/aztec-packages/issues/11683))\n([e84a81a](https://github.com/AztecProtocol/aztec-packages/commit/e84a81a556b2059be843e06a7e814cd4fb7f99eb))\n* **archiver:** Do not attempt to decode blob before filtering\n([#11668](https://github.com/AztecProtocol/aztec-packages/issues/11668))\n([961cbdd](https://github.com/AztecProtocol/aztec-packages/commit/961cbdd9ee33ce85f9509e690c346988e1a3bccf))\n* Barretenber/stdlib/logic bugs\n([#11651](https://github.com/AztecProtocol/aztec-packages/issues/11651))\n([dddab22](https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193))\n* Barretenberg/stdlib/logic bugs (redo)\n([#11691](https://github.com/AztecProtocol/aztec-packages/issues/11691))\n([6d0bad7](https://github.com/AztecProtocol/aztec-packages/commit/6d0bad77b2ffdc966462cc333faa9cea4b21f4dc))\n* **docs:** Keys docs update\n([#11665](https://github.com/AztecProtocol/aztec-packages/issues/11665))\n([ce3d92c](https://github.com/AztecProtocol/aztec-packages/commit/ce3d92c966cbdd68cc1c8e1e34e1831db5080a34))\n* Revert \"barretenberg/stdlib/logic bugs\"\n([#11689](https://github.com/AztecProtocol/aztec-packages/issues/11689))\n([b99570d](https://github.com/AztecProtocol/aztec-packages/commit/b99570d416f4c4c59f38e47a8677b476c5c06f0b))\n* Solidity verifier caching\n([#11712](https://github.com/AztecProtocol/aztec-packages/issues/11712))\n([2ba1e71](https://github.com/AztecProtocol/aztec-packages/commit/2ba1e7112c4d8052967603ab78c1213cc70b8038))\n* Use eth-execution label\n([#11713](https://github.com/AztecProtocol/aztec-packages/issues/11713))\n([d3c31d8](https://github.com/AztecProtocol/aztec-packages/commit/d3c31d887b696865f3df41611fae534e1d89460f))\n\n\n### Miscellaneous\n\n* Add tests for gov proposer\n([#11633](https://github.com/AztecProtocol/aztec-packages/issues/11633))\n([5c6a48a](https://github.com/AztecProtocol/aztec-packages/commit/5c6a48a251ff4ef25a2efdf90891241df05e8652)),\ncloses\n[#11681](https://github.com/AztecProtocol/aztec-packages/issues/11681)\n* **bb-prover:** Avm test skip and split\n([#11717](https://github.com/AztecProtocol/aztec-packages/issues/11717))\n([1778867](https://github.com/AztecProtocol/aztec-packages/commit/177886764a23b9437fdc767726cc7c8533c27f08))\n* Benchmark sha256 number of instructions executed in AVM\n([#11253](https://github.com/AztecProtocol/aztec-packages/issues/11253))\n([aaf0d8c](https://github.com/AztecProtocol/aztec-packages/commit/aaf0d8c02b99eb1c037745d54c0859553492c088))\n* Delete MerkleTrees implementation in JS\n([#11697](https://github.com/AztecProtocol/aztec-packages/issues/11697))\n([1db7b78](https://github.com/AztecProtocol/aztec-packages/commit/1db7b7845405e1c877da71185566b8495c9469e7))\n* Ensure new kv-store is used on the server\n([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662))\n([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))\n* Field encoding should use `fromString` instead of `fromHexString`\n([#11585](https://github.com/AztecProtocol/aztec-packages/issues/11585))\n([43fdbb1](https://github.com/AztecProtocol/aztec-packages/commit/43fdbb17361c3c2e7ab8b2cb79f0c91932a0d56e)),\ncloses\n[#10331](https://github.com/AztecProtocol/aztec-packages/issues/10331)\n* Improve boxes\n([#11656](https://github.com/AztecProtocol/aztec-packages/issues/11656))\n([46a3e85](https://github.com/AztecProtocol/aztec-packages/commit/46a3e85c08c930aa2dacb6b20483de1f7926c0ff))\n* Increase node pool count and don't use a release channel\n([#11687](https://github.com/AztecProtocol/aztec-packages/issues/11687))\n([65a3f11](https://github.com/AztecProtocol/aztec-packages/commit/65a3f11944975c8cb990a72c8b87df3ed224323c))\n* Mark contracts as pub\n([#11241](https://github.com/AztecProtocol/aztec-packages/issues/11241))\n([b168601](https://github.com/AztecProtocol/aztec-packages/commit/b1686016dd91d559cc81a2e250228698e7ff925e))\n* Reduce memory requests on prover node\n([#11678](https://github.com/AztecProtocol/aztec-packages/issues/11678))\n([a720151](https://github.com/AztecProtocol/aztec-packages/commit/a720151115471722fa46f4f4f8d6a08408659107))\n* Remove profiler cache fallback\n([#11680](https://github.com/AztecProtocol/aztec-packages/issues/11680))\n([a305aef](https://github.com/AztecProtocol/aztec-packages/commit/a305aefb8caa0e462f3f7ee535a6dbcadef871da))\n* Remove some templates in templates\n([#11698](https://github.com/AztecProtocol/aztec-packages/issues/11698))\n([61614b1](https://github.com/AztecProtocol/aztec-packages/commit/61614b1a0fa4a766b1ad5090a29f92a122511806))\n* Remove unused functions from public side effect trace\n([#11600](https://github.com/AztecProtocol/aztec-packages/issues/11600))\n([54e9602](https://github.com/AztecProtocol/aztec-packages/commit/54e960255e43c103170d7caee716fb6a0253f6f4))\n* Replace relative paths to noir-protocol-circuits\n([739151e](https://github.com/AztecProtocol/aztec-packages/commit/739151ead0f5e6a9aa421567e9e6329fa7774c13))\n* Replace relative paths to noir-protocol-circuits\n([bbd526c](https://github.com/AztecProtocol/aztec-packages/commit/bbd526ce0f53e227f40e9a4ef3c068796aff447b))\n* **sequencer:** Add InvalidArchive to canProposeAtNextEthBlock ignored\nerrors\n([#11682](https://github.com/AztecProtocol/aztec-packages/issues/11682))\n([eea4bd3](https://github.com/AztecProtocol/aztec-packages/commit/eea4bd3db21858e67e730324d0610f7c90a12023))\n* **spartan:** Remove hardcoded keys and addresses - derive all from\nmnemonic\n([#11672](https://github.com/AztecProtocol/aztec-packages/issues/11672))\n([65f0e48](https://github.com/AztecProtocol/aztec-packages/commit/65f0e484513734a73e88d78ff490d8c939005eea))\n* Turn off auto-upgrade in node-pools\n([#11679](https://github.com/AztecProtocol/aztec-packages/issues/11679))\n([09f98a9](https://github.com/AztecProtocol/aztec-packages/commit/09f98a9f10f18fd48895af40981b670c015f7aa3))\n* Turn on masking in ultra and mega zk + oink clean-up\n([#11693](https://github.com/AztecProtocol/aztec-packages/issues/11693))\n([08e96fe](https://github.com/AztecProtocol/aztec-packages/commit/08e96fee292c53afa645a00a8d2689d01e8136d5))\n\n\n### Documentation\n\n* Update mig notes release version\n([#11685](https://github.com/AztecProtocol/aztec-packages/issues/11685))\n([46a30b5](https://github.com/AztecProtocol/aztec-packages/commit/46a30b5a7438b23c64336bc217dcc1686e94b7c4))\n</details>\n\n<details><summary>barretenberg: 0.74.0</summary>\n\n##\n[0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.73.0...barretenberg-v0.74.0)\n(2025-02-04)\n\n\n### Features\n\n* UltraHonkZK contract\n([#11553](https://github.com/AztecProtocol/aztec-packages/issues/11553))\n([a68369f](https://github.com/AztecProtocol/aztec-packages/commit/a68369fd1f12d00e037a2626b2bbc17375054883))\n\n\n### Bug Fixes\n\n* Barretenber/stdlib/logic bugs\n([#11651](https://github.com/AztecProtocol/aztec-packages/issues/11651))\n([dddab22](https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193))\n* Barretenberg/stdlib/logic bugs (redo)\n([#11691](https://github.com/AztecProtocol/aztec-packages/issues/11691))\n([6d0bad7](https://github.com/AztecProtocol/aztec-packages/commit/6d0bad77b2ffdc966462cc333faa9cea4b21f4dc))\n* Revert \"barretenberg/stdlib/logic bugs\"\n([#11689](https://github.com/AztecProtocol/aztec-packages/issues/11689))\n([b99570d](https://github.com/AztecProtocol/aztec-packages/commit/b99570d416f4c4c59f38e47a8677b476c5c06f0b))\n\n\n### Miscellaneous\n\n* Ensure new kv-store is used on the server\n([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662))\n([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))\n* Remove some templates in templates\n([#11698](https://github.com/AztecProtocol/aztec-packages/issues/11698))\n([61614b1](https://github.com/AztecProtocol/aztec-packages/commit/61614b1a0fa4a766b1ad5090a29f92a122511806))\n* Turn on masking in ultra and mega zk + oink clean-up\n([#11693](https://github.com/AztecProtocol/aztec-packages/issues/11693))\n([08e96fe](https://github.com/AztecProtocol/aztec-packages/commit/08e96fee292c53afa645a00a8d2689d01e8136d5))\n</details>\n\n---\nThis PR was generated with [Release\nPlease](https://github.com/googleapis/release-please). See\n[documentation](https://github.com/googleapis/release-please#release-please).",
-          "timestamp": "2025-02-04T15:50:13Z",
-          "tree_id": "70b43e51affbe5b1ec0480bcdc0747ee5cd140d6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/08fc279405cfbd88a679046d3c97b6c145b57b7a"
-        },
-        "date": 1738685154112,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19484.881145000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16704.663555 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21200.329780000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18839.351505 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4147.203273000031,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3840.100856 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75084.88300299998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75084884000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14448.724624,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14448724000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2680544585,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2680544585 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134268472,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134268472 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 130071936,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130071936 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "asterite@gmail.com",
+            "name": "Ary Borenszweig",
+            "username": "asterite"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1144e57927bf062ddb43d1194a40a686e2f9737",
+          "message": "chore: turn get_vk_merkle_tree into a global (#12009)\n\nCalling `get_vk_merkle_tree` during comptime takes 80ms on my machine.\nIt's called several times during compilation.\n\nRunning `time nargo check --force` inside `rollup-base-private` used to\ntake 1.3 seconds on my machine. With this change it takes 0.6 seconds.\nIt's not that much for a human, but `nargo check` is what LSP uses so\nthis should speed up LSP in these projects by a noticeable amount.",
+          "timestamp": "2025-02-14T17:37:23Z",
+          "tree_id": "cb9109cd3505edd4eff100d3914232e7ebca7850",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d1144e57927bf062ddb43d1194a40a686e2f9737"
+        },
+        "date": 1739556014051,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18124.868891999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16007.239689000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18593.10187999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16501.382161 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3925.6521390000216,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3167.3881949999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55468.425597,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55468426000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11131.095260999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11131099000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1823151374,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1823151374 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135660520,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135660520 ns\nthreads: 1"
           }
         ]
       }
