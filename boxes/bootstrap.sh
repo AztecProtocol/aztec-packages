@@ -87,8 +87,8 @@ function release_git_push {
   git add .
   git commit -m "Release $tag_name." >/dev/null
   git tag -a "$tag_name" -m "Release $tag_name."
-  git push origin "$branch_name" --quiet
-  git push origin --quiet --force "$tag_name" --tags
+  do_or_dryrun git push origin "$branch_name" --quiet
+  do_or_dryrun git push origin --quiet --force "$tag_name" --tags
 
   echo "Release complete ($tag_name) on branch $branch_name."
 }
