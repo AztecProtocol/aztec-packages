@@ -1,11 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT } from '../../constants.gen.js';
 import { PublicKeys } from '../../types/public_keys.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
+import { ProtocolContractLeafPreimage } from '../trees/index.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 /**
@@ -41,7 +42,16 @@ export class PrivateCallData {
      * The membership witness for the function leaf corresponding to the function being invoked.
      */
     public functionLeafMembershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
-    public protocolContractSiblingPath: Tuple<Fr, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>,
+    /**
+     * The membership witness for the protocolContractLeaf.
+     */
+    public protocolContractMembershipWitness: MembershipWitness<typeof PROTOCOL_CONTRACT_TREE_HEIGHT>,
+    /**
+     * The leaf of the protocol contract tree, of either:
+     *  The protocol contract being called.
+     *  The low leaf showing that the address of the contract being called is not in the tree.
+     */
+    public protocolContractLeaf: ProtocolContractLeafPreimage,
     /**
      * The hash of the ACIR of the function being invoked.
      */
@@ -62,7 +72,8 @@ export class PrivateCallData {
       fields.publicKeys,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
-      fields.protocolContractSiblingPath,
+      fields.protocolContractMembershipWitness,
+      fields.protocolContractLeaf,
       fields.acirHash,
     ] as const;
   }
@@ -94,7 +105,8 @@ export class PrivateCallData {
       reader.readObject(PublicKeys),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
-      reader.readArray(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr),
+      reader.readObject(MembershipWitness.deserializer(PROTOCOL_CONTRACT_TREE_HEIGHT)),
+      reader.readObject(ProtocolContractLeafPreimage),
       reader.readObject(Fr),
     );
   }

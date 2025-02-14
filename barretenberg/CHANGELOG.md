@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.3...barretenberg-v0.76.4) (2025-02-13)
+
+
+### Features
+
+* Aes decryption oracle ([#11907](https://github.com/AztecProtocol/aztec-packages/issues/11907)) ([c4ce913](https://github.com/AztecProtocol/aztec-packages/commit/c4ce9132e240cd3ac7953f9d3ddbd0317ca86817))
+* **avm:** Constrained ec_add ([#11525](https://github.com/AztecProtocol/aztec-packages/issues/11525)) ([f8fe602](https://github.com/AztecProtocol/aztec-packages/commit/f8fe602fe978fcd9f61a6476d24c03eb552d5341))
+* **avm:** Interaction testing ([#11947](https://github.com/AztecProtocol/aztec-packages/issues/11947)) ([fc647eb](https://github.com/AztecProtocol/aztec-packages/commit/fc647eb547ab5262e81f6400ad451f10b79b4439))
+* **avm:** Relation microbenchmarks ([#11974](https://github.com/AztecProtocol/aztec-packages/issues/11974)) ([95b581d](https://github.com/AztecProtocol/aztec-packages/commit/95b581de29df183c7ee443c990fef11a3f9a301e))
+
+
+### Miscellaneous
+
+* **avm:** Tracegen interactions assertion ([#11972](https://github.com/AztecProtocol/aztec-packages/issues/11972)) ([b865ccc](https://github.com/AztecProtocol/aztec-packages/commit/b865cccad1e5ff4b1cc175acd2095f0d2c1d423d))
+* Unify webpack dev server versions ([#11965](https://github.com/AztecProtocol/aztec-packages/issues/11965)) ([921d2cd](https://github.com/AztecProtocol/aztec-packages/commit/921d2cd9de54a9fd7cc49e4951c9fa65ab1526ef))
+
 ## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.2...barretenberg-v0.76.3) (2025-02-13)
 
 

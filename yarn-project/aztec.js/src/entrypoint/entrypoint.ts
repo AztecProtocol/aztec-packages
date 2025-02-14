@@ -3,7 +3,7 @@ import { type Fr } from '@aztec/circuits.js';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
 
-export { EntrypointPayload, FeeOptions, computeCombinedPayloadHash };
+export { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash };
 
 export { DefaultEntrypoint } from './default_entrypoint.js';
 export { DefaultMultiCallEntrypoint } from './default_multi_call_entrypoint.js';

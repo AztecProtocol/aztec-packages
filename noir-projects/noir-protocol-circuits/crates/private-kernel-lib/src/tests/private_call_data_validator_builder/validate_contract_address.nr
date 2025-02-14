@@ -85,6 +85,16 @@ fn validate_contract_address_protocol_contract_succeeds() {
     builder.validate();
 }
 
+#[test(should_fail)]
+fn validate_contract_address_protocol_contract_computed_address_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
+    // Swap the special address (0x01) with the computed address
+    builder.private_call.contract_address =
+        AztecAddress { inner: builder.private_call.protocol_contract_leaf.address };
+    // Validate may fail with either one of the low leaf membership errors
+    builder.validate();
+}
+
 #[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_wrong_index_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
@@ -94,11 +104,29 @@ fn validate_contract_address_protocol_contract_wrong_index_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "computed contract address does not match expected one")]
+#[test(should_fail_with = "Key does not match the key of the leaf preimage")]
 fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 
     builder.private_call.salted_initialization_hash.inner += 1;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "Key does not match the key of the leaf preimage")]
+fn validate_contract_address_protocol_address_wrong_low_leaf_key() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
+
+    builder.private_call.protocol_contract_leaf.address += 1;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "membership check failed")]
+fn validate_contract_address_protocol_address_wrong_low_leaf_next_key() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
+
+    builder.private_call.protocol_contract_leaf.next_address += 1;
 
     builder.validate();
 }
@@ -121,6 +149,15 @@ fn validate_contract_address_wrong_vk_fails() {
     builder.private_call.client_ivc_vk.key[0] = 27;
     builder.private_call.client_ivc_vk.hash =
         verification_key_hash(builder.private_call.client_ivc_vk.key);
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "membership check failed")]
+fn validate_contract_address_regular_address_wrong_low_leaf() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+
+    builder.private_call.protocol_contract_leaf.address += 1;
 
     builder.validate();
 }

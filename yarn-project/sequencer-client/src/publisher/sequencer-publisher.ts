@@ -482,7 +482,6 @@ export class SequencerPublisher {
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
-          provingCostModifier: 0n,
         },
         blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
