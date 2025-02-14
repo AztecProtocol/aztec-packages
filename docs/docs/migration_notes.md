@@ -103,7 +103,7 @@ pub trait NullifiableNote {
 }
 
 -pub trait NoteInterface<let N: u32> {
-+pub trait NoteInterface<let N: u32> {
++pub trait NoteInterface {
 -    fn pack_content(self) -> [Field; N];
 -    fn unpack_content(fields: [Field; N]) -> Self;
 -    fn get_header(self) -> NoteHeader;

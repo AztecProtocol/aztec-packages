@@ -28,28 +28,24 @@ comptime fn get_next_note_type_id() -> Field {
     note_type_id
 }
 
-/// Returns the packed length of a given note struct `s` wrapped in an Option if it implements `Packable`. Returns
-/// `Option::none()` if not.
-comptime fn get_packable_length(s: StructDefinition) -> Option<u32> {
+/// Generates a quote that implements `Packable` for a given note struct `s`.
+/// If the note struct already implements `Packable`, we return an empty quote.
+comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) -> (Quoted, u32) {
+    // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()
     let packed_len_typ = std::meta::typ::fresh_type_variable();
-
     // We don't care about the result of the implements check. We just want the get the packed length.
     let _ = s.as_type().implements(
         quote { crate::protocol_types::traits::Packable<$packed_len_typ> }.as_trait_constraint(),
     );
-    packed_len_typ.as_constant()
-}
-
-/// Generates a quote that implements `Packable` for a given note struct `s`.
-/// If the note struct already implements `Packable`, we return an empty quote.
-comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) -> (Quoted, u32) {
-    let maybe_packed_length = get_packable_length(s);
+    let maybe_packed_length = packed_len_typ.as_constant();
 
     if maybe_packed_length.is_some() {
+        // We got some packed length meaning that the note struct implements `Packable`. For this reason we return
+        // an empty quote for the implementation and the packed length.
         (quote {}, maybe_packed_length.unwrap())
     } else {
         // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
-        // so we derive it and then get the packed length again.
+        // so we derive it and return it along with the packed length.
         derive_packable_and_get_packed_len(s)
     }
 }

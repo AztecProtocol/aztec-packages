@@ -10,7 +10,7 @@ use dep::aztec::{
     },
 };
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a macro bug.
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
 use aztec::protocol_types::traits::Packable;
 
 // docs:start:nft_note

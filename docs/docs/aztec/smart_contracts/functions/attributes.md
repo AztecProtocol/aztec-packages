@@ -220,25 +220,13 @@ struct CustomNote {
 ```rust
 impl NoteInterface for CustomNote {
     fn get_note_type_id() -> Field {
-        0
+        // Assigned by macros by incrementing a counter
+        2
     }
 
     fn compute_note_hash(self, storage_slot: Field) -> Field {
-        let point = std::embedded_curve_ops::multi_scalar_mul(
-            [
-                Point { x: 0x..., y: 0x... },
-                Point { x: 0x..., y: 0x... },
-                Point { x: 0x..., y: 0x... },
-                Point { x: 0x..., y: 0x... }
-            ],
-            [
-                std::hash::from_field_unsafe(self.data),
-                std::hash::from_field_unsafe(self.owner.to_field()),
-                std::hash::from_field_unsafe(storage_slot),
-                std::hash::from_field_unsafe(3) // Length of the rest of the preimage
-            ]
-        );
-        point.x
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 }
 
@@ -284,7 +272,6 @@ impl Packable<2> for CustomNote {
         [self.data, self.owner.to_field()]
     }
 
-    // Cannot use the automatic unpacking for the aforementioned reasons
     fn unpack(packed_content: [Field; 2]) -> CustomNote {
         CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
     }
