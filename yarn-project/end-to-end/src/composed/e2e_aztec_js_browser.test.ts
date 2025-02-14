@@ -20,7 +20,7 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
 
 /**
  * This test is a bit of a special case as it's on a web browser and not only on anvil and node.js.
- * To run the test, do the following:
+ * To run the test on mainframe, do the following:
  *    1) Build the whole repository,
  *    2) If playwright is not installed, install it with `sudo npx playwright install`,
  *    3) start anvil: `anvil`,
@@ -32,10 +32,10 @@ const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
  *
  * Note 1: if you get browser executable not found error check the path from step 6 and fix it if necessary (browser version might have changed),
  * Note 2: If you get dependency error run `apt install libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2t64`.
- * NOTE 3: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
+ * Note 3: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
  *         unexpectedly running in the background. Kill it with `killall chrome`
- * NOTE 4: Don't forget to run `yarn build:web` once you make changes!
- * NOTE 5: The test serializes token contract artifact to and from buffer. If you introduce a new type in the artifact
+ * Note 4: Don't forget to run `yarn build:web` once you make changes!
+ * Note 5: The test serializes token contract artifact to and from buffer. If you introduce a new type in the artifact
  *         you have to register it on `TypeRegistry` class, implement fromJSON method just like TypeRegistry requires
  *         and add a case in `contractArtifactFromBuffer(...)` function.
  */
@@ -49,13 +49,6 @@ const setupApp = async () => {
   }
 
   const app = new Koa();
-  app.use(async (ctx, next) => {
-    if (ctx.url.endsWith('.gz')) {
-      ctx.set('Content-Encoding', 'gzip');
-      ctx.res.removeHeader('Content-Length');
-    }
-    await next();
-  });
   app.use(serve(path.resolve(__dirname, '../web')));
   const server = app.listen(PORT, () => {
     logger.info(`Web Server started at http://localhost:${PORT}`);

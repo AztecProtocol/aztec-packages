@@ -35,7 +35,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #completeAddressIndex: AztecAsyncMap<string, number>;
   #addressBook: AztecAsyncSet<string>;
   #authWitnesses: AztecAsyncMap<string, Buffer[]>;
-  #capsules: AztecAsyncArray<Buffer[]>;
   #notes: AztecAsyncMap<string, Buffer>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
   #nullifierToNoteId: AztecAsyncMap<string, string>;
@@ -65,7 +64,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #taggingSecretIndexesForRecipients: AztecAsyncMap<string, number>;
 
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
-  #contractStore: AztecAsyncMap<string, Buffer>;
+  #capsules: AztecAsyncMap<string, Buffer>;
 
   debug: LogFn;
 
@@ -78,7 +77,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#addressBook = db.openSet('address_book');
 
     this.#authWitnesses = db.openMap('auth_witnesses');
-    this.#capsules = db.openArray('capsules');
 
     this.#contractArtifacts = db.openMap('contract_artifacts');
     this.#contractInstances = db.openMap('contracts_instances');
@@ -107,7 +105,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#taggingSecretIndexesForSenders = db.openMap('tagging_secret_indexes_for_senders');
     this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
 
-    this.#contractStore = db.openMap('contract_store');
+    this.#capsules = db.openMap('capsules');
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
@@ -187,15 +185,6 @@ export class KVPxeDatabase implements PxeDatabase {
   async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     const witness = await this.#authWitnesses.getAsync(messageHash.toString());
     return Promise.resolve(witness?.map(w => Fr.fromBuffer(w)));
-  }
-
-  async addCapsule(capsule: Fr[]): Promise<void> {
-    await this.#capsules.push(capsule.map(c => c.toBuffer()));
-  }
-
-  async popCapsule(): Promise<Fr[] | undefined> {
-    const val = await this.#capsules.pop();
-    return val?.map(b => Fr.fromBuffer(b));
   }
 
   async addNote(note: NoteDao, scope?: AztecAddress): Promise<void> {
@@ -314,7 +303,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     for (const scope of new Set(filter.scopes)) {
       const formattedScopeString = scope.toString();
-      if (!this.#scopes.hasAsync(formattedScopeString)) {
+      if (!(await this.#scopes.hasAsync(formattedScopeString))) {
         throw new Error('Trying to get incoming notes of an scope that is not in the PXE database');
       }
 
@@ -568,7 +557,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async removeSenderAddress(address: AztecAddress): Promise<boolean> {
-    if (!this.#addressBook.hasAsync(address.toString())) {
+    if (!(await this.#addressBook.hasAsync(address.toString()))) {
       return false;
     }
 
@@ -627,32 +616,29 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    await this.#contractStore.set(
-      dbSlotToKey(contractAddress, slot),
-      Buffer.concat(values.map(value => value.toBuffer())),
-    );
+  async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    await this.#capsules.set(dbSlotToKey(contractAddress, slot), Buffer.concat(capsule.map(value => value.toBuffer())));
   }
 
-  async dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    const dataBuffer = await this.#contractStore.getAsync(dbSlotToKey(contractAddress, slot));
+  async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
       this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
-    const values: Fr[] = [];
+    const capsule: Fr[] = [];
     for (let i = 0; i < dataBuffer.length; i += Fr.SIZE_IN_BYTES) {
-      values.push(Fr.fromBuffer(dataBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
+      capsule.push(Fr.fromBuffer(dataBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
     }
-    return values;
+    return capsule;
   }
 
-  async dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    await this.#contractStore.delete(dbSlotToKey(contractAddress, slot));
+  async deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    await this.#capsules.delete(dbSlotToKey(contractAddress, slot));
   }
 
-  async dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    // In order to support overlaping source and destination regions we need to check the relative positions of source
+  async copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    // In order to support overlapping source and destination regions, we need to check the relative positions of source
     // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
     // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
     // indexes to avoid reading elements that've been overwritten.
@@ -666,12 +652,12 @@ export class KVPxeDatabase implements PxeDatabase {
       const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)));
       const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)));
 
-      const toCopy = await this.#contractStore.getAsync(currentSrcSlot);
+      const toCopy = await this.#capsules.getAsync(currentSrcSlot);
       if (!toCopy) {
         throw new Error(`Attempted to copy empty slot ${currentSrcSlot} for contract ${contractAddress.toString()}`);
       }
 
-      await this.#contractStore.set(currentDstSlot, toCopy);
+      await this.#capsules.set(currentDstSlot, toCopy);
     }
   }
 }

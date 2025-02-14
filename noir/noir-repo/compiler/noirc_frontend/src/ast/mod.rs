@@ -5,6 +5,7 @@
 //! Noir's Ast is produced by the parser and taken as input to name resolution,
 //! where it is converted into the Hir (defined in the hir_def module).
 mod docs;
+mod enumeration;
 mod expression;
 mod function;
 mod statement;
@@ -24,6 +25,7 @@ use proptest_derive::Arbitrary;
 
 use acvm::FieldElement;
 pub use docs::*;
+pub use enumeration::*;
 use noirc_errors::Span;
 use serde::{Deserialize, Serialize};
 pub use statement::*;
@@ -223,18 +225,6 @@ impl From<Vec<GenericTypeArg>> for GenericTypeArgs {
     }
 }
 
-/// Type wrapper for a member access
-pub struct UnaryRhsMemberAccess {
-    pub method_or_field: Ident,
-    pub method_call: Option<UnaryRhsMethodCall>,
-}
-
-pub struct UnaryRhsMethodCall {
-    pub turbofish: Option<Vec<UnresolvedType>>,
-    pub macro_call: bool,
-    pub args: Vec<Expression>,
-}
-
 /// The precursor to TypeExpression, this is the type that the parser allows
 /// to be used in the length position of an array type. Only constant integers, variables,
 /// and numeric binary operators are allowed here.
@@ -249,12 +239,6 @@ pub enum UnresolvedTypeExpression {
         Span,
     ),
     AsTraitPath(Box<AsTraitPath>),
-}
-
-impl Recoverable for UnresolvedType {
-    fn error(span: Span) -> Self {
-        UnresolvedType { typ: UnresolvedTypeData::Error, span }
-    }
 }
 
 impl std::fmt::Display for GenericTypeArg {

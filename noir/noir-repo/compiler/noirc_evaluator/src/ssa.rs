@@ -13,7 +13,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::errors::{RuntimeError, SsaReport};
+use crate::{
+    brillig::BrilligOptions,
+    errors::{RuntimeError, SsaReport},
+};
 use acvm::{
     acir::{
         circuit::{
@@ -38,7 +41,7 @@ use crate::acir::{Artifacts, GeneratedAcir};
 mod checks;
 pub(super) mod function_builder;
 pub mod ir;
-mod opt;
+pub(crate) mod opt;
 #[cfg(test)]
 pub(crate) mod parser;
 pub mod ssa_gen;
@@ -54,7 +57,8 @@ pub struct SsaEvaluatorOptions {
     /// Emit debug information for the intermediate SSA IR
     pub ssa_logging: SsaLogging,
 
-    pub enable_brillig_logging: bool,
+    /// Options affecting Brillig code generation.
+    pub brillig_options: BrilligOptions,
 
     /// Pretty print benchmark times of each code generation pass
     pub print_codegen_timings: bool,
@@ -68,8 +72,13 @@ pub struct SsaEvaluatorOptions {
     /// Skip the check for under constrained values
     pub skip_underconstrained_check: bool,
 
-    /// Skip the missing Brillig call constraints check
-    pub skip_brillig_constraints_check: bool,
+    /// Enable the missing Brillig call constraints check
+    pub enable_brillig_constraints_check: bool,
+
+    /// Enable the lookback feature of the Brillig call constraints
+    /// check (prevents some rare false positives, leads to a slowdown
+    /// on large rollout functions)
+    pub enable_brillig_constraints_check_lookback: bool,
 
     /// The higher the value, the more inlined Brillig functions will be.
     pub inliner_aggressiveness: i64,
@@ -104,6 +113,28 @@ pub(crate) fn optimize_into_acir(
 
     let mut ssa_level_warnings = vec![];
 
+    drop(ssa_gen_span_guard);
+
+    let used_globals_map = std::mem::take(&mut ssa.used_globals);
+    let brillig = time("SSA to Brillig", options.print_codegen_timings, || {
+        ssa.to_brillig_with_globals(&options.brillig_options, used_globals_map)
+    });
+
+    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
+    let ssa_gen_span_guard = ssa_gen_span.enter();
+
+    let mut ssa = SsaBuilder {
+        ssa,
+        ssa_logging: options.ssa_logging.clone(),
+        print_codegen_timings: options.print_codegen_timings,
+    }
+    .run_pass(|ssa| ssa.fold_constants_with_brillig(&brillig), "Inlining Brillig Calls Inlining")
+    // It could happen that we inlined all calls to a given brillig function.
+    // In that case it's unused so we can remove it. This is what we check next.
+    .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions (3rd)")
+    .run_pass(Ssa::dead_instruction_elimination, "Dead Instruction Elimination (2nd)")
+    .finish();
+
     if !options.skip_underconstrained_check {
         ssa_level_warnings.extend(time(
             "After Check for Underconstrained Values",
@@ -112,36 +143,22 @@ pub(crate) fn optimize_into_acir(
         ));
     }
 
-    if !options.skip_brillig_constraints_check {
+    if options.enable_brillig_constraints_check {
         ssa_level_warnings.extend(time(
             "After Check for Missing Brillig Call Constraints",
             options.print_codegen_timings,
-            || ssa.check_for_missing_brillig_constraints(),
+            || {
+                ssa.check_for_missing_brillig_constraints(
+                    options.enable_brillig_constraints_check_lookback,
+                )
+            },
         ));
     };
 
     drop(ssa_gen_span_guard);
 
-    let brillig = time("SSA to Brillig", options.print_codegen_timings, || {
-        ssa.to_brillig(options.enable_brillig_logging)
-    });
-
-    let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
-    let ssa_gen_span_guard = ssa_gen_span.enter();
-
-    let ssa = SsaBuilder {
-        ssa,
-        ssa_logging: options.ssa_logging.clone(),
-        print_codegen_timings: options.print_codegen_timings,
-    }
-    .run_pass(|ssa| ssa.fold_constants_with_brillig(&brillig), "Inlining Brillig Calls Inlining")
-    .run_pass(Ssa::dead_instruction_elimination, "Dead Instruction Elimination (2nd)")
-    .finish();
-
-    drop(ssa_gen_span_guard);
-
     let artifacts = time("SSA to ACIR", options.print_codegen_timings, || {
-        ssa.into_acir(&brillig, options.expression_width)
+        ssa.into_acir(&brillig, &options.brillig_options, options.expression_width)
     })?;
 
     Ok(ArtifactsAndWarnings(artifacts, ssa_level_warnings))
@@ -150,30 +167,39 @@ pub(crate) fn optimize_into_acir(
 /// Run all SSA passes.
 fn optimize_all(builder: SsaBuilder, options: &SsaEvaluatorOptions) -> Result<Ssa, RuntimeError> {
     Ok(builder
-        .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions")
+        .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions (1st)")
         .run_pass(Ssa::defunctionalize, "Defunctionalization")
+        .run_pass(Ssa::inline_simple_functions, "Inlining simple functions")
+        // BUG: Enabling this mem2reg causes an integration test failure in aztec-package; see:
+        // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2622809518
+        //.run_pass(Ssa::mem2reg, "Mem2Reg (1st)")
         .run_pass(Ssa::remove_paired_rc, "Removing Paired rc_inc & rc_decs")
+        .run_pass(
+            |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
+            "Preprocessing Functions",
+        )
         .run_pass(|ssa| ssa.inline_functions(options.inliner_aggressiveness), "Inlining (1st)")
         // Run mem2reg with the CFG separated into blocks
-        .run_pass(Ssa::mem2reg, "Mem2Reg (1st)")
+        .run_pass(Ssa::mem2reg, "Mem2Reg (2nd)")
         .run_pass(Ssa::simplify_cfg, "Simplifying (1st)")
         .run_pass(Ssa::as_slice_optimization, "`as_slice` optimization")
-        .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions")
+        .run_pass(Ssa::remove_unreachable_functions, "Removing Unreachable Functions (2nd)")
         .try_run_pass(
             Ssa::evaluate_static_assert_and_assert_constant,
             "`static_assert` and `assert_constant`",
         )?
+        .run_pass(Ssa::purity_analysis, "Purity Analysis")
         .run_pass(Ssa::loop_invariant_code_motion, "Loop Invariant Code Motion")
         .try_run_pass(
             |ssa| ssa.unroll_loops_iteratively(options.max_bytecode_increase_percent),
             "Unrolling",
         )?
         .run_pass(Ssa::simplify_cfg, "Simplifying (2nd)")
-        .run_pass(Ssa::mem2reg, "Mem2Reg (2nd)")
+        .run_pass(Ssa::mem2reg, "Mem2Reg (3rd)")
         .run_pass(Ssa::flatten_cfg, "Flattening")
         .run_pass(Ssa::remove_bit_shifts, "Removing Bit Shifts")
         // Run mem2reg once more with the flattened CFG to catch any remaining loads/stores
-        .run_pass(Ssa::mem2reg, "Mem2Reg (3rd)")
+        .run_pass(Ssa::mem2reg, "Mem2Reg (4th)")
         // Run the inlining pass again to handle functions with `InlineType::NoPredicates`.
         // Before flattening is run, we treat functions marked with the `InlineType::NoPredicates` as an entry point.
         // This pass must come immediately following `mem2reg` as the succeeding passes
@@ -183,12 +209,13 @@ fn optimize_all(builder: SsaBuilder, options: &SsaEvaluatorOptions) -> Result<Ss
             "Inlining (2nd)",
         )
         .run_pass(Ssa::remove_if_else, "Remove IfElse")
+        .run_pass(Ssa::purity_analysis, "Purity Analysis (2nd)")
         .run_pass(Ssa::fold_constants, "Constant Folding")
         .run_pass(Ssa::remove_enable_side_effects, "EnableSideEffectsIf removal")
         .run_pass(Ssa::fold_constants_using_constraints, "Constraint Folding")
         .run_pass(Ssa::make_constrain_not_equal_instructions, "Adding constrain not equal")
         .run_pass(Ssa::dead_instruction_elimination, "Dead Instruction Elimination (1st)")
-        .run_pass(Ssa::simplify_cfg, "Simplifying:")
+        .run_pass(Ssa::simplify_cfg, "Simplifying (3rd):")
         .run_pass(Ssa::array_set_optimization, "Array Set Optimizations")
         .finish())
 }
@@ -480,6 +507,11 @@ impl SsaBuilder {
     }
 
     fn print(mut self, msg: &str) -> Self {
+        // Always normalize if we are going to print at least one of the passes
+        if !matches!(self.ssa_logging, SsaLogging::None) {
+            self.ssa.normalize_ids();
+        }
+
         let print_ssa_pass = match &self.ssa_logging {
             SsaLogging::None => false,
             SsaLogging::All => true,
@@ -491,7 +523,6 @@ impl SsaBuilder {
             }
         };
         if print_ssa_pass {
-            self.ssa.normalize_ids();
             println!("After {msg}:\n{}", self.ssa);
         }
         self

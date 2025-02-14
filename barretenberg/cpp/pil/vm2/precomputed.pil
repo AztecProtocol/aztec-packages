@@ -38,3 +38,13 @@ pol constant sha256_compression_round_constant;
 // You get it. It can be extended up to 254 bits if needed.
 pol constant sel_unary;
 pol constant as_unary;
+
+// A mapping between a non-FF MemoryTag value and their respective byte lengths:
+// {U1: 1, U8: 1, U16: 2, ... , U128: 16}
+// The enum values of MemoryTag are present in column clk.
+pol constant sel_integral_tag; // Toggle row with clk == U1,U8,U16,...,U128
+pol constant integral_tag_length; // Columns for the byte length 1,1,2,...,16;
+
+// Remark: A potential optimization may consist in using sel_bitwise instead of sel_integral_mem_tag.
+//         However, it would extend this lookup table with pairs such as (0,0), (7,0), (8,0) which is
+//         not without any danger.

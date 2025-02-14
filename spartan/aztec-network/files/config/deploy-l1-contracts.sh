@@ -3,11 +3,12 @@ set -exu
 
 SALT=${1:-$RANDOM}
 CHAIN_ID=$2
+VALIDATOR_ADDRESSES=$3
 
 # Run the deploy-l1-contracts command and capture the output
 output=""
 MAX_RETRIES=5
-RETRY_DELAY=60
+RETRY_DELAY=15
 
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
@@ -22,7 +23,7 @@ for attempt in $(seq 1 $MAX_RETRIES); do
 
   # Add validators if INIT_VALIDATORS is true
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$(eval $base_cmd --validators $3 --l1-chain-id $CHAIN_ID --salt $SALT) && break
+    output=$(eval $base_cmd --validators $VALIDATOR_ADDRESSES --l1-chain-id $CHAIN_ID --salt $SALT) && break
   else
     output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
   fi

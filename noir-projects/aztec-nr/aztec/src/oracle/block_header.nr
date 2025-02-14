@@ -88,18 +88,18 @@ mod test {
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(3);
+        env.advance_block_by(4);
 
         // We get our current header for the last archive values.
         let current_header = env.private().historical_header;
 
-        let target_block_number = 2;
-        let bad_header = get_block_header_at_internal(target_block_number - 1);
+        let target_block_number = 3;
+        let bad_header = get_block_header_at_internal(target_block_number);
 
         // We pass in a different block number than the header received
         constrain_get_block_header_at_internal(
             bad_header,
-            2,
+            target_block_number - 1,
             current_header.global_variables.block_number as u32 - 1,
             current_header.last_archive.root,
         );

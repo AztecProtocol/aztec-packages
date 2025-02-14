@@ -71,8 +71,8 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    pub unconstrained fn create_account(_self: Self) -> AztecAddress {
-        let test_account = cheatcodes::create_account();
+    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
+        let test_account = cheatcodes::create_account(secret);
         test_account.address
     }
 
@@ -95,11 +95,29 @@ impl TestEnvironment {
         path: str<N>,
         name: str<M>,
     ) -> Deployer<N, M> {
-        Deployer { path, name, public_keys_hash: 0 }
+        Deployer { path, name, secret: 0 }
     }
 
     pub unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { path: "", name, public_keys_hash: 0 }
+        Deployer { path: "", name, secret: 0 }
+    }
+
+    // Deploying with public keys assumes secret != 0
+    pub unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(
+        _self: Self,
+        path: str<N>,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<N, M> {
+        Deployer { path, name, secret }
+    }
+
+    pub unconstrained fn deploy_self_with_public_keys<let M: u32>(
+        _self: Self,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<0, M> {
+        Deployer { path: "", name, secret }
     }
 
     pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
@@ -145,9 +163,9 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
-        let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
+        let header = NoteHeader { contract_address, nonce: 0, note_hash_counter };
         note.set_header(header);
-        let note_hash = note.compute_note_hash();
+        let note_hash = note.compute_note_hash(storage_slot);
         let packed_content = Note::pack_content(*note);
         notify_created_note(
             storage_slot,

@@ -65,6 +65,8 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript->load_proof(stdlib_proof);
@@ -121,12 +123,14 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 
     // Execute Shplemini
     bool consistency_checked = true;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
+                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
-                                               commitments.get_unshifted_without_concatenated(),
-                                               commitments.get_to_be_shifted(),
-                                               sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
-                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,

@@ -7,14 +7,11 @@ namespace bb {
 /*!
 \brief Child class of UltraFlavor that runs with ZK Sumcheck.
 \details
-Most of the properties of UltraFlavor are
-inherited without any changes, except for the MAX_PARTIAL_RELATION_LENGTH which is now computed as a maximum of
-SUBRELATION_PARTIAL_LENGTHS incremented by the corresponding SUBRELATION_WITNESS_DEGREES over all relations included in
-UltraFlavor, which also affects the size of ExtendedEdges univariate containers.
-Moreover, the container SumcheckTupleOfTuplesOfUnivariates is resized to reflect that masked
-witness polynomials are of degree at most \f$2\f$ in each variable, and hence, for any subrelation, the corresponding
-univariate accumuluator size has to be increased by the subrelation's witness degree. See more in
-\ref docs/src/sumcheck-outline.md "Sumcheck Outline".
+Most of the properties of UltraFlavor are inherited without any changes. However, the BATCHED_RELATION_PARTIAL_LENGTH is
+incremented by 1, as we are using the sumcheck with disabled rows, where the main Honk relation is multiplied by a sum
+of multilinear Lagranges. Additionally, the transcript contains extra elements, such as commitments and evaluations of
+Libra polynomials used in Sumcheck to make it ZK, as well as a commitment and an evaluation of a hiding polynomials that
+turns the PCS stage ZK.
 */
 class UltraZKFlavor : public UltraFlavor {
   public:

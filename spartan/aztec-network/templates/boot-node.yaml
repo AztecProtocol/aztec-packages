@@ -27,18 +27,43 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: boot-node
     spec:
-      {{- if .Values.storage.localSsd }}
-      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
       {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+
+        # Generate the validator addresses; used in the deploy-l1-contracts step
+        - name: generate-validator-addresses
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              source /scripts/get-validator-addresses.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: NUMBER_OF_VALIDATORS
+              value: {{ .Values.validator.replicas | quote }}
+
         - name: wait-for-ethereum
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -61,9 +86,11 @@ spec:
               cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
               chmod +x /tmp/deploy-l1-contracts.sh
               source /shared/config/service-addresses
+              source /shared/config/validator-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
+
+              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -88,6 +115,10 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: L1_GAS_PRICE_MAX
+              value: "{{ .Values.ethereum.l1GasPriceMax }}"
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -100,8 +131,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -186,8 +219,6 @@ spec:
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-            - name: SEQ_PUBLISHER_PRIVATE_KEY
-              value: "{{ .Values.bootNode.seqPublisherPrivateKey }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
@@ -218,10 +249,16 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
@@ -279,6 +316,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-boot-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: boot-node
 spec:
   # If this is a public network, we want to expose the boot node as a LoadBalancer
   {{- if .Values.network.public }}

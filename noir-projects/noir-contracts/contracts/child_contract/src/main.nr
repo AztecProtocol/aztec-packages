@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Child {
+pub contract Child {
     use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{
@@ -11,7 +11,9 @@ contract Child {
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
     };
+    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
+    // docs:end:import_valuenote
 
     #[storage]
     struct Storage<Context> {
@@ -55,7 +57,10 @@ contract Child {
 
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
+        // docs:start:valuenote_new
         let mut note = ValueNote::new(new_value, owner);
+        // docs:end:valuenote_new
+
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             owner,

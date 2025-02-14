@@ -1,7 +1,8 @@
 import { BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMapWithSize, type AztecMultiMap } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
@@ -10,144 +11,149 @@ import { type AttestationPool } from './attestation_pool.js';
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
-  // Index of all proposal ids in a slot
-  private attestations: AztecMultiMap<string, string>;
+  private attestations: AztecAsyncMap<string, Buffer>;
+  private proposalsForSlot: AztecAsyncMultiMap<string, string>;
+  private attestationsForProposal: AztecAsyncMultiMap<string, string>;
 
   constructor(
-    private store: AztecKVStore,
+    private store: AztecAsyncKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('aztec:attestation_pool'),
   ) {
-    this.attestations = store.openMultiMap('attestations');
+    this.attestations = store.openMap('attestations');
+    this.proposalsForSlot = store.openMultiMap('proposals_for_slot');
+    this.attestationsForProposal = store.openMultiMap('attestations_for_proposal');
+
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
-  private getProposalMapKey(slot: string, proposalId: string): string {
-    return `proposal-${slot}-${proposalId}`;
+  private getProposalKey(slot: number | bigint | Fr | string, proposalId: Fr | string | Buffer): string {
+    const slotStr = typeof slot === 'string' ? slot : new Fr(slot).toString();
+    const proposalIdStr =
+      typeof proposalId === 'string'
+        ? proposalId
+        : Buffer.isBuffer(proposalId)
+        ? Fr.fromBuffer(proposalId).toString()
+        : proposalId.toString();
+
+    return `${slotStr}-${proposalIdStr}`;
   }
 
-  /**
-   * Get the proposal map for a given slot and proposalId
-   *
-   * Essentially a nested mapping of address -> attestation
-   *
-   * @param slot - The slot to get the proposal map for
-   * @param proposalId - The proposalId to get the map for
-   * @returns The proposal map
-   */
-  private getProposalMap(slot: string, proposalId: string): AztecMapWithSize<string, Buffer> {
-    const mapKey = this.getProposalMapKey(slot, proposalId);
-    return this.store.openMapWithSize(mapKey);
+  private getAttestationKey(slot: number | bigint | Fr | string, proposalId: Fr | string, address: string): string {
+    return `${this.getProposalKey(slot, proposalId)}-${address}`;
   }
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
-    for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
-      const proposalId = attestation.archive.toString();
-      const address = (await attestation.getSender()).toString();
+    await this.store.transactionAsync(async () => {
+      for (const attestation of attestations) {
+        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const proposalId = attestation.archive;
+        const address = (await attestation.getSender()).toString();
 
-      // Index the proposalId in the slot map
-      await this.attestations.set(slotNumber, proposalId);
+        await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
-      // Store the actual attestation in the proposal map
-      const proposalMap = this.getProposalMap(slotNumber, proposalId);
-      await proposalMap.set(address, attestation.toBuffer());
+        await this.proposalsForSlot.set(slotNumber.toString(), proposalId.toString());
+        await this.attestationsForProposal.set(
+          this.getProposalKey(slotNumber, proposalId),
+          this.getAttestationKey(slotNumber, proposalId, address),
+        );
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
-    }
+        this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+      }
+    });
 
     this.metrics.recordAddedObjects(attestations.length);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    const slotNumber = new Fr(slot).toString();
-    const proposalMap = this.getProposalMap(slotNumber, proposalId);
-    const attestations = proposalMap.values();
-    const attestationsArray = Array.from(attestations).map(attestation => BlockAttestation.fromBuffer(attestation));
-    return Promise.resolve(attestationsArray);
+  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    const attestationIds = await toArray(
+      this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
+    );
+    const attestations: BlockAttestation[] = [];
+
+    // alternatively iterate this.attestaions starting from slot-proposal-EthAddress.zero
+    for (const id of attestationIds) {
+      const buf = await this.attestations.getAsync(id);
+
+      if (!buf) {
+        // this should not happen unless we lost writes
+        throw new Error('Attestation not found ' + id);
+      }
+
+      const attestation = BlockAttestation.fromBuffer(buf);
+      attestations.push(attestation);
+    }
+
+    return attestations;
   }
 
   public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
-    const olderThan = [];
-
-    const slots = this.attestations.keys();
-    for (const slot of slots) {
-      if (BigInt(slot) < oldestSlot) {
-        olderThan.push(slot);
-      }
+    const olderThan = await toArray(this.proposalsForSlot.keysAsync({ end: new Fr(oldestSlot).toString() }));
+    for (const oldSlot of olderThan) {
+      await this.deleteAttestationsForSlot(BigInt(oldSlot));
     }
-
-    await Promise.all(olderThan.map(oldSlot => this.deleteAttestationsForSlot(BigInt(oldSlot))));
-    return Promise.resolve();
   }
 
   public async deleteAttestationsForSlot(slot: bigint): Promise<void> {
-    const deletionPromises = [];
-
-    const slotString = new Fr(slot).toString();
+    const slotFr = new Fr(slot);
     let numberOfAttestations = 0;
-    const proposalIds = this.attestations.getValues(slotString);
-
-    if (proposalIds) {
+    await this.store.transactionAsync(async () => {
+      const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slotFr.toString()));
       for (const proposalId of proposalIds) {
-        const proposalMap = this.getProposalMap(slotString, proposalId);
-        numberOfAttestations += proposalMap.size();
-        deletionPromises.push(proposalMap.clear());
-      }
-    }
+        const attestations = await toArray(
+          this.attestationsForProposal.getValuesAsync(this.getProposalKey(slotFr, proposalId)),
+        );
 
-    await Promise.all(deletionPromises);
+        numberOfAttestations += attestations.length;
+        for (const attestation of attestations) {
+          await this.attestations.delete(attestation);
+        }
+
+        await this.attestationsForProposal.delete(this.getProposalKey(slotFr, proposalId));
+      }
+    });
 
     this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
     this.metrics.recordRemovedObjects(numberOfAttestations);
-    return Promise.resolve();
   }
 
   public async deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
-    const deletionPromises = [];
+    let numberOfAttestations = 0;
+    await this.store.transactionAsync(async () => {
+      const slotString = new Fr(slot).toString();
+      const attestations = await toArray(
+        this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
+      );
 
-    const slotString = new Fr(slot).toString();
-    const exists = this.attestations.get(slotString);
+      numberOfAttestations += attestations.length;
+      for (const attestation of attestations) {
+        await this.attestations.delete(attestation);
+      }
 
-    if (exists) {
-      // Remove the proposalId from the slot index
-      deletionPromises.push(this.attestations.deleteValue(slotString, proposalId));
+      await this.proposalsForSlot.deleteValue(slotString, proposalId);
+      await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
+    });
 
-      // Delete all attestations for the proposalId
-      const proposalMap = this.getProposalMap(slotString, proposalId);
-      const numberOfAttestations = proposalMap.size();
-      deletionPromises.push(proposalMap.clear());
-
-      this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-      this.metrics.recordRemovedObjects(numberOfAttestations);
-    }
-
-    await Promise.all(deletionPromises);
-    return Promise.resolve();
+    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
+    this.metrics.recordRemovedObjects(numberOfAttestations);
   }
 
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
-    const deletionPromises = [];
-
-    for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber.toString();
-      const proposalId = attestation.archive.toString();
-      const proposalMap = this.getProposalMap(slotNumber, proposalId);
-
-      if (proposalMap) {
+    await this.store.transactionAsync(async () => {
+      for (const attestation of attestations) {
+        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const proposalId = attestation.archive;
         const address = (await attestation.getSender()).toString();
-        deletionPromises.push(proposalMap.delete(address));
+
+        await this.attestations.delete(this.getAttestationKey(slotNumber, proposalId, address));
+        await this.attestationsForProposal.deleteValue(
+          this.getProposalKey(slotNumber, proposalId),
+          this.getAttestationKey(slotNumber, proposalId, address),
+        );
+
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
-
-      if (proposalMap.size() === 0) {
-        deletionPromises.push(this.attestations.deleteValue(slotNumber, proposalId));
-      }
-    }
-
-    await Promise.all(deletionPromises);
-
+    });
     this.metrics.recordRemovedObjects(attestations.length);
-    return Promise.resolve();
   }
 }

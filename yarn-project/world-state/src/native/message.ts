@@ -2,50 +2,6 @@ import { MerkleTreeId } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-export type MessageHeaderInit = {
-  /** The message ID. Optional, if not set defaults to 0 */
-  messageId?: number;
-  /** Identifies the original request. Optional */
-  requestId?: number;
-};
-
-export class MessageHeader {
-  /** An number to identify this message */
-  public readonly messageId: number;
-  /** If this message is a response to a request, the messageId of the request */
-  public readonly requestId: number;
-
-  constructor({ messageId, requestId }: MessageHeaderInit) {
-    this.messageId = messageId ?? 0;
-    this.requestId = requestId ?? 0;
-  }
-
-  static fromMessagePack(data: object): MessageHeader {
-    return new MessageHeader(data as MessageHeaderInit);
-  }
-}
-
-interface TypedMessageLike {
-  msgType: number;
-  header: {
-    messageId?: number;
-    requestId?: number;
-  };
-  value: any;
-}
-
-export class TypedMessage<T, B> {
-  public constructor(public readonly msgType: T, public readonly header: MessageHeader, public readonly value: B) {}
-
-  static fromMessagePack<T, B>(data: TypedMessageLike): TypedMessage<T, B> {
-    return new TypedMessage<T, B>(data['msgType'] as T, MessageHeader.fromMessagePack(data['header']), data['value']);
-  }
-
-  static isTypedMessageLike(obj: any): obj is TypedMessageLike {
-    return typeof obj === 'object' && obj !== null && 'msgType' in obj && 'header' in obj && 'value' in obj;
-  }
-}
-
 export enum WorldStateMessageType {
   GET_TREE_INFO = 100,
   GET_STATE_REFERENCE,
@@ -78,6 +34,10 @@ export enum WorldStateMessageType {
   REMOVE_HISTORICAL_BLOCKS,
 
   GET_STATUS,
+
+  CREATE_CHECKPOINT,
+  COMMIT_CHECKPOINT,
+  REVERT_CHECKPOINT,
 
   CLOSE = 999,
 }
@@ -494,6 +454,10 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
 
+  [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -529,6 +493,10 @@ export type WorldStateResponse = {
   [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
+
+  [WorldStateMessageType.CREATE_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

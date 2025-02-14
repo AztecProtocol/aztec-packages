@@ -22,7 +22,7 @@ pub struct PrivateSet<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PrivateSet<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PrivateSet<T, Context>
 where
     T: Packable<N>,
 {
@@ -87,7 +87,7 @@ where
     /// Note that if you obtained the note via `get_notes` it's much better to use `pop_notes` as `pop_notes` results
     /// in significantly less constrains due to avoiding an extra hash and read request check.
     pub fn remove(self, note: Note) {
-        let note_hash = compute_note_hash_for_read_request(note);
+        let note_hash = compute_note_hash_for_read_request(note, self.storage_slot);
         let has_been_read =
             self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");

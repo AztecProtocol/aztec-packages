@@ -4,3 +4,5 @@ pub mod comparison;
 pub mod field;
 pub mod point;
 pub mod to_bytes;
+pub mod secrets;
+pub mod with_hash;

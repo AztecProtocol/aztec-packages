@@ -18,18 +18,25 @@ import {
   type GasSettings,
   type GlobalVariables,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
-  type PublicCallRequest,
-  PublicCircuitPublicInputs,
+  PublicCallRequest,
+  PublicDataWrite,
   RevertCode,
   type StateReference,
   TreeSnapshots,
   computeTransactionFee,
   countAccumulatedItems,
+  mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { assertLength } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
@@ -37,7 +44,6 @@ import { inspect } from 'util';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
-import { generateAvmCircuitPublicInputs } from './transitional_adapters.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 
 /**
@@ -156,7 +162,7 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.debug(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason
@@ -164,7 +170,7 @@ export class PublicTxContext {
       this.revertReason = revertReason;
     }
     if (phase === TxExecutionPhase.SETUP) {
-      this.log.debug(`Setup phase reverted! The transaction will be thrown out.`);
+      this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
       if (revertReason) {
         throw revertReason;
       } else {
@@ -351,23 +357,78 @@ export class PublicTxContext {
       publicDataTree,
     );
 
-    return generateAvmCircuitPublicInputs(
-      this.trace,
+    const startTreeSnapshots = new TreeSnapshots(
+      this.startStateReference.l1ToL2MessageTree,
+      this.startStateReference.partial.noteHashTree,
+      this.startStateReference.partial.nullifierTree,
+      this.startStateReference.partial.publicDataTree,
+    );
+
+    const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
       this.globalVariables,
-      this.startStateReference,
+      startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.feePayer,
       this.setupCallRequests,
       this.appLogicCallRequests,
-      this.teardownCallRequests,
-      this.nonRevertibleAccumulatedDataFromPrivate,
-      this.revertibleAccumulatedDataFromPrivate,
+      /*teardownCallRequest=*/ this.teardownCallRequests.length
+        ? this.teardownCallRequests[0]
+        : PublicCallRequest.empty(),
       endTreeSnapshots,
       /*endGasUsed=*/ this.getTotalGasUsed(),
-      this.getTransactionFeeUnsafe(),
-      this.revertCode,
+      /*transactionFee=*/ this.getTransactionFeeUnsafe(),
+      /*reverted=*/ !this.revertCode.isOK(),
     );
+
+    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedDataArrayLengths(
+        countAccumulatedItems(from.noteHashes),
+        countAccumulatedItems(from.nullifiers),
+        countAccumulatedItems(from.l2ToL1Msgs),
+      );
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+    // Temporary overrides as these entries aren't yet populated in trace
+    avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+      this.nonRevertibleAccumulatedDataFromPrivate,
+    );
+    avmCircuitPublicInputs.previousRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+      this.revertibleAccumulatedDataFromPrivate,
+    );
+    avmCircuitPublicInputs.previousNonRevertibleAccumulatedData = convertAccumulatedData(
+      this.nonRevertibleAccumulatedDataFromPrivate,
+    );
+    avmCircuitPublicInputs.previousRevertibleAccumulatedData = convertAccumulatedData(
+      this.revertibleAccumulatedDataFromPrivate,
+    );
+
+    const msgsFromPrivate = this.revertCode.isOK()
+      ? mergeAccumulatedData(
+          avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,
+          avmCircuitPublicInputs.previousRevertibleAccumulatedData.l2ToL1Msgs,
+        )
+      : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs;
+    avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs = assertLength(
+      mergeAccumulatedData(msgsFromPrivate, avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs),
+      MAX_L2_TO_L1_MSGS_PER_TX,
+    );
+
+    // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
+    // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
+    // and the rest occurrences are omitted
+    const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
+    for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
+      squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.value);
+    }
+
+    avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
+      Array.from(squashedPublicDataWrites.entries()).map(([slot, value]) => new PublicDataWrite(new Fr(slot), value)),
+      PublicDataWrite.empty(),
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
+    return avmCircuitPublicInputs;
   }
 
   /**
@@ -380,7 +441,6 @@ export class PublicTxContext {
       inputs: new AvmCircuitInputs(
         'public_dispatch',
         [],
-        PublicCircuitPublicInputs.empty(),
         hints,
         await this.generateAvmCircuitPublicInputs(endStateReference),
       ),

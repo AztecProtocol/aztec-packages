@@ -5,7 +5,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract PendingNoteHashes {
+pub contract PendingNoteHashes {
     // Libs
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::macros::{functions::private, storage::storage};
@@ -339,9 +339,15 @@ contract PendingNoteHashes {
         let mut bad_note = ValueNote::new(5, owner);
         // ...but we need a 'good' note header to get the context to add the note log
         let existing_note_header = good_note.get_header();
+        let existing_note_storage_slot = owner_balance.storage_slot;
+
         bad_note.set_header(existing_note_header);
 
-        NoteEmission::new(bad_note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        NoteEmission::new(bad_note, existing_note_storage_slot).emit(encode_and_encrypt_note(
+            &mut context,
+            owner,
+            sender,
+        ));
     }
 
     #[contract_library_method]

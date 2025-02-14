@@ -1,10 +1,11 @@
 // docs:start:token_types_all
 use dep::aztec::{
     macros::notes::note,
-    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_nullify},
+    note::utils::compute_note_hash_for_nullify,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{
         constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+        traits::Packable,
     },
 };
 
@@ -32,18 +33,18 @@ impl NullifiableNote for TransparentNote {
     fn compute_nullifier(
         self,
         _context: &mut PrivateContext,
-        _note_hash_for_nullify: Field,
+        note_hash_for_nullify: Field,
     ) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self) -> Field {
-        // compute_nullifier ignores both of its parameters so we can reuse it here
-        self.compute_nullifier(zeroed(), zeroed())
+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        // compute_nullifier ignores context so we can reuse it here
+        self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
 }
 

@@ -11,7 +11,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn build:app",
+    "build": "yarn clean && yarn generate && yarn build:ts",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "generate": "yarn generate:artifacts && yarn generate:code",
     "generate:artifacts": "mkdir -p artifacts/keys && ls circuits | xargs -n 1 ./generate_artifacts.sh",
@@ -36,7 +36,6 @@
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.8.1",
-    "copy-webpack-plugin": "^12.0.2",
     "debug": "^4.3.4",
     "favicon-emoji": "2.3.1",
     "html-webpack-plugin": "^5.6.0",
@@ -48,7 +47,7 @@
     "typescript": "^5.0.4",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.3"
+    "webpack-dev-server": "^5.2.0"
   },
   "files": [
     "dest",

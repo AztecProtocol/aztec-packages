@@ -52,7 +52,7 @@ Until there are simulated simulations ([#9133](https://github.com/AztecProtocol/
 
 ### Proof Generation
 
-After simulation, the wallet calls `proveTx` on the PXE with all of the data generated during simulation and any [authentication witnesses](../accounts/authwit.md) (for allowing contracts to act on behalf of the users' account contract).
+After simulation, the wallet calls `proveTx` on the PXE with all of the data generated during simulation and any [authentication witnesses](../advanced/authwit.md) (for allowing contracts to act on behalf of the users' account contract).
 
 Once proven, the wallet sends the transaction to the network and sends the transaction hash back to the application.
 
@@ -108,5 +108,5 @@ Oracles are pieces of data that are injected into a smart contract function from
 
 To learn how to develop on top of the PXE, refer to these guides:
 
-- [Run more than one PXE on your local machine](../../../guides/developer_guides/local_env/run_more_than_one_pxe_sandbox.md)
-- [Use in-built oracles including oracles for arbitrary data](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_pop_capsules.md)
+- [Run more than one PXE on your local machine](../../../developers/guides/local_env/run_more_than_one_pxe_sandbox.md)
+- [Use in-built oracles including oracles for arbitrary data](../../../developers/guides/smart_contracts/writing_contracts/how_to_use_capsules.md)

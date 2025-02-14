@@ -3,7 +3,7 @@ use crate::brillig::brillig_ir::brillig_variable::{
     type_to_heap_value_type, BrilligArray, BrilligVariable, SingleAddrVariable,
 };
 
-use crate::brillig::brillig_ir::registers::Stack;
+use crate::brillig::brillig_ir::registers::RegisterAllocator;
 use crate::brillig::brillig_ir::{
     BrilligBinaryOp, BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
@@ -20,6 +20,7 @@ use crate::ssa::ir::{
     value::{Value, ValueId},
 };
 use acvm::acir::brillig::{MemoryAddress, ValueOrArray};
+use acvm::brillig_vm::MEMORY_ADDRESSING_BIT_SIZE;
 use acvm::{acir::AcirField, FieldElement};
 use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use iter_extended::vecmap;
@@ -32,28 +33,41 @@ use super::brillig_fn::FunctionContext;
 use super::constant_allocation::InstructionLocation;
 
 /// Generate the compilation artifacts for compiling a function into brillig bytecode.
-pub(crate) struct BrilligBlock<'block> {
+pub(crate) struct BrilligBlock<'block, Registers: RegisterAllocator> {
     pub(crate) function_context: &'block mut FunctionContext,
     /// The basic block that is being converted
     pub(crate) block_id: BasicBlockId,
     /// Context for creating brillig opcodes
-    pub(crate) brillig_context: &'block mut BrilligContext<FieldElement, Stack>,
+    pub(crate) brillig_context: &'block mut BrilligContext<FieldElement, Registers>,
     /// Tracks the available variable during the codegen of the block
     pub(crate) variables: BlockVariables,
     /// For each instruction, the set of values that are not used anymore after it.
     pub(crate) last_uses: HashMap<InstructionId, HashSet<ValueId>>,
+
+    pub(crate) globals: &'block HashMap<ValueId, BrilligVariable>,
+
+    pub(crate) building_globals: bool,
 }
 
-impl<'block> BrilligBlock<'block> {
+impl<'block, Registers: RegisterAllocator> BrilligBlock<'block, Registers> {
     /// Converts an SSA Basic block into a sequence of Brillig opcodes
     pub(crate) fn compile(
         function_context: &'block mut FunctionContext,
-        brillig_context: &'block mut BrilligContext<FieldElement, Stack>,
+        brillig_context: &'block mut BrilligContext<FieldElement, Registers>,
         block_id: BasicBlockId,
         dfg: &DataFlowGraph,
+        globals: &'block HashMap<ValueId, BrilligVariable>,
     ) {
         let live_in = function_context.liveness.get_live_in(&block_id);
-        let variables = BlockVariables::new(live_in.clone());
+
+        let mut live_in_no_globals = HashSet::default();
+        for value in live_in {
+            if !dfg.is_global(*value) {
+                live_in_no_globals.insert(*value);
+            }
+        }
+
+        let variables = BlockVariables::new(live_in_no_globals);
 
         brillig_context.set_allocated_registers(
             variables
@@ -64,10 +78,42 @@ impl<'block> BrilligBlock<'block> {
         );
         let last_uses = function_context.liveness.get_last_uses(&block_id).clone();
 
-        let mut brillig_block =
-            BrilligBlock { function_context, block_id, brillig_context, variables, last_uses };
+        let mut brillig_block = BrilligBlock {
+            function_context,
+            block_id,
+            brillig_context,
+            variables,
+            last_uses,
+            globals,
+            building_globals: false,
+        };
 
         brillig_block.convert_block(dfg);
+    }
+
+    pub(crate) fn compile_globals(
+        &mut self,
+        globals: &DataFlowGraph,
+        used_globals: &HashSet<ValueId>,
+    ) {
+        for (id, value) in globals.values_iter() {
+            if !used_globals.contains(&id) {
+                continue;
+            }
+            match value {
+                Value::NumericConstant { .. } => {
+                    self.convert_ssa_value(id, globals);
+                }
+                Value::Instruction { instruction, .. } => {
+                    self.convert_ssa_instruction(*instruction, globals);
+                }
+                _ => {
+                    panic!(
+                        "Expected either an instruction or a numeric constant for a global value"
+                    )
+                }
+            }
+        }
     }
 
     fn convert_block(&mut self, dfg: &DataFlowGraph) {
@@ -97,7 +143,7 @@ impl<'block> BrilligBlock<'block> {
     /// Making the assumption that the block ID passed in belongs to this
     /// function.
     fn create_block_label_for_current_function(&self, block_id: BasicBlockId) -> Label {
-        Self::create_block_label(self.function_context.function_id, block_id)
+        Self::create_block_label(self.function_context.function_id(), block_id)
     }
     /// Creates a unique label for a block using the function Id and the block ID.
     ///
@@ -199,7 +245,11 @@ impl<'block> BrilligBlock<'block> {
     }
 
     /// Converts an SSA instruction into a sequence of Brillig opcodes.
-    fn convert_ssa_instruction(&mut self, instruction_id: InstructionId, dfg: &DataFlowGraph) {
+    pub(crate) fn convert_ssa_instruction(
+        &mut self,
+        instruction_id: InstructionId,
+        dfg: &DataFlowGraph,
+    ) {
         let instruction = &dfg[instruction_id];
         self.brillig_context.set_call_stack(dfg.get_instruction_call_stack(instruction_id));
 
@@ -786,20 +836,65 @@ impl<'block> BrilligBlock<'block> {
                     .store_instruction(array_or_vector.extract_register(), rc_register);
                 self.brillig_context.deallocate_register(rc_register);
             }
-            Instruction::DecrementRc { value } => {
+            Instruction::DecrementRc { value, original } => {
                 let array_or_vector = self.convert_ssa_value(*value, dfg);
-                let rc_register = self.brillig_context.allocate_register();
+                let orig_array_or_vector = self.convert_ssa_value(*original, dfg);
 
-                self.brillig_context
-                    .load_instruction(rc_register, array_or_vector.extract_register());
-                self.brillig_context.codegen_usize_op_in_place(
-                    rc_register,
-                    BrilligBinaryOp::Sub,
-                    1,
-                );
-                self.brillig_context
-                    .store_instruction(array_or_vector.extract_register(), rc_register);
-                self.brillig_context.deallocate_register(rc_register);
+                let array_register = array_or_vector.extract_register();
+                let orig_array_register = orig_array_or_vector.extract_register();
+
+                let codegen_dec_rc = |ctx: &mut BrilligContext<FieldElement, Registers>| {
+                    let rc_register = ctx.allocate_register();
+
+                    ctx.load_instruction(rc_register, array_register);
+
+                    ctx.codegen_usize_op_in_place(rc_register, BrilligBinaryOp::Sub, 1);
+
+                    // Check that the refcount didn't go below 1. If we allow it to underflow
+                    // and become 0 or usize::MAX, and then return to 1, then it will indicate
+                    // an array as mutable when it probably shouldn't be.
+                    if ctx.enable_debug_assertions() {
+                        let min_addr = ReservedRegisters::usize_one();
+                        let condition = SingleAddrVariable::new(ctx.allocate_register(), 1);
+                        ctx.memory_op_instruction(
+                            min_addr,
+                            rc_register,
+                            condition.address,
+                            BrilligBinaryOp::LessThanEquals,
+                        );
+                        ctx.codegen_constrain(
+                            condition,
+                            Some("array ref-count went to zero".to_owned()),
+                        );
+                        ctx.deallocate_single_addr(condition);
+                    }
+
+                    ctx.store_instruction(array_register, rc_register);
+                    ctx.deallocate_register(rc_register);
+                };
+
+                if array_register == orig_array_register {
+                    codegen_dec_rc(self.brillig_context);
+                } else {
+                    // Check if the current and original register point at the same memory.
+                    // If they don't, it means that an array-copy procedure has created a
+                    // new array, which includes decrementing the RC of the original,
+                    // which means we don't have to do the decrement here.
+                    let condition =
+                        SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
+                    // We will use a binary op to interpret the pointer as a number.
+                    let bit_size: u32 = MEMORY_ADDRESSING_BIT_SIZE.into();
+                    let array_var = SingleAddrVariable::new(array_register, bit_size);
+                    let orig_array_var = SingleAddrVariable::new(orig_array_register, bit_size);
+                    self.brillig_context.binary_instruction(
+                        array_var,
+                        orig_array_var,
+                        condition,
+                        BrilligBinaryOp::Equals,
+                    );
+                    self.brillig_context.codegen_if(condition.address, codegen_dec_rc);
+                    self.brillig_context.deallocate_single_addr(condition);
+                }
             }
             Instruction::EnableSideEffectsIf { .. } => {
                 unreachable!("enable_side_effects not supported by brillig")
@@ -847,18 +942,24 @@ impl<'block> BrilligBlock<'block> {
             Instruction::Noop => (),
         };
 
-        let dead_variables = self
-            .last_uses
-            .get(&instruction_id)
-            .expect("Last uses for instruction should have been computed");
+        if !self.building_globals {
+            let dead_variables = self
+                .last_uses
+                .get(&instruction_id)
+                .expect("Last uses for instruction should have been computed");
 
-        for dead_variable in dead_variables {
-            self.variables.remove_variable(
-                dead_variable,
-                self.function_context,
-                self.brillig_context,
-            );
+            for dead_variable in dead_variables {
+                // Globals are reserved throughout the entirety of the program
+                if !dfg.is_global(*dead_variable) {
+                    self.variables.remove_variable(
+                        dead_variable,
+                        self.function_context,
+                        self.brillig_context,
+                    );
+                }
+            }
         }
+
         self.brillig_context.set_call_stack(CallStack::new());
     }
 
@@ -1289,8 +1390,8 @@ impl<'block> BrilligBlock<'block> {
         result_variable: SingleAddrVariable,
     ) {
         let binary_type = type_of_binary_operation(
-            dfg[binary.lhs].get_type().as_ref(),
-            dfg[binary.rhs].get_type().as_ref(),
+            dfg[dfg.resolve(binary.lhs)].get_type().as_ref(),
+            dfg[dfg.resolve(binary.rhs)].get_type().as_ref(),
             binary.operator,
         );
 
@@ -1559,25 +1660,38 @@ impl<'block> BrilligBlock<'block> {
     }
 
     /// Converts an SSA `ValueId` into a `RegisterOrMemory`. Initializes if necessary.
-    fn convert_ssa_value(&mut self, value_id: ValueId, dfg: &DataFlowGraph) -> BrilligVariable {
+    pub(crate) fn convert_ssa_value(
+        &mut self,
+        value_id: ValueId,
+        dfg: &DataFlowGraph,
+    ) -> BrilligVariable {
         let value_id = dfg.resolve(value_id);
         let value = &dfg[value_id];
 
         match value {
             Value::Global(_) => {
-                unreachable!("ICE: All globals should have been inlined");
+                unreachable!("Expected global value to be resolve to its inner value");
             }
             Value::Param { .. } | Value::Instruction { .. } => {
                 // All block parameters and instruction results should have already been
                 // converted to registers so we fetch from the cache.
-
-                self.variables.get_allocation(self.function_context, value_id, dfg)
+                if dfg.is_global(value_id) {
+                    *self.globals.get(&value_id).unwrap_or_else(|| {
+                        panic!("ICE: Global value not found in cache {value_id}")
+                    })
+                } else {
+                    self.variables.get_allocation(self.function_context, value_id, dfg)
+                }
             }
             Value::NumericConstant { constant, .. } => {
                 // Constants might have been converted previously or not, so we get or create and
                 // (re)initialize the value inside.
                 if self.variables.is_allocated(&value_id) {
                     self.variables.get_allocation(self.function_context, value_id, dfg)
+                } else if dfg.is_global(value_id) {
+                    *self.globals.get(&value_id).unwrap_or_else(|| {
+                        panic!("ICE: Global value not found in cache {value_id}")
+                    })
                 } else {
                     let new_variable = self.variables.define_variable(
                         self.function_context,

@@ -5,11 +5,14 @@ import {
   type ProverCoordination,
   type WorldStateSynchronizer,
   createAztecNodeClient,
+  getComponentsVersionsFromConfig,
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { createP2PClient } from '@aztec/p2p';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';
@@ -64,7 +67,8 @@ export async function createProverCoordination(
 
   if (config.proverCoordinationNodeUrl) {
     log.info('Using prover coordination via node url');
-    return createAztecNodeClient(config.proverCoordinationNodeUrl, makeTracedFetch([1, 2, 3], false));
+    const versions = getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
+    return createAztecNodeClient(config.proverCoordinationNodeUrl, versions, makeTracedFetch([1, 2, 3], false));
   } else {
     throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }

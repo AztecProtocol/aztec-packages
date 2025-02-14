@@ -1,8 +1,7 @@
 use noirc_frontend::{
     ast::{
-        AssignStatement, ConstrainKind, ConstrainStatement, Expression, ExpressionKind,
-        ForLoopStatement, ForRange, LetStatement, Pattern, Statement, StatementKind,
-        UnresolvedType, UnresolvedTypeData,
+        AssignStatement, Expression, ExpressionKind, ForLoopStatement, ForRange, LetStatement,
+        Pattern, Statement, StatementKind, UnresolvedType, UnresolvedTypeData,
     },
     token::{Keyword, SecondaryAttribute, Token, TokenKind},
 };
@@ -49,9 +48,6 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
             StatementKind::Let(let_statement) => {
                 group.group(self.format_let_statement(let_statement));
             }
-            StatementKind::Constrain(constrain_statement) => {
-                group.group(self.format_constrain_statement(constrain_statement));
-            }
             StatementKind::Expression(expression) => match expression.kind {
                 ExpressionKind::Block(block) => group.group(self.format_block_expression(
                     block, true, // force multiple lines
@@ -75,7 +71,7 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
             StatementKind::For(for_loop_statement) => {
                 group.group(self.format_for_loop(for_loop_statement));
             }
-            StatementKind::Loop(block) => {
+            StatementKind::Loop(block, _) => {
                 group.group(self.format_loop(block));
             }
             StatementKind::Break => {
@@ -149,44 +145,6 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
         } else {
             group.semicolon(self);
         }
-
-        group
-    }
-
-    fn format_constrain_statement(
-        &mut self,
-        constrain_statement: ConstrainStatement,
-    ) -> ChunkGroup {
-        let mut group = ChunkGroup::new();
-
-        let keyword = match constrain_statement.kind {
-            ConstrainKind::Assert => Keyword::Assert,
-            ConstrainKind::AssertEq => Keyword::AssertEq,
-            ConstrainKind::Constrain => {
-                unreachable!("constrain always produces an error, and the formatter doesn't run when there are errors")
-            }
-        };
-
-        group.text(self.chunk(|formatter| {
-            formatter.write_keyword(keyword);
-            formatter.write_left_paren();
-        }));
-
-        group.kind = GroupKind::ExpressionList {
-            prefix_width: group.width(),
-            expressions_count: constrain_statement.arguments.len(),
-        };
-
-        self.format_expressions_separated_by_comma(
-            constrain_statement.arguments,
-            false, // force trailing comma
-            &mut group,
-        );
-
-        group.text(self.chunk(|formatter| {
-            formatter.write_right_paren();
-            formatter.write_semicolon();
-        }));
 
         group
     }
@@ -417,7 +375,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe() {
-        let src = " fn foo() {
+        let src = " fn foo() { 
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -430,7 +388,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_and_comment_before_it() {
-        let src = " fn foo() {
+        let src = " fn foo() { 
         // Some comment
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
@@ -558,7 +516,7 @@ mod tests {
 
     #[test]
     fn format_unsafe_statement() {
-        let src = " fn foo() { unsafe {
+        let src = " fn foo() { unsafe { 
         1  } } ";
         let expected = "fn foo() {
     unsafe {

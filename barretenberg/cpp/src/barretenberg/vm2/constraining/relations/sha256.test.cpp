@@ -33,7 +33,7 @@ TEST(Sha256ConstrainingTest, EmptyRow)
         { { C::precomputed_clk, 1 } },
     });
 
-    check_relation<sha256>(trace.as_rows());
+    check_relation<sha256>(trace);
 }
 
 // This test imports a bunch of external code since hand-generating the sha256 trace is a bit laborious atm.
@@ -71,9 +71,7 @@ TEST(Sha256ConstrainingTest, Basic)
     const auto sha256_event_container = sha256_event_emitter.dump_events();
     builder.process(sha256_event_container);
 
-    TestTraceContainer::RowTraceContainer rows = trace.as_rows();
-
-    check_relation<sha256>(rows);
+    check_relation<sha256>(trace);
 }
 
 } // namespace

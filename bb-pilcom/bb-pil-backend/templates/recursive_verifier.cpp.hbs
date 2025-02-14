@@ -78,6 +78,8 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
@@ -132,14 +134,13 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     {{/each}}
 
     // Execute Shplemini rounds.
-    auto opening_claim = Shplemini::compute_batch_opening_claim(circuit_size,
-                                                                commitments.get_unshifted(),
-                                                                commitments.get_to_be_shifted(),
-                                                                output.claimed_evaluations.get_unshifted(),
-                                                                output.claimed_evaluations.get_shifted(),
-                                                                output.challenge,
-                                                                Commitment::one(builder),
-                                                                transcript);
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+    };
+    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
+        circuit_size, claim_batcher, output.challenge, Commitment::one(builder), transcript);
+
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();

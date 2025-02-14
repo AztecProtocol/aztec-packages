@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.externalHost }}
+{{- if not .Values.ethereum.execution.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +17,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: eth-execution
     spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       {{- end }}
@@ -33,11 +37,15 @@ spec:
               value: "true"
             - name: HTTP_PORT
               value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: WS_PORT
+              value: "{{ .Values.ethereum.execution.service.wsPort }}"
             - name: MAX_TX_INPUT_SIZE_BYTES
               value: "{{ .Values.ethereum.maxTxInputSizeBytes }}"
           ports:
             - containerPort: {{ .Values.ethereum.execution.service.port }}
               name: eth-execution
+            - containerPort: {{ .Values.ethereum.execution.service.wsPort }}
+              name: eth-exec-ws
           volumeMounts:
             - name: genesis
               mountPath: /genesis
@@ -46,7 +54,7 @@ spec:
             - name: entrypoint-scripts
               mountPath: /entrypoints
           resources:
-            {{- toYaml .Values.ethereum.resources | nindent 12 }}
+            {{- toYaml .Values.ethereum.execution.resources | nindent 12 }}
       volumes:
         - name: shared-volume
           persistentVolumeClaim:
@@ -65,6 +73,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-eth-execution
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: eth-execution
 spec:
   {{- if .Values.network.public }}
   type: LoadBalancer
@@ -81,6 +90,13 @@ spec:
       targetPort: {{ .Values.ethereum.execution.service.targetPort }}
       {{- if and (eq .Values.ethereum.execution.service.type "NodePort") .Values.ethereum.execution.service.nodePort }}
       nodePort: {{ .Values.ethereum.execution.service.nodePort }}
+      {{- end }}
+    - name: ws
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.wsPort }}
+      targetPort: {{ .Values.ethereum.execution.service.wsTargetPort }}
+      {{- if and (eq .Values.ethereum.execution.service.type "NodePort") .Values.ethereum.execution.service.wsNodePort }}
+      nodePort: {{ .Values.ethereum.execution.service.wsNodePort }}
       {{- end }}
     # Engine Api
     - name: engine

@@ -26,7 +26,7 @@ impl NullifiableNote for TestNote {
         0
     }
 
-    unconstrained fn compute_nullifier_without_context(_self: Self) -> Field {
+    unconstrained fn compute_nullifier_without_context(_self: Self, _storage_slot: Field) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }
@@ -38,12 +38,17 @@ impl TestNote {
     }
 }
 
+// Note: We are not deriving Eq here because generally we don't want to include the header in the comparison.
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
 impl Eq for TestNote {
     fn eq(self, other: Self) -> bool {
         self.value == other.value
     }
 }
 
+// Note: We are not deriving Packable here because that would pack the whole struct including the note header
+// (so the resulting field array size would be 5).
+// This is bad note design and a tech debt. Ideally derive it once the note design is fixed.
 impl Packable<1> for TestNote {
     fn pack(self) -> [Field; 1] {
         [self.value]

@@ -1,7 +1,5 @@
-import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
-  type AztecNode,
   type CheatCodes,
   Fr,
   HashedValues,
@@ -21,7 +19,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup, setupPXEService } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 jest.setTimeout(200_000);
 
@@ -39,10 +37,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     decimals: 18n,
   };
 
-  let teardownA: () => Promise<void>;
-  let teardownB: () => Promise<void>;
+  let teardown: () => Promise<void>;
 
-  let aztecNode: AztecNode;
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
@@ -59,10 +55,11 @@ describe('e2e_crowdfunding_and_claim', () => {
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
 
-  let valueNote!: any;
+  let uintNote!: any;
+  let uintNoteSlot!: any;
 
   beforeAll(async () => {
-    ({ cheatCodes, teardown: teardownA, logger, pxe, wallets, aztecNode } = await setup(3));
+    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(3));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -126,26 +123,26 @@ describe('e2e_crowdfunding_and_claim', () => {
   });
 
   afterAll(async () => {
-    await teardownA();
-    await teardownB?.();
+    await teardown();
   });
 
   // Processes unique note such that it can be passed to a claim function of Claim contract
   const processUniqueNote = (uniqueNote: UniqueNote) => {
     return {
-      header: {
+      note: {
+        header: {
+          // eslint-disable-next-line camelcase
+          contract_address: uniqueNote.contractAddress,
+          // eslint-disable-next-line camelcase
+          note_hash_counter: 0, // set as 0 as note is not transient
+          nonce: uniqueNote.nonce,
+        },
+        value: uniqueNote.note.items[0].toBigInt(), // We convert to bigint as Fr is not serializable to U128
         // eslint-disable-next-line camelcase
-        contract_address: uniqueNote.contractAddress,
-        // eslint-disable-next-line camelcase
-        storage_slot: uniqueNote.storageSlot,
-        // eslint-disable-next-line camelcase
-        note_hash_counter: 0, // set as 0 as note is not transient
-        nonce: uniqueNote.nonce,
+        owner: AztecAddress.fromField(uniqueNote.note.items[1]),
+        randomness: uniqueNote.note.items[2],
       },
-      value: uniqueNote.note.items[0],
-      // eslint-disable-next-line camelcase
-      owner: AztecAddress.fromField(uniqueNote.note.items[1]),
-      randomness: uniqueNote.note.items[2],
+      slot: uniqueNote.storageSlot,
     };
   };
 
@@ -171,14 +168,16 @@ describe('e2e_crowdfunding_and_claim', () => {
           debug: true,
         });
 
-      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
+      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
       const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
 
-      // Set the value note in a format which can be passed to claim function
-      valueNote = processUniqueNote(filteredNotes![0]);
+      // Set the UintNote in a format which can be passed to claim function
+      const { note, slot } = processUniqueNote(filteredNotes![0]);
+      uintNote = note;
+      uintNoteSlot = slot;
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -188,7 +187,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
       await claimContract
         .withWallet(donorWallets[0])
-        .methods.claim(valueNote, donorWallets[0].getAddress())
+        .methods.claim(uintNote, uintNoteSlot, donorWallets[0].getAddress())
         .send()
         .wait();
     }
@@ -218,72 +217,68 @@ describe('e2e_crowdfunding_and_claim', () => {
   it('cannot claim twice', async () => {
     // The first claim was executed in the previous test
     await expect(
-      claimContract.withWallet(donorWallets[0]).methods.claim(valueNote, donorWallets[0].getAddress()).send().wait(),
+      claimContract
+        .withWallet(donorWallets[0])
+        .methods.claim(uintNote, uintNoteSlot, donorWallets[0].getAddress())
+        .send()
+        .wait(),
     ).rejects.toThrow();
   });
 
-  it('cannot claim without access to the nsk_app tied to the npk_m specified in the proof note', async () => {
+  it('cannot claim with a different address than the one that donated', async () => {
     const donationAmount = 1000n;
+
+    const donorWallet = donorWallets[1];
+    const unrelatedWallet = donorWallets[0];
+
+    // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet
     {
       const action = donationToken
-        .withWallet(donorWallets[1])
-        .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
-      const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallets[1].addAuthWitness(witness);
+        .withWallet(donorWallet)
+        .methods.transfer_in_private(donorWallet.getAddress(), crowdfundingContract.address, donationAmount, 0);
+      const witness = await donorWallet.createAuthWit({ caller: crowdfundingContract.address, action });
+      await donorWallet.addAuthWitness(witness);
     }
 
     // 2) We donate to the crowdfunding contract
-
     const donateTxReceipt = await crowdfundingContract
-      .withWallet(donorWallets[1])
+      .withWallet(donorWallet)
       .methods.donate(donationAmount)
       .send()
       .wait({
         debug: true,
       });
 
-    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-    await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-    const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
+    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
+    await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
+    const notes = await unrelatedWallet.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
 
-    // Set the value note in a format which can be passed to claim function
-    const anotherDonationNote = processUniqueNote(filtered![0]);
-
-    // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
-    let unrelatedWallet: AccountWallet;
-    {
-      const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
-      teardownB = _teardown;
-      [unrelatedWallet] = await createAccounts(pxeB, 1);
-      await pxeB.registerContract({
-        artifact: ClaimContract.artifact,
-        instance: claimContract.instance,
-      });
-    }
+    // Set the UintNote in a format which can be passed to claim function
+    const { note: anotherDonationNote, slot: anotherDonationNoteSlot } = processUniqueNote(filtered![0]);
 
     // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
     {
       await expect(
         claimContract
           .withWallet(unrelatedWallet)
-          .methods.claim(anotherDonationNote, unrelatedWallet.getAddress())
+          .methods.claim(anotherDonationNote, anotherDonationNoteSlot, donorWallet.getAddress())
           .send()
           .wait(),
-      ).rejects.toThrow('No public key registered for address');
+      ).rejects.toThrow('Note does not belong to the sender');
     }
   });
 
   it('cannot claim with a non-existent note', async () => {
-    // We get a non-existent note by copy the value note and change the randomness to a random value
-    const nonExistentNote = { ...valueNote };
+    // We get a non-existent note by copy the UintNote and change the randomness to a random value
+    const nonExistentNote = { ...uintNote };
     nonExistentNote.randomness = Fr.random();
 
     await expect(
       claimContract
         .withWallet(donorWallets[0])
-        .methods.claim(nonExistentNote, donorWallets[0].getAddress())
+        .methods.claim(nonExistentNote, uintNoteSlot, donorWallets[0].getAddress())
         .send()
         .wait(),
     ).rejects.toThrow();
@@ -297,12 +292,15 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 2) Create a note
     let note: any;
+    let noteSlot: any;
     {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
       await inclusionsProofsContract.methods.sync_notes().simulate();
       const notes = await wallets[0].getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
-      note = processUniqueNote(notes[0]);
+      const { note: processedNote, slot } = processUniqueNote(notes[0]);
+      note = processedNote;
+      noteSlot = slot;
     }
 
     // 3) Test the note was included
@@ -310,7 +308,11 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 4) Finally, check that the claim process fails
     await expect(
-      claimContract.withWallet(donorWallets[0]).methods.claim(note, donorWallets[0].getAddress()).send().wait(),
+      claimContract
+        .withWallet(donorWallets[0])
+        .methods.claim(note, noteSlot, donorWallets[0].getAddress())
+        .send()
+        .wait(),
     ).rejects.toThrow();
   });
 

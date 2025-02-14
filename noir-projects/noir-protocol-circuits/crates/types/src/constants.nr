@@ -180,6 +180,9 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Randomly chosen slot for the bytecode capsule.
+pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
 
@@ -489,11 +492,14 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
+// This also changes the length of inputs for the public base rollup circuit, so its Prover.toml must be updated.
+// To do so: run: 'AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_public_functions' from yarn-project.
 pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4154;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+// Note hash generator index which can be used by custom implementations of NoteInterface::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -542,12 +548,10 @@ pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
 pub global GENERATOR_INDEX__TSK_M: u32 = 51;
 pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 56;
-
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 57;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 58;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;

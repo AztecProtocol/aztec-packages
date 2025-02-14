@@ -2,9 +2,9 @@ use noirc_errors::{Span, Spanned};
 
 use crate::{
     ast::{
-        AssignStatement, BinaryOp, BinaryOpKind, ConstrainKind, ConstrainStatement, Expression,
-        ExpressionKind, ForBounds, ForLoopStatement, ForRange, Ident, InfixExpression, LValue,
-        LetStatement, Statement, StatementKind,
+        AssignStatement, BinaryOp, BinaryOpKind, Expression, ExpressionKind, ForBounds,
+        ForLoopStatement, ForRange, Ident, InfixExpression, LValue, LetStatement, Statement,
+        StatementKind,
     },
     parser::{labels::ParsingRuleLabel, ParserErrorReason},
     token::{Attribute, Keyword, Token, TokenKind},
@@ -89,7 +89,6 @@ impl<'a> Parser<'a> {
     ///     | ContinueStatement
     ///     | ReturnStatement
     ///     | LetStatement
-    ///     | ConstrainStatement
     ///     | ComptimeStatement
     ///     | ForStatement
     ///     | LoopStatement
@@ -145,10 +144,6 @@ impl<'a> Parser<'a> {
             return Some(StatementKind::Let(let_statement));
         }
 
-        if let Some(constrain) = self.parse_constrain_statement() {
-            return Some(StatementKind::Constrain(constrain));
-        }
-
         if self.at_keyword(Keyword::Comptime) {
             return self.parse_comptime_statement(attributes);
         }
@@ -157,15 +152,18 @@ impl<'a> Parser<'a> {
             return Some(StatementKind::For(for_loop));
         }
 
-        if let Some(block) = self.parse_loop() {
-            return Some(StatementKind::Loop(block));
+        if let Some((block, span)) = self.parse_loop() {
+            return Some(StatementKind::Loop(block, span));
         }
 
         if let Some(kind) = self.parse_if_expr() {
-            return Some(StatementKind::Expression(Expression {
-                kind,
-                span: self.span_since(start_span),
-            }));
+            let span = self.span_since(start_span);
+            return Some(StatementKind::Expression(Expression { kind, span }));
+        }
+
+        if let Some(kind) = self.parse_match_expr() {
+            let span = self.span_since(start_span);
+            return Some(StatementKind::Expression(Expression { kind, span }));
         }
 
         if let Some(block) = self.parse_block() {
@@ -293,10 +291,13 @@ impl<'a> Parser<'a> {
     }
 
     /// LoopStatement = 'loop' Block
-    fn parse_loop(&mut self) -> Option<Expression> {
+    fn parse_loop(&mut self) -> Option<(Expression, Span)> {
+        let start_span = self.current_token_span;
         if !self.eat_keyword(Keyword::Loop) {
             return None;
         }
+
+        self.push_error(ParserErrorReason::ExperimentalFeature("loops"), start_span);
 
         let block_start_span = self.current_token_span;
         let block = if let Some(block) = self.parse_block() {
@@ -309,7 +310,7 @@ impl<'a> Parser<'a> {
             Expression { kind: ExpressionKind::Error, span: self.span_since(block_start_span) }
         };
 
-        Some(block)
+        Some((block, start_span))
     }
 
     /// ForRange
@@ -426,58 +427,12 @@ impl<'a> Parser<'a> {
             is_global_let: false,
         })
     }
-
-    /// ConstrainStatement
-    ///     = 'constrain' Expression
-    ///     | 'assert' Arguments
-    ///     | 'assert_eq' Arguments
-    fn parse_constrain_statement(&mut self) -> Option<ConstrainStatement> {
-        let start_span = self.current_token_span;
-        let kind = self.parse_constrain_kind()?;
-
-        Some(match kind {
-            ConstrainKind::Assert | ConstrainKind::AssertEq => {
-                let arguments = self.parse_arguments();
-                if arguments.is_none() {
-                    self.expected_token(Token::LeftParen);
-                }
-                let arguments = arguments.unwrap_or_default();
-
-                ConstrainStatement { kind, arguments, span: self.span_since(start_span) }
-            }
-            ConstrainKind::Constrain => {
-                self.push_error(ParserErrorReason::ConstrainDeprecated, self.previous_token_span);
-
-                let expression = self.parse_expression_or_error();
-                ConstrainStatement {
-                    kind,
-                    arguments: vec![expression],
-                    span: self.span_since(start_span),
-                }
-            }
-        })
-    }
-
-    fn parse_constrain_kind(&mut self) -> Option<ConstrainKind> {
-        if self.eat_keyword(Keyword::Assert) {
-            Some(ConstrainKind::Assert)
-        } else if self.eat_keyword(Keyword::AssertEq) {
-            Some(ConstrainKind::AssertEq)
-        } else if self.eat_keyword(Keyword::Constrain) {
-            Some(ConstrainKind::Constrain)
-        } else {
-            None
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{
-            ConstrainKind, ExpressionKind, ForRange, LValue, Statement, StatementKind,
-            UnresolvedTypeData,
-        },
+        ast::{ExpressionKind, ForRange, LValue, Statement, StatementKind, UnresolvedTypeData},
         parser::{
             parser::tests::{
                 expect_no_errors, get_single_error, get_single_error_reason,
@@ -543,47 +498,6 @@ mod tests {
             panic!("Expected let statement");
         };
         assert_eq!(let_statement.pattern.to_string(), "x");
-    }
-
-    #[test]
-    fn parses_assert() {
-        let src = "assert(true, \"good\")";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Constrain(constrain) = statement.kind else {
-            panic!("Expected constrain statement");
-        };
-        assert_eq!(constrain.kind, ConstrainKind::Assert);
-        assert_eq!(constrain.arguments.len(), 2);
-    }
-
-    #[test]
-    fn parses_assert_eq() {
-        let src = "assert_eq(1, 2, \"bad\")";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Constrain(constrain) = statement.kind else {
-            panic!("Expected constrain statement");
-        };
-        assert_eq!(constrain.kind, ConstrainKind::AssertEq);
-        assert_eq!(constrain.arguments.len(), 3);
-    }
-
-    #[test]
-    fn parses_constrain() {
-        let src = "
-        constrain 1
-        ^^^^^^^^^
-        ";
-        let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
-        let statement = parser.parse_statement_or_error();
-        let StatementKind::Constrain(constrain) = statement.kind else {
-            panic!("Expected constrain statement");
-        };
-        assert_eq!(constrain.kind, ConstrainKind::Constrain);
-        assert_eq!(constrain.arguments.len(), 1);
-
-        let reason = get_single_error_reason(&parser.errors, span);
-        assert!(matches!(reason, ParserErrorReason::ConstrainDeprecated));
     }
 
     #[test]
@@ -819,26 +733,41 @@ mod tests {
     #[test]
     fn parses_empty_loop() {
         let src = "loop { }";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Loop(block) = statement.kind else {
+        let mut parser = Parser::for_str(src);
+        let statement = parser.parse_statement_or_error();
+        let StatementKind::Loop(block, span) = statement.kind else {
             panic!("Expected loop");
         };
         let ExpressionKind::Block(block) = block.kind else {
             panic!("Expected block");
         };
         assert!(block.statements.is_empty());
+        assert_eq!(span.start(), 0);
+        assert_eq!(span.end(), 4);
     }
 
     #[test]
     fn parses_loop_with_statements() {
         let src = "loop { 1; 2 }";
-        let statement = parse_statement_no_errors(src);
-        let StatementKind::Loop(block) = statement.kind else {
+        let mut parser = Parser::for_str(src);
+        let statement = parser.parse_statement_or_error();
+        let StatementKind::Loop(block, _) = statement.kind else {
             panic!("Expected loop");
         };
         let ExpressionKind::Block(block) = block.kind else {
             panic!("Expected block");
         };
         assert_eq!(block.statements.len(), 2);
+    }
+
+    #[test]
+    fn parses_let_with_assert() {
+        let src = "let _ = assert(true);";
+        let mut parser = Parser::for_str(src);
+        let statement = parser.parse_statement_or_error();
+        let StatementKind::Let(let_statement) = statement.kind else {
+            panic!("Expected let");
+        };
+        assert!(matches!(let_statement.expression.kind, ExpressionKind::Constrain(..)));
     }
 }
