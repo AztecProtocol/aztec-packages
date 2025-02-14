@@ -17,7 +17,7 @@ pub struct EcdsaPublicKeyNote {
     owner: AztecAddress,
 }
 
-impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN> for EcdsaPublicKeyNote {
+impl NoteInterface for EcdsaPublicKeyNote {
     fn get_note_type_id() -> Field {
         // randomly chosen note type id --> has to fit within 7 bits
         76

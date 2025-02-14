@@ -66,7 +66,7 @@ pub fn compute_note_hash_for_nullify_internal<Note>(
 }
 
 // TODO(#7775): nuke this commented out code - kept it around as it contains comments which might be helpful when tackling #7775
-// pub fn compute_note_hash_for_nullify<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N> {
+// pub fn compute_note_hash_for_nullify<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface {
 //     let header = note.get_header();
 //     // There are 3 cases for reading a note intended for consumption:
 //     // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in
@@ -119,6 +119,12 @@ where
     compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request)
 }
 
+/// Computes the note hash and optionally a nullifier for a given note. `N` is the length of the packed note,
+/// `S` is the length of the packed note with its padding array.
+///
+/// Note: `packed_note_with_padding` is typically constructed by calling the `storage()` method on a `BoundedVec`. This
+/// function will then extract the relevant fields from the array using the `subarray` method and the actual packed
+/// note length `N`.
 pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<Note, let N: u32, let S: u32>(
     unpack_note: fn([Field; N]) -> Note,
     contract_address: AztecAddress,

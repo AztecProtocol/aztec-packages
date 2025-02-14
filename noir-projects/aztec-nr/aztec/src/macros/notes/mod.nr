@@ -56,7 +56,7 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) 
 
 /// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as a quote.
 ///
-/// impl NoteInterface<N> for NoteStruct {
+/// impl NoteInterface for NoteStruct {
 ///     fn get_note_type_id() -> Field {
 ///         ...
 ///     }
