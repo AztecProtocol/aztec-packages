@@ -119,7 +119,6 @@ template <typename Derived, size_t TABLE_WIDTH, typename OpFormat> class OpsTabl
  */
 class UltraOpsTable : public OpsTable<UltraOpsTable, 4, UltraOp> {
     using Curve = curve::BN254;
-    using Point = Curve::AffineElement;
     using Fr = Curve::ScalarField;
 
     static constexpr size_t TABLE_WIDTH = 4;
