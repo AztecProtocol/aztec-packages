@@ -2,7 +2,9 @@
 
 #include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/api.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/init_srs.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

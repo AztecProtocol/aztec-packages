@@ -2,6 +2,7 @@
 
 #include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/api.hpp"
+#include "barretenberg/api/get_bn254_crs.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/common/map.hpp"
@@ -13,6 +14,8 @@
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
 namespace bb {
+
+extern std::string CRS_PATH;
 
 class UltraHonkAPI : public API {
 

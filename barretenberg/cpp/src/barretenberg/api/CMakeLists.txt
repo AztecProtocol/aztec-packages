@@ -1,1 +1,1 @@
-barretenberg_module(api client_ivc ultra_vanilla_client_ivc)
+barretenberg_module(api client_ivc ultra_vanilla_client_ivc dsl)
