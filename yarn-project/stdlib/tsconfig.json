@@ -12,9 +12,6 @@
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../types"
     }
   ]
 }

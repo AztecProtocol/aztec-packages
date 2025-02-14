@@ -6,6 +6,26 @@ import { type AztecAddress } from '../aztec-address/index.js';
 import { type ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 
 /**
+ * Defines hasher interface used by Merkle trees.
+ */
+export interface Hasher {
+  /**
+   * Hash two arrays.
+   * @param lhs - The first array.
+   * @param rhs - The second array.
+   * @returns The new 32-byte hash.
+   */
+  hash(lhs: Uint8Array, rhs: Uint8Array): Buffer;
+
+  /**
+   * Hashes an array of buffers.
+   * @param inputs - The array of buffers to hash.
+   * @returns The resulting 32-byte hash.
+   */
+  hashInputs(inputs: Buffer[]): Buffer;
+}
+
+/**
  * Computes a hash of a given verification key.
  * @param vkBuf - The verification key as fields.
  * @returns The hash of the verification key.
