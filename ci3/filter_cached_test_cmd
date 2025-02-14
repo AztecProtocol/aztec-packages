@@ -16,24 +16,25 @@ function process_batch {
   done
 
   # Batch resolve existence in redis.
-  readarray -t results < <(
-    for hash in "${hashes[@]}"; do
-      echo -e "EXISTS $hash\r"
-    done | nc -N $CI_REDIS 6379 | sed -e 's/^://' -e 's/\r//'
-  )
+  readarray -t results < <(redis-cli --raw MGET ${hashes[@]})
 
   # Iterate over the results and output lines whose hashes don't exist in redis.
   for i in "${!results[@]}"; do
-    if [ "${results[$i]}" -eq 0 ]; then
+    if [ -z "${results[$i]}" ]; then
       echo "${lines[$i]}"
+    else
+      echo -e "${blue}SKIPPING${reset} (${yellow}http://ci.aztec-labs.com/${results[$i]}${reset}): ${lines[$i]}" >&3
     fi
   done
 }
 export -f process_batch
 
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  exec 3> >(cache_log "Skipped tests" >/dev/null)
   # Process stdin in batches of 50.
   parallel --pipe -N50 --keep-order process_batch
+  exec 3>&-
+  wait
 else
   # Noop.
   cat
