@@ -37,7 +37,7 @@ function build {
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     (cd ./acir_tests/assert_statement && \
-      # WORKTODO don't call this twice; possibly delegate TOML construction to yq / whatever like we do for jq with JSON
+      # TODO(https://github.com/AztecProtocol/barretenberg/issues/1253) Deprecate command and construct TOML (e.g., via yq or via conversion from a JSON)
       $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
       $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
 
@@ -111,19 +111,19 @@ function test_cmds_internal {
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
   echo NATIVE=1 FLOW=all_cmds $run_test 1_mul
 
-  # # barretenberg-acir-tests-bb-ultra-plonk:
-  # # Exclude honk tests.
-  # for t in $plonk_tests; do
-  #   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
-  # done
+  # barretenberg-acir-tests-bb-ultra-plonk:
+  # Exclude honk tests.
+  for t in $plonk_tests; do
+    echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
+  done
   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
-  # # barretenberg-acir-tests-bb-ultra-honk:
-  # # Exclude plonk tests.
-  # for t in $honk_tests; do
-  #   echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
-  # done
+  # barretenberg-acir-tests-bb-ultra-honk:
+  # Exclude plonk tests.
+  for t in $honk_tests; do
+    echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
+  done
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
@@ -135,7 +135,7 @@ function test_cmds_internal {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
-# WORKTODO: should include failure tests
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
   LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
