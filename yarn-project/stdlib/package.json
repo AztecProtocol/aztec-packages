@@ -80,6 +80,7 @@
   },
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/foundation": "workspace:^"
+    "@aztec/foundation": "workspace:^",
+    "@aztec/types": "workspace:^"
   }
 }
