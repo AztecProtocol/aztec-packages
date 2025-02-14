@@ -196,7 +196,7 @@ function release_github {
       --prerelease \
       --target $COMMIT_HASH \
       --title "$REF_NAME" \
-      --notes "${compare_link}"
+      --notes "$compare_link"
   fi
 }
 
