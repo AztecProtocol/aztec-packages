@@ -99,7 +99,7 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
-  source ci3/source_refname
+  source ci3/source
   echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL CI_RELEASE=$CI_RELEASE"
   set -x
   $cmd
