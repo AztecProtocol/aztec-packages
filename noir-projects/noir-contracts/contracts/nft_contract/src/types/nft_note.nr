@@ -6,12 +6,16 @@ use dep::aztec::{
     prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        hash::poseidon2_hash_with_separator,
     },
 };
 
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a macro bug.
+use aztec::protocol_types::traits::Packable;
+
 // docs:start:nft_note
 #[partial_note(quote { token_id})]
+#[derive(Eq)]
 pub struct NFTNote {
     // ID of the token
     token_id: Field,
@@ -65,13 +69,5 @@ impl NFTNote {
         // information. We can therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
         NFTNote { token_id, owner, randomness }
-    }
-}
-
-impl Eq for NFTNote {
-    fn eq(self, other: Self) -> bool {
-        (self.token_id == other.token_id)
-            & (self.owner == other.owner)
-            & (self.randomness == other.randomness)
     }
 }

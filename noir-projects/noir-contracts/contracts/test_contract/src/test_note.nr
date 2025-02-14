@@ -11,8 +11,8 @@ use dep::aztec::{
     },
 };
 
-// TODO(benesjan): Manual import of `Packable` trait here is a macro bug.
-use dep::aztec::protocol_types::traits::Packable;
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a macro bug.
+use aztec::protocol_types::traits::Packable;
 
 /// A note which stores a field and is expected to be passed around using the `addNote` function.
 ///

@@ -5,9 +5,12 @@ use aztec::{
     prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        hash::poseidon2_hash_with_separator,
     },
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a macro bug.
+use aztec::protocol_types::traits::Packable;
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?

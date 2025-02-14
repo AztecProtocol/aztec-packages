@@ -453,7 +453,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     }
 }
 
-/// Generates the `Packable` implementation for a given struct and returns the packed length.
+/// Generates `Packable` implementation for a given struct and returns the packed length.
 ///
 /// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
 /// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
