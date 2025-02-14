@@ -107,7 +107,7 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 ethereum_slot_duration=$(./read_value.sh "ethereum.blockTime" $value_yamls)
 aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
-aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
+aztec_proof_submission_window=$(./read_value.sh "aztec.proofSubmissionWindow" $value_yamls)
 
 echo "RUNNING TEST: $test"
 # Run test locally.
@@ -130,6 +130,6 @@ export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
 export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
 export AZTEC_SLOT_DURATION="$aztec_slot_duration"
 export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
-export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS="$aztec_epoch_proof_claim_window_in_l2_slots"
+export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
 
 yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"
