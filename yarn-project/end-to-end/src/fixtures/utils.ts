@@ -535,7 +535,7 @@ export async function setup(
       await bbConfig.cleanup();
     }
 
-    await anvil?.stop();
+    await anvil?.stop().catch(err => getLogger().error(err));
     await watcher.stop();
     await blobSink?.stop();
 
