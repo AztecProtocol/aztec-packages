@@ -12,7 +12,7 @@ import { type Wallet } from '../account/wallet.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
-export { SendMethodOptions };
+export type { SendMethodOptions };
 
 /**
  * Represents the options for simulating a contract function interaction.
