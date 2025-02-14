@@ -191,13 +191,6 @@ add_library(
 )
 
 if(WASM)
-    # With binaryen installed, it seems its wasm backend optimizer gets invoked automatically.
-    # Due to either a bug in the optimizer, or non-standards compliant c++ in crypto/aes, tests start failing with
-    # -O3 level optimizations. We force down to -O2 for current workaround.
-    # TODO: Time has passed, check if this is still needed.
-    # UPDATE: Uninstall binaryen and any need downstream.
-    # set(CMAKE_CXX_FLAGS_RELEASE "-O2")
-
     # When building this wasm "executable", we include the wasi module but exclude the env module.
     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
     # to implement the functions in env.
