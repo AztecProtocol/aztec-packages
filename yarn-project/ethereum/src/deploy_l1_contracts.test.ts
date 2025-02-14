@@ -37,7 +37,7 @@ describe('deploy_l1_contracts', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 
   const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>

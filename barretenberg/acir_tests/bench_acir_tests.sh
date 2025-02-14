@@ -3,7 +3,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-./bootstrap.sh full
+NO_CACHE=0 ./bootstrap.sh full
 
 TEST_NAMES=("$@")
 THREADS=(1 4 16 32 64)
