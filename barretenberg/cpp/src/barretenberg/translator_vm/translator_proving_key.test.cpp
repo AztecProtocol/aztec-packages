@@ -53,9 +53,8 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    auto proving_key = std::make_shared<TranslatorFlavor::ProvingKey>(full_circuit_size);
-    TranslatorProvingKey key{ proving_key, mini_circuit_size };
-    TranslatorFlavor::ProverPolynomials& prover_polynomials = proving_key->polynomials;
+    TranslatorProvingKey key{ mini_circuit_size };
+    TranslatorFlavor::ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;

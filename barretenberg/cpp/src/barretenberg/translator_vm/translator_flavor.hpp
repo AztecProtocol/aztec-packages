@@ -22,7 +22,6 @@ namespace bb {
 class TranslatorFlavor {
 
   public:
-    static constexpr size_t mini_circuit_size = 8192;
     using CircuitBuilder = TranslatorCircuitBuilder;
     using Curve = curve::BN254;
     using PCS = KZG<Curve>;
@@ -41,12 +40,13 @@ class TranslatorFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 8192;
+    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 8192;
+    static_assert(TRANSLATOR_VM_FIXED_SIZE >= 2048);
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
     // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
+    static constexpr size_t MINI_CIRCUIT_SIZE = TRANSLATOR_VM_FIXED_SIZE;
 
     // None of this parameters can be changed
 
@@ -160,30 +160,25 @@ class TranslatorFlavor {
                               concatenated_range_constraints_2, // column 2
                               concatenated_range_constraints_3) // column 3
     };
-    template <typename DataType> class WireToBeShiftedWithoutConcatenated {
+    template <typename DataType> class WireToBeShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi,                   // column 0
-                              x_hi_z_1,                    // column 1
-                              y_lo_z_2,                    // column 2
-                              p_x_low_limbs,               // column 3
-                              p_x_high_limbs,              // column 4
-                              p_y_low_limbs,               // column 5
-                              p_y_high_limbs,              // column 6
-                              z_low_limbs,                 // column 7
-                              z_high_limbs,                // column 8
-                              accumulators_binary_limbs_0, // column 9
-                              accumulators_binary_limbs_1, // column 10
-                              accumulators_binary_limbs_2, // column 11
-                              accumulators_binary_limbs_3, // column 12
-                              quotient_low_binary_limbs,   // column 13
-                              quotient_high_binary_limbs,  // column 14
-                              relation_wide_limbs);        // column 15
-    };
-
-    template <typename DataType> class WireToBeShiftedAndConcatenated {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
+                              x_lo_y_hi,                                    // column 0
+                              x_hi_z_1,                                     // column 1
+                              y_lo_z_2,                                     // column 2
+                              p_x_low_limbs,                                // column 3
+                              p_x_high_limbs,                               // column 4
+                              p_y_low_limbs,                                // column 5
+                              p_y_high_limbs,                               // column 6
+                              z_low_limbs,                                  // column 7
+                              z_high_limbs,                                 // column 8
+                              accumulators_binary_limbs_0,                  // column 9
+                              accumulators_binary_limbs_1,                  // column 10
+                              accumulators_binary_limbs_2,                  // column 11
+                              accumulators_binary_limbs_3,                  // column 12
+                              quotient_low_binary_limbs,                    // column 13
+                              quotient_high_binary_limbs,                   // column 14
+                              relation_wide_limbs,                          // column 15
                               p_x_low_limbs_range_constraint_0,             // column 16
                               p_x_low_limbs_range_constraint_1,             // column 17
                               p_x_low_limbs_range_constraint_2,             // column 18
@@ -249,14 +244,6 @@ class TranslatorFlavor {
                               relation_wide_limbs_range_constraint_2,       // column 78
                               relation_wide_limbs_range_constraint_3);      // column 79
     };
-
-    template <typename DataType>
-    class WireToBeShiftedEntities : public WireToBeShiftedWithoutConcatenated<DataType>,
-                                    public WireToBeShiftedAndConcatenated<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WireToBeShiftedWithoutConcatenated<DataType>, WireToBeShiftedAndConcatenated<DataType>)
-    };
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
     // Note: These are technically derived from wires but do not depend on challenges (like z_perm). They are committed
     // to in the wires commitment round.
@@ -304,7 +291,8 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // Used when computing commitments to wires + ordered range constraints during proof consrtuction
+        // Used when computing commitments to wires + ordered range constraints during proof
+        // consrtuction
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -312,7 +300,8 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
+        // everything but ConcatenatedRangeConstraints (used for Shplemini input since
+        // concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {
@@ -338,7 +327,8 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
+         * @brief Get the polynomials that need to be constructed from other polynomials by
+         * concatenation
          *
          * @return auto
          */
@@ -579,8 +569,6 @@ class TranslatorFlavor {
         }
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return this->get_shifted(); };
         auto get_wires_and_ordered_range_constraints()
         {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
@@ -617,18 +605,37 @@ class TranslatorFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
-        ProverPolynomials(size_t circuit_size)
+        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly
+        // data
+        ProverPolynomials(size_t mini_circuit_size)
         {
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                                   /*largest possible index*/ circuit_size,
-                                   /* offset */ 1 };
+            size_t circuit_size = mini_circuit_size * CONCATENATION_GROUP_SIZE;
+            for (auto& ordered_range_constraint : get_ordered_constraints()) {
+                ordered_range_constraint = Polynomial{ /*memory size*/ circuit_size - 1,
+                                                       /*largest possible index*/ circuit_size,
+                                                       1 };
             }
+
+            for (auto& concatenated : get_concatenated()) {
+                concatenated = Polynomial{ /*memory size*/ circuit_size };
+            }
+            z_perm = Polynomial{ /*memory size*/ circuit_size - 1,
+                                 /*largest possible index*/ circuit_size,
+                                 1 };
+            // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
+            // circuit
+            for (auto& poly : get_to_be_shifted()) {
+                if (poly.is_empty()) {
+                    poly = Polynomial{ /*memory size*/ mini_circuit_size - 1,
+                                       /*largest possible index*/ circuit_size,
+                                       /* offset */ 1 };
+                }
+            }
+
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                    poly = Polynomial{ circuit_size };
                 }
             }
             set_shifted();
@@ -730,7 +737,8 @@ class TranslatorFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            // Storage is only needed after the first partial evaluation, hence polynomials of
+            // size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
             }
