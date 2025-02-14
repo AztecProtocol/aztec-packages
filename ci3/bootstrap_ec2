@@ -122,8 +122,8 @@ EOF
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
-  sudo sysctl fs.inotify.max_user_watches=1048576
-  sudo sysctl fs.inotify.max_user_instances=1048576
+  sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
+  sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs

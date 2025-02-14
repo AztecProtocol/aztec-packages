@@ -89,7 +89,12 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  denoise "retry yarn install"
+  if [ "${CI:-0}" = 1 ]; then
+    # If in CI mode, retry as bcrypto can sometimes fail mysteriously and we don't expect actual yarn install errors.
+    denoise "retry yarn install"
+  else
+    denoise "yarn install"
+  fi
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
 }
