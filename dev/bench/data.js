@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739562485501,
+  "lastUpdate": 1739563368095,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b003567128c15c1064bd6bd831ebe1a4158ae66f",
-          "message": "chore(avm): use lookup by clk for sha params (#11762)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
-          "timestamp": "2025-02-05T17:44:58Z",
-          "tree_id": "94455a5dc0d7011557ce46cb58760879c9d5072b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b003567128c15c1064bd6bd831ebe1a4158ae66f"
-        },
-        "date": 1738778496914,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19834.562712999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16994.689435999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21437.376126000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19006.689238 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4143.899132999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3863.1326039999994 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 76478.33661299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 76478336000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14593.485742,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14593487000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2671148046,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2671148046 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135142599,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135142599 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 131987008,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131987008 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fe2c77bb56d56c83bdce6ea708ee1a7cd360978f",
+          "message": "feat: Sync from noir (#12002)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nfix(ssa): Do not deduplicate division by a zero constant\n(https://github.com/noir-lang/noir/pull/7393)\nchore: document traits required to be in scope\n(https://github.com/noir-lang/noir/pull/7387)\nfix: field zero division in brillig\n(https://github.com/noir-lang/noir/pull/7386)\nchore: box `ParserError`s in `InterpreterError`\n(https://github.com/noir-lang/noir/pull/7373)\nchore: remove unnecessary dereferencing within brillig vm\n(https://github.com/noir-lang/noir/pull/7375)\nfix: give \"correct\" error when trying to use AsTraitPath\n(https://github.com/noir-lang/noir/pull/7360)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2025-02-14T19:37:43Z",
+          "tree_id": "b1cf6dc76ed5490f4f283a2eeeac9b9d37b8e3f2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fe2c77bb56d56c83bdce6ea708ee1a7cd360978f"
+        },
+        "date": 1739563359941,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18126.20716499987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16042.353617 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18603.09570599998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16327.955765000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3888.5236720000194,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3087.0518789999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55536.430089999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55536431000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10857.471972,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10857476000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1816113384,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1816113384 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134085562,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134085562 ns\nthreads: 1"
           }
         ]
       }
