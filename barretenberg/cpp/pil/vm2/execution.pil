@@ -9,6 +9,8 @@ include "bitwise.pil";
 include "precomputed.pil";
 include "sha256.pil";
 include "ecc.pil";
+include "poseidon2_hash.pil";
+include "poseidon2_perm.pil";
 
 namespace execution;
 

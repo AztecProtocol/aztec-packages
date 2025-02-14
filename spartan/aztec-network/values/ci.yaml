@@ -1,7 +1,7 @@
 aztec:
   slotDuration: 24
   epochDuration: 4
-  epochProofClaimWindow: 2
+  proofSubmissionWindow: 8
 
 ethereum:
   blockTime: 8
