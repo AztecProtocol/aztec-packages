@@ -215,6 +215,7 @@ function release {
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
   echo_header "release all"
+  set -x
   check_release
 
   # Ensure we have a github release for our REF_NAME, if not on latest.
