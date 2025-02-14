@@ -21,7 +21,7 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
     REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
   else
-    REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match)
+    REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
     export REF_NAME="${REF_NAME#heads/}"
   fi
   export REF_NAME="${REF_NAME#release/}"
