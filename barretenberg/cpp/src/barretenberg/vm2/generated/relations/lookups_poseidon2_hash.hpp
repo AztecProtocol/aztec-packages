@@ -15,6 +15,7 @@ namespace bb::avm2 {
 class lookup_pos2_perm_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_POS2_PERM";
+    static constexpr std::string_view RELATION_NAME = "poseidon2_hash";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -93,6 +94,7 @@ class lookup_pos2_perm_relation : public GenericLookupRelation<lookup_pos2_perm_
   public:
     using Settings = lookup_pos2_perm_lookup_settings;
     static constexpr std::string_view NAME = lookup_pos2_perm_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_pos2_perm_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

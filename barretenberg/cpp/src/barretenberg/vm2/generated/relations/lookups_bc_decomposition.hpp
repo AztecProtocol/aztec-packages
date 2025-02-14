@@ -15,6 +15,7 @@ namespace bb::avm2 {
 class lookup_bytecode_bytes_are_bytes_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_BYTECODE_BYTES_ARE_BYTES";
+    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -74,6 +75,7 @@ class lookup_bytecode_bytes_are_bytes_relation
   public:
     using Settings = lookup_bytecode_bytes_are_bytes_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_bytes_are_bytes_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_bytecode_bytes_are_bytes_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -96,6 +98,7 @@ class lookup_bytecode_bytes_are_bytes_relation
 class lookup_bytecode_remaining_abs_diff_u16_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_BYTECODE_REMAINING_ABS_DIFF_U16";
+    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -155,6 +158,8 @@ class lookup_bytecode_remaining_abs_diff_u16_relation
   public:
     using Settings = lookup_bytecode_remaining_abs_diff_u16_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_remaining_abs_diff_u16_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_bytecode_remaining_abs_diff_u16_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -177,6 +182,7 @@ class lookup_bytecode_remaining_abs_diff_u16_relation
 class lookup_bytecode_to_read_unary_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_BYTECODE_TO_READ_UNARY";
+    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -241,6 +247,7 @@ class lookup_bytecode_to_read_unary_relation
   public:
     using Settings = lookup_bytecode_to_read_unary_lookup_settings;
     static constexpr std::string_view NAME = lookup_bytecode_to_read_unary_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_bytecode_to_read_unary_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
