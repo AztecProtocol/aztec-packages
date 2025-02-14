@@ -36,8 +36,8 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
 export {
-  ContractClassWithId,
-  ContractInstanceWithAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   EthAddress,
   Fq,
   Fr,
@@ -46,7 +46,7 @@ export {
   GlobalVariables,
   GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
-  NodeInfo,
+  type NodeInfo,
   Point,
   PublicKeys,
 } from '@aztec/circuits.js';
