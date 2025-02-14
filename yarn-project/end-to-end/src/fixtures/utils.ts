@@ -754,7 +754,7 @@ export async function createAndSyncProverNode(
     archiver: archiver as Archiver,
     l1TxUtils,
   });
-  proverNode.start();
+  await proverNode.start();
   return proverNode;
 }
 
