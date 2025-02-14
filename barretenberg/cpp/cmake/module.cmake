@@ -54,6 +54,7 @@ function(barretenberg_module MODULE_NAME)
             PUBLIC
             ${ARGN}
             ${TRACY_LIBS}
+            ${JEMALLOC_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -97,6 +98,7 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}_test_objects
             PRIVATE
             ${TRACY_LIBS}
+            ${JEMALLOC_LIBS}
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
@@ -156,6 +158,7 @@ function(barretenberg_module MODULE_NAME)
             GTest::gtest_main
             GTest::gmock_main
             ${TRACY_LIBS}
+            ${JEMALLOC_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -255,6 +258,7 @@ function(barretenberg_module MODULE_NAME)
                 PRIVATE
                 benchmark::benchmark
                 ${TRACY_LIBS}
+                ${JEMALLOC_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
 
@@ -271,6 +275,7 @@ function(barretenberg_module MODULE_NAME)
                 ${ARGN}
                 benchmark::benchmark
                 ${TRACY_LIBS}
+                ${JEMALLOC_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
             if(CHECK_CIRCUIT_STACKTRACES)

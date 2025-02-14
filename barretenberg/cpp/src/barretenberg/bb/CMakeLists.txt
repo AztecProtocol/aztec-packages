@@ -13,6 +13,7 @@ if (NOT(FUZZING) AND NOT(WASM))
         env
         circuit_checker
         ${TRACY_LIBS}
+        ${JEMALLOC_LIBS}
         libdeflate::libdeflate_static
     )
     if(CHECK_CIRCUIT_STACKTRACES)
