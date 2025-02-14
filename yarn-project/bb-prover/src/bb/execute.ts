@@ -473,7 +473,7 @@ export async function generateAvmProofV2(
     const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg != '') {
+    if (loggingArg !== '') {
       args.push(loggingArg);
     }
     const timer = new Timer();
@@ -560,7 +560,7 @@ export async function generateAvmProof(
     const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg != '') {
+    if (loggingArg !== '') {
       args.push(loggingArg);
     }
 
@@ -737,7 +737,7 @@ async function verifyProofInternal(
     const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg != '') {
+    if (loggingArg !== '') {
       args.push(loggingArg);
     }
     const timer = new Timer();
