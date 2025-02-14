@@ -221,7 +221,7 @@ export async function computeVerificationKey(
     };
     const args = ['-o', outputPath, '-b', bytecodePath, '-v'];
     if (recursive) {
-      args.push('--recursive');
+      args.push('--init_kzg_accumulator');
     }
     const result = await executeBB(pathToBB, `write_vk`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
@@ -258,7 +258,7 @@ function getArgs(flavor: UltraHonkFlavor) {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
     }
     case 'ultra_rollup_honk': {
-      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation', 'true'];
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation'];
     }
   }
 }
@@ -322,7 +322,7 @@ export async function generateProof(
       '-v',
     ]);
     if (recursive) {
-      args.push('--recursive');
+      args.push('--init_kzg_accumulator');
     }
     const timer = new Timer();
     const logFunction = (message: string) => {

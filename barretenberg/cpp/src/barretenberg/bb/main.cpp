@@ -1110,6 +1110,7 @@ int main(int argc, char* argv[])
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
     add_verbose_flag(prove);
+    add_debug_flag(prove);
     add_scheme_option(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
@@ -1137,6 +1138,7 @@ int main(int argc, char* argv[])
                            "to expand ACIR black box opcodes), and no proof is constructed.");
 
     add_verbose_flag(write_vk);
+    add_debug_flag(write_vk);
     add_scheme_option(write_vk);
     add_output_data_option(write_vk);
     add_input_type_option(write_vk);
@@ -1156,6 +1158,7 @@ int main(int argc, char* argv[])
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
     add_verbose_flag(verify);
+    add_debug_flag(verify);
     add_scheme_option(verify);
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
