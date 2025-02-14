@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# export SKIP_NET=1
-# export SKIP_PORT_ASSIGNMENT=1
-# export PATH=$PATH:$HOME/bin
-
-# if [ "${1:-}" == "lsp" ]; then
-#   docker run -i -v $HOME:$HOME -e HOME=$HOME --entrypoint /usr/src/noir/noir-repo/target/release/nargo \
-#     aztecprotocol/aztec $@
-# else
-#   ENTRYPOINT=/usr/src/noir/noir-repo/target/release/nargo $(dirname $0)/.aztec-run $@
-# fi
-
 if [[ $PWD != ${HOME}* ]]; then
   echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
   exit 1
