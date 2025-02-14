@@ -123,7 +123,7 @@ FF AvmAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::ADD_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::ADD_8 : OpCode::ADD_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -171,7 +171,7 @@ FF AvmAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SUB_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::SUB_8 : OpCode::SUB_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -237,7 +237,7 @@ FF AvmAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::MUL_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::MUL_8 : OpCode::MUL_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -291,7 +291,7 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::DIV_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::DIV_8 : OpCode::DIV_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -338,7 +338,7 @@ FF AvmAluTraceBuilder::op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::EQ_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::EQ_8 : OpCode::EQ_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -379,7 +379,7 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
     // The subtlety is here that the circuit is designed as a GT(x,y) circuit, therefore we swap the inputs a & b
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::LT_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::LT_8 : OpCode::LT_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -419,7 +419,7 @@ FF AvmAluTraceBuilder::op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     // Construct the row that performs the lte check
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::LTE_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::LTE_8 : OpCode::LTE_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -459,7 +459,7 @@ FF AvmAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const c
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::NOT_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::NOT_8 : OpCode::NOT_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ic = c,
@@ -508,7 +508,7 @@ FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     }
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SHL_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::SHL_8 : OpCode::SHL_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -571,7 +571,7 @@ FF AvmAluTraceBuilder::op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SHR_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::SHR_8 : OpCode::SHR_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -619,7 +619,7 @@ FF AvmAluTraceBuilder::op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk)
     }
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::CAST_8, // FIXME: take into account all opcodes.
+        .opcode = (mem_tag_bits(in_tag) <= 8) ? OpCode::CAST_8 : OpCode::CAST_16,
         .tag = in_tag,
         .alu_ia = a,
         .alu_ic = c,
@@ -651,11 +651,17 @@ bool AvmAluTraceBuilder::is_range_check_required() const
  */
 bool AvmAluTraceBuilder::is_alu_row_enabled(const AvmAluTraceBuilder::AluTraceEntry& r)
 {
-    return (r.opcode == OpCode::ADD_8 || r.opcode == OpCode::SUB_8 || r.opcode == OpCode::MUL_8 ||
-            r.opcode == OpCode::EQ_8 || r.opcode == OpCode::NOT_8 || r.opcode == OpCode::NOT_16 ||
-            r.opcode == OpCode::LT_8 || r.opcode == OpCode::LTE_8 || r.opcode == OpCode::SHR_8 ||
-            r.opcode == OpCode::SHL_8 || r.opcode == OpCode::CAST_8 || r.opcode == OpCode::CAST_8 ||
-            r.opcode == OpCode::CAST_16 || r.opcode == OpCode::DIV_8);
+    return (r.opcode == OpCode::ADD_8 || r.opcode == OpCode::ADD_16 ||
+            r.opcode == OpCode::SUB_8 || r.opcode == OpCode::SUB_16 ||
+            r.opcode == OpCode::MUL_8 || r.opcode == OpCode::MUL_16 ||
+            r.opcode == OpCode::EQ_8 || r.opcode == OpCode::EQ_16 ||
+            r.opcode == OpCode::NOT_8 || r.opcode == OpCode::NOT_16 ||
+            r.opcode == OpCode::LT_8 || r.opcode == OpCode::LT_16 ||
+            r.opcode == OpCode::LTE_8 || r.opcode == OpCode::LTE_16 ||
+            r.opcode == OpCode::SHR_8 || r.opcode == OpCode::SHR_16 ||
+            r.opcode == OpCode::SHL_8 || r.opcode == OpCode::SHL_16 ||
+            r.opcode == OpCode::CAST_8 || r.opcode == OpCode::CAST_16 ||
+            r.opcode == OpCode::DIV_8 || r.opcode == OpCode::DIV_16);
 }
 
 /**
