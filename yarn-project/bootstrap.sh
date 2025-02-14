@@ -45,6 +45,9 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
+  # hack, after running prettier foundation may fail to resolve hash.js dependency.
+  # it is only currently foundation, presumably because hash.js looks like a js file.
+  rm -rf foundation/node_modules
   compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
