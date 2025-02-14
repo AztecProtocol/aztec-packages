@@ -616,7 +616,7 @@ class TranslatorFlavor {
             }
 
             for (auto& concatenated : get_concatenated()) {
-                concatenated = Polynomial{ /*memory size*/ circuit_size };
+                concatenated = Polynomial{ /*memory size*/ circuit_size, circuit_size };
             }
             z_perm = Polynomial{ /*memory size*/ circuit_size - 1,
                                  /*largest possible index*/ circuit_size,

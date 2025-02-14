@@ -74,7 +74,7 @@ void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polyno
 
     const size_t num_polys_in_group = group.size();
     // Ensure the result polynomial fits all the elements from the polynomials in the group
-    ASSERT(group[0].size() * num_polys_in_group == result.size());
+    ASSERT(group[0].size() * num_polys_in_group <= result.size());
     for (size_t j = group[0].start_index(); j < group[0].size(); j++) {
         for (size_t k = 0; k < num_polys_in_group; k++) {
             result.at(j * num_polys_in_group + k) = group[k][j];
@@ -159,7 +159,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = 0; k < mini_circuit_dyadic_size; k++) {
+            for (size_t k = my_group[j].start_index(); k < my_group[j].size(); k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {

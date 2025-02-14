@@ -62,7 +62,7 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
 
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < mini_circuit_size; i++) {
+        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << TranslatorFlavor::MICRO_LIMB_BITS) - 1);
         }
     };
