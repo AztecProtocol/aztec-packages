@@ -183,9 +183,9 @@ comptime fn generate_process_log() -> Quoted {
 
     // A typical implementation of the lambda looks something like this:
     // ```
-    // |packed_note: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, contract_address: AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+    // |packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>, contract_address: AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
     //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-    //         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+    //         assert(packed_note.len() == MY_NOTE_TYPE_PACKED_LENGTH);
     //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
     //             MyNoteType::unpack,
     //             contract_address,

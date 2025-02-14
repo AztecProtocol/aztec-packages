@@ -14,7 +14,7 @@ use dep::protocol_types::{
 // We reserve two fields in the note log that are not part of the note content: one for the storage slot, and one for
 // the note type id.
 global NOTE_LOG_RESERVED_FIELDS: u32 = 2;
-pub global MAX_NOTE_SERIALIZED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_LOG_RESERVED_FIELDS;
+pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_LOG_RESERVED_FIELDS;
 
 pub struct NoteHashesAndNullifier {
     pub note_hash: Field,
@@ -32,7 +32,7 @@ pub struct NoteHashesAndNullifier {
 /// ```
 /// |packed_note, note_header, note_type_id| {
 ///     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         assert(packed_note.len() == MY_NOTE_TYPE_PACKED_LENGTH);
 ///         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
 ///             MyNoteType::unpack_content,
 ///             contract_address,
@@ -58,7 +58,7 @@ pub unconstrained fn do_process_log<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashesAndNullifier>,
+    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashesAndNullifier>,
 ) {
     let (storage_slot, note_type_id, packed_note) = destructure_log_plaintext(log_plaintext);
 
@@ -105,7 +105,7 @@ pub unconstrained fn do_process_log<Env>(
 
 unconstrained fn destructure_log_plaintext(
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
-) -> (Field, Field, BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>) {
+) -> (Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
     assert(log_plaintext.len() >= NOTE_LOG_RESERVED_FIELDS);
 
     // If NOTE_LOG_RESERVED_FIELDS is changed, causing the assertion below to fail, then the declarations for
