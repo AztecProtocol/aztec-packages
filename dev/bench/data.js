@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739538027281,
+  "lastUpdate": 1739540080503,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6d0bad77b2ffdc966462cc333faa9cea4b21f4dc",
-          "message": "fix: barretenberg/stdlib/logic bugs (redo) (#11691)\n\nOriginal PR: https://github.com/AztecProtocol/aztec-packages/pull/11651\n\n---------\n\nCo-authored-by: defkit <jewelofchaos9@gmail.com>",
-          "timestamp": "2025-02-03T18:23:01Z",
-          "tree_id": "ba7e137f6b1c79bc30c8f4bb374f5cb88e64d6e3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6d0bad77b2ffdc966462cc333faa9cea4b21f4dc"
-        },
-        "date": 1738608032843,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19013.194419999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16261.542138000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21383.845640000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18771.955629999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4154.722590999938,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3831.198311 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73549.513516,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73549513000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14600.764694000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14600766000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3023646061,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3023646061 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134119790,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134119790 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 134049734,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134049734 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karl.lye@gmail.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "723163a9a93d628c9688ff5861ed7bff556bae16",
+          "message": "feat: Cl/ci3.3 (#10946)\n\n[CI3 introduction.](https://hackmd.io/bTnKHtTHT8mAdTtD0t7JvA?view)\r\n\r\nThis is a majority step towards the vision of CI3, still namely missing\r\nmerge queue.\r\n\r\nNew features:\r\n- Grinding flakes in master. We run all tests on 5 separate runners to\r\nreport on flakes at the source.\r\n- External contributors can now have CI run just by approving their PR. \r\n- Ability to debug CI entirely from commandline from any machine. Get\r\ndropped into a productive shell right after the CI failure by doing\r\n`./ci.sh ec2` while your PR is a draft (note: do not do this if pushing\r\nto a non-draft PR).\r\n- Add tests to CI by adding tests to bootstrap. Target a rich\r\nenvironment with no differences from running inside the dev container.\r\n- Releases that are fully dry-runnable and deployable from a single\r\ncommand. See above hackmd for details.\r\n- Recovery from spot eviction (finally implemented correctly).\r\n\r\nSome remaining items are tracked here.\r\nhttps://github.com/aztecprotocol/aztec-packages/issues/10775\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <domuradical@gmail.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>\r\nCo-authored-by: thunkar <gregojquiros@gmail.com>",
+          "timestamp": "2025-02-14T12:59:22Z",
+          "tree_id": "85acd18259eaa089b56151f51cbcc72dcf0ebff2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/723163a9a93d628c9688ff5861ed7bff556bae16"
+        },
+        "date": 1739540072733,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18351.557659000035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16251.382791000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18748.663436000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16344.662915 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3966.570054000158,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3172.46146 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55257.81427,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55257815000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11365.368749,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11365373000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1832061531,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1832061531 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131153334,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131153334 ns\nthreads: 1"
           }
         ]
       }
