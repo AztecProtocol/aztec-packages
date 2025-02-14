@@ -112,7 +112,7 @@ unconstrained fn destructure_log_plaintext(
     // `storage_slot` and `note_type_id` must be updated as well.
     static_assert(
         NOTE_LOG_RESERVED_FIELDS == 2,
-        "unepxected value for NOTE_LOG_RESERVED_FIELDS",
+        "unexpected value for NOTE_LOG_RESERVED_FIELDS",
     );
     let storage_slot = log_plaintext.get(0);
     let note_type_id = log_plaintext.get(1);

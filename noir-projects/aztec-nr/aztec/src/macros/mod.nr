@@ -207,8 +207,8 @@ comptime fn generate_process_log() -> Quoted {
     // ```
     //
     // We create this implementation by iterating over the different note types, creating an `if` or `else if` clause
-    // for each of them and calling `compute_note_hash_and_optionally_a_nullifier` with the note's deserialization
-    // function, and finally produce the required `NoteHashesAndNullifier` object.
+    // for each of them and calling `compute_note_hash_and_optionally_a_nullifier` with the note's `unpack` function,
+    // and finally produce the required `NoteHashesAndNullifier` object.
 
     let notes = NOTES.entries();
 
@@ -232,7 +232,7 @@ comptime fn generate_process_log() -> Quoted {
                     let actual_len = packed_note.len();
                     assert(
                         actual_len == expected_len,
-                        f"Expected note content of length {expected_len} but got {actual_len} for note type id {note_type_id}"
+                        f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                     );
 
                     aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
@@ -294,7 +294,7 @@ comptime fn generate_process_log() -> Quoted {
 
 comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
-    // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used when
+    // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
     notes
         .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
