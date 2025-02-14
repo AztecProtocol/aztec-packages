@@ -11,7 +11,6 @@ use dep::protocol_types::{
         compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
         compute_unique_note_hash,
     },
-    traits::Packable,
 };
 
 pub fn compute_siloed_nullifier<Note>(
@@ -126,12 +125,13 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<Note, let N: u
     nonce: Field,
     compute_nullifier: bool,
     storage_slot: Field,
-    packed_note: [Field; N],
+    packed_note_with_padding: [Field; S],
 ) -> [Field; 4]
 where
     Note: NoteInterface + NullifiableNote,
 {
-    let note = unpack_note(array::subarray(packed_note, 0));
+    let packed_note = array::subarray(packed_note_with_padding, 0);
+    let note = unpack_note(packed_note);
 
     let note_hash = note.compute_note_hash(storage_slot);
     let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);
