@@ -216,7 +216,7 @@ impl FixtureBuilder {
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
         self.vk_index = vk_index;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-            comptime { fixtures::vk_tree::VK_MERKLE_TREE };
+            fixtures::vk_tree::VK_MERKLE_TREE;
 
         self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
         self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
