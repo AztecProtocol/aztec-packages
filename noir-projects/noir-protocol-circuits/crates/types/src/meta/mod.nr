@@ -61,7 +61,7 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// # Panics
 /// - If the deserialization logic encounters a type it does not support.
 /// - If an incorrect number of fields are consumed when deserializing a string.
-pub comptime fn generate_deserialize_from_fields<N>(
+pub comptime fn generate_deserialize_from_fields(
     name: Quoted,
     typ: Type,
     field_array_name: Quoted,
