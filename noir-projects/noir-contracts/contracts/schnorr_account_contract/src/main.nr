@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract SchnorrAccount {
     use dep::authwit::{
-:diffg LO        account::AccountActions,
+        account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
         auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
@@ -25,15 +25,9 @@ pub contract SchnorrAccount {
 
     #[storage]
     struct Storage<Context> {
-<<<<<<< HEAD
         // docs:start:public_key
         signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
         // docs:end:public_key
-=======
-    // docs:start:public_key
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
-    // docs:end:public_key
->>>>>>> dd7f5999c545228d0669536b4934667204ab6d57
     }
 
     // Constructs the contract
