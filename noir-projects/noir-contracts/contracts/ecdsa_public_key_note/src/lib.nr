@@ -95,22 +95,22 @@ impl Packable<ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN> for EcdsaPublicKeyNote {
     }
 
     // Cannot use the automatic unpacking for the aforementioned reasons
-    fn unpack(packed_content: [Field; ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN]) -> EcdsaPublicKeyNote {
+    fn unpack(packed_note: [Field; ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN]) -> EcdsaPublicKeyNote {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
-        let part_x:[u8; 32] = packed_content[0].to_be_bytes();
+        let part_x:[u8; 32] = packed_note[0].to_be_bytes();
         for i in 0..31 {
             x[i] = part_x[i + 1];
         }
-        x[31] = packed_content[1].to_be_bytes::<32>()[31];
+        x[31] = packed_note[1].to_be_bytes::<32>()[31];
 
-        let part_y:[u8; 32] = packed_content[2].to_be_bytes();
+        let part_y:[u8; 32] = packed_note[2].to_be_bytes();
         for i in 0..31 {
             y[i] = part_y[i + 1];
         }
-        y[31] = packed_content[3].to_be_bytes::<32>()[31];
+        y[31] = packed_note[3].to_be_bytes::<32>()[31];
 
-        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]) }
+        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_note[4]) }
     }
 }

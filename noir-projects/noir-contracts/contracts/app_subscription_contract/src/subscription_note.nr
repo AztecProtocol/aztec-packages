@@ -15,7 +15,7 @@ pub struct SubscriptionNote {
     owner: AztecAddress,
     expiry_block_number: Field,
     remaining_txs: Field,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 

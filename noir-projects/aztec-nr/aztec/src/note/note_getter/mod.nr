@@ -39,7 +39,7 @@ fn extract_property_value_from_selector<let N: u32>(
     value_field
 }
 
-fn check_note_content<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
+fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
@@ -133,14 +133,14 @@ where
     Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
-    // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
-    // the private kernel will later validate that these note actually exist, so transformations would cause for that
-    // check to fail.
+    // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
+    // kernel will later validate that these note actually exist, so transformations would cause for that check
+    // to fail.
     let filter_fn = options.filter;
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::array::collapse(filtered_notes);
+    let notes: BoundedVec<RetrievedNote<Note>, 16> = crate::utils::array::collapse(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
         BoundedVec::new();
 
@@ -149,7 +149,7 @@ where
     // for the runtime length, and can therefore have fewer loop iterations.
     assert(notes.len() <= options.limit, "Got more notes than limit.");
 
-    let mut prev_fields = [0; N];
+    let mut prev_packed_note = [0; N];
     for i in 0..options.limit {
         if i < notes.len() {
             let retrieved_note = notes.get_unchecked(i);
@@ -162,12 +162,12 @@ where
                 "Note contract address mismatch.",
             );
 
-            let fields = retrieved_note.note.pack();
-            check_note_content(fields, options.selects);
+            let packed_note = retrieved_note.note.pack();
+            check_packed_note(packed_note, options.selects);
             if i != 0 {
-                check_notes_order(prev_fields, fields, options.sorts);
+                check_notes_order(prev_packed_note, packed_note, options.sorts);
             }
-            prev_fields = fields;
+            prev_packed_note = packed_note;
 
             let note_hash_for_read_request =
                 compute_note_hash_for_read_request(retrieved_note, storage_slot);

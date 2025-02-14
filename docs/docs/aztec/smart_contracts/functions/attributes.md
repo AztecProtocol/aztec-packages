@@ -218,67 +218,75 @@ struct CustomNote {
 ### After expansion
 
 ```rust
-impl CustomNote {
-    fn pack_content(self: CustomNote) -> [Field; PACKED_NOTE_CONTENT_LEN] {
-        [self.data, self.owner.to_field()]
-    }
-
-    fn unpack_content(packed_content: [Field; PACKED_NOTE_CONTENT_LEN]) -> Self {
-        CustomNote {
-            data: packed_content[0] as Field,
-            owner: Address::from_field(packed_content[1]),
-            header: NoteHeader::empty()
-        }
-    }
-
+impl NoteInterface for CustomNote {
     fn get_note_type_id() -> Field {
-        // Assigned by macros by incrementing a counter
-        2
+        0
     }
 
-    fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {
-        note.header
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let point = std::embedded_curve_ops::multi_scalar_mul(
+            [
+                Point { x: 0x..., y: 0x... },
+                Point { x: 0x..., y: 0x... },
+                Point { x: 0x..., y: 0x... },
+                Point { x: 0x..., y: 0x... }
+            ],
+            [
+                std::hash::from_field_unsafe(self.data),
+                std::hash::from_field_unsafe(self.owner.to_field()),
+                std::hash::from_field_unsafe(storage_slot),
+                std::hash::from_field_unsafe(3) // Length of the rest of the preimage
+            ]
+        );
+        point.x
     }
+}
 
-    fn set_header(self: &mut CustomNote, header: aztec::note::note_header::NoteHeader) {
-        self.header = header;
-    }
+impl NullifiableNote for CustomNote {
 
-    fn compute_note_hiding_point(self: CustomNote) -> Point {
-        aztec::hash::pedersen_commitment(
-            self.serialize_content(),
-            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = context.request_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
-      fn to_be_bytes(self, storage_slot: Field) -> [u8; 128] {
-            assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
-            let serialized_note = self.serialize_content();
+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
+        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
+        // not make sense in an unconstrained context.
+        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
 
-            let mut buffer: [u8; 128] = [0; 128];
+impl CustomNote {
+    pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
+        CustomNote { x, y, owner }
+    }
+}
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
+impl Packable<2> for CustomNote {
+    fn pack(self) -> [Field; 2] {
+        [self.data, self.owner.to_field()]
+    }
 
-            for i in 0..32 {
-                buffer[i] = storage_slot_bytes[i];
-                buffer[32 + i] = note_type_id_bytes[i];
-            }
-
-            for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
-                for j in 0..32 {
-                    buffer[64 + i * 32 + j] = bytes[j];
-                }
-            }
-            buffer
-        }
-
-    pub fn properties() -> CustomNoteProperties {
-        CustomNoteProperties {
-            data: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
-            owner: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 }
-        }
+    // Cannot use the automatic unpacking for the aforementioned reasons
+    fn unpack(packed_content: [Field; 2]) -> CustomNote {
+        CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
     }
 }
 

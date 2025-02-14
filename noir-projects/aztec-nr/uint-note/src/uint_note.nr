@@ -19,7 +19,7 @@ pub struct UintNote {
     // The amount of tokens in the note
     value: U128,
     owner: AztecAddress,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 // docs:end:UintNote

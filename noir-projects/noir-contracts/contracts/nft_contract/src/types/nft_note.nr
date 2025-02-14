@@ -17,7 +17,7 @@ pub struct NFTNote {
     token_id: Field,
     // The owner of the note
     owner: AztecAddress,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 // docs:end:nft_note

@@ -27,7 +27,7 @@ export class NoteDao implements NoteData {
 
     // Computed values
     /**
-     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note content is hashed. Can
+     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note is hashed. Can
      * be used alongside contractAddress and nonce to compute the uniqueNoteHash and the siloedNoteHash.
      */
     public noteHash: Fr,
@@ -50,7 +50,7 @@ export class NoteDao implements NoteData {
     public l2BlockHash: string,
     /** The index of the leaf in the global note hash tree the note is stored at */
     public index: bigint,
-    /** The public key with which the note content was encrypted during delivery. */
+    /** The public key with which the note log was encrypted during delivery. */
     public addressPoint: PublicKey,
 
     /** The note type identifier for the contract.

@@ -20,7 +20,7 @@ pub struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
     owner: AztecAddress,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 

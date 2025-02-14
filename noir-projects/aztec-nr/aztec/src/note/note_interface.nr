@@ -47,7 +47,7 @@ pub trait NoteInterface {
     /// Returns the non-siloed note hash, i.e. the inner hash computed by the contract during private execution. Note
     /// hashes are later siloed by contract address and nonce by the kernels before being committed to the state tree.
     ///
-    /// This should be a commitment to the note contents, including the storage slot (for indexing) and some random
+    /// This should be a commitment to the packed note, including the storage slot (for indexing) and some random
     /// value (to prevent brute force trial-hashing attacks).
     fn compute_note_hash(self, storage_slot: Field) -> Field;
 }

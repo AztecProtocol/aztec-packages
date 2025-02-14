@@ -464,7 +464,6 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
         // recipient is unable to decrypt the payload.
         //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
         // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause

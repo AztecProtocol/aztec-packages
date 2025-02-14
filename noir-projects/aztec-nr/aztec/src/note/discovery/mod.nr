@@ -11,7 +11,7 @@ use dep::protocol_types::{
     hash::compute_note_hash_nonce,
 };
 
-// We reserve two fields in the note log that are not part of the note content: one for the storage slot, and one for
+// We reserve two fields in the note log that are not part of the packed note: one for the storage slot, and one for
 // the note type id.
 global NOTE_LOG_RESERVED_FIELDS: u32 = 2;
 pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_LOG_RESERVED_FIELDS;
@@ -27,14 +27,14 @@ pub struct NoteHashesAndNullifier {
 /// created, along with the list of unique note hashes in said transaction.
 ///
 /// Additionally, this requires a `compute_note_hash_and_nullifier` lambda that is able to compute these values for any
-/// note in the contract given their contents. A typical implementation of such a function would look like this:
+/// note type in the contract given the packed note. A typical implementation of such a function would look like this:
 ///
 /// ```
 /// |packed_note, note_header, note_type_id| {
 ///     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
 ///         assert(packed_note.len() == MY_NOTE_TYPE_PACKED_LENGTH);
 ///         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-///             MyNoteType::unpack_content,
+///             MyNoteType::unpack,
 ///             contract_address,
 ///             nonce,
 ///             storage_slot,
@@ -95,9 +95,9 @@ pub unconstrained fn do_process_log<Env>(
                     "Failed to deliver note",
                 );
 
-                // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
+                // We don't exit the loop - it is possible (though rare) for the exact same packed note to be present
                 // multiple times in the same transaction with different nonces. This typically doesn't happen due to
-                // notes containing random values in order to hide their contents.
+                // notes containing random values in order to protect against note hash preimage attacks.
             }
         },
     );
