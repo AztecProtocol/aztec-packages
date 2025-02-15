@@ -1,42 +1,27 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import {
-  type L2Block,
-  type ProcessedTx,
-  type PublicExecutionRequest,
-  type ServerCircuitProver,
-  type Tx,
-} from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type ProcessedTx, type ServerCircuitProver, type Tx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import {
-  type AppendOnlyTreeSnapshot,
-  type BlockHeader,
-  type Gas,
-  type GlobalVariables,
-  TreeSnapshots,
-} from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, type BlockHeader, type GlobalVariables, TreeSnapshots } from '@aztec/circuits.js';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import {
   PublicProcessor,
   PublicTxSimulator,
+  SimpleContractDataSource,
   type SimulationProvider,
   WASMSimulatorWithBlobs,
-  type WorldStateDB,
+  WorldStateDB,
 } from '@aztec/simulator/server';
-import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
-import { jest } from '@jest/globals';
 import { promises as fs } from 'fs';
-import { mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
@@ -48,7 +33,7 @@ export class TestContext {
 
   constructor(
     public publicTxSimulator: PublicTxSimulator,
-    public worldState: MerkleTreeAdminDatabase,
+    public worldState: NativeWorldStateService,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
@@ -59,6 +44,7 @@ export class TestContext {
     public blockNumber: number,
     public directoriesToCleanup: string[],
     public logger: Logger,
+    public tester: PublicTxSimulationTester,
   ) {}
 
   public get epochProver() {
@@ -75,13 +61,17 @@ export class TestContext {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
-    const worldStateDB = mock<WorldStateDB>();
-
     // Separated dbs for public processor and prover - see public_processor for context
     const ws = await NativeWorldStateService.tmp();
     const publicDb = await ws.fork();
 
-    worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
+    logger.error(
+      `Starting at nullifier root ${new Fr((await publicDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root)}`,
+    );
+    const contractDataSource = new SimpleContractDataSource();
+    const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
+
+    const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
 
     const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
     const processor = new PublicProcessor(
@@ -135,6 +125,7 @@ export class TestContext {
       blockNumber,
       directoriesToCleanup,
       logger,
+      tester,
     );
   }
 
@@ -198,32 +189,7 @@ export class TestContext {
   }
 
   public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
-    const defaultExecutorImplementation = (
-      _stateManager: AvmPersistableStateManager,
-      executionRequest: PublicExecutionRequest,
-      allocatedGas: Gas,
-      _transactionFee: Fr,
-      _fnName: string,
-    ) => {
-      for (const tx of txs) {
-        const allCalls = tx.publicTeardownFunctionCall.isEmpty()
-          ? tx.enqueuedPublicFunctionCalls
-          : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
-        for (const request of allCalls) {
-          if (executionRequest.callContext.equals(request.callContext)) {
-            return Promise.resolve(
-              new AvmFinalizedCallResult(/*reverted=*/ false, /*output=*/ [], /*gasLeft=*/ allocatedGas),
-            );
-          }
-        }
-      }
-      throw new Error(`Unexpected execution request: ${executionRequest}`);
-    };
-    return await this.processPublicFunctionsWithMockExecutorImplementation(
-      txs,
-      maxTransactions,
-      defaultExecutorImplementation,
-    );
+    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 
   public async setTreeRoots(txs: ProcessedTx[]) {
@@ -247,38 +213,6 @@ export class TestContext {
         );
       }
     }
-  }
-
-  private async processPublicFunctionsWithMockExecutorImplementation(
-    txs: Tx[],
-    maxTransactions: number,
-    executorMock?: (
-      stateManager: AvmPersistableStateManager,
-      executionRequest: PublicExecutionRequest,
-      allocatedGas: Gas,
-      transactionFee: Fr,
-      fnName: string,
-    ) => Promise<AvmFinalizedCallResult>,
-  ) {
-    // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
-    const simulateInternal: jest.SpiedFunction<
-      (
-        stateManager: AvmPersistableStateManager,
-        executionResult: any,
-        allocatedGas: Gas,
-        transactionFee: any,
-        fnName: any,
-      ) => Promise<AvmFinalizedCallResult>
-    > = jest.spyOn(
-      this.publicTxSimulator as unknown as {
-        simulateEnqueuedCallInternal: PublicTxSimulator['simulateEnqueuedCallInternal'];
-      },
-      'simulateEnqueuedCallInternal',
-    );
-    if (executorMock) {
-      simulateInternal.mockImplementation(executorMock);
-    }
-    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 }
 

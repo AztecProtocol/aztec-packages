@@ -2,7 +2,6 @@ import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
 import {
   BlockHeader,
   DEFAULT_GAS_LIMIT,
-  FunctionSelector,
   Gas,
   GasFees,
   GasSettings,
@@ -13,14 +12,10 @@ import {
   TxConstantData,
   TxContext,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { strict as assert } from 'assert';
-
-export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
 
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
@@ -44,7 +39,7 @@ export async function createTxForPublicCalls(
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier; // fake tx nullifier
+  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
 
   // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
   for (let i = setupCallRequests.length - 1; i >= 0; i--) {
@@ -82,29 +77,4 @@ export async function createTxForPublicCalls(
   }
 
   return tx;
-}
-
-export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
-  const params = artifact.parameters;
-  return FunctionSelector.fromNameAndParameters(artifact.name, params);
-}
-
-export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact;
-}
-
-export function getAvmTestContractBytecode(functionName: string): Buffer {
-  const artifact = getAvmTestContractArtifact(functionName);
-  return artifact.bytecode;
-}
-
-export function getAvmTestContractPublicDispatchBytecode(): Buffer {
-  return getAvmTestContractBytecode(PUBLIC_DISPATCH_FN_NAME);
 }

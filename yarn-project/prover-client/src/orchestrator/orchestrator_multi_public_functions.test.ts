@@ -19,18 +19,14 @@ describe('prover/orchestrator/public-functions', () => {
     await context.cleanup();
   });
 
-  describe('blocks with public functions', () => {
+  describe('blocks with public function calls (to non-existent contracts)', () => {
     let testCount = 1;
-    it.each([[4, 2, 3]] as const)(
-      'builds an L2 block with %i transactions each with %i revertible and %i non revertible',
-      async (
-        numTransactions: number,
-        numberOfNonRevertiblePublicCallRequests: number,
-        numberOfRevertiblePublicCallRequests: number,
-      ) => {
+    it.each([[4, 3]] as const)(
+      'builds an L2 block with %i transactions each with 0 revertible and %i non revertible',
+      async (numTransactions: number, numberOfRevertiblePublicCallRequests: number) => {
         const txs = await timesParallel(numTransactions, (i: number) =>
           mockTx(100000 * testCount++ + 1000 * i, {
-            numberOfNonRevertiblePublicCallRequests,
+            numberOfNonRevertiblePublicCallRequests: 0,
             numberOfRevertiblePublicCallRequests,
           }),
         );

@@ -1263,6 +1263,15 @@ export async function makeMapAsync<T extends Bufferable>(
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
+export function makePublicKeys(seed = 0): PublicKeys {
+  return new PublicKeys(
+    new Point(new Fr(seed + 0), new Fr(seed + 1), false),
+    new Point(new Fr(seed + 2), new Fr(seed + 3), false),
+    new Point(new Fr(seed + 4), new Fr(seed + 5), false),
+    new Point(new Fr(seed + 6), new Fr(seed + 7), false),
+  );
+}
+
 export async function makeContractInstanceFromClassId(
   classId: Fr,
   seed = 0,
@@ -1275,7 +1284,7 @@ export async function makeContractInstanceFromClassId(
   const salt = new Fr(seed);
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
-  const publicKeys = overrides?.publicKeys ?? (await PublicKeys.random());
+  const publicKeys = overrides?.publicKeys ?? makePublicKeys(seed + 3);
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],

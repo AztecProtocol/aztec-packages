@@ -2,26 +2,28 @@ import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
-import { AvmProvingTesterV2 } from './avm_proving_tester.js';
+import { PublicTxSimulationTester } from '../fixtures/public_tx_simulation_tester.js';
 
-describe('AVM v2', () => {
-  const sender = AztecAddress.fromNumber(42);
-  let avmTestContractInstance: ContractInstanceWithAddress;
-  let tester: AvmProvingTesterV2;
+describe('Public TX simulator apps tests: AvmTestContract', () => {
+  const deployer = AztecAddress.fromNumber(42);
+
+  let avmTestContract: ContractInstanceWithAddress;
+  let simTester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.create();
-    avmTestContractInstance = await tester.registerAndDeployContract(
+    simTester = await PublicTxSimulationTester.create();
+
+    avmTestContract = await simTester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
-      AvmTestContractArtifact,
+      deployer,
+      /*contractArtifact=*/ AvmTestContractArtifact,
     );
   });
 
-  it('bulk_testing v2', async () => {
+  it('bulk testing', async () => {
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
-    const expectContractInstance = avmTestContractInstance;
+    const expectContractInstance = avmTestContract;
     const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
     const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
     const args = [
@@ -33,12 +35,17 @@ describe('AVM v2', () => {
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ];
 
-    await tester.simProveVerifyV2(
-      sender,
+    const bulkResult = await simTester.simulateTx(
+      /*sender=*/ deployer,
       /*setupCalls=*/ [],
-      /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
-      /*teardownCall=*/ undefined,
-      /*expectRevert=*/ false,
+      /*appCalls=*/ [
+        {
+          address: avmTestContract.address,
+          fnName: 'bulk_testing',
+          args,
+        },
+      ],
     );
-  }, 180_000);
+    expect(bulkResult.revertCode.isOK()).toBe(true);
+  });
 });
