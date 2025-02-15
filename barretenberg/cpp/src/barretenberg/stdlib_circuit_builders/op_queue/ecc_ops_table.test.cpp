@@ -166,8 +166,7 @@ TEST(EccOpsTableTest, RawOpsTable)
     EXPECT_EQ(raw_ops_table.size(), expected_num_ops);
 
     // Check that the table matches the manually constructed mock table
-    size_t idx = 0;
-    for (const auto& op : raw_ops_table) {
-        EXPECT_EQ(expected_raw_ops_table.raw_ops[idx++], op);
+    for (size_t i = 0; i < expected_num_ops; ++i) {
+        EXPECT_EQ(expected_raw_ops_table.raw_ops[i], raw_ops_table[i]);
     }
 }
