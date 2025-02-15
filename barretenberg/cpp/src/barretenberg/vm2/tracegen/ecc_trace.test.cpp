@@ -14,7 +14,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenEccTest, TraceGenerationAdd)
+TEST(EccTraceGenTest, TraceGenerationAdd)
 {
     TestTraceContainer trace;
     EccTraceBuilder builder;
@@ -54,7 +54,7 @@ TEST(AvmTraceGenEccTest, TraceGenerationAdd)
                           ROW_FIELD_EQ(R, ecc_y_match, 0))));
 }
 
-TEST(AvmTraceGenEccTest, TraceGenerationDouble)
+TEST(EccTraceGenTest, TraceGenerationDouble)
 {
     TestTraceContainer trace;
     EccTraceBuilder builder;
@@ -92,7 +92,7 @@ TEST(AvmTraceGenEccTest, TraceGenerationDouble)
                           ROW_FIELD_EQ(R, ecc_y_match, 1))));
 }
 
-TEST(AvmTraceGenEccTest, TraceGenerationInf)
+TEST(EccTraceGenTest, TraceGenerationInf)
 {
     TestTraceContainer trace;
     EccTraceBuilder builder;

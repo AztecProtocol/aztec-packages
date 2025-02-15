@@ -1,7 +1,5 @@
 aztec:
   realProofs: true
-  slotDuration: 36
-  epochDuration: 32
 
 validator:
   replicas: 1

@@ -22,6 +22,8 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
     {
         init(trace);
 
+        SetDummyInverses<LookupSettings_>(trace);
+
         // Let "src_sel {c1, c2, ...} in dst_sel {d1, d2, ...}" be a lookup,
         // For each row that has a 1 in the src_sel, we take the values of {c1, c2, ...},
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
@@ -35,8 +37,6 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
-
-        SetDummyInverses<LookupSettings_>(trace);
     }
 
   protected:
@@ -104,6 +104,8 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
         uint32_t dst_row = 0;
         uint32_t max_dst_row = trace.get_column_rows(LookupSettings::DST_SELECTOR);
 
+        SetDummyInverses<LookupSettings>(trace);
+
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
             assert(src_sel_value == 1);
             (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
@@ -125,8 +127,6 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
                                      ". Could not find tuple in destination.");
         });
-
-        SetDummyInverses<LookupSettings>(trace);
     }
 };
 
