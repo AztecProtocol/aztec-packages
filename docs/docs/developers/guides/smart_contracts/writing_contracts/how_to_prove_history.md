@@ -4,7 +4,7 @@ sidebar_position: 4
 tags: [contracts]
 ---
 
-The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree. 
+The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree.
 
 This page is a quick introductory guide to creating historical proofs proofs from the archive tree.
 
@@ -55,9 +55,9 @@ To prove that a note existed in a specified block, call `prove_note_inclusion` o
 
 Here, if `block_number` exists as an argument, it will prove inclusion in that block. Else, it will use the current block.
 
-This will only prove the note existed at the specific block number, not whether or not the note has been nullified. You can prove that a note existed and had not been nullified in a specified block by using `prove_note_validity` on the block header which takes the following arguments:
+This will only prove the note existed at the specific block number, not whether or not the note has been nullified. You can prove that a note exists and has not been nullified in a specified block by using `prove_note_exists_and_not_nullified` on the block header which takes the following arguments:
 
-#include_code prove_note_validity noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+#include_code prove_note_exists_and_not_nullified noir-projects/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
 
 ## Create a nullifier to prove inclusion of
 
