@@ -122,6 +122,7 @@ function compile {
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="$_vk_cmd --output_data fields"
     # echo_stderr $vkf_cmd
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1260): Remove second call to write_vk
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"

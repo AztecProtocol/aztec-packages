@@ -35,7 +35,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
         vinfo("about to call next...");
         auto [circuit, vk] = source.next();
         vinfo("got next pair from source");
-        // WORKTODO: note that this should go away altogether
+
         handle_accumulator(circuit, step, init_kzg_accumulator);
 
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };

@@ -110,8 +110,8 @@ int main(int argc, char* argv[])
         return subcommand
             ->add_option("--oracle_hash",
                          flags.oracle_hash_type,
-                         "The hash function used to model a random oracle to the prover to produce verifier "
-                         "challenges. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
+                         "The hash function used by the prover as random oracle standing in for a verifier's challenge "
+                         "generation. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
                          "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
                          "has a privileged position due to the existence of an EVM precompile.")
             ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
@@ -123,12 +123,9 @@ int main(int argc, char* argv[])
                 "--output_data",
                 flags.output_data_type,
                 "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
-                "header information for deserialization. If fields, output a string representation of an array of of "
-                "elements of the finite field Fr which is the scalar field of BN254. This is needed for recursive "
-                "verification via Noir, where one must feed such a representation of both a verification key and a "
-                "proof as witness input to the verify_proof blackbox function. The option bytes_and_fields outputs two "
-                "representations of each output datum, one of each of the preceding times. The final option, "
-                "fields_msgpack, outputs a msgpack buffer of Fr elements--this is an efficien tbinary representation.")
+                "header information for deserialization. If fields, output a string representation of an array of "
+                "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
+                "elements.")
             ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
@@ -208,13 +205,11 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: check
      ***************************************************************************************************************/
-    CLI::App* check = app.add_subcommand(
-        "check",
-        "A debugging tool to quickly check whether a witness is valid, i.e., whether it satisfies the circuit whose "
-        "bytecode is provided. Said differently, this command returns true if and only if the prove method would "
-        "return a proof that verifies. The result of this check DOES NOT convince a verifier of the result. The "
-        "function constructs the execution trace and iterates through it row-by-row/gate-by-gate, applying the "
-        "polynomial relations defining the various gate types and checks whether any row does not satisfy these.");
+    CLI::App* check =
+        app.add_subcommand("check",
+                           "A debugging tool to quickly check whether a witness satisfies a circuit The "
+                           "function constructs the execution trace and iterates through it row by row, applying the "
+                           "polynomial relations defining the gate types.");
 
     add_bytecode_path_option(check);
     add_witness_path_option(check);
@@ -234,22 +229,23 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
+    add_scheme_option(prove);
+    add_bytecode_path_option(prove);
+    add_witness_path_option(prove);
+    add_output_path_option(prove, output_path);
+
     add_verbose_flag(prove);
     add_debug_flag(prove);
-    add_scheme_option(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
     add_output_data_option(prove);
     add_output_content_option(prove)->default_val("proof");
     add_input_type_option(prove);
     add_zk_option(prove);
-    add_ipa_accumulation_flag(prove);
     add_init_kzg_accumulator_option(prove);
-    add_honk_recursion_option(prove);
-    add_bytecode_path_option(prove);
-    add_witness_path_option(prove);
-    add_output_path_option(prove, output_path);
+    add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
+    add_honk_recursion_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -262,9 +258,12 @@ int main(int argc, char* argv[])
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
                            "to expand ACIR black box opcodes), and no proof is constructed.");
 
+    add_scheme_option(write_vk);
+    add_bytecode_path_option(write_vk);
+    add_output_path_option(write_vk, output_path);
+
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_scheme_option(write_vk);
     add_output_data_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk);
@@ -274,13 +273,13 @@ int main(int argc, char* argv[])
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
 
-    add_bytecode_path_option(write_vk);
-    add_output_path_option(write_vk, output_path);
-
     /***************************************************************************************************************
      * Subcommand: verify
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
+
+    add_proof_path_option(verify);
+    add_vk_path_option(verify);
 
     add_verbose_flag(verify);
     add_debug_flag(verify);
@@ -293,9 +292,6 @@ int main(int argc, char* argv[])
     add_honk_recursion_option(verify);
     add_recursive_flag(verify);
 
-    add_proof_path_option(verify);
-    add_vk_path_option(verify);
-
     /***************************************************************************************************************
      * Subcommand: contract
      ***************************************************************************************************************/
@@ -303,12 +299,14 @@ int main(int argc, char* argv[])
                                             "Write a smart contract suitable for verifying proofs of circuit "
                                             "satisfiability for the circuit with verification key at vk_path. Not all "
                                             "hash types are implemented due to efficiency concerns.");
-    add_verbose_flag(contract);
+
     add_scheme_option(contract);
-    add_crs_path_option(contract);
-    add_zk_option(contract);
     add_vk_path_option(contract);
     add_output_path_option(contract, output_path);
+
+    add_verbose_flag(contract);
+    add_zk_option(contract);
+    add_crs_path_option(contract);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API
@@ -318,7 +316,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API gates_for_ivc
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "IOU");
+    CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "");
     add_verbose_flag(OLD_API_gates_for_ivc);
     add_debug_flag(OLD_API_gates_for_ivc);
     add_crs_path_option(OLD_API_gates_for_ivc);
@@ -327,7 +325,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API gates_mega_honk
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "IOU");
+    CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "");
     add_verbose_flag(OLD_API_gates_mega_honk);
     add_debug_flag(OLD_API_gates_mega_honk);
     add_crs_path_option(OLD_API_gates_mega_honk);
@@ -339,7 +337,7 @@ int main(int argc, char* argv[])
      * Subcommand: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
-        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "IOU");
+        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "");
     add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
@@ -350,7 +348,7 @@ int main(int argc, char* argv[])
      * Subcommand: OLD_API write_recursion_inputs_ultra_honk
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
-        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "IOU");
+        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "");
     add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
@@ -363,7 +361,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API gates
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "IOU");
+    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
     add_verbose_flag(OLD_API_gates);
     add_debug_flag(OLD_API_gates);
     add_crs_path_option(OLD_API_gates);
@@ -374,7 +372,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API prove
      ***************************************************************************************************************/
-    CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "IOU");
+    CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "");
     add_verbose_flag(OLD_API_prove);
     add_debug_flag(OLD_API_prove);
     add_crs_path_option(OLD_API_prove);
@@ -386,7 +384,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_output_all
      ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "IOU");
+    CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "");
     add_verbose_flag(OLD_API_prove_output_all);
     add_debug_flag(OLD_API_prove_output_all);
     add_crs_path_option(OLD_API_prove_output_all);
@@ -398,7 +396,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API verify
      ***************************************************************************************************************/
-    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "IOU");
+    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "");
     add_verbose_flag(OLD_API_verify);
     add_debug_flag(OLD_API_verify);
     add_crs_path_option(OLD_API_verify);
@@ -410,7 +408,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_and_verify
      ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "IOU");
+    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "");
     add_verbose_flag(OLD_API_prove_and_verify);
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
@@ -420,7 +418,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API contract
      ***************************************************************************************************************/
-    CLI::App* OLD_API_contract = OLD_API->add_subcommand("contract", "IOU");
+    CLI::App* OLD_API_contract = OLD_API->add_subcommand("contract", "");
     add_verbose_flag(OLD_API_contract);
     add_debug_flag(OLD_API_contract);
     add_crs_path_option(OLD_API_contract);
@@ -432,7 +430,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API write_vk
      ***************************************************************************************************************/
-    CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "IOU");
+    CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "");
     add_verbose_flag(OLD_API_write_vk);
     add_debug_flag(OLD_API_write_vk);
     add_crs_path_option(OLD_API_write_vk);
@@ -444,7 +442,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API write_pk
      ***************************************************************************************************************/
-    CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "IOU");
+    CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "");
     add_verbose_flag(OLD_API_write_pk);
     add_debug_flag(OLD_API_write_pk);
     add_crs_path_option(OLD_API_write_pk);
@@ -456,7 +454,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API proof_as_fields
      ***************************************************************************************************************/
-    CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "IOU");
+    CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "");
     add_verbose_flag(OLD_API_proof_as_fields);
     add_debug_flag(OLD_API_proof_as_fields);
     add_crs_path_option(OLD_API_proof_as_fields);
@@ -477,7 +475,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API vk_as_fields
      ***************************************************************************************************************/
-    CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "IOU");
+    CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "");
     add_verbose_flag(OLD_API_vk_as_fields);
     add_debug_flag(OLD_API_vk_as_fields);
     add_crs_path_option(OLD_API_vk_as_fields);
@@ -599,7 +597,7 @@ int main(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API verify_tube
      ***************************************************************************************************************/
-    CLI::App* OLD_API_verify_tube = OLD_API->add_subcommand("verify_tube", "IOU");
+    CLI::App* OLD_API_verify_tube = OLD_API->add_subcommand("verify_tube", "");
     add_verbose_flag(OLD_API_verify_tube);
     add_debug_flag(OLD_API_verify_tube);
     add_crs_path_option(OLD_API_verify_tube);
@@ -651,7 +649,7 @@ int main(int argc, char* argv[])
     try {
         if (version->parsed()) {
             // Placeholder that we replace inside the binary as a pre-release step.
-            // Compared to the previous CMake injection strategy, this avoids full rebuilds.
+            // Compared to the prevs CMake injection strategy, this avoids full rebuilds.
             std::cout << BB_VERSION_PLACEHOLDER << std::endl;
             return 0;
         }

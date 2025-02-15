@@ -1,6 +1,6 @@
 #!/bin/bash
 # prove_then_verify produces intermediate state. We use process substitution to make parallel safe.
-set -eux
+set -eu
 
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
@@ -42,8 +42,6 @@ case ${SYS:-} in
         -p <($BIN OLD_API prove -o - $FLAGS $BFLAG)
   ;;
   "ultra_honk")
-    # WORKTODO: hash affects verification key, without it,
-    #   eg OinkVerifier::execute_preamble_round: proof circuit size (32) does not match verification key circuit size (64)!
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"

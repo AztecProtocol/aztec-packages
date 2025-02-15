@@ -20,7 +20,6 @@ class Formatter : public CLI::Formatter {
         const size_t wrap_width = 60;
         std::stringstream out;
 
-        // WORKTODO: do similar for deprecated
         if (opt->get_required()) {
             out << "\e[3mREQUIRED\e[0m ";
         }
