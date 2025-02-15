@@ -25,13 +25,14 @@ function compile {
   local key_path="$key_dir/$name.vk.data.json"
   echo_stderr "Generating vk for circuit: $name..."
   SECONDS=0
-  local _vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --init_kzg_accumulator"
-  local vk_cmd="$_vk_cmd --output_data bytes | xxd -p -c 0"
-  vk=$(dump_fail "$vk_cmd")
-  local vkf_cmd="$_vk_cmd --output_data fields"
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1260): Remove second call to write_vk
-  vk_fields=$(dump_fail "$vkf_cmd")
-  jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' >$key_path
+  outdir=$(mktemp -d)
+  trap "rm -rf $outdir" EXIT
+  local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --init_kzg_accumulator --output_data bytes_and_fields"
+  echo_stderr $vk_cmd
+  dump_fail "$vk_cmd"
+  vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
+  vk_fields=$(cat $outdir/vk_fields.json)
+  jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' >$key_path
   echo "Key output at: $key_path (${SECONDS}s)"
 }
 

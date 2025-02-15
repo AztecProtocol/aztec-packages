@@ -124,7 +124,6 @@ function compile {
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
     vk_fields=$(cat $outdir/vk_fields.json)
     # echo_stderr $vkf_cmd
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1260): Remove second call to write_vk
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
