@@ -27,7 +27,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
@@ -44,16 +43,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = TranslatorFlavor::USE_SHORT_MONOMIALS;
-
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
-    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 2048;
-
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
-
     // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are concatenated in one concatenated_*
@@ -61,9 +52,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     // The number of concatenated_* wires
     static constexpr size_t NUM_CONCATENATED_WIRES = NativeFlavor::NUM_CONCATENATED_WIRES;
-
-    // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
 
     // Number of wires
     static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;

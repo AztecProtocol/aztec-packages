@@ -40,13 +40,13 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
         size_t i = index / concatenation_groups[0].size();
         // Get the index of the original polynomial
         size_t j = index % concatenation_groups[0].size();
-        auto& my_group = concatenation_groups[i];
+        auto& group = concatenation_groups[i];
         auto& current_target = targets[i];
 
         // Copy into appropriate position in the concatenated polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
         for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
-            current_target.at(j * MINI_CIRCUIT_SIZE + k) = my_group[j][k];
+            current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
         }
     };
     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
@@ -143,7 +143,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // ordered polynomials
     auto ordering_function = [&](size_t i) {
         // Get the group and the main target vector
-        auto my_group = concatenation_groups[i];
+        auto group = concatenation_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
         current_vector.resize(full_circuit_size);
 
@@ -159,16 +159,16 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = my_group[j].start_index(); k < my_group[j].size(); k++) {
+            for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
-                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
+                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
 
                     // Or in the extra one if there is no space left
                 } else {
                     extra_denominator_uint[extra_denominator_offset] =
-                        static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
+                        static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
                     extra_denominator_offset++;
                 }
             }

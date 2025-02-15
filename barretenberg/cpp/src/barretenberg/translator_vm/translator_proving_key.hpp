@@ -96,8 +96,7 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        const size_t shift_offset = 1; // take into acount the left-by-1 shift
-        if (circuit.num_gates + shift_offset > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
+        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
             info("The Translator circuit size has exceeded the fixed upper bound");
             ASSERT(false);
         }

@@ -40,8 +40,10 @@ class TranslatorFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
+    // Lowest possible size for the translator circuit (this sets the mini_circuit_size)
+    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
     static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 8192;
-    static_assert(TRANSLATOR_VM_FIXED_SIZE >= 2048);
+    static_assert(TRANSLATOR_VM_FIXED_SIZE >= MINIMUM_MINI_CIRCUIT_SIZE);
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
@@ -291,8 +293,7 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // Used when computing commitments to wires + ordered range constraints during proof
-        // consrtuction
+        // Used when computing commitments to wires + ordered range constraints during proof construction
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -326,8 +327,7 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by
-         * concatenation
+         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
          *
          * @return auto
          */
@@ -604,30 +604,29 @@ class TranslatorFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly
-        // data
+        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
         ProverPolynomials(size_t mini_circuit_size)
         {
             size_t circuit_size = mini_circuit_size * CONCATENATION_GROUP_SIZE;
             for (auto& ordered_range_constraint : get_ordered_constraints()) {
-                ordered_range_constraint = Polynomial{ /*memory size*/ circuit_size - 1,
+                ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*largest possible index*/ circuit_size,
                                                        1 };
             }
 
             for (auto& concatenated : get_concatenated()) {
-                concatenated = Polynomial{ /*memory size*/ circuit_size, circuit_size };
+                concatenated = Polynomial{ /*size*/ circuit_size, circuit_size };
             }
-            z_perm = Polynomial{ /*memory size*/ circuit_size - 1,
-                                 /*largest possible index*/ circuit_size,
-                                 1 };
+            z_perm = Polynomial{ /*size*/ circuit_size - 1,
+                                 /*virtual_size*/ circuit_size,
+                                 /*start_index*/ 1 };
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
                 if (poly.is_empty()) {
-                    poly = Polynomial{ /*memory size*/ mini_circuit_size - 1,
-                                       /*largest possible index*/ circuit_size,
-                                       /* offset */ 1 };
+                    poly = Polynomial{ /*size*/ mini_circuit_size - 1,
+                                       /*virtual_size*/ circuit_size,
+                                       /*start_index*/ 1 };
                 }
             }
 
