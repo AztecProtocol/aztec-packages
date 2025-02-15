@@ -17,7 +17,7 @@ namespace bb {
  */
 template <typename OpFormat> class EccOpsTable {
     using Subtable = std::vector<OpFormat>;
-    std::deque<Subtable> table;
+    std::vector<Subtable> table;
 
   public:
     size_t size() const
@@ -37,7 +37,7 @@ template <typename OpFormat> class EccOpsTable {
     {
         std::vector<OpFormat> new_subtable;
         new_subtable.reserve(size_hint);
-        table.push_front(std::move(new_subtable));
+        table.insert(table.begin(), std::move(new_subtable));
     }
 
     // const version of operator[]
